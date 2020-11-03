@@ -182,6 +182,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   protected RaftProperties properties;
 
   private List<Server> servers;
+  private RaftGroup raftGroup;
 
   Server getPrimaryServer() {
     return servers.get(0);
@@ -318,6 +319,7 @@ abstract class DataStreamBaseTest extends BaseTest {
         .map(RaftPeerId::valueOf)
         .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
         .collect(Collectors.toList());
+    raftGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peers);
     servers = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
@@ -363,7 +365,7 @@ abstract class DataStreamBaseTest extends BaseTest {
         clients.add(client);
         for (int i = 0; i < numStreams; i++) {
           futures.add(CompletableFuture.runAsync(
-              () -> runTestDataStream((DataStreamOutputImpl) client.stream(), bufferSize, bufferNum)));
+              () -> runTestDataStream((DataStreamOutputImpl) client.stream(raftGroup.getGroupId()), bufferSize, bufferNum)));
         }
       }
       Assert.assertEquals(numClients*numStreams, futures.size());
@@ -419,6 +421,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     final RaftClientRequest writeRequest = stream.getWriteRequest();
     Assert.assertEquals(writeRequest.getCallId(), header.getCallId());
     Assert.assertEquals(writeRequest.getRaftGroupId(), header.getRaftGroupId());
+    Assert.assertEquals(raftGroup.getGroupId(), header.getRaftGroupId());
     Assert.assertEquals(writeRequest.getServerId(), header.getServerId());
     Assert.assertEquals(dataSize, stream.getByteWritten());
   }

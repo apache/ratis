@@ -30,6 +30,7 @@ import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
@@ -94,10 +95,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       peers.addAll(newPeers);
     }
 
-    List<DataStreamOutput> getDataStreamOutput() throws IOException {
+    List<DataStreamOutput> getDataStreamOutput(RaftGroupId groupId) throws IOException {
       final List<DataStreamOutput> outs = new ArrayList<>();
       try {
-        getDataStreamOutput(outs);
+        getDataStreamOutput(outs, groupId);
       } catch (IOException e) {
         outs.forEach(CloseAsync::closeAsync);
         throw e;
@@ -105,10 +106,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return outs;
     }
 
-    private void getDataStreamOutput(List<DataStreamOutput> outs) throws IOException {
+    private void getDataStreamOutput(List<DataStreamOutput> outs, RaftGroupId groupId) throws IOException {
       for (RaftPeer peer : peers) {
         try {
-          outs.add(map.getProxy(peer.getId()).stream());
+          outs.add(map.getProxy(peer.getId()).stream(groupId));
         } catch (IOException e) {
           throw new IOException(map.getName() + ": Failed to getDataStreamOutput for " + peer, e);
         }
@@ -245,7 +246,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
       final StateMachine stateMachine = server.getStateMachine(request.getRaftGroupId());
-      return new StreamInfo(request, stateMachine.data().stream(request), proxies.getDataStreamOutput());
+      return new StreamInfo(request, stateMachine.data().stream(request),
+          proxies.getDataStreamOutput(request.getRaftGroupId()));
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
