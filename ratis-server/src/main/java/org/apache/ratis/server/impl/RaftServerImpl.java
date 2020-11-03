@@ -1255,25 +1255,44 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
     assertGroup(leaderId, leaderGroupId);
 
+    InstallSnapshotReplyProto reply = null;
     // Check if install snapshot from Leader is enabled
     if (installSnapshotEnabled) {
       // Leader has sent InstallSnapshot request with SnapshotInfo. Install the snapshot.
       if (request.hasSnapshotChunk()) {
-        return checkAndInstallSnapshot(request, leaderId);
+        reply = checkAndInstallSnapshot(request, leaderId);
       }
     } else {
       // Leader has only sent a notification to install snapshot. Inform State Machine to install snapshot.
       if (request.hasNotification()) {
-        return notifyStateMachineToInstallSnapshot(request, leaderId);
+        reply = notifyStateMachineToInstallSnapshot(request, leaderId);
       }
     }
+
+    if (reply != null) {
+      if (request.hasLastRaftConfigurationLogEntryProto()) {
+        // Set the configuration included in the snapshot
+        LogEntryProto newConfLogEntryProto =
+            request.getLastRaftConfigurationLogEntryProto();
+        LOG.info("{}: set new configuration {} from snapshot", getMemberId(),
+            newConfLogEntryProto);
+
+        state.setRaftConf(newConfLogEntryProto);
+        state.writeRaftConfiguration(newConfLogEntryProto);
+        stateMachine.notifyConfigurationChange(newConfLogEntryProto.getTerm(),
+            newConfLogEntryProto.getIndex(),
+            newConfLogEntryProto.getConfigurationEntry());
+      }
+      return reply;
+    }
+
     // There is a mismatch between configurations on leader and follower.
-    final InstallSnapshotReplyProto reply = ServerProtoUtils.toInstallSnapshotReplyProto(
+    final InstallSnapshotReplyProto failedReply = ServerProtoUtils.toInstallSnapshotReplyProto(
         leaderId, getMemberId(), InstallSnapshotResult.CONF_MISMATCH);
     LOG.error("{}: Configuration Mismatch ({}): Leader {} has it set to {} but follower {} has it set to {}",
         getMemberId(), RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
         leaderId, request.hasSnapshotChunk(), getId(), installSnapshotEnabled);
-    return reply;
+    return failedReply;
   }
 
   private InstallSnapshotReplyProto checkAndInstallSnapshot(
@@ -1411,14 +1430,14 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     assert totalSize.isPresent();
     return ServerProtoUtils.toInstallSnapshotRequestProto(getMemberId(), targetId,
         requestId, requestIndex, state.getCurrentTerm(), snapshot.getTermIndex(),
-        chunks, totalSize.getAsLong(), done);
+        chunks, totalSize.getAsLong(), done, getRaftConf());
   }
 
   synchronized InstallSnapshotRequestProto createInstallSnapshotRequest(
       RaftPeerId targetId, TermIndex firstAvailableLogTermIndex) {
     assert (firstAvailableLogTermIndex.getIndex() > 0);
     return ServerProtoUtils.toInstallSnapshotRequestProto(getMemberId(), targetId,
-        state.getCurrentTerm(), firstAvailableLogTermIndex);
+        state.getCurrentTerm(), firstAvailableLogTermIndex, getRaftConf());
   }
 
   synchronized RequestVoteRequestProto createRequestVoteRequest(

@@ -38,6 +38,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_TERM;
 
 /** Server proto utilities for internal use. */
 public interface ServerProtoUtils {
@@ -375,7 +376,7 @@ public interface ServerProtoUtils {
   static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
       RaftGroupMemberId requestorId, RaftPeerId replyId, String requestId, int requestIndex,
       long term, TermIndex lastTermIndex, List<FileChunkProto> chunks,
-      long totalSize, boolean done) {
+      long totalSize, boolean done, RaftConfiguration raftConfiguration) {
     final InstallSnapshotRequestProto.SnapshotChunkProto.Builder snapshotChunkProto =
         InstallSnapshotRequestProto.SnapshotChunkProto.newBuilder()
             .setRequestId(requestId)
@@ -384,22 +385,29 @@ public interface ServerProtoUtils {
             .addAllFileChunks(chunks)
             .setTotalSize(totalSize)
             .setDone(done);
+    // Set term to DEFAULT_TERM as this term is not going to used by installSnapshot to update the RaftConfiguration
+    final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, DEFAULT_TERM,
+        raftConfiguration.getLogEntryIndex());
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
-        // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
+        .setLastRaftConfigurationLogEntryProto(confLogEntryProto)
         .setLeaderTerm(term)
         .setSnapshotChunk(snapshotChunkProto)
         .build();
   }
 
   static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
-      RaftGroupMemberId requestorId, RaftPeerId replyId, long leaderTerm, TermIndex firstAvailable) {
+      RaftGroupMemberId requestorId, RaftPeerId replyId, long leaderTerm,
+      TermIndex firstAvailable, RaftConfiguration raftConfiguration) {
     final InstallSnapshotRequestProto.NotificationProto.Builder notificationProto =
         InstallSnapshotRequestProto.NotificationProto.newBuilder()
             .setFirstAvailableTermIndex(toTermIndexProto(firstAvailable));
+    // Set term to DEFAULT_TERM as this term is not going to used by installSnapshot to update the RaftConfiguration
+    final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, DEFAULT_TERM,
+        raftConfiguration.getLogEntryIndex());
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
-        // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
+        .setLastRaftConfigurationLogEntryProto(confLogEntryProto)
         .setLeaderTerm(leaderTerm)
         .setNotification(notificationProto)
         .build();
