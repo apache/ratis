@@ -94,6 +94,16 @@ class PeerConfiguration {
     return num > size() / 2;
   }
 
+  boolean majorityRejectVotes(Collection<RaftPeerId> rejected) {
+    int num = size();
+    for (RaftPeerId other : rejected) {
+      if (contains(other)) {
+        num --;
+      }
+    }
+    return num <= size() / 2;
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {

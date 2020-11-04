@@ -289,6 +289,7 @@ class LeaderElection implements Runnable {
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
     Collection<RaftPeerId> votedPeers = new ArrayList<>();
+    Collection<RaftPeerId> rejectedPeers = new ArrayList<>();
     Set<RaftPeerId> higherPriorityPeers = getHigherPriorityPeers(conf);
 
     while (waitForNum > 0 && shouldRun(electionTerm)) {
@@ -343,6 +344,11 @@ class LeaderElection implements Runnable {
           // If majority and all peers with higher priority have voted, candidate pass vote
           if (higherPriorityPeers.size() == 0 && conf.hasMajority(votedPeers, server.getId())) {
             return logAndReturn(Result.PASSED, responses, exceptions, -1);
+          }
+        } else {
+          rejectedPeers.add(replierId);
+          if (conf.majorityRejectVotes(rejectedPeers)) {
+            return logAndReturn(Result.REJECTED, responses, exceptions, -1);
           }
         }
       } catch(ExecutionException e) {
