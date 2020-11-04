@@ -202,6 +202,8 @@ message InstallSnapshotRequestProto {
     SnapshotChunkProto snapshotChunk = 3;
     NotificationProto notification = 4;
   }
+
+  LogEntryProto lastRaftConfigurationLogEntryProto = 5;
 }
 
 message InstallSnapshotReplyProto {

@@ -24,6 +24,7 @@ public final class RaftServerConstants {
   @Deprecated
   public static final long INVALID_LOG_INDEX = RaftLog.INVALID_LOG_INDEX;
   public static final long DEFAULT_CALLID = 0;
+  public static final long DEFAULT_TERM = 0;
 
   private RaftServerConstants() {
     //Never constructed
