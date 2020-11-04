@@ -306,7 +306,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  private void startTransaction(StreamInfo info, DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+  private int startTransaction(StreamInfo info, DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
     try {
       server.submitClientRequestAsync(info.getRequest()).thenAcceptAsync(reply -> {
         if (reply.isSuccess()) {
@@ -321,10 +321,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         } else {
           LOG.error("{}: Unexpected type:{}", this, request.getType());
         }
-      });
+      }, executorService);
     } catch (IOException e) {
       sendReplyNotSuccess(request, ctx);
     }
+    return 0;
   }
 
   private void forwardStartTransaction(
@@ -340,7 +341,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         } else {
           return false;
         }
-      });
+      }, executorService);
 
       results.add(f);
     }
@@ -368,38 +369,35 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       }
     } else if (request.getType() == Type.STREAM_DATA) {
       info = streams.get(key);
-      localWrite = info.getPrevious().get()
-          .thenCombineAsync(info.getStream(), (u, stream) -> writeTo(buf, stream), executorService);
-      for (DataStreamOutput out : info.getDataStreamOutputs()) {
-        remoteWrites.add(out.writeAsync(request.slice().nioBuffer()));
-      }
-    } else if (request.getType() == Type.STREAM_CLOSE) {
-      info = streams.get(key);
-      localWrite = info.getStream().thenApplyAsync(stream -> {
-        try {
-          stream.getWritableByteChannel().close();
-          return 0L;
-        } catch (IOException e) {
-          throw new CompletionException("Failed to close " + stream, e);
-        }
-      });
+      final CompletableFuture<?> previous = info.getPrevious().get();
 
+      localWrite = previous.thenCombineAsync(info.getStream(), (u, stream) -> writeTo(buf, stream), executorService);
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
-        remoteWrites.add(out.closeForwardAsync());
+        remoteWrites.add(previous.thenComposeAsync(v -> out.writeAsync(request.slice().nioBuffer()), executorService));
       }
-    } else if (request.getType() == Type.STREAM_CLOSE_FORWARD) {
+    } else if (request.getType() == Type.STREAM_CLOSE || request.getType() == Type.STREAM_CLOSE_FORWARD) {
       info = streams.get(key);
-      localWrite = info.getStream().thenApplyAsync(stream -> {
+      final CompletableFuture<?> previous = info.getPrevious().get();
+
+      localWrite = previous.thenCombineAsync(info.getStream(), (u, stream) -> {
         try {
           stream.getWritableByteChannel().close();
           return 0L;
         } catch (IOException e) {
           throw new CompletionException("Failed to close " + stream, e);
         }
-      });
+      }, executorService);
+
+      if (request.getType() == Type.STREAM_CLOSE) {
+        for (DataStreamOutput out : info.getDataStreamOutputs()) {
+          remoteWrites.add(previous.thenComposeAsync(v -> out.closeForwardAsync(), executorService));
+        }
+      }
     } else {
       // peer server start transaction
-      startTransaction(streams.get(key), request, ctx);
+      info = streams.get(key);
+      final CompletableFuture<?> previous = info.getPrevious().get();
+      previous.thenApplyAsync(v -> startTransaction(streams.get(key), request, ctx), executorService);
       return;
     }
 
