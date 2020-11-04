@@ -318,21 +318,21 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       }
     } else {
       info = streams.get(key);
-      localWrite = info.getStream().thenApply(stream -> writeTo(buf, stream));
+      localWrite = info.getPrevious().get()
+          .thenCombineAsync(info.getStream(), (u, stream) -> writeTo(buf, stream), executorService);
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
         remoteWrites.add(out.writeAsync(request.slice().nioBuffer()));
       }
     }
 
-    final AtomicReference<CompletableFuture<?>> previous = info.getPrevious();
-    final CompletableFuture<?> current = previous.get()
-        .thenCombineAsync(JavaUtils.allOf(remoteWrites), (u, v) -> null, executorService)
+    final CompletableFuture<?> current = JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           buf.release();
           sendReply(remoteWrites, request, bytesWritten, ctx);
           return null;
         }, executorService);
-    previous.set(current);
+
+    info.getPrevious().set(current);
   }
 
   private boolean checkSuccessRemoteWrite(
