@@ -28,6 +28,12 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
   /** Send out the data in the buffer asynchronously */
   CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf);
 
+  /** Create a transaction asynchronously once the stream data is replicated to all servers */
+  CompletableFuture<DataStreamReply> startTransactionAsync();
+
   /** Get the future of the header request. */
   CompletableFuture<DataStreamReply> getHeaderFuture();
+
+  /** Peer close asynchronously. */
+  CompletableFuture<DataStreamReply> closeForwardAsync();
 }

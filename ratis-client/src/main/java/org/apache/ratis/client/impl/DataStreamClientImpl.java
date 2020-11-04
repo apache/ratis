@@ -31,6 +31,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -87,10 +88,22 @@ public class DataStreamClientImpl implements DataStreamClient {
       return f;
     }
 
-    // should wait for attached sliding window to terminate
     @Override
     public CompletableFuture<DataStreamReply> closeAsync() {
-      return null;
+      return orderedStreamAsync.sendRequest(getStreamId(), streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
+          Type.STREAM_CLOSE);
+    }
+
+    @Override
+    public CompletableFuture<DataStreamReply> closeForwardAsync() {
+      return orderedStreamAsync.sendRequest(getStreamId(), streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
+          Type.STREAM_CLOSE_FORWARD);
+    }
+
+    @Override
+    public CompletableFuture<DataStreamReply> startTransactionAsync() {
+      return orderedStreamAsync.sendRequest(getStreamId(), streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
+          Type.START_TRANSACTION);
     }
 
     public RaftClientRequest getHeader() {

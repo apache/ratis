@@ -146,6 +146,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return previous;
     }
 
+    RaftClientRequest getRequest() {
+      return request;
+    }
+
     @Override
     public String toString() {
       return getClass().getSimpleName() + ":" + request;
@@ -276,9 +280,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     ctx.writeAndFlush(reply);
   }
 
-  private void sendReplySuccess(DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
+  private void sendReplySuccess(DataStreamRequestByteBuf request, ByteBuffer buffer, long bytesWritten,
+      ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
-        request.getStreamId(), request.getStreamOffset(), null, bytesWritten, true, request.getType());
+        request.getStreamId(), request.getStreamOffset(), buffer, bytesWritten, true, request.getType());
     LOG.debug("{}: write {}", this, reply);
     ctx.writeAndFlush(reply);
   }
@@ -288,7 +293,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       if (!checkSuccessRemoteWrite(remoteWrites, bytesWritten)) {
         sendReplyNotSuccess(request, ctx);
       } else {
-        sendReplySuccess(request, bytesWritten, ctx);
+        sendReplySuccess(request, null, bytesWritten, ctx);
       }
   }
 
@@ -301,34 +306,115 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
+  private int startTransaction(StreamInfo info, DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+    try {
+      server.submitClientRequestAsync(info.getRequest()).thenAcceptAsync(reply -> {
+        if (reply.isSuccess()) {
+          ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
+          sendReplySuccess(request, buffer, -1, ctx);
+        } else if (request.getType() == Type.STREAM_CLOSE) {
+          // if this server is not the leader, forward start transition to the other peers
+          // there maybe other unexpected reason cause failure except not leader, forwardStartTransaction anyway
+          forwardStartTransaction(info, request, ctx);
+        } else if (request.getType() == Type.START_TRANSACTION){
+          sendReplyNotSuccess(request, ctx);
+        } else {
+          LOG.error("{}: Unexpected type:{}", this, request.getType());
+        }
+      }, executorService);
+    } catch (IOException e) {
+      sendReplyNotSuccess(request, ctx);
+    }
+    return 0;
+  }
+
+  private void forwardStartTransaction(
+      final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
+    final List<CompletableFuture<Boolean>> results = new ArrayList<>();
+    for (DataStreamOutput out : info.getDataStreamOutputs()) {
+      final CompletableFuture<Boolean> f = out.startTransactionAsync().thenApplyAsync(reply -> {
+        if (reply.isSuccess()) {
+          final ByteBuffer buffer = reply instanceof DataStreamReplyByteBuffer?
+              ((DataStreamReplyByteBuffer)reply).slice(): null;
+          sendReplySuccess(request, buffer, -1, ctx);
+          return true;
+        } else {
+          return false;
+        }
+      }, executorService);
+
+      results.add(f);
+    }
+
+    JavaUtils.allOf(results).thenAccept(v -> {
+      if (!results.stream().map(CompletableFuture::join).reduce(false, Boolean::logicalOr)) {
+        sendReplyNotSuccess(request, ctx);
+      }
+    });
+  }
+
   private void read(ChannelHandlerContext ctx, DataStreamRequestByteBuf request) {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
-    final boolean isHeader = request.getType() == Type.STREAM_HEADER;
 
     final StreamInfo info;
     final CompletableFuture<Long> localWrite;
     final List<CompletableFuture<DataStreamReply>> remoteWrites = new ArrayList<>();
     final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
-    if (isHeader) {
+    if (request.getType() == Type.STREAM_HEADER) {
       info = streams.computeIfAbsent(key, id -> newStreamInfo(buf));
       localWrite = CompletableFuture.completedFuture(0L);
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
         remoteWrites.add(out.getHeaderFuture());
       }
-    } else {
+    } else if (request.getType() == Type.STREAM_DATA) {
       info = streams.get(key);
-      localWrite = info.getPrevious().get()
-          .thenCombineAsync(info.getStream(), (u, stream) -> writeTo(buf, stream), executorService);
+      final CompletableFuture<?> previous = info.getPrevious().get();
+
+      localWrite = previous.thenCombineAsync(info.getStream(), (u, stream) -> writeTo(buf, stream), executorService);
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
-        remoteWrites.add(out.writeAsync(request.slice().nioBuffer()));
+        remoteWrites.add(previous.thenComposeAsync(v -> out.writeAsync(request.slice().nioBuffer()), executorService));
       }
+    } else if (request.getType() == Type.STREAM_CLOSE || request.getType() == Type.STREAM_CLOSE_FORWARD) {
+      info = streams.get(key);
+      final CompletableFuture<?> previous = info.getPrevious().get();
+
+      localWrite = previous.thenCombineAsync(info.getStream(), (u, stream) -> {
+        try {
+          stream.getWritableByteChannel().close();
+          return 0L;
+        } catch (IOException e) {
+          throw new CompletionException("Failed to close " + stream, e);
+        }
+      }, executorService);
+
+      if (request.getType() == Type.STREAM_CLOSE) {
+        for (DataStreamOutput out : info.getDataStreamOutputs()) {
+          remoteWrites.add(previous.thenComposeAsync(v -> out.closeForwardAsync(), executorService));
+        }
+      }
+    } else {
+      // peer server start transaction
+      info = streams.get(key);
+      final CompletableFuture<?> previous = info.getPrevious().get();
+      previous.thenApplyAsync(v -> startTransaction(streams.get(key), request, ctx), executorService);
+      return;
     }
 
     final CompletableFuture<?> current = JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           buf.release();
-          sendReply(remoteWrites, request, bytesWritten, ctx);
+          if (request.getType() == Type.STREAM_HEADER
+              || request.getType() == Type.STREAM_DATA
+              || request.getType() == Type.STREAM_CLOSE_FORWARD) {
+            sendReply(remoteWrites, request, bytesWritten, ctx);
+          } else if (request.getType() == Type.STREAM_CLOSE) {
+            // after all server close stream, primary server start transaction
+            // TODO(runzhiwang): send start transaction to leader directly
+            startTransaction(info, request, ctx);
+          } else {
+            LOG.error("{}: Unexpected type:{}", this, request.getType());
+          }
           return null;
         }, executorService);
 
