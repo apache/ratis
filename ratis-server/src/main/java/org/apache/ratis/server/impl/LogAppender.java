@@ -602,7 +602,7 @@ public class LogAppender {
     synchronized (server) {
       if (isAppenderRunning() && follower.isAttendingVote()
           && responseTerm > leaderState.getCurrentTerm()) {
-        leaderState.submitStepDownEvent(responseTerm);
+        leaderState.submitStepDownEvent(responseTerm, LeaderState.StepDownReason.HIGHER_TERM);
         return true;
       }
     }

@@ -19,10 +19,12 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.ToIntFunction;
 
@@ -52,15 +54,18 @@ class FollowerState extends Daemon {
   static final Logger LOG = LoggerFactory.getLogger(FollowerState.class);
 
   private final String name;
+  private final Object reason;
   private final RaftServerImpl server;
 
-  private volatile Timestamp lastRpcTime = Timestamp.currentTime();
+  private final Timestamp creationTime = Timestamp.currentTime();
+  private volatile Timestamp lastRpcTime = creationTime;
   private volatile boolean isRunning = true;
   private final AtomicInteger outstandingOp = new AtomicInteger();
 
-  FollowerState(RaftServerImpl server) {
+  FollowerState(RaftServerImpl server, Object reason) {
     this.name = server.getMemberId() + "-" + getClass().getSimpleName();
     this.server = server;
+    this.reason = reason;
   }
 
   void updateLastRpcTime(UpdateType type) {
@@ -88,6 +93,20 @@ class FollowerState extends Daemon {
     this.isRunning = false;
   }
 
+  boolean lostMajorityHeartbeatsRecently() {
+    if (reason != LeaderState.StepDownReason.LOST_MAJORITY_HEARTBEATS) {
+      return false;
+    }
+    final TimeDuration elapsed = creationTime.elapsedTime();
+    final TimeDuration waitTime = server.getLeaderStepDownWaitTime();
+    if (elapsed.compareTo(waitTime) >= 0) {
+      return false;
+    }
+    LOG.info("{}: Skipping leader election since it stepped down recently (elapsed = {} < waitTime = {})",
+        this, elapsed.to(TimeUnit.MILLISECONDS), waitTime);
+    return true;
+  }
+
   @Override
   public  void run() {
     long sleepDeviationThresholdMs = server.getSleepDeviationThresholdMs();
@@ -104,7 +123,8 @@ class FollowerState extends Daemon {
           break;
         }
         synchronized (server) {
-          if (outstandingOp.get() == 0 && lastRpcTime.elapsedTimeMs() >= electionTimeout) {
+          if (outstandingOp.get() == 0 && lastRpcTime.elapsedTimeMs() >= electionTimeout
+              && !lostMajorityHeartbeatsRecently()) {
             LOG.info("{}: change to CANDIDATE, lastRpcTime:{}ms, electionTimeout:{}ms",
                 this, lastRpcTime.elapsedTimeMs(), electionTimeout);
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.

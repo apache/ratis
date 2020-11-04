@@ -68,6 +68,15 @@ public class LeaderState {
     NOPROGRESS, PROGRESSING, CAUGHTUP
   }
 
+  enum StepDownReason {
+    HIGHER_TERM, HIGHER_PRIORITY, LOST_MAJORITY_HEARTBEATS, STATE_MACHINE_EXCEPTION;
+
+    @Override
+    public String toString() {
+      return getClass().getSimpleName() + ":" + name();
+    }
+  }
+
   static class StateUpdateEvent {
     private enum Type {
       STEP_DOWN, UPDATE_COMMIT, CHECK_STAGING
@@ -468,17 +477,17 @@ public class LeaderState {
     stopAndRemoveSenders(s -> !conf.containsInConf(s.getFollower().getPeer().getId()));
   }
 
-  void submitStepDownEvent() {
-    submitStepDownEvent(getCurrentTerm());
+  void submitStepDownEvent(StepDownReason reason) {
+    submitStepDownEvent(getCurrentTerm(), reason);
   }
 
-  void submitStepDownEvent(long term) {
-    eventQueue.submit(new StateUpdateEvent(StateUpdateEvent.Type.STEP_DOWN, term, () -> stepDown(term)));
+  void submitStepDownEvent(long term, StepDownReason reason) {
+    eventQueue.submit(new StateUpdateEvent(StateUpdateEvent.Type.STEP_DOWN, term, () -> stepDown(term, reason)));
   }
 
-  private void stepDown(long term) {
+  private void stepDown(long term, StepDownReason reason) {
     try {
-      server.changeToFollowerAndPersistMetadata(term, "stepDown");
+      server.changeToFollowerAndPersistMetadata(term, reason);
     } catch(IOException e) {
       final String s = this + ": Failed to persist metadata for term " + term;
       LOG.warn(s, e);
@@ -490,7 +499,7 @@ public class LeaderState {
     }
   }
 
-  private synchronized void stepDown(long term, TermIndex lastEntry) {
+  private synchronized void yieldLeaderToHigherPriorityPeer(long term, TermIndex lastEntry) {
     ServerState state = server.getState();
     TermIndex currLastEntry = state.getLastEntry();
     if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
@@ -499,7 +508,7 @@ public class LeaderState {
       return;
     }
 
-    stepDown(term);
+    stepDown(term, StepDownReason.HIGHER_PRIORITY);
   }
 
   private void prepare() {
@@ -820,8 +829,6 @@ public class LeaderState {
     final RaftConfiguration conf = server.getRaftConf();
     int leaderPriority = conf.getPeer(server.getId()).getPriority();
 
-    TermIndex leaderLastEntry = server.getState().getLastEntry();
-
     for (LogAppender logAppender : senders.getSenders()) {
       FollowerInfo followerInfo = logAppender.getFollower();
       RaftPeerId followerID = followerInfo.getPeer().getId();
@@ -831,13 +838,14 @@ public class LeaderState {
         continue;
       }
 
+      final TermIndex leaderLastEntry = server.getState().getLastEntry();
       if (leaderLastEntry == null) {
         LOG.info("{} stepDown leadership on term:{} because follower's priority:{} is higher than leader's:{} " +
                 "and leader's lastEntry is null",
             this, currentTerm, followerPriority, leaderPriority);
 
         // step down as follower
-        stepDown(currentTerm, server.getState().getLastEntry());
+        yieldLeaderToHigherPriorityPeer(currentTerm, leaderLastEntry);
         return;
       }
 
@@ -848,7 +856,7 @@ public class LeaderState {
             leaderLastEntry.getIndex());
 
         // step down as follower
-        stepDown(currentTerm, server.getState().getLastEntry());
+        yieldLeaderToHigherPriorityPeer(currentTerm, leaderLastEntry);
         return;
       }
     }
@@ -887,16 +895,14 @@ public class LeaderState {
       return;
     }
 
-    List<FollowerInfo> followers = senders.stream()
-        .map(LogAppender::getFollower).collect(Collectors.toList());
-
     LOG.warn(this + ": Lost leadership on term: " + currentTerm
         + ". Election timeout: " + server.getMaxTimeoutMs() + "ms"
         + ". In charge for: " + server.getRole().getRoleElapsedTimeMs() + "ms"
-        + ". Conf: " + conf + ". Followers: " + followers);
+        + ". Conf: " + conf);
+    senders.stream().map(LogAppender::getFollower).forEach(f -> LOG.warn("Follower {}", f));
 
     // step down as follower
-    stepDown(currentTerm);
+    stepDown(currentTerm, StepDownReason.LOST_MAJORITY_HEARTBEATS);
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {

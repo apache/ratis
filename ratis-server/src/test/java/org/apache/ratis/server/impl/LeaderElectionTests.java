@@ -97,6 +97,27 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testLostMajorityHeartbeats() throws Exception {
+    runWithNewCluster(3, this::runTestLostMajorityHeartbeats);
+  }
+
+  void runTestLostMajorityHeartbeats(CLUSTER cluster) throws Exception {
+    final RaftServerImpl leader = waitForLeader(cluster);
+    try {
+      isolate(cluster, leader.getId());
+      Thread.sleep(leader.getMaxTimeoutMs());
+      Thread.sleep(leader.getMaxTimeoutMs());
+      final Optional<FollowerState> optional = leader.getRole().getFollowerState();
+      Assert.assertTrue(optional.isPresent());
+      final FollowerState followerState = optional.get();
+      Assert.assertTrue(followerState.lostMajorityHeartbeatsRecently());
+    } finally {
+      deIsolate(cluster, leader.getId());
+    }
+  }
+
+
+  @Test
   public void testEnforceLeader() throws Exception {
     LOG.info("Running testEnforceLeader");
     final int numServer = 5;

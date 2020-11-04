@@ -466,7 +466,7 @@ public interface RaftServerConfigKeys {
       setTimeDuration(properties::setTimeDuration, SLEEP_TIME_KEY, sleepTime);
     }
 
-    String SLOWNESS_TIMEOUT_KEY = PREFIX + "slowness.timeout";
+    String SLOWNESS_TIMEOUT_KEY = PREFIX + ".slowness.timeout";
     TimeDuration SLOWNESS_TIMEOUT_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
     static TimeDuration slownessTimeout(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(SLOWNESS_TIMEOUT_DEFAULT.getUnit()),
@@ -502,8 +502,22 @@ public interface RaftServerConfigKeys {
       return getTimeDuration(properties.getTimeDuration(NO_LEADER_TIMEOUT_DEFAULT.getUnit()),
           NO_LEADER_TIMEOUT_KEY, NO_LEADER_TIMEOUT_DEFAULT, getDefaultLog());
     }
-    static void setNoLeaderTimeout(RaftProperties properties, TimeDuration leaderElectionTimeout) {
-      setTimeDuration(properties::setTimeDuration, NO_LEADER_TIMEOUT_KEY, leaderElectionTimeout);
+    static void setNoLeaderTimeout(RaftProperties properties, TimeDuration noLeaderTimeout) {
+      setTimeDuration(properties::setTimeDuration, NO_LEADER_TIMEOUT_KEY, noLeaderTimeout);
+    }
+  }
+
+  interface LeaderElection {
+    String PREFIX = RaftServerConfigKeys.PREFIX + "." + LeaderElection.class.getSimpleName().toLowerCase();
+
+    String LEADER_STEP_DOWN_WAIT_TIME_KEY = PREFIX + ".leader.step-down.wait-time";
+    TimeDuration LEADER_STEP_DOWN_WAIT_TIME_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+    static TimeDuration leaderStepDownWaitTime(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(LEADER_STEP_DOWN_WAIT_TIME_DEFAULT.getUnit()),
+          LEADER_STEP_DOWN_WAIT_TIME_KEY, LEADER_STEP_DOWN_WAIT_TIME_DEFAULT, getDefaultLog());
+    }
+    static void setLeaderStepDownWaitTime(RaftProperties properties, TimeDuration noLeaderTimeout) {
+      setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, noLeaderTimeout);
     }
   }
 

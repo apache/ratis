@@ -89,6 +89,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final StateMachine stateMachine;
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
+  private final TimeDuration leaderStepDownWaitTime;
   private final int rpcSlownessTimeoutMs;
   private final int sleepDeviationThresholdMs;
   private final boolean installSnapshotEnabled;
@@ -126,6 +127,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toIntExact(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
     rpcSlownessTimeoutMs = RaftServerConfigKeys.Rpc.slownessTimeout(properties).toIntExact(TimeUnit.MILLISECONDS);
+    leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     sleepDeviationThresholdMs = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
     Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
@@ -171,6 +173,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   int getRandomTimeoutMs() {
     return minTimeoutMs + ThreadLocalRandom.current().nextInt(maxTimeoutMs - minTimeoutMs + 1);
+  }
+
+  TimeDuration getLeaderStepDownWaitTime() {
+    return leaderStepDownWaitTime;
   }
 
   int getSleepDeviationThresholdMs() {
@@ -233,7 +239,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
    */
   private void startAsFollower() {
     setRole(RaftPeerRole.FOLLOWER, "startAsFollower");
-    role.startFollowerState(this);
+    role.startFollowerState(this, "startAsFollower");
     lifeCycle.transition(RUNNING);
   }
 
@@ -401,7 +407,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       } else if (old == RaftPeerRole.FOLLOWER) {
         role.shutdownFollowerState();
       }
-      role.startFollowerState(this);
+      role.startFollowerState(this, reason);
     }
     return metadataUpdated;
   }
@@ -609,7 +615,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         cacheEntry.failWithReply(exceptionReply);
         // leader will step down here
         if (isLeader()) {
-          leaderState.submitStepDownEvent();
+          leaderState.submitStepDownEvent(LeaderState.StepDownReason.STATE_MACHINE_EXCEPTION);
         }
         return CompletableFuture.completedFuture(exceptionReply);
       }
@@ -1091,7 +1097,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       state.setLeader(leaderId, "appendEntries");
 
       if (!initializing && lifeCycle.compareAndTransition(STARTING, RUNNING)) {
-        role.startFollowerState(this);
+        role.startFollowerState(this, Op.APPEND_ENTRIES);
       }
       followerState = updateLastRpcTime(FollowerState.UpdateType.APPEND_START);
 
