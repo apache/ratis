@@ -415,7 +415,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   private void runTestCloseStream(int bufferSize, int bufferNum, RaftClientReply expectedClientReply)
       throws IOException {
     try (final DataStreamClientImpl client = newDataStreamClientImpl()) {
-      DataStreamOutputImpl out = (DataStreamOutputImpl) client.stream();
+      DataStreamOutputImpl out = (DataStreamOutputImpl) client.stream(raftGroup.getGroupId());
       runTestDataStream(out, bufferSize, bufferNum);
       DataStreamReplyByteBuffer replyByteBuffer = (DataStreamReplyByteBuffer) out.closeAsync().join();
 
