@@ -93,7 +93,7 @@ class FollowerState extends Daemon {
     this.isRunning = false;
   }
 
-  boolean lostMajorityHeartbeats() {
+  boolean lostMajorityHeartbeatsRecently() {
     if (reason != LeaderState.StepDownReason.LOST_MAJORITY_HEARTBEATS) {
       return false;
     }
@@ -123,7 +123,8 @@ class FollowerState extends Daemon {
           break;
         }
         synchronized (server) {
-          if (outstandingOp.get() == 0 && lastRpcTime.elapsedTimeMs() >= electionTimeout && !lostMajorityHeartbeats()) {
+          if (outstandingOp.get() == 0 && lastRpcTime.elapsedTimeMs() >= electionTimeout
+              && !lostMajorityHeartbeatsRecently()) {
             LOG.info("{}: change to CANDIDATE, lastRpcTime:{}ms, electionTimeout:{}ms",
                 this, lastRpcTime.elapsedTimeMs(), electionTimeout);
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.

@@ -110,7 +110,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       final Optional<FollowerState> optional = leader.getRole().getFollowerState();
       Assert.assertTrue(optional.isPresent());
       final FollowerState followerState = optional.get();
-      Assert.assertTrue(followerState.lostMajorityHeartbeats());
+      Assert.assertTrue(followerState.lostMajorityHeartbeatsRecently());
     } finally {
       deIsolate(cluster, leader.getId());
     }
