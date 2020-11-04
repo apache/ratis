@@ -15,16 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.api;
+package org.apache.ratis.client;
 
-import org.apache.ratis.io.CloseAsync;
+import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.protocol.DataStreamReply;
 
-import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 
-/** An asynchronous output stream supporting zero buffer copying. */
-public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
-  /** Send out the data in the buffer asynchronously */
-  CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf);
+/** An RPC interface which extends the user interface {@link DataStreamOutput}. */
+public interface DataStreamOutputRpc extends DataStreamOutput {
+  /** Get the future of the header request. */
+  CompletableFuture<DataStreamReply> getHeaderFuture();
+
+  /** Peer close asynchronously. */
+  CompletableFuture<DataStreamReply> closeForwardAsync();
+
+  /** Create a transaction asynchronously once the stream data is replicated to all servers */
+  CompletableFuture<DataStreamReply> startTransactionAsync();
 }

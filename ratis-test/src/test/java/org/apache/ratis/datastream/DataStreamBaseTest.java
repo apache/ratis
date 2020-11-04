@@ -150,16 +150,10 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
-  class Server {
+  static class Server {
     private final RaftPeer peer;
     private final RaftServer raftServer;
     private final DataStreamServerImpl dataStreamServer;
-
-    Server(RaftPeer peer) {
-      this.peer = peer;
-      this.raftServer = newRaftServer(peer, properties);
-      this.dataStreamServer = new DataStreamServerImpl(raftServer, null);
-    }
 
     Server(RaftPeer peer, RaftServer raftServer) {
       this.peer = peer;
@@ -423,7 +417,7 @@ abstract class DataStreamBaseTest extends BaseTest {
           RaftClientReplyProto.parseFrom(replyByteBuffer.slice()));
       Assert.assertTrue(replyByteBuffer.isSuccess());
       Assert.assertEquals(clientReply.getCallId(), expectedClientReply.getCallId());
-      Assert.assertTrue(clientReply.getClientId().equals(expectedClientReply.getClientId()));
+      Assert.assertEquals(clientReply.getClientId(), expectedClientReply.getClientId());
       Assert.assertEquals(clientReply.getLogIndex(), expectedClientReply.getLogIndex());
     }
   }

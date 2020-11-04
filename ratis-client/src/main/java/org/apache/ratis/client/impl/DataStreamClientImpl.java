@@ -21,7 +21,7 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientFactory;
 import org.apache.ratis.client.DataStreamClientRpc;
-import org.apache.ratis.client.api.DataStreamOutput;
+import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
@@ -61,7 +61,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     this.orderedStreamAsync = new OrderedStreamAsync(clientId, dataStreamClientRpc, properties);
   }
 
-  public class DataStreamOutputImpl implements DataStreamOutput {
+  public class DataStreamOutputImpl implements DataStreamOutputRpc {
     private final RaftClientRequest header;
     private final CompletableFuture<DataStreamReply> headerFuture;
 
@@ -122,12 +122,12 @@ public class DataStreamClientImpl implements DataStreamClient {
   }
 
   @Override
-  public DataStreamOutput stream() {
+  public DataStreamOutputRpc stream() {
     return stream(groupId);
   }
 
   @Override
-  public DataStreamOutput stream(RaftGroupId gid) {
+  public DataStreamOutputRpc stream(RaftGroupId gid) {
     return new DataStreamOutputImpl(gid);
   }
 
