@@ -19,7 +19,7 @@
 package org.apache.ratis.netty.server;
 
 import org.apache.ratis.client.DataStreamClient;
-import org.apache.ratis.client.api.DataStreamOutput;
+import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -95,8 +95,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       peers.addAll(newPeers);
     }
 
-    List<DataStreamOutput> getDataStreamOutput(RaftGroupId groupId) throws IOException {
-      final List<DataStreamOutput> outs = new ArrayList<>();
+    List<DataStreamOutputRpc> getDataStreamOutput(RaftGroupId groupId) throws IOException {
+      final List<DataStreamOutputRpc> outs = new ArrayList<>();
       try {
         getDataStreamOutput(outs, groupId);
       } catch (IOException e) {
@@ -106,10 +106,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return outs;
     }
 
-    private void getDataStreamOutput(List<DataStreamOutput> outs, RaftGroupId groupId) throws IOException {
+    private void getDataStreamOutput(List<DataStreamOutputRpc> outs, RaftGroupId groupId) throws IOException {
       for (RaftPeer peer : peers) {
         try {
-          outs.add(map.getProxy(peer.getId()).stream(groupId));
+          outs.add((DataStreamOutputRpc) map.getProxy(peer.getId()).stream(groupId));
         } catch (IOException e) {
           throw new IOException(map.getName() + ": Failed to getDataStreamOutput for " + peer, e);
         }
@@ -124,11 +124,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   static class StreamInfo {
     private final RaftClientRequest request;
     private final CompletableFuture<DataStream> stream;
-    private final List<DataStreamOutput> outs;
+    private final List<DataStreamOutputRpc> outs;
     private final AtomicReference<CompletableFuture<?>> previous
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
-    StreamInfo(RaftClientRequest request, CompletableFuture<DataStream> stream, List<DataStreamOutput> outs) {
+    StreamInfo(RaftClientRequest request, CompletableFuture<DataStream> stream, List<DataStreamOutputRpc> outs) {
       this.request = request;
       this.stream = stream;
       this.outs = outs;
@@ -138,7 +138,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return stream;
     }
 
-    List<DataStreamOutput> getDataStreamOutputs() {
+    List<DataStreamOutputRpc> getDataStreamOutputs() {
       return outs;
     }
 
@@ -319,7 +319,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         } else if (request.getType() == Type.START_TRANSACTION){
           sendReplyNotSuccess(request, ctx);
         } else {
-          LOG.error("{}: Unexpected type:{}", this, request.getType());
+          throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
         }
       }, executorService);
     } catch (IOException e) {
@@ -331,7 +331,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private void forwardStartTransaction(
       final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
     final List<CompletableFuture<Boolean>> results = new ArrayList<>();
-    for (DataStreamOutput out : info.getDataStreamOutputs()) {
+    for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
       final CompletableFuture<Boolean> f = out.startTransactionAsync().thenApplyAsync(reply -> {
         if (reply.isSuccess()) {
           final ByteBuffer buffer = reply instanceof DataStreamReplyByteBuffer?
@@ -364,7 +364,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     if (request.getType() == Type.STREAM_HEADER) {
       info = streams.computeIfAbsent(key, id -> newStreamInfo(buf));
       localWrite = CompletableFuture.completedFuture(0L);
-      for (DataStreamOutput out : info.getDataStreamOutputs()) {
+      for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
         remoteWrites.add(out.getHeaderFuture());
       }
     } else if (request.getType() == Type.STREAM_DATA) {
@@ -372,7 +372,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       final CompletableFuture<?> previous = info.getPrevious().get();
 
       localWrite = previous.thenCombineAsync(info.getStream(), (u, stream) -> writeTo(buf, stream), executorService);
-      for (DataStreamOutput out : info.getDataStreamOutputs()) {
+      for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
         remoteWrites.add(previous.thenComposeAsync(v -> out.writeAsync(request.slice().nioBuffer()), executorService));
       }
     } else if (request.getType() == Type.STREAM_CLOSE || request.getType() == Type.STREAM_CLOSE_FORWARD) {
@@ -389,16 +389,18 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       }, executorService);
 
       if (request.getType() == Type.STREAM_CLOSE) {
-        for (DataStreamOutput out : info.getDataStreamOutputs()) {
+        for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
           remoteWrites.add(previous.thenComposeAsync(v -> out.closeForwardAsync(), executorService));
         }
       }
-    } else {
+    } else if (request.getType() == Type.START_TRANSACTION) {
       // peer server start transaction
       info = streams.get(key);
       final CompletableFuture<?> previous = info.getPrevious().get();
       previous.thenApplyAsync(v -> startTransaction(streams.get(key), request, ctx), executorService);
       return;
+    } else {
+      throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
     }
 
     final CompletableFuture<?> current = JavaUtils.allOf(remoteWrites)
@@ -413,7 +415,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
             // TODO(runzhiwang): send start transaction to leader directly
             startTransaction(info, request, ctx);
           } else {
-            LOG.error("{}: Unexpected type:{}", this, request.getType());
+            throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
           }
           return null;
         }, executorService);
