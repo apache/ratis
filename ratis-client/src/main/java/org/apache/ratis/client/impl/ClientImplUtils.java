@@ -21,6 +21,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -32,9 +33,9 @@ public final class ClientImplUtils {
   }
 
   public static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
-      RaftPeerId leaderId, RaftClientRpc clientRpc, RaftProperties properties,
+      RaftPeerId leaderId, RaftPeer primaryDataStreamServer, RaftClientRpc clientRpc, RaftProperties properties,
       RetryPolicy retryPolicy) {
-    return new RaftClientImpl(clientId, group, leaderId, clientRpc, properties,
+    return new RaftClientImpl(clientId, group, leaderId, primaryDataStreamServer, clientRpc, properties,
         retryPolicy);
   }
 }

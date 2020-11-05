@@ -19,6 +19,7 @@ package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.client.api.MessageStreamApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
@@ -120,8 +121,9 @@ public final class RaftClientImpl implements RaftClient {
   private final Supplier<MessageStreamApi> streamApi;
   private final Supplier<AsyncImpl> asyncApi;
   private final Supplier<BlockingImpl> blockingApi;
+  private final Supplier<DataStreamApi> dataStreamApi;
 
-  RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
+  RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primaryDataStreamServer,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
     this.clientId = clientId;
     this.clientRpc = clientRpc;
@@ -138,6 +140,8 @@ public final class RaftClientImpl implements RaftClient {
     this.streamApi = JavaUtils.memoize(() -> MessageStreamImpl.newInstance(this, properties));
     this.asyncApi = JavaUtils.memoize(() -> new AsyncImpl(this));
     this.blockingApi = JavaUtils.memoize(() -> new BlockingImpl(this));
+    this.dataStreamApi = JavaUtils.memoize(
+        () ->new DataStreamClientImpl(clientId, groupId, primaryDataStreamServer, properties, null));
   }
 
   public RaftPeerId getLeaderId() {
@@ -226,6 +230,11 @@ public final class RaftClientImpl implements RaftClient {
   @Override
   public BlockingImpl io() {
     return blockingApi.get();
+  }
+
+  @Override
+  public DataStreamApi getDataStreamApi() {
+    return dataStreamApi.get();
   }
 
   Throwable noMoreRetries(ClientRetryEvent event) {

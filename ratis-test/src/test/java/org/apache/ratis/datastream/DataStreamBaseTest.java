@@ -19,6 +19,7 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
@@ -355,8 +356,12 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
-  DataStreamClientImpl newDataStreamClientImpl() {
-    return new DataStreamClientImpl(getPrimaryServer().getPeer(), properties, null);
+  RaftClient newRaftClientForDataStream() {
+    return RaftClient.newBuilder()
+        .setRaftGroup(raftGroup)
+        .setPrimaryDataStreamServer(getPrimaryServer().getPeer())
+        .setProperties(properties)
+        .build();
   }
 
   protected void shutdown() throws IOException {
@@ -387,14 +392,14 @@ abstract class DataStreamBaseTest extends BaseTest {
 
   private void runTestDataStream(int numClients, int numStreams, int bufferSize, int bufferNum) throws Exception {
     final List<CompletableFuture<Void>> futures = new ArrayList<>();
-    final List<DataStreamClientImpl> clients = new ArrayList<>();
+    final List<RaftClient> clients = new ArrayList<>();
     try {
       for (int j = 0; j < numClients; j++) {
-        final DataStreamClientImpl client = newDataStreamClientImpl();
+        final RaftClient client = newRaftClientForDataStream();
         clients.add(client);
         for (int i = 0; i < numStreams; i++) {
           futures.add(CompletableFuture.runAsync(
-              () -> runTestDataStream((DataStreamOutputImpl) client.stream(raftGroup.getGroupId()), bufferSize, bufferNum)));
+              () -> runTestDataStream((DataStreamOutputImpl) client.getDataStreamApi().stream(raftGroup.getGroupId()), bufferSize, bufferNum)));
         }
       }
       Assert.assertEquals(numClients*numStreams, futures.size());
@@ -408,8 +413,8 @@ abstract class DataStreamBaseTest extends BaseTest {
 
   private void runTestCloseStream(int bufferSize, int bufferNum, RaftClientReply expectedClientReply)
       throws IOException {
-    try (final DataStreamClientImpl client = newDataStreamClientImpl()) {
-      DataStreamOutputImpl out = (DataStreamOutputImpl) client.stream(raftGroup.getGroupId());
+    try (final RaftClient client = newRaftClientForDataStream()) {
+      DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream(raftGroup.getGroupId());
       runTestDataStream(out, bufferSize, bufferNum);
       DataStreamReplyByteBuffer replyByteBuffer = (DataStreamReplyByteBuffer) out.closeAsync().join();
 

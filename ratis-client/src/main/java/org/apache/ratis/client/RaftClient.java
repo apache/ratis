@@ -30,7 +30,6 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,11 +63,7 @@ public interface RaftClient extends Closeable {
   BlockingApi io();
 
   /** @return the {@link DataStreamApi}. */
-  default DataStreamApi getDataStreamApi() {
-    // TODO RATIS-1090: Implements this once the streaming feature has become usable.
-    throw new UnsupportedOperationException(
-        JavaUtils.getCurrentStackTraceElement().getMethodName() + " is not yet supported.");
-  }
+  DataStreamApi getDataStreamApi();
 
   /** Send set configuration request to the raft service. */
   RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException;
@@ -84,6 +79,7 @@ public interface RaftClient extends Closeable {
     private RaftClientRpc clientRpc;
     private RaftGroup group;
     private RaftPeerId leaderId;
+    private RaftPeer primaryDataStreamServer;
     private RaftProperties properties;
     private Parameters parameters;
     private RetryPolicy retryPolicy = RetryPolicies.retryForeverNoSleep();
@@ -104,7 +100,7 @@ public interface RaftClient extends Closeable {
       }
       return ClientImplUtils.newRaftClient(clientId,
           Objects.requireNonNull(group, "The 'group' field is not initialized."),
-          leaderId,
+          leaderId, primaryDataStreamServer,
           Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
           properties, retryPolicy);
     }
@@ -124,6 +120,12 @@ public interface RaftClient extends Closeable {
     /** Set leader ID. */
     public Builder setLeaderId(RaftPeerId leaderId) {
       this.leaderId = leaderId;
+      return this;
+    }
+
+    /** Set primary server of DataStream. */
+    public Builder setPrimaryDataStreamServer(RaftPeer primaryDataStreamServer) {
+      this.primaryDataStreamServer = primaryDataStreamServer;
       return this;
     }
 
