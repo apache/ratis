@@ -130,6 +130,15 @@ public interface StateMachine extends Closeable {
     EventApi DEFAULT = new EventApi() {};
 
     /**
+     * Notify the {@link StateMachine} that a new leader has been elected.
+     * Note that the new leader can possibly be this server.
+     *
+     * @param groupMemberId The id of this server.
+     * @param newLeaderId The id of the new leader.
+     */
+    default void notifyLeaderChanged(RaftGroupMemberId groupMemberId, RaftPeerId newLeaderId) {}
+
+    /**
      * Notify the {@link StateMachine} a term-index update event.
      * This method will be invoked when a {@link RaftProtos.MetadataProto} is processed.
      * For {@link RaftProtos.StateMachineLogEntryProto} and {@link RaftProtos.RaftConfigurationProto},
@@ -168,14 +177,14 @@ public interface StateMachine extends Closeable {
 
   /**
    * An optional API for leader-only event notifications.
-   * The method in this interface will be invoked only when the server is the leader,
+   * The method in this interface will be invoked only when the server is the leader.
    */
   interface LeaderEventApi {
     /** A noop implementation of {@link LeaderEventApi}. */
     LeaderEventApi DEFAULT = new LeaderEventApi() {};
 
     /**
-     * Notify the {@link StateMachine} in the leader that the given follower is slow.
+     * Notify the {@link StateMachine} that the given follower is slow.
      * This notification is based on "raft.server.rpc.slowness.timeout".
      *
      * @param roleInfoProto information about the current node role and rpc delay information
@@ -185,23 +194,18 @@ public interface StateMachine extends Closeable {
     default void notifyFollowerSlowness(RoleInfoProto roleInfoProto) {}
 
     /**
-     * Notify {@link StateMachine} that the raft peer is no longer the leader.
+     * Notify {@link StateMachine} that this server is no longer the leader.
      */
     default void notifyNotLeader(Collection<TransactionContext> pendingEntries) throws IOException {}
   }
 
   /**
-   * An optional API for leader-only event notifications.
-   * The method in this interface will be invoked only when the server is the leader,
+   * An optional API for follower-only event notifications.
+   * The method in this interface will be invoked only when the server is a follower.
    */
   interface FollowerEventApi {
     /** A noop implementation of {@link FollowerEventApi}. */
     FollowerEventApi DEFAULT = new FollowerEventApi() {};
-
-    /**
-     * Notify the {@link StateMachine} that a new leader has been elected.
-     */
-    default void notifyLeaderChanged(RaftGroupMemberId groupMemberId, RaftPeerId newLeaderId) {}
 
     /**
      * Notify the {@link StateMachine} that there is no leader in the group for an extended period of time.
@@ -214,15 +218,12 @@ public interface StateMachine extends Closeable {
     default void notifyExtendedNoLeader(RoleInfoProto roleInfoProto) {}
 
     /**
-     * Notify the Follower's state machine that the leader has purged entries
-     * from its log and hence to catch up, the Follower state machine would have
-     * to install the latest snapshot.
-     * @param firstTermIndexInLog TermIndex of the first append entry available
-     *                           in the Leader's log.
-     * @param roleInfoProto information about the current node role and
-     *                            rpc delay information
-     * @return After the snapshot installation is complete, return the last
-     * included term index in the snapshot.
+     * Notify the {@link StateMachine} that the leader has purged entries from its log.
+     * In order to catch up, the {@link StateMachine} has to install the latest snapshot asynchronously.
+     *
+     * @param roleInfoProto information about the current node role and rpc delay information.
+     * @param firstTermIndexInLog The term-index of the first append entry available in the leader's log.
+     * @return return the last term-index in the snapshot after the snapshot installation.
      */
     default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
         RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog) {
@@ -419,7 +420,6 @@ public interface StateMachine extends Closeable {
    */
   TransactionContext applyTransactionSerial(TransactionContext trx);
 
-
   /**
    * Apply a committed log entry to the state machine. This method can be called concurrently with
    * the other calls, and there is no guarantee that the calls will be ordered according to the
@@ -429,6 +429,9 @@ public interface StateMachine extends Closeable {
    */
   CompletableFuture<Message> applyTransaction(TransactionContext trx);
 
+  /**
+   * @return the last term-index applied by this {@link StateMachine}
+   */
   TermIndex getLastAppliedTermIndex();
 
   /**
