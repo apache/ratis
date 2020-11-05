@@ -42,4 +42,7 @@ public interface DataStreamApi {
 
   /** Create a stream to write data to the given group. */
   DataStreamOutput stream(RaftGroupId groupId);
+
+  /** Create a stream to write data to the given group. */
+  DataStreamOutput stream(RaftGroupId groupId, long streamId);
 }
