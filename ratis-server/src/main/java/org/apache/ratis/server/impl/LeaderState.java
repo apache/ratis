@@ -288,7 +288,7 @@ public class LeaderState {
     final Collection<CommitInfoProto> commitInfos = server.getCommitInfos();
     try {
       final Collection<TransactionContext> transactions = pendingRequests.sendNotLeaderResponses(nle, commitInfos);
-      server.getStateMachine().notifyNotLeader(transactions);
+      server.getStateMachine().leaderEvent().notifyNotLeader(transactions);
       watchRequests.failWatches(nle);
     } catch (IOException e) {
       LOG.warn("{}: Caught exception in sendNotLeaderResponses", this, e);
@@ -297,9 +297,7 @@ public class LeaderState {
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
-    if (pendingRequests != null) {
-      pendingRequests.close();
-    }
+    pendingRequests.close();
   }
 
   void notifySenders() {

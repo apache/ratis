@@ -36,7 +36,6 @@ import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -46,7 +45,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Base implementation for StateMachines.
  */
-public class BaseStateMachine implements StateMachine, StateMachine.DataApi {
+public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
+    StateMachine.EventApi, StateMachine.LeaderEventApi, StateMachine.FollowerEventApi {
   private final CompletableFuture<RaftServer> server = new CompletableFuture<>();
   private volatile RaftGroupId groupId;
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
@@ -93,11 +93,6 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi {
   }
 
   @Override
-  public void notifyNotLeader(Collection<TransactionContext> pendingEntries) throws IOException {
-    // do nothing
-  }
-
-  @Override
   public void pause() {
   }
 
@@ -129,7 +124,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi {
   }
 
   @Override
-  public void notifyIndexUpdate(long term, long index) {
+  public void notifyTermIndexUpdated(long term, long index) {
     updateLastAppliedTermIndex(term, index);
   }
 

@@ -54,6 +54,11 @@ public interface StateMachine extends Closeable {
   interface Registry extends Function<RaftGroupId, StateMachine> {
   }
 
+  /**
+   * An optional API for managing data outside the {@link org.apache.ratis.server.raftlog.RaftLog}.
+   * For data intensive applications, it can be more efficient to implement this API
+   * in order to support zero buffer coping and a light-weighted {@link org.apache.ratis.server.raftlog.RaftLog}.
+   */
   interface DataApi {
     /** A noop implementation of {@link DataApi}. */
     DataApi DEFAULT = new DataApi() {};
@@ -118,6 +123,114 @@ public interface StateMachine extends Closeable {
   }
 
   /**
+   * An optional API for event notifications.
+   */
+  interface EventApi {
+    /** A noop implementation of {@link EventApi}. */
+    EventApi DEFAULT = new EventApi() {};
+
+    /**
+     * Notify the {@link StateMachine} that a new leader has been elected.
+     * Note that the new leader can possibly be this server.
+     *
+     * @param groupMemberId The id of this server.
+     * @param newLeaderId The id of the new leader.
+     */
+    default void notifyLeaderChanged(RaftGroupMemberId groupMemberId, RaftPeerId newLeaderId) {}
+
+    /**
+     * Notify the {@link StateMachine} a term-index update event.
+     * This method will be invoked when a {@link RaftProtos.MetadataProto}
+     * or {@link RaftProtos.RaftConfigurationProto} is processed.
+     * For {@link RaftProtos.StateMachineLogEntryProto}, this method will not be invoked.
+     *
+     * @param term The term of the log entry
+     * @param index The index of the log entry
+     */
+    default void notifyTermIndexUpdated(long term, long index) {}
+
+    /**
+     * Notify the {@link StateMachine} a configuration change.
+     * This method will be invoked when a {@link RaftProtos.RaftConfigurationProto} is processed.
+     *
+     * @param term term of the current log entry
+     * @param index index which is being updated
+     * @param newRaftConfiguration new configuration
+     */
+    default void notifyConfigurationChanged(long term, long index, RaftConfigurationProto newRaftConfiguration) {}
+
+    /**
+     * Notify the {@link StateMachine} a group removal event.
+     * This method is invoked after all the pending transactions have been applied by the {@link StateMachine}.
+     */
+    default void notifyGroupRemove() {}
+
+    /**
+     * Notify the {@link StateMachine} that a log operation failed.
+     *
+     * @param cause The cause of the failure.
+     * @param failedEntry The failed log entry, if there is any.
+     */
+    default void notifyLogFailed(Throwable cause, LogEntryProto failedEntry) {}
+  }
+
+  /**
+   * An optional API for leader-only event notifications.
+   * The method in this interface will be invoked only when the server is the leader.
+   */
+  interface LeaderEventApi {
+    /** A noop implementation of {@link LeaderEventApi}. */
+    LeaderEventApi DEFAULT = new LeaderEventApi() {};
+
+    /**
+     * Notify the {@link StateMachine} that the given follower is slow.
+     * This notification is based on "raft.server.rpc.slowness.timeout".
+     *
+     * @param roleInfoProto information about the current node role and rpc delay information
+     *
+     * @see org.apache.ratis.server.RaftServerConfigKeys.Rpc#SLOWNESS_TIMEOUT_KEY
+     */
+    default void notifyFollowerSlowness(RoleInfoProto roleInfoProto) {}
+
+    /**
+     * Notify {@link StateMachine} that this server is no longer the leader.
+     */
+    default void notifyNotLeader(Collection<TransactionContext> pendingEntries) throws IOException {}
+  }
+
+  /**
+   * An optional API for follower-only event notifications.
+   * The method in this interface will be invoked only when the server is a follower.
+   */
+  interface FollowerEventApi {
+    /** A noop implementation of {@link FollowerEventApi}. */
+    FollowerEventApi DEFAULT = new FollowerEventApi() {};
+
+    /**
+     * Notify the {@link StateMachine} that there is no leader in the group for an extended period of time.
+     * This notification is based on "raft.server.notification.no-leader.timeout".
+     *
+     * @param roleInfoProto information about the current node role and rpc delay information
+     *
+     * @see org.apache.ratis.server.RaftServerConfigKeys.Notification#NO_LEADER_TIMEOUT_KEY
+     */
+    default void notifyExtendedNoLeader(RoleInfoProto roleInfoProto) {}
+
+    /**
+     * Notify the {@link StateMachine} that the leader has purged entries from its log.
+     * In order to catch up, the {@link StateMachine} has to install the latest snapshot asynchronously.
+     *
+     * @param roleInfoProto information about the current node role and rpc delay information.
+     * @param firstTermIndexInLog The term-index of the first append entry available in the leader's log.
+     * @return return the last term-index in the snapshot after the snapshot installation.
+     */
+    default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
+        RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog) {
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  /**
    * For streaming state machine data.
    */
   interface DataStream {
@@ -138,18 +251,61 @@ public interface StateMachine extends Closeable {
   }
 
   /**
-   * Get the optional {@link DataApi} object.
+   * Get the {@link DataApi} object.
    *
-   * If this {@link StateMachine} chooses to support {@link DataApi},
+   * If this {@link StateMachine} chooses to support the optional {@link DataApi},
    * it may either implement {@link DataApi} directly or override this method to return a {@link DataApi} object.
-   *
    * Otherwise, this {@link StateMachine} does not support {@link DataApi}.
    * Then, this method returns the default noop {@link DataApi} object.
    *
-   * @return The optional {@link DataApi} object.
+   * @return The {@link DataApi} object.
    */
   default DataApi data() {
     return this instanceof DataApi? (DataApi)this : DataApi.DEFAULT;
+  }
+
+  /**
+   * Get the {@link EventApi} object.
+   *
+   * If this {@link StateMachine} chooses to support the optional {@link EventApi},
+   * it may either implement {@link EventApi} directly or override this method to return an {@link EventApi} object.
+   * Otherwise, this {@link StateMachine} does not support {@link EventApi}.
+   * Then, this method returns the default noop {@link EventApi} object.
+   *
+   * @return The {@link EventApi} object.
+   */
+  default EventApi event() {
+    return this instanceof EventApi ? (EventApi)this : EventApi.DEFAULT;
+  }
+
+  /**
+   * Get the {@link LeaderEventApi} object.
+   *
+   * If this {@link StateMachine} chooses to support the optional {@link LeaderEventApi},
+   * it may either implement {@link LeaderEventApi} directly
+   * or override this method to return an {@link LeaderEventApi} object.
+   * Otherwise, this {@link StateMachine} does not support {@link LeaderEventApi}.
+   * Then, this method returns the default noop {@link LeaderEventApi} object.
+   *
+   * @return The {@link LeaderEventApi} object.
+   */
+  default LeaderEventApi leaderEvent() {
+    return this instanceof LeaderEventApi? (LeaderEventApi)this : LeaderEventApi.DEFAULT;
+  }
+
+  /**
+   * Get the {@link FollowerEventApi} object.
+   *
+   * If this {@link StateMachine} chooses to support the optional {@link FollowerEventApi},
+   * it may either implement {@link FollowerEventApi} directly
+   * or override this method to return an {@link FollowerEventApi} object.
+   * Otherwise, this {@link StateMachine} does not support {@link FollowerEventApi}.
+   * Then, this method returns the default noop {@link FollowerEventApi} object.
+   *
+   * @return The {@link LeaderEventApi} object.
+   */
+  default FollowerEventApi followerEvent() {
+    return this instanceof FollowerEventApi? (FollowerEventApi)this : FollowerEventApi.DEFAULT;
   }
 
   /**
@@ -264,107 +420,16 @@ public interface StateMachine extends Closeable {
   TransactionContext applyTransactionSerial(TransactionContext trx);
 
   /**
-   * Called to notify state machine about indexes which are processed
-   * internally by Raft Server, this currently happens when metadata entries are
-   * processed in raft Server. This keep state machine to keep a track of index
-   * updates.
-   * @param term term of the current log entry
-   * @param index index which is being updated
-   */
-  default void notifyIndexUpdate(long term, long index) {
-
-  }
-
-  /**
-   * Called to notify state machine about configuration changes to the Raft
-   * Server. This currently happens when conf entries are processed in raft
-   * server. This allows state machine to keep track of configuration changes
-   * on the raft server and also track the index updates corresponding to
-   * configuration changes.
-   * @param term term of the current log entry
-   * @param index index which is being updated
-   * @param newRaftConfiguration new configuration
-   */
-  default void notifyConfigurationChange(long term, long index,
-      RaftConfigurationProto newRaftConfiguration) {
-  }
-
-  /**
    * Apply a committed log entry to the state machine. This method can be called concurrently with
    * the other calls, and there is no guarantee that the calls will be ordered according to the
    * log commit order.
    * @param trx the transaction state including the log entry that has been committed to a quorum
    *            of the raft peers
    */
-  // TODO: We do not need to return CompletableFuture
   CompletableFuture<Message> applyTransaction(TransactionContext trx);
 
+  /** @return the last term-index applied by this {@link StateMachine}. */
   TermIndex getLastAppliedTermIndex();
-
-  /**
-   * Notify the state machine that the raft peer is no longer leader.
-   */
-  void notifyNotLeader(Collection<TransactionContext> pendingEntries) throws IOException;
-
-  /**
-   * Notify the Leader's state machine that one of the followers is slow
-   * this notification is based on "raft.server.rpc.slowness.timeout"
-   *
-   * @param roleInfoProto information about the current node role and rpc delay information
-   */
-  default void notifySlowness(RoleInfoProto roleInfoProto) {
-
-  }
-
-  /**
-   * Notify the state machine that the pipeline has failed.
-   * This notification is triggered when a log operation throws an Exception.
-   * @param t Exception which was caught, indicates possible cause.
-   * @param failedEntry if append failed for a specific entry, null otherwise.
-   */
-  default void notifyLogFailed(Throwable t, LogEntryProto failedEntry) {
-
-  }
-
-  /**
-   * Notify the Leader's state machine that a leader has not been elected for a long time
-   * this notification is based on "raft.server.leader.election.timeout"
-   *
-   * @param roleInfoProto information about the current node role and rpc delay information
-   */
-  default void notifyExtendedNoLeader(RoleInfoProto roleInfoProto) {
-
-  }
-
-  /**
-   * Notify the Follower's state machine that the leader has purged entries
-   * from its log and hence to catch up, the Follower state machine would have
-   * to install the latest snapshot.
-   * @param firstTermIndexInLog TermIndex of the first append entry available
-   *                           in the Leader's log.
-   * @param roleInfoProto information about the current node role and
-   *                            rpc delay information
-   * @return After the snapshot installation is complete, return the last
-   * included term index in the snapshot.
-   */
-  default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
-      RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog) {
-    return CompletableFuture.completedFuture(null);
-  }
-
-  /**
-   * Notify the state machine that a RaftPeer has been elected as leader.
-   */
-  default void notifyLeaderChanged(RaftGroupMemberId groupMemberId, RaftPeerId raftPeerId) {
-  }
-
-  /**
-   * Notify about group removal in the state machine. This function is called
-   * during group removal after all the pending transactions have been applied
-   * by the state machine.
-   */
-  default void notifyGroupRemove() {
-  }
 
   /**
    * Converts the proto object into a useful log string to add information about state machine data.

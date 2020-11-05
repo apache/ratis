@@ -286,11 +286,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
    * @param deleteDirectory
    * @param renameDirectory
    */
-  public void groupRemove(boolean deleteDirectory, boolean renameDirectory) {
+  void groupRemove(boolean deleteDirectory, boolean renameDirectory) {
     final RaftStorageDirectory dir = state.getStorage().getStorageDir();
 
     /* Shutdown is triggered here inorder to avoid any locked files. */
     shutdown();
+    getStateMachine().event().notifyGroupRemove();
     if (deleteDirectory) {
       for (int i = 0; i < FileUtils.NUM_ATTEMPTS; i ++) {
         try {
@@ -454,7 +455,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         state.getStorage().getStorageDir().hasMetaFile(), getCommitInfos(), getGroup());
   }
 
-  public RoleInfoProto getRoleInfoProto() {
+  RoleInfoProto getRoleInfoProto() {
     RaftPeerRole currentRole = role.getCurrentRole();
     RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
         .setSelf(getPeer().getRaftPeerProto())
@@ -499,7 +500,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     role.shutdownFollowerState();
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
     if (state.shouldNotifyExtendedNoLeader()) {
-      stateMachine.notifyExtendedNoLeader(getRoleInfoProto());
+      stateMachine.followerEvent().notifyExtendedNoLeader(getRoleInfoProto());
     }
     // start election
     role.startLeaderElection(this);
@@ -1286,8 +1287,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
         state.setRaftConf(newConfLogEntryProto);
         state.writeRaftConfiguration(newConfLogEntryProto);
-        stateMachine.notifyConfigurationChange(newConfLogEntryProto.getTerm(),
-            newConfLogEntryProto.getIndex(),
+        stateMachine.event().notifyConfigurationChanged(newConfLogEntryProto.getTerm(), newConfLogEntryProto.getIndex(),
             newConfLogEntryProto.getConfigurationEntry());
       }
       return reply;
@@ -1394,7 +1394,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             getMemberId(), state.getLog().getNextIndex(), firstAvailableLogIndex);
 
         try {
-          stateMachine.notifyInstallSnapshotFromLeader(getRoleInfoProto(), firstAvailableLogTermIndex)
+          stateMachine.followerEvent().notifyInstallSnapshotFromLeader(getRoleInfoProto(), firstAvailableLogTermIndex)
               .whenComplete((reply, exception) -> {
                 if (exception != null) {
                   LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
@@ -1511,14 +1511,14 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) {
     if (!next.hasStateMachineLogEntry()) {
-      stateMachine.notifyIndexUpdate(next.getTerm(), next.getIndex());
+      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
     }
+
     if (next.hasConfigurationEntry()) {
       // the reply should have already been set. only need to record
       // the new conf in the metadata file and notify the StateMachine.
       state.writeRaftConfiguration(next);
-      stateMachine.notifyConfigurationChange(next.getTerm(), next.getIndex(),
-            next.getConfigurationEntry());
+      stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(), next.getConfigurationEntry());
     } else if (next.hasStateMachineLogEntry()) {
       // check whether there is a TransactionContext because we are the leader.
       TransactionContext trx = role.getLeaderState()
@@ -1533,9 +1533,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       trx = stateMachine.applyTransactionSerial(trx);
 
       try {
-        // TODO: This step can be parallelized
-        CompletableFuture<Message> stateMachineFuture =
-            stateMachine.applyTransaction(trx);
+        final CompletableFuture<Message> stateMachineFuture = stateMachine.applyTransaction(trx);
         return replyPendingRequest(next, stateMachineFuture);
       } catch (Exception e) {
         LOG.error("{}: applyTransaction failed for index:{} proto:{}",

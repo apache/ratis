@@ -560,10 +560,10 @@ public class TestSegmentedRaftLog extends BaseTest {
       }
 
       @Override
-      public void notifyLogFailed(Throwable t, LogEntryProto entry) {
-        LOG.info("Test StateMachine : Ratis log failed notification received, "
-            + "as expected. Transition to PAUSED state.");
+      public void notifyLogFailed(Throwable cause, LogEntryProto entry) {
+        LOG.info("Test StateMachine: Ratis log failed notification received as expected.", cause);
 
+        LOG.info("Test StateMachine: Transition to PAUSED state.");
         Assert.assertNotNull(entry);
 
         getLifeCycle().transition(LifeCycle.State.PAUSING);

@@ -23,7 +23,6 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
@@ -54,7 +53,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -441,10 +439,8 @@ public class RaftServerProxy implements RaftServer {
           getId() + ": Group " + groupId + " not found."));
     }
     return f.thenApply(impl -> {
-      final Collection<CommitInfoProto> commitInfos = impl.getCommitInfos();
       impl.groupRemove(deleteDirectory, renameDirectory);
-      impl.getStateMachine().notifyGroupRemove();
-      return new RaftClientReply(request, commitInfos);
+      return new RaftClientReply(request, impl.getCommitInfos());
     });
   }
 

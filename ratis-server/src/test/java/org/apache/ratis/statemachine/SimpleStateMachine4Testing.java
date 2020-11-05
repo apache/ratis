@@ -52,7 +52,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Objects;
@@ -418,7 +417,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public void notifySlowness(RoleInfoProto roleInfoProto) {
+  public void notifyFollowerSlowness(RoleInfoProto roleInfoProto) {
     LOG.info("{}: notifySlowness {}, {}", this, groupId, roleInfoProto);
     slownessInfo = roleInfoProto;
   }
@@ -427,12 +426,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public void notifyExtendedNoLeader(RoleInfoProto roleInfoProto) {
     LOG.info("{}: notifyExtendedNoLeader {}, {}", this, groupId, roleInfoProto);
     leaderElectionTimeoutInfo = roleInfoProto;
-  }
-
-  @Override
-  public void notifyNotLeader(Collection<TransactionContext> pendingEntries)
-      throws IOException {
-
   }
 
   @Override
