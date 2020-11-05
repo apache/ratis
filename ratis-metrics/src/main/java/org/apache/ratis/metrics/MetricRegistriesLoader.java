@@ -61,7 +61,7 @@ public final class MetricRegistriesLoader {
     if (availableImplementations.size() == 1) {
       // One and only one instance -- what we want/expect
       MetricRegistries impl = availableImplementations.get(0);
-      LOG.info("Loaded MetricRegistries " + impl.getClass());
+      LOG.info("Loaded MetricRegistries {}", impl.getClass());
       return impl;
     } else if (availableImplementations.isEmpty()) {
       try {
@@ -78,8 +78,8 @@ public final class MetricRegistriesLoader {
         }
         sb.append(factory.getClass());
       }
-      LOG.warn("Found multiple MetricRegistries implementations: " + sb
-          + ". Using first found implementation: " + availableImplementations.get(0));
+      LOG.warn("Found multiple MetricRegistries implementations: {}."
+          + " Using first found implementation: {}", sb, availableImplementations.get(0));
       return availableImplementations.get(0);
     }
   }

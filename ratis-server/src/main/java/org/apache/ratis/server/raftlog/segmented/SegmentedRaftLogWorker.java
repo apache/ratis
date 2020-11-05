@@ -266,8 +266,8 @@ class SegmentedRaftLogWorker implements Runnable {
       task.startTimerOnEnqueue(raftLogQueueingTimer);
     } catch (Throwable t) {
       if (t instanceof InterruptedException && !running) {
-        LOG.info("Got InterruptedException when adding task " + task
-            + ". The SegmentedRaftLogWorker already stopped.");
+        LOG.info("Got InterruptedException when adding task {}. "
+            + "The SegmentedRaftLogWorker already stopped.", task);
       } else {
         LOG.error("Failed to add IO task {}", task, t);
         if (server != null) {
@@ -304,9 +304,9 @@ class SegmentedRaftLogWorker implements Runnable {
             }
           } catch (IOException e) {
             if (task.getEndIndex() < lastWrittenIndex) {
-              LOG.info("Ignore IOException when handling task " + task
+              LOG.info("Ignore IOException when handling task {}"
                   + " which is smaller than the lastWrittenIndex."
-                  + " There should be a snapshot installed.", e);
+                  + " There should be a snapshot installed.", task, e);
             } else {
               task.failed(e);
               if (logIOException == null) {
@@ -324,9 +324,8 @@ class SegmentedRaftLogWorker implements Runnable {
           LOG.warn("{} got interrupted while still running",
               Thread.currentThread().getName());
         }
-        LOG.info(Thread.currentThread().getName()
-            + " was interrupted, exiting. There are " + queue.getNumElements()
-            + " tasks remaining in the queue.");
+        LOG.info("{} was interrupted, exiting. There are {} tasks remaining in "
+            + "the queue.", Thread.currentThread().getName(), queue.getNumElements());
         Thread.currentThread().interrupt();
         return;
       } catch (Throwable t) {
@@ -466,8 +465,9 @@ class SegmentedRaftLogWorker implements Runnable {
           // this.entry != entry iff the entry has state machine data
           this.stateMachineFuture = stateMachine.data().write(entry);
         } catch (Throwable e) {
-          LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
-              + ", entry=" + ServerProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
+          LOG.error("{}: writeStateMachineData failed for index {}, entry={}",
+              name, entry.getIndex(), ServerProtoUtils.toLogEntryString(
+                  entry, stateMachine::toStateMachineLogEntryString), e);
           throw e;
         }
       }

@@ -203,9 +203,9 @@ class SegmentedRaftLogReader implements Closeable {
       // The last entry is partially written.
       // It is okay to ignore it since this entry is never committed in this server.
       if (LOG.isWarnEnabled()) {
-        LOG.warn("Ignoring the last partial written log entry in " + file + ": " + eof);
+        LOG.warn("Ignoring the last partial written log entry in {}: {}", file, eof);
       } else if (LOG.isTraceEnabled()) {
-        LOG.trace("Ignoring the last partial written log entry in " + file , eof);
+        LOG.trace("Ignoring the last partial written log entry in {}", file, eof);
       }
       return null;
     } catch (IOException e) {

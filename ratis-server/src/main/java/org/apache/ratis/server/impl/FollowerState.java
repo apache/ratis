@@ -134,11 +134,11 @@ class FollowerState extends Daemon {
           }
         }
       } catch (InterruptedException e) {
-        LOG.info(this + " was interrupted: " + e);
+        LOG.info("{} was interrupted: {}", this, e);
         LOG.trace("TRACE", e);
         return;
       } catch (Exception e) {
-        LOG.warn(this + " caught an exception", e);
+        LOG.warn("{} caught an exception", this, e);
       }
     }
   }

@@ -208,8 +208,8 @@ public class RaftServerProxy implements RaftServer {
                   addGroup(RaftGroup.valueOf(groupId));
                 }
               } catch (Throwable t) {
-                LOG.warn(getId() + ": Failed to initialize the group directory "
-                    + sub.getAbsolutePath() + ".  Ignoring it", t);
+                LOG.warn("{}: Failed to initialize the group directory {}. "
+                    + "Ignoring it", getId(), sub.getAbsolutePath(), t);
               }
             }));
     raftGroup.ifPresent(this::addGroup);
@@ -231,7 +231,8 @@ public class RaftServerProxy implements RaftServer {
     try {
       address = rpc.getInetSocketAddress();
     } catch(Exception e) {
-      LOG.warn("Failed to get InetSocketAddress from " + rpc.getRpcType() + " rpc server", e);
+      LOG.warn("Failed to get InetSocketAddress from {} rpc server",
+          rpc.getRpcType(), e);
     }
     return address != null? address.getHostName() + "_" + address.getPort()
         : rpc.getRpcType() + "-" + UUID.randomUUID();
@@ -331,7 +332,7 @@ public class RaftServerProxy implements RaftServer {
       implExecutor.shutdown();
       implExecutor.awaitTermination(1, TimeUnit.DAYS);
     } catch (Exception e) {
-      LOG.warn(getId() + ": Failed to shutdown " + getRpcType() + " server");
+      LOG.warn("{}: Failed to shutdown {} server", getId(), getRpcType());
     }
 
     lifeCycle.checkStateAndClose(() -> {
@@ -341,7 +342,8 @@ public class RaftServerProxy implements RaftServer {
       try {
         getServerRpc().close();
       } catch(IOException ignored) {
-        LOG.warn(getId() + ": Failed to close " + getRpcType() + " server", ignored);
+        LOG.warn("{}: Failed to close {} server", getId(),
+            getRpcType(), ignored);
       }
 
       try {
@@ -417,10 +419,10 @@ public class RaftServerProxy implements RaftServer {
           if (throwable != null) {
             if (!(throwable.getCause() instanceof AlreadyExistsException)) {
               impls.remove(newGroup.getGroupId());
-              LOG.warn(getId() + ": Failed groupAdd* " + request, throwable);
+              LOG.warn("{}: Failed groupAdd* {}", getId(), request, throwable);
             } else {
               if (LOG.isDebugEnabled()) {
-                LOG.debug(getId() + ": Failed groupAdd* " + request, throwable);
+                LOG.debug("{}: Failed groupAdd* {}", getId(), request, throwable);
               }
             }
           }

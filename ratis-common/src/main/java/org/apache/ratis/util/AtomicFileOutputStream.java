@@ -84,7 +84,7 @@ public class AtomicFileOutputStream extends FilterOutputStream {
         }
         // close wasn't successful, try to delete the tmp file
         if (!tmpFile.delete()) {
-          LOG.warn("Unable to delete tmp file " + tmpFile);
+          LOG.warn("Unable to delete tmp file {}", tmpFile);
         }
       }
     }
@@ -99,10 +99,10 @@ public class AtomicFileOutputStream extends FilterOutputStream {
     try {
       super.close();
     } catch (IOException ioe) {
-      LOG.warn("Unable to abort file " + tmpFile, ioe);
+      LOG.warn("Unable to abort file {}", tmpFile, ioe);
     }
     if (!tmpFile.delete()) {
-      LOG.warn("Unable to delete tmp file during abort " + tmpFile);
+      LOG.warn("Unable to delete tmp file during abort {}", tmpFile);
     }
   }
 

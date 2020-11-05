@@ -132,7 +132,7 @@ public class RaftStorageDirectory {
 
   private static void clearDirectory(File dir) throws IOException {
     if (dir.exists()) {
-      LOG.info(dir + " already exists.  Deleting it ...");
+      LOG.info("{} already exists.  Deleting it ...", dir);
       FileUtils.deleteFully(dir);
     }
     FileUtils.createDirectories(dir);
@@ -217,7 +217,7 @@ public class RaftStorageDirectory {
       if (matcher.matches()) {
         if (pattern == OPEN_SEGMENT_REGEX && Files.size(path) == 0L) {
           Files.delete(path);
-          LOG.info("Delete zero size file " + path);
+          LOG.info("Delete zero size file {}", path);
           return null;
         }
         final long startIndex = Long.parseLong(matcher.group(1));
@@ -258,20 +258,20 @@ public class RaftStorageDirectory {
     String rootPath = root.getCanonicalPath();
     try { // check that storage exists
       if (!root.exists()) {
-        LOG.info("The storage directory " + rootPath + " does not exist. Creating ...");
+        LOG.info("The storage directory {} does not exist. Creating ...", rootPath);
         FileUtils.createDirectories(root);
       }
       // or is inaccessible
       if (!root.isDirectory()) {
-        LOG.warn(rootPath + " is not a directory");
+        LOG.warn("{} is not a directory", rootPath);
         return StorageState.NON_EXISTENT;
       }
       if (!Files.isWritable(root.toPath())) {
-        LOG.warn("The storage directory " + rootPath + " is not writable.");
+        LOG.warn("The storage directory {} is not writable.", rootPath);
         return StorageState.NON_EXISTENT;
       }
     } catch(SecurityException ex) {
-      LOG.warn("Cannot access storage directory " + rootPath, ex);
+      LOG.warn("Cannot access storage directory {}", rootPath, ex);
       return StorageState.NON_EXISTENT;
     }
 
@@ -336,21 +336,21 @@ public class RaftStorageDirectory {
     try {
       res = file.getChannel().tryLock();
       if (null == res) {
-        LOG.error("Unable to acquire file lock on path " + lockF.toString());
+        LOG.error("Unable to acquire file lock on path {}", lockF.toString());
         throw new OverlappingFileLockException();
       }
       file.write(jvmName.getBytes(StandardCharsets.UTF_8));
-      LOG.info("Lock on " + lockF + " acquired by nodename " + jvmName);
+      LOG.info("Lock on {} acquired by nodename {}", lockF.toString(), jvmName);
     } catch (OverlappingFileLockException oe) {
       // Cannot read from the locked file on Windows.
       LOG.error("It appears that another process "
-          + "has already locked the storage directory: " + root, oe);
+          + "has already locked the storage directory: {}", root, oe);
       file.close();
       throw new IOException("Failed to lock storage " + this.root + ". The directory is already locked", oe);
     } catch(IOException e) {
-      LOG.error("Failed to acquire lock on " + lockF
-          + ". If this storage directory is mounted via NFS, "
-          + "ensure that the appropriate nfs lock services are running.", e);
+      LOG.error("Failed to acquire lock on {}. "
+          + "If this storage directory is mounted via NFS, "
+          + "ensure that the appropriate nfs lock services are running.", lockF.toString(), e);
       file.close();
       throw e;
     }

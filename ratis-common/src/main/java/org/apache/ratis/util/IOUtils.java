@@ -196,7 +196,7 @@ public interface IOUtils {
           c.close();
         } catch(Throwable e) {
           if (log != null && log.isDebugEnabled()) {
-            log.debug("Exception in closing " + c, e);
+            log.debug("Exception in closing {}", c, e);
           }
         }
       }

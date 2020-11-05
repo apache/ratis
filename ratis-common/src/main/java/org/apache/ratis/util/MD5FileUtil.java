@@ -156,7 +156,7 @@ public abstract class MD5FileUtil {
     }
 
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Saved MD5 " + digestString + " to " + md5File);
+      LOG.debug("Saved MD5 {} to {}", digestString, md5File);
     }
   }
 
@@ -171,7 +171,7 @@ public abstract class MD5FileUtil {
     saveMD5File(newDataFile, digestString);
 
     if (!fromFile.delete()) {
-      LOG.warn("deleting  " + fromFile.getAbsolutePath() + " FAILED");
+      LOG.warn("deleting {} FAILED", fromFile.getAbsolutePath());
     }
   }
 

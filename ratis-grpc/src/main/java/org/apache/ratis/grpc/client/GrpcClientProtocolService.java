@@ -197,7 +197,8 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       } catch(Exception e) {
         // response stream may possibly be already closed/failed so that the exception can be safely ignored.
         if (LOG.isTraceEnabled()) {
-          LOG.trace(getName() + ": Failed onCompleted, exception is ignored", e);
+          LOG.trace("{}: Failed onCompleted, exception is ignored",
+              getName(), e);
         }
       }
     }
@@ -208,7 +209,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       } catch(Exception e) {
         // response stream may possibly be already closed/failed so that the exception can be safely ignored.
         if (LOG.isTraceEnabled()) {
-          LOG.trace(getName() + ": Failed onError, exception is ignored", e);
+          LOG.trace("{}: Failed onError, exception is ignored", getName(), e);
         }
       }
     }
@@ -262,7 +263,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       if (setClose()) {
         t = JavaUtils.unwrapCompletionException(t);
         if (LOG.isDebugEnabled()) {
-          LOG.debug(name + ": Failed " + message.get(), t);
+          LOG.debug("{}: Failed {}", name, message.get(), t);
         }
         responseError(GrpcUtil.wrapException(t));
         return true;
@@ -283,7 +284,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     void processClientRequest(RaftClientRequest request) {
       final CompletableFuture<Void> f = processClientRequest(request, reply -> {
         if (!reply.isSuccess()) {
-          LOG.info("Failed " + request + ", reply=" + reply);
+          LOG.info("Failed {}, reply={}", request, reply);
         }
         final RaftClientReplyProto proto = ClientProtoUtils.toRaftClientReplyProto(reply);
         responseNext(proto);

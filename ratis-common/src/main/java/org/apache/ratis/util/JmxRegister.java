@@ -37,11 +37,11 @@ public class JmxRegister {
       objectName = new ObjectName(name);
       ManagementFactory.getPlatformMBeanServer().registerMBean(mBean, objectName);
     } catch (Exception e) {
-      LOG.error("Failed to register JMX Bean with name " + name, e);
+      LOG.error("Failed to register JMX Bean with name {}", name, e);
       return null;
     }
 
-    LOG.info("Successfully registered JMX Bean with object name " + objectName);
+    LOG.info("Successfully registered JMX Bean with object name {}", objectName);
     return objectName;
   }
 
@@ -70,7 +70,7 @@ public class JmxRegister {
       return false;
     }
     ManagementFactory.getPlatformMBeanServer().unregisterMBean(registeredName);
-    LOG.info("Successfully un-registered JMX Bean with object name " + registeredName);
+    LOG.info("Successfully un-registered JMX Bean with object name {}", registeredName);
     registeredName = null;
     return true;
   }

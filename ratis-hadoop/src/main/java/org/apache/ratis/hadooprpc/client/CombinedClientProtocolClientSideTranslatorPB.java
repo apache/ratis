@@ -126,7 +126,7 @@ public class CombinedClientProtocolClientSideTranslatorPB
       PROTO_REP replyProto = byteToProto.apply(reply);
       return repToProto.apply(replyProto);
     } catch (ServiceException se) {
-      LOG.trace("Failed to handle " + request, se);
+      LOG.trace("Failed to handle {}", request, se);
       throw new IOException(se);
     }
   }

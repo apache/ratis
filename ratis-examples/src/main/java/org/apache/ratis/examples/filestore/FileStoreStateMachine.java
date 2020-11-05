@@ -178,7 +178,8 @@ public class FileStoreStateMachine extends BaseStateMachine {
         // WRITE should not happen here since
         // startTransaction converts WRITE requests to WRITEHEADER requests.
       default:
-        LOG.error(getId() + ": Unexpected request case " + request.getRequestCase());
+        LOG.error("{}: Unexpected request case {}", getId(),
+            request.getRequestCase());
         return FileStoreCommon.completeExceptionally(index,
             "Unexpected request case " + request.getRequestCase());
     }

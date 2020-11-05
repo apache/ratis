@@ -96,7 +96,7 @@ public interface UnorderedAsync {
 
         if (e != null) {
           if (LOG.isTraceEnabled()) {
-            LOG.trace(clientId + ": attempt #" + attemptCount + " failed~ " + request, e);
+            LOG.trace("{}: attempt #{} failed~ {}", clientId, attemptCount, request, e);
           } else {
             LOG.debug("{}: attempt #{} failed {} with {}", clientId, attemptCount, request, e);
           }
@@ -123,7 +123,7 @@ public interface UnorderedAsync {
         client.getScheduler().onTimeout(sleepTime,
             () -> sendRequestWithRetry(pending, client), LOG, () -> clientId + ": Failed~ to retry " + request);
       } catch (Throwable t) {
-        LOG.error(clientId + ": Failed " + request, t);
+        LOG.error("{}: Failed {}",clientId, request, t);
         f.completeExceptionally(t);
       }
     });

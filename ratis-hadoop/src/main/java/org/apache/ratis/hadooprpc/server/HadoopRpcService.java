@@ -108,8 +108,8 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
 
     addRaftClientProtocol(server, conf);
 
-    LOG.info(getClass().getSimpleName() + " created RPC.Server at "
-        + ipcServerAddress);
+    LOG.info("{} created RPC.Server at {}", getClass().getSimpleName(),
+        ipcServerAddress);
   }
 
   @Override

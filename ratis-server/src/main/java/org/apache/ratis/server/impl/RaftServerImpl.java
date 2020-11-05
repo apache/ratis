@@ -1018,7 +1018,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   static void logAppendEntries(boolean isHeartbeat, Supplier<String> message) {
     if (isHeartbeat) {
       if (LOG.isTraceEnabled()) {
-        LOG.trace("HEARTBEAT: " + message.get());
+        LOG.trace("HEARTBEAT: {}", message.get());
       }
     } else {
       if (LOG.isDebugEnabled()) {

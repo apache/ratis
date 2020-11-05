@@ -209,8 +209,8 @@ public class LogStateMachine extends BaseStateMachine {
       out.writeLong(dataRecordsSize);
       out.writeObject(state);
     } catch(IOException ioe) {
-      LOG.warn("Failed to write snapshot file \"" + snapshotFile
-          + "\", last applied index=" + last);
+      LOG.warn("Failed to write snapshot file \"{}\", last applied index={}",
+          snapshotFile, last);
     }
 
     return last.getIndex();
@@ -489,7 +489,7 @@ public class LogStateMachine extends BaseStateMachine {
       try {
         client.close();
       } catch (Exception ignored) {
-        LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+        LOG.warn("{} is ignored", ignored.getClass().getSimpleName(), ignored);
       }
     }
   }
@@ -687,7 +687,7 @@ public class LogStateMachine extends BaseStateMachine {
             }
             return true;
           } catch (Exception e) {
-            LOG.error("Archival failed for the log:" + logName, e);
+            LOG.error("Archival failed for the log:{}", logName, e);
             failArchival(recordId, logName, location);
           } finally {
             timerContext.stop();
@@ -698,7 +698,7 @@ public class LogStateMachine extends BaseStateMachine {
         archiveExportFutures.put(location, executorService.submit(callable));
       }
     }catch (Exception e){
-      LOG.warn("Exception while processing archival request for " + logName, e);
+      LOG.warn("Exception while processing archival request for {}", logName, e);
       t = e;
     }
     return CompletableFuture.completedFuture(

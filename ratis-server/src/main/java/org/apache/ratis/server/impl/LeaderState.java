@@ -137,7 +137,7 @@ public class LeaderState {
       } catch(InterruptedException ie) {
         String s = this + ": poll() is interrupted";
         if (!running) {
-          LOG.info(s + " gracefully");
+          LOG.info("{} gracefully", s);
           return null;
         } else {
           throw new IllegalStateException(s + " UNEXPECTEDLY", ie);

@@ -190,7 +190,7 @@ public class VerificationTool {
             try {
                 Object object = future.get();
                 if (object != null) {
-                    LOG.error("Operation failed with error ", object);
+                    LOG.error("Operation failed with error {}", object);
                     System.exit(-1);
                 }
             } catch (Exception e) {
@@ -317,7 +317,7 @@ public class VerificationTool {
                 for (int i = 0; i < getNumRecords(); i++) {
                     String message = MESSAGE_PREFIX + i;
                     if (i % getLogFreq() == 0) {
-                      LOG.info(getLogName() + " Writing " + message);
+                      LOG.info("{} Writing {}", getLogName(), message);
                     }
                     writer.write(createValue(message));
                 }
@@ -348,7 +348,8 @@ public class VerificationTool {
                         String message = MESSAGE_PREFIX + (i * batchSize + j);
                         messages.add(createValue(message));
                         if((i * batchSize + j) % getLogFreq() == 0) {
-                            LOG.info(getLogName() + " batching write " + message);
+                            LOG.info("{} batching write {}", getLogName(),
+                                message);
                         }
                     }
                     try {
@@ -365,7 +366,8 @@ public class VerificationTool {
                     String message = MESSAGE_PREFIX + i;
                     lastBatch.add(createValue(message));
                   }
-                  LOG.info(getLogName() + " writing last mini-batch of " + lastBatch.size() + " records");
+                  LOG.info("{} writing last mini-batch of {} records",
+                      getLogName(), lastBatch.size());
                   try {
                     writer.write(lastBatch);
                   } catch (IOException e) {
@@ -391,19 +393,19 @@ public class VerificationTool {
                 LogReader reader = logStream.createReader();
                 long size = logStream.getLength();
                 if(size != getNumRecords()) {
-                    LOG.error("There is mismatch is number of records. Expected Records: "+
-                        getNumRecords() +", Actual Records: " + size);
+                    LOG.error("There is mismatch is number of records. Expected Records: {}, Actual Records: {}",
+                        getNumRecords(), size);
                     System.exit(-1);
                 }
                 for (int i = 0; i < size; i++) {
                     ByteBuffer buffer = reader.readNext();
                     String message = parseValue(buffer);
                     if (i % getLogFreq() == 0) {
-                      LOG.info(getLogName() + " Read " + message);
+                      LOG.info("{} Read {}", getLogName(), message);
                     }
                     if(!message.equals(MESSAGE_PREFIX + i)) {
-                        LOG.error("Message is not correct. Expected: "+(MESSAGE_PREFIX + i)
-                                +". Actual:" +message);
+                        LOG.error("Message is not correct. Expected: {}. "
+                            + "Actual:{}", (MESSAGE_PREFIX + i), message);
                         System.exit(-1);
                     }
                 }
