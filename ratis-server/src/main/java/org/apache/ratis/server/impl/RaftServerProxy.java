@@ -441,10 +441,8 @@ public class RaftServerProxy implements RaftServer {
           getId() + ": Group " + groupId + " not found."));
     }
     return f.thenApply(impl -> {
-      final Collection<CommitInfoProto> commitInfos = impl.getCommitInfos();
       impl.groupRemove(deleteDirectory, renameDirectory);
-      impl.getStateMachine().notifyGroupRemove();
-      return new RaftClientReply(request, commitInfos);
+      return new RaftClientReply(request, impl.getCommitInfos());
     });
   }
 

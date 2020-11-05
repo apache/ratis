@@ -40,8 +40,7 @@ import java.util.Objects;
  * a {@link StateMachine#startTransaction(RaftClientRequest)} request, it returns
  * a {@link TransactionContext} with the changes from the {@link StateMachine}.
  * The same context will be passed back to the {@link StateMachine}
- * via the {@link StateMachine#applyTransaction(TransactionContext)} call
- * or the {@link StateMachine#notifyNotLeader(java.util.Collection)} call.
+ * via the {@link StateMachine#applyTransaction(TransactionContext)} call.
  *
  * In the second case, the {@link StateMachine} is a follower.
  * The {@link TransactionContext} will be a committed entry coming from

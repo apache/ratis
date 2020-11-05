@@ -477,7 +477,7 @@ class SegmentedRaftLogWorker implements Runnable {
 
     @Override
     void failed(IOException e) {
-      stateMachine.notifyLogFailed(e, entry);
+      stateMachine.event().notifyLogFailed(e, entry);
       super.failed(e);
     }
 
@@ -562,7 +562,7 @@ class SegmentedRaftLogWorker implements Runnable {
     @Override
     void failed(IOException e) {
       // not failed for a specific log entry, but an entire segment
-      stateMachine.notifyLogFailed(e, null);
+      stateMachine.event().notifyLogFailed(e, null);
       super.failed(e);
     }
 
