@@ -78,7 +78,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
     RaftClientReply expectedClientReply = new RaftClientReply(clientId, suggestedLeader.getId(),
         groupId, callId, true, null, null, longIndex, null);
 
-    for (int i = 0; i < 3; i ++) {
+    for (int i = 0; i < numServers; i ++) {
       RaftServer raftServer = mock(RaftServer.class);
       RaftClientReply raftClientReply;
       RaftPeerId peerId = RaftPeerId.valueOf("s" + i);
@@ -122,5 +122,10 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
   public void testCloseStreamOneServer() throws Exception {
     // primary is 0, leader is 0
     testCloseStream(0, 1);
+  }
+
+  @Test
+  public void testSameStreamId() throws Exception {
+    runTestSameStreamId(3, 1_000_000, 10);
   }
 }

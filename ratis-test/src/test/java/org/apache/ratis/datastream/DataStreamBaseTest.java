@@ -19,13 +19,14 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.netty.NettyConfigKeys;
+import org.apache.ratis.netty.server.NettyServerStreamRpc;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.GroupInfoReply;
@@ -390,6 +391,15 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
+  protected void runTestSameStreamId(int numServers, int bufferSize, int bufferNum) throws Exception {
+    try {
+      setup(numServers);
+      runTestSameStreamId(bufferSize, bufferNum);
+    } finally {
+      shutdown();
+    }
+  }
+
   private void runTestDataStream(int numClients, int numStreams, int bufferSize, int bufferNum) throws Exception {
     final List<CompletableFuture<Void>> futures = new ArrayList<>();
     final List<RaftClient> clients = new ArrayList<>();
@@ -424,6 +434,22 @@ abstract class DataStreamBaseTest extends BaseTest {
       Assert.assertEquals(clientReply.getCallId(), expectedClientReply.getCallId());
       Assert.assertEquals(clientReply.getClientId(), expectedClientReply.getClientId());
       Assert.assertEquals(clientReply.getLogIndex(), expectedClientReply.getLogIndex());
+    }
+  }
+
+  private void runTestSameStreamId(int bufferSize, int bufferNum)
+      throws IOException {
+    try (final RaftClient client = newRaftClientForDataStream()) {
+      DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream(raftGroup.getGroupId());
+      runTestDataStream(out, bufferSize, bufferNum);
+
+      NettyServerStreamRpc nettyServerStreamRpc = (NettyServerStreamRpc) getPrimaryServer().dataStreamServer.getServerRpc();
+      List<DataStreamOutputRpc> dataStreamOutputRpcs = nettyServerStreamRpc.getDataStreamOutputRpcs();
+      Assert.assertEquals(dataStreamOutputRpcs.size(), 2);
+      for (DataStreamOutputRpc outputRpc : dataStreamOutputRpcs) {
+        DataStreamOutputImpl peerOut = (DataStreamOutputImpl)outputRpc;
+        Assert.assertEquals(out.getStreamId(), peerOut.getStreamId());
+      }
     }
   }
 

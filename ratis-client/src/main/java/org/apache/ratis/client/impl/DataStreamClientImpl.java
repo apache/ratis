@@ -80,7 +80,7 @@ public class DataStreamClientImpl implements DataStreamClient {
           ClientProtoUtils.toRaftClientRequestProto(header).toByteString().asReadOnlyByteBuffer(), Type.STREAM_HEADER);
     }
 
-    long getStreamId() {
+    public long getStreamId() {
       return header.getCallId();
     }
 
