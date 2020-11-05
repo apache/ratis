@@ -28,6 +28,7 @@ import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -235,6 +236,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   static DataStreamClient newClient(RaftPeer peer, RaftProperties properties) {
     return DataStreamClient.newBuilder()
+        .setClientId(ClientId.randomId())
         .setRaftServer(peer)
         .setProperties(properties)
         .build();

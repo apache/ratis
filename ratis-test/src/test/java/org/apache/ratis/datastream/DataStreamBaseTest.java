@@ -359,7 +359,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   RaftClient newRaftClientForDataStream() {
     return RaftClient.newBuilder()
         .setRaftGroup(raftGroup)
-        .setPrimary(getPrimaryServer().getPeer())
+        .setPrimaryDataStreamServer(getPrimaryServer().getPeer())
         .setProperties(properties)
         .build();
   }

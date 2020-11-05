@@ -79,7 +79,7 @@ public interface RaftClient extends Closeable {
     private RaftClientRpc clientRpc;
     private RaftGroup group;
     private RaftPeerId leaderId;
-    private RaftPeer primary;
+    private RaftPeer primaryDataStreamServer;
     private RaftProperties properties;
     private Parameters parameters;
     private RetryPolicy retryPolicy = RetryPolicies.retryForeverNoSleep();
@@ -100,7 +100,7 @@ public interface RaftClient extends Closeable {
       }
       return ClientImplUtils.newRaftClient(clientId,
           Objects.requireNonNull(group, "The 'group' field is not initialized."),
-          leaderId, primary,
+          leaderId, primaryDataStreamServer,
           Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
           properties, retryPolicy);
     }
@@ -123,9 +123,9 @@ public interface RaftClient extends Closeable {
       return this;
     }
 
-    /** Set primary. */
-    public Builder setPrimary(RaftPeer primary) {
-      this.primary = primary;
+    /** Set primary server of DataStream. */
+    public Builder setPrimaryDataStreamServer(RaftPeer primaryDataStreamServer) {
+      this.primaryDataStreamServer = primaryDataStreamServer;
       return this;
     }
 

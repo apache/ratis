@@ -43,15 +43,16 @@ import java.util.concurrent.CompletableFuture;
  * allows client to create streams and send asynchronously.
  */
 public class DataStreamClientImpl implements DataStreamClient {
-  // TODO Similar to RaftClientImpl, pass ClientId and RaftGroupId/RaftGroup in constructor.
-  private final ClientId clientId = ClientId.randomId();
+  private final ClientId clientId;
   private final RaftGroupId groupId;
 
   private final RaftPeer raftServer;
   private final DataStreamClientRpc dataStreamClientRpc;
   private final OrderedStreamAsync orderedStreamAsync;
 
-  public DataStreamClientImpl(RaftGroupId groupId, RaftPeer server, RaftProperties properties, Parameters parameters) {
+  public DataStreamClientImpl(
+      ClientId clientId, RaftGroupId groupId, RaftPeer server, RaftProperties properties, Parameters parameters) {
+    this.clientId = clientId;
     this.groupId = groupId;
     this.raftServer = Objects.requireNonNull(server, "server == null");
 

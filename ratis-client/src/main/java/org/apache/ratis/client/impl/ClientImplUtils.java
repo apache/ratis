@@ -33,9 +33,9 @@ public final class ClientImplUtils {
   }
 
   public static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
-      RaftPeerId leaderId, RaftPeer primary, RaftClientRpc clientRpc, RaftProperties properties,
+      RaftPeerId leaderId, RaftPeer primaryDataStreamServer, RaftClientRpc clientRpc, RaftProperties properties,
       RetryPolicy retryPolicy) {
-    return new RaftClientImpl(clientId, group, leaderId, primary, clientRpc, properties,
+    return new RaftClientImpl(clientId, group, leaderId, primaryDataStreamServer, clientRpc, properties,
         retryPolicy);
   }
 }

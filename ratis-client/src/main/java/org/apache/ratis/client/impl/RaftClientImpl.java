@@ -123,7 +123,7 @@ public final class RaftClientImpl implements RaftClient {
   private final Supplier<BlockingImpl> blockingApi;
   private final Supplier<DataStreamApi> dataStreamApi;
 
-  RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primary,
+  RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primaryDataStreamServer,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
     this.clientId = clientId;
     this.clientRpc = clientRpc;
@@ -141,7 +141,7 @@ public final class RaftClientImpl implements RaftClient {
     this.asyncApi = JavaUtils.memoize(() -> new AsyncImpl(this));
     this.blockingApi = JavaUtils.memoize(() -> new BlockingImpl(this));
     this.dataStreamApi = JavaUtils.memoize(
-        () ->new DataStreamClientImpl(groupId, primary, properties, null));
+        () ->new DataStreamClientImpl(clientId, groupId, primaryDataStreamServer, properties, null));
   }
 
   public RaftPeerId getLeaderId() {
