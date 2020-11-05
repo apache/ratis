@@ -120,6 +120,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage, REPLY extends RaftRp
       RaftTestUtil.block(q.blockSendRequestTo::get);
       return q.request(request);
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException("", e);
     }
   }
@@ -149,6 +150,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage, REPLY extends RaftRp
         break;
       }
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException("", e);
     }
     return request;
@@ -191,6 +193,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage, REPLY extends RaftRp
       try {
         Thread.sleep(randomSleepMs);
       } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
         throw IOUtils.toInterruptedIOException("", ie);
       }
     }

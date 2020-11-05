@@ -78,6 +78,7 @@ public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Co
       RaftTestUtil.block(() -> shouldBlock(localId, remoteId));
     } catch (InterruptedException e) {
       LOG.debug("Interrupted while blocking request from " + remoteId + " to " + localId, e);
+      Thread.currentThread().interrupt();
     }
     LOG.info(localId + ": unBlock request from " + remoteId);
     return true;

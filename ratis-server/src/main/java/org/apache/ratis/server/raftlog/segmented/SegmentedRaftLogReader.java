@@ -212,7 +212,7 @@ class SegmentedRaftLogReader implements Closeable {
       in.reset();
 
       throw e;
-    } catch (Throwable e) {
+    } catch (Exception e) {
       // raft log requires no gap between any two entries. thus if an entry is
       // broken, throw the exception instead of skipping broken entries
       in.reset();

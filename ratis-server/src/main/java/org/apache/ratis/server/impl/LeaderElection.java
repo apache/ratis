@@ -163,7 +163,7 @@ class LeaderElection implements Runnable {
         server.getLeaderElectionMetrics().getLeaderElectionTimer().time();
     try {
       askForVotes();
-    } catch(Throwable e) {
+    } catch(Exception e) {
       final LifeCycle.State state = lifeCycle.getCurrentState();
       if (state.isClosingOrClosed()) {
         LOG.info("{}: {} is safely ignored since this is already {}",

@@ -682,6 +682,7 @@ public class LogStateMachine extends BaseStateMachine {
                 // avoid causing problem during leader election storm
                 Thread.sleep(10000);
               } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
               }
               sendArchiveLogrequestToNewLeader(writer.getLastWrittenRecordId(), logName, location);
             }

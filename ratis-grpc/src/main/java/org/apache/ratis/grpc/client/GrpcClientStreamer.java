@@ -154,6 +154,7 @@ public class GrpcClientStreamer implements Closeable {
       try {
         wait();
       } catch (InterruptedException ignored) {
+        Thread.currentThread().interrupt();
       }
     }
     if (isRunning()) {
@@ -181,6 +182,7 @@ public class GrpcClientStreamer implements Closeable {
       try {
         wait();
       } catch (InterruptedException ignored) {
+        Thread.currentThread().interrupt();
       }
     }
     if (!isRunning() && (!dataQueue.isEmpty() || !ackQueue.isEmpty())) {
@@ -200,6 +202,7 @@ public class GrpcClientStreamer implements Closeable {
     try {
       senderThread.join();
     } catch (InterruptedException ignored) {
+      Thread.currentThread().interrupt();
     }
     proxyMap.close();
   }
@@ -219,6 +222,7 @@ public class GrpcClientStreamer implements Closeable {
             try {
               GrpcClientStreamer.this.wait();
             } catch (InterruptedException ignored) {
+              Thread.currentThread().interrupt();
             }
           }
           if (running == RunningState.RUNNING) {
@@ -359,6 +363,7 @@ public class GrpcClientStreamer implements Closeable {
     try {
       exceptionAndRetry.retryInterval.sleep();
     } catch (InterruptedException ignored) {
+      Thread.currentThread().interrupt();
     }
     leaderProxy.onNext(request);
   }

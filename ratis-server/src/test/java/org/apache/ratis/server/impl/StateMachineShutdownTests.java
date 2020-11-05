@@ -52,6 +52,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
           try {
             objectToWait.wait();
           } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new RuntimeException();
           }
         }

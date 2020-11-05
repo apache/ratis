@@ -400,6 +400,7 @@ public class ServerState implements Closeable {
     try {
       stateMachineUpdater.stopAndJoin();
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       LOG.warn("{}: Interrupted when joining stateMachineUpdater", getMemberId(), e);
     }
     LOG.info("{}: closes. applyIndex: {}", getMemberId(), getLastAppliedIndex());

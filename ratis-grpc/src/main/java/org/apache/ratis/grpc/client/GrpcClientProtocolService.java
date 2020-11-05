@@ -246,7 +246,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       try {
         final RaftClientRequest r = ClientProtoUtils.toRaftClientRequest(request);
         processClientRequest(r);
-      } catch (Throwable e) {
+      } catch (Exception e) {
         responseError(e, () -> "onNext for " + ClientProtoUtils.toString(request) + " in " + name);
       }
     }

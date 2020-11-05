@@ -83,8 +83,8 @@ public class TestDataBlockingQueue {
           }
           assertOfferPull(offeringValue.get(), polledValue.get(), elementLimit);
         }
-      } catch (Throwable t) {
-        ExitUtils.terminate(-2, "pollThread failed", t, null);
+      } catch (Exception e) {
+        ExitUtils.terminate(-2, "pollThread failed", e, null);
       }
     });
 
@@ -98,8 +98,8 @@ public class TestDataBlockingQueue {
           }
           assertOfferPull(offeringValue.get(), polledValue.get(), elementLimit);
         }
-      } catch (Throwable t) {
-        ExitUtils.terminate(-1, "offerThread failed", t, null);
+      } catch (Exception e) {
+        ExitUtils.terminate(-1, "offerThread failed", e, null);
       }
     });
 

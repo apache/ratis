@@ -513,10 +513,10 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
         final String err = getName() + ": Timeout readStateMachineData for " + toLogEntryString(logEntry);
         LOG.error(err, t);
         throw t;
-      } catch (Throwable t) {
+      } catch (Exception e) {
         final String err = getName() + ": Failed readStateMachineData for " + toLogEntryString(logEntry);
-        LOG.error(err, t);
-        throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(t));
+        LOG.error(err, e);
+        throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
       }
       // by this time we have already read the state machine data,
       // so the log entry data should be set now

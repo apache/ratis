@@ -127,6 +127,7 @@ public class LeaderState {
         queue.put(event);
       } catch (InterruptedException e) {
         LOG.info("{}: Interrupted when submitting {} ", this, event);
+        Thread.currentThread().interrupt();
       }
     }
 
@@ -134,7 +135,8 @@ public class LeaderState {
       final StateUpdateEvent e;
       try {
         e = queue.poll(server.getMaxTimeoutMs(), TimeUnit.MILLISECONDS);
-      } catch(InterruptedException ie) {
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
         String s = this + ": poll() is interrupted";
         if (!running) {
           LOG.info(s + " gracefully");
@@ -737,6 +739,7 @@ public class LeaderState {
             // leave some time for all RPC senders to send out new conf entry
             Thread.sleep(server.getMinTimeoutMs());
           } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
           }
           // the pending request handler will send NotLeaderException for
           // pending client requests when it stops

@@ -284,8 +284,8 @@ public class GrpcClientProtocolClient implements Closeable {
             return;
           }
           handleReplyFuture(callId, f -> f.complete(reply));
-        } catch (Throwable t) {
-          handleReplyFuture(callId, f -> f.completeExceptionally(t));
+        } catch (Exception e) {
+          handleReplyFuture(callId, f -> f.completeExceptionally(e));
         }
       }
 
@@ -316,7 +316,7 @@ public class GrpcClientProtocolClient implements Closeable {
         if (!requestStreamer.onNext(ClientProtoUtils.toRaftClientRequestProto(request))) {
           return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + ": the stream is closed."));
         }
-      } catch(Throwable t) {
+      } catch(Exception t) {
         handleReplyFuture(request.getCallId(), future -> future.completeExceptionally(t));
         return f;
       }

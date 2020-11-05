@@ -136,7 +136,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   public void startImpl() throws IOException {
     try {
       channelFuture.syncUninterruptibly();
-    } catch(Throwable t) {
+    } catch(Exception t) {
       throw new IOException(getId() + ": Failed to start " + getClass().getSimpleName(), t);
     }
   }
@@ -152,6 +152,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
       workerGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       LOG.error("Interrupt EventLoopGroup terminate", e);
+      Thread.currentThread().interrupt();
     }
     super.closeImpl();
   }

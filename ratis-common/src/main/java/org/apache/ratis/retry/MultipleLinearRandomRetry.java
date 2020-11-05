@@ -180,7 +180,7 @@ public final class MultipleLinearRandomRetry implements RetryPolicy {
     final String s = elements[i].trim().replace("_", "");
     try {
       return parser.apply(s);
-    } catch(Throwable t) {
+    } catch(Exception t) {
       LOG.warn("Failed to parse \"{}\", which is the index {} element in \"{}\"", s, i, input, t);
       return null;
     }

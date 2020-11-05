@@ -97,6 +97,7 @@ public class TestResourceSemaphore extends BaseTest {
       try {
         g.acquire(permits);
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         e.printStackTrace();
       }
     };

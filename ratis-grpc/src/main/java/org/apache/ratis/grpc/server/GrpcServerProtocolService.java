@@ -109,7 +109,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       if (!replyInOrder(request)) {
         try {
           process(request).thenAccept(this::handleReply);
-        } catch (Throwable e) {
+        } catch (Exception e) {
           handleError(e, request);
         }
         return;
@@ -126,7 +126,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
           current.getFuture().complete(null);
           return null;
         });
-      } catch (Throwable e) {
+      } catch (Exception e) {
         handleError(e, request);
         current.getFuture().completeExceptionally(e);
       }
@@ -170,7 +170,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       final RequestVoteReplyProto reply = server.requestVote(request);
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
-    } catch (Throwable e) {
+    } catch (Exception e) {
       GrpcUtil.warn(LOG, () -> getId() + ": Failed requestVote " + ProtoUtils.toString(request.getServerRequest()), e);
       responseObserver.onError(GrpcUtil.wrapException(e));
     }

@@ -129,12 +129,12 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
         } catch (IOException e) {
           LOG.error(this + " has " + e);
           LOG.trace("TRACE", e);
-        } catch(Throwable t) {
+        } catch(Exception e) {
           if (!handlerImpl.isAlive()) {
             LOG.info(this + " is stopped.");
             break;
           }
-          ExitUtils.terminate(1, this + " is terminating.", t, LOG);
+          ExitUtils.terminate(1, this + " is terminating.", e, LOG);
         }
       }
     }

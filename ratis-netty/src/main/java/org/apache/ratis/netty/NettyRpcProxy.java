@@ -62,6 +62,7 @@ public class NettyRpcProxy implements Closeable {
       try {
         return new NettyRpcProxy(peer, properties, group);
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         throw IOUtils.toInterruptedIOException("Failed connecting to " + peer, e);
       }
     }
@@ -183,6 +184,7 @@ public class NettyRpcProxy implements Closeable {
       channelFuture.sync();
       return reply.get(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit());
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException(ProtoUtils.toString(request)
           + " sending from " + peer + " is interrupted.", e);
     } catch (ExecutionException e) {

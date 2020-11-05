@@ -158,6 +158,7 @@ public final class OrderedAsync {
     try {
       requestSemaphore.acquire();
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       return JavaUtils.completeExceptionally(IOUtils.toInterruptedIOException(
           "Interrupted when sending " + type + ", message=" + message, e));
     }

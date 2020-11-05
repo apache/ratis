@@ -118,7 +118,7 @@ public class SegmentedRaftLogInputStream implements Closeable {
     if (state.isUnopened()) {
         try {
           init();
-        } catch (Throwable e) {
+        } catch (Exception e) {
           LOG.error("caught exception initializing " + this, e);
           throw IOUtils.asIOException(e);
         }
@@ -240,10 +240,10 @@ public class SegmentedRaftLogInputStream implements Closeable {
         } else {
           hitError = false;
         }
-      } catch (Throwable t) {
+      } catch (Exception e) {
         LOG.warn("Caught exception after scanning through {} ops from {}"
             + " while determining its valid length. Position was "
-            + lastPos, numValid, in, t);
+            + lastPos, numValid, in, e);
         hitError = true;
         continue;
       }

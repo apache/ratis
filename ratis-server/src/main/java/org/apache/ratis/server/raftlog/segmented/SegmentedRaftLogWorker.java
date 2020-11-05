@@ -229,6 +229,7 @@ class SegmentedRaftLogWorker implements Runnable {
     try {
       workerThread.join(3000);
     } catch (InterruptedException ignored) {
+      Thread.currentThread().interrupt();
     }
     IOUtils.cleanup(LOG, out);
     LOG.info("{} close()", name);
@@ -264,12 +265,12 @@ class SegmentedRaftLogWorker implements Runnable {
       }
       enqueueTimerContext.stop();
       task.startTimerOnEnqueue(raftLogQueueingTimer);
-    } catch (Throwable t) {
-      if (t instanceof InterruptedException && !running) {
+    } catch (Exception e) {
+      if (e instanceof InterruptedException && !running) {
         LOG.info("Got InterruptedException when adding task " + task
             + ". The SegmentedRaftLogWorker already stopped.");
       } else {
-        LOG.error("Failed to add IO task {}", task, t);
+        LOG.error("Failed to add IO task {}", task, e);
         if (server != null) {
           server.shutdown();
         }
@@ -320,6 +321,7 @@ class SegmentedRaftLogWorker implements Runnable {
           task.done();
         }
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         if (running) {
           LOG.warn("{} got interrupted while still running",
               Thread.currentThread().getName());
@@ -327,14 +329,13 @@ class SegmentedRaftLogWorker implements Runnable {
         LOG.info(Thread.currentThread().getName()
             + " was interrupted, exiting. There are " + queue.getNumElements()
             + " tasks remaining in the queue.");
-        Thread.currentThread().interrupt();
         return;
-      } catch (Throwable t) {
+      } catch (Exception e) {
         if (!running) {
           LOG.info("{} got closed and hit exception",
-              Thread.currentThread().getName(), t);
+              Thread.currentThread().getName(), e);
         } else {
-          LOG.error("{} hit exception", Thread.currentThread().getName(), t);
+          LOG.error("{} hit exception", Thread.currentThread().getName(), e);
           // Shutdown raft group instead of terminating jvm.
           if (server != null) {
             server.shutdown();
@@ -465,7 +466,7 @@ class SegmentedRaftLogWorker implements Runnable {
         try {
           // this.entry != entry iff the entry has state machine data
           this.stateMachineFuture = stateMachine.data().write(entry);
-        } catch (Throwable e) {
+        } catch (Exception e) {
           LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
               + ", entry=" + ServerProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
           throw e;

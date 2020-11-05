@@ -313,7 +313,8 @@ public final class TimeDuration implements Comparable<TimeDuration> {
       if (log != null) {
         log.accept(StringUtils.stringSupplierAsObject(() -> "Completed sleeping " + this));
       }
-    } catch(InterruptedException ie) {
+    } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
       if (log != null) {
         log.accept(StringUtils.stringSupplierAsObject(() -> "Interrupted sleeping " + this));
       }

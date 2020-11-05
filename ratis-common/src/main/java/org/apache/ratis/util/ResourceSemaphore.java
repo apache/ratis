@@ -155,11 +155,11 @@ public class ResourceSemaphore extends Semaphore {
         for (; i < permits.length; i++) {
           resources.get(i).acquire(permits[i]);
         }
-      } catch (Throwable t) {
+      } catch (Exception e) {
         for (; --i >= 0;) {
           resources.get(i).release(permits[i]);
         }
-        throw t;
+        throw e;
       }
     }
 

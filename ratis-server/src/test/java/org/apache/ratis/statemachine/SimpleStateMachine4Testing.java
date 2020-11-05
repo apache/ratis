@@ -152,7 +152,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     void await(Type type) {
       try {
         getFuture(type).get();
-      } catch(InterruptedException | ExecutionException e) {
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException("Failed to await " + type, e);
+      } catch(ExecutionException e) {
         throw new IllegalStateException("Failed to await " + type, e);
       }
     }
@@ -175,7 +178,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
         try {
           TimeUnit.SECONDS.sleep(1);
-        } catch(InterruptedException ignored) {
+        } catch (InterruptedException ignored) {
+          Thread.currentThread().interrupt();
         }
       }
     });

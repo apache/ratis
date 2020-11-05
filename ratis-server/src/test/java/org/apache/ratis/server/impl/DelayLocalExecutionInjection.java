@@ -67,6 +67,7 @@ public class DelayLocalExecutionInjection implements CodeInjectionForTesting.Cod
       RaftTestUtil.delay(d::get);
     } catch (InterruptedException e) {
       LOG.debug("Interrupted while delaying " + localIdStr);
+      Thread.currentThread().interrupt();
     }
     return true;
   }
