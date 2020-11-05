@@ -45,13 +45,14 @@ import java.util.concurrent.CompletableFuture;
 public class DataStreamClientImpl implements DataStreamClient {
   // TODO Similar to RaftClientImpl, pass ClientId and RaftGroupId/RaftGroup in constructor.
   private final ClientId clientId = ClientId.randomId();
-  private final RaftGroupId groupId =  RaftGroupId.randomId();
+  private final RaftGroupId groupId;
 
   private final RaftPeer raftServer;
   private final DataStreamClientRpc dataStreamClientRpc;
   private final OrderedStreamAsync orderedStreamAsync;
 
-  public DataStreamClientImpl(RaftPeer server, RaftProperties properties, Parameters parameters) {
+  public DataStreamClientImpl(RaftGroupId groupId, RaftPeer server, RaftProperties properties, Parameters parameters) {
+    this.groupId = groupId;
     this.raftServer = Objects.requireNonNull(server, "server == null");
 
     final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);

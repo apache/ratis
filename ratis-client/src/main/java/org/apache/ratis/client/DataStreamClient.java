@@ -21,6 +21,7 @@ import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,11 +46,17 @@ public interface DataStreamClient extends DataStreamApi, Closeable {
     private RaftPeer raftServer;
     private RaftProperties properties;
     private Parameters parameters;
+    private RaftGroupId raftGroupId;
 
     private Builder() {}
 
     public DataStreamClientImpl build(){
-      return new DataStreamClientImpl(raftServer, properties, parameters);
+      return new DataStreamClientImpl(raftGroupId, raftServer, properties, parameters);
+    }
+
+    public Builder setRaftGroupId(RaftGroupId raftGroupId) {
+      this.raftGroupId = raftGroupId;
+      return this;
     }
 
     public Builder setRaftServer(RaftPeer peer) {
