@@ -1509,6 +1509,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) {
+    if (!next.hasStateMachineLogEntry()) {
+      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
+    }
+
     if (next.hasConfigurationEntry()) {
       // the reply should have already been set. only need to record
       // the new conf in the metadata file and notify the StateMachine.
@@ -1528,17 +1532,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       trx = stateMachine.applyTransactionSerial(trx);
 
       try {
-        // TODO: This step can be parallelized
-        CompletableFuture<Message> stateMachineFuture =
-            stateMachine.applyTransaction(trx);
+        final CompletableFuture<Message> stateMachineFuture = stateMachine.applyTransaction(trx);
         return replyPendingRequest(next, stateMachineFuture);
       } catch (Throwable e) {
         LOG.error("{}: applyTransaction failed for index:{} proto:{}",
             getMemberId(), next.getIndex(), ServerProtoUtils.toString(next), e);
         throw e;
       }
-    } else {
-      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
     }
     return null;
   }

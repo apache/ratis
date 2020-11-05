@@ -140,9 +140,9 @@ public interface StateMachine extends Closeable {
 
     /**
      * Notify the {@link StateMachine} a term-index update event.
-     * This method will be invoked when a {@link RaftProtos.MetadataProto} is processed.
-     * For {@link RaftProtos.StateMachineLogEntryProto} and {@link RaftProtos.RaftConfigurationProto},
-     * this method will not be invoked.
+     * This method will be invoked when a {@link RaftProtos.MetadataProto}
+     * or {@link RaftProtos.RaftConfigurationProto} is processed.
+     * For {@link RaftProtos.StateMachineLogEntryProto}, this method will not be invoked.
      *
      * @param term The term of the log entry
      * @param index The index of the log entry
@@ -152,7 +152,6 @@ public interface StateMachine extends Closeable {
     /**
      * Notify the {@link StateMachine} a configuration change.
      * This method will be invoked when a {@link RaftProtos.RaftConfigurationProto} is processed.
-     * The {@link StateMachine} may keep track of configuration changes and the corresponding term-index updates.
      *
      * @param term term of the current log entry
      * @param index index which is being updated
@@ -429,9 +428,7 @@ public interface StateMachine extends Closeable {
    */
   CompletableFuture<Message> applyTransaction(TransactionContext trx);
 
-  /**
-   * @return the last term-index applied by this {@link StateMachine}
-   */
+  /** @return the last term-index applied by this {@link StateMachine}. */
   TermIndex getLastAppliedTermIndex();
 
   /**
