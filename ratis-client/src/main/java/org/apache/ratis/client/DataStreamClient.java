@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.client;
 
-import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -30,9 +29,9 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 
 /**
- * A user interface extending {@link DataStreamApi}.
+ * A user interface extending {@link DataStreamRpcApi}.
  */
-public interface DataStreamClient extends DataStreamApi, Closeable {
+public interface DataStreamClient extends DataStreamRpcApi, Closeable {
   Logger LOG = LoggerFactory.getLogger(DataStreamClient.class);
 
   /** Return the rpc client instance **/

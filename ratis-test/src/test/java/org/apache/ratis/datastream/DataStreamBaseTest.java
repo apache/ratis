@@ -19,14 +19,12 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.netty.NettyConfigKeys;
-import org.apache.ratis.netty.server.NettyServerStreamRpc;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.GroupInfoReply;
@@ -391,15 +389,6 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
-  protected void runTestSameStreamId(int numServers, int bufferSize, int bufferNum) throws Exception {
-    try {
-      setup(numServers);
-      runTestSameStreamId(bufferSize, bufferNum);
-    } finally {
-      shutdown();
-    }
-  }
-
   private void runTestDataStream(int numClients, int numStreams, int bufferSize, int bufferNum) throws Exception {
     final List<CompletableFuture<Void>> futures = new ArrayList<>();
     final List<RaftClient> clients = new ArrayList<>();
@@ -437,22 +426,6 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
-  private void runTestSameStreamId(int bufferSize, int bufferNum)
-      throws IOException {
-    try (final RaftClient client = newRaftClientForDataStream()) {
-      DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream(raftGroup.getGroupId());
-      runTestDataStream(out, bufferSize, bufferNum);
-
-      NettyServerStreamRpc nettyServerStreamRpc = (NettyServerStreamRpc) getPrimaryServer().dataStreamServer.getServerRpc();
-      List<DataStreamOutputRpc> dataStreamOutputRpcs = nettyServerStreamRpc.getDataStreamOutputRpcs();
-      Assert.assertEquals(dataStreamOutputRpcs.size(), 2);
-      for (DataStreamOutputRpc outputRpc : dataStreamOutputRpcs) {
-        DataStreamOutputImpl peerOut = (DataStreamOutputImpl)outputRpc;
-        Assert.assertEquals(out.getStreamId(), peerOut.getStreamId());
-      }
-    }
-  }
-
   private void runTestDataStream(DataStreamOutputImpl out, int bufferSize, int bufferNum) {
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
     final List<Integer> sizes = new ArrayList<>();
@@ -484,22 +457,28 @@ abstract class DataStreamBaseTest extends BaseTest {
       Assert.assertEquals(reply.getType(), Type.STREAM_DATA);
     }
     try {
-      assertHeader(out.getHeader(), dataSize);
+      for (Server s : servers) {
+        assertHeader(s, out.getHeader(), dataSize);
+      }
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
   }
 
-  void assertHeader(RaftClientRequest header, int dataSize) throws Exception {
-    final Server server = getPrimaryServer();
+  void assertHeader(Server server, RaftClientRequest header, int dataSize) throws Exception {
     final MultiDataStreamStateMachine s = server.getStateMachine(header.getRaftGroupId());
     final SingleDataStream stream = s.getSingleDataStream(header.getCallId());
     final RaftClientRequest writeRequest = stream.getWriteRequest();
     Assert.assertEquals(writeRequest.getCallId(), header.getCallId());
     Assert.assertEquals(writeRequest.getRaftGroupId(), header.getRaftGroupId());
     Assert.assertEquals(raftGroup.getGroupId(), header.getRaftGroupId());
-    Assert.assertEquals(writeRequest.getServerId(), header.getServerId());
     Assert.assertEquals(dataSize, stream.getByteWritten());
+    Assert.assertEquals(writeRequest.getCallId(), header.getCallId());
+
+    final Server primary = getPrimaryServer();
+    if (server == primary) {
+      Assert.assertEquals(writeRequest.getServerId(), header.getServerId());
+    }
   }
 
   static ByteBuffer initBuffer(int offset, int size) {

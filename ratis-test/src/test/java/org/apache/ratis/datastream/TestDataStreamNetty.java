@@ -123,9 +123,4 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
     // primary is 0, leader is 0
     testCloseStream(0, 1);
   }
-
-  @Test
-  public void testSameStreamId() throws Exception {
-    runTestSameStreamId(3, 1_000_000, 10);
-  }
 }

@@ -38,7 +38,6 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
@@ -141,7 +140,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return stream;
     }
 
-    public List<DataStreamOutputRpc> getDataStreamOutputs() {
+    List<DataStreamOutputRpc> getDataStreamOutputs() {
       return outs;
     }
 
@@ -157,15 +156,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     public String toString() {
       return getClass().getSimpleName() + ":" + request;
     }
-  }
-
-  @VisibleForTesting
-  public List<DataStreamOutputRpc> getDataStreamOutputRpcs() {
-    List<DataStreamOutputRpc> outputRpcs = new ArrayList<>();
-    for (StreamInfo info : streams.map.values()) {
-      outputRpcs.addAll(info.getDataStreamOutputs());
-    }
-    return outputRpcs;
   }
 
   static class StreamMap {
