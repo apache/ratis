@@ -31,7 +31,6 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
@@ -96,10 +95,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       peers.addAll(newPeers);
     }
 
-    List<DataStreamOutputRpc> getDataStreamOutput(RaftGroupId groupId, long streamId) throws IOException {
+    List<DataStreamOutputRpc> getDataStreamOutput(RaftClientRequest request) throws IOException {
       final List<DataStreamOutputRpc> outs = new ArrayList<>();
       try {
-        getDataStreamOutput(outs, groupId, streamId);
+        getDataStreamOutput(outs, request);
       } catch (IOException e) {
         outs.forEach(CloseAsync::closeAsync);
         throw e;
@@ -107,11 +106,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return outs;
     }
 
-    private void getDataStreamOutput(List<DataStreamOutputRpc> outs, RaftGroupId groupId, long streamId)
+    private void getDataStreamOutput(List<DataStreamOutputRpc> outs, RaftClientRequest request)
         throws IOException {
       for (RaftPeer peer : peers) {
         try {
-          outs.add((DataStreamOutputRpc) map.getProxy(peer.getId()).stream(groupId, streamId));
+          outs.add((DataStreamOutputRpc) map.getProxy(peer.getId()).stream(request));
         } catch (IOException e) {
           throw new IOException(map.getName() + ": Failed to getDataStreamOutput for " + peer, e);
         }
@@ -248,13 +247,13 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     proxies.addPeers(newPeers);
   }
 
-  private StreamInfo newStreamInfo(ByteBuf buf, long streamId) {
+  private StreamInfo newStreamInfo(ByteBuf buf) {
     try {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
       final StateMachine stateMachine = server.getStateMachine(request.getRaftGroupId());
       return new StreamInfo(request, stateMachine.data().stream(request),
-          proxies.getDataStreamOutput(request.getRaftGroupId(), streamId));
+          proxies.getDataStreamOutput(request));
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
@@ -365,7 +364,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     final List<CompletableFuture<DataStreamReply>> remoteWrites = new ArrayList<>();
     final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
     if (request.getType() == Type.STREAM_HEADER) {
-      info = streams.computeIfAbsent(key, id -> newStreamInfo(buf, request.getStreamId()));
+      info = streams.computeIfAbsent(key, id -> newStreamInfo(buf));
       localWrite = CompletableFuture.completedFuture(0L);
       for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
         remoteWrites.add(out.getHeaderFuture());
