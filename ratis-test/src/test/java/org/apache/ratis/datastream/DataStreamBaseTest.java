@@ -21,7 +21,6 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -458,22 +457,28 @@ abstract class DataStreamBaseTest extends BaseTest {
       Assert.assertEquals(reply.getType(), Type.STREAM_DATA);
     }
     try {
-      assertHeader(out.getHeader(), dataSize);
+      for (Server s : servers) {
+        assertHeader(s, out.getHeader(), dataSize);
+      }
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
   }
 
-  void assertHeader(RaftClientRequest header, int dataSize) throws Exception {
-    final Server server = getPrimaryServer();
+  void assertHeader(Server server, RaftClientRequest header, int dataSize) throws Exception {
     final MultiDataStreamStateMachine s = server.getStateMachine(header.getRaftGroupId());
     final SingleDataStream stream = s.getSingleDataStream(header.getCallId());
     final RaftClientRequest writeRequest = stream.getWriteRequest();
     Assert.assertEquals(writeRequest.getCallId(), header.getCallId());
     Assert.assertEquals(writeRequest.getRaftGroupId(), header.getRaftGroupId());
     Assert.assertEquals(raftGroup.getGroupId(), header.getRaftGroupId());
-    Assert.assertEquals(writeRequest.getServerId(), header.getServerId());
     Assert.assertEquals(dataSize, stream.getByteWritten());
+    Assert.assertEquals(writeRequest.getCallId(), header.getCallId());
+
+    final Server primary = getPrimaryServer();
+    if (server == primary) {
+      Assert.assertEquals(writeRequest.getServerId(), header.getServerId());
+    }
   }
 
   static ByteBuffer initBuffer(int offset, int size) {

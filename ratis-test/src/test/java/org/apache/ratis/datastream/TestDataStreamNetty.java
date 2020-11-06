@@ -78,7 +78,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
     RaftClientReply expectedClientReply = new RaftClientReply(clientId, suggestedLeader.getId(),
         groupId, callId, true, null, null, longIndex, null);
 
-    for (int i = 0; i < 3; i ++) {
+    for (int i = 0; i < numServers; i ++) {
       RaftServer raftServer = mock(RaftServer.class);
       RaftClientReply raftClientReply;
       RaftPeerId peerId = RaftPeerId.valueOf("s" + i);
