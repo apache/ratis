@@ -20,10 +20,10 @@ package org.apache.ratis.client;
 
 import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.DataStreamOutput;
-import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftClientRequest;
 
 /** An RPC interface which extends the user interface {@link DataStreamApi}. */
 public interface DataStreamRpcApi extends DataStreamApi {
   /** Create a stream for primary server to send data to peer server. */
-  DataStreamOutput stream(RaftGroupId groupId, long streamId);
+  DataStreamOutput stream(RaftClientRequest request);
 }
