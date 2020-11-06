@@ -474,6 +474,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     Assert.assertEquals(raftGroup.getGroupId(), header.getRaftGroupId());
     Assert.assertEquals(dataSize, stream.getByteWritten());
     Assert.assertEquals(writeRequest.getCallId(), header.getCallId());
+    Assert.assertEquals(writeRequest.getClientId(), header.getClientId());
 
     final Server primary = getPrimaryServer();
     if (server == primary) {
