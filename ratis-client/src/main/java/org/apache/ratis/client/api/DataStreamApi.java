@@ -37,9 +37,6 @@ import org.apache.ratis.protocol.RaftGroupId;
  * but {@link MessageStreamApi} streams messages only to the leader.
  */
 public interface DataStreamApi {
-  /** Create a stream to write data to the default group. */
+  /** Create a stream to write data. */
   DataStreamOutput stream();
-
-  /** Create a stream to write data to the given group. */
-  DataStreamOutput stream(RaftGroupId groupId);
 }

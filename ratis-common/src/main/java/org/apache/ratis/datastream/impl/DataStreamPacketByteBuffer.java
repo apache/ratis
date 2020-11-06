@@ -24,13 +24,13 @@ import java.nio.ByteBuffer;
  * Implements {@link org.apache.ratis.protocol.DataStreamPacket} with {@link ByteBuffer}.
  */
 public abstract class DataStreamPacketByteBuffer extends DataStreamPacketImpl {
-  private static final ByteBuffer EMPTY = ByteBuffer.allocateDirect(0).asReadOnlyBuffer();
+  public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.allocateDirect(0).asReadOnlyBuffer();
 
   private final ByteBuffer buffer;
 
   public DataStreamPacketByteBuffer(long streamId, long streamOffset, ByteBuffer buffer, Type type) {
     super(streamId, streamOffset, type);
-    this.buffer = buffer != null? buffer.asReadOnlyBuffer(): EMPTY;
+    this.buffer = buffer != null? buffer.asReadOnlyBuffer(): EMPTY_BYTE_BUFFER;
   }
 
   @Override
