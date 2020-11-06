@@ -397,8 +397,8 @@ abstract class DataStreamBaseTest extends BaseTest {
         final RaftClient client = newRaftClientForDataStream();
         clients.add(client);
         for (int i = 0; i < numStreams; i++) {
-          futures.add(CompletableFuture.runAsync(
-              () -> runTestDataStream((DataStreamOutputImpl) client.getDataStreamApi().stream(raftGroup.getGroupId()), bufferSize, bufferNum)));
+          futures.add(CompletableFuture.runAsync(() -> runTestDataStream(
+              (DataStreamOutputImpl) client.getDataStreamApi().stream(), bufferSize, bufferNum)));
         }
       }
       Assert.assertEquals(numClients*numStreams, futures.size());
@@ -413,7 +413,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   private void runTestCloseStream(int bufferSize, int bufferNum, RaftClientReply expectedClientReply)
       throws IOException {
     try (final RaftClient client = newRaftClientForDataStream()) {
-      DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream(raftGroup.getGroupId());
+      final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
       runTestDataStream(out, bufferSize, bufferNum);
       DataStreamReplyByteBuffer replyByteBuffer = (DataStreamReplyByteBuffer) out.closeAsync().join();
 

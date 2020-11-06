@@ -25,13 +25,13 @@ import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
+import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
-import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -75,35 +75,35 @@ public class DataStreamClientImpl implements DataStreamClient {
           ClientProtoUtils.toRaftClientRequestProto(header).toByteString().asReadOnlyByteBuffer(), Type.STREAM_HEADER);
     }
 
-    long getStreamId() {
-      return header.getCallId();
+    private CompletableFuture<DataStreamReply> send(Type type, ByteBuffer buffer) {
+      return orderedStreamAsync.sendRequest(header.getCallId(), streamOffset, buffer, type);
+    }
+
+    private CompletableFuture<DataStreamReply> send(Type type) {
+      return send(type, DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER);
     }
 
     // send to the attached dataStreamClientRpc
     @Override
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf) {
-      final CompletableFuture<DataStreamReply> f = orderedStreamAsync.sendRequest(getStreamId(), streamOffset, buf,
-          Type.STREAM_DATA);
+      final CompletableFuture<DataStreamReply> f = send(Type.STREAM_DATA, buf);
       streamOffset += buf.remaining();
       return f;
     }
 
     @Override
     public CompletableFuture<DataStreamReply> closeAsync() {
-      return orderedStreamAsync.sendRequest(getStreamId(), streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
-          Type.STREAM_CLOSE);
+      return send(Type.STREAM_CLOSE);
     }
 
     @Override
     public CompletableFuture<DataStreamReply> closeForwardAsync() {
-      return orderedStreamAsync.sendRequest(getStreamId(), streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
-          Type.STREAM_CLOSE_FORWARD);
+      return send(Type.STREAM_CLOSE_FORWARD);
     }
 
     @Override
     public CompletableFuture<DataStreamReply> startTransactionAsync() {
-      return orderedStreamAsync.sendRequest(getStreamId(), streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
-          Type.START_TRANSACTION);
+      return send(Type.START_TRANSACTION);
     }
 
     public RaftClientRequest getHeader() {
@@ -123,11 +123,6 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutputRpc stream() {
-    return stream(groupId);
-  }
-
-  @Override
-  public DataStreamOutputRpc stream(RaftGroupId gid) {
     RaftClientRequest request = new RaftClientRequest(
         clientId, raftServer.getId(), groupId, RaftClientImpl.nextCallId(), RaftClientRequest.writeRequestType());
     return new DataStreamOutputImpl(request);
