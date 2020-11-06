@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.client.api;
 
-import org.apache.ratis.protocol.RaftGroupId;
-
 /**
  * Stream data asynchronously to all the servers in the {@link org.apache.ratis.protocol.RaftGroup}.
  * Clients may stream data to the nearest server and then the server will forward the data to the other servers.
