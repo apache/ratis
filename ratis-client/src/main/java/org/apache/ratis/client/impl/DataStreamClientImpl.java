@@ -63,18 +63,13 @@ public class DataStreamClientImpl implements DataStreamClient {
     this.orderedStreamAsync = new OrderedStreamAsync(clientId, dataStreamClientRpc, properties);
   }
 
-  public class DataStreamOutputImpl implements DataStreamOutputRpc {
+  public final class DataStreamOutputImpl implements DataStreamOutputRpc {
     private final RaftClientRequest header;
     private final CompletableFuture<DataStreamReply> headerFuture;
 
     private long streamOffset = 0;
 
-    public DataStreamOutputImpl(RaftGroupId groupId) {
-      this(new RaftClientRequest(clientId, raftServer.getId(), groupId, RaftClientImpl.nextCallId(),
-          RaftClientRequest.writeRequestType()));
-    }
-
-    public DataStreamOutputImpl(RaftClientRequest request) {
+    private DataStreamOutputImpl(RaftClientRequest request) {
       this.header = request;
       this.headerFuture = orderedStreamAsync.sendRequest(request.getCallId(), -1,
           ClientProtoUtils.toRaftClientRequestProto(header).toByteString().asReadOnlyByteBuffer(), Type.STREAM_HEADER);
@@ -133,7 +128,9 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutputRpc stream(RaftGroupId gid) {
-    return new DataStreamOutputImpl(gid);
+    RaftClientRequest request = new RaftClientRequest(
+        clientId, raftServer.getId(), groupId, RaftClientImpl.nextCallId(), RaftClientRequest.writeRequestType());
+    return new DataStreamOutputImpl(request);
   }
 
   @Override
