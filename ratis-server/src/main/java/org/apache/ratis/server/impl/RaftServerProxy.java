@@ -180,9 +180,11 @@ public class RaftServerProxy implements RaftServer {
     this.factory = ServerFactory.cast(rpcType.newFactory(parameters));
 
     this.serverRpc = factory.newRaftServerRpc(this);
-    this.dataStreamServerRpc = new DataStreamServerImpl(this, parameters).getServerRpc();
 
     this.id = id != null? id: RaftPeerId.valueOf(getIdStringFrom(serverRpc));
+
+    this.dataStreamServerRpc = new DataStreamServerImpl(this, parameters).getServerRpc();
+
     this.lifeCycle = new LifeCycle(this.id + "-" + getClass().getSimpleName());
 
     this.implExecutor = Executors.newSingleThreadExecutor();
