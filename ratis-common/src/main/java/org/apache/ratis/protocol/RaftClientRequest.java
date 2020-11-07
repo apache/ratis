@@ -83,8 +83,9 @@ public class RaftClientRequest extends RaftClientMessage {
       return watchRequestType(watch.getIndex(), watch.getReplication());
     }
 
-    public static Type valueOf(MessageStreamRequestTypeProto stream) {
-      return messageStreamRequestType(stream.getStreamId(), stream.getMessageId(), stream.getEndOfRequest());
+    public static Type valueOf(MessageStreamRequestTypeProto messageStream) {
+      return messageStreamRequestType(
+          messageStream.getStreamId(), messageStream.getMessageId(), messageStream.getEndOfRequest());
     }
 
     /**
@@ -104,8 +105,8 @@ public class RaftClientRequest extends RaftClientMessage {
       this(WRITE, write);
     }
 
-    private Type(MessageStreamRequestTypeProto stream) {
-      this(MESSAGESTREAM, stream);
+    private Type(MessageStreamRequestTypeProto messageStream) {
+      this(MESSAGESTREAM, messageStream);
     }
 
     private Type(ReadRequestTypeProto read) {
@@ -133,7 +134,7 @@ public class RaftClientRequest extends RaftClientMessage {
       return (WriteRequestTypeProto)proto;
     }
 
-    public MessageStreamRequestTypeProto getStream() {
+    public MessageStreamRequestTypeProto getMessageStream() {
       Preconditions.assertTrue(is(MESSAGESTREAM), () -> "proto = " + proto);
       return (MessageStreamRequestTypeProto)proto;
     }
@@ -162,7 +163,7 @@ public class RaftClientRequest extends RaftClientMessage {
     }
 
     public static String toString(MessageStreamRequestTypeProto s) {
-      return "Stream" + s.getStreamId() + "-" + s.getMessageId() + (s.getEndOfRequest()? "-eor": "");
+      return "MessageStream" + s.getStreamId() + "-" + s.getMessageId() + (s.getEndOfRequest()? "-eor": "");
     }
 
     @Override
@@ -171,7 +172,7 @@ public class RaftClientRequest extends RaftClientMessage {
         case WRITE:
           return "RW";
         case MESSAGESTREAM:
-          return toString(getStream());
+          return toString(getMessageStream());
         case READ:
           return "RO";
         case STALEREAD:

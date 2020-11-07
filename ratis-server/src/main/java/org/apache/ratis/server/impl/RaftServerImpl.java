@@ -655,7 +655,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // let the state machine handle read-only request from client
       RaftClientRequest.Type type = request.getType();
       if (type.is(TypeCase.MESSAGESTREAM)) {
-        if (type.getStream().getEndOfRequest()) {
+        if (type.getMessageStream().getEndOfRequest()) {
           final CompletableFuture<RaftClientRequest> f = streamEndOfRequestAsync(request);
           if (f.isCompletedExceptionally()) {
             return f.thenApply(r -> null);

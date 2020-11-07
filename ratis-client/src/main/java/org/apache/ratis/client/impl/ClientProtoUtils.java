@@ -128,7 +128,7 @@ public interface ClientProtoUtils {
         b.setWrite(type.getWrite());
         break;
       case MESSAGESTREAM:
-        b.setMessageStream(type.getStream());
+        b.setMessageStream(type.getMessageStream());
         break;
       case READ:
         b.setRead(type.getRead());

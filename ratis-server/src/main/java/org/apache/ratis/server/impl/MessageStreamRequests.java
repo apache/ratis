@@ -117,7 +117,7 @@ class MessageStreamRequests {
   }
 
   CompletableFuture<?> streamAsync(RaftClientRequest request) {
-    final MessageStreamRequestTypeProto stream = request.getType().getStream();
+    final MessageStreamRequestTypeProto stream = request.getType().getMessageStream();
     Preconditions.assertTrue(!stream.getEndOfRequest());
     final Key key = new Key(request.getClientId(), stream.getStreamId());
     final PendingStream pending = streams.computeIfAbsent(key);
@@ -125,7 +125,7 @@ class MessageStreamRequests {
   }
 
   CompletableFuture<ByteString> streamEndOfRequestAsync(RaftClientRequest request) {
-    final MessageStreamRequestTypeProto stream = request.getType().getStream();
+    final MessageStreamRequestTypeProto stream = request.getType().getMessageStream();
     Preconditions.assertTrue(stream.getEndOfRequest());
     final Key key = new Key(request.getClientId(), stream.getStreamId());
 
