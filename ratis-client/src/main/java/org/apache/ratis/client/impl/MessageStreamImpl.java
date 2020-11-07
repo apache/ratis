@@ -51,7 +51,7 @@ public final class MessageStreamImpl implements MessageStreamApi {
     }
 
     private Type getStreamRequestType(boolean endOfRequest) {
-      return RaftClientRequest.streamRequestType(id, messageId.getAndIncrement(), endOfRequest);
+      return RaftClientRequest.messageStreamRequestType(id, messageId.getAndIncrement(), endOfRequest);
     }
 
     @Override

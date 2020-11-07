@@ -40,8 +40,8 @@ public class RaftClientRequest extends RaftClientMessage {
     return WRITE_DEFAULT;
   }
 
-  public static Type streamRequestType(long streamId, long messageId, boolean endOfRequest) {
-    return new Type(StreamRequestTypeProto.newBuilder()
+  public static Type messageStreamRequestType(long streamId, long messageId, boolean endOfRequest) {
+    return new Type(MessageStreamRequestTypeProto.newBuilder()
         .setStreamId(streamId)
         .setMessageId(messageId)
         .setEndOfRequest(endOfRequest)
@@ -83,8 +83,8 @@ public class RaftClientRequest extends RaftClientMessage {
       return watchRequestType(watch.getIndex(), watch.getReplication());
     }
 
-    public static Type valueOf(StreamRequestTypeProto stream) {
-      return streamRequestType(stream.getStreamId(), stream.getMessageId(), stream.getEndOfRequest());
+    public static Type valueOf(MessageStreamRequestTypeProto stream) {
+      return messageStreamRequestType(stream.getStreamId(), stream.getMessageId(), stream.getEndOfRequest());
     }
 
     /**
@@ -104,8 +104,8 @@ public class RaftClientRequest extends RaftClientMessage {
       this(WRITE, write);
     }
 
-    private Type(StreamRequestTypeProto stream) {
-      this(STREAM, stream);
+    private Type(MessageStreamRequestTypeProto stream) {
+      this(MESSAGESTREAM, stream);
     }
 
     private Type(ReadRequestTypeProto read) {
@@ -133,9 +133,9 @@ public class RaftClientRequest extends RaftClientMessage {
       return (WriteRequestTypeProto)proto;
     }
 
-    public StreamRequestTypeProto getStream() {
-      Preconditions.assertTrue(is(STREAM), () -> "proto = " + proto);
-      return (StreamRequestTypeProto)proto;
+    public MessageStreamRequestTypeProto getStream() {
+      Preconditions.assertTrue(is(MESSAGESTREAM), () -> "proto = " + proto);
+      return (MessageStreamRequestTypeProto)proto;
     }
 
     public ReadRequestTypeProto getRead() {
@@ -161,7 +161,7 @@ public class RaftClientRequest extends RaftClientMessage {
       return "Watch" + toString(w.getReplication()) + "(" + w.getIndex() + ")";
     }
 
-    public static String toString(StreamRequestTypeProto s) {
+    public static String toString(MessageStreamRequestTypeProto s) {
       return "Stream" + s.getStreamId() + "-" + s.getMessageId() + (s.getEndOfRequest()? "-eor": "");
     }
 
@@ -170,7 +170,7 @@ public class RaftClientRequest extends RaftClientMessage {
       switch (typeCase) {
         case WRITE:
           return "RW";
-        case STREAM:
+        case MESSAGESTREAM:
           return toString(getStream());
         case READ:
           return "RO";
