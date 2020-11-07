@@ -643,7 +643,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     CompletableFuture<RaftClientReply> replyFuture;
 
-    if (request.is(RaftClientRequestProto.TypeCase.STALEREAD)) {
+    if (request.is(TypeCase.STALEREAD)) {
       replyFuture = staleReadAsync(request);
     } else {
       // first check the server's leader state
@@ -654,8 +654,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
       // let the state machine handle read-only request from client
       RaftClientRequest.Type type = request.getType();
-      if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
-        if (type.getStream().getEndOfRequest()) {
+      if (type.is(TypeCase.MESSAGESTREAM)) {
+        if (type.getMessageStream().getEndOfRequest()) {
           final CompletableFuture<RaftClientRequest> f = streamEndOfRequestAsync(request);
           if (f.isCompletedExceptionally()) {
             return f.thenApply(r -> null);
@@ -665,13 +665,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         }
       }
 
-      if (type.is(RaftClientRequestProto.TypeCase.READ)) {
+      if (type.is(TypeCase.READ)) {
         // TODO: We might not be the leader anymore by the time this completes.
         // See the RAFT paper section 8 (last part)
         replyFuture = processQueryFuture(stateMachine.query(request.getMessage()), request);
-      } else if (type.is(RaftClientRequestProto.TypeCase.WATCH)) {
+      } else if (type.is(TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
-      } else if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
+      } else if (type.is(TypeCase.MESSAGESTREAM)) {
         replyFuture = streamAsync(request);
       } else {
         // query the retry cache
@@ -721,7 +721,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       raftServerMetrics.onFailedClientWrite();
     } else if (type.is(TypeCase.READ)) {
       raftServerMetrics.onFailedClientRead();
-    } else if (type.is(TypeCase.STREAM)) {
+    } else if (type.is(TypeCase.MESSAGESTREAM)) {
       raftServerMetrics.onFailedClientStream();
     }
   }

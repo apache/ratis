@@ -225,7 +225,7 @@ public class LeaderState {
   private final EventProcessor processor;
   private final PendingRequests pendingRequests;
   private final WatchRequests watchRequests;
-  private final StreamRequests streamRequests;
+  private final MessageStreamRequests messageStreamRequests;
   private volatile boolean running = true;
 
   private final int stagingCatchupGap;
@@ -251,7 +251,7 @@ public class LeaderState {
     logAppenderMetrics = new LogAppenderMetrics(server.getMemberId());
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
-    this.streamRequests = new StreamRequests(server.getMemberId());
+    this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
@@ -293,7 +293,7 @@ public class LeaderState {
     } catch (IOException e) {
       LOG.warn("{}: Caught exception in sendNotLeaderResponses", this, e);
     }
-    streamRequests.clear();
+    messageStreamRequests.clear();
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
@@ -357,13 +357,13 @@ public class LeaderState {
   }
 
   CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
-    return streamRequests.streamAsync(request)
+    return messageStreamRequests.streamAsync(request)
         .thenApply(dummy -> new RaftClientReply(request, server.getCommitInfos()))
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
   CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
-    return streamRequests.streamEndOfRequestAsync(request)
+    return messageStreamRequests.streamEndOfRequestAsync(request)
         .thenApply(bytes -> RaftClientRequest.toWriteRequest(request, Message.valueOf(bytes)));
   }
 

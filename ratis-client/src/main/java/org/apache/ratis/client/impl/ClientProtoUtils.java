@@ -87,8 +87,8 @@ public interface ClientProtoUtils {
     switch (p.getTypeCase()) {
       case WRITE:
         return RaftClientRequest.Type.valueOf(p.getWrite());
-      case STREAM:
-        return RaftClientRequest.Type.valueOf(p.getStream());
+      case MESSAGESTREAM:
+        return RaftClientRequest.Type.valueOf(p.getMessageStream());
       case READ:
         return RaftClientRequest.Type.valueOf(p.getRead());
       case STALEREAD:
@@ -127,8 +127,8 @@ public interface ClientProtoUtils {
       case WRITE:
         b.setWrite(type.getWrite());
         break;
-      case STREAM:
-        b.setStream(type.getStream());
+      case MESSAGESTREAM:
+        b.setMessageStream(type.getMessageStream());
         break;
       case READ:
         b.setRead(type.getRead());

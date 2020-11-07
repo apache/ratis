@@ -50,18 +50,18 @@ public final class MessageStreamImpl implements MessageStreamApi {
       this.id = id;
     }
 
-    private Type getStreamRequestType(boolean endOfRequest) {
-      return RaftClientRequest.streamRequestType(id, messageId.getAndIncrement(), endOfRequest);
+    private Type getMessageStreamRequestType(boolean endOfRequest) {
+      return RaftClientRequest.messageStreamRequestType(id, messageId.getAndIncrement(), endOfRequest);
     }
 
     @Override
     public CompletableFuture<RaftClientReply> sendAsync(Message message, boolean endOfRequest) {
-      return client.async().send(getStreamRequestType(endOfRequest), message, null);
+      return client.async().send(getMessageStreamRequestType(endOfRequest), message, null);
     }
 
     @Override
     public CompletableFuture<RaftClientReply> closeAsync() {
-      return client.async().send(getStreamRequestType(true), null, null);
+      return client.async().send(getMessageStreamRequestType(true), null, null);
     }
   }
 

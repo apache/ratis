@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.proto.RaftProtos.StreamRequestTypeProto;
+import org.apache.ratis.proto.RaftProtos.MessageStreamRequestTypeProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -33,8 +33,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-class StreamRequests {
-  public static final Logger LOG = LoggerFactory.getLogger(StreamRequests.class);
+class MessageStreamRequests {
+  public static final Logger LOG = LoggerFactory.getLogger(MessageStreamRequests.class);
 
   private static class Key {
     private final ClientId clientId;
@@ -112,12 +112,12 @@ class StreamRequests {
   private final String name;
   private final StreamMap streams = new StreamMap();
 
-  StreamRequests(Object name) {
+  MessageStreamRequests(Object name) {
     this.name = name + "-" + getClass().getSimpleName();
   }
 
   CompletableFuture<?> streamAsync(RaftClientRequest request) {
-    final StreamRequestTypeProto stream = request.getType().getStream();
+    final MessageStreamRequestTypeProto stream = request.getType().getMessageStream();
     Preconditions.assertTrue(!stream.getEndOfRequest());
     final Key key = new Key(request.getClientId(), stream.getStreamId());
     final PendingStream pending = streams.computeIfAbsent(key);
@@ -125,7 +125,7 @@ class StreamRequests {
   }
 
   CompletableFuture<ByteString> streamEndOfRequestAsync(RaftClientRequest request) {
-    final StreamRequestTypeProto stream = request.getType().getStream();
+    final MessageStreamRequestTypeProto stream = request.getType().getMessageStream();
     Preconditions.assertTrue(stream.getEndOfRequest());
     final Key key = new Key(request.getClientId(), stream.getStreamId());
 
