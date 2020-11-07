@@ -17,9 +17,11 @@
  */
 package org.apache.ratis.client;
 
-import org.apache.ratis.client.impl.DataStreamClientImpl;
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -27,6 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A user interface extending {@link DataStreamRpcApi}.
@@ -43,7 +47,8 @@ public interface DataStreamClient extends DataStreamRpcApi, Closeable {
 
   /** To build {@link DataStreamClient} objects */
   class Builder {
-    private RaftPeer raftServer;
+    private RaftPeer dataStreamServer;
+    private DataStreamClientRpc dataStreamClientRpc;
     private RaftProperties properties;
     private Parameters parameters;
     private RaftGroupId raftGroupId;
@@ -51,8 +56,18 @@ public interface DataStreamClient extends DataStreamRpcApi, Closeable {
 
     private Builder() {}
 
-    public DataStreamClientImpl build(){
-      return new DataStreamClientImpl(clientId, raftGroupId, raftServer, properties, parameters);
+    public DataStreamClient build() {
+      Objects.requireNonNull(dataStreamServer, "The 'dataStreamServer' field is not initialized.");
+      if (properties != null) {
+        if (dataStreamClientRpc == null) {
+          final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
+          dataStreamClientRpc = DataStreamClientFactory.newInstance(type, parameters)
+              .newDataStreamClientRpc(dataStreamServer, properties);
+        }
+      }
+      return ClientImplUtils.newDataStreamClient(
+          Optional.ofNullable(clientId).orElseGet(ClientId::randomId),
+          raftGroupId, dataStreamServer, dataStreamClientRpc, properties);
     }
 
     public Builder setClientId(ClientId clientId) {
@@ -65,8 +80,13 @@ public interface DataStreamClient extends DataStreamRpcApi, Closeable {
       return this;
     }
 
-    public Builder setRaftServer(RaftPeer peer) {
-      this.raftServer = peer;
+    public Builder setDataStreamServer(RaftPeer dataStreamServer) {
+      this.dataStreamServer = dataStreamServer;
+      return this;
+    }
+
+    public Builder setDataStreamClientRpc(DataStreamClientRpc dataStreamClientRpc) {
+      this.dataStreamClientRpc = dataStreamClientRpc;
       return this;
     }
 

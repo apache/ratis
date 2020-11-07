@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,25 +17,29 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.DataStreamClient;
+import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 
 /** Client utilities for internal use. */
-public final class ClientImplUtils {
-  private ClientImplUtils() {
-
-  }
-
-  public static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
+public interface ClientImplUtils {
+  static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
       RaftPeerId leaderId, RaftPeer primaryDataStreamServer, RaftClientRpc clientRpc, RaftProperties properties,
       RetryPolicy retryPolicy) {
     return new RaftClientImpl(clientId, group, leaderId, primaryDataStreamServer, clientRpc, properties,
         retryPolicy);
+  }
+
+  static DataStreamClient newDataStreamClient(ClientId clientId, RaftGroupId groupId, RaftPeer primaryDataStreamServer,
+      DataStreamClientRpc dataStreamClientRpc, RaftProperties properties) {
+    return new DataStreamClientImpl(clientId, groupId, primaryDataStreamServer, dataStreamClientRpc, properties);
   }
 }

@@ -63,7 +63,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         .channel(NioSocketChannel.class)
         .handler(getInitializer())
         .option(ChannelOption.SO_KEEPALIVE, true)
-        .connect(NetUtils.createSocketAddr(server.getAddress()));
+        .connect(NetUtils.createSocketAddr(server.getDataStreamAddress()));
     this.channel = JavaUtils.memoize(() -> f.syncUninterruptibly().channel());
   }
 
