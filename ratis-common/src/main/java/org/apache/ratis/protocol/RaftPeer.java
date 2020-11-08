@@ -85,8 +85,8 @@ public class RaftPeer {
     }
 
     public Builder setPriority(int priority) {
-      if (priority <= 0) {
-        throw new IllegalArgumentException("priority = " + priority + " <= 0");
+      if (priority < 0) {
+        throw new IllegalArgumentException("priority = " + priority + " < 0");
       }
       this.priority = priority;
       return this;
