@@ -34,7 +34,7 @@ import java.util.function.Supplier;
  *
  * The objects of this class are immutable.
  */
-public class RaftPeer {
+public final class RaftPeer {
   private static final RaftPeer[] EMPTY_ARRAY = {};
 
   /** @return an empty array. */
