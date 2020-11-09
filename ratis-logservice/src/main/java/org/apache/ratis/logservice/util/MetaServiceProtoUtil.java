@@ -50,7 +50,7 @@ public final class MetaServiceProtoUtil {
     }
 
     public static RaftPeer toRaftPeer(RaftPeerProto p) {
-        return new RaftPeer(RaftPeerId.valueOf(p.getId()), p.getAddress());
+        return RaftPeer.newBuilder().setId(p.getId()).setAddress(p.getAddress()).build();
     }
 
     public static RaftGroup toRaftGroup(RaftGroupProto proto) {

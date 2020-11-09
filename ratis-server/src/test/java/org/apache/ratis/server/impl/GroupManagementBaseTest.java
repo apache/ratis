@@ -103,11 +103,9 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     List<RaftPeer> peersWithPriority = new ArrayList<>();
     for (int i = 0; i < peers.size(); i++) {
       RaftPeer peer = peers.get(i);
-      if (i == suggestedLeaderIndex) {
-        peersWithPriority.add(new RaftPeer(peer.getId(), peer.getAddress(), 2));
-      } else {
-          peersWithPriority.add(new RaftPeer(peer.getId(), peer.getAddress(), 1));
-      }
+      final int priority = i == suggestedLeaderIndex? 2: 1;
+      peersWithPriority.add(
+          RaftPeer.newBuilder().setId(peer.getId()).setAddress(peer.getAddress()).setPriority(priority).build());
     }
 
     final RaftGroup newGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peersWithPriority);

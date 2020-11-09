@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.junit.Test;
@@ -28,7 +29,18 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class PeerConfigurationTest {
+public class TestPeerConfiguration extends BaseTest {
+  @Test
+  public void testPeerConfiguration() {
+    final RaftPeer[] peers = {
+        RaftPeer.newBuilder().setId("s0").build(),
+        RaftPeer.newBuilder().setId("s1").build(),
+        RaftPeer.newBuilder().setId("s0").build(),
+    };
+    testFailureCase("Duplicated peers", () -> {
+      new PeerConfiguration(Arrays.asList(peers));
+    }, IllegalArgumentException.class);
+  }
 
   @Test
   public void testOddNodesQuorum() {
@@ -58,7 +70,9 @@ public class PeerConfigurationTest {
   }
 
   private Collection<RaftPeer> raftPeers(String... voters) {
-    return Arrays.stream(voters).map(voter -> new RaftPeer(RaftPeerId.valueOf(voter))).collect(Collectors.toSet());
+    return Arrays.stream(voters)
+        .map(id -> RaftPeer.newBuilder().setId(id).build())
+        .collect(Collectors.toSet());
   }
 
   private Collection<RaftPeerId> raftPeerIds(String... voters) {
