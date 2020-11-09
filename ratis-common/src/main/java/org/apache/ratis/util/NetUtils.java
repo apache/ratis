@@ -123,6 +123,9 @@ public interface NetUtils {
   }
 
   static String address2String(InetSocketAddress address) {
+    if (address == null) {
+      return null;
+    }
     final StringBuilder b = new StringBuilder(address.getHostName());
     if (address.getAddress() instanceof Inet6Address) {
       b.insert(0, '[').append(']');

@@ -35,14 +35,26 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestDataStreamNetty extends DataStreamBaseTest {
+  static RaftPeer newRaftPeer(RaftServer server) {
+    final InetSocketAddress rpc = NetUtils.createLocalServerAddress();
+    final int dataStreamPort = NettyConfigKeys.DataStream.port(server.getProperties());
+    return RaftPeer.newBuilder()
+        .setId(server.getId())
+        .setAddress(rpc)
+        .setDataStreamAddress(NetUtils.createSocketAddrForHost(rpc.getHostName(), dataStreamPort))
+        .build();
+  }
+
   @Before
   public void setup() {
     properties = new RaftProperties();
@@ -52,7 +64,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
   @Override
   protected RaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
     final RaftProperties p = new RaftProperties(properties);
-    NettyConfigKeys.DataStream.setPort(p,  NetUtils.createSocketAddr(peer.getAddress()).getPort());
+    NettyConfigKeys.DataStream.setPort(p,  NetUtils.createSocketAddr(peer.getDataStreamAddress()).getPort());
     return super.newRaftServer(peer, p);
   }
 
@@ -104,6 +116,19 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
     }
 
     runTestCloseStream(raftServers, 1_000_000, 10, expectedClientReply);
+  }
+
+  void runTestCloseStream(List<RaftServer> raftServers, int bufferSize, int bufferNum,
+      RaftClientReply expectedClientReply) throws Exception {
+    try {
+      final List<RaftPeer> peers = raftServers.stream()
+          .map(TestDataStreamNetty::newRaftPeer)
+          .collect(Collectors.toList());
+      setup(peers, raftServers);
+      runTestCloseStream(bufferSize, bufferNum, expectedClientReply);
+    } finally {
+      shutdown();
+    }
   }
 
   @Test

@@ -17,25 +17,20 @@
 */
 package org.apache.ratis.client.impl;
 
-import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.DataStreamClient;
-import org.apache.ratis.client.DataStreamClientFactory;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamOutputRpc;
-import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.protocol.RaftPeer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -46,20 +41,16 @@ public class DataStreamClientImpl implements DataStreamClient {
   private final ClientId clientId;
   private final RaftGroupId groupId;
 
-  private final RaftPeer raftServer;
+  private final RaftPeer dataStreamServer;
   private final DataStreamClientRpc dataStreamClientRpc;
   private final OrderedStreamAsync orderedStreamAsync;
 
-  public DataStreamClientImpl(
-      ClientId clientId, RaftGroupId groupId, RaftPeer server, RaftProperties properties, Parameters parameters) {
+  DataStreamClientImpl(ClientId clientId, RaftGroupId groupId, RaftPeer dataStreamServer,
+      DataStreamClientRpc dataStreamClientRpc, RaftProperties properties) {
     this.clientId = clientId;
     this.groupId = groupId;
-    this.raftServer = Objects.requireNonNull(server, "server == null");
-
-    final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
-    this.dataStreamClientRpc = DataStreamClientFactory.newInstance(type, parameters)
-                               .newDataStreamClientRpc(raftServer, properties);
-
+    this.dataStreamServer = dataStreamServer;
+    this.dataStreamClientRpc = dataStreamClientRpc;
     this.orderedStreamAsync = new OrderedStreamAsync(clientId, dataStreamClientRpc, properties);
   }
 
@@ -124,7 +115,7 @@ public class DataStreamClientImpl implements DataStreamClient {
   @Override
   public DataStreamOutputRpc stream() {
     RaftClientRequest request = new RaftClientRequest(
-        clientId, raftServer.getId(), groupId, RaftClientImpl.nextCallId(), RaftClientRequest.writeRequestType());
+        clientId, dataStreamServer.getId(), groupId, RaftClientImpl.nextCallId(), RaftClientRequest.writeRequestType());
     return new DataStreamOutputImpl(request);
   }
 

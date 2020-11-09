@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -24,7 +24,7 @@ import java.util.*;
 /**
  * Description of a raft group, which has a unique {@link RaftGroupId} and a collection of {@link RaftPeer}.
  *
- * This is a value-based class.
+ * The objects of this class are immutable.
  */
 public final class RaftGroup {
   private static final RaftGroup EMPTY_GROUP = new RaftGroup();

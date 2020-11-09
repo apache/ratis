@@ -24,7 +24,6 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
-import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.GroupInfoReply;
@@ -53,6 +52,7 @@ import org.apache.ratis.util.NetUtils;
 import org.junit.Assert;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
@@ -320,7 +320,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   protected void setup(int numServers){
     final List<RaftPeer> peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
         .map(RaftPeerId::valueOf)
-        .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
+        .map(id -> RaftPeer.newBuilder().setId(id).setDataStreamAddress(NetUtils.createLocalServerAddress()).build())
         .collect(Collectors.toList());
 
     List<RaftServer> raftServers = new ArrayList<>();
@@ -328,17 +328,8 @@ abstract class DataStreamBaseTest extends BaseTest {
     setup(peers, raftServers);
   }
 
-  protected void setup(List<RaftServer> raftServers) {
-    final List<RaftPeer> peers = new ArrayList<>();
-    raftServers.forEach(raftServer ->
-        peers.add(new RaftPeer(raftServer.getId(),
-            NetUtils.createSocketAddrForHost("http://localhost",
-                NettyConfigKeys.DataStream.port(raftServer.getProperties())))));
 
-    setup(peers, raftServers);
-  }
-
-  private void setup(List<RaftPeer> peers, List<RaftServer> raftServers){
+  void setup(List<RaftPeer> peers, List<RaftServer> raftServers) {
     raftGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peers);
     servers = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
@@ -379,16 +370,6 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
-  protected void runTestCloseStream(List<RaftServer> raftServers, int bufferSize, int bufferNum,
-      RaftClientReply expectedClientReply) throws Exception {
-    try {
-      setup(raftServers);
-      runTestCloseStream(bufferSize, bufferNum, expectedClientReply);
-    } finally {
-      shutdown();
-    }
-  }
-
   private void runTestDataStream(int numClients, int numStreams, int bufferSize, int bufferNum) throws Exception {
     final List<CompletableFuture<Void>> futures = new ArrayList<>();
     final List<RaftClient> clients = new ArrayList<>();
@@ -404,13 +385,13 @@ abstract class DataStreamBaseTest extends BaseTest {
       Assert.assertEquals(numClients*numStreams, futures.size());
       futures.forEach(CompletableFuture::join);
     } finally {
-      for (int j = 0; j < numClients; j++) {
+      for (int j = 0; j < clients.size(); j++) {
         clients.get(j).close();
       }
     }
   }
 
-  private void runTestCloseStream(int bufferSize, int bufferNum, RaftClientReply expectedClientReply)
+  void runTestCloseStream(int bufferSize, int bufferNum, RaftClientReply expectedClientReply)
       throws IOException {
     try (final RaftClient client = newRaftClientForDataStream()) {
       final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();

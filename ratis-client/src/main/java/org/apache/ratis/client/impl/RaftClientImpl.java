@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.api.DataStreamApi;
@@ -42,22 +43,25 @@ import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutScheduler;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -107,15 +111,28 @@ public final class RaftClientImpl implements RaftClient {
     }
   }
 
+  static class RaftPeerList implements Iterable<RaftPeer> {
+    private final AtomicReference<List<RaftPeer>> list = new AtomicReference<>();
+
+    @Override
+    public Iterator<RaftPeer> iterator() {
+      return list.get().iterator();
+    }
+
+    void set(Collection<RaftPeer> newPeers) {
+      list.set(Collections.unmodifiableList(new ArrayList<>(newPeers)));
+    }
+  }
+
   private final ClientId clientId;
   private final RaftClientRpc clientRpc;
-  private final Collection<RaftPeer> peers;
+  private final RaftPeerList peers = new RaftPeerList();
   private final RaftGroupId groupId;
   private final RetryPolicy retryPolicy;
 
   private volatile RaftPeerId leaderId;
 
-  private final TimeoutScheduler scheduler;
+  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
   private final Supplier<OrderedAsync> orderedAsync;
   private final Supplier<MessageStreamApi> streamApi;
@@ -126,22 +143,24 @@ public final class RaftClientImpl implements RaftClient {
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primaryDataStreamServer,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
     this.clientId = clientId;
-    this.clientRpc = clientRpc;
-    this.peers = new ConcurrentLinkedQueue<>(group.getPeers());
+    this.peers.set(group.getPeers());
     this.groupId = group.getGroupId();
     this.leaderId = leaderId != null? leaderId : getHighestPriorityPeerId();
-    Preconditions.assertTrue(retryPolicy != null, "retry policy can't be null");
-    this.retryPolicy = retryPolicy;
+    this.retryPolicy = Objects.requireNonNull(retryPolicy, "retry policy can't be null");
 
-    scheduler = TimeoutScheduler.getInstance();
-    clientRpc.addRaftPeers(peers);
+    clientRpc.addRaftPeers(group.getPeers());
+    this.clientRpc = clientRpc;
 
     this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
     this.streamApi = JavaUtils.memoize(() -> MessageStreamImpl.newInstance(this, properties));
     this.asyncApi = JavaUtils.memoize(() -> new AsyncImpl(this));
     this.blockingApi = JavaUtils.memoize(() -> new BlockingImpl(this));
-    this.dataStreamApi = JavaUtils.memoize(
-        () ->new DataStreamClientImpl(clientId, groupId, primaryDataStreamServer, properties, null));
+    this.dataStreamApi = JavaUtils.memoize(() -> DataStreamClient.newBuilder()
+        .setClientId(clientId)
+        .setRaftGroupId(groupId)
+        .setDataStreamServer(primaryDataStreamServer)
+        .setProperties(properties)
+        .build());
   }
 
   public RaftPeerId getLeaderId() {
@@ -153,10 +172,6 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   private RaftPeerId getHighestPriorityPeerId() {
-    if (peers == null) {
-      return null;
-    }
-
     int maxPriority = Integer.MIN_VALUE;
     RaftPeerId highestPriorityPeerId = null;
     for (RaftPeer peer : peers) {
@@ -284,8 +299,7 @@ public final class RaftClientImpl implements RaftClient {
 
   private void refreshPeers(Collection<RaftPeer> newPeers) {
     if (newPeers != null && newPeers.size() > 0) {
-      peers.clear();
-      peers.addAll(newPeers);
+      peers.set(newPeers);
       // also refresh the rpc proxies for these peers
       clientRpc.addRaftPeers(newPeers);
     }

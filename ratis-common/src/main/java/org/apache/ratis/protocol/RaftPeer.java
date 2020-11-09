@@ -25,10 +25,11 @@ import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * A {@link RaftPeer} is a server in a Raft cluster.
+ * A {@link RaftPeer} contains the information of a server.
  *
  * The objects of this class are immutable.
  */
@@ -50,10 +51,60 @@ public class RaftPeer {
     }
   }
 
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  public static class Builder {
+    private RaftPeerId id;
+    private String address;
+    private String dataStreamAddress;
+    private int priority;
+
+    public Builder setId(RaftPeerId id) {
+      this.id = id;
+      return this;
+    }
+
+    public Builder setAddress(String address) {
+      this.address = address;
+      return this;
+    }
+
+    public Builder setAddress(InetSocketAddress address) {
+      return setAddress(NetUtils.address2String(address));
+    }
+
+    public Builder setDataStreamAddress(String dataStreamAddress) {
+      this.dataStreamAddress = dataStreamAddress;
+      return this;
+    }
+
+    public Builder setDataStreamAddress(InetSocketAddress dataStreamAddress) {
+      return setDataStreamAddress(NetUtils.address2String(dataStreamAddress));
+    }
+
+    public Builder setPriority(int priority) {
+      if (priority < 0) {
+        throw new IllegalArgumentException("priority = " + priority + " < 0");
+      }
+      this.priority = priority;
+      return this;
+    }
+
+    public RaftPeer build() {
+      return new RaftPeer(
+          Objects.requireNonNull(id, "The 'id' field is not initialized."),
+          address, dataStreamAddress, priority);
+    }
+  }
+
   /** The id of the peer. */
   private final RaftPeerId id;
-  /** The address of the peer. */
+  /** The RPC address of the peer. */
   private final String address;
+  /** The DataStream address of the peer. */
+  private final String dataStreamAddress;
   /** The priority of the peer. */
   private final int priority;
 
@@ -76,8 +127,13 @@ public class RaftPeer {
 
   /** Construct a peer with the given id, address, priority. */
   public RaftPeer(RaftPeerId id, String address, int priority) {
+    this(id, address, null, priority);
+  }
+
+  private RaftPeer(RaftPeerId id, String address, String dataStreamAddress, int priority) {
     this.id = Objects.requireNonNull(id, "id == null");
     this.address = address;
+    this.dataStreamAddress = dataStreamAddress;
     this.priority = priority;
     this.raftPeerProto = JavaUtils.memoize(this::buildRaftPeerProto);
   }
@@ -85,9 +141,8 @@ public class RaftPeer {
   private RaftPeerProto buildRaftPeerProto() {
     final RaftPeerProto.Builder builder = RaftPeerProto.newBuilder()
         .setId(getId().toByteString());
-    if (getAddress() != null) {
-      builder.setAddress(getAddress());
-    }
+    Optional.ofNullable(getAddress()).ifPresent(builder::setAddress);
+    Optional.ofNullable(getDataStreamAddress()).ifPresent(builder::setDataStreamAddress);
     builder.setPriority(priority);
     return builder.build();
   }
@@ -97,9 +152,14 @@ public class RaftPeer {
     return id;
   }
 
-  /** @return The address of the peer. */
+  /** @return The RPC address of the peer. */
   public String getAddress() {
     return address;
+  }
+
+  /** @return The data stream address of the peer. */
+  public String getDataStreamAddress() {
+    return dataStreamAddress;
   }
 
   /** @return The priority of the peer. */
@@ -113,7 +173,10 @@ public class RaftPeer {
 
   @Override
   public String toString() {
-    return id + ":" + address + ":" + priority;
+    final String rpc = address != null? "|rpc:" + address: "";
+    final String data = dataStreamAddress != null? "|dataStream:" + dataStreamAddress: "";
+    final String p = priority > 0? "|p" +  priority: "";
+    return id + rpc + data + p;
   }
 
   @Override
