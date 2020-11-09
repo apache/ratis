@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -41,8 +41,7 @@ public abstract class SubCommandBase {
   public static RaftPeer[] parsePeers(String peers) {
     return Stream.of(peers.split(",")).map(address -> {
       String[] addressParts = address.split(":");
-      return new RaftPeer(RaftPeerId.valueOf(addressParts[0]),
-          addressParts[1] + ":" + addressParts[2]);
+      return RaftPeer.newBuilder().setId(addressParts[0]).setAddress(addressParts[1] + ":" + addressParts[2]).build();
     }).toArray(RaftPeer[]::new);
   }
 

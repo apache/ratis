@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,7 +21,6 @@ package org.apache.ratis.examples.counter;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,9 +33,9 @@ public final class CounterCommon {
   public static final List<RaftPeer> PEERS = new ArrayList<>(3);
 
   static {
-    PEERS.add(new RaftPeer(RaftPeerId.getRaftPeerId("n1"), "127.0.0.1:6000"));
-    PEERS.add(new RaftPeer(RaftPeerId.getRaftPeerId("n2"), "127.0.0.1:6001"));
-    PEERS.add(new RaftPeer(RaftPeerId.getRaftPeerId("n3"), "127.0.0.1:6002"));
+    PEERS.add(RaftPeer.newBuilder().setId("n1").setAddress("127.0.0.1:6000").build());
+    PEERS.add(RaftPeer.newBuilder().setId("n2").setAddress("127.0.0.1:6001").build());
+    PEERS.add(RaftPeer.newBuilder().setId("n3").setAddress("127.0.0.1:6002").build());
   }
 
   private CounterCommon() {

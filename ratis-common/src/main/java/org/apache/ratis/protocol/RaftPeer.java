@@ -18,6 +18,7 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 
@@ -33,7 +34,7 @@ import java.util.function.Supplier;
  *
  * The objects of this class are immutable.
  */
-public class RaftPeer {
+public final class RaftPeer {
   private static final RaftPeer[] EMPTY_ARRAY = {};
 
   /** @return an empty array. */
@@ -64,6 +65,14 @@ public class RaftPeer {
     public Builder setId(RaftPeerId id) {
       this.id = id;
       return this;
+    }
+
+    public Builder setId(String id) {
+      return setId(RaftPeerId.valueOf(id));
+    }
+
+    public Builder setId(ByteString id) {
+      return setId(RaftPeerId.valueOf(id));
     }
 
     public Builder setAddress(String address) {
@@ -109,26 +118,6 @@ public class RaftPeer {
   private final int priority;
 
   private final Supplier<RaftPeerProto> raftPeerProto;
-
-  /** Construct a peer with the given id and a null address. */
-  public RaftPeer(RaftPeerId id) {
-    this(id, (String)null, 0);
-  }
-
-  /** Construct a peer with the given id and address. */
-  public RaftPeer(RaftPeerId id, InetSocketAddress address) {
-    this(id, address == null ? null : NetUtils.address2String(address), 0);
-  }
-
-  /** Construct a peer with the given id and address. */
-  public RaftPeer(RaftPeerId id, String address) {
-    this(id, address, 0);
-  }
-
-  /** Construct a peer with the given id, address, priority. */
-  public RaftPeer(RaftPeerId id, String address, int priority) {
-    this(id, address, null, priority);
-  }
 
   private RaftPeer(RaftPeerId id, String address, String dataStreamAddress, int priority) {
     this.id = Objects.requireNonNull(id, "id == null");

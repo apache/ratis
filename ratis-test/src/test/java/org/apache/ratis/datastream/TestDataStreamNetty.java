@@ -86,7 +86,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
     RaftGroupId groupId = RaftGroupId.randomId();
     long callId = 100;
     long longIndex = 200;
-    RaftPeer suggestedLeader = new RaftPeer(RaftPeerId.valueOf("s" + leaderIndex));
+    final RaftPeer suggestedLeader = RaftPeer.newBuilder().setId("s" + leaderIndex).build();
     RaftClientReply expectedClientReply = new RaftClientReply(clientId, suggestedLeader.getId(),
         groupId, callId, true, null, null, longIndex, null);
 

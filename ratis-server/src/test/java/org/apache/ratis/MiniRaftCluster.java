@@ -213,7 +213,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public static RaftGroup initRaftGroup(Collection<String> ids) {
     final RaftPeer[] peers = ids.stream()
         .map(RaftPeerId::valueOf)
-        .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
+        .map(id -> RaftPeer.newBuilder().setId(id).setAddress(NetUtils.createLocalServerAddress()).build())
         .toArray(RaftPeer[]::new);
     return RaftGroup.valueOf(RaftGroupId.randomId(), peers);
   }
@@ -391,7 +391,7 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public static RaftPeer toRaftPeer(RaftServerProxy s) {
-    return new RaftPeer(s.getId(), s.getServerRpc().getInetSocketAddress());
+    return RaftPeer.newBuilder().setId(s.getId()).setAddress(s.getServerRpc().getInetSocketAddress()).build();
   }
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer)

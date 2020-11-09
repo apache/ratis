@@ -98,7 +98,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       List<RaftPeer> peersWithPriority = new ArrayList<>();
       for (int i = 0; i < peers.size(); i++) {
         RaftPeer peer = peers.get(i);
-        peersWithPriority.add(new RaftPeer(peer.getId(), peer.getAddress(), i));
+        peersWithPriority.add(
+            RaftPeer.newBuilder().setId(peer.getId()).setAddress(peer.getAddress()).setPriority(i).build());
       }
 
       final RaftGroup newGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peersWithPriority);

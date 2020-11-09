@@ -97,7 +97,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final LifeCycle lifeCycle;
   private final ServerState state;
   private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(() ->
-      new RaftPeer(getId(), getServerRpc().getInetSocketAddress()));
+      RaftPeer.newBuilder().setId(getId()).setAddress(getServerRpc().getInetSocketAddress()).build());
   private final RoleInfo role;
 
   private final RetryCache retryCache;

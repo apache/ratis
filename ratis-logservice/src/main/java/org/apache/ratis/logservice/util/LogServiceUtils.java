@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,13 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.logservice.util;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -34,14 +32,15 @@ public final class LogServiceUtils {
     }
 
     public static Set<RaftPeer> getPeersFromIds(String identity) {
+
         return Stream.of(identity.split(",")).map(elem ->
-                new RaftPeer(RaftPeerId.valueOf(elem), elem.replace('_', ':'))
+                RaftPeer.newBuilder().setId(elem).setAddress(elem.replace('_', ':')).build()
         ).collect(Collectors.toSet());
     }
 
     public static Set<RaftPeer> getPeersFromQuorum(String identity) {
         return Stream.of(identity.split(",")).map(elem ->
-                new RaftPeer(RaftPeerId.valueOf(elem.replace(':', '_')), elem)
+                RaftPeer.newBuilder().setId(elem.replace(':', '_')).setAddress(elem).build()
         ).collect(Collectors.toSet());
     }
 

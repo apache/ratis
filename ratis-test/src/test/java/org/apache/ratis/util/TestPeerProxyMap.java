@@ -52,7 +52,7 @@ public class TestPeerProxyMap extends BaseTest {
   public void testCloseDeadLock() throws Exception {
     final PeerProxyMap<DummyProxy> map = new PeerProxyMap<>("test", DummyProxy::new);
     final RaftPeerId id = RaftPeerId.valueOf("s0");
-    final RaftPeer peer = new RaftPeer(id);
+    final RaftPeer peer = RaftPeer.newBuilder().setId(id).build();
     map.computeIfAbsent(peer);
 
     final DummyProxy proxy = map.getProxy(id);
