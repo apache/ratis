@@ -51,7 +51,7 @@ public interface RaftConfigKeys {
     String PREFIX = RaftConfigKeys.PREFIX + ".datastream";
 
     String TYPE_KEY = PREFIX + ".type";
-    String TYPE_DEFAULT = SupportedDataStreamType.NETTY.name();
+    String TYPE_DEFAULT = SupportedDataStreamType.DISABLED.name();
 
     static SupportedDataStreamType type(RaftProperties properties, Consumer<String> logger) {
       final String t = get(properties::get, TYPE_KEY, TYPE_DEFAULT, logger);

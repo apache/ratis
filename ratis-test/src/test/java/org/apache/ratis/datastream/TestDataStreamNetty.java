@@ -96,6 +96,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
       RaftPeerId peerId = RaftPeerId.valueOf("s" + i);
       RaftProperties properties = new RaftProperties();
       NettyConfigKeys.DataStream.setPort(properties, NetUtils.createLocalServerAddress().getPort());
+      RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
 
       if (i == leaderIndex) {
         raftClientReply = expectedClientReply;
