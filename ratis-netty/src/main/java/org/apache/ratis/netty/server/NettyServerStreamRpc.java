@@ -32,6 +32,7 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -254,7 +255,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
       final StateMachine stateMachine = server.getStateMachine(request.getRaftGroupId());
       return new StreamInfo(request, stateMachine.data().stream(request),
-          server.getId().equals(request.getServerId())?
+          isPrimary(request.getServerId())?
           proxies.getDataStreamOutput(request) : Collections.EMPTY_LIST);
     } catch (Throwable e) {
       throw new CompletionException(e);
@@ -357,6 +358,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     });
   }
 
+  private boolean isPrimary(RaftPeerId primaryId) {
+    return server.getId().equals(primaryId);
+  }
+
   private void read(ChannelHandlerContext ctx, DataStreamRequestByteBuf request) {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
@@ -379,7 +384,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
         remoteWrites.add(previous.thenComposeAsync(v -> out.writeAsync(request.slice().nioBuffer()), executorService));
       }
-    } else if (request.getType() == Type.STREAM_CLOSE || request.getType() == Type.STREAM_CLOSE_FORWARD) {
+    } else if (request.getType() == Type.STREAM_CLOSE) {
       info = streams.get(key);
       final CompletableFuture<?> previous = info.getPrevious().get();
 
@@ -392,9 +397,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         }
       }, executorService);
 
-      if (request.getType() == Type.STREAM_CLOSE) {
+      if (isPrimary(info.getRequest().getServerId())) {
         for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
-          remoteWrites.add(previous.thenComposeAsync(v -> out.closeForwardAsync(), executorService));
+          remoteWrites.add(previous.thenComposeAsync(v -> out.closeAsync(), executorService));
         }
       }
     } else if (request.getType() == Type.START_TRANSACTION) {
@@ -411,13 +416,16 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           buf.release();
           if (request.getType() == Type.STREAM_HEADER
-              || request.getType() == Type.STREAM_DATA
-              || request.getType() == Type.STREAM_CLOSE_FORWARD) {
+              || request.getType() == Type.STREAM_DATA) {
             sendReply(remoteWrites, request, bytesWritten, ctx);
           } else if (request.getType() == Type.STREAM_CLOSE) {
-            // after all server close stream, primary server start transaction
-            // TODO(runzhiwang): send start transaction to leader directly
-            startTransaction(info, request, ctx);
+            if (isPrimary(info.getRequest().getServerId())) {
+              // after all server close stream, primary server start transaction
+              // TODO(runzhiwang): send start transaction to leader directly
+              startTransaction(info, request, ctx);
+            } else {
+              sendReply(remoteWrites, request, bytesWritten, ctx);
+            }
           } else {
             throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
           }

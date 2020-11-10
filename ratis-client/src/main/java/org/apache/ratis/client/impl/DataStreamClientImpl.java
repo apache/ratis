@@ -88,11 +88,6 @@ public class DataStreamClientImpl implements DataStreamClient {
     }
 
     @Override
-    public CompletableFuture<DataStreamReply> closeForwardAsync() {
-      return send(Type.STREAM_CLOSE_FORWARD);
-    }
-
-    @Override
     public CompletableFuture<DataStreamReply> startTransactionAsync() {
       return send(Type.START_TRANSACTION);
     }
