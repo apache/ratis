@@ -57,6 +57,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -253,7 +254,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
       final StateMachine stateMachine = server.getStateMachine(request.getRaftGroupId());
       return new StreamInfo(request, stateMachine.data().stream(request),
-          proxies.getDataStreamOutput(request));
+          server.getId().equals(request.getServerId())?
+          proxies.getDataStreamOutput(request) : Collections.EMPTY_LIST);
     } catch (Throwable e) {
       throw new CompletionException(e);
     }

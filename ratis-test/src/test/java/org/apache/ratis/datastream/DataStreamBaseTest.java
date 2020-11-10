@@ -335,15 +335,16 @@ abstract class DataStreamBaseTest extends BaseTest {
     // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
       final Server server = new Server(peers.get(i), raftServers.get(i));
-      if (i == 0) {
-        // only the first server routes requests to peers.
-        List<RaftPeer> otherPeers = new ArrayList<>(peers);
-        otherPeers.remove(peers.get(i));
-        server.addRaftPeers(otherPeers);
-      }
+      server.addRaftPeers(removePeerFromList(peers.get(i), peers));
       server.start();
       servers.add(server);
     }
+  }
+
+  private Collection<RaftPeer> removePeerFromList(RaftPeer peer, List<RaftPeer> peers) {
+    List<RaftPeer> otherPeers = new ArrayList<>(peers);
+    otherPeers.remove(peer);
+    return otherPeers;
   }
 
   RaftClient newRaftClientForDataStream() {
