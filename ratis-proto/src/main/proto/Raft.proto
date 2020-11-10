@@ -287,8 +287,7 @@ message DataStreamPacketHeaderProto {
     STREAM_HEADER = 0;
     STREAM_DATA = 1;
     STREAM_CLOSE = 2;
-    STREAM_CLOSE_FORWARD = 3;
-    START_TRANSACTION = 4;
+    START_TRANSACTION = 3;
   }
 
   uint64 streamId = 1;
