@@ -70,14 +70,12 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
 
   @Test
   public void testDataStreamSingleServer() throws Exception {
-    runTestDataStream(1, 5, 10, 1_000_000, 10);
-    runTestDataStream(1, 2, 20, 1_000, 10_000);
+    runTestDataStream(1);
   }
 
   @Test
   public void testDataStreamMultipleServer() throws Exception {
-    runTestDataStream(3, 5, 10, 1_000_000, 10);
-    runTestDataStream(3, 2, 20, 1_000, 10_000);
+    runTestDataStream(3);
   }
 
   private void testCloseStream(int leaderIndex, int numServers) throws Exception {

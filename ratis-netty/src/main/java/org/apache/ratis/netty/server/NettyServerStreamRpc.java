@@ -32,7 +32,6 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -68,11 +67,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyServerStreamRpc.class);
@@ -124,33 +124,92 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     }
   }
 
+  static class LocalStream {
+    private final CompletableFuture<DataStream> streamFuture;
+    private final AtomicReference<CompletableFuture<Long>> writeFuture;
+
+    LocalStream(CompletableFuture<DataStream> streamFuture) {
+      this.streamFuture = streamFuture;
+      this.writeFuture = new AtomicReference<>(streamFuture.thenApply(s -> 0L));
+    }
+
+    CompletableFuture<Long> write(ByteBuf buf, Executor executor) {
+      return composeAsync(writeFuture, executor,
+          n -> streamFuture.thenApplyAsync(stream -> writeTo(buf, stream), executor));
+    }
+
+    CompletableFuture<Long> close(Executor executor) {
+      return composeAsync(writeFuture, executor,
+          n -> streamFuture.thenApplyAsync(NettyServerStreamRpc::close, executor));
+    }
+  }
+
+  static class RemoteStream {
+    private final DataStreamOutputRpc out;
+    private final AtomicReference<CompletableFuture<DataStreamReply>> writeFuture;
+
+    RemoteStream(DataStreamOutputRpc out) {
+      this.out = out;
+      this.writeFuture = new AtomicReference<>(out.getHeaderFuture());
+    }
+
+    CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
+      return composeAsync(writeFuture, executor, v -> out.writeAsync(request.slice().nioBuffer()));
+    }
+
+    CompletableFuture<Boolean> startTransaction(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
+        Executor executor) {
+      return out.startTransactionAsync().thenApplyAsync(reply -> {
+        if (reply.isSuccess()) {
+          final ByteBuffer buffer = reply instanceof DataStreamReplyByteBuffer?
+              ((DataStreamReplyByteBuffer)reply).slice(): null;
+          sendReplySuccess(request, buffer, -1, ctx);
+          return true;
+        } else {
+          return false;
+        }
+      }, executor);
+    }
+
+    CompletableFuture<DataStreamReply> close(Executor executor) {
+      return composeAsync(writeFuture, executor, v -> out.closeAsync());
+    }
+  }
+
   static class StreamInfo {
     private final RaftClientRequest request;
-    private final CompletableFuture<DataStream> stream;
-    private final List<DataStreamOutputRpc> outs;
-    private final AtomicReference<CompletableFuture<?>> previous
+    private final boolean primary;
+    private final LocalStream local;
+    private final List<RemoteStream> remotes;
+    private final AtomicReference<CompletableFuture<Void>> previous
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
-    StreamInfo(RaftClientRequest request, CompletableFuture<DataStream> stream, List<DataStreamOutputRpc> outs) {
+    StreamInfo(RaftClientRequest request, boolean primary,
+        CompletableFuture<DataStream> stream, List<DataStreamOutputRpc> outs) {
       this.request = request;
-      this.stream = stream;
-      this.outs = outs;
+      this.primary = primary;
+      this.local = new LocalStream(stream);
+      this.remotes = outs.stream().map(RemoteStream::new).collect(Collectors.toList());
     }
 
-    CompletableFuture<DataStream> getStream() {
-      return stream;
-    }
-
-    List<DataStreamOutputRpc> getDataStreamOutputs() {
-      return outs;
-    }
-
-    AtomicReference<CompletableFuture<?>> getPrevious() {
+    AtomicReference<CompletableFuture<Void>> getPrevious() {
       return previous;
     }
 
     RaftClientRequest getRequest() {
       return request;
+    }
+
+    boolean isPrimary() {
+      return primary;
+    }
+
+    LocalStream getLocal() {
+      return local;
+    }
+
+    <T> List<T> applyToRemotes(Function<RemoteStream, T> function) {
+      return remotes.isEmpty()?Collections.emptyList(): remotes.stream().map(function).collect(Collectors.toList());
     }
 
     @Override
@@ -213,10 +272,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private final ChannelFuture channelFuture;
 
   private final StreamMap streams = new StreamMap();
-
   private final Proxies proxies;
 
-  private final ExecutorService executorService;
+  private final Executor executor;
 
   public NettyServerStreamRpc(RaftServer server) {
     this.server = server;
@@ -232,7 +290,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .childOption(ChannelOption.SO_KEEPALIVE, true)
         .bind(port);
     this.proxies = new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties)));
-    this.executorService = Executors.newFixedThreadPool(
+    this.executor = Executors.newFixedThreadPool(
         RaftServerConfigKeys.DataStream.asyncThreadPoolSize(server.getProperties()));
   }
 
@@ -254,19 +312,22 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
       final StateMachine stateMachine = server.getStateMachine(request.getRaftGroupId());
-      return new StreamInfo(request, stateMachine.data().stream(request),
-          isPrimary(request.getServerId())?
-          proxies.getDataStreamOutput(request) : Collections.EMPTY_LIST);
+      final boolean isPrimary = server.getId().equals(request.getServerId());
+      return new StreamInfo(request, isPrimary, stateMachine.data().stream(request),
+          isPrimary? proxies.getDataStreamOutput(request): Collections.emptyList());
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
   }
 
-  private long writeTo(ByteBuf buf, DataStream stream) {
-    if (stream == null) {
-      return 0;
-    }
+  static <T> CompletableFuture<T> composeAsync(AtomicReference<CompletableFuture<T>> future, Executor executor,
+      Function<T, CompletableFuture<T>> function) {
+    final CompletableFuture<T> composed = future.get().thenComposeAsync(function, executor);
+    future.set(composed);
+    return composed;
+  }
 
+  static long writeTo(ByteBuf buf, DataStream stream) {
     final WritableByteChannel channel = stream.getWritableByteChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
@@ -279,17 +340,25 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     return byteWritten;
   }
 
+  static long close(DataStream stream) {
+    try {
+      stream.getWritableByteChannel().close();
+      return 0L;
+    } catch (IOException e) {
+      throw new CompletionException("Failed to close " + stream, e);
+    }
+  }
+
   private void sendReplyNotSuccess(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
         request.getStreamId(), request.getStreamOffset(), null, -1, false, request.getType());
     ctx.writeAndFlush(reply);
   }
 
-  private void sendReplySuccess(DataStreamRequestByteBuf request, ByteBuffer buffer, long bytesWritten,
+  static void sendReplySuccess(DataStreamRequestByteBuf request, ByteBuffer buffer, long bytesWritten,
       ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
         request.getStreamId(), request.getStreamOffset(), buffer, bytesWritten, true, request.getType());
-    LOG.debug("{}: write {}", this, reply);
     ctx.writeAndFlush(reply);
   }
 
@@ -311,9 +380,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  private int startTransaction(StreamInfo info, DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+  private CompletableFuture<Void> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
+      ChannelHandlerContext ctx) {
     try {
-      server.submitClientRequestAsync(info.getRequest()).thenAcceptAsync(reply -> {
+      return server.submitClientRequestAsync(info.getRequest()).thenAcceptAsync(reply -> {
         if (reply.isSuccess()) {
           ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
           sendReplySuccess(request, buffer, -1, ctx);
@@ -326,30 +396,17 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         } else {
           throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
         }
-      }, executorService);
+      }, executor);
     } catch (IOException e) {
       sendReplyNotSuccess(request, ctx);
+      return CompletableFuture.completedFuture(null);
     }
-    return 0;
   }
 
   private void forwardStartTransaction(
       final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
-    final List<CompletableFuture<Boolean>> results = new ArrayList<>();
-    for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
-      final CompletableFuture<Boolean> f = out.startTransactionAsync().thenApplyAsync(reply -> {
-        if (reply.isSuccess()) {
-          final ByteBuffer buffer = reply instanceof DataStreamReplyByteBuffer?
-              ((DataStreamReplyByteBuffer)reply).slice(): null;
-          sendReplySuccess(request, buffer, -1, ctx);
-          return true;
-        } else {
-          return false;
-        }
-      }, executorService);
-
-      results.add(f);
-    }
+    final List<CompletableFuture<Boolean>> results = info.applyToRemotes(
+        out -> out.startTransaction(request, ctx, executor));
 
     JavaUtils.allOf(results).thenAccept(v -> {
       if (!results.stream().map(CompletableFuture::join).reduce(false, Boolean::logicalOr)) {
@@ -358,68 +415,46 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     });
   }
 
-  private boolean isPrimary(RaftPeerId primaryId) {
-    return server.getId().equals(primaryId);
-  }
-
   private void read(ChannelHandlerContext ctx, DataStreamRequestByteBuf request) {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
+    final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
+
+    if (request.getType() == Type.START_TRANSACTION) {
+      // for peers to start transaction
+      final StreamInfo info = streams.get(key);
+      composeAsync(info.getPrevious(), executor, v -> startTransaction(info, request, ctx))
+          .thenAccept(v -> buf.release());
+      return;
+    }
 
     final StreamInfo info;
     final CompletableFuture<Long> localWrite;
-    final List<CompletableFuture<DataStreamReply>> remoteWrites = new ArrayList<>();
-    final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
+    final List<CompletableFuture<DataStreamReply>> remoteWrites;
     if (request.getType() == Type.STREAM_HEADER) {
       info = streams.computeIfAbsent(key, id -> newStreamInfo(buf));
       localWrite = CompletableFuture.completedFuture(0L);
-      for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
-        remoteWrites.add(out.getHeaderFuture());
-      }
+      remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
       info = streams.get(key);
-      final CompletableFuture<?> previous = info.getPrevious().get();
-
-      localWrite = previous.thenCombineAsync(info.getStream(), (u, stream) -> writeTo(buf, stream), executorService);
-      for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
-        remoteWrites.add(previous.thenComposeAsync(v -> out.writeAsync(request.slice().nioBuffer()), executorService));
-      }
+      localWrite = info.getLocal().write(buf, executor);
+      remoteWrites = info.applyToRemotes(out -> out.write(request, executor));
     } else if (request.getType() == Type.STREAM_CLOSE) {
       info = streams.get(key);
-      final CompletableFuture<?> previous = info.getPrevious().get();
-
-      localWrite = previous.thenCombineAsync(info.getStream(), (u, stream) -> {
-        try {
-          stream.getWritableByteChannel().close();
-          return 0L;
-        } catch (IOException e) {
-          throw new CompletionException("Failed to close " + stream, e);
-        }
-      }, executorService);
-
-      if (isPrimary(info.getRequest().getServerId())) {
-        for (DataStreamOutputRpc out : info.getDataStreamOutputs()) {
-          remoteWrites.add(previous.thenComposeAsync(v -> out.closeAsync(), executorService));
-        }
-      }
-    } else if (request.getType() == Type.START_TRANSACTION) {
-      // peer server start transaction
-      info = streams.get(key);
-      final CompletableFuture<?> previous = info.getPrevious().get();
-      previous.thenApplyAsync(v -> startTransaction(streams.get(key), request, ctx), executorService);
-      return;
+      localWrite = info.getLocal().close(executor);
+      remoteWrites = info.isPrimary()? info.applyToRemotes(out -> out.close(executor)): Collections.emptyList();
     } else {
+      buf.release();
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
     }
 
-    final CompletableFuture<?> current = JavaUtils.allOf(remoteWrites)
+    composeAsync(info.getPrevious(), executor, n -> JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
-          buf.release();
           if (request.getType() == Type.STREAM_HEADER
               || request.getType() == Type.STREAM_DATA) {
             sendReply(remoteWrites, request, bytesWritten, ctx);
           } else if (request.getType() == Type.STREAM_CLOSE) {
-            if (isPrimary(info.getRequest().getServerId())) {
+            if (info.isPrimary()) {
               // after all server close stream, primary server start transaction
               // TODO(runzhiwang): send start transaction to leader directly
               startTransaction(info, request, ctx);
@@ -429,10 +464,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
           } else {
             throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
           }
+          buf.release();
           return null;
-        }, executorService);
-
-    info.getPrevious().set(current);
+        }, executor));
   }
 
   private boolean checkSuccessRemoteWrite(
