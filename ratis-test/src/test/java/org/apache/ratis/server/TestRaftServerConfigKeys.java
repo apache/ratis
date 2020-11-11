@@ -43,7 +43,7 @@ public class TestRaftServerConfigKeys {
 
   private static final Supplier<File> rootTestDir = JavaUtils.memoize(
       () -> new File(BaseTest.getRootTestDir(),
-          TestRaftServerConfigKeys.class.getSimpleName() +
+          JavaUtils.getClassSimpleName(TestRaftServerConfigKeys.class) +
               Integer.toHexString(ThreadLocalRandom.current().nextInt())));
 
   @AfterClass

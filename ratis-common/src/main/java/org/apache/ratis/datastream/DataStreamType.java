@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
 /** The type of data stream implementations. */
@@ -41,10 +42,11 @@ public interface DataStreamType {
       // Try using it as a class name
       return ReflectionUtils.newInstance(ReflectionUtils.getClass(dataStreamType, DataStreamType.class));
     } catch(Throwable t) {
+      final String classname = JavaUtils.getClassSimpleName(DataStreamType.class);
       final IllegalArgumentException iae = new IllegalArgumentException(
-          "Invalid " + DataStreamType.class.getSimpleName() + ": \"" + dataStreamType + "\" "
-              + " cannot be used as a user-defined " + DataStreamType.class.getSimpleName()
-              + " and it is not a " + SupportedDataStreamType.class.getSimpleName() + ".");
+          "Invalid " + classname + ": \"" + dataStreamType + "\" "
+              + " cannot be used as a user-defined " + classname
+              + " and it is not a " + JavaUtils.getClassSimpleName(SupportedDataStreamType.class) + ".");
       iae.addSuppressed(t);
       iae.addSuppressed(fromSupportedRpcType);
       throw iae;

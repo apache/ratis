@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -33,6 +33,7 @@ import org.apache.ratis.logservice.util.TestUtils;
 import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -427,7 +428,7 @@ public class TestMetaServer {
                     try {
                         logStream.close();
                     } catch (Exception ignored) {
-                        LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+                        LOG.warn("{} is ignored", JavaUtils.getClassSimpleName(ignored.getClass()), ignored);
                     }
                 }
             }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.BaseTest;
@@ -42,7 +41,7 @@ public class TestServerState {
 
   private static final Supplier<File> rootTestDir = JavaUtils.memoize(
       () -> new File(BaseTest.getRootTestDir(),
-          TestServerState.class.getSimpleName() +
+          JavaUtils.getClassSimpleName(TestServerState.class) +
               Integer.toHexString(ThreadLocalRandom.current().nextInt())));
 
   @AfterClass

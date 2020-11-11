@@ -101,7 +101,7 @@ class RoleInfo {
         throw new NullPointerException("leaderState == null");
       }
     } else {
-      LOG.info("{}: shutdown {}", id, leader.getClass().getSimpleName());
+      LOG.info("{}: shutdown {}", id, leader);
       leader.stop();
     }
     // TODO: make sure that StateMachineUpdater has applied all transactions that have context
@@ -118,7 +118,7 @@ class RoleInfo {
   void shutdownFollowerState() {
     final FollowerState follower = followerState.getAndSet(null);
     if (follower != null) {
-      LOG.info("{}: shutdown {}", id, follower.getClass().getSimpleName());
+      LOG.info("{}: shutdown {}", id, follower);
       follower.stopRunning();
       follower.interrupt();
     }
@@ -131,7 +131,7 @@ class RoleInfo {
   void shutdownLeaderElection() {
     final LeaderElection election = leaderElection.getAndSet(null);
     if (election != null) {
-      LOG.info("{}: shutdown {}", id, election.getClass().getSimpleName());
+      LOG.info("{}: shutdown {}", id, election);
       election.shutdown();
       // no need to interrupt the election thread
     }
@@ -140,7 +140,7 @@ class RoleInfo {
   private <T> T updateAndGet(AtomicReference<T> ref, T current) {
     final T updated = ref.updateAndGet(previous -> previous != null? previous: current);
     Preconditions.assertTrue(updated == current, "previous != null");
-    LOG.info("{}: start {}", id, current.getClass().getSimpleName());
+    LOG.info("{}: start {}", id, current);
     return updated;
   }
 

@@ -20,6 +20,7 @@ package org.apache.ratis.client.retry;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 
@@ -74,7 +75,7 @@ public final class RequestTypeDependentRetryPolicy implements RetryPolicy {
     this.retryPolicyMap = Collections.unmodifiableMap(map);
     this.timeoutMap = timeoutMap;
     this.myString = () -> {
-      final StringBuilder b = new StringBuilder(getClass().getSimpleName()).append("{");
+      final StringBuilder b = new StringBuilder(JavaUtils.getClassSimpleName(getClass())).append("{");
       map.forEach((key, value) -> b.append(key).append("->").append(value).append(", "));
       b.setLength(b.length() - 2);
       return b.append("}").toString();

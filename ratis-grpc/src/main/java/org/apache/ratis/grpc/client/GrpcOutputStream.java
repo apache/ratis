@@ -23,6 +23,7 @@ import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.io.IOException;
@@ -35,6 +36,7 @@ public class GrpcOutputStream extends OutputStream {
   private int count;
   private final AtomicLong seqNum = new AtomicLong();
   private final ClientId clientId;
+  private final String name;
   private final GrpcClientStreamer streamer;
 
   private boolean closed = false;
@@ -45,6 +47,7 @@ public class GrpcOutputStream extends OutputStream {
     buf = new byte[bufferSize];
     count = 0;
     this.clientId = clientId;
+    this.name = JavaUtils.getClassSimpleName(getClass()) + "-" + clientId;
     streamer = new GrpcClientStreamer(prop, group, leaderId, clientId, tlsConfig);
   }
 
@@ -102,7 +105,7 @@ public class GrpcOutputStream extends OutputStream {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + "-" + clientId;
+    return name;
   }
 
   private void checkClosed() throws IOException {

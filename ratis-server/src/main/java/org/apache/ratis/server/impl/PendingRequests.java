@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ResourceSemaphore;
 import org.apache.ratis.util.SizeInBytes;
@@ -179,7 +180,7 @@ class PendingRequests {
   private final RequestMap pendingRequests;
 
   PendingRequests(RaftGroupMemberId id, RaftProperties properties, RaftServerMetrics raftServerMetrics) {
-    this.name = id + "-" + getClass().getSimpleName();
+    this.name = id + "-" + JavaUtils.getClassSimpleName(getClass());
     this.pendingRequests = new RequestMap(id,
         RaftServerConfigKeys.Write.elementLimit(properties),
         RaftServerConfigKeys.Write.byteLimit(properties),

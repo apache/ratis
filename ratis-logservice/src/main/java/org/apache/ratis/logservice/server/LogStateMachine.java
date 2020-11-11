@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -82,6 +82,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -489,7 +490,7 @@ public class LogStateMachine extends BaseStateMachine {
       try {
         client.close();
       } catch (Exception ignored) {
-        LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+        LOG.warn("{} is ignored", JavaUtils.getClassSimpleName(ignored.getClass()), ignored);
       }
     }
   }

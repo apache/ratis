@@ -18,6 +18,7 @@
 package org.apache.ratis.server;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -493,7 +494,7 @@ public interface RaftServerConfigKeys {
   }
 
   interface Notification {
-    String PREFIX = RaftServerConfigKeys.PREFIX + "." + Notification.class.getSimpleName().toLowerCase();
+    String PREFIX = RaftServerConfigKeys.PREFIX + "." + JavaUtils.getClassSimpleName(Notification.class).toLowerCase();
 
     /** Timeout value to notify the state machine when there is no leader. */
     String NO_LEADER_TIMEOUT_KEY = PREFIX + ".no-leader.timeout";
@@ -508,7 +509,8 @@ public interface RaftServerConfigKeys {
   }
 
   interface LeaderElection {
-    String PREFIX = RaftServerConfigKeys.PREFIX + "." + LeaderElection.class.getSimpleName().toLowerCase();
+    String PREFIX = RaftServerConfigKeys.PREFIX
+        + "." + JavaUtils.getClassSimpleName(LeaderElection.class).toLowerCase();
 
     String LEADER_STEP_DOWN_WAIT_TIME_KEY = PREFIX + ".leader.step-down.wait-time";
     TimeDuration LEADER_STEP_DOWN_WAIT_TIME_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);

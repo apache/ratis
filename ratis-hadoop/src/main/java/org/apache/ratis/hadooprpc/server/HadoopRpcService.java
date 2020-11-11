@@ -45,6 +45,7 @@ import com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.GeneratedMessageV3;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.function.CheckedFunction;
 import org.slf4j.Logger;
@@ -57,7 +58,7 @@ import java.net.InetSocketAddress;
 public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftServerProtocolPB>,
     PeerProxyMap<Proxy<RaftServerProtocolPB>>> {
   public static final Logger LOG = LoggerFactory.getLogger(HadoopRpcService.class);
-  static final String CLASS_NAME = HadoopRpcService.class.getSimpleName();
+  static final String CLASS_NAME = JavaUtils.getClassSimpleName(HadoopRpcService.class);
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
   public static final class Builder extends RaftServerRpc.Builder<Builder, HadoopRpcService> {
@@ -108,8 +109,7 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
 
     addRaftClientProtocol(server, conf);
 
-    LOG.info(getClass().getSimpleName() + " created RPC.Server at "
-        + ipcServerAddress);
+    LOG.info(JavaUtils.getClassSimpleName(getClass()) + " created RPC.Server at " + ipcServerAddress);
   }
 
   @Override

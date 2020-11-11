@@ -50,13 +50,13 @@ import java.util.function.Supplier;
 public class NettyClientStreamRpc implements DataStreamClientRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyClientStreamRpc.class);
 
-  private final RaftPeer server;
+  private final String name;
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final Supplier<Channel> channel;
   private final ConcurrentMap<Long, Queue<CompletableFuture<DataStreamReply>>> replies = new ConcurrentHashMap<>();
 
   public NettyClientStreamRpc(RaftPeer server, RaftProperties properties){
-    this.server = server;
+    this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
 
     final ChannelFuture f = new Bootstrap()
         .group(workerGroup)
@@ -144,6 +144,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + "->" + server;
+    return name;
   }
 }

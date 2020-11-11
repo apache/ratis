@@ -44,6 +44,7 @@ import org.apache.ratis.proto.netty.NettyProtos.RaftNettyExceptionReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +59,7 @@ import java.util.Objects;
  */
 public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy, NettyRpcProxy.PeerMap> {
   public static final Logger LOG = LoggerFactory.getLogger(NettyRpcService.class);
-  static final String CLASS_NAME = NettyRpcService.class.getSimpleName();
+  static final String CLASS_NAME = JavaUtils.getClassSimpleName(NettyRpcService.class);
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
   public static final class Builder extends RaftServerRpc.Builder<Builder, NettyRpcService> {
@@ -102,7 +103,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
     final ChannelInitializer<SocketChannel> initializer
         = new ChannelInitializer<SocketChannel>() {
       @Override
-      protected void initChannel(SocketChannel ch) throws Exception {
+      protected void initChannel(SocketChannel ch) {
         final ChannelPipeline p = ch.pipeline();
 
         p.addLast(new ProtobufVarint32FrameDecoder());
@@ -137,7 +138,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
     try {
       channelFuture.syncUninterruptibly();
     } catch(Exception t) {
-      throw new IOException(getId() + ": Failed to start " + getClass().getSimpleName(), t);
+      throw new IOException(getId() + ": Failed to start " + JavaUtils.getClassSimpleName(getClass()), t);
     }
   }
 

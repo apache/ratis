@@ -344,13 +344,9 @@ public class SegmentedRaftLogCache {
   private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
 
-  SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties) {
-    this(name, storage, properties, null);
-  }
-
   SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties,
                                 RaftLogMetrics raftLogMetrics) {
-    this.name = name + "-" + getClass().getSimpleName();
+    this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
     this.raftLogMetrics = raftLogMetrics;

@@ -226,7 +226,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
             latch.countDown();
           } catch (Exception ignored) {
-            LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+            LOG.warn("{} is ignored", JavaUtils.getClassSimpleName(ignored.getClass()), ignored);
           }
         });
         clientThread.start();
@@ -685,7 +685,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
             }
           }
         } catch (Exception ignored) {
-          LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+          LOG.warn("{} is ignored", JavaUtils.getClassSimpleName(ignored.getClass()), ignored);
         }
       }).start();
 

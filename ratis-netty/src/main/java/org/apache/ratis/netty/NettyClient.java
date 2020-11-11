@@ -26,6 +26,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
 
@@ -33,7 +34,7 @@ import java.io.Closeable;
 import java.net.InetSocketAddress;
 
 public class NettyClient implements Closeable {
-  private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
+  private final LifeCycle lifeCycle = new LifeCycle(JavaUtils.getClassSimpleName(getClass()));
 
   private Channel channel;
 

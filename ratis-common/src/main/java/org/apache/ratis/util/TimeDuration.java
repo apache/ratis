@@ -259,7 +259,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
   public long roundUpNanos(long nanos) {
     if (duration <= 0) {
       throw new ArithmeticException(
-          "Rounding up to a non-positive " + getClass().getSimpleName() + " (=" + this + ")");
+          "Rounding up to a non-positive " + JavaUtils.getClassSimpleName(getClass()) + " (=" + this + ")");
     }
 
     final long divisor = toLong(TimeUnit.NANOSECONDS);

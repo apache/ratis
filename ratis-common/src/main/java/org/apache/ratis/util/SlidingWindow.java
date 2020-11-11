@@ -39,7 +39,7 @@ public interface SlidingWindow {
   Logger LOG = LoggerFactory.getLogger(SlidingWindow.class);
 
   static String getName(Class<?> clazz, Object name) {
-    return SlidingWindow.class.getSimpleName() +  "$" + clazz.getSimpleName() + ":" + name;
+    return JavaUtils.getClassSimpleName(SlidingWindow.class) +  "$" + JavaUtils.getClassSimpleName(clazz) + ":" + name;
   }
 
   interface Request<REPLY> {

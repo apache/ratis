@@ -83,7 +83,7 @@ import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 public abstract class MiniRaftCluster implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
 
-  public static final String CLASS_NAME = MiniRaftCluster.class.getSimpleName();
+  public static final String CLASS_NAME = JavaUtils.getClassSimpleName(MiniRaftCluster.class);
   public static final String STATEMACHINE_CLASS_KEY = CLASS_NAME + ".statemachine.class";
   private static final StateMachine.Registry STATEMACHINE_REGISTRY_DEFAULT = gid -> new BaseStateMachine();
   private static final TimeDuration RETRY_INTERVAL_DEFAULT =
@@ -220,7 +220,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
   private final Supplier<File> rootTestDir = JavaUtils.memoize(
       () -> new File(BaseTest.getRootTestDir(),
-          getClass().getSimpleName() + Integer.toHexString(ThreadLocalRandom.current().nextInt())));
+          JavaUtils.getClassSimpleName(getClass()) + Integer.toHexString(ThreadLocalRandom.current().nextInt())));
 
   public File getStorageDir(RaftPeerId id) {
     return new File(rootTestDir.get(), id.toString());
@@ -250,7 +250,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
   protected MiniRaftCluster(String[] ids, RaftProperties properties, Parameters parameters) {
     this.group = initRaftGroup(Arrays.asList(ids));
-    LOG.info("new {} with {}", getClass().getSimpleName(), group);
+    LOG.info("new {} with {}", JavaUtils.getClassSimpleName(getClass()), group);
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
 
@@ -286,7 +286,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public void start() throws IOException {
     LOG.info(".............................................................. ");
     LOG.info("... ");
-    LOG.info("...     Starting " + getClass().getSimpleName());
+    LOG.info("...     Starting " + JavaUtils.getClassSimpleName(getClass()));
     LOG.info("... ");
     LOG.info(".............................................................. ");
 
@@ -711,7 +711,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public void shutdown() {
     LOG.info("************************************************************** ");
     LOG.info("*** ");
-    LOG.info("***     Stopping " + getClass().getSimpleName());
+    LOG.info("***     Stopping " + JavaUtils.getClassSimpleName(getClass()));
     LOG.info("*** ");
     LOG.info("************************************************************** ");
     LOG.info(printServers());
@@ -732,7 +732,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
     Optional.ofNullable(timer.get()).ifPresent(Timer::cancel);
     ExitUtils.assertNotTerminated();
-    LOG.info(getClass().getSimpleName() + " shutdown completed");
+    LOG.info("{} shutdown completed", JavaUtils.getClassSimpleName(getClass()));
   }
 
   /**

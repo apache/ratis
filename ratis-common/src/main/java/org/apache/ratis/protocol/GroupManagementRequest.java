@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.util.JavaUtils;
+
 public final class GroupManagementRequest extends RaftClientRequest {
   public abstract static class Op {
     public abstract RaftGroupId getGroupId();
@@ -40,7 +42,7 @@ public final class GroupManagementRequest extends RaftClientRequest {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + ":" + getGroup();
+      return JavaUtils.getClassSimpleName(getClass()) + ":" + getGroup();
     }
   }
 
@@ -71,7 +73,7 @@ public final class GroupManagementRequest extends RaftClientRequest {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + ":" + getGroupId() + ", "
+      return JavaUtils.getClassSimpleName(getClass()) + ":" + getGroupId() + ", "
           + (deleteDirectory? "delete": (renameDirectory ? "rename" : "retain"))
           + "-dir";
     }

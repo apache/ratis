@@ -80,6 +80,7 @@ public class GrpcClientStreamer implements Closeable {
   private RaftPeerId leaderId;
   private volatile GrpcClientProtocolProxy leaderProxy;
   private final ClientId clientId;
+  private final String name;
 
   private volatile RunningState running = RunningState.RUNNING;
   private final ExceptionAndRetry exceptionAndRetry;
@@ -89,6 +90,7 @@ public class GrpcClientStreamer implements Closeable {
   GrpcClientStreamer(RaftProperties prop, RaftGroup group,
       RaftPeerId leaderId, ClientId clientId, GrpcTlsConfig tlsConfig) {
     this.clientId = clientId;
+    this.name = JavaUtils.getClassSimpleName(getClass()) + "-" + clientId;
     maxPendingNum = GrpcConfigKeys.OutputStream.outstandingAppendsMax(prop);
     maxMessageSize = GrpcConfigKeys.messageSizeMax(prop, LOG::debug);
     dataQueue = new ConcurrentLinkedDeque<>();
@@ -209,7 +211,7 @@ public class GrpcClientStreamer implements Closeable {
 
   @Override
   public String toString() {
-    return this.getClass().getSimpleName() + "-" + clientId;
+    return name;
   }
 
   private class Sender extends Daemon {
@@ -313,7 +315,7 @@ public class GrpcClientStreamer implements Closeable {
     }
 
     @Override // called by handleError and handleNotLeader
-    public void close() throws IOException {
+    public void close() {
       active = false;
     }
   }

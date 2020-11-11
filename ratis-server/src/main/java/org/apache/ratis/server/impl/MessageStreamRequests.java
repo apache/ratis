@@ -113,7 +113,7 @@ class MessageStreamRequests {
   private final StreamMap streams = new StreamMap();
 
   MessageStreamRequests(Object name) {
-    this.name = name + "-" + getClass().getSimpleName();
+    this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
   }
 
   CompletableFuture<?> streamAsync(RaftClientRequest request) {

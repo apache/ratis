@@ -105,7 +105,8 @@ public class FileStore implements Closeable {
   }
 
   public RaftPeerId getId() {
-    return Objects.requireNonNull(idSupplier.get(), getClass().getSimpleName() + " is not initialized.");
+    return Objects.requireNonNull(idSupplier.get(),
+        () -> JavaUtils.getClassSimpleName(getClass()) + " is not initialized.");
   }
 
   public Path getRoot() {

@@ -80,7 +80,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     RaftClientProtocol, RaftClientAsynchronousProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
 
-  private static final String CLASS_NAME = RaftServerImpl.class.getSimpleName();
+  private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";

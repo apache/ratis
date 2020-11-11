@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 package org.apache.ratis.protocol;
+
+import org.apache.ratis.util.JavaUtils;
 
 public abstract class RaftClientMessage implements RaftRpcMessage {
   private final ClientId clientId;
@@ -54,7 +56,7 @@ public abstract class RaftClientMessage implements RaftRpcMessage {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + ":" + clientId + "->" + serverId
+    return JavaUtils.getClassSimpleName(getClass()) + ":" + clientId + "->" + serverId
         + (groupId != null? "@" + groupId: "");
   }
 }
