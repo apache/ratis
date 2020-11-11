@@ -29,6 +29,8 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
+import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.NetUtils;
 import org.junit.Before;
@@ -78,15 +80,15 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
     runTestDataStream(3);
   }
 
-  private void testCloseStream(int leaderIndex, int numServers) throws Exception {
+  private void testMockCluster(int leaderIndex, int numServers, RaftException leaderException) throws Exception {
     List<RaftServer> raftServers = new ArrayList<>();
     ClientId clientId = ClientId.randomId();
     RaftGroupId groupId = RaftGroupId.randomId();
     long callId = 100;
     long longIndex = 200;
     final RaftPeer suggestedLeader = RaftPeer.newBuilder().setId("s" + leaderIndex).build();
-    RaftClientReply expectedClientReply = new RaftClientReply(clientId, suggestedLeader.getId(),
-        groupId, callId, true, null, null, longIndex, null);
+    RaftClientReply expectedClientReply = new RaftClientReply(clientId, suggestedLeader.getId(), groupId, callId,
+        leaderException == null ? true : false, null, leaderException, longIndex, null);
 
     for (int i = 0; i < numServers; i ++) {
       RaftServer raftServer = mock(RaftServer.class);
@@ -114,17 +116,17 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
       raftServers.add(raftServer);
     }
 
-    runTestCloseStream(raftServers, 1_000_000, 10, expectedClientReply);
+    runTestMockCluster(raftServers, 1_000_000, 10, expectedClientReply);
   }
 
-  void runTestCloseStream(List<RaftServer> raftServers, int bufferSize, int bufferNum,
+  void runTestMockCluster(List<RaftServer> raftServers, int bufferSize, int bufferNum,
       RaftClientReply expectedClientReply) throws Exception {
     try {
       final List<RaftPeer> peers = raftServers.stream()
           .map(TestDataStreamNetty::newRaftPeer)
           .collect(Collectors.toList());
       setup(peers, raftServers);
-      runTestCloseStream(bufferSize, bufferNum, expectedClientReply);
+      runTestMockCluster(bufferSize, bufferNum, expectedClientReply);
     } finally {
       shutdown();
     }
@@ -133,18 +135,32 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
   @Test
   public void testCloseStreamPrimaryIsLeader() throws Exception {
     // primary is 0, leader is 0
-    testCloseStream(0, 3);
+    testMockCluster(0, 3, null);
   }
 
   @Test
   public void testCloseStreamPrimaryIsNotLeader() throws Exception {
     // primary is 0, leader is 1
-    testCloseStream(1, 3);
+    testMockCluster(1, 3, null);
   }
 
   @Test
   public void testCloseStreamOneServer() throws Exception {
     // primary is 0, leader is 0
-    testCloseStream(0, 1);
+    testMockCluster(0, 1, null);
+  }
+
+  @Test
+  public void testExceptionInReplyPrimaryIsLeader() throws Exception {
+    // primary is 0, leader is 0
+    StateMachineException stateMachineException = new StateMachineException("leader throw StateMachineException");
+    testMockCluster(0, 3, stateMachineException);
+  }
+
+  @Test
+  public void testExceptionInReplyPrimaryIsNotLeader() throws Exception {
+    // primary is 0, leader is 1
+    StateMachineException stateMachineException = new StateMachineException("leader throw StateMachineException");
+    testMockCluster(1, 3, stateMachineException);
   }
 }
