@@ -148,7 +148,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   public void addRaftPeers(Collection<RaftPeer> newPeers) {
     proxies.addPeers(newPeers);
   }
-
+  
   private ChannelInboundHandler newChannelInboundHandlerAdapter(){
     return new ChannelInboundHandlerAdapter(){
       @Override

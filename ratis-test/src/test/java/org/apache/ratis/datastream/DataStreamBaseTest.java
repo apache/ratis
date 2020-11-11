@@ -72,7 +72,7 @@ import java.util.stream.Collectors;
 
 abstract class DataStreamBaseTest extends BaseTest {
   private final Executor executor = Executors.newFixedThreadPool(16);
-  
+
   static class MultiDataStreamStateMachine extends BaseStateMachine {
     final ConcurrentMap<Long, SingleDataStream> streams = new ConcurrentHashMap<>();
 

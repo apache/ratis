@@ -3,26 +3,9 @@ package org.apache.ratis;
 import static org.apache.ratis.DataStreamTestUtils.initBuffer;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
-import com.codahale.metrics.MetricRegistryListener.Base;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
-import org.apache.ratis.RaftConfigKeys.DataStream;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.api.DataStreamOutput;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.SupportedDataStreamType;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
-import org.apache.ratis.proto.RaftProtos.StateMachineEntryProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftGroup;
@@ -30,9 +13,15 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.statemachine.StateMachine;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class DataStreamTests <CLUSTER extends MiniRaftCluster> extends BaseTest
         implements MiniRaftCluster.Factory.Get<CLUSTER> {
