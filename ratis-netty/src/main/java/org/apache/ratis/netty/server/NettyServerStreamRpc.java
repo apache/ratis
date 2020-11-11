@@ -146,15 +146,13 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   static class RemoteStream {
     private final DataStreamOutputRpc out;
-    private final AtomicReference<CompletableFuture<DataStreamReply>> writeFuture;
 
     RemoteStream(DataStreamOutputRpc out) {
       this.out = out;
-      this.writeFuture = new AtomicReference<>(out.getHeaderFuture());
     }
 
-    CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
-      return composeAsync(writeFuture, executor, v -> out.writeAsync(request.slice().nioBuffer()));
+    CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request) {
+      return out.writeAsync(request.slice().nioBuffer());
     }
 
     CompletableFuture<Boolean> startTransaction(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
@@ -171,8 +169,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       }, executor);
     }
 
-    CompletableFuture<DataStreamReply> close(Executor executor) {
-      return composeAsync(writeFuture, executor, v -> out.closeAsync());
+    CompletableFuture<DataStreamReply> close() {
+      return out.closeAsync();
     }
   }
 
@@ -438,13 +436,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     } else if (request.getType() == Type.STREAM_DATA) {
       info = streams.get(key);
       localWrite = info.getLocal().write(buf, executor);
-      remoteWrites = info.applyToRemotes(out -> out.write(request, executor));
+      remoteWrites = info.applyToRemotes(out -> out.write(request));
     } else if (request.getType() == Type.STREAM_CLOSE) {
       info = streams.get(key);
       localWrite = info.getLocal().close(executor);
-      remoteWrites = info.isPrimary()? info.applyToRemotes(out -> out.close(executor)): Collections.emptyList();
+      remoteWrites = info.isPrimary()? info.applyToRemotes(RemoteStream::close): Collections.emptyList();
     } else {
-      buf.release();
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
     }
 
