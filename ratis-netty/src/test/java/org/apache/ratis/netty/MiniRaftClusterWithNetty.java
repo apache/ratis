@@ -21,6 +21,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -47,6 +48,21 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     }
   }
 
+  public interface FactoryGetWithDataStreamEnabled extends Factory.Get<MiniRaftClusterWithNetty> {
+    @Override
+    default Factory<MiniRaftClusterWithNetty> getFactory() {
+      return FACTORY;
+    }
+
+    @Override
+    default RaftProperties getProperties() {
+      RaftProperties properties = new RaftProperties();
+      RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
+      return properties;
+    }
+  }
+
+
   public static final DelayLocalExecutionInjection sendServerRequest
       = new DelayLocalExecutionInjection(NettyRpcService.SEND_SERVER_REQUEST);
 
@@ -59,6 +75,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
       RaftPeerId id, StateMachine.Registry stateMachineRegistry , RaftGroup group,
       RaftProperties properties) throws IOException {
     NettyConfigKeys.Server.setPort(properties, getPort(id, group));
+    NettyConfigKeys.DataStream.setPort(properties, getDataStreamPort(id, group));
     return ServerImplUtils.newRaftServer(id, group, stateMachineRegistry, properties, null);
   }
 

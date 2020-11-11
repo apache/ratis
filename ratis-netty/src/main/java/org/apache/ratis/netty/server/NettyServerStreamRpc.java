@@ -53,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -148,7 +149,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     proxies.addPeers(newPeers);
   }
 
-
   private ChannelInboundHandler newChannelInboundHandlerAdapter(){
     return new ChannelInboundHandlerAdapter(){
       @Override
@@ -197,6 +197,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   @Override
   public void start() {
     channelFuture.syncUninterruptibly();
+  }
+
+  @Override
+  public InetSocketAddress getInetSocketAddress() {
+    return (InetSocketAddress) channelFuture.channel().localAddress();
   }
 
   @Override

@@ -66,7 +66,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
   @Override
   protected RaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
     final RaftProperties p = new RaftProperties(properties);
-    NettyConfigKeys.DataStream.setPort(p,  NetUtils.createSocketAddr(peer.getDataStreamAddress()).getPort());
+    NettyConfigKeys.DataStream.setPort(p, NetUtils.createSocketAddr(peer.getDataStreamAddress()).getPort());
     return super.newRaftServer(peer, p);
   }
 
