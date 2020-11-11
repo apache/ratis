@@ -120,7 +120,7 @@ public class TaskQueue {
   }
 
   @Override
-  public synchronized String toString() {
-    return name + "-" + getClass().getSimpleName();
+  public String toString() {
+    return name + "-" + JavaUtils.getClassSimpleName(getClass());
   }
 }

@@ -18,6 +18,7 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -77,7 +78,7 @@ public interface RaftClientConfigKeys {
     }
 
     interface Experimental {
-      String PREFIX = Async.PREFIX + "." + Experimental.class.getSimpleName().toLowerCase();
+      String PREFIX = Async.PREFIX + "." + JavaUtils.getClassSimpleName(Experimental.class).toLowerCase();
 
       String SEND_DUMMY_REQUEST_KEY = PREFIX + ".send-dummy-request";
       boolean SEND_DUMMY_REQUEST_DEFAULT = true;

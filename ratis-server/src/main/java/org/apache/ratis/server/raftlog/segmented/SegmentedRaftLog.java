@@ -121,7 +121,7 @@ public class SegmentedRaftLog extends RaftLog {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + ":" + getEndIndex();
+      return JavaUtils.getClassSimpleName(getClass()) + ":" + getEndIndex();
     }
   }
 

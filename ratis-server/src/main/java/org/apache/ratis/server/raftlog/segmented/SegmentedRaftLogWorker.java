@@ -176,7 +176,7 @@ class SegmentedRaftLogWorker implements Runnable {
   SegmentedRaftLogWorker(RaftGroupMemberId memberId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
                          RaftServerImpl server, RaftStorage storage, RaftProperties properties,
                          RaftLogMetrics metricRegistry) {
-    this.name = memberId + "-" + getClass().getSimpleName();
+    this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     LOG.info("new {} for {}", name, storage);
 
     this.submitUpdateCommitEvent = submitUpdateCommitEvent;
@@ -298,8 +298,8 @@ class SegmentedRaftLogWorker implements Runnable {
             if (logIOException != null) {
               throw logIOException;
             } else {
-              Timer.Context executionTimeContext =
-                  raftLogMetrics.getRaftLogTaskExecutionTimer(task.getClass().getSimpleName().toLowerCase()).time();
+              final Timer.Context executionTimeContext = raftLogMetrics.getRaftLogTaskExecutionTimer(
+                  JavaUtils.getClassSimpleName(task.getClass()).toLowerCase()).time();
               task.execute();
               executionTimeContext.stop();
             }

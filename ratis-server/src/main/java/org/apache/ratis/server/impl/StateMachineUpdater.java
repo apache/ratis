@@ -83,7 +83,7 @@ class StateMachineUpdater implements Runnable {
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
       ServerState serverState, long lastAppliedIndex, RaftProperties properties) {
-    this.name = serverState.getMemberId() + "-" + getClass().getSimpleName();
+    this.name = serverState.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
     this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
 
@@ -128,7 +128,8 @@ class StateMachineUpdater implements Runnable {
       stateMachine.close();
       stateMachineMetrics.unregister();
     } catch(Throwable t) {
-      LOG.warn(name + ": Failed to close " + stateMachine.getClass().getSimpleName() + " " + stateMachine, t);
+      LOG.warn(name + ": Failed to close " + JavaUtils.getClassSimpleName(stateMachine.getClass())
+          + " " + stateMachine, t);
     }
   }
 

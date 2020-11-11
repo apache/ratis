@@ -32,6 +32,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
 
@@ -49,7 +50,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     StateMachine.EventApi, StateMachine.LeaderEventApi, StateMachine.FollowerEventApi {
   private final CompletableFuture<RaftServer> server = new CompletableFuture<>();
   private volatile RaftGroupId groupId;
-  private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
+  private final LifeCycle lifeCycle = new LifeCycle(JavaUtils.getClassSimpleName(getClass()));
 
   private final AtomicReference<TermIndex> lastAppliedTermIndex = new AtomicReference<>();
 
@@ -219,7 +220,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + ":"
+    return JavaUtils.getClassSimpleName(getClass()) + ":"
         + (!server.isDone()? "uninitialized": getId() + ":" + groupId);
   }
 

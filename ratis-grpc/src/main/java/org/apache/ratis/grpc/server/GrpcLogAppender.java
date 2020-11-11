@@ -254,7 +254,7 @@ public class GrpcLogAppender extends LogAppender {
    * StreamObserver for handling responses from the follower
    */
   private class AppendLogResponseHandler implements StreamObserver<AppendEntriesReplyProto> {
-    private final String name = getFollower().getName() + "-" + getClass().getSimpleName();
+    private final String name = getFollower().getName() + "-" + JavaUtils.getClassSimpleName(getClass());
 
     /**
      * After receiving a appendEntries reply, do the following:
@@ -350,7 +350,7 @@ public class GrpcLogAppender extends LogAppender {
   }
 
   private class InstallSnapshotResponseHandler implements StreamObserver<InstallSnapshotReplyProto> {
-    private final String name = getFollower().getName() + "-" + getClass().getSimpleName();
+    private final String name = getFollower().getName() + "-" + JavaUtils.getClassSimpleName(getClass());
     private final Queue<Integer> pending;
     private final AtomicBoolean done = new AtomicBoolean(false);
     private final boolean isNotificationOnly;
@@ -608,8 +608,10 @@ public class GrpcLogAppender extends LogAppender {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + ":cid=" + callId + ",entriesCount=" + entriesCount + ",lastEntry=" +
-          lastEntry;
+      return JavaUtils.getClassSimpleName(getClass())
+          + ":cid=" + callId
+          + ",entriesCount=" + entriesCount
+          + ",lastEntry=" + lastEntry;
     }
   }
 

@@ -80,7 +80,7 @@ public final class MultipleLinearRandomRetry implements RetryPolicy {
       throw new IllegalArgumentException("pairs must be neither null nor empty.");
     }
     this.pairs = Collections.unmodifiableList(pairs);
-    this.myString = JavaUtils.memoize(() -> getClass().getSimpleName() + pairs);
+    this.myString = JavaUtils.memoize(() -> JavaUtils.getClassSimpleName(getClass()) + pairs);
   }
 
   @Override

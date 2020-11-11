@@ -62,7 +62,7 @@ public interface RetryPolicies {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName();
+      return JavaUtils.getClassSimpleName(getClass());
     }
   }
 
@@ -76,7 +76,7 @@ public interface RetryPolicies {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName();
+      return JavaUtils.getClassSimpleName(getClass());
     }
   }
 
@@ -96,7 +96,7 @@ public interface RetryPolicies {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + "(sleepTime = " + sleepTime + ")";
+      return JavaUtils.getClassSimpleName(getClass()) + "(sleepTime = " + sleepTime + ")";
     }
   }
 
@@ -113,7 +113,7 @@ public interface RetryPolicies {
       }
 
       this.maxAttempts = maxAttempts;
-      this.myString = JavaUtils.memoize(() -> getClass().getSimpleName()
+      this.myString = JavaUtils.memoize(() -> JavaUtils.getClassSimpleName(getClass())
           + "(maxAttempts=" + maxAttempts + ", sleepTime=" + sleepTime + ")");
     }
 

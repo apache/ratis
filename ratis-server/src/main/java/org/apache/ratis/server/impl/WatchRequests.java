@@ -171,7 +171,7 @@ class WatchRequests {
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
   WatchRequests(Object name, RaftProperties properties) {
-    this.name = name + "-" + getClass().getSimpleName();
+    this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
 
     final TimeDuration watchTimeout = RaftServerConfigKeys.Watch.timeout(properties);
     this.watchTimeoutNanos = watchTimeout.to(TimeUnit.NANOSECONDS);

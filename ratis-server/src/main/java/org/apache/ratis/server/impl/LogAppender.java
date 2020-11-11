@@ -55,7 +55,7 @@ public class LogAppender {
   public static final Logger LOG = LoggerFactory.getLogger(LogAppender.class);
 
   class AppenderDaemon {
-    private final String name = LogAppender.this + "-" + getClass().getSimpleName();
+    private final String name = LogAppender.this + "-" + JavaUtils.getClassSimpleName(getClass());
     private final LifeCycle lifeCycle = new LifeCycle(name);
     private final Daemon daemon = new Daemon(this::run);
 
@@ -150,7 +150,7 @@ public class LogAppender {
 
   public LogAppender(RaftServerImpl server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
-    this.name = follower.getName() + "-" + getClass().getSimpleName();
+    this.name = follower.getName() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.server = server;
     this.leaderState = leaderState;
     this.raftLog = server.getState().getLog();

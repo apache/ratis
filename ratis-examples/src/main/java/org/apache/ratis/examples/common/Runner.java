@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,6 +21,7 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import org.apache.ratis.examples.arithmetic.cli.Arithmetic;
 import org.apache.ratis.examples.filestore.cli.FileStore;
+import org.apache.ratis.util.JavaUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,13 +52,13 @@ public final class Runner {
 
     JCommander.Builder builder = JCommander.newBuilder().addObject(runner);
     commands.forEach(command -> builder
-        .addCommand(command.getClass().getSimpleName().toLowerCase(), command));
+        .addCommand(JavaUtils.getClassSimpleName(command.getClass()).toLowerCase(), command));
     JCommander jc = builder.build();
     try {
       jc.parse(newArgs);
-      Optional<SubCommandBase> selectedCommand = commands.stream().filter(
-          command -> command.getClass().getSimpleName()
-              .equalsIgnoreCase(jc.getParsedCommand())).findFirst();
+      final Optional<SubCommandBase> selectedCommand = commands.stream()
+          .filter(command -> JavaUtils.getClassSimpleName(command.getClass()).equalsIgnoreCase(jc.getParsedCommand()))
+          .findFirst();
       if (selectedCommand.isPresent()) {
         selectedCommand.get().run();
       } else {
@@ -71,9 +72,9 @@ public final class Runner {
   }
 
   private static List<SubCommandBase> initializeCommands(String command) {
-    if (command.equalsIgnoreCase(FileStore.class.getSimpleName())) {
+    if (command.equalsIgnoreCase(JavaUtils.getClassSimpleName(FileStore.class))) {
       return FileStore.getSubCommands();
-    } else if (command.equalsIgnoreCase(Arithmetic.class.getSimpleName())) {
+    } else if (command.equalsIgnoreCase(JavaUtils.getClassSimpleName(Arithmetic.class))) {
       return Arithmetic.getSubCommands();
     }
     return null;

@@ -105,11 +105,11 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     private final Map<Integer, OrderedRequestStreamObserver> map = new ConcurrentHashMap<>();
 
     void putNew(OrderedRequestStreamObserver so) {
-      CollectionUtils.putNew(so.getId(), so, map, () -> getClass().getSimpleName());
+      CollectionUtils.putNew(so.getId(), so, map, () -> JavaUtils.getClassSimpleName(getClass()));
     }
 
     void removeExisting(OrderedRequestStreamObserver so) {
-      CollectionUtils.removeExisting(so.getId(), so, map, () -> getClass().getSimpleName());
+      CollectionUtils.removeExisting(so.getId(), so, map, () -> JavaUtils.getClassSimpleName(getClass()));
     }
 
     void closeAllExisting(RaftGroupId groupId) {
@@ -170,7 +170,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
   private abstract class RequestStreamObserver implements StreamObserver<RaftClientRequestProto> {
     private final int id = streamCount.getAndIncrement();
-    private final String name = getId() + "-" + getClass().getSimpleName() + id;
+    private final String name = getId() + "-" + JavaUtils.getClassSimpleName(getClass()) + id;
     private final StreamObserver<RaftClientReplyProto> responseObserver;
     private final AtomicBoolean isClosed = new AtomicBoolean();
 
@@ -350,7 +350,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       if (!requestGroupId.equals(updated)) {
         final GroupMismatchException exception = new GroupMismatchException(getId()
             + ": The group (" + requestGroupId + ") of " + r.getClientId()
-            + " does not match the group (" + updated + ") of the " + getClass().getSimpleName());
+            + " does not match the group (" + updated + ") of the " + JavaUtils.getClassSimpleName(getClass()));
         responseError(exception, () -> "processClientRequest (Group mismatched) for " + r);
         return;
       }

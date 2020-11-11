@@ -20,6 +20,7 @@ package org.apache.ratis.server.raftlog.segmented;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.PureJavaCrc32C;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -140,6 +141,6 @@ public class SegmentedRaftLogOutputStream implements Closeable {
 
   @Override
   public String toString() {
-    return this.getClass().getSimpleName() + "(" + file + ")";
+    return JavaUtils.getClassSimpleName(getClass()) + "(" + file + ")";
   }
 }

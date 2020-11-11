@@ -167,9 +167,8 @@ public class RaftServerProxy implements RaftServer {
 
   private final DataStreamServerRpc dataStreamServerRpc;
 
-  private ExecutorService implExecutor;
-
   private final ImplMap impls = new ImplMap();
+  private final ExecutorService implExecutor = Executors.newSingleThreadExecutor();
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters) {
@@ -182,12 +181,9 @@ public class RaftServerProxy implements RaftServer {
     this.serverRpc = factory.newRaftServerRpc(this);
 
     this.id = id != null? id: RaftPeerId.valueOf(getIdStringFrom(serverRpc));
+    this.lifeCycle = new LifeCycle(this.id + "-" + JavaUtils.getClassSimpleName(getClass()));
 
     this.dataStreamServerRpc = new DataStreamServerImpl(this, parameters).getServerRpc();
-
-    this.lifeCycle = new LifeCycle(this.id + "-" + getClass().getSimpleName());
-
-    this.implExecutor = Executors.newSingleThreadExecutor();
   }
 
   /** Check the storage dir and add groups*/

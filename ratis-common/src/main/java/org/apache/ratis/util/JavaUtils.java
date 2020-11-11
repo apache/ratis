@@ -35,6 +35,8 @@ import java.util.TimerTask;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -49,6 +51,11 @@ public interface JavaUtils {
 
   DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss,SSS");
   CompletableFuture[] EMPTY_COMPLETABLE_FUTURE_ARRAY = {};
+
+  ConcurrentMap<Class<?>, String> CLASS_SIMPLE_NAMES = new ConcurrentHashMap<>();
+  static String getClassSimpleName(Class<?> clazz) {
+    return CLASS_SIMPLE_NAMES.computeIfAbsent(clazz, Class::getSimpleName);
+  }
 
   static String date() {
     return DATE_FORMAT.format(new Date());

@@ -62,7 +62,7 @@ import java.util.stream.Stream;
  */
 public class LeaderState {
   private static final Logger LOG = RaftServerImpl.LOG;
-  public static final String APPEND_PLACEHOLDER = LeaderState.class.getSimpleName() + ".placeholder";
+  public static final String APPEND_PLACEHOLDER = JavaUtils.getClassSimpleName(LeaderState.class) + ".placeholder";
 
   private enum BootStrapProgress {
     NOPROGRESS, PROGRESSING, CAUGHTUP
@@ -71,9 +71,11 @@ public class LeaderState {
   enum StepDownReason {
     HIGHER_TERM, HIGHER_PRIORITY, LOST_MAJORITY_HEARTBEATS, STATE_MACHINE_EXCEPTION;
 
+    private final String longName = JavaUtils.getClassSimpleName(getClass()) + ":" + name();
+
     @Override
     public String toString() {
-      return getClass().getSimpleName() + ":" + name();
+      return longName;
     }
   }
 
@@ -119,7 +121,7 @@ public class LeaderState {
   }
 
   private class EventQueue {
-    private final String name = server.getMemberId() + "-" + getClass().getSimpleName();
+    private final String name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
     private final BlockingQueue<StateUpdateEvent> queue = new ArrayBlockingQueue<>(4096);
 
     void submit(StateUpdateEvent event) {
@@ -235,7 +237,7 @@ public class LeaderState {
   private final LogAppenderMetrics logAppenderMetrics;
 
   LeaderState(RaftServerImpl server, RaftProperties properties) {
-    this.name = server.getMemberId() + "-" + getClass().getSimpleName();
+    this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.server = server;
 
     stagingCatchupGap = RaftServerConfigKeys.stagingCatchupGap(properties);
@@ -463,7 +465,7 @@ public class LeaderState {
 
   void restartSender(LogAppender sender) {
     final FollowerInfo follower = sender.getFollower();
-    LOG.info("{}: Restarting {} for {}", this, sender.getClass().getSimpleName(), follower.getName());
+    LOG.info("{}: Restarting {} for {}", this, JavaUtils.getClassSimpleName(sender.getClass()), follower.getName());
     sender.stopAppender();
     senders.removeAll(Collections.singleton(sender));
     addAndStartSenders(Collections.singleton(follower.getPeer()));
@@ -919,7 +921,7 @@ public class LeaderState {
   }
 
   private class ConfigurationStagingState {
-    private final String name = server.getMemberId() + "-" + getClass().getSimpleName();
+    private final String name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
     private final Map<RaftPeerId, RaftPeer> newPeers;
     private final PeerConfiguration newConf;
 

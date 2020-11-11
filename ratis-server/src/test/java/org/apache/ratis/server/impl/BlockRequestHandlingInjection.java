@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,7 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.util.CodeInjectionForTesting;
-import org.apache.ratis.util.StringUtils;
+import org.apache.ratis.util.JavaUtils;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -91,7 +91,7 @@ public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Co
 
   @Override
   public String toString() {
-    return getClass().getSimpleName()
+    return JavaUtils.getClassSimpleName(getClass())
         + ": requestors=" + requestors.keySet()
         + ", repliers=" + repliers.keySet();
   }

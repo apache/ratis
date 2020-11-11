@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Daemon;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.Preconditions;
@@ -118,7 +119,7 @@ class LeaderElection implements Runnable {
   private final RaftServerImpl server;
 
   LeaderElection(RaftServerImpl server) {
-    this.name = server.getMemberId() + "-" + getClass().getSimpleName() + COUNT.incrementAndGet();
+    this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
     this.daemon = new Daemon(this);
     this.server = server;
@@ -167,11 +168,11 @@ class LeaderElection implements Runnable {
       final LifeCycle.State state = lifeCycle.getCurrentState();
       if (state.isClosingOrClosed()) {
         LOG.info("{}: {} is safely ignored since this is already {}",
-            this, e.getClass().getSimpleName(), state, e);
+            this, JavaUtils.getClassSimpleName(e.getClass()), state, e);
       } else {
         if (!server.isAlive()) {
           LOG.info("{}: {} is safely ignored since the server is not alive: {}",
-              this, e.getClass().getSimpleName(), server, e);
+              this, JavaUtils.getClassSimpleName(e.getClass()), server, e);
         } else {
           LOG.error("{}: Failed, state={}", this, state, e);
         }

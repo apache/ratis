@@ -21,6 +21,7 @@ import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 
 /** An {@link RetryPolicy.Event} specific to client request failure. */
@@ -73,6 +74,9 @@ public class ClientRetryEvent implements RetryPolicy.Event {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + ":attempt=" + attemptCount + ",request=" + request + ",cause=" + cause;
+    return JavaUtils.getClassSimpleName(getClass())
+        + ":attempt=" + attemptCount
+        + ",request=" + request
+        + ",cause=" + cause;
   }
 }

@@ -37,6 +37,7 @@ import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
@@ -202,7 +203,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
         try {
           clients.get(i).close();
         } catch (Exception ignored) {
-          LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+          LOG.warn("{} is ignored", JavaUtils.getClassSimpleName(ignored.getClass()), ignored);
         }
       }
     }

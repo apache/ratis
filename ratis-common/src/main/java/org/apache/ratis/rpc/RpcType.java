@@ -18,6 +18,7 @@
 package org.apache.ratis.rpc;
 
 import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
 /** The type of RPC implementations. */
@@ -42,10 +43,11 @@ public interface RpcType {
       return ReflectionUtils.newInstance(
           ReflectionUtils.getClass(rpcType, RpcType.class));
     } catch(Exception e) {
+      final String classname = JavaUtils.getClassSimpleName(RpcType.class);
       final IllegalArgumentException iae = new IllegalArgumentException(
-          "Invalid " + RpcType.class.getSimpleName() + ": \"" + rpcType + "\" "
-              + " cannot be used as a user-defined " + RpcType.class.getSimpleName()
-              + " and it is not a " + SupportedRpcType.class.getSimpleName() + ".");
+          "Invalid " + classname + ": \"" + rpcType + "\" "
+              + " cannot be used as a user-defined " + classname
+              + " and it is not a " + JavaUtils.getClassSimpleName(SupportedRpcType.class) + ".");
       iae.addSuppressed(e);
       iae.addSuppressed(fromSupportedRpcType);
       throw iae;

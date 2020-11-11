@@ -52,7 +52,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     PeerProxyMap<GrpcServerProtocolClient>> {
   static final Logger LOG = LoggerFactory.getLogger(GrpcService.class);
   public static final String GRPC_SEND_SERVER_REQUEST =
-      GrpcService.class.getSimpleName() + ".sendRequest";
+      JavaUtils.getClassSimpleName(GrpcService.class) + ".sendRequest";
 
   public static final class Builder extends RaftServerRpc.Builder<Builder, GrpcService> {
     private GrpcTlsConfig tlsConfig;
@@ -121,7 +121,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
-        getClass().getSimpleName() + "_" + Integer.toString(port)
+        JavaUtils.getClassSimpleName(getClass()) + "_" + port
     );
 
     NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
@@ -174,7 +174,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     } catch (IOException e) {
       ExitUtils.terminate(1, "Failed to start Grpc server", e, LOG);
     }
-    LOG.info("{}: {} started, listening on {}", getId(), getClass().getSimpleName(), getInetSocketAddress());
+    LOG.info("{}: {} started, listening on {}",
+        getId(), JavaUtils.getClassSimpleName(getClass()), getInetSocketAddress());
   }
 
   @Override

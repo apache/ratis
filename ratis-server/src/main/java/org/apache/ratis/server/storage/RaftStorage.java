@@ -23,6 +23,7 @@ import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -151,6 +152,6 @@ public class RaftStorage implements Closeable {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + ":" + getStorageDir();
+    return JavaUtils.getClassSimpleName(getClass()) + ":" + getStorageDir();
   }
 }

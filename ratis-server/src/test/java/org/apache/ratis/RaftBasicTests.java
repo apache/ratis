@@ -328,7 +328,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + index
+      return JavaUtils.getClassSimpleName(getClass()) + index
           + "(step=" + step + "/" + messages.length
           + ", isRunning=" + isRunning
           + ", isAlive=" + isAlive()

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Objects;
@@ -47,6 +48,6 @@ class CommitInfoCache {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + ":" + map.values();
+    return JavaUtils.getClassSimpleName(getClass()) + ":" + map.values();
   }
 }

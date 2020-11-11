@@ -131,6 +131,6 @@ public class RaftOutputStream extends OutputStream {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + "-" + getClient().getId() + ":byteFlushed=" + byteFlushed;
+    return JavaUtils.getClassSimpleName(getClass()) + "-" + getClient().getId() + ":byteFlushed=" + byteFlushed;
   }
 }

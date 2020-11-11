@@ -37,6 +37,7 @@ import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog.SegmentRan
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
 import org.junit.Test;
@@ -53,7 +54,7 @@ public class TestCacheEviction extends BaseTest {
 
   static LogSegmentList prepareSegments(int numSegments, boolean[] cached, long start, long size) {
     Assert.assertEquals(numSegments, cached.length);
-    final LogSegmentList segments = new LogSegmentList(TestCacheEviction.class.getSimpleName());
+    final LogSegmentList segments = new LogSegmentList(JavaUtils.getClassSimpleName(TestCacheEviction.class));
     for (int i = 0; i < numSegments; i++) {
       LogSegment s = LogSegment.newCloseSegment(null, start, start + size - 1, null);
       if (cached[i]) {

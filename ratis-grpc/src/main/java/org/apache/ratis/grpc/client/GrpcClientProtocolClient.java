@@ -233,7 +233,7 @@ public class GrpcClientProtocolClient implements Closeable {
 
     @Override
     public String toString() {
-      return getName() + ":" + getClass().getSimpleName();
+      return getName() + ":" + JavaUtils.getClassSimpleName(getClass());
     }
   }
 

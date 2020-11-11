@@ -57,7 +57,7 @@ import java.util.function.Consumer;
  */
 public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
-  public static final String LOG_SYNC = RaftLog.class.getSimpleName() + ".logSync";
+  public static final String LOG_SYNC = JavaUtils.getClassSimpleName(RaftLog.class) + ".logSync";
 
   private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", getName(), s);
   private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", getName(), s);
@@ -88,7 +88,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private volatile LogEntryProto lastMetadataEntry = null;
 
   protected RaftLog(RaftGroupMemberId memberId, long commitIndex, RaftProperties properties) {
-    this.name = memberId + "-" + getClass().getSimpleName();
+    this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     this.memberId = memberId;
     this.commitIndex = new RaftLogIndex("commitIndex", commitIndex);
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", commitIndex);

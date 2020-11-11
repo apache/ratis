@@ -19,6 +19,7 @@ package org.apache.ratis.datastream.impl;
 
 import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.util.JavaUtils;
 
 /**
  * This is an abstract implementation of {@link DataStreamPacket}.
@@ -53,7 +54,7 @@ public abstract class DataStreamPacketImpl implements DataStreamPacket {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + "{"
+    return JavaUtils.getClassSimpleName(getClass()) + "{"
         + "streamId=" + getStreamId()
         + ", streamOffset=" + getStreamOffset()
         + ", dataLength=" + getDataLength()

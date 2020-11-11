@@ -239,7 +239,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     if (chosen < 0) {
       chosen = ThreadLocalRandom.current().nextInt(idIndex.length);
     }
-    final String type = cluster.getClass().getSimpleName()
+    final String type = JavaUtils.getClassSimpleName(cluster.getClass())
         + Arrays.toString(idIndex) + "chosen=" + chosen;
     LOG.info("\n\nrunMultiGroupTest with " + type + ": " + cluster.printServers());
 

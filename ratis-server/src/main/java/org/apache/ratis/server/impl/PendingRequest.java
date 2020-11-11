@@ -21,6 +21,7 @@ import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Collection;
@@ -84,7 +85,6 @@ public class PendingRequest implements Comparable<PendingRequest> {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + "(index=" + index
-        + ", request=" + request;
+    return JavaUtils.getClassSimpleName(getClass()) + ":index=" + index + ", request=" + request;
   }
 }

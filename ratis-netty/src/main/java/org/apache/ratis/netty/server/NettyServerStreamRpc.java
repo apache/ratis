@@ -212,7 +212,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + ":" + request;
+      return JavaUtils.getClassSimpleName(getClass()) + ":" + request;
     }
   }
 
@@ -276,7 +276,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   public NettyServerStreamRpc(RaftServer server) {
     this.server = server;
-    this.name = server.getId() + "-" + getClass().getSimpleName();
+    this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
     final RaftProperties properties = server.getProperties();
     final int port = NettyConfigKeys.DataStream.port(properties);

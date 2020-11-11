@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -27,6 +27,7 @@ import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.AfterClass;
 import org.junit.Test;
@@ -46,7 +47,7 @@ public abstract class ParameterizedBaseTest extends BaseTest {
 
   /** Subclasses should override this method to provide real data parameters. */
   @Parameterized.Parameters
-  public static Collection<Object[]> data() throws IOException {
+  public static Collection<Object[]> data() {
     return Collections.emptyList();
   }
 
@@ -76,14 +77,12 @@ public abstract class ParameterizedBaseTest extends BaseTest {
 
   private static void add(
       Collection<Object[]> clusters, MiniRaftCluster.Factory factory,
-      String[] ids, RaftProperties properties)
-      throws IOException {
+      String[] ids, RaftProperties properties) {
     clusters.add(new Object[]{factory.newCluster(ids, properties)});
   }
 
   public static Collection<Object[]> getMiniRaftClusters(
-      RaftProperties prop, int clusterSize, Class<?>... clusterClasses)
-      throws IOException {
+      RaftProperties prop, int clusterSize, Class<?>... clusterClasses) {
     final List<Class<?>> classes = Arrays.asList(clusterClasses);
     final boolean isAll = classes.isEmpty(); //empty means all
 
@@ -114,15 +113,14 @@ public abstract class ParameterizedBaseTest extends BaseTest {
 //      add(clusters, MiniRaftClusterWithHadoopRpc.FACTORY, ids.next(), prop);
     }
     for(int i = 0; i < clusters.size(); i++) {
-      LOG.info(i + ": " + clusters.get(i)[0].getClass().getSimpleName());
+      LOG.info(i + ": " + JavaUtils.getClassSimpleName(clusters.get(i)[0].getClass()));
     }
     LOG.info("#clusters = " + clusters.size());
     return clusters;
   }
 
   public static <S extends StateMachine> Collection<Object[]> getMiniRaftClusters(
-      Class<S> stateMachineClass, int clusterSize, Class<?>... clusterClasses)
-      throws IOException {
+      Class<S> stateMachineClass, int clusterSize, Class<?>... clusterClasses) {
     final RaftProperties prop = new RaftProperties();
 
     // avoid flaky behaviour in CI environment
