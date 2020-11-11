@@ -36,7 +36,7 @@ public class DisabledDataStreamServerFactory implements DataStreamServerFactory 
 
       @Override
       public InetSocketAddress getInetSocketAddress() {
-        throw new UnsupportedOperationException();
+        return InetSocketAddress.createUnresolved("0.0.0.0", 0);
       }
 
       @Override
