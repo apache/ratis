@@ -39,6 +39,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
@@ -400,7 +401,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   }
 
 
-  void runTestMockCluster(int bufferSize, int bufferNum, RaftClientReply expectedClientReply)
+  void runTestMockCluster(int bufferSize, int bufferNum, Exception expectedException)
       throws IOException {
     try (final RaftClient client = newRaftClientForDataStream()) {
       final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
@@ -409,13 +410,10 @@ abstract class DataStreamBaseTest extends BaseTest {
 
       final RaftClientReply clientReply = ClientProtoUtils.toRaftClientReply(
           RaftClientReplyProto.parseFrom(replyByteBuffer.slice()));
-      Assert.assertEquals(clientReply.getCallId(), expectedClientReply.getCallId());
-      Assert.assertEquals(clientReply.getClientId(), expectedClientReply.getClientId());
-      Assert.assertEquals(clientReply.getLogIndex(), expectedClientReply.getLogIndex());
-      if (expectedClientReply.getException() != null) {
+      if (expectedException != null) {
         Assert.assertFalse(replyByteBuffer.isSuccess());
         Assert.assertTrue(clientReply.getException().getMessage().contains(
-            expectedClientReply.getException().getMessage()));
+            expectedException.getMessage()));
       } else {
         Assert.assertTrue(replyByteBuffer.isSuccess());
       }
