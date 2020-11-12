@@ -20,6 +20,6 @@ package org.apache.ratis.netty;
 import org.apache.ratis.DataStreamTests;
 
 public class TestDataStreamWithNetty extends DataStreamTests<MiniRaftClusterWithNetty>
-        implements MiniRaftClusterWithNetty.FactoryGetWithDataStreamEnabled {
+    implements MiniRaftClusterWithNetty.FactoryGetWithDataStreamEnabled {
 
 }
