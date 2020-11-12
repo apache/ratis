@@ -400,7 +400,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   }
 
 
-  void runTestCloseStream(int bufferSize, int bufferNum, RaftClientReply expectedClientReply)
+  void runTestMockCluster(int bufferSize, int bufferNum, RaftClientReply expectedClientReply)
       throws IOException {
     try (final RaftClient client = newRaftClientForDataStream()) {
       final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
@@ -409,10 +409,16 @@ abstract class DataStreamBaseTest extends BaseTest {
 
       final RaftClientReply clientReply = ClientProtoUtils.toRaftClientReply(
           RaftClientReplyProto.parseFrom(replyByteBuffer.slice()));
-      Assert.assertTrue(replyByteBuffer.isSuccess());
       Assert.assertEquals(clientReply.getCallId(), expectedClientReply.getCallId());
       Assert.assertEquals(clientReply.getClientId(), expectedClientReply.getClientId());
       Assert.assertEquals(clientReply.getLogIndex(), expectedClientReply.getLogIndex());
+      if (expectedClientReply.getException() != null) {
+        Assert.assertFalse(replyByteBuffer.isSuccess());
+        Assert.assertTrue(clientReply.getException().getMessage().contains(
+            expectedClientReply.getException().getMessage()));
+      } else {
+        Assert.assertTrue(replyByteBuffer.isSuccess());
+      }
     }
   }
 
