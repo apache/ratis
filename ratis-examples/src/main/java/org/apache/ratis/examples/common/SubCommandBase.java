@@ -17,14 +17,14 @@
  */
 package org.apache.ratis.examples.common;
 
+import static org.apache.ratis.server.impl.RaftServerConstants.IPV6PATTERN;
+
 import com.beust.jcommander.Parameter;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Objects;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -37,24 +37,6 @@ import org.slf4j.LoggerFactory;
 public abstract class SubCommandBase {
 
   private static final Logger LOG = LoggerFactory.getLogger(SubCommandBase.class);
-
-  static Pattern IPV6PATTERN = Pattern.compile(Stream.of("(",
-    "([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|",          // 2001:0250:0207:0001:0000:0000:0000:ff02
-    "([0-9a-fA-F]{1,4}:){1,7}:|",                         // 1::
-    "([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|",         // 2001::ff02
-    "([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|",  // 2001::0000:ff02
-    "([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|",  // 2001::0000:0000:ff02
-    "([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|",  // 2001::0000:0000:0000:ff02
-    "([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|",  // 2001::0001:0000:0000:0000:ff02
-    "[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|",       // 2001::0207:0001:0000:0000:0000:ff02
-    ":((:[0-9a-fA-F]{1,4}){1,7}|:)|",                     // ::0250:0207:0001:0000:0000:0000:ff02
-    "::(ffff(:0{1,4}){0,1}:){0,1}",
-    "((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}",
-    "(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|",          // ::ffff:255.255.255.255 ::ffff:0:255.255.255.255
-    "([0-9a-fA-F]{1,4}:){1,4}:",
-    "((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}",
-    "(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])",           // 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33
-    ")").collect(Collectors.joining()));
 
   @Parameter(names = {"--raftGroup",
       "-g"}, description = "Raft group identifier")

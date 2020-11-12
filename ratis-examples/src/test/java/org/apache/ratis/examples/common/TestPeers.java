@@ -18,6 +18,8 @@
 
 package org.apache.ratis.examples.common;
 
+import static org.apache.ratis.server.impl.RaftServerConstants.IPV6PATTERN;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -62,7 +64,7 @@ public class TestPeers {
   @Test
   public void testPatternIpv6() {
     Assert.assertEquals(
-      Arrays.stream(ipv6Address).filter(s -> SubCommandBase.IPV6PATTERN.matcher(s).find()).count(),
+      Arrays.stream(ipv6Address).filter(s -> IPV6PATTERN.matcher(s).find()).count(),
       ipv6Address.length);
   }
 
