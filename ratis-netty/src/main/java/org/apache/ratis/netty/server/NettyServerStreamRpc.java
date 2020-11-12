@@ -76,6 +76,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyServerStreamRpc.class);
@@ -405,34 +406,27 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     }
   }
 
-  private void sendLeaderFailedReply(
-      final List<RaftClientReply> replies, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
-    RaftPeer suggestedLeader = null;
-    for (RaftClientReply reply : replies) {
-      if (reply.getNotLeaderException() != null && reply.getNotLeaderException().getSuggestedLeader() != null) {
-        suggestedLeader = reply.getNotLeaderException().getSuggestedLeader();
-        break;
-      }
-    }
+  private void sendLeaderFailedReply(final List<CompletableFuture<DataStreamReply>> results,
+      final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx, RaftClientReply localReply) {
+    // get replies from the results, ignored exceptional replies
+    final Stream<RaftClientReply> remoteReplies = results.stream()
+        .filter(r -> !r.isCompletedExceptionally())
+        .map(CompletableFuture::join)
+        .map(this::getRaftClientReply);
 
-    if (suggestedLeader == null) {
-      sendReplyNotSuccess(request, null, ctx);
-    } else {
-      for (RaftClientReply reply : replies) {
-        if (reply.getServerId().equals(suggestedLeader.getId())) {
-          ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
-          sendReplyNotSuccess(request, buffer, ctx);
-          return;
-        }
-      }
+    // choose the leader's reply if there is any.  Otherwise, use the local reply
+    final RaftClientReply chosen = Stream.concat(Stream.of(localReply), remoteReplies)
+        .filter(reply -> reply.getNotLeaderException() == null)
+        .findAny().orElse(localReply);
 
-      throw new IllegalStateException(this + ": Failed to find suggestedLeader:" + suggestedLeader.getId());
-    }
+    // send reply
+    final ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(chosen).toByteString().asReadOnlyByteBuffer();
+    sendReplyNotSuccess(request, buffer, ctx);
   }
 
   private void forwardStartTransaction(
       final StreamInfo info, final DataStreamRequestByteBuf request,
-      final ChannelHandlerContext ctx, RaftClientReply reply) {
+      final ChannelHandlerContext ctx, RaftClientReply localReply) {
     final List<CompletableFuture<DataStreamReply>> results = info.applyToRemotes(
         out -> out.startTransaction(request, ctx, executor));
 
@@ -443,14 +437,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         }
       }
 
-      List<RaftClientReply> replies = new ArrayList<>();
-      replies.add(reply);
-
-      for (CompletableFuture<DataStreamReply> result : results) {
-        replies.add(getRaftClientReply(result.join()));
-      }
-
-      sendLeaderFailedReply(replies, request, ctx);
+      sendLeaderFailedReply(results, request, ctx, localReply);
     });
   }
 
