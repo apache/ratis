@@ -62,7 +62,6 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     }
   }
 
-
   public static final DelayLocalExecutionInjection sendServerRequest
       = new DelayLocalExecutionInjection(NettyRpcService.SEND_SERVER_REQUEST);
 
