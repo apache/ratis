@@ -320,7 +320,7 @@ public class DataStreamManagement {
     sendReplyNotSuccess(request, buffer, ctx);
   }
 
-  static void forwardStartTransaction(StreamInfo info, final DataStreamRequestByteBuf request, RaftClientReply localReply,
+  static void forwardStartTransaction(StreamInfo info, DataStreamRequestByteBuf request, RaftClientReply localReply,
       ChannelHandlerContext ctx, Executor executor) {
     final List<CompletableFuture<DataStreamReply>> results = info.applyToRemotes(
         out -> out.startTransaction(request, ctx, executor));
