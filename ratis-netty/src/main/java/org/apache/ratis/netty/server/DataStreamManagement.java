@@ -96,9 +96,7 @@ public class DataStreamManagement {
         ChannelHandlerContext ctx, Executor executor) {
       return out.startTransactionAsync().thenApplyAsync(reply -> {
         if (reply.isSuccess()) {
-          final ByteBuffer buffer = reply instanceof DataStreamReplyByteBuffer?
-              ((DataStreamReplyByteBuffer)reply).slice(): null;
-          sendReplySuccess(request, buffer, -1, ctx);
+          ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
         }
         return reply;
       }, executor);
@@ -256,26 +254,38 @@ public class DataStreamManagement {
     }
   }
 
-  static void sendReplyNotSuccess(DataStreamRequestByteBuf request, ByteBuffer buffer, ChannelHandlerContext ctx) {
-    final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
-        request.getStreamId(), request.getStreamOffset(), buffer, -1, false, request.getType());
-    ctx.writeAndFlush(reply);
+  static DataStreamReplyByteBuffer newDataStreamReplyByteBuffer(
+      DataStreamRequestByteBuf request, DataStreamReply reply) {
+    final ByteBuffer buffer = reply instanceof DataStreamReplyByteBuffer?
+        ((DataStreamReplyByteBuffer)reply).slice(): null;
+    return DataStreamReplyByteBuffer.newBuilder()
+        .setDataStreamPacket(request)
+        .setBuffer(buffer)
+        .setSuccess(reply.isSuccess())
+        .setBytesWritten(reply.getBytesWritten())
+        .build();
   }
 
-  static void sendReplySuccess(DataStreamRequestByteBuf request, ByteBuffer buffer, long bytesWritten,
-      ChannelHandlerContext ctx) {
-    final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
-        request.getStreamId(), request.getStreamOffset(), buffer, bytesWritten, true, request.getType());
-    ctx.writeAndFlush(reply);
+  static DataStreamReplyByteBuffer newDataStreamReplyByteBuffer(
+      DataStreamRequestByteBuf request, RaftClientReply reply) {
+    final ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
+    return DataStreamReplyByteBuffer.newBuilder()
+        .setDataStreamPacket(request)
+        .setBuffer(buffer)
+        .setSuccess(reply.isSuccess())
+        .build();
   }
 
   static void sendReply(List<CompletableFuture<DataStreamReply>> remoteWrites,
       DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
-    if (!checkSuccessRemoteWrite(remoteWrites, bytesWritten)) {
-      sendReplyNotSuccess(request, null, ctx);
-    } else {
-      sendReplySuccess(request, null, bytesWritten, ctx);
+    final boolean success = checkSuccessRemoteWrite(remoteWrites, bytesWritten);
+    final DataStreamReplyByteBuffer.Builder builder = DataStreamReplyByteBuffer.newBuilder()
+        .setDataStreamPacket(request)
+        .setSuccess(success);
+    if (success) {
+      builder.setBytesWritten(bytesWritten);
     }
+    ctx.writeAndFlush(builder.build());
   }
 
   private CompletableFuture<Void> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
@@ -283,21 +293,24 @@ public class DataStreamManagement {
     try {
       return server.submitClientRequestAsync(info.getRequest()).thenAcceptAsync(reply -> {
         if (reply.isSuccess()) {
-          ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
-          sendReplySuccess(request, buffer, -1, ctx);
+          ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
         } else if (request.getType() == Type.STREAM_CLOSE) {
           // if this server is not the leader, forward start transition to the other peers
           // there maybe other unexpected reason cause failure except not leader, forwardStartTransaction anyway
           forwardStartTransaction(info, request, reply, ctx, executor);
         } else if (request.getType() == Type.START_TRANSACTION){
-          ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
-          sendReplyNotSuccess(request, buffer, ctx);
+          ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
         } else {
           throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
         }
       }, executor);
     } catch (IOException e) {
-      sendReplyNotSuccess(request, null, ctx);
+      // TODO include IOException in the reply
+      final DataStreamReplyByteBuffer reply = DataStreamReplyByteBuffer.newBuilder()
+          .setDataStreamPacket(request)
+          .setSuccess(false)
+          .build();
+      ctx.writeAndFlush(reply);
       return CompletableFuture.completedFuture(null);
     }
   }
@@ -316,8 +329,7 @@ public class DataStreamManagement {
         .findAny().orElse(localReply);
 
     // send reply
-    final ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(chosen).toByteString().asReadOnlyByteBuffer();
-    sendReplyNotSuccess(request, buffer, ctx);
+    ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, chosen));
   }
 
   static void forwardStartTransaction(StreamInfo info, DataStreamRequestByteBuf request, RaftClientReply localReply,

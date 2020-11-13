@@ -21,11 +21,11 @@ package org.apache.ratis.protocol;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 
 public interface DataStreamPacket {
+  Type getType();
+
   long getStreamId();
 
   long getStreamOffset();
 
   long getDataLength();
-
-  Type getType();
 }

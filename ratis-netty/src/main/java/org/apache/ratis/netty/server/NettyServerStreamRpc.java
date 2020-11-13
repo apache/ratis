@@ -172,7 +172,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  ByteToMessageDecoder newDecoder() {
+  static ByteToMessageDecoder newDecoder() {
     return new ByteToMessageDecoder() {
       {
         this.setCumulator(ByteToMessageDecoder.COMPOSITE_CUMULATOR);
@@ -185,7 +185,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  MessageToMessageEncoder<DataStreamReplyByteBuffer> newEncoder() {
+  static MessageToMessageEncoder<DataStreamReplyByteBuffer> newEncoder() {
     return new MessageToMessageEncoder<DataStreamReplyByteBuffer>() {
       @Override
       protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> out) {

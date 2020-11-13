@@ -43,8 +43,8 @@ public class OrderedStreamAsync {
     private final long seqNum;
     private final CompletableFuture<DataStreamReply> replyFuture = new CompletableFuture<>();
 
-    DataStreamWindowRequest(long streamId, long offset, ByteBuffer data, long seqNum, Type type){
-      super(streamId, offset, data, type);
+    DataStreamWindowRequest(Type type, long streamId, long offset, ByteBuffer data, long seqNum) {
+      super(type, streamId, offset, data);
       this.seqNum = seqNum;
     }
 
@@ -96,7 +96,7 @@ public class OrderedStreamAsync {
           "Interrupted when sending streamId=" + streamId + ", offset= " + offset + ", length=" + length, e));
     }
     final LongFunction<DataStreamWindowRequest> constructor
-        = seqNum -> new DataStreamWindowRequest(streamId, offset, data.slice(), seqNum, type);
+        = seqNum -> new DataStreamWindowRequest(type, streamId, offset, data.slice(), seqNum);
     return slidingWindow.submitNewRequest(constructor, this::sendRequestToNetwork).
            getReplyFuture().whenComplete((r, e) -> requestSemaphore.release());
   }

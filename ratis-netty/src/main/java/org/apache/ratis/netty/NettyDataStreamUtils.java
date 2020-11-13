@@ -99,7 +99,10 @@ public interface NettyDataStreamUtils {
   static DataStreamReplyByteBuffer decodeDataStreamReplyByteBuffer(ByteBuf buf) {
     return Optional.ofNullable(DataStreamReplyHeader.read(buf))
         .map(header -> checkHeader(header, buf))
-        .map(header -> new DataStreamReplyByteBuffer(header, decodeData(buf, header, ByteBuf::nioBuffer)))
+        .map(header -> DataStreamReplyByteBuffer.newBuilder()
+            .setDataStreamReplyHeader(header)
+            .setBuffer(decodeData(buf, header, ByteBuf::nioBuffer))
+            .build())
         .orElse(null);
   }
 
