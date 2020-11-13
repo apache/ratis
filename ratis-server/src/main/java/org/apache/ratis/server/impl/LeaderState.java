@@ -69,7 +69,7 @@ public class LeaderState {
   }
 
   enum StepDownReason {
-    HIGHER_TERM, HIGHER_PRIORITY, LOST_MAJORITY_HEARTBEATS, STATE_MACHINE_EXCEPTION;
+    HIGHER_TERM, HIGHER_PRIORITY, LOST_MAJORITY_HEARTBEATS, STATE_MACHINE_EXCEPTION, JVM_PAUSE;
 
     private final String longName = JavaUtils.getClassSimpleName(getClass()) + ":" + name();
 

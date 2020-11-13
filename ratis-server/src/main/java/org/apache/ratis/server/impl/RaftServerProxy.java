@@ -35,6 +35,7 @@ import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.JvmPauseMonitor;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.statemachine.StateMachine;
@@ -169,6 +170,7 @@ public class RaftServerProxy implements RaftServer {
 
   private final ImplMap impls = new ImplMap();
   private final ExecutorService implExecutor = Executors.newSingleThreadExecutor();
+  private final JvmPauseMonitor pauseMonitor;
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters) {
@@ -184,6 +186,7 @@ public class RaftServerProxy implements RaftServer {
     this.lifeCycle = new LifeCycle(this.id + "-" + JavaUtils.getClassSimpleName(getClass()));
 
     this.dataStreamServerRpc = new DataStreamServerImpl(this, parameters).getServerRpc();
+    this.pauseMonitor = new JvmPauseMonitor(this);
   }
 
   /** Check the storage dir and add groups*/
@@ -292,7 +295,7 @@ public class RaftServerProxy implements RaftServer {
     return IOUtils.getFromFuture(getImplFuture(groupId), this::getId);
   }
 
-  List<RaftServerImpl> getImpls() throws IOException {
+  public List<RaftServerImpl> getImpls() throws IOException {
     final List<RaftServerImpl> list = new ArrayList<>();
     for(CompletableFuture<RaftServerImpl> f : impls.getAll()) {
       list.add(IOUtils.getFromFuture(f, this::getId));
@@ -319,6 +322,7 @@ public class RaftServerProxy implements RaftServer {
       getServerRpc().start();
       getDataStreamServerRpc().start();
     }, IOException.class);
+    pauseMonitor.start();
   }
 
   @Override
@@ -346,6 +350,7 @@ public class RaftServerProxy implements RaftServer {
         LOG.warn(getId() + ": Failed to close " + SupportedDataStreamType.NETTY + " server", ignored);
       }
     });
+    pauseMonitor.stop();
   }
 
   private <REPLY> CompletableFuture<REPLY> submitRequest(RaftGroupId groupId,

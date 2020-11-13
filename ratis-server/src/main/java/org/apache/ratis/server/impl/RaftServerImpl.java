@@ -633,6 +633,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return pending.getFuture();
   }
 
+  public void stepDownOnJvmPause() {
+    if (isLeader()) {
+      final LeaderState leaderState = role.getLeaderStateNonNull();
+      leaderState.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE);
+    }
+  }
+
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
