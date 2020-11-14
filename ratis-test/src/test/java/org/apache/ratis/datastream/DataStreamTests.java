@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.datastream;
 
-import static org.apache.ratis.datastream.DataStreamTestUtils.initBuffer;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 import org.apache.ratis.BaseTest;
@@ -75,7 +74,7 @@ public abstract class DataStreamTests <CLUSTER extends MiniRaftCluster> extends 
       for(int i = 0; i < bufferNum; i++) {
         final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
 
-        final ByteBuffer bf = initBuffer(dataSize, size);
+        final ByteBuffer bf = DataStreamBaseTest.initBuffer(dataSize, size);
         futures.add(dataStreamOutputRpc.writeAsync(bf));
         dataSize += size;
       }

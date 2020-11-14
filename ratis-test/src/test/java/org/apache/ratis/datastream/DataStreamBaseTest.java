@@ -17,9 +17,6 @@
  */
 package org.apache.ratis.datastream;
 
-import static org.apache.ratis.datastream.DataStreamTestUtils.initBuffer;
-import static org.apache.ratis.datastream.DataStreamTestUtils.pos2byte;
-
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
@@ -71,6 +68,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 abstract class DataStreamBaseTest extends BaseTest {
+  static final int MODULUS = 23;
+
+  static byte pos2byte(int pos) {
+    return (byte) ('A' + pos%MODULUS);
+  }
+
   private final Executor executor = Executors.newFixedThreadPool(16);
 
   static class MultiDataStreamStateMachine extends BaseStateMachine {
@@ -475,5 +478,17 @@ abstract class DataStreamBaseTest extends BaseTest {
     Assert.assertEquals(expected.getServerId(), computed.getServerId());
     Assert.assertEquals(expected.getRaftGroupId(), computed.getRaftGroupId());
     Assert.assertEquals(expected.getCallId(), computed.getCallId());
+  }
+
+  static ByteBuffer initBuffer(int offset, int size) {
+    final ByteBuffer buffer = ByteBuffer.allocateDirect(size);
+    final int length = buffer.capacity();
+    buffer.position(0).limit(length);
+    for (int j = 0; j < length; j++) {
+      buffer.put(pos2byte(offset + j));
+    }
+    buffer.flip();
+    Assert.assertEquals(length, buffer.remaining());
+    return buffer;
   }
 }
