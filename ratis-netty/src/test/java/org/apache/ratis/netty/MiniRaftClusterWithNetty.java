@@ -21,7 +21,6 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -45,20 +44,6 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     @Override
     default Factory<MiniRaftClusterWithNetty> getFactory() {
       return FACTORY;
-    }
-  }
-
-  public interface FactoryGetWithDataStreamEnabled extends Factory.Get<MiniRaftClusterWithNetty> {
-    @Override
-    default Factory<MiniRaftClusterWithNetty> getFactory() {
-      return FACTORY;
-    }
-
-    @Override
-    default RaftProperties getProperties() {
-      RaftProperties properties = new RaftProperties();
-      RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
-      return properties;
     }
   }
 

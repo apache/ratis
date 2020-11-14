@@ -15,11 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.netty;
+package org.apache.ratis.datastream;
 
-import org.apache.ratis.DataStreamTests;
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.datastream.DataStreamBaseTest.MultiDataStreamStateMachine;
+import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 
-public class TestDataStreamWithNetty extends DataStreamTests<MiniRaftClusterWithNetty>
-    implements MiniRaftClusterWithNetty.FactoryGetWithDataStreamEnabled {
-
+public class TestDataStreamWithNettyMiniRaftCluster extends DataStreamTests<MiniRaftClusterWithNetty>
+    implements MiniRaftClusterWithNetty.FactoryGet {
+  {
+    RaftConfigKeys.DataStream.setType(getProperties(), SupportedDataStreamType.NETTY);
+    setStateMachine(MultiDataStreamStateMachine.class);
+  }
 }

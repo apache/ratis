@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis;
+package org.apache.ratis.datastream;
 
 import java.nio.ByteBuffer;
 import org.junit.Assert;

@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.datastream;
 
-import static org.apache.ratis.DataStreamTestUtils.initBuffer;
-import static org.apache.ratis.DataStreamTestUtils.pos2byte;
+import static org.apache.ratis.datastream.DataStreamTestUtils.initBuffer;
+import static org.apache.ratis.datastream.DataStreamTestUtils.pos2byte;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;

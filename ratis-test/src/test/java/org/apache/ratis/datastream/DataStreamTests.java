@@ -15,11 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis;
+package org.apache.ratis.datastream;
 
-import static org.apache.ratis.DataStreamTestUtils.initBuffer;
+import static org.apache.ratis.datastream.DataStreamTestUtils.initBuffer;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
+import org.apache.ratis.BaseTest;
+import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.proto.RaftProtos;
@@ -66,31 +68,20 @@ public abstract class DataStreamTests <CLUSTER extends MiniRaftCluster> extends 
       // send header
       DataStreamOutputRpc dataStreamOutputRpc = (DataStreamOutputRpc) client.getDataStreamApi().stream();
       final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-      final List<Integer> sizes = new ArrayList<>();
-
-      dataStreamOutputRpc.getHeaderFuture().join();
 
       // send data
       final int halfBufferSize = bufferSize / 2;
       int dataSize = 0;
       for(int i = 0; i < bufferNum; i++) {
         final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
-        sizes.add(size);
 
         final ByteBuffer bf = initBuffer(dataSize, size);
         futures.add(dataStreamOutputRpc.writeAsync(bf));
         dataSize += size;
       }
 
-      for (int i = 0; i < futures.size(); i++) {
-        futures.get(i).join();
-      }
-
       // send close
       dataStreamOutputRpc.closeAsync().join();
-
-      // send start transaction
-      dataStreamOutputRpc.startTransactionAsync().join();
 
       // get request call id
       long callId = dataStreamOutputRpc.getHeaderFuture().get().getStreamId();
