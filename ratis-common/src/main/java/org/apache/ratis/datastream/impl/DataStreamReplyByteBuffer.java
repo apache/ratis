@@ -29,8 +29,8 @@ import java.nio.ByteBuffer;
  *
  * This class is immutable.
  */
-public class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implements DataStreamReply {
-  public static class Builder {
+public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implements DataStreamReply {
+  public static final class Builder {
     private Type type;
     private long streamId;
     private long streamOffset;
