@@ -417,10 +417,15 @@ public class DataStreamManagement {
           }
           buf.release();
           return null;
-        }, executor)).exceptionally(exception -> {
-      replyDataStreamException(server, exception, info.getRequest(), request, ctx);
-      buf.release();
-      return null;
+        }, executor)
+    ).whenComplete((v, exception) -> {
+      try {
+        if (exception != null) {
+          replyDataStreamException(server, exception, info.getRequest(), request, ctx);
+        }
+      } finally {
+        buf.release();
+      }
     });
   }
 
