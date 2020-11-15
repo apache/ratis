@@ -33,13 +33,13 @@ import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements DataStreamRequest {
   private final ByteBuf buf;
 
-  public DataStreamRequestByteBuf(long streamId, long streamOffset, ByteBuf buf, Type type) {
-    super(streamId, streamOffset, type);
+  public DataStreamRequestByteBuf(Type type, long streamId, long streamOffset, ByteBuf buf) {
+    super(type, streamId, streamOffset);
     this.buf = buf != null? buf.asReadOnly(): Unpooled.EMPTY_BUFFER;
   }
 
   public DataStreamRequestByteBuf(DataStreamRequestHeader header, ByteBuf buf) {
-    this(header.getStreamId(), header.getStreamOffset(), buf, header.getType());
+    this(header.getType(), header.getStreamId(), header.getStreamOffset(), buf);
   }
 
   @Override

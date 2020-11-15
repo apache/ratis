@@ -28,7 +28,7 @@ import java.nio.ByteBuffer;
  * This class is immutable.
  */
 public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer implements DataStreamRequest {
-  public DataStreamRequestByteBuffer(long streamId, long streamOffset, ByteBuffer buffer, Type type) {
-    super(streamId, streamOffset, buffer, type);
+  public DataStreamRequestByteBuffer(Type type, long streamId, long streamOffset, ByteBuffer buffer) {
+    super(type, streamId, streamOffset, buffer);
   }
 }

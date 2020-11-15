@@ -27,14 +27,19 @@ import org.apache.ratis.util.JavaUtils;
  * This class is immutable.
  */
 public abstract class DataStreamPacketImpl implements DataStreamPacket {
+  private final Type type;
   private final long streamId;
   private final long streamOffset;
-  private final Type type;
 
-  public DataStreamPacketImpl(long streamId, long streamOffset, Type type) {
+  public DataStreamPacketImpl(Type type, long streamId, long streamOffset) {
+    this.type = type;
     this.streamId = streamId;
     this.streamOffset = streamOffset;
-    this.type = type;
+  }
+
+  @Override
+  public Type getType() {
+    return type;
   }
 
   @Override
@@ -48,17 +53,11 @@ public abstract class DataStreamPacketImpl implements DataStreamPacket {
   }
 
   @Override
-  public Type getType() {
-    return type;
-  }
-
-  @Override
   public String toString() {
-    return JavaUtils.getClassSimpleName(getClass()) + "{"
-        + "streamId=" + getStreamId()
-        + ", streamOffset=" + getStreamOffset()
-        + ", dataLength=" + getDataLength()
-        + ", type=" + getType()
-        + '}';
+    return JavaUtils.getClassSimpleName(getClass()) + ":"
+        + getType()
+        + ",id=" + getStreamId()
+        + ",offset=" + getStreamOffset()
+        + ",length=" + getDataLength();
   }
 }

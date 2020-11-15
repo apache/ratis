@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.datastream.impl;
 
+import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
@@ -28,21 +29,83 @@ import java.nio.ByteBuffer;
  *
  * This class is immutable.
  */
-public class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implements DataStreamReply {
-  private final long bytesWritten;
-  private final boolean success;
+public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implements DataStreamReply {
+  public static final class Builder {
+    private Type type;
+    private long streamId;
+    private long streamOffset;
+    private ByteBuffer buffer;
 
-  public DataStreamReplyByteBuffer(long streamId, long streamOffset, ByteBuffer buffer,
-      long bytesWritten, boolean success, Type type) {
-    super(streamId, streamOffset, buffer, type);
+    private boolean success;
+    private long bytesWritten;
+
+    private Builder() {}
+
+    public Builder setType(Type type) {
+      this.type = type;
+      return this;
+    }
+
+    public Builder setStreamId(long streamId) {
+      this.streamId = streamId;
+      return this;
+    }
+
+    public Builder setStreamOffset(long streamOffset) {
+      this.streamOffset = streamOffset;
+      return this;
+    }
+
+    public Builder setBuffer(ByteBuffer buffer) {
+      this.buffer = buffer;
+      return this;
+    }
+
+    public Builder setSuccess(boolean success) {
+      this.success = success;
+      return this;
+    }
+
+    public Builder setBytesWritten(long bytesWritten) {
+      this.bytesWritten = bytesWritten;
+      return this;
+    }
+
+    public Builder setDataStreamReplyHeader(DataStreamReplyHeader header) {
+      return setDataStreamPacket(header)
+          .setSuccess(header.isSuccess())
+          .setBytesWritten(header.getBytesWritten());
+    }
+
+    public Builder setDataStreamPacket(DataStreamPacket packet) {
+      return setType(packet.getType())
+          .setStreamId(packet.getStreamId())
+          .setStreamOffset(packet.getStreamOffset());
+    }
+
+    public DataStreamReplyByteBuffer build() {
+      return new DataStreamReplyByteBuffer(type, streamId, streamOffset, buffer, success, bytesWritten);
+    }
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  private final boolean success;
+  private final long bytesWritten;
+
+  private DataStreamReplyByteBuffer(Type type, long streamId, long streamOffset, ByteBuffer buffer,
+      boolean success, long bytesWritten) {
+    super(type, streamId, streamOffset, buffer);
 
     this.success = success;
     this.bytesWritten = bytesWritten;
   }
 
-  public DataStreamReplyByteBuffer(DataStreamReplyHeader header, ByteBuffer buffer) {
-    this(header.getStreamId(), header.getStreamOffset(), buffer, header.getBytesWritten(), header.isSuccess(),
-        header.getType());
+  @Override
+  public boolean isSuccess() {
+    return success;
   }
 
   @Override
@@ -51,7 +114,9 @@ public class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implem
   }
 
   @Override
-  public boolean isSuccess() {
-    return success;
+  public String toString() {
+    return super.toString()
+        + "," + (success? "SUCCESS": "FAILED")
+        + ",bytesWritten=" + bytesWritten;
   }
 }

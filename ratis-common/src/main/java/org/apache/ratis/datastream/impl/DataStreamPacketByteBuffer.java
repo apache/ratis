@@ -28,8 +28,8 @@ public abstract class DataStreamPacketByteBuffer extends DataStreamPacketImpl {
 
   private final ByteBuffer buffer;
 
-  public DataStreamPacketByteBuffer(long streamId, long streamOffset, ByteBuffer buffer, Type type) {
-    super(streamId, streamOffset, type);
+  protected DataStreamPacketByteBuffer(Type type, long streamId, long streamOffset, ByteBuffer buffer) {
+    super(type, streamId, streamOffset);
     this.buffer = buffer != null? buffer.asReadOnlyBuffer(): EMPTY_BYTE_BUFFER;
   }
 
