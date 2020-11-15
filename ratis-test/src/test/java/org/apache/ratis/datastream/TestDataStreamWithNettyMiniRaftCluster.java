@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,23 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server;
+package org.apache.ratis.datastream;
 
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.datastream.DataStreamBaseTest.MultiDataStreamStateMachine;
+import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 
-import java.io.Closeable;
-import java.net.InetSocketAddress;
-
-/**
- * A server interface handling incoming streams
- * Relays those streams to other servers after persisting
- */
-public interface DataStreamServerRpc extends RaftPeer.Add, Closeable {
-  /**
-   * start server
-   */
-  void start();
-
-  /** @return the address where this RPC server is listening to. */
-  InetSocketAddress getInetSocketAddress();
+public class TestDataStreamWithNettyMiniRaftCluster extends DataStreamTests<MiniRaftClusterWithNetty>
+    implements MiniRaftClusterWithNetty.FactoryGet {
 }

@@ -21,6 +21,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.protocol.RaftPeer;
 
+import java.net.InetSocketAddress;
 import java.util.Collection;
 
 /** A stream factory that does nothing when data stream is disabled. */
@@ -32,6 +33,11 @@ public class DisabledDataStreamServerFactory implements DataStreamServerFactory 
     return new DataStreamServerRpc() {
       @Override
       public void start() {}
+
+      @Override
+      public InetSocketAddress getInetSocketAddress() {
+        return null;
+      }
 
       @Override
       public void close() {}

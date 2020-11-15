@@ -62,6 +62,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -192,6 +193,16 @@ public abstract class MiniRaftCluster implements Closeable {
     protected int getPort(RaftPeerId id, RaftGroup g) {
       final RaftPeer p = g != null? g.getPeer(id): peers.get(id);
       final String address = p == null? null : p.getAddress();
+      return getPort(address);
+    }
+
+    protected int getDataStreamPort(RaftPeerId id, RaftGroup g) {
+      final RaftPeer p = g != null? g.getPeer(id): peers.get(id);
+      final String address = p == null? null : p.getDataStreamAddress();
+      return getPort(address);
+    }
+
+    private int getPort(String address) {
       final InetSocketAddress inetAddress = address != null?
           NetUtils.createSocketAddr(address): NetUtils.createLocalServerAddress();
       return inetAddress.getPort();
@@ -213,7 +224,10 @@ public abstract class MiniRaftCluster implements Closeable {
   public static RaftGroup initRaftGroup(Collection<String> ids) {
     final RaftPeer[] peers = ids.stream()
         .map(RaftPeerId::valueOf)
-        .map(id -> RaftPeer.newBuilder().setId(id).setAddress(NetUtils.createLocalServerAddress()).build())
+        .map(id -> RaftPeer.newBuilder().setId(id)
+                .setAddress(NetUtils.createLocalServerAddress())
+                .setDataStreamAddress(NetUtils.createLocalServerAddress())
+                .build())
         .toArray(RaftPeer[]::new);
     return RaftGroup.valueOf(RaftGroupId.randomId(), peers);
   }
@@ -269,6 +283,17 @@ public abstract class MiniRaftCluster implements Closeable {
     return this;
   }
 
+  private void initDataStreamServer() {
+    LOG.info("Setting up data stream servers");
+    for (RaftServerProxy serverProxy : servers.values()) {
+      serverProxy.getDataStreamServerRpc().addRaftPeers(getOtherRaftPeers(serverProxy.getId()));
+    }
+  }
+
+  private Collection<RaftPeer> getOtherRaftPeers(RaftPeerId id) {
+    return peers.values().stream().filter(r -> !r.getId().equals(id)).collect(Collectors.toList());
+  }
+
   public RaftServerProxy putNewServer(RaftPeerId id, RaftGroup group, boolean format) {
     final RaftServerProxy s = newRaftServer(id, group, format);
     Preconditions.assertTrue(servers.put(id, s) == null);
@@ -291,6 +316,7 @@ public abstract class MiniRaftCluster implements Closeable {
     LOG.info(".............................................................. ");
 
     initServers();
+    initDataStreamServer();
     startServers(servers.values());
 
     this.timer.updateAndGet(t -> t != null? t
@@ -391,7 +417,11 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public static RaftPeer toRaftPeer(RaftServerProxy s) {
-    return RaftPeer.newBuilder().setId(s.getId()).setAddress(s.getServerRpc().getInetSocketAddress()).build();
+    return RaftPeer.newBuilder()
+            .setId(s.getId())
+            .setAddress(s.getServerRpc().getInetSocketAddress())
+            .setDataStreamAddress(s.getDataStreamServerRpc().getInetSocketAddress())
+            .build();
   }
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer)
@@ -668,12 +698,21 @@ public abstract class MiniRaftCluster implements Closeable {
     return createClient(leaderId, group, getDefaultRetryPolicy());
   }
 
+  public RaftClient createClient(RaftPeer primaryServer) {
+    return createClient(null, group, getDefaultRetryPolicy(), primaryServer);
+  }
+
   public RaftClient createClient(RaftPeerId leaderId, RaftGroup group, RetryPolicy retryPolicy) {
+    return createClient(leaderId, group, retryPolicy, null);
+  }
+
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group, RetryPolicy retryPolicy, RaftPeer primaryServer) {
     RaftClient.Builder builder = RaftClient.newBuilder()
         .setRaftGroup(group)
         .setLeaderId(leaderId)
         .setProperties(properties)
         .setParameters(parameters)
+        .setPrimaryDataStreamServer(primaryServer)
         .setRetryPolicy(retryPolicy);
     return builder.build();
   }

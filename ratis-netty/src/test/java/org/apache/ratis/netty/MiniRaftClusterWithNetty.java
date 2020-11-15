@@ -59,6 +59,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
       RaftPeerId id, StateMachine.Registry stateMachineRegistry , RaftGroup group,
       RaftProperties properties) throws IOException {
     NettyConfigKeys.Server.setPort(properties, getPort(id, group));
+    NettyConfigKeys.DataStream.setPort(properties, getDataStreamPort(id, group));
     return ServerImplUtils.newRaftServer(id, group, stateMachineRegistry, properties, null);
   }
 
