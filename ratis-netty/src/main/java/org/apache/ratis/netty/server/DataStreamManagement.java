@@ -28,6 +28,7 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
@@ -305,13 +306,7 @@ public class DataStreamManagement {
         }
       }, executor);
     } catch (IOException e) {
-      // TODO include IOException in the reply
-      final DataStreamReplyByteBuffer reply = DataStreamReplyByteBuffer.newBuilder()
-          .setDataStreamPacket(request)
-          .setSuccess(false)
-          .build();
-      ctx.writeAndFlush(reply);
-      return CompletableFuture.completedFuture(null);
+      throw new CompletionException(e);
     }
   }
 
@@ -330,6 +325,13 @@ public class DataStreamManagement {
 
     // send reply
     ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, chosen));
+  }
+
+  static void replyDataStreamException(RaftServer server, Throwable cause, RaftClientRequest raftClientRequest,
+      DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+    DataStreamException dataStreamException = new DataStreamException(server.getId(), cause);
+    RaftClientReply reply = new RaftClientReply(raftClientRequest, dataStreamException, null);
+    ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
   }
 
   static void forwardStartTransaction(StreamInfo info, DataStreamRequestByteBuf request, RaftClientReply localReply,
@@ -371,7 +373,15 @@ public class DataStreamManagement {
       // for peers to start transaction
       final StreamInfo info = streams.get(key);
       composeAsync(info.getPrevious(), executor, v -> startTransaction(info, request, ctx))
-          .thenAccept(v -> buf.release());
+          .whenComplete((v, exception) -> {
+        try {
+          if (exception != null) {
+            replyDataStreamException(server, exception, info.getRequest(), request, ctx);
+          }
+        } finally {
+          buf.release();
+        }
+      });
       return;
     }
 
@@ -410,9 +420,16 @@ public class DataStreamManagement {
           } else {
             throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
           }
-          buf.release();
           return null;
-        }, executor));
+        }, executor)).whenComplete((v, exception) -> {
+      try {
+        if (exception != null) {
+          replyDataStreamException(server, exception, info.getRequest(), request, ctx);
+        }
+      } finally {
+        buf.release();
+      }
+    });
   }
 
   static boolean checkSuccessRemoteWrite(List<CompletableFuture<DataStreamReply>> replyFutures, long bytesWritten) {

@@ -333,6 +333,12 @@ message AlreadyClosedExceptionProto {
   bytes stacktrace = 3;
 }
 
+message DataStreamExceptionProto {
+  string exceptionClassName = 1;
+  string errorMsg = 2;
+  bytes stacktrace = 3;
+}
+
 message RaftClientReplyProto {
   RaftRpcReplyProto rpcReply = 1;
   ClientMessageEntryProto message = 2;
@@ -343,6 +349,7 @@ message RaftClientReplyProto {
     StateMachineExceptionProto stateMachineException = 5;
     LeaderNotReadyExceptionProto leaderNotReadyException = 6;
     AlreadyClosedExceptionProto alreadyClosedException = 7;
+    DataStreamExceptionProto dataStreamException = 8;
   }
 
   uint64 logIndex = 14; // When the request is a write request and the reply is success, the log index of the transaction

@@ -19,6 +19,7 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
@@ -84,7 +85,7 @@ public class RaftClientReply extends RaftClientMessage {
       Preconditions.assertTrue(ReflectionUtils.isInstance(exception,
           AlreadyClosedException.class,
           NotLeaderException.class, NotReplicatedException.class,
-          LeaderNotReadyException.class, StateMachineException.class),
+          LeaderNotReadyException.class, StateMachineException.class, DataStreamException.class),
           () -> "Unexpected exception class: " + this);
     }
   }
@@ -165,6 +166,11 @@ public class RaftClientReply extends RaftClientMessage {
   /** If this reply has {@link StateMachineException}, return it; otherwise return null. */
   public StateMachineException getStateMachineException() {
     return JavaUtils.cast(exception, StateMachineException.class);
+  }
+
+  /** If this reply has {@link DataStreamException}, return it; otherwise return null. */
+  public DataStreamException getDataStreamException() {
+    return JavaUtils.cast(exception, DataStreamException.class);
   }
 
   public LeaderNotReadyException getLeaderNotReadyException() {

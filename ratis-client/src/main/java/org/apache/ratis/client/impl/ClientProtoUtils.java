@@ -20,6 +20,7 @@ package org.apache.ratis.client.impl;
 import java.util.Optional;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.ALREADYCLOSEDEXCEPTION;
+import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.DATASTREAMEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.LEADERNOTREADYEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTREPLICATEDEXCEPTION;
@@ -191,6 +193,17 @@ public interface ClientProtoUtils {
         b.setStateMachineException(smeBuilder.build());
       }
 
+      final DataStreamException dse = reply.getDataStreamException();
+      if (dse != null) {
+        DataStreamExceptionProto.Builder dseBuilder =
+            DataStreamExceptionProto.newBuilder();
+        final Throwable t = dse.getCause() != null ? dse.getCause() : dse;
+        dseBuilder.setExceptionClassName(t.getClass().getName())
+            .setErrorMsg(t.getMessage())
+            .setStacktrace(ProtoUtils.writeObject2ByteString(t.getStackTrace()));
+        b.setDataStreamException(dseBuilder.build());
+      }
+
       final NotReplicatedException nre = reply.getNotReplicatedException();
       if (nre != null) {
         final NotReplicatedExceptionProto.Builder nreBuilder = NotReplicatedExceptionProto.newBuilder()
@@ -282,6 +295,10 @@ public interface ClientProtoUtils {
       StateMachineExceptionProto smeProto = replyProto.getStateMachineException();
       e = wrapStateMachineException(serverMemberId,
           smeProto.getExceptionClassName(), smeProto.getErrorMsg(), smeProto.getStacktrace());
+    } else if (replyProto.getExceptionDetailsCase().equals(DATASTREAMEXCEPTION)) {
+      DataStreamExceptionProto dseProto = replyProto.getDataStreamException();
+      e = wrapDataStreamException(serverMemberId.getPeerId(),
+          dseProto.getExceptionClassName(), dseProto.getErrorMsg(), dseProto.getStacktrace());
     } else if (replyProto.getExceptionDetailsCase().equals(LEADERNOTREADYEXCEPTION)) {
       LeaderNotReadyExceptionProto lnreProto = replyProto.getLeaderNotReadyException();
       e = new LeaderNotReadyException(ProtoUtils.toRaftGroupMemberId(lnreProto.getServerId()));
@@ -342,6 +359,27 @@ public interface ClientProtoUtils {
         (StackTraceElement[]) ProtoUtils.toObject(stackTraceBytes);
     sme.setStackTrace(stacktrace);
     return sme;
+  }
+
+  static DataStreamException wrapDataStreamException(
+      RaftPeerId peerId, String className, String errorMsg, ByteString stackTraceBytes) {
+    DataStreamException dse;
+    if (className == null) {
+      dse = new DataStreamException(errorMsg);
+    } else {
+      try {
+        Class<?> clazz = Class.forName(className);
+        final Exception e = ReflectionUtils.instantiateException(
+            clazz.asSubclass(Exception.class), errorMsg, null);
+        dse = new DataStreamException(peerId, e);
+      } catch (Exception e) {
+        dse = new DataStreamException(className + ": " + errorMsg);
+      }
+    }
+    StackTraceElement[] stacktrace =
+        (StackTraceElement[]) ProtoUtils.toObject(stackTraceBytes);
+    dse.setStackTrace(stacktrace);
+    return dse;
   }
 
   static AlreadyClosedException wrapAlreadyClosedException(
