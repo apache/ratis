@@ -159,10 +159,10 @@ public final class MetaServiceProtoUtil {
 
     public static IOException toMetaServiceException(MetaServiceExceptionProto exceptionProto) {
         try {
-            IOException result = null;
+            final IOException result;
             Class<?> clazz = Class.forName(exceptionProto.getExceptionClassName());
             Exception e = ReflectionUtils.instantiateException(
-                    clazz.asSubclass(Exception.class), exceptionProto.getErrorMsg(), null);
+                    clazz.asSubclass(Exception.class), exceptionProto.getErrorMsg());
             if(e instanceof IOException) {
                 result = (IOException)e;
             } else {

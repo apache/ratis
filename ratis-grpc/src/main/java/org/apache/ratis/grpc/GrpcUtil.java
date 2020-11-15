@@ -116,11 +116,10 @@ public interface GrpcUtil {
       final String className = trailers.get(EXCEPTION_TYPE_KEY);
       if (className != null) {
         try {
-          Class<?> clazz = Class.forName(className);
-          final Exception unwrapped = ReflectionUtils.instantiateException(
-              clazz.asSubclass(Exception.class), status.getDescription(), se);
-          return IOUtils.asIOException(unwrapped);
-        } catch (Exception e) {
+          final Class<? extends Throwable> clazz = Class.forName(className).asSubclass(Throwable.class);
+          final Throwable unwrapped = ReflectionUtils.instantiateException(clazz, status.getDescription());
+          return IOUtils.asIOException(unwrapped.initCause(se));
+        } catch (Throwable e) {
           se.addSuppressed(e);
           return new IOException(se);
         }
