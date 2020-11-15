@@ -420,10 +420,8 @@ public class DataStreamManagement {
           } else {
             throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
           }
-          buf.release();
           return null;
-        }, executor)
-    ).whenComplete((v, exception) -> {
+        }, executor)).whenComplete((v, exception) -> {
       try {
         if (exception != null) {
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
