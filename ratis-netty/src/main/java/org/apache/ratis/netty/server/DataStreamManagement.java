@@ -373,9 +373,14 @@ public class DataStreamManagement {
       // for peers to start transaction
       final StreamInfo info = streams.get(key);
       composeAsync(info.getPrevious(), executor, v -> startTransaction(info, request, ctx))
-          .thenAccept(v -> buf.release()).exceptionally(exception -> {
-        replyDataStreamException(server, exception, info.getRequest(), request, ctx);
-        return null;
+          .whenComplete((v, exception) -> {
+        try {
+          if (exception != null) {
+            replyDataStreamException(server, exception, info.getRequest(), request, ctx);
+          }
+        } finally {
+          buf.release();
+        }
       });
       return;
     }
