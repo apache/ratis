@@ -61,6 +61,7 @@ public interface ProtoUtils {
 
   static ThrowableProto toThrowableProto(Throwable t) {
     final ThrowableProto.Builder builder = ThrowableProto.newBuilder()
+        .setClassName(t.getClass().getName())
         .setErrorMessage(t.getMessage())
         .setStackTrace(writeObject2ByteString(t.getStackTrace()));
     Optional.ofNullable(t.getCause())
@@ -81,10 +82,12 @@ public interface ProtoUtils {
     }
 
     Optional.ofNullable(proto.getStackTrace())
+        .filter(b -> !b.isEmpty())
         .map(ProtoUtils::toObject)
         .map(obj -> JavaUtils.cast(obj, StackTraceElement[].class))
         .ifPresent(throwable::setStackTrace);
     Optional.ofNullable(proto.getCause())
+        .filter(b -> !b.isEmpty())
         .map(ProtoUtils::toObject)
         .map(obj -> JavaUtils.cast(obj, Throwable.class))
         .ifPresent(throwable::initCause);
