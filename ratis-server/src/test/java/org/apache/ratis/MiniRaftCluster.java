@@ -291,9 +291,7 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   private Collection<RaftPeer> getOtherRaftPeers(RaftPeerId id) {
-    HashMap peerMap = new HashMap<>(peers);
-    peerMap.remove(id);
-    return peerMap.values();
+    return peers.values().stream().filter(r -> !r.getId().equals(id)).collect(Collectors.toList());
   }
 
   public RaftServerProxy putNewServer(RaftPeerId id, RaftGroup group, boolean format) {

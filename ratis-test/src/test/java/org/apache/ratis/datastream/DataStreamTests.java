@@ -21,8 +21,10 @@ import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.datastream.DataStreamBaseTest.MultiDataStreamStateMachine;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.DataStreamReply;
@@ -35,14 +37,15 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class DataStreamTests <CLUSTER extends MiniRaftCluster> extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
+  {
+    RaftConfigKeys.DataStream.setType(getProperties(), SupportedDataStreamType.NETTY);
+    setStateMachine(MultiDataStreamStateMachine.class);
+  }
 
   public static final int NUM_SERVERS = 3;
   // TODO: change bufferSize and bufferNum configurable
@@ -56,7 +59,6 @@ public abstract class DataStreamTests <CLUSTER extends MiniRaftCluster> extends 
 
   void testStreamWrites(CLUSTER cluster) throws Exception {
     final RaftServerImpl leader = waitForLeader(cluster);
-    Assert.assertTrue(leader != null);
 
     final RaftGroup raftGroup = cluster.getGroup();
     final Collection<RaftPeer> peers = raftGroup.getPeers();
@@ -66,7 +68,6 @@ public abstract class DataStreamTests <CLUSTER extends MiniRaftCluster> extends 
     try (RaftClient client = cluster.createClient(raftPeer)) {
       // send header
       DataStreamOutputRpc dataStreamOutputRpc = (DataStreamOutputRpc) client.getDataStreamApi().stream();
-      final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
 
       // send data
       final int halfBufferSize = bufferSize / 2;
@@ -75,7 +76,7 @@ public abstract class DataStreamTests <CLUSTER extends MiniRaftCluster> extends 
         final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
 
         final ByteBuffer bf = DataStreamBaseTest.initBuffer(dataSize, size);
-        futures.add(dataStreamOutputRpc.writeAsync(bf));
+        dataStreamOutputRpc.writeAsync(bf);
         dataSize += size;
       }
 

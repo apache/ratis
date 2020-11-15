@@ -23,8 +23,4 @@ import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 
 public class TestDataStreamWithNettyMiniRaftCluster extends DataStreamTests<MiniRaftClusterWithNetty>
     implements MiniRaftClusterWithNetty.FactoryGet {
-  {
-    RaftConfigKeys.DataStream.setType(getProperties(), SupportedDataStreamType.NETTY);
-    setStateMachine(MultiDataStreamStateMachine.class);
-  }
 }
