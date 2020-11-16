@@ -201,6 +201,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   @Override
   public InetSocketAddress getInetSocketAddress() {
+    channelFuture.awaitUninterruptibly();
     return (InetSocketAddress) channelFuture.channel().localAddress();
   }
 
