@@ -28,6 +28,9 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -57,6 +60,8 @@ public class DataStreamClientImpl implements DataStreamClient {
   public final class DataStreamOutputImpl implements DataStreamOutputRpc {
     private final RaftClientRequest header;
     private final CompletableFuture<DataStreamReply> headerFuture;
+    private final MemoizedSupplier<CompletableFuture<DataStreamReply>> closeSupplier
+        = JavaUtils.memoize(() -> send(Type.STREAM_CLOSE));
 
     private long streamOffset = 0;
 
@@ -81,6 +86,10 @@ public class DataStreamClientImpl implements DataStreamClient {
     // send to the attached dataStreamClientRpc
     @Override
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf) {
+      if (isClosed()) {
+        return JavaUtils.completeExceptionally(new AlreadyClosedException(
+            clientId + ": stream already closed, request=" + header));
+      }
       final CompletableFuture<DataStreamReply> f = send(Type.STREAM_DATA, buf);
       streamOffset += buf.remaining();
       return combineHeader(f);
@@ -88,7 +97,11 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     @Override
     public CompletableFuture<DataStreamReply> closeAsync() {
-      return send(Type.STREAM_CLOSE);
+      return closeSupplier.get();
+    }
+
+    boolean isClosed() {
+      return closeSupplier.isInitialized();
     }
 
     @Override

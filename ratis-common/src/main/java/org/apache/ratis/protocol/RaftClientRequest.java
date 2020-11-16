@@ -191,7 +191,6 @@ public class RaftClientRequest extends RaftClientMessage {
         r.getCallId(), message, RaftClientRequest.writeRequestType(), r.getSlidingWindowEntry());
   }
 
-  private final long callId;
   private final Message message;
   private final Type type;
 
@@ -204,8 +203,7 @@ public class RaftClientRequest extends RaftClientMessage {
   public RaftClientRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry) {
-    super(clientId, serverId, groupId);
-    this.callId = callId;
+    super(clientId, serverId, groupId, callId);
     this.message = message;
     this.type = type;
     this.slidingWindowEntry = slidingWindowEntry != null? slidingWindowEntry: SlidingWindowEntry.getDefaultInstance();
@@ -214,10 +212,6 @@ public class RaftClientRequest extends RaftClientMessage {
   @Override
   public final boolean isRequest() {
     return true;
-  }
-
-  public long getCallId() {
-    return callId;
   }
 
   public SlidingWindowEntry getSlidingWindowEntry() {
@@ -238,7 +232,7 @@ public class RaftClientRequest extends RaftClientMessage {
 
   @Override
   public String toString() {
-    return super.toString() + ", cid=" + callId + ", seq=" + ProtoUtils.toString(slidingWindowEntry) + ", "
+    return super.toString() + ", seq=" + ProtoUtils.toString(slidingWindowEntry) + ", "
         + type + ", " + getMessage();
   }
 }
