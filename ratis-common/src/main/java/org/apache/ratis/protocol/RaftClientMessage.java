@@ -23,12 +23,13 @@ public abstract class RaftClientMessage implements RaftRpcMessage {
   private final ClientId clientId;
   private final RaftPeerId serverId;
   private final RaftGroupId groupId;
+  private final long callId;
 
-  public RaftClientMessage(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId) {
+  RaftClientMessage(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId) {
     this.clientId = clientId;
     this.serverId = serverId;
     this.groupId = groupId;
+    this.callId = callId;
   }
 
   @Override
@@ -54,9 +55,13 @@ public abstract class RaftClientMessage implements RaftRpcMessage {
     return groupId;
   }
 
+  public long getCallId() {
+    return callId;
+  }
+
   @Override
   public String toString() {
     return JavaUtils.getClassSimpleName(getClass()) + ":" + clientId + "->" + serverId
-        + (groupId != null? "@" + groupId: "");
+        + (groupId != null? "@" + groupId: "") + ", cid=" + getCallId();
   }
 }

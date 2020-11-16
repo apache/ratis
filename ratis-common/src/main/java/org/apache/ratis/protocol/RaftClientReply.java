@@ -38,7 +38,6 @@ import java.util.Collections;
  */
 public class RaftClientReply extends RaftClientMessage {
   private final boolean success;
-  private final long callId;
 
   /**
    * We mainly track two types of exceptions here:
@@ -71,9 +70,8 @@ public class RaftClientReply extends RaftClientMessage {
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, boolean success, Message message, RaftException exception,
       long logIndex, Collection<CommitInfoProto> commitInfos) {
-    super(clientId, serverId, groupId);
+    super(clientId, serverId, groupId, callId);
     this.success = success;
-    this.callId = callId;
     this.message = message;
     this.exception = exception;
     this.logIndex = logIndex;
@@ -125,17 +123,13 @@ public class RaftClientReply extends RaftClientMessage {
     return false;
   }
 
-  public long getCallId() {
-    return callId;
-  }
-
   public long getLogIndex() {
     return logIndex;
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", cid=" + getCallId() + ", "
+    return super.toString() + ", "
         + (isSuccess()? "SUCCESS":  "FAILED " + exception)
         + ", logIndex=" + getLogIndex() + ", commits" + ProtoUtils.toString(commitInfos);
   }
