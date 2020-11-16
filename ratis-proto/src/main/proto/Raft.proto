@@ -321,22 +321,11 @@ message NotReplicatedExceptionProto {
   uint64 logIndex = 3;
 }
 
-message StateMachineExceptionProto {
-  string exceptionClassName = 1;
-  string errorMsg = 2;
-  bytes stacktrace = 3;
-}
-
-message AlreadyClosedExceptionProto {
-  string exceptionClassName = 1;
-  string errorMsg = 2;
-  bytes stacktrace = 3;
-}
-
-message DataStreamExceptionProto {
-  string exceptionClassName = 1;
-  string errorMsg = 2;
-  bytes stacktrace = 3;
+message ThrowableProto {
+  string className = 1;
+  string errorMessage = 2;
+  bytes stackTrace = 3;
+  bytes cause = 4;
 }
 
 message RaftClientReplyProto {
@@ -346,10 +335,10 @@ message RaftClientReplyProto {
   oneof ExceptionDetails {
     NotLeaderExceptionProto notLeaderException = 3;
     NotReplicatedExceptionProto notReplicatedException = 4;
-    StateMachineExceptionProto stateMachineException = 5;
+    ThrowableProto stateMachineException = 5;
     LeaderNotReadyExceptionProto leaderNotReadyException = 6;
-    AlreadyClosedExceptionProto alreadyClosedException = 7;
-    DataStreamExceptionProto dataStreamException = 8;
+    ThrowableProto alreadyClosedException = 7;
+    ThrowableProto dataStreamException = 8;
   }
 
   uint64 logIndex = 14; // When the request is a write request and the reply is success, the log index of the transaction

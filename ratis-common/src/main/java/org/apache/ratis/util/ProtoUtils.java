@@ -18,6 +18,7 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.ThrowableProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupIdProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupMemberIdProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupProto;
@@ -38,6 +39,7 @@ import java.io.ObjectOutputStream;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -55,6 +57,41 @@ public interface ProtoUtils {
 
   static Object toObject(ByteString bytes) {
     return IOUtils.readObject(bytes.newInput(), Object.class);
+  }
+
+  static ThrowableProto toThrowableProto(Throwable t) {
+    final ThrowableProto.Builder builder = ThrowableProto.newBuilder()
+        .setClassName(t.getClass().getName())
+        .setErrorMessage(t.getMessage())
+        .setStackTrace(writeObject2ByteString(t.getStackTrace()));
+    Optional.ofNullable(t.getCause())
+        .map(ProtoUtils::writeObject2ByteString)
+        .ifPresent(builder::setCause);
+    return builder.build();
+  }
+
+  static <T extends Throwable> T toThrowable(ThrowableProto proto, Class<T> clazz) {
+    Preconditions.assertTrue(clazz.getName().equals(proto.getClassName()),
+        () -> "Unexpected class " + proto.getClassName() + ", expecting " + clazz + ", proto=" + proto);
+
+    final T throwable ;
+    try {
+      throwable = ReflectionUtils.instantiateException(clazz, proto.getErrorMessage());
+    } catch(Exception e) {
+      throw new IllegalStateException("Failed to create a new object from " + clazz + ", proto=" + proto, e);
+    }
+
+    Optional.ofNullable(proto.getStackTrace())
+        .filter(b -> !b.isEmpty())
+        .map(ProtoUtils::toObject)
+        .map(obj -> JavaUtils.cast(obj, StackTraceElement[].class))
+        .ifPresent(throwable::setStackTrace);
+    Optional.ofNullable(proto.getCause())
+        .filter(b -> !b.isEmpty())
+        .map(ProtoUtils::toObject)
+        .map(obj -> JavaUtils.cast(obj, Throwable.class))
+        .ifPresent(throwable::initCause);
+    return throwable;
   }
 
   static ByteString toByteString(String string) {

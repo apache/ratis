@@ -210,14 +210,18 @@ public interface ReflectionUtils {
     }
   }
 
-  static Exception instantiateException(Class<? extends Exception> cls,
-      String message, Exception from) throws Exception {
-    Constructor<? extends Exception> cn = cls.getConstructor(String.class);
-    cn.setAccessible(true);
-    Exception ex = cn.newInstance(message);
-    if (from != null) {
-      ex.initCause(from);
+  static <T extends Throwable> T instantiateException(Class<T> clazz) throws Exception {
+    final Constructor<T> c = clazz.getConstructor();
+    c.setAccessible(true);
+    return c.newInstance();
+  }
+
+  static <T extends Throwable> T instantiateException(Class<T> clazz, String message) throws Exception {
+    if (message == null) {
+      return instantiateException(clazz);
     }
-    return ex;
+    final Constructor<T> c = clazz.getConstructor(String.class);
+    c.setAccessible(true);
+    return c.newInstance(message);
   }
 }
