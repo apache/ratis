@@ -25,9 +25,11 @@ import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -331,7 +333,24 @@ public class DataStreamManagement {
       DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
     DataStreamException dataStreamException = new DataStreamException(server.getId(), cause);
     RaftClientReply reply = new RaftClientReply(raftClientRequest, dataStreamException, null);
-    ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
+    sendDataStreamException(cause, request, reply, ctx);
+  }
+
+  void replyDataStreamException(Throwable cause, DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+    DataStreamException dataStreamException = new DataStreamException(server.getId(), cause);
+    RaftClientReply reply = new RaftClientReply(ClientId.emptyClientId(), server.getId(), RaftGroupId.emptyGroupId(),
+        -1, false, null, dataStreamException, 0L, null);
+    sendDataStreamException(cause, request, reply, ctx);
+  }
+
+  static void sendDataStreamException(Throwable throwable, DataStreamRequestByteBuf request, RaftClientReply reply,
+      ChannelHandlerContext ctx) {
+    LOG.warn("Failed to process {}",  request, throwable);
+    try {
+      ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
+    } catch (Throwable t) {
+      LOG.warn("Failed to sendDataStreamException {} for {}", throwable, request, t);
+    }
   }
 
   static void forwardStartTransaction(StreamInfo info, DataStreamRequestByteBuf request, RaftClientReply localReply,
@@ -368,10 +387,15 @@ public class DataStreamManagement {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
     final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
+    final StreamInfo info = request.getType() != Type.STREAM_HEADER? streams.get(key)
+        : streams.computeIfAbsent(key, id -> newStreamInfo(buf, getDataStreamOutput));
+
+    if (info == null) {
+      throw new IllegalStateException("Failed to get StreamInfo for " + request);
+    }
 
     if (request.getType() == Type.START_TRANSACTION) {
       // for peers to start transaction
-      final StreamInfo info = streams.get(key);
       composeAsync(info.getPrevious(), executor, v -> startTransaction(info, request, ctx))
           .whenComplete((v, exception) -> {
         try {
@@ -385,19 +409,15 @@ public class DataStreamManagement {
       return;
     }
 
-    final StreamInfo info;
     final CompletableFuture<Long> localWrite;
     final List<CompletableFuture<DataStreamReply>> remoteWrites;
     if (request.getType() == Type.STREAM_HEADER) {
-      info = streams.computeIfAbsent(key, id -> newStreamInfo(buf, getDataStreamOutput));
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
-      info = streams.get(key);
       localWrite = info.getLocal().write(buf, executor);
       remoteWrites = info.applyToRemotes(out -> out.write(request));
     } else if (request.getType() == Type.STREAM_CLOSE) {
-      info = streams.get(key);
       localWrite = info.getLocal().close(executor);
       remoteWrites = info.isPrimary()? info.applyToRemotes(RemoteStream::close): Collections.emptyList();
     } else {

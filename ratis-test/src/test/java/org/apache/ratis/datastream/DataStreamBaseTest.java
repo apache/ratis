@@ -39,7 +39,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
@@ -401,10 +400,19 @@ abstract class DataStreamBaseTest extends BaseTest {
   }
 
 
-  void runTestMockCluster(int bufferSize, int bufferNum, Exception expectedException)
+  void runTestMockCluster(int bufferSize, int bufferNum, Exception expectedException, Exception headerException)
       throws IOException {
     try (final RaftClient client = newRaftClientForDataStream()) {
       final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
+      if (headerException != null) {
+        final DataStreamReply headerReply = out.getHeaderFuture().join();
+        Assert.assertFalse(headerReply.isSuccess());
+        final RaftClientReply clientReply = ClientProtoUtils.toRaftClientReply(RaftClientReplyProto.parseFrom(
+            ((DataStreamReplyByteBuffer)headerReply).slice()));
+        Assert.assertTrue(clientReply.getException().getMessage().contains(headerException.getMessage()));
+        return;
+      }
+
       runTestDataStream(out, bufferSize, bufferNum);
       DataStreamReplyByteBuffer replyByteBuffer = (DataStreamReplyByteBuffer) out.closeAsync().join();
 

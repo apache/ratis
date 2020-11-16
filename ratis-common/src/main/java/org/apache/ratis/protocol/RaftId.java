@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -28,6 +28,8 @@ import java.util.function.Supplier;
 
 /** Unique identifier implemented using {@link UUID}. */
 public abstract class RaftId {
+  static final UUID ZERO_UUID = new UUID(0L, 0L);
+  static final ByteString ZERO_UUID_BYTESTRING = toByteString(ZERO_UUID);
   private static final int BYTE_LENGTH = 16;
 
   private static void checkLength(int length, String name) {
@@ -55,16 +57,18 @@ public abstract class RaftId {
   private final Supplier<String> uuidString;
 
   private RaftId(UUID uuid, Supplier<ByteString> uuidBytes) {
-    this.uuid = uuid;
+    this.uuid = Preconditions.assertNotNull(uuid, "uuid");
     this.uuidBytes = uuidBytes;
     this.uuidString = JavaUtils.memoize(() -> createUuidString(uuid));
   }
 
   RaftId(UUID uuid) {
     this(uuid, JavaUtils.memoize(() -> toByteString(uuid)));
+    Preconditions.assertTrue(!uuid.equals(ZERO_UUID),
+        () -> "Failed to create " + JavaUtils.getClassSimpleName(getClass()) + ": UUID " + ZERO_UUID + " is reserved.");
   }
 
-  public RaftId(ByteString uuidBytes) {
+  RaftId(ByteString uuidBytes) {
     this(toUuid(uuidBytes), () -> uuidBytes);
   }
 
