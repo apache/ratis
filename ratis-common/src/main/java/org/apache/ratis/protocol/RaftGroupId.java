@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -27,7 +27,7 @@ import java.util.UUID;
  * This is a value-based class.
  */
 public final class RaftGroupId extends RaftId {
-  private static final RaftGroupId EMPTY_GROUP_ID = new RaftGroupId(new UUID(0L, 0L));
+  private static final RaftGroupId EMPTY_GROUP_ID = new RaftGroupId(ZERO_UUID_BYTESTRING);
 
   public static RaftGroupId emptyGroupId() {
     return EMPTY_GROUP_ID;

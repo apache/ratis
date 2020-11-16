@@ -83,12 +83,17 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
 
   private void testMockCluster(int leaderIndex, int numServers, RaftException leaderException,
       Exception submitException) throws Exception {
+    testMockCluster(leaderIndex, numServers, leaderException, submitException, null);
+  }
+
+  private void testMockCluster(int leaderIndex, int numServers, RaftException leaderException,
+      Exception submitException, IOException getStateMachineException) throws Exception {
     List<RaftServer> raftServers = new ArrayList<>();
     ClientId clientId = ClientId.randomId();
     RaftGroupId groupId = RaftGroupId.randomId();
     final RaftPeer suggestedLeader = RaftPeer.newBuilder().setId("s" + leaderIndex).build();
     RaftClientReply expectedClientReply = new RaftClientReply(clientId, suggestedLeader.getId(), groupId, 0,
-        leaderException == null ? true : false, null, leaderException, 0, null);
+        leaderException == null, null, leaderException, 0, null);
 
     for (int i = 0; i < numServers; i ++) {
       RaftServer raftServer = mock(RaftServer.class);
@@ -117,23 +122,27 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
 
       when(raftServer.getProperties()).thenReturn(properties);
       when(raftServer.getId()).thenReturn(peerId);
-      when(raftServer.getStateMachine(Mockito.any(RaftGroupId.class))).thenReturn(new MultiDataStreamStateMachine());
+      if (getStateMachineException == null) {
+        when(raftServer.getStateMachine(Mockito.any(RaftGroupId.class))).thenReturn(new MultiDataStreamStateMachine());
+      } else {
+        when(raftServer.getStateMachine(Mockito.any(RaftGroupId.class))).thenThrow(getStateMachineException);
+      }
 
       raftServers.add(raftServer);
     }
 
     runTestMockCluster(raftServers, 1_000_000, 10,
-        submitException != null ? submitException : leaderException);
+        submitException != null ? submitException : leaderException, getStateMachineException);
   }
 
   void runTestMockCluster(List<RaftServer> raftServers, int bufferSize, int bufferNum,
-      Exception expectedException) throws Exception {
+      Exception expectedException, Exception headerException) throws Exception {
     try {
       final List<RaftPeer> peers = raftServers.stream()
           .map(TestDataStreamNetty::newRaftPeer)
           .collect(Collectors.toList());
       setup(peers, raftServers);
-      runTestMockCluster(bufferSize, bufferNum, expectedException);
+      runTestMockCluster(bufferSize, bufferNum, expectedException, headerException);
     } finally {
       shutdown();
     }
@@ -183,5 +192,11 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
     // primary is 0, leader is 1
     IOException ioException = new IOException("leader throw IOException");
     testMockCluster(1, 3, null, ioException);
+  }
+
+  @Test
+  public void testDataStreamExceptionGetStateMachine() throws Exception {
+    final IOException getStateMachineException = new IOException("Failed to get StateMachine");
+    testMockCluster(1, 1, null, null, getStateMachineException);
   }
 }

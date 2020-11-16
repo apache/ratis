@@ -71,7 +71,11 @@ public class DataStreamClientImpl implements DataStreamClient {
     }
 
     private CompletableFuture<DataStreamReply> send(Type type) {
-      return send(type, DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER);
+      return combineHeader(send(type, DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER));
+    }
+
+    private CompletableFuture<DataStreamReply> combineHeader(CompletableFuture<DataStreamReply> future) {
+      return future.thenCombine(headerFuture, (reply, headerReply) -> headerReply.isSuccess()? reply : headerReply);
     }
 
     // send to the attached dataStreamClientRpc
@@ -79,7 +83,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf) {
       final CompletableFuture<DataStreamReply> f = send(Type.STREAM_DATA, buf);
       streamOffset += buf.remaining();
-      return f;
+      return combineHeader(f);
     }
 
     @Override
