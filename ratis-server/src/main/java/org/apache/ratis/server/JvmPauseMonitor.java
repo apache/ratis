@@ -1,6 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.ratis.server;
 
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.thirdparty.com.google.common.base.Joiner;
@@ -29,19 +45,10 @@ public class JvmPauseMonitor {
    * The target sleep time
    */
   private static final long SLEEP_INTERVAL_MS = 500;
-  private long totalGcExtraSleepTime = 0;
 
   private Thread monitorThread;
   private volatile boolean shouldRun = true;
   private final RaftServerProxy proxy;
-
-  public boolean isStarted() {
-    return monitorThread != null;
-  }
-
-  public long getTotalGcExtraSleepTime() {
-    return totalGcExtraSleepTime;
-  }
 
   private String formatMessage(long extraSleepTime,
                                Map<String, GcTimes> gcTimesAfterSleep,
@@ -54,8 +61,7 @@ public class JvmPauseMonitor {
       GcTimes diff = gcTimesAfterSleep.get(name)
                        .subtract(gcTimesBeforeSleep.get(name));
       if (diff.gcCount != 0) {
-        gcDiffs.add("GC pool '" + name + "' had collection(s): " + diff
-                                                                     .toString());
+        gcDiffs.add("GC pool '" + name + "' had collection(s): " + diff);
       }
     }
 
@@ -113,44 +119,37 @@ public class JvmPauseMonitor {
                                                                .getClassSimpleName(getClass());
 
     public void run() {
+      int leaderStepDownWaitTime =
+        RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(proxy.getProperties()).toIntExact(TimeUnit
+                                                                                                       .MILLISECONDS);
+      int rpcSlownessTimeoutMs = RaftServerConfigKeys.Rpc.slownessTimeout(proxy.getProperties()).toIntExact(
+        TimeUnit.MILLISECONDS);
       while (shouldRun) {
         Stopwatch sw = Stopwatch.createUnstarted();
         Map<String, GcTimes> gcTimesBeforeSleep = getGcTimes();
         LOG.info("Starting Ratis JVM pause monitor");
-        while (shouldRun) {
-          sw.reset().start();
-          try {
-            Thread.sleep(SLEEP_INTERVAL_MS);
-          } catch (InterruptedException ie) {
-            return;
-          }
-          long extraSleepTime =
-            sw.elapsed(TimeUnit.MILLISECONDS) - SLEEP_INTERVAL_MS;
-          Map<String, GcTimes> gcTimesAfterSleep = getGcTimes();
+        sw.reset().start();
+        try {
+          Thread.sleep(SLEEP_INTERVAL_MS);
+        } catch (InterruptedException ie) {
+          return;
+        }
+        long extraSleepTime = sw.elapsed(TimeUnit.MILLISECONDS) - SLEEP_INTERVAL_MS;
+        Map<String, GcTimes> gcTimesAfterSleep = getGcTimes();
 
-          if (extraSleepTime > 0) {
-            LOG.warn(formatMessage(extraSleepTime, gcTimesAfterSleep,
-              gcTimesBeforeSleep));
+        if (extraSleepTime > 0) {
+          LOG.warn(formatMessage(extraSleepTime, gcTimesAfterSleep, gcTimesBeforeSleep));
+        }
+        try {
+          if (extraSleepTime > rpcSlownessTimeoutMs) {
+            // close down all pipelines if the total gc period exceeds
+            // rpc slowness timeout
+            proxy.close();
+          } else if (extraSleepTime > leaderStepDownWaitTime) {
+            proxy.getImpls().forEach(RaftServerImpl::stepDownOnJvmPause);
           }
-          totalGcExtraSleepTime += extraSleepTime;
-          gcTimesBeforeSleep = gcTimesAfterSleep;
-          int leaderStepDownWaitTime =
-            RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(
-              proxy.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
-          int rpcSlownessTimeoutMs = RaftServerConfigKeys.Rpc.slownessTimeout(
-            proxy.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
-          try {
-            if (totalGcExtraSleepTime > leaderStepDownWaitTime) {
-              proxy.getImpls().forEach(RaftServerImpl::stepDownOnJvmPause);
-            }
-            if (totalGcExtraSleepTime > rpcSlownessTimeoutMs) {
-              // close down all pipelines if the total gc period exceeds
-              // rpc slowness timeout
-              proxy.close();
-            }
-          } catch (IOException ioe) {
-            LOG.info("Encountered exception in JvmPauseMonitor {}", ioe);
-          }
+        } catch (IOException ioe) {
+          LOG.info("Encountered exception in JvmPauseMonitor {}", ioe);
         }
       }
     }

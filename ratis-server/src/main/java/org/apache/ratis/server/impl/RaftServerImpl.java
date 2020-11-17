@@ -635,8 +635,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   public void stepDownOnJvmPause() {
     if (isLeader()) {
-      final LeaderState leaderState = role.getLeaderStateNonNull();
-      leaderState.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE);
+      role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
     }
   }
 
