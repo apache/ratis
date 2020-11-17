@@ -89,7 +89,7 @@ public class JvmPauseMonitor {
     return map;
   }
 
-  private static class GcTimes {
+  private static final class GcTimes {
     private GcTimes(GarbageCollectorMXBean gcBean) {
       gcCount = gcBean.getCollectionCount();
       gcTimeMillis = gcBean.getCollectionTime();
