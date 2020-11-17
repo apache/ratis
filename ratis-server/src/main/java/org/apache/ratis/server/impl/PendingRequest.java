@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -41,7 +42,7 @@ public class PendingRequest implements Comparable<PendingRequest> {
   }
 
   PendingRequest(SetConfigurationRequest request) {
-    this(RaftServerConstants.INVALID_LOG_INDEX, request, null);
+    this(RaftLog.INVALID_LOG_INDEX, request, null);
   }
 
   long getIndex() {
@@ -74,7 +75,11 @@ public class PendingRequest implements Comparable<PendingRequest> {
   }
 
   TransactionContext setNotLeaderException(NotLeaderException nle, Collection<CommitInfoProto> commitInfos) {
-    setReply(new RaftClientReply(getRequest(), nle, commitInfos));
+    setReply(RaftClientReply.newBuilder()
+        .setRequest(getRequest())
+        .setException(nle)
+        .setCommitInfos(commitInfos)
+        .build());
     return getEntry();
   }
 

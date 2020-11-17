@@ -37,6 +37,93 @@ import java.util.Collections;
  * Reply from server to client
  */
 public class RaftClientReply extends RaftClientMessage {
+  /**
+   * To build {@link RaftClientReply}
+   */
+  public static class Builder {
+    private ClientId clientId;
+    private RaftPeerId serverId;
+    private RaftGroupId groupId;
+    private long callId;
+
+    private boolean success;
+    private Message message;
+    private RaftException exception;
+
+    private long logIndex;
+    private Collection<CommitInfoProto> commitInfos;
+
+    public RaftClientReply build() {
+      return new RaftClientReply(clientId, serverId, groupId, callId,
+          success, message, exception, logIndex, commitInfos);
+    }
+
+    public Builder setClientId(ClientId clientId) {
+      this.clientId = clientId;
+      return this;
+    }
+
+    public Builder setServerId(RaftPeerId serverId) {
+      this.serverId = serverId;
+      return this;
+    }
+
+    public Builder setGroupId(RaftGroupId groupId) {
+      this.groupId = groupId;
+      return this;
+    }
+
+    public Builder setCallId(long callId) {
+      this.callId = callId;
+      return this;
+    }
+
+    public Builder setSuccess(boolean success) {
+      this.success = success;
+      return this;
+    }
+
+    public Builder setSuccess() {
+      return setSuccess(true);
+    }
+
+    public Builder setException(RaftException exception) {
+      this.exception = exception;
+      return this;
+    }
+
+    public Builder setMessage(Message message) {
+      this.message = message;
+      return this;
+    }
+
+    public Builder setLogIndex(long logIndex) {
+      this.logIndex = logIndex;
+      return this;
+    }
+
+    public Builder setCommitInfos(Collection<CommitInfoProto> commitInfos) {
+      this.commitInfos = commitInfos;
+      return this;
+    }
+
+    public Builder setServerId(RaftGroupMemberId serverId) {
+      return setServerId(serverId.getPeerId())
+          .setGroupId(serverId.getGroupId());
+    }
+
+    public Builder setRequest(RaftClientRequest request) {
+      return setClientId(request.getClientId())
+          .setServerId(request.getServerId())
+          .setGroupId(request.getRaftGroupId())
+          .setCallId(request.getCallId());
+    }
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
   private final boolean success;
 
   /**
@@ -58,16 +145,7 @@ public class RaftClientReply extends RaftClientMessage {
   private final Collection<CommitInfoProto> commitInfos;
 
   @SuppressWarnings("parameternumber")
-  public RaftClientReply(ClientId clientId, RaftGroupMemberId serverId,
-      long callId, boolean success, Message message, RaftException exception,
-      long logIndex, Collection<CommitInfoProto> commitInfos) {
-    this(clientId, serverId.getPeerId(), serverId.getGroupId(),
-        callId, success, message, exception, logIndex, commitInfos);
-  }
-
-  @SuppressWarnings("parameternumber")
-  public RaftClientReply(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
+  RaftClientReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, boolean success, Message message, RaftException exception,
       long logIndex, Collection<CommitInfoProto> commitInfos) {
     super(clientId, serverId, groupId, callId);
@@ -86,26 +164,6 @@ public class RaftClientReply extends RaftClientMessage {
           LeaderNotReadyException.class, StateMachineException.class, DataStreamException.class),
           () -> "Unexpected exception class: " + this);
     }
-  }
-
-  public RaftClientReply(RaftClientRequest request, RaftException exception, Collection<CommitInfoProto> commitInfos) {
-    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
-        request.getCallId(), false, null, exception, 0L, commitInfos);
-  }
-
-  public RaftClientReply(RaftClientRequest request, Collection<CommitInfoProto> commitInfos) {
-    this(request, (Message) null, commitInfos);
-  }
-
-  public RaftClientReply(RaftClientRequest request, Message message, Collection<CommitInfoProto> commitInfos) {
-    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
-        request.getCallId(), true, message, null, 0L, commitInfos);
-  }
-
-  public RaftClientReply(RaftClientRequest request, NotReplicatedException nre,
-      Collection<CommitInfoProto> commitInfos) {
-    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
-        request.getCallId(), false, request.getMessage(), nre, nre.getLogIndex(), commitInfos);
   }
 
   /**

@@ -44,7 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 class PendingRequests {
   public static final Logger LOG = LoggerFactory.getLogger(PendingRequests.class);
@@ -206,7 +206,7 @@ class PendingRequests {
     return pendingSetConf;
   }
 
-  void replySetConfiguration(Supplier<Collection<CommitInfoProto>> getCommitInfos) {
+  void replySetConfiguration(Function<RaftClientRequest, RaftClientReply> newSuccessReply) {
     // we allow the pendingRequest to be null in case that the new leader
     // commits the new configuration while it has not received the retry
     // request from the client
@@ -215,7 +215,7 @@ class PendingRequests {
       LOG.debug("{}: sends success for {}", name, request);
       // for setConfiguration we do not need to wait for statemachine. send back
       // reply after it's committed.
-      pendingSetConf.setReply(new RaftClientReply(request, getCommitInfos.get()));
+      pendingSetConf.setReply(newSuccessReply.apply(request));
       pendingSetConf = null;
     }
   }

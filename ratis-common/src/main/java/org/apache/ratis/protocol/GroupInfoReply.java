@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -31,24 +31,20 @@ public class GroupInfoReply extends RaftClientReply {
   private final RoleInfoProto roleInfoProto;
   private final boolean isRaftStorageHealthy;
 
-  public GroupInfoReply(
-          RaftClientRequest request, RoleInfoProto roleInfoProto,
-          boolean isRaftStorageHealthy, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
-    super(request, commitInfos);
-    this.roleInfoProto = roleInfoProto;
-    this.isRaftStorageHealthy = isRaftStorageHealthy;
-    this.group = group;
+  public GroupInfoReply(RaftClientRequest request, Collection<CommitInfoProto> commitInfos,
+      RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy) {
+    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(), request.getCallId(), commitInfos,
+        group, roleInfoProto, isRaftStorageHealthy);
   }
 
   @SuppressWarnings("parameternumber")
-  public GroupInfoReply(
-          ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-          long callId, boolean success, RoleInfoProto roleInfoProto,
-          boolean isRaftStorageHealthy, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
-    super(clientId, serverId, groupId, callId, success, null, null, 0L, commitInfos);
+  public GroupInfoReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
+      Collection<CommitInfoProto> commitInfos,
+      RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy) {
+    super(clientId, serverId, groupId, callId, true, null, null, 0L, commitInfos);
+    this.group = group;
     this.roleInfoProto = roleInfoProto;
     this.isRaftStorageHealthy = isRaftStorageHealthy;
-    this.group = group;
   }
 
   public RaftGroup getGroup() {

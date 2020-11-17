@@ -262,8 +262,11 @@ abstract class DataStreamBaseTest extends BaseTest {
         final MultiDataStreamStateMachine stateMachine = getStateMachine(request.getRaftGroupId());
         final SingleDataStream stream = stateMachine.getSingleDataStream(request.getCallId());
         Assert.assertFalse(stream.getWritableByteChannel().isOpen());
-        return CompletableFuture.completedFuture(new RaftClientReply(request,
-            () -> bytesWritten2ByteString(stream.getByteWritten()), null));
+        return CompletableFuture.completedFuture(RaftClientReply.newBuilder()
+            .setRequest(request)
+            .setSuccess()
+            .setMessage(() -> bytesWritten2ByteString(stream.getByteWritten()))
+            .build());
       }
 
       @Override

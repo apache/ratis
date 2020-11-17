@@ -284,35 +284,41 @@ public interface ClientProtoUtils {
     } else {
       e = null;
     }
-    ClientId clientId = ClientId.valueOf(rp.getRequestorId());
-    return new RaftClientReply(clientId, serverMemberId, rp.getCallId(), rp.getSuccess(),
-        toMessage(replyProto.getMessage()), e,
-        replyProto.getLogIndex(), replyProto.getCommitInfosList());
+
+    return RaftClientReply.newBuilder()
+        .setClientId(ClientId.valueOf(rp.getRequestorId()))
+        .setServerId(serverMemberId)
+        .setCallId(rp.getCallId())
+        .setSuccess(rp.getSuccess())
+        .setMessage(toMessage(replyProto.getMessage()))
+        .setException(e)
+        .setLogIndex(replyProto.getLogIndex())
+        .setCommitInfos(replyProto.getCommitInfosList())
+        .build();
   }
 
-  static GroupListReply toGroupListReply(
-      GroupListReplyProto replyProto) {
-    final RaftRpcReplyProto rp = replyProto.getRpcReply();
-    ClientId clientId = ClientId.valueOf(rp.getRequestorId());
-    final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
-    final List<RaftGroupId> groupInfos = replyProto.getGroupIdList().stream()
+  static GroupListReply toGroupListReply(GroupListReplyProto replyProto) {
+    final RaftRpcReplyProto rpc = replyProto.getRpcReply();
+    final List<RaftGroupId> groupIds = replyProto.getGroupIdList().stream()
         .map(ProtoUtils::toRaftGroupId)
         .collect(Collectors.toList());
-    return new GroupListReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
-        groupId, rp.getCallId(), rp.getSuccess(), groupInfos);
+    return new GroupListReply(ClientId.valueOf(rpc.getRequestorId()),
+        RaftPeerId.valueOf(rpc.getReplyId()),
+        ProtoUtils.toRaftGroupId(rpc.getRaftGroupId()),
+        rpc.getCallId(),
+        groupIds);
   }
 
-  static GroupInfoReply toGroupInfoReply(
-      GroupInfoReplyProto replyProto) {
-    final RaftRpcReplyProto rp = replyProto.getRpcReply();
-    ClientId clientId = ClientId.valueOf(rp.getRequestorId());
-    final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
-    final RaftGroup raftGroup = ProtoUtils.toRaftGroup(replyProto.getGroup());
-    RoleInfoProto role = replyProto.getRole();
-    boolean isRaftStorageHealthy = replyProto.getIsRaftStorageHealthy();
-    return new GroupInfoReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
-        groupId, rp.getCallId(), rp.getSuccess(), role, isRaftStorageHealthy,
-        replyProto.getCommitInfosList(), raftGroup);
+  static GroupInfoReply toGroupInfoReply(GroupInfoReplyProto replyProto) {
+    final RaftRpcReplyProto rpc = replyProto.getRpcReply();
+    return new GroupInfoReply(ClientId.valueOf(rpc.getRequestorId()),
+        RaftPeerId.valueOf(rpc.getReplyId()),
+        ProtoUtils.toRaftGroupId(rpc.getRaftGroupId()),
+        rpc.getCallId(),
+        replyProto.getCommitInfosList(),
+        ProtoUtils.toRaftGroup(replyProto.getGroup()),
+        replyProto.getRole(),
+        replyProto.getIsRaftStorageHealthy());
   }
 
   static Message toMessage(final ClientMessageEntryProto p) {
