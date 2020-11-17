@@ -124,10 +124,10 @@ public class JvmPauseMonitor {
                                                                                                        .MILLISECONDS);
       int rpcSlownessTimeoutMs = RaftServerConfigKeys.Rpc.slownessTimeout(proxy.getProperties()).toIntExact(
         TimeUnit.MILLISECONDS);
+      Stopwatch sw = Stopwatch.createUnstarted();
+      Map<String, GcTimes> gcTimesBeforeSleep = getGcTimes();
+      LOG.info("Starting Ratis JVM pause monitor");
       while (shouldRun) {
-        Stopwatch sw = Stopwatch.createUnstarted();
-        Map<String, GcTimes> gcTimesBeforeSleep = getGcTimes();
-        LOG.info("Starting Ratis JVM pause monitor");
         sw.reset().start();
         try {
           Thread.sleep(SLEEP_INTERVAL_MS);
