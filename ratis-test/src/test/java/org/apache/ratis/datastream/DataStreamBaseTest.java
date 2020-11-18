@@ -59,7 +59,6 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -137,7 +136,7 @@ abstract class DataStreamBaseTest extends BaseTest {
 
     final StateMachineDataChannel channel = new StateMachineDataChannel() {
       @Override
-      public void force(boolean metadata) throws IOException {
+      public void force(boolean metadata) {
         forcedPosition = byteWritten;
       }
 
@@ -560,13 +559,19 @@ abstract class DataStreamBaseTest extends BaseTest {
   }
 
   void assertHeader(Server server, RaftClientRequest header, int dataSize) throws Exception {
+    // check header
+    Assert.assertEquals(raftGroup.getGroupId(), header.getRaftGroupId());
+    Assert.assertEquals(RaftClientRequest.dataStreamRequestType(), header.getType());
+
+    // check stream
     final MultiDataStreamStateMachine s = server.getStateMachine(header.getRaftGroupId());
     final SingleDataStream stream = s.getSingleDataStream(header);
-    Assert.assertEquals(raftGroup.getGroupId(), header.getRaftGroupId());
     Assert.assertEquals(dataSize, stream.getByteWritten());
     Assert.assertEquals(dataSize, stream.getForcedPosition());
 
+    // check writeRequest
     final RaftClientRequest writeRequest = stream.getWriteRequest();
+    Assert.assertEquals(RaftClientRequest.dataStreamRequestType(), writeRequest.getType());
     assertRaftClientMessage(header, writeRequest);
   }
 

@@ -256,6 +256,9 @@ message MessageStreamRequestTypeProto {
   bool endOfRequest = 3;// Is this the end-of-request?
 }
 
+message DataStreamRequestTypeProto {
+}
+
 message ReadRequestTypeProto {
 }
 
@@ -279,6 +282,7 @@ message RaftClientRequestProto {
     StaleReadRequestTypeProto staleRead = 5;
     WatchRequestTypeProto watch = 6;
     MessageStreamRequestTypeProto messageStream = 7;
+    DataStreamRequestTypeProto dataStream = 8;
   }
 }
 

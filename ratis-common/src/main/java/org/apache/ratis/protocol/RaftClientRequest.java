@@ -29,15 +29,20 @@ import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.
  * Request from client to server
  */
 public class RaftClientRequest extends RaftClientMessage {
+  private static final Type DATA_STREAM_DEFAULT = new Type(DataStreamRequestTypeProto.getDefaultInstance());
   private static final Type WRITE_DEFAULT = new Type(WriteRequestTypeProto.getDefaultInstance());
   private static final Type WATCH_DEFAULT = new Type(
       WatchRequestTypeProto.newBuilder().setIndex(0L).setReplication(ReplicationLevel.MAJORITY).build());
 
-  private static final Type DEFAULT_READ = new Type(ReadRequestTypeProto.getDefaultInstance());
-  private static final Type DEFAULT_STALE_READ = new Type(StaleReadRequestTypeProto.getDefaultInstance());
+  private static final Type READ_DEFAULT = new Type(ReadRequestTypeProto.getDefaultInstance());
+  private static final Type STALE_READ_DEFAULT = new Type(StaleReadRequestTypeProto.getDefaultInstance());
 
   public static Type writeRequestType() {
     return WRITE_DEFAULT;
+  }
+
+  public static Type dataStreamRequestType() {
+    return DATA_STREAM_DEFAULT;
   }
 
   public static Type messageStreamRequestType(long streamId, long messageId, boolean endOfRequest) {
@@ -49,11 +54,11 @@ public class RaftClientRequest extends RaftClientMessage {
   }
 
   public static Type readRequestType() {
-    return DEFAULT_READ;
+    return READ_DEFAULT;
   }
 
   public static Type staleReadRequestType(long minIndex) {
-    return minIndex == 0L? DEFAULT_STALE_READ
+    return minIndex == 0L? STALE_READ_DEFAULT
         : new Type(StaleReadRequestTypeProto.newBuilder().setMinIndex(minIndex).build());
   }
 
@@ -70,13 +75,16 @@ public class RaftClientRequest extends RaftClientMessage {
       return WRITE_DEFAULT;
     }
 
+    public static Type valueOf(DataStreamRequestTypeProto dataStream) {
+      return DATA_STREAM_DEFAULT;
+    }
+
     public static Type valueOf(ReadRequestTypeProto read) {
-      return DEFAULT_READ;
+      return READ_DEFAULT;
     }
 
     public static Type valueOf(StaleReadRequestTypeProto staleRead) {
-      return staleRead.getMinIndex() == 0? DEFAULT_STALE_READ
-          : new Type(staleRead);
+      return staleRead.getMinIndex() == 0? STALE_READ_DEFAULT: new Type(staleRead);
     }
 
     public static Type valueOf(WatchRequestTypeProto watch) {
@@ -103,6 +111,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
     private Type(WriteRequestTypeProto write) {
       this(WRITE, write);
+    }
+
+    private Type(DataStreamRequestTypeProto dataStream) {
+      this(DATASTREAM, dataStream);
     }
 
     private Type(MessageStreamRequestTypeProto messageStream) {
@@ -132,6 +144,11 @@ public class RaftClientRequest extends RaftClientMessage {
     public WriteRequestTypeProto getWrite() {
       Preconditions.assertTrue(is(WRITE));
       return (WriteRequestTypeProto)proto;
+    }
+
+    public DataStreamRequestTypeProto getDataStream() {
+      Preconditions.assertTrue(is(DATASTREAM));
+      return (DataStreamRequestTypeProto)proto;
     }
 
     public MessageStreamRequestTypeProto getMessageStream() {
@@ -171,6 +188,8 @@ public class RaftClientRequest extends RaftClientMessage {
       switch (typeCase) {
         case WRITE:
           return "RW";
+        case DATASTREAM:
+          return "DataStream";
         case MESSAGESTREAM:
           return toString(getMessageStream());
         case READ:

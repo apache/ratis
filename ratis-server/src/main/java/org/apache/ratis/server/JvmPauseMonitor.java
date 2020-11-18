@@ -137,7 +137,7 @@ public class JvmPauseMonitor {
         long extraSleepTime = sw.elapsed(TimeUnit.MILLISECONDS) - SLEEP_INTERVAL_MS;
         Map<String, GcTimes> gcTimesAfterSleep = getGcTimes();
 
-        if (extraSleepTime > 0) {
+        if (extraSleepTime > 100) {
           LOG.warn(formatMessage(extraSleepTime, gcTimesAfterSleep, gcTimesBeforeSleep));
         }
         try {
