@@ -106,12 +106,12 @@ abstract class DataStreamBaseTest extends BaseTest {
   static class SingleDataStream implements DataStream {
     private int byteWritten = 0;
     private final RaftClientRequest writeRequest;
-    private boolean isForced = false;
+    private int forcedPosition = 0;
 
     final StateMachineDataChannel channel = new StateMachineDataChannel() {
       @Override
       public void force(boolean metadata) throws IOException {
-        isForced = true;
+        forcedPosition = byteWritten;
       }
 
       private volatile boolean open = true;
@@ -167,8 +167,8 @@ abstract class DataStreamBaseTest extends BaseTest {
       return writeRequest;
     }
 
-    public boolean isForced() {
-      return isForced;
+    public int getForcedPosition() {
+      return forcedPosition;
     }
   }
 
@@ -505,7 +505,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     // Test close idempotent
     Assert.assertSame(dataStreamReply, out.closeAsync().join());
     testFailureCase("writeAsync should fail",
-        () -> out.writeAsync(DataStreamRequestByteBuffer.EMPTY_BYTE_BUFFER, false).join(),
+        () -> out.writeAsync(DataStreamRequestByteBuffer.EMPTY_BYTE_BUFFER).join(),
         CompletionException.class, (Logger)null, AlreadyClosedException.class);
 
     try {
@@ -530,7 +530,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     final SingleDataStream stream = s.getSingleDataStream(header.getCallId());
     Assert.assertEquals(raftGroup.getGroupId(), header.getRaftGroupId());
     Assert.assertEquals(dataSize, stream.getByteWritten());
-    Assert.assertEquals(true, stream.isForced());
+    Assert.assertEquals(dataSize, stream.getForcedPosition());
 
     final RaftClientRequest writeRequest = stream.getWriteRequest();
     assertRaftClientMessage(header, writeRequest);
