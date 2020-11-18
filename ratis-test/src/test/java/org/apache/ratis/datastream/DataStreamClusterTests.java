@@ -24,6 +24,7 @@ import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.DataStreamBaseTest.MultiDataStreamStateMachine;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -57,28 +58,38 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     Assert.assertEquals(NUM_SERVERS, peers.size());
     RaftPeer raftPeer = peers.iterator().next();
 
+    final ClientId clientId;
+    final long callId;
     try (RaftClient client = cluster.createClient(raftPeer)) {
+      clientId = client.getId();
+
       // send a stream request
-      final long callId;
       try(final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream()) {
         DataStreamBaseTest.writeAndAssertReplies(out, 1000, 10);
         callId = out.getHeader().getCallId();
       }
+    }
 
-      // verify the write request is in the Raft log.
-      RaftLog log = leader.getState().getLog();
-      boolean transactionFound = false;
-      for (TermIndex termIndex : log.getEntries(0, Long.MAX_VALUE)) {
-        final LogEntryProto entryProto = log.get(termIndex.getIndex());
-        if (entryProto.hasStateMachineLogEntry()) {
-            StateMachineLogEntryProto stateMachineEntryProto = entryProto.getStateMachineLogEntry();
-            if (stateMachineEntryProto.getCallId() == callId) {
-              transactionFound = true;
-              break;
-            }
+    // verify the write request is in the Raft log.
+    final RaftLog log = leader.getState().getLog();
+    final LogEntryProto entry = findLogEntry(clientId, callId, log);
+    LOG.info("entry={}", entry);
+    Assert.assertNotNull(entry);
+  }
+
+  static LogEntryProto findLogEntry(ClientId clientId, long callId, RaftLog log) throws Exception {
+    for (TermIndex termIndex : log.getEntries(0, Long.MAX_VALUE)) {
+      final LogEntryProto entry = log.get(termIndex.getIndex());
+      if (entry.hasStateMachineLogEntry()) {
+        final StateMachineLogEntryProto stateMachineEntry = entry.getStateMachineLogEntry();
+        if (stateMachineEntry.getCallId() == callId) {
+          if (clientId.equals(ClientId.valueOf(stateMachineEntry.getClientId()))) {
+            return entry;
+          }
         }
       }
-      Assert.assertTrue(transactionFound);
     }
+    return null;
   }
+
 }

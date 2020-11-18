@@ -19,7 +19,6 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -193,7 +192,6 @@ class PendingRequests {
 
   PendingRequest add(Permit permit, RaftClientRequest request, TransactionContext entry) {
     // externally synced for now
-    Preconditions.assertTrue(request.is(RaftClientRequestProto.TypeCase.WRITE));
     final long index = entry.getLogEntry().getIndex();
     LOG.debug("{}: addPendingRequest at index={}, request={}", name, index, request);
     final PendingRequest pending = new PendingRequest(index, request, entry);
