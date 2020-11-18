@@ -18,6 +18,7 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
 
 public abstract class RaftClientMessage implements RaftRpcMessage {
   private final ClientId clientId;
@@ -26,9 +27,9 @@ public abstract class RaftClientMessage implements RaftRpcMessage {
   private final long callId;
 
   RaftClientMessage(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId) {
-    this.clientId = clientId;
-    this.serverId = serverId;
-    this.groupId = groupId;
+    this.clientId = Preconditions.assertNotNull(clientId, "clientId");
+    this.serverId = Preconditions.assertNotNull(serverId, "serverId");
+    this.groupId = Preconditions.assertNotNull(groupId, "groupId");
     this.callId = callId;
   }
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,26 +17,24 @@
  */
 package org.apache.ratis.protocol;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
- * The response of server information request. Sent from server to client.
+ * The response of group list request. Sent from server to client.
  */
 public class GroupListReply extends RaftClientReply {
 
   private final List<RaftGroupId> groupIds;
 
-  public GroupListReply(
-      RaftClientRequest request,  List<RaftGroupId> groupIds) {
-    super(request, null);
-    this.groupIds = groupIds;
+  public GroupListReply(RaftClientRequest request,  List<RaftGroupId> groupIds) {
+    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(), request.getCallId(), groupIds);
   }
 
-  public GroupListReply(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-      long callId, boolean success, List<RaftGroupId> groupIds) {
-    super(clientId, serverId, groupId, callId, success, null, null, 0L, null);
-    this.groupIds = groupIds;
+  public GroupListReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
+      List<RaftGroupId> groupIds) {
+    super(clientId, serverId, groupId, callId, true, null, null, 0L, null);
+    this.groupIds = Collections.unmodifiableList(groupIds);
   }
 
   public List<RaftGroupId> getGroupIds() {

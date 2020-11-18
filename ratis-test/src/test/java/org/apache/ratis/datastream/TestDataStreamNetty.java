@@ -111,12 +111,13 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
               final RaftClientRequest r = (RaftClientRequest) invocation.getArguments()[0];
               final RaftClientReply reply;
               if (isLeader) {
-                reply = leaderException != null? new RaftClientReply(r, leaderException, null)
-                    : new RaftClientReply(r, () -> MOCK, null);
+                final RaftClientReply.Builder b = RaftClientReply.newBuilder().setRequest(r);
+                reply = leaderException != null? b.setException(leaderException).build()
+                    : b.setSuccess().setMessage(() -> MOCK).build();
               } else {
                 final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(peerId, groupId);
                 final NotLeaderException notLeaderException = new NotLeaderException(memberId, suggestedLeader, null);
-                reply = new RaftClientReply(r, notLeaderException, null);
+                reply = RaftClientReply.newBuilder().setRequest(r).setException(notLeaderException).build();
               }
               return CompletableFuture.completedFuture(reply);
             });

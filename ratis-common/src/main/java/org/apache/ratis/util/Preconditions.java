@@ -97,6 +97,12 @@ public interface Preconditions {
         + name + " = " + object + " == null, class = " + object.getClass());
   }
 
+  static <T> T assertInstanceOf(Object object, Class<T> clazz) {
+    assertTrue(clazz.isInstance(object),
+        () -> "Required instance of " + clazz + " but object.getClass() is " + object.getClass());
+    return clazz.cast(object);
+  }
+
   static <T> void assertUnique(Iterable<T> first) {
     assertUnique(first, Collections.emptyList());
   }

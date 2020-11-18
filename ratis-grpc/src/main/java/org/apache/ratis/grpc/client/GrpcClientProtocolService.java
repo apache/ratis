@@ -61,8 +61,11 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
     @Override
     public void fail(Throwable t) {
-      Preconditions.assertTrue(t instanceof RaftException, () -> "Requires RaftException but " + t);
-      setReply(new RaftClientReply(request, (RaftException) t, null));
+      final RaftException e = Preconditions.assertInstanceOf(t, RaftException.class);
+      setReply(RaftClientReply.newBuilder()
+          .setRequest(request)
+          .setException(e)
+          .build());
     }
 
     @Override

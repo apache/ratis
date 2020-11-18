@@ -360,7 +360,7 @@ public class LeaderState {
 
   CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
     return messageStreamRequests.streamAsync(request)
-        .thenApply(dummy -> new RaftClientReply(request, server.getCommitInfos()))
+        .thenApply(dummy -> server.newSuccessReply(request))
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
@@ -372,18 +372,22 @@ public class LeaderState {
   CompletableFuture<RaftClientReply> addWatchReqeust(RaftClientRequest request) {
     LOG.debug("{}: addWatchRequest {}", this, request);
     return watchRequests.add(request)
-        .thenApply(v -> new RaftClientReply(request, server.getCommitInfos()))
+        .thenApply(v -> server.newSuccessReply(request))
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
   private RaftClientReply exception2RaftClientReply(RaftClientRequest request, Throwable e) {
     e = JavaUtils.unwrapCompletionException(e);
     if (e instanceof NotReplicatedException) {
-      return new RaftClientReply(request, (NotReplicatedException)e, server.getCommitInfos());
+      final NotReplicatedException nre = (NotReplicatedException)e;
+      return server.newReplyBuilder(request)
+          .setException(nre)
+          .setLogIndex(nre.getLogIndex())
+          .build();
     } else if (e instanceof NotLeaderException) {
-      return new RaftClientReply(request, (NotLeaderException)e, server.getCommitInfos());
+      return server.newExceptionReply(request, (NotLeaderException)e);
     } else if (e instanceof LeaderNotReadyException) {
-      return new RaftClientReply(request, (LeaderNotReadyException)e, server.getCommitInfos());
+      return server.newExceptionReply(request, (LeaderNotReadyException)e);
     } else {
       throw new CompletionException(e);
     }
@@ -731,7 +735,7 @@ public class LeaderState {
       if (conf.isTransitional()) {
         replicateNewConf();
       } else { // the (new) log entry has been committed
-        pendingRequests.replySetConfiguration(server::getCommitInfos);
+        pendingRequests.replySetConfiguration(server::newSuccessReply);
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {
           LOG.info("{} is not included in the new configuration {}. Will shutdown server...", this, conf);

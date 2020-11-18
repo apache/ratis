@@ -379,7 +379,10 @@ public class RaftServerProxy implements RaftServer {
   @Override
   public RaftClientReply groupManagement(GroupManagementRequest request) throws IOException {
     return RaftServerImpl.waitForReply(getId(), request, groupManagementAsync(request),
-        e -> new RaftClientReply(request, e, null));
+        e -> RaftClientReply.newBuilder()
+            .setRequest(request)
+            .setException(e)
+            .build());
   }
 
   @Override
@@ -412,7 +415,7 @@ public class RaftServerProxy implements RaftServer {
           LOG.debug("{}: newImpl = {}", getId(), newImpl);
           final boolean started = newImpl.start();
           Preconditions.assertTrue(started, () -> getId()+ ": failed to start a new impl: " + newImpl);
-          return new RaftClientReply(request, newImpl.getCommitInfos());
+          return newImpl.newSuccessReply(request);
         }, implExecutor)
         .whenComplete((raftClientReply, throwable) -> {
           if (throwable != null) {
@@ -443,7 +446,7 @@ public class RaftServerProxy implements RaftServer {
     }
     return f.thenApply(impl -> {
       impl.groupRemove(deleteDirectory, renameDirectory);
-      return new RaftClientReply(request, impl.getCommitInfos());
+      return impl.newSuccessReply(request);
     });
   }
 

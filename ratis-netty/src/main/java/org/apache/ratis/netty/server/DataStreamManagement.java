@@ -331,15 +331,20 @@ public class DataStreamManagement {
 
   static void replyDataStreamException(RaftServer server, Throwable cause, RaftClientRequest raftClientRequest,
       DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
-    DataStreamException dataStreamException = new DataStreamException(server.getId(), cause);
-    RaftClientReply reply = new RaftClientReply(raftClientRequest, dataStreamException, null);
+    final RaftClientReply reply = RaftClientReply.newBuilder()
+        .setRequest(raftClientRequest)
+        .setException(new DataStreamException(server.getId(), cause))
+        .build();
     sendDataStreamException(cause, request, reply, ctx);
   }
 
   void replyDataStreamException(Throwable cause, DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
-    DataStreamException dataStreamException = new DataStreamException(server.getId(), cause);
-    RaftClientReply reply = new RaftClientReply(ClientId.emptyClientId(), server.getId(), RaftGroupId.emptyGroupId(),
-        -1, false, null, dataStreamException, 0L, null);
+    final RaftClientReply reply = RaftClientReply.newBuilder()
+        .setClientId(ClientId.emptyClientId())
+        .setServerId(server.getId())
+        .setGroupId(RaftGroupId.emptyGroupId())
+        .setException(new DataStreamException(server.getId(), cause))
+        .build();
     sendDataStreamException(cause, request, reply, ctx);
   }
 
