@@ -25,8 +25,8 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
@@ -152,7 +152,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
 
   @Override
   public long takeSnapshot() throws IOException {
-    return RaftServerConstants.INVALID_LOG_INDEX;
+    return RaftLog.INVALID_LOG_INDEX;
   }
 
   @Override

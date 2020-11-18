@@ -30,10 +30,10 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogInputStream;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogOutputStream;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -70,7 +70,7 @@ import java.util.concurrent.TimeUnit;
  * For snapshot it simply merges all the log segments together.
  */
 public class SimpleStateMachine4Testing extends BaseStateMachine {
-  private static volatile int SNAPSHOT_THRESHOLD = 100;
+  private static final int SNAPSHOT_THRESHOLD = 100;
   private static final Logger LOG = LoggerFactory.getLogger(SimpleStateMachine4Testing.class);
   private static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY
       = "raft.test.simple.state.machine.take.snapshot";
@@ -162,7 +162,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   private final Blocking blocking = new Blocking();
   private final Collecting collecting = new Collecting();
-  private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
+  private long endIndexLastCkpt = RaftLog.INVALID_LOG_INDEX;
   private volatile RoleInfoProto slownessInfo = null;
   private volatile RoleInfoProto leaderElectionTimeoutInfo = null;
 
@@ -254,7 +254,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public long takeSnapshot() {
     final TermIndex termIndex = getLastAppliedTermIndex();
     if (termIndex.getTerm() <= 0 || termIndex.getIndex() <= 0) {
-      return RaftServerConstants.INVALID_LOG_INDEX;
+      return RaftLog.INVALID_LOG_INDEX;
     }
     final long endIndex = termIndex.getIndex();
 
@@ -305,7 +305,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
       LOG.info("The snapshot file {} does not exist",
           snapshot == null ? null : snapshot.getFile());
-      return RaftServerConstants.INVALID_LOG_INDEX;
+      return RaftLog.INVALID_LOG_INDEX;
     } else {
       LOG.info("Loading snapshot {}", snapshot);
       final long endIndex = snapshot.getIndex();

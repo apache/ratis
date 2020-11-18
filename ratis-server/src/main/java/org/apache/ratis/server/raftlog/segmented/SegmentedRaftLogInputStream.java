@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
-
 import java.io.Closeable;
 import java.io.EOFException;
 import java.io.File;
@@ -32,6 +30,8 @@ import org.apache.ratis.util.OpenCloseState;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
 
 public class SegmentedRaftLogInputStream implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogInputStream.class);
@@ -130,7 +130,7 @@ public class SegmentedRaftLogInputStream implements Closeable {
         if (entry != null) {
           long index = entry.getIndex();
           if (!isOpen() && index >= endIndex) {
-            /**
+            /*
              * The end index may be derived from the segment recovery
              * process. It is possible that we still have some uncleaned garbage
              * in the end. We should skip them.

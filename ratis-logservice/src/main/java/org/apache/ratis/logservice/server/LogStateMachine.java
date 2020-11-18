@@ -69,7 +69,6 @@ import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.logservice.server.ArchivalInfo.ArchivalStatus;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -224,12 +223,12 @@ public class LogStateMachine extends BaseStateMachine {
   private long load(SingleFileSnapshotInfo snapshot, boolean reload) throws IOException {
     if (snapshot == null) {
       LOG.warn("The snapshot info is null.");
-      return RaftServerConstants.INVALID_LOG_INDEX;
+      return RaftLog.INVALID_LOG_INDEX;
     }
     final File snapshotFile = snapshot.getFile().getPath().toFile();
     if (!snapshotFile.exists()) {
       LOG.warn("The snapshot file {} does not exist for snapshot {}", snapshotFile, snapshot);
-      return RaftServerConstants.INVALID_LOG_INDEX;
+      return RaftLog.INVALID_LOG_INDEX;
     }
 
     final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
