@@ -1,4 +1,4 @@
-/**
+/*
  *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -65,7 +65,7 @@ public final class MetricRegistriesLoader {
       return impl;
     } else if (availableImplementations.isEmpty()) {
       try {
-        return ReflectionUtils.newInstance((Class<MetricRegistries>)Class.forName(DEFAULT_CLASS));
+        return ReflectionUtils.newInstance(Class.forName(DEFAULT_CLASS).asSubclass(MetricRegistries.class));
       } catch (ClassNotFoundException e) {
         throw new RuntimeException(e);
       }
