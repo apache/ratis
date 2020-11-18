@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -30,12 +30,14 @@ import org.apache.ratis.statemachine.StateMachine;
 
 import java.io.IOException;
 
+/**
+ * A {@link MiniRaftCluster} with {{@link SupportedRpcType#GRPC}} and data stream disabled.
+ */
 public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithGrpc> FACTORY
       = new Factory<MiniRaftClusterWithGrpc>() {
     @Override
-    public MiniRaftClusterWithGrpc newCluster(
-        String[] ids, RaftProperties prop) {
+    public MiniRaftClusterWithGrpc newCluster(String[] ids, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.GRPC);
       return new MiniRaftClusterWithGrpc(ids, prop);
     }
@@ -51,7 +53,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
       new DelayLocalExecutionInjection(GrpcService.GRPC_SEND_SERVER_REQUEST);
 
-  private MiniRaftClusterWithGrpc(String[] ids, RaftProperties properties) {
+  protected MiniRaftClusterWithGrpc(String[] ids, RaftProperties properties) {
     super(ids, properties, null);
   }
 

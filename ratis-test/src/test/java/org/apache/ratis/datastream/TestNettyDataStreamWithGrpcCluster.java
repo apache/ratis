@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,10 +17,7 @@
  */
 package org.apache.ratis.datastream;
 
-import org.apache.ratis.RaftConfigKeys;
-import org.apache.ratis.datastream.DataStreamBaseTest.MultiDataStreamStateMachine;
-import org.apache.ratis.netty.MiniRaftClusterWithNetty;
-
-public class TestDataStreamWithNettyMiniRaftCluster extends DataStreamTests<MiniRaftClusterWithNetty>
-    implements MiniRaftClusterWithNetty.FactoryGet {
+public class TestNettyDataStreamWithGrpcCluster
+    extends DataStreamClusterTests<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty>
+    implements MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty.FactoryGet {
 }

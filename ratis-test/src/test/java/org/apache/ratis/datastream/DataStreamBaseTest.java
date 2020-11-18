@@ -63,6 +63,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -88,17 +89,43 @@ abstract class DataStreamBaseTest extends BaseTest {
   private final Executor executor = Executors.newFixedThreadPool(16);
 
   static class MultiDataStreamStateMachine extends BaseStateMachine {
-    final ConcurrentMap<Long, SingleDataStream> streams = new ConcurrentHashMap<>();
+    static class Key {
+      private final ClientId clientId;
+      private final long callId;
+
+      Key(RaftClientRequest request) {
+        this.clientId = request.getClientId();
+        this.callId = request.getCallId();
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (this == obj) {
+          return true;
+        } else if (obj == null || getClass() != obj.getClass()) {
+          return false;
+        }
+        final Key that = (Key) obj;
+        return this.callId == that.callId && Objects.equals(this.clientId, that.clientId);
+      }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(clientId, callId);
+      }
+    }
+
+    private final ConcurrentMap<Key, SingleDataStream> streams = new ConcurrentHashMap<>();
 
     @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
       final SingleDataStream s = new SingleDataStream(request);
-      streams.put(request.getCallId(), s);
+      streams.put(new Key(request), s);
       return CompletableFuture.completedFuture(s);
     }
 
-    SingleDataStream getSingleDataStream(long callId) {
-      return streams.get(callId);
+    SingleDataStream getSingleDataStream(RaftClientRequest request) {
+      return streams.get(new Key(request));
     }
   }
 
@@ -260,7 +287,7 @@ abstract class DataStreamBaseTest extends BaseTest {
       @Override
       public CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) {
         final MultiDataStreamStateMachine stateMachine = getStateMachine(request.getRaftGroupId());
-        final SingleDataStream stream = stateMachine.getSingleDataStream(request.getCallId());
+        final SingleDataStream stream = stateMachine.getSingleDataStream(request);
         Assert.assertFalse(stream.getWritableByteChannel().isOpen());
         return CompletableFuture.completedFuture(RaftClientReply.newBuilder()
             .setRequest(request)
@@ -449,8 +476,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
-  CompletableFuture<RaftClientReply> runTestDataStream(DataStreamOutputImpl out, int bufferSize, int bufferNum) {
-    LOG.info("start stream {}", out.getHeader().getCallId());
+  static int writeAndAssertReplies(DataStreamOutputImpl out, int bufferSize, int bufferNum) {
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
     final List<Integer> sizes = new ArrayList<>();
 
@@ -480,20 +506,25 @@ abstract class DataStreamBaseTest extends BaseTest {
       Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
       Assert.assertEquals(reply.getType(), Type.STREAM_DATA);
     }
+    return dataSize;
+  }
+
+  CompletableFuture<RaftClientReply> runTestDataStream(DataStreamOutputImpl out, int bufferSize, int bufferNum) {
+    LOG.info("start Stream{}", out.getHeader().getCallId());
+    final int bytesWritten = writeAndAssertReplies(out, bufferSize, bufferNum);
     try {
       for (Server s : servers) {
-        assertHeader(s, out.getHeader(), dataSize);
+        assertHeader(s, out.getHeader(), bytesWritten);
       }
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
 
-    final long byteWritten = dataSize;
-    return out.closeAsync().thenCompose(reply -> assertCloseReply(out, reply, byteWritten));
+    return out.closeAsync().thenCompose(reply -> assertCloseReply(out, reply, bytesWritten));
   }
 
-  CompletableFuture<RaftClientReply> assertCloseReply(DataStreamOutputImpl out, DataStreamReply dataStreamReply,
-      long byteWritten) {
+  static CompletableFuture<RaftClientReply> assertCloseReply(DataStreamOutputImpl out, DataStreamReply dataStreamReply,
+      long bytesWritten) {
     // Test close idempotent
     Assert.assertSame(dataStreamReply, out.closeAsync().join());
     testFailureCase("writeAsync should fail",
@@ -507,7 +538,7 @@ abstract class DataStreamBaseTest extends BaseTest {
       if (reply.isSuccess()) {
         final ByteString bytes = reply.getMessage().getContent();
         if (!bytes.equals(MOCK)) {
-          Assert.assertEquals(bytesWritten2ByteString(byteWritten), bytes);
+          Assert.assertEquals(bytesWritten2ByteString(bytesWritten), bytes);
         }
       }
 
@@ -519,7 +550,7 @@ abstract class DataStreamBaseTest extends BaseTest {
 
   void assertHeader(Server server, RaftClientRequest header, int dataSize) throws Exception {
     final MultiDataStreamStateMachine s = server.getStateMachine(header.getRaftGroupId());
-    final SingleDataStream stream = s.getSingleDataStream(header.getCallId());
+    final SingleDataStream stream = s.getSingleDataStream(header);
     Assert.assertEquals(raftGroup.getGroupId(), header.getRaftGroupId());
     Assert.assertEquals(dataSize, stream.getByteWritten());
 
