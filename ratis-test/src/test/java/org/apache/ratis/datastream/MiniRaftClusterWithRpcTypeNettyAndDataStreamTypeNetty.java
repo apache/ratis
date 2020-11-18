@@ -20,7 +20,7 @@ package org.apache.ratis.datastream;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
+import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -31,34 +31,32 @@ import org.apache.ratis.statemachine.StateMachine;
 import java.io.IOException;
 
 /**
- * A {@link MiniRaftCluster} with {{@link SupportedRpcType#GRPC}} and {@link SupportedDataStreamType#NETTY}.
+ * A {@link MiniRaftCluster} with {{@link SupportedRpcType#NETTY}} and {@link SupportedDataStreamType#NETTY}.
  */
-public class MiniRaftClusterWithGrpcAndNettyDataStream extends MiniRaftClusterWithGrpc {
-  public static final Factory<MiniRaftClusterWithGrpcAndNettyDataStream> FACTORY
-      = new Factory<MiniRaftClusterWithGrpcAndNettyDataStream>() {
+public class MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty extends MiniRaftClusterWithNetty {
+  public static final Factory<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty> FACTORY
+      = new Factory<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty>() {
     @Override
-    public MiniRaftClusterWithGrpcAndNettyDataStream newCluster(
-        String[] ids, RaftProperties prop) {
-      RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.GRPC);
+    public MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty newCluster(String[] ids, RaftProperties prop) {
+      RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.NETTY);
       RaftConfigKeys.DataStream.setType(prop, SupportedDataStreamType.NETTY);
-      return new MiniRaftClusterWithGrpcAndNettyDataStream(ids, prop);
+      return new MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty(ids, prop);
     }
   };
 
-  public interface FactoryGet extends Factory.Get<MiniRaftClusterWithGrpcAndNettyDataStream> {
+  public interface FactoryGet extends Factory.Get<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty> {
     @Override
-    default Factory<MiniRaftClusterWithGrpcAndNettyDataStream> getFactory() {
+    default Factory<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty> getFactory() {
       return FACTORY;
     }
   }
 
-  private MiniRaftClusterWithGrpcAndNettyDataStream(String[] ids, RaftProperties properties) {
+  private MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty(String[] ids, RaftProperties properties) {
     super(ids, properties);
   }
 
   @Override
-  protected RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine.Registry stateMachineRegistry, RaftGroup group,
+  protected RaftServerProxy newRaftServer(RaftPeerId id, StateMachine.Registry stateMachineRegistry, RaftGroup group,
       RaftProperties properties) throws IOException {
     NettyConfigKeys.DataStream.setPort(properties, getDataStreamPort(id, group));
     return super.newRaftServer(id, stateMachineRegistry, group, properties);

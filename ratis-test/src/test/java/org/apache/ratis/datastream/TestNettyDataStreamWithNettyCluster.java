@@ -17,8 +17,7 @@
  */
 package org.apache.ratis.datastream;
 
-import org.apache.ratis.netty.MiniRaftClusterWithNetty;
-
-public class TestNettyDataStreamWithNettyCluster extends DataStreamClusterTests<MiniRaftClusterWithNetty>
-    implements MiniRaftClusterWithNetty.FactoryGet {
+public class TestNettyDataStreamWithNettyCluster
+    extends DataStreamClusterTests<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty>
+    implements MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty.FactoryGet {
 }

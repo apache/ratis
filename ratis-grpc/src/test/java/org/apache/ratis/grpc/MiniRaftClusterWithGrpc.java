@@ -21,7 +21,6 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -32,16 +31,14 @@ import org.apache.ratis.statemachine.StateMachine;
 import java.io.IOException;
 
 /**
- * A {@link MiniRaftCluster} with {{@link SupportedRpcType#GRPC}} and {@link SupportedDataStreamType#DISABLED}.
+ * A {@link MiniRaftCluster} with {{@link SupportedRpcType#GRPC}} and data stream disabled.
  */
 public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithGrpc> FACTORY
       = new Factory<MiniRaftClusterWithGrpc>() {
     @Override
-    public MiniRaftClusterWithGrpc newCluster(
-        String[] ids, RaftProperties prop) {
+    public MiniRaftClusterWithGrpc newCluster(String[] ids, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.GRPC);
-      RaftConfigKeys.DataStream.setType(prop, SupportedDataStreamType.DISABLED);
       return new MiniRaftClusterWithGrpc(ids, prop);
     }
   };

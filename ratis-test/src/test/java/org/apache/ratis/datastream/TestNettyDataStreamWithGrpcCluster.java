@@ -18,6 +18,6 @@
 package org.apache.ratis.datastream;
 
 public class TestNettyDataStreamWithGrpcCluster
-    extends DataStreamClusterTests<MiniRaftClusterWithGrpcAndNettyDataStream>
-    implements MiniRaftClusterWithGrpcAndNettyDataStream.FactoryGet {
+    extends DataStreamClusterTests<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty>
+    implements MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty.FactoryGet {
 }

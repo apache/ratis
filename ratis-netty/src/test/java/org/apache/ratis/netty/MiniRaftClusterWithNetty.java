@@ -21,7 +21,6 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -32,7 +31,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import java.io.IOException;
 
 /**
- * A {@link MiniRaftCluster} with {{@link SupportedRpcType#NETTY}} and {@link SupportedDataStreamType#NETTY}.
+ * A {@link MiniRaftCluster} with {{@link SupportedRpcType#NETTY}} and data stream disabled.
  */
 public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithNetty> FACTORY
@@ -40,7 +39,6 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     @Override
     public MiniRaftClusterWithNetty newCluster(String[] ids, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.NETTY);
-      RaftConfigKeys.DataStream.setType(prop, SupportedDataStreamType.NETTY);
       return new MiniRaftClusterWithNetty(ids, prop);
     }
   };
@@ -55,7 +53,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   public static final DelayLocalExecutionInjection sendServerRequest
       = new DelayLocalExecutionInjection(NettyRpcService.SEND_SERVER_REQUEST);
 
-  private MiniRaftClusterWithNetty(String[] ids, RaftProperties properties) {
+  protected MiniRaftClusterWithNetty(String[] ids, RaftProperties properties) {
     super(ids, properties, null);
   }
 
@@ -64,7 +62,6 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
       RaftPeerId id, StateMachine.Registry stateMachineRegistry , RaftGroup group,
       RaftProperties properties) throws IOException {
     NettyConfigKeys.Server.setPort(properties, getPort(id, group));
-    NettyConfigKeys.DataStream.setPort(properties, getDataStreamPort(id, group));
     return ServerImplUtils.newRaftServer(id, group, stateMachineRegistry, properties, null);
   }
 
