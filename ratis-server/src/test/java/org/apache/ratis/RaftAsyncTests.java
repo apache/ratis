@@ -85,6 +85,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   public void testAsyncConfiguration() throws IOException {
     LOG.info("Running testAsyncConfiguration");
     final RaftProperties properties = new RaftProperties();
+    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(properties, false);
     RaftClient.Builder clientBuilder = RaftClient.newBuilder()
         .setRaftGroup(RaftGroup.emptyGroup())
         .setProperties(properties);
