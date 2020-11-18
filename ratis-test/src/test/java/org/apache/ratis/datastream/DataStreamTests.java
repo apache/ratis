@@ -76,7 +76,7 @@ public abstract class DataStreamTests <CLUSTER extends MiniRaftCluster> extends 
         final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
 
         final ByteBuffer bf = DataStreamBaseTest.initBuffer(dataSize, size);
-        dataStreamOutputRpc.writeAsync(bf);
+        dataStreamOutputRpc.writeAsync(bf, false);
         dataSize += size;
       }
 
