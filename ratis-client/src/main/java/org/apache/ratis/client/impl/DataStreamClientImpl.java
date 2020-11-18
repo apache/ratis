@@ -85,12 +85,12 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     // send to the attached dataStreamClientRpc
     @Override
-    public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf) {
+    public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf, boolean sync) {
       if (isClosed()) {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(
             clientId + ": stream already closed, request=" + header));
       }
-      final CompletableFuture<DataStreamReply> f = send(Type.STREAM_DATA, buf);
+      final CompletableFuture<DataStreamReply> f = send(sync ? Type.STREAM_DATA_SYNC : Type.STREAM_DATA, buf);
       streamOffset += buf.remaining();
       return combineHeader(f);
     }

@@ -35,6 +35,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
+import org.apache.ratis.statemachine.StateMachine.StateMachineDataChannel;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
@@ -46,7 +47,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -73,9 +73,9 @@ public class DataStreamManagement {
       this.writeFuture = new AtomicReference<>(streamFuture.thenApply(s -> 0L));
     }
 
-    CompletableFuture<Long> write(ByteBuf buf, Executor executor) {
+    CompletableFuture<Long> write(ByteBuf buf, boolean sync, Executor executor) {
       return composeAsync(writeFuture, executor,
-          n -> streamFuture.thenApplyAsync(stream -> writeTo(buf, stream), executor));
+          n -> streamFuture.thenApplyAsync(stream -> writeTo(buf, sync, stream), executor));
     }
 
     CompletableFuture<Long> close(Executor executor) {
@@ -92,7 +92,7 @@ public class DataStreamManagement {
     }
 
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request) {
-      return out.writeAsync(request.slice().nioBuffer());
+      return out.writeAsync(request.slice().nioBuffer(), request.getType() == Type.STREAM_DATA_SYNC);
     }
 
     CompletableFuture<DataStreamReply> startTransaction(DataStreamRequestByteBuf request,
@@ -235,14 +235,22 @@ public class DataStreamManagement {
     return composed;
   }
 
-  static long writeTo(ByteBuf buf, DataStream stream) {
-    final WritableByteChannel channel = stream.getWritableByteChannel();
+  static long writeTo(ByteBuf buf, boolean sync, DataStream stream) {
+    final StateMachineDataChannel channel = stream.getWritableByteChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
       try {
         byteWritten += channel.write(buffer);
       } catch (Throwable t) {
         throw new CompletionException(t);
+      }
+    }
+
+    if (sync) {
+      try {
+        channel.force(false);
+      } catch (IOException e) {
+        throw new CompletionException(e);
       }
     }
     return byteWritten;
@@ -419,8 +427,8 @@ public class DataStreamManagement {
     if (request.getType() == Type.STREAM_HEADER) {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
-    } else if (request.getType() == Type.STREAM_DATA) {
-      localWrite = info.getLocal().write(buf, executor);
+    } else if (request.getType() == Type.STREAM_DATA || request.getType() == Type.STREAM_DATA_SYNC) {
+      localWrite = info.getLocal().write(buf, request.getType() == Type.STREAM_DATA_SYNC, executor);
       remoteWrites = info.applyToRemotes(out -> out.write(request));
     } else if (request.getType() == Type.STREAM_CLOSE) {
       localWrite = info.getLocal().close(executor);
@@ -432,7 +440,7 @@ public class DataStreamManagement {
     composeAsync(info.getPrevious(), executor, n -> JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           if (request.getType() == Type.STREAM_HEADER
-              || request.getType() == Type.STREAM_DATA) {
+              || request.getType() == Type.STREAM_DATA || request.getType() == Type.STREAM_DATA_SYNC) {
             sendReply(remoteWrites, request, bytesWritten, ctx);
           } else if (request.getType() == Type.STREAM_CLOSE) {
             if (info.isPrimary()) {

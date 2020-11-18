@@ -286,8 +286,9 @@ message DataStreamPacketHeaderProto {
   enum Type {
     STREAM_HEADER = 0;
     STREAM_DATA = 1;
-    STREAM_CLOSE = 2;
-    START_TRANSACTION = 3;
+    STREAM_DATA_SYNC = 2;
+    STREAM_CLOSE = 3;
+    START_TRANSACTION = 4;
   }
 
   uint64 streamId = 1;

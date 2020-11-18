@@ -26,5 +26,9 @@ import java.util.concurrent.CompletableFuture;
 /** An asynchronous output stream supporting zero buffer copying. */
 public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
   /** Send out the data in the buffer asynchronously */
-  CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf);
+  default CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buffer) {
+    return writeAsync(buffer, false);
+  }
+
+  CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buffer, boolean sync);
 }

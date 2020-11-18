@@ -47,6 +47,7 @@ import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.statemachine.StateMachine.StateMachineDataChannel;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -132,8 +133,14 @@ abstract class DataStreamBaseTest extends BaseTest {
   static class SingleDataStream implements DataStream {
     private int byteWritten = 0;
     private final RaftClientRequest writeRequest;
+    private int forcedPosition = 0;
 
-    final WritableByteChannel channel = new WritableByteChannel() {
+    final StateMachineDataChannel channel = new StateMachineDataChannel() {
+      @Override
+      public void force(boolean metadata) throws IOException {
+        forcedPosition = byteWritten;
+      }
+
       private volatile boolean open = true;
 
       @Override
@@ -161,7 +168,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     };
 
       @Override
-      public WritableByteChannel getWritableByteChannel() {
+      public StateMachineDataChannel getWritableByteChannel() {
         return channel;
       }
 
@@ -185,6 +192,10 @@ abstract class DataStreamBaseTest extends BaseTest {
 
     public RaftClientRequest getWriteRequest() {
       return writeRequest;
+    }
+
+    public int getForcedPosition() {
+      return forcedPosition;
     }
   }
 
@@ -488,7 +499,7 @@ abstract class DataStreamBaseTest extends BaseTest {
       sizes.add(size);
 
       final ByteBuffer bf = initBuffer(dataSize, size);
-      futures.add(out.writeAsync(bf));
+      futures.add(out.writeAsync(bf, i == bufferNum - 1));
       dataSize += size;
     }
 
@@ -504,7 +515,7 @@ abstract class DataStreamBaseTest extends BaseTest {
       final DataStreamReply reply = futures.get(i).join();
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), Type.STREAM_DATA);
+      Assert.assertEquals(reply.getType(), i == futures.size() - 1 ? Type.STREAM_DATA_SYNC : Type.STREAM_DATA);
     }
     return dataSize;
   }
@@ -553,6 +564,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     final SingleDataStream stream = s.getSingleDataStream(header);
     Assert.assertEquals(raftGroup.getGroupId(), header.getRaftGroupId());
     Assert.assertEquals(dataSize, stream.getByteWritten());
+    Assert.assertEquals(dataSize, stream.getForcedPosition());
 
     final RaftClientRequest writeRequest = stream.getWriteRequest();
     assertRaftClientMessage(header, writeRequest);
