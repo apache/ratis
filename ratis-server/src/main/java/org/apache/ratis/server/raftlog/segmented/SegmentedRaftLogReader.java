@@ -19,8 +19,8 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.protocol.exceptions.ChecksumException;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedInputStream;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.util.Optional;
 import java.util.zip.Checksum;
 
 import com.codahale.metrics.Timer;
@@ -229,8 +230,7 @@ class SegmentedRaftLogReader implements Closeable {
    * @return the index of the log entry
    */
   long scanEntry() throws IOException {
-    LogEntryProto entry = decodeEntry();
-    return entry != null ? entry.getIndex() : RaftServerConstants.INVALID_LOG_INDEX;
+    return Optional.ofNullable(decodeEntry()).map(LogEntryProto::getIndex).orElse(RaftLog.INVALID_LOG_INDEX);
   }
 
   void verifyTerminator() throws IOException {

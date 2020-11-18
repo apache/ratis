@@ -20,7 +20,6 @@ package org.apache.ratis.server.raftlog.segmented;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -497,8 +496,7 @@ public class SegmentedRaftLogCache {
 
   long getStartIndex() {
     if (closedSegments.isEmpty()) {
-      return openSegment != null ? openSegment.getStartIndex() :
-          RaftServerConstants.INVALID_LOG_INDEX;
+      return Optional.ofNullable(openSegment).map(LogSegment::getStartIndex).orElse(RaftLog.INVALID_LOG_INDEX);
     } else {
       return closedSegments.get(0).getStartIndex();
     }

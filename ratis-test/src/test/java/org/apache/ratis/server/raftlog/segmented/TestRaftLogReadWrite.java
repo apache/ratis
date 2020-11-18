@@ -22,9 +22,9 @@ import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.exceptions.ChecksumException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -53,7 +53,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   private int bufferSize;
 
   @Before
-  public void setup() throws Exception {
+  public void setup() {
     storageDir = getTestDir();
     RaftProperties properties = new RaftProperties();
     RaftServerConfigKeys.setStorageDir(properties,  Collections.singletonList(storageDir));
@@ -116,8 +116,7 @@ public class TestRaftLogReadWrite extends BaseTest {
 
     Assert.assertEquals(size, openSegment.length());
 
-    LogEntryProto[] readEntries = readLog(openSegment, 0,
-        RaftServerConstants.INVALID_LOG_INDEX, true);
+    final LogEntryProto[] readEntries = readLog(openSegment, 0, RaftLog.INVALID_LOG_INDEX, true);
     Assert.assertArrayEquals(entries, readEntries);
   }
 
@@ -144,8 +143,7 @@ public class TestRaftLogReadWrite extends BaseTest {
       }
     }
 
-    LogEntryProto[] readEntries = readLog(openSegment, 0,
-        RaftServerConstants.INVALID_LOG_INDEX, true);
+    final LogEntryProto[] readEntries = readLog(openSegment, 0, RaftLog.INVALID_LOG_INDEX, true);
     Assert.assertArrayEquals(entries, readEntries);
 
     storage.close();
@@ -173,8 +171,7 @@ public class TestRaftLogReadWrite extends BaseTest {
         openSegment.length());
 
     // check if the reader can correctly read the log file
-    LogEntryProto[] readEntries = readLog(openSegment, 0,
-        RaftServerConstants.INVALID_LOG_INDEX, true);
+    final LogEntryProto[] readEntries = readLog(openSegment, 0, RaftLog.INVALID_LOG_INDEX, true);
     Assert.assertArrayEquals(entries, readEntries);
 
     out.close();
@@ -211,7 +208,7 @@ public class TestRaftLogReadWrite extends BaseTest {
 
     List<LogEntryProto> list = new ArrayList<>();
     try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(openSegment, 0,
-        RaftServerConstants.INVALID_LOG_INDEX, true)) {
+        RaftLog.INVALID_LOG_INDEX, true)) {
       LogEntryProto entry;
       while ((entry = in.nextEntry()) != null) {
         list.add(entry);
@@ -259,7 +256,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     }
 
     try {
-      readLog(openSegment, 0, RaftServerConstants.INVALID_LOG_INDEX, true);
+      readLog(openSegment, 0, RaftLog.INVALID_LOG_INDEX, true);
       Assert.fail("The read of corrupted log file should fail");
     } catch (ChecksumException e) {
       LOG.info("Caught ChecksumException as expected", e);

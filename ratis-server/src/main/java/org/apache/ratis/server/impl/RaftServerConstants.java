@@ -17,12 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.server.raftlog.RaftLog;
-
 public final class RaftServerConstants {
-  /** @deprecated use {@link RaftLog#INVALID_LOG_INDEX}. */
-  @Deprecated
-  public static final long INVALID_LOG_INDEX = RaftLog.INVALID_LOG_INDEX;
   public static final long DEFAULT_CALLID = 0;
   public static final long DEFAULT_TERM = 0;
 

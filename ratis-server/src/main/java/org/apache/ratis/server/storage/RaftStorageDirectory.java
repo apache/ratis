@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.FileUtils;
@@ -85,7 +84,7 @@ public class RaftStorageDirectory {
     }
 
     public boolean isOpen() {
-      return endIndex == RaftServerConstants.INVALID_LOG_INDEX;
+      return endIndex == RaftLog.INVALID_LOG_INDEX;
     }
 
     @Override

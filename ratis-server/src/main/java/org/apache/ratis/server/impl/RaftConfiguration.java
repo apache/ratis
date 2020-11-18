@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.*;
@@ -43,7 +44,7 @@ public final class RaftConfiguration {
   public static final class Builder {
     private PeerConfiguration oldConf;
     private PeerConfiguration conf;
-    private long logEntryIndex = RaftServerConstants.INVALID_LOG_INDEX;
+    private long logEntryIndex = RaftLog.INVALID_LOG_INDEX;
 
     private boolean forceStable = false;
     private boolean forceTransitional = false;
@@ -92,11 +93,8 @@ public final class RaftConfiguration {
     }
 
     public Builder setLogEntryIndex(long logEntryIndex) {
-      Preconditions.assertTrue(
-          logEntryIndex != RaftServerConstants.INVALID_LOG_INDEX);
-      Preconditions.assertTrue(
-          this.logEntryIndex == RaftServerConstants.INVALID_LOG_INDEX,
-          "logEntryIndex is already set.");
+      Preconditions.assertTrue(logEntryIndex != RaftLog.INVALID_LOG_INDEX);
+      Preconditions.assertTrue(this.logEntryIndex == RaftLog.INVALID_LOG_INDEX, "logEntryIndex is already set.");
       this.logEntryIndex = logEntryIndex;
       return this;
     }

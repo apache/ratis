@@ -110,7 +110,7 @@ interface RaftLogSequentialOps {
    * Note that the underlying I/O operation is submitted but may not be completed when this method returns.
    *
    * @return the index of the new log entry if it is appended;
-   *         otherwise, return {@link org.apache.ratis.server.impl.RaftServerConstants#INVALID_LOG_INDEX}.
+   *         otherwise, return {@link org.apache.ratis.server.raftlog.RaftLog#INVALID_LOG_INDEX}.
    */
   long appendMetadata(long term, long commitIndex);
 
