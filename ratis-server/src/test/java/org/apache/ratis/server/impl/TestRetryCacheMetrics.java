@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
@@ -64,7 +65,7 @@ public class TestRetryCacheMetrics {
       checkEntryCount(0);
 
       ClientId clientId = ClientId.randomId();
-      RetryCache.CacheKey key = new RetryCache.CacheKey(clientId, 1);
+      final ClientInvocationId key = ClientInvocationId.valueOf(clientId, 1);
       RetryCache.CacheEntry entry = new RetryCache.CacheEntry(key);
 
       retryCache.refreshEntry(entry);
@@ -79,13 +80,13 @@ public class TestRetryCacheMetrics {
       checkHit(0, 1.0);
       checkMiss(0, 0.0);
 
-      ClientId clientId = ClientId.randomId();
-      retryCache.getOrCreateEntry(clientId, 2);
+      final ClientInvocationId invocationId = ClientInvocationId.valueOf(ClientId.randomId(), 2);
+      retryCache.getOrCreateEntry(invocationId);
 
       checkHit(0, 0.0);
       checkMiss(1, 1.0);
 
-      retryCache.getOrCreateEntry(clientId, 2);
+      retryCache.getOrCreateEntry(invocationId);
 
       checkHit(1, 0.5);
       checkMiss(1, 0.5);

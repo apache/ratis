@@ -26,6 +26,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.proto.RaftProtos.*;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.GroupInfoReply;
@@ -63,7 +64,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -89,43 +89,17 @@ abstract class DataStreamBaseTest extends BaseTest {
   private final Executor executor = Executors.newFixedThreadPool(16);
 
   static class MultiDataStreamStateMachine extends BaseStateMachine {
-    static class Key {
-      private final ClientId clientId;
-      private final long callId;
-
-      Key(RaftClientRequest request) {
-        this.clientId = request.getClientId();
-        this.callId = request.getCallId();
-      }
-
-      @Override
-      public boolean equals(Object obj) {
-        if (this == obj) {
-          return true;
-        } else if (obj == null || getClass() != obj.getClass()) {
-          return false;
-        }
-        final Key that = (Key) obj;
-        return this.callId == that.callId && Objects.equals(this.clientId, that.clientId);
-      }
-
-      @Override
-      public int hashCode() {
-        return Objects.hash(clientId, callId);
-      }
-    }
-
-    private final ConcurrentMap<Key, SingleDataStream> streams = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ClientInvocationId, SingleDataStream> streams = new ConcurrentHashMap<>();
 
     @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
       final SingleDataStream s = new SingleDataStream(request);
-      streams.put(new Key(request), s);
+      streams.put(ClientInvocationId.valueOf(request), s);
       return CompletableFuture.completedFuture(s);
     }
 
     SingleDataStream getSingleDataStream(RaftClientRequest request) {
-      return streams.get(new Key(request));
+      return streams.get(ClientInvocationId.valueOf(request));
     }
   }
 

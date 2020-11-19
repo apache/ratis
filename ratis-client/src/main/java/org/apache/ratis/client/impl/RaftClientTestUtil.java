@@ -19,6 +19,7 @@ package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -29,8 +30,8 @@ public interface RaftClientTestUtil {
     ((RaftClientImpl) client).getOrderedAsync().assertRequestSemaphore(expectedAvailablePermits, expectedQueueLength);
   }
 
-  static long getCallId(RaftClient client) {
-    return ((RaftClientImpl) client).getCallId();
+  static ClientInvocationId getClientInvocationId(RaftClient client) {
+    return ClientInvocationId.valueOf(client.getId(), ((RaftClientImpl)client).getCallId());
   }
 
   static RaftClientRequest newRaftClientRequest(RaftClient client, RaftPeerId server,

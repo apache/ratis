@@ -517,10 +517,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         .setCommitInfos(getCommitInfos());
   }
 
-  private RaftClientReply.Builder newReplyBuilder(ClientId clientId, long callId, long logIndex) {
+  private RaftClientReply.Builder newReplyBuilder(ClientInvocationId invocationId, long logIndex) {
     return RaftClientReply.newBuilder()
-        .setClientId(clientId)
-        .setCallId(callId)
+        .setClientInvocationId(invocationId)
         .setLogIndex(logIndex)
         .setServerId(getMemberId())
         .setCommitInfos(getCommitInfos());
@@ -556,7 +555,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
     final LeaderState leaderState = role.getLeaderState().orElse(null);
     if (leaderState == null || !leaderState.isReady()) {
-      RetryCache.CacheEntry cacheEntry = retryCache.get(request.getClientId(), request.getCallId());
+      final RetryCache.CacheEntry cacheEntry = retryCache.get(ClientInvocationId.valueOf(request));
       if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
         return cacheEntry.getReplyFuture();
       }
@@ -708,8 +707,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         replyFuture = streamAsync(request);
       } else {
         // query the retry cache
-        RetryCache.CacheQueryResult previousResult = retryCache.queryCache(
-            request.getClientId(), request.getCallId());
+        final RetryCache.CacheQueryResult previousResult = retryCache.queryCache(ClientInvocationId.valueOf(request));
         if (previousResult.isRetry()) {
           // if the previous attempt is still pending or it succeeded, return its
           // future
@@ -1499,11 +1497,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private CompletableFuture<Message> replyPendingRequest(
       LogEntryProto logEntry, CompletableFuture<Message> stateMachineFuture) {
     Preconditions.assertTrue(logEntry.hasStateMachineLogEntry());
-    final StateMachineLogEntryProto smLog = logEntry.getStateMachineLogEntry();
+    final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
     // update the retry cache
-    final ClientId clientId = ClientId.valueOf(smLog.getClientId());
-    final long callId = smLog.getCallId();
-    final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(clientId, callId);
+    final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
     if (isLeader()) {
       Preconditions.assertTrue(cacheEntry != null && !cacheEntry.isCompletedNormally(),
               "retry cache entry should be pending: %s", cacheEntry);
@@ -1514,7 +1510,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     final long logIndex = logEntry.getIndex();
     return stateMachineFuture.whenComplete((reply, exception) -> {
-      final RaftClientReply.Builder b = newReplyBuilder(clientId, callId, logIndex);
+      final RaftClientReply.Builder b = newReplyBuilder(invocationId, logIndex);
       final RaftClientReply r;
       if (exception == null) {
         r = b.setSuccess().setMessage(reply).build();
@@ -1586,12 +1582,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
    */
   public void notifyTruncatedLogEntry(LogEntryProto logEntry) {
     if (logEntry.hasStateMachineLogEntry()) {
-      final StateMachineLogEntryProto smLog = logEntry.getStateMachineLogEntry();
-      final ClientId clientId = ClientId.valueOf(smLog.getClientId());
-      final long callId = smLog.getCallId();
-      final RetryCache.CacheEntry cacheEntry = getRetryCache().get(clientId, callId);
+      final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
+      final RetryCache.CacheEntry cacheEntry = getRetryCache().get(invocationId);
       if (cacheEntry != null) {
-        cacheEntry.failWithReply(newReplyBuilder(clientId, callId, logEntry.getIndex())
+        cacheEntry.failWithReply(newReplyBuilder(invocationId, logEntry.getIndex())
             .setException(generateNotLeaderException())
             .build());
       }

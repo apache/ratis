@@ -112,6 +112,11 @@ public class RaftClientReply extends RaftClientMessage {
           .setGroupId(serverId.getGroupId());
     }
 
+    public Builder setClientInvocationId(ClientInvocationId invocationId) {
+      return setClientId(invocationId.getClientId())
+          .setCallId(invocationId.getLongId());
+    }
+
     public Builder setRequest(RaftClientRequest request) {
       return setClientId(request.getClientId())
           .setServerId(request.getServerId())

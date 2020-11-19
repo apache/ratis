@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,7 +21,7 @@ import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
@@ -35,44 +35,12 @@ import org.slf4j.LoggerFactory;
 public class RetryCache implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(RetryCache.class);
 
-  static class CacheKey {
-    private final ClientId clientId;
-    private final long callId;
-
-    CacheKey(ClientId clientId, long callId) {
-      this.clientId = clientId;
-      this.callId = callId;
-    }
-
-    @Override
-    public int hashCode() {
-      return clientId.hashCode() ^ Long.hashCode(callId);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (obj instanceof CacheKey) {
-        CacheKey e = (CacheKey) obj;
-        return e.clientId.equals(clientId) && callId == e.callId;
-      }
-      return false;
-    }
-
-    @Override
-    public String toString() {
-      return clientId.toString() + ":" + this.callId;
-    }
-  }
-
   /**
    * CacheEntry is tracked using unique client ID and callId of the RPC request
    */
   @VisibleForTesting
   public static class CacheEntry {
-    private final CacheKey key;
+    private final ClientInvocationId key;
     private final CompletableFuture<RaftClientReply> replyFuture =
         new CompletableFuture<>();
 
@@ -85,7 +53,7 @@ public class RetryCache implements Closeable {
      */
     private volatile boolean failed = false;
 
-    CacheEntry(CacheKey key) {
+    CacheEntry(ClientInvocationId key) {
       this.key = key;
     }
 
@@ -125,7 +93,7 @@ public class RetryCache implements Closeable {
       return replyFuture;
     }
 
-    CacheKey getKey() {
+    ClientInvocationId getKey() {
       return key;
     }
   }
@@ -148,7 +116,7 @@ public class RetryCache implements Closeable {
     }
   }
 
-  private final Cache<CacheKey, CacheEntry> cache;
+  private final Cache<ClientInvocationId, CacheEntry> cache;
 
   /**
    * @param expirationTime time for an entry to expire in milliseconds
@@ -160,8 +128,7 @@ public class RetryCache implements Closeable {
         .build();
   }
 
-  CacheEntry getOrCreateEntry(ClientId clientId, long callId) {
-    final CacheKey key = new CacheKey(clientId, callId);
+  CacheEntry getOrCreateEntry(ClientInvocationId key) {
     final CacheEntry entry;
     try {
       entry = cache.get(key, () -> new CacheEntry(key));
@@ -176,8 +143,7 @@ public class RetryCache implements Closeable {
     return newEntry;
   }
 
-  CacheQueryResult queryCache(ClientId clientId, long callId) {
-    CacheKey key = new CacheKey(clientId, callId);
+  CacheQueryResult queryCache(ClientInvocationId key) {
     final CacheEntry newEntry = new CacheEntry(key);
     CacheEntry cacheEntry;
     try {
@@ -220,8 +186,8 @@ public class RetryCache implements Closeable {
   }
 
   @VisibleForTesting
-  CacheEntry get(ClientId clientId, long callId) {
-    return cache.getIfPresent(new CacheKey(clientId, callId));
+  CacheEntry get(ClientInvocationId key) {
+    return cache.getIfPresent(key);
   }
 
   @Override
