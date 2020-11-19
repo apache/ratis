@@ -694,7 +694,7 @@ public class LeaderState {
       final TermIndex[] entriesToCommit = raftLog.getEntries(
           oldLastCommitted + 1, majority + 1);
 
-      if (server.getState().updateStatemachine(majority, currentTerm)) {
+      if (server.getState().updateStatemachine(majority, currentTerm, true)) {
         watchRequests.update(ReplicationLevel.MAJORITY, majority);
         logMetadata(majority);
         commitIndexChanged();
