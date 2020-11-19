@@ -364,7 +364,7 @@ public interface RaftTestUtil {
       this.op = Objects.requireNonNull(op);
       final ByteString bytes = ProtoUtils.toByteString(op);
       this.smLogEntryProto = ServerProtoUtils.toStateMachineLogEntryProto(
-          clientId, callId, bytes, hasStateMachineData? bytes: null);
+          clientId, callId, StateMachineLogEntryProto.Type.WRITE, bytes, hasStateMachineData? bytes: null);
     }
 
     @Override

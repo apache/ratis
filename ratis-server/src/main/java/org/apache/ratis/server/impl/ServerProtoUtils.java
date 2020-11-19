@@ -235,14 +235,25 @@ public interface ServerProtoUtils {
     if (logData == null) {
       logData = request.getMessage().getContent();
     }
-    return toStateMachineLogEntryProto(request.getClientId(), request.getCallId(), logData, stateMachineData);
+    return toStateMachineLogEntryProto(request.getClientId(), request.getCallId(),
+        toStateMachineLogEntryProtoType(request.getType().getTypeCase()), logData, stateMachineData);
   }
 
-  static StateMachineLogEntryProto toStateMachineLogEntryProto(
-      ClientId clientId, long callId, ByteString logData, ByteString stateMachineData) {
+  static StateMachineLogEntryProto.Type toStateMachineLogEntryProtoType(RaftClientRequestProto.TypeCase typeCase) {
+    switch (typeCase) {
+      case WRITE: return StateMachineLogEntryProto.Type.WRITE;
+      case DATASTREAM: return StateMachineLogEntryProto.Type.DATASTREAM;
+      default:
+        throw new IllegalStateException("Unexpected type case " + typeCase);
+    }
+  }
+
+  static StateMachineLogEntryProto toStateMachineLogEntryProto(ClientId clientId, long callId,
+      StateMachineLogEntryProto.Type type, ByteString logData, ByteString stateMachineData) {
     final StateMachineLogEntryProto.Builder b = StateMachineLogEntryProto.newBuilder()
         .setClientId(clientId.toByteString())
         .setCallId(callId)
+        .setType(type)
         .setLogData(logData);
     if (stateMachineData != null) {
       b.setStateMachineEntry(toStateMachineEntryProtoBuilder(stateMachineData));

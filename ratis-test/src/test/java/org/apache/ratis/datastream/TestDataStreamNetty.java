@@ -43,6 +43,8 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 import static org.mockito.Mockito.mock;
@@ -126,9 +128,11 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
       when(raftServer.getProperties()).thenReturn(properties);
       when(raftServer.getId()).thenReturn(peerId);
       if (getStateMachineException == null) {
-        when(raftServer.getStateMachine(Mockito.any(RaftGroupId.class))).thenReturn(new MultiDataStreamStateMachine());
+        final ConcurrentMap<RaftGroupId, MyDivision> divisions = new ConcurrentHashMap<>();
+        when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenAnswer(
+            invocation -> divisions.computeIfAbsent((RaftGroupId)invocation.getArguments()[0], MyDivision::new));
       } else {
-        when(raftServer.getStateMachine(Mockito.any(RaftGroupId.class))).thenThrow(getStateMachineException);
+        when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenThrow(getStateMachineException);
       }
 
       raftServers.add(raftServer);

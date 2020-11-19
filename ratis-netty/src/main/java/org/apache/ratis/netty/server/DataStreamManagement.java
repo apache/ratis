@@ -26,14 +26,16 @@ import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
 import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServer.Division;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.StateMachineDataChannel;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
@@ -41,6 +43,7 @@ import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.function.CheckedFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +53,7 @@ import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -214,14 +218,26 @@ public class DataStreamManagement {
         RaftServerConfigKeys.DataStream.asyncThreadPoolSize(properties));
   }
 
+  private CompletableFuture<DataStream> computeDataStreamIfAbsent(RaftClientRequest request) throws IOException {
+    final Division division = server.getDivision(request.getRaftGroupId());
+    final ClientInvocationId invocationId = ClientInvocationId.valueOf(request);
+    final MemoizedSupplier<CompletableFuture<DataStream>> supplier = JavaUtils.memoize(
+        () -> division.getStateMachine().data().stream(request));
+    final CompletableFuture<DataStream> f = division.getDataStreamMap()
+        .computeIfAbsent(invocationId, key -> supplier.get());
+    if (!supplier.isInitialized()) {
+      throw new AlreadyExistsException("A DataStream already exists for " + invocationId);
+    }
+    return f;
+  }
+
   private StreamInfo newStreamInfo(ByteBuf buf,
       CheckedFunction<RaftClientRequest, List<DataStreamOutputRpc>, IOException> getDataStreamOutput) {
     try {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
-      final StateMachine stateMachine = server.getStateMachine(request.getRaftGroupId());
       final boolean isPrimary = server.getId().equals(request.getServerId());
-      return new StreamInfo(request, isPrimary, stateMachine.data().stream(request),
+      return new StreamInfo(request, isPrimary, computeDataStreamIfAbsent(request),
           isPrimary? getDataStreamOutput.apply(request): Collections.emptyList());
     } catch (Throwable e) {
       throw new CompletionException(e);
@@ -400,12 +416,19 @@ public class DataStreamManagement {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
     final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
-    final StreamInfo info = request.getType() != Type.STREAM_HEADER? streams.get(key)
-        : streams.computeIfAbsent(key, id -> newStreamInfo(buf, getDataStreamOutput));
-
-    if (info == null) {
-      throw new IllegalStateException("Failed to get StreamInfo for " + request);
+    final StreamInfo info;
+    if (request.getType() == Type.STREAM_HEADER) {
+      final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getDataStreamOutput));
+      info = streams.computeIfAbsent(key, id -> supplier.get());
+      if (!supplier.isInitialized()) {
+        throw new IllegalStateException("Failed to create a new stream for " + request
+            + " since a stream already exists: " + info);
+      }
+    } else {
+      info = Optional.ofNullable(streams.get(key)).orElseThrow(
+          () -> new IllegalStateException("Failed to get StreamInfo for " + request));
     }
+
 
     if (request.getType() == Type.START_TRANSACTION) {
       // for peers to start transaction

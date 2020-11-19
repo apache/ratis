@@ -70,6 +70,12 @@ message StateMachineLogEntryProto {
    */
   StateMachineEntryProto stateMachineEntry = 2;
 
+  enum Type {
+    WRITE = 0;
+    DATASTREAM = 1;
+  }
+
+  Type type = 13;
   // clientId and callId are used to rebuild the retry cache.
   bytes clientId = 14;
   uint64 callId = 15;

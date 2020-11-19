@@ -39,14 +39,17 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.statemachine.StateMachine.StateMachineDataChannel;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
@@ -172,6 +175,35 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
+  static class MyDivision implements RaftServer.Division {
+    private final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
+    private final DataStreamMap streamMap;
+
+    MyDivision(Object name) {
+      this.streamMap = RaftServerTestUtil.newDataStreamMap(name);
+    }
+
+    @Override
+    public RaftGroupMemberId getMemberId() {
+      return null;
+    }
+
+    @Override
+    public RaftGroup getGroup() {
+      return null;
+    }
+
+    @Override
+    public MultiDataStreamStateMachine getStateMachine() {
+      return stateMachine;
+    }
+
+    @Override
+    public DataStreamMap getDataStreamMap() {
+      return streamMap;
+    }
+  }
+
   static class Server {
     private final RaftPeer peer;
     private final RaftServer raftServer;
@@ -187,8 +219,8 @@ abstract class DataStreamBaseTest extends BaseTest {
       return peer;
     }
 
-    MultiDataStreamStateMachine getStateMachine(RaftGroupId groupId) throws IOException {
-      return (MultiDataStreamStateMachine)raftServer.getStateMachine(groupId);
+    MyDivision getDivision(RaftGroupId groupId) throws IOException {
+      return (MyDivision) raftServer.getDivision(groupId);
     }
 
     void start() {
@@ -215,7 +247,7 @@ abstract class DataStreamBaseTest extends BaseTest {
 
   protected RaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
     return new RaftServer() {
-      private final ConcurrentMap<RaftGroupId, MultiDataStreamStateMachine> stateMachines = new ConcurrentHashMap<>();
+      private final ConcurrentMap<RaftGroupId, MyDivision> divisions = new ConcurrentHashMap<>();
 
       @Override
       public RaftPeerId getId() {
@@ -223,15 +255,14 @@ abstract class DataStreamBaseTest extends BaseTest {
       }
 
       @Override
-      public MultiDataStreamStateMachine getStateMachine(RaftGroupId groupId) {
-        return stateMachines.computeIfAbsent(groupId, key -> new MultiDataStreamStateMachine());
+      public MyDivision getDivision(RaftGroupId groupId) {
+        return divisions.computeIfAbsent(groupId, MyDivision::new);
       }
 
       @Override
       public RaftProperties getProperties() {
         return properties;
       }
-
 
       @Override
       public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) {
@@ -270,7 +301,7 @@ abstract class DataStreamBaseTest extends BaseTest {
 
       @Override
       public CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) {
-        final MultiDataStreamStateMachine stateMachine = getStateMachine(request.getRaftGroupId());
+        final MultiDataStreamStateMachine stateMachine = getDivision(request.getRaftGroupId()).getStateMachine();
         final SingleDataStream stream = stateMachine.getSingleDataStream(request);
         Assert.assertFalse(stream.getWritableByteChannel().isOpen());
         return CompletableFuture.completedFuture(RaftClientReply.newBuilder()
@@ -538,8 +569,9 @@ abstract class DataStreamBaseTest extends BaseTest {
     Assert.assertEquals(RaftClientRequest.dataStreamRequestType(), header.getType());
 
     // check stream
-    final MultiDataStreamStateMachine s = server.getStateMachine(header.getRaftGroupId());
-    final SingleDataStream stream = s.getSingleDataStream(header);
+    final MyDivision d = server.getDivision(header.getRaftGroupId());
+    Assert.assertNotNull(d.getDataStreamMap().remove(ClientInvocationId.valueOf(header)));
+    final SingleDataStream stream = d.getStateMachine().getSingleDataStream(header);
     Assert.assertEquals(dataSize, stream.getByteWritten());
     Assert.assertEquals(dataSize, stream.getForcedPosition());
 
