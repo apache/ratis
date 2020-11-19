@@ -21,6 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -89,9 +90,8 @@ public class RaftServerTestUtil {
     return server.getRetryCache().size();
   }
 
-  public static RetryCache.CacheEntry getRetryEntry(RaftServerImpl server,
-      ClientId clientId, long callId) {
-    return server.getRetryCache().get(clientId, callId);
+  public static RetryCache.CacheEntry getRetryEntry(RaftServerImpl server, ClientId clientId, long callId) {
+    return server.getRetryCache().get(ClientInvocationId.valueOf(clientId, callId));
   }
 
   public static boolean isRetryCacheEntryFailed(RetryCache.CacheEntry entry) {

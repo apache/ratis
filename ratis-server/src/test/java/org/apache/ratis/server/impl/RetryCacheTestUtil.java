@@ -18,8 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
-import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 
@@ -32,23 +31,19 @@ public class RetryCacheTestUtil {
 
   public static void createEntry(RetryCache cache, LogEntryProto logEntry){
     if(logEntry.hasStateMachineLogEntry()) {
-      final StateMachineLogEntryProto smLogEntry = logEntry.getStateMachineLogEntry();
-      final ClientId clientId = ClientId.valueOf(smLogEntry.getClientId());
-      final long callId = smLogEntry.getCallId();
-      cache.getOrCreateEntry(clientId, callId);
+      final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
+      cache.getOrCreateEntry(invocationId);
     }
   }
 
   public static void assertFailure(RetryCache cache, LogEntryProto logEntry, boolean isFailed) {
     if(logEntry.hasStateMachineLogEntry()) {
-      final StateMachineLogEntryProto smLogEntry = logEntry.getStateMachineLogEntry();
-      final ClientId clientId = ClientId.valueOf(smLogEntry.getClientId());
-      final long callId = smLogEntry.getCallId();
-      Assert.assertEquals(isFailed, cache.get(clientId, callId).isFailed());
+      final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
+      Assert.assertEquals(isFailed, cache.get(invocationId).isFailed());
     }
   }
 
-  public static void getOrCreateEntry(RetryCache cache, ClientId clientId, long callId){
-    cache.getOrCreateEntry(clientId, callId);
+  public static void getOrCreateEntry(RetryCache cache, ClientInvocationId invocationId) {
+    cache.getOrCreateEntry(invocationId);
   }
 }

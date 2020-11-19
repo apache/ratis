@@ -27,6 +27,7 @@ import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
@@ -428,11 +429,11 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final Timestamp startTime = Timestamp.currentTime();
     try (final RaftClient client = cluster.createClient()) {
       // Get the next callId to be used by the client
-      long callId = RaftClientTestUtil.getCallId(client);
+      final ClientInvocationId invocationId = RaftClientTestUtil.getClientInvocationId(client);
       // Create an entry corresponding to the callId and clientId
       // in each server's retry cache.
       cluster.getServerAliveStream().forEach(
-          raftServer -> RetryCacheTestUtil.getOrCreateEntry(raftServer.getRetryCache(), client.getId(), callId));
+          raftServer -> RetryCacheTestUtil.getOrCreateEntry(raftServer.getRetryCache(), invocationId));
       // Client request for the callId now waits
       // as there is already a cache entry in the server for the request.
       // Ideally the client request should timeout and the client should retry.

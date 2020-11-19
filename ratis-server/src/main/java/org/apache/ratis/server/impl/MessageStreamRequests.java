@@ -18,7 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.proto.RaftProtos.MessageStreamRequestTypeProto;
-import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.StreamException;
@@ -28,7 +28,6 @@ import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -36,43 +35,12 @@ import java.util.concurrent.ConcurrentMap;
 class MessageStreamRequests {
   public static final Logger LOG = LoggerFactory.getLogger(MessageStreamRequests.class);
 
-  private static class Key {
-    private final ClientId clientId;
-    private final long streamId;
-
-    Key(ClientId clientId, long streamId) {
-      this.clientId = clientId;
-      this.streamId = streamId;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      } else if (obj == null || getClass() != obj.getClass()) {
-        return false;
-      }
-      final Key that = (Key) obj;
-      return this.streamId == that.streamId && this.clientId.equals(that.clientId);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(clientId, streamId);
-    }
-
-    @Override
-    public String toString() {
-      return "Stream" + streamId + "@" + clientId;
-    }
-  }
-
   private static class PendingStream {
-    private final Key key;
+    private final ClientInvocationId key;
     private long nextId = -1;
     private ByteString bytes = ByteString.EMPTY;
 
-    PendingStream(Key key) {
+    PendingStream(ClientInvocationId key) {
       this.key = key;
     }
 
@@ -94,13 +62,13 @@ class MessageStreamRequests {
   }
 
   static class StreamMap {
-    private final ConcurrentMap<Key, PendingStream> map = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ClientInvocationId, PendingStream> map = new ConcurrentHashMap<>();
 
-    PendingStream computeIfAbsent(Key key) {
+    PendingStream computeIfAbsent(ClientInvocationId key) {
       return map.computeIfAbsent(key, PendingStream::new);
     }
 
-    PendingStream remove(Key key) {
+    PendingStream remove(ClientInvocationId key) {
       return map.remove(key);
     }
 
@@ -119,7 +87,7 @@ class MessageStreamRequests {
   CompletableFuture<?> streamAsync(RaftClientRequest request) {
     final MessageStreamRequestTypeProto stream = request.getType().getMessageStream();
     Preconditions.assertTrue(!stream.getEndOfRequest());
-    final Key key = new Key(request.getClientId(), stream.getStreamId());
+    final ClientInvocationId key = ClientInvocationId.valueOf(request.getClientId(), stream.getStreamId());
     final PendingStream pending = streams.computeIfAbsent(key);
     return pending.append(stream.getMessageId(), request.getMessage());
   }
@@ -127,7 +95,7 @@ class MessageStreamRequests {
   CompletableFuture<ByteString> streamEndOfRequestAsync(RaftClientRequest request) {
     final MessageStreamRequestTypeProto stream = request.getType().getMessageStream();
     Preconditions.assertTrue(stream.getEndOfRequest());
-    final Key key = new Key(request.getClientId(), stream.getStreamId());
+    final ClientInvocationId key = ClientInvocationId.valueOf(request.getClientId(), stream.getStreamId());
 
     final PendingStream pending = streams.remove(key);
     if (pending == null) {
