@@ -15,7 +15,7 @@ title: Getting started
   limitations under the License. See accompanying LICENSE file.
 -->
 
-Ratis is a [Raft](https://raft.github.io/") protocol *library* in Java. It's not a standalone server application like Zookeeper or Consul.
+Ratis is a [Raft](https://raft.github.io/) protocol *library* in Java. It's not a standalone server application like Zookeeper or Consul.
 
 ### Examples
 
