@@ -433,9 +433,8 @@ public class LeaderState {
   AppendEntriesRequestProto newAppendEntriesRequestProto(RaftPeerId targetId,
       TermIndex previous, List<LogEntryProto> entries, boolean initializing,
       long callId) {
-    final long commitIndex = Math.min(raftLog.getLastCommittedIndex(), previous.getIndex() + entries.size());
-    return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId,
-        currentTerm, entries, commitIndex,
+    return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, currentTerm, entries,
+        ServerImplUtils.effectiveCommitIndex(raftLog.getLastCommittedIndex(), previous, entries.size()),
         initializing, previous, server.getCommitInfos(), callId);
   }
 

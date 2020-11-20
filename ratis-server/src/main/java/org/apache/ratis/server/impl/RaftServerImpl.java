@@ -1164,7 +1164,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     ).thenApply(v -> {
       final AppendEntriesReplyProto reply;
       synchronized(this) {
-        state.updateCommitIndex(leaderCommit, currentTerm, false);
+        final long commitIndex = ServerImplUtils.effectiveCommitIndex(leaderCommit, previous, entries.length);
+        state.updateCommitIndex(commitIndex, currentTerm, false);
         updateCommitInfoCache();
         final long n = isHeartbeat? state.getLog().getNextIndex(): entries[entries.length - 1].getIndex() + 1;
         final long matchIndex = entries.length != 0 ? entries[entries.length - 1].getIndex() :
