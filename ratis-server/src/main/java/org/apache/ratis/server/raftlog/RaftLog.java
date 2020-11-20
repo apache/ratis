@@ -126,7 +126,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
    * @param isLeader Is this server the leader?
    * @return true if update is applied; otherwise, return false, i.e. no update required.
    */
-  public boolean updateLastCommitted(long majorityIndex, long currentTerm, boolean isLeader) {
+  public boolean updateCommitIndex(long majorityIndex, long currentTerm, boolean isLeader) {
     try(AutoCloseableLock writeLock = writeLock()) {
       final long oldCommittedIndex = getLastCommittedIndex();
       final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
