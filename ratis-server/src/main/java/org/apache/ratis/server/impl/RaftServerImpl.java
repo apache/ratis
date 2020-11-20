@@ -30,6 +30,8 @@ import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.StaleReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
+import org.apache.ratis.server.DataStreamMap;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
@@ -76,7 +78,8 @@ import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 import com.codahale.metrics.Timer;
 
-public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronousProtocol,
+public class RaftServerImpl implements RaftServer.Division,
+    RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
 
@@ -99,6 +102,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(() ->
       RaftPeer.newBuilder().setId(getId()).setAddress(getServerRpc().getInetSocketAddress()).build());
   private final RoleInfo role;
+
+  private final DataStreamMap dataStreamMap;
 
   private final RetryCache retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
@@ -137,6 +142,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     this.state = new ServerState(id, group, properties, this, stateMachine);
     this.retryCache = initRetryCache(properties);
     this.inProgressInstallSnapshotRequest = new AtomicReference<>(null);
+    this.dataStreamMap = new DataStreamMapImpl(id);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(this);
@@ -183,8 +189,14 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return sleepDeviationThresholdMs;
   }
 
+  @Override
   public StateMachine getStateMachine() {
     return stateMachine;
+  }
+
+  @Override
+  public DataStreamMap getDataStreamMap() {
+    return dataStreamMap;
   }
 
   @VisibleForTesting
@@ -257,6 +269,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return state;
   }
 
+  @Override
   public RaftGroupMemberId getMemberId() {
     return getState().getMemberId();
   }
@@ -273,7 +286,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return getState().getRaftConf();
   }
 
-  RaftGroup getGroup() {
+  @Override
+  public RaftGroup getGroup() {
     return RaftGroup.valueOf(getMemberId().getGroupId(), getRaftConf().getPeers());
   }
 

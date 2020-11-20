@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -126,5 +127,9 @@ public class RaftServerTestUtil {
 
   public static RaftServerImpl getRaftServerImpl(RaftServerProxy proxy, RaftGroupId groupId) {
     return JavaUtils.callAsUnchecked(() -> proxy.getImpl(groupId));
+  }
+
+  public static DataStreamMap newDataStreamMap(Object name) {
+    return new DataStreamMapImpl(name);
   }
 }

@@ -20,6 +20,8 @@ package org.apache.ratis.server.raftlog.segmented;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Timer;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -158,7 +160,6 @@ class SegmentedRaftLogWorker implements Runnable {
   private long lastWrittenIndex;
   /** the largest index of the entry that has been flushed */
   private final RaftLogIndex flushIndex = new RaftLogIndex("flushIndex", 0);
-  /** the largest index of the entry in a closed segment */
   /** the index up to which cache can be evicted - max of snapshotIndex and
    * largest index in a closed segment */
   private final RaftLogIndex safeCacheEvictIndex = new RaftLogIndex("safeCacheEvictIndex", 0);
@@ -167,7 +168,6 @@ class SegmentedRaftLogWorker implements Runnable {
 
   private final long segmentMaxSize;
   private final long preallocatedSize;
-  private final int bufferSize;
   private final RaftServerImpl server;
   private int flushBatchSize;
 
@@ -191,7 +191,6 @@ class SegmentedRaftLogWorker implements Runnable {
 
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
-    this.bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
     this.flushBatchSize = 0;
 
@@ -208,6 +207,7 @@ class SegmentedRaftLogWorker implements Runnable {
     this.raftLogQueueingTimer = metricRegistry.getRaftLogQueueTimer();
     this.raftLogEnqueueingDelayTimer = metricRegistry.getRaftLogEnqueueDelayTimer();
 
+    final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
   }
 
@@ -460,8 +460,14 @@ class SegmentedRaftLogWorker implements Runnable {
 
     WriteLog(LogEntryProto entry) {
       this.entry = ServerProtoUtils.removeStateMachineData(entry);
-      if (this.entry == entry || stateMachine == null) {
-        this.stateMachineFuture = null;
+      if (this.entry == entry) {
+        final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
+        if (stateMachine != null && proto != null && proto.getType() == StateMachineLogEntryProto.Type.DATASTREAM) {
+          this.stateMachineFuture = server.getDataStreamMap().remove(ClientInvocationId.valueOf(proto))
+              .thenApply(stream -> stateMachine.data().link(stream, entry));
+        } else {
+          this.stateMachineFuture = null;
+        }
       } else {
         try {
           // this.entry != entry iff the entry has state machine data
@@ -605,19 +611,17 @@ class SegmentedRaftLogWorker implements Runnable {
 
   private class TruncateLog extends Task {
     private final TruncationSegments segments;
-    private final long truncateIndex;
     private CompletableFuture<Void> stateMachineFuture = null;
 
     TruncateLog(TruncationSegments ts, long index) {
       this.segments = ts;
-      this.truncateIndex = index;
       if (stateMachine != null) {
         // TruncateLog and WriteLog instance is created while taking a RaftLog write lock.
         // StateMachine call is made inside the constructor so that it is lock
         // protected. This is to make sure that stateMachine can determine which
         // indexes to truncate as stateMachine calls would happen in the sequence
         // of log operations.
-        stateMachineFuture = stateMachine.data().truncate(truncateIndex);
+        stateMachineFuture = stateMachine.data().truncate(index);
       }
     }
 

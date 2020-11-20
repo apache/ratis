@@ -304,8 +304,8 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public StateMachine getStateMachine(RaftGroupId groupId) throws IOException {
-    return getImpl(groupId).getStateMachine();
+  public Division getDivision(RaftGroupId groupId) throws IOException {
+    return getImpl(groupId);
   }
 
   @Override

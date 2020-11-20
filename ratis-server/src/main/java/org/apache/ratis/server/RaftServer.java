@@ -37,6 +37,19 @@ public interface RaftServer extends Closeable, RpcType.Get,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol,
     AdminProtocol, AdminAsynchronousProtocol {
+  /** A division of a {@link RaftServer} for a particular group. */
+  interface Division {
+    /** @return the {@link RaftGroupMemberId} for this division. */
+    RaftGroupMemberId getMemberId();
+
+    /** @return the {@link RaftGroup} for this division. */
+    RaftGroup getGroup();
+
+    /** @return the {@link StateMachine} for this division. */
+    StateMachine getStateMachine();
+
+    DataStreamMap getDataStreamMap();
+  }
 
   /** @return the server ID. */
   RaftPeerId getId();
@@ -47,7 +60,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
   /** @return the groups the server is part of. */
   Iterable<RaftGroup> getGroups() throws IOException;
 
-  StateMachine getStateMachine(RaftGroupId groupId) throws IOException;
+  Division getDivision(RaftGroupId groupId) throws IOException;
 
   /** @return the server properties. */
   RaftProperties getProperties();
