@@ -21,7 +21,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
-import org.apache.ratis.datastream.DataStreamBaseTest.MultiDataStreamStateMachine;
+import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientId;
@@ -65,7 +65,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
 
       // send a stream request
       try(final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream()) {
-        DataStreamBaseTest.writeAndAssertReplies(out, 1000, 10);
+        DataStreamTestUtils.writeAndAssertReplies(out, 1000, 10);
         callId = out.getHeader().getCallId();
       }
     }
@@ -83,7 +83,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
       if (entry.hasStateMachineLogEntry()) {
         final StateMachineLogEntryProto stateMachineEntry = entry.getStateMachineLogEntry();
         if (stateMachineEntry.getCallId() == callId) {
-          if (clientId.equals(ClientId.valueOf(stateMachineEntry.getClientId()))) {
+          if (clientId.toByteString().equals(stateMachineEntry.getClientId())) {
             return entry;
           }
         }

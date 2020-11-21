@@ -68,7 +68,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
   }
 
   @Override
-  protected RaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
+  protected MyRaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
     final RaftProperties p = new RaftProperties(properties);
     NettyConfigKeys.DataStream.setPort(p, NetUtils.createSocketAddr(peer.getDataStreamAddress()).getPort());
     return super.newRaftServer(peer, p);
@@ -115,7 +115,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
               if (isLeader) {
                 final RaftClientReply.Builder b = RaftClientReply.newBuilder().setRequest(r);
                 reply = leaderException != null? b.setException(leaderException).build()
-                    : b.setSuccess().setMessage(() -> MOCK).build();
+                    : b.setSuccess().setMessage(() -> DataStreamTestUtils.MOCK).build();
               } else {
                 final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(peerId, groupId);
                 final NotLeaderException notLeaderException = new NotLeaderException(memberId, suggestedLeader, null);
