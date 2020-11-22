@@ -50,7 +50,7 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class TestDataStreamNetty extends DataStreamBaseTest {
+public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
   static RaftPeer newRaftPeer(RaftServer server) {
     final InetSocketAddress rpc = NetUtils.createLocalServerAddress();
     final int dataStreamPort = NettyConfigKeys.DataStream.port(server.getProperties());
@@ -72,16 +72,6 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
     final RaftProperties p = new RaftProperties(properties);
     NettyConfigKeys.DataStream.setPort(p, NetUtils.createSocketAddr(peer.getDataStreamAddress()).getPort());
     return super.newRaftServer(peer, p);
-  }
-
-  @Test
-  public void testDataStreamSingleServer() throws Exception {
-    runTestDataStream(1);
-  }
-
-  @Test
-  public void testDataStreamMultipleServer() throws Exception {
-    runTestDataStream(3);
   }
 
   private void testMockCluster(int leaderIndex, int numServers, RaftException leaderException,
@@ -146,7 +136,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
       Exception expectedException, Exception headerException) throws Exception {
     try {
       final List<RaftPeer> peers = raftServers.stream()
-          .map(TestDataStreamNetty::newRaftPeer)
+          .map(TestNettyDataStreamWithMock::newRaftPeer)
           .collect(Collectors.toList());
       setup(groupId, peers, raftServers);
       runTestMockCluster(clientId, bufferSize, bufferNum, expectedException, headerException);
