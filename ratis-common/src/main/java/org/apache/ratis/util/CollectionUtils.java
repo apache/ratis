@@ -68,6 +68,19 @@ public interface CollectionUtils {
     return size == 0? null: list.get(ThreadLocalRandom.current().nextInt(size));
   }
 
+  /** @return a randomly picked element. */
+  static <T> T random(Collection<T> elements) {
+    if (elements == null || elements.isEmpty()) {
+      return null;
+    }
+
+    final Iterator<T> i = elements.iterator();
+    for(int n = ThreadLocalRandom.current().nextInt(elements.size()); n > 0; n--) {
+      i.next();
+    }
+    return i.next();
+  }
+
   static <INPUT, OUTPUT> Iterable<OUTPUT> as(
       Iterable<INPUT> iteration, Function<INPUT, OUTPUT> converter) {
     return () -> new Iterator<OUTPUT>() {

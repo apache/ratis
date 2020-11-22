@@ -62,7 +62,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -439,15 +438,15 @@ public abstract class MiniRaftCluster implements Closeable {
     startServers(newServers);
     if (!startNewPeer) {
       // start and then close, in order to bind the port
-      newServers.forEach(p -> p.close());
+      newServers.forEach(RaftServerProxy::close);
     }
 
     final Collection<RaftPeer> newPeers = toRaftPeers(newServers);
-    final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
+    final RaftPeer[] np = newPeers.toArray(RaftPeer.emptyArray());
     newPeers.addAll(group.getPeers());
-    RaftPeer[] p = newPeers.toArray(new RaftPeer[newPeers.size()]);
+    RaftPeer[] p = newPeers.toArray(RaftPeer.emptyArray());
     group = RaftGroup.valueOf(group.getGroupId(), p);
-    return new PeerChanges(p, np, new RaftPeer[0]);
+    return new PeerChanges(p, np, RaftPeer.emptyArray());
   }
 
   static void startServers(Iterable<? extends RaftServer> servers) throws IOException {
@@ -707,6 +706,9 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public RaftClient createClient(RaftPeerId leaderId, RaftGroup group, RetryPolicy retryPolicy, RaftPeer primaryServer) {
+    if (primaryServer == null) {
+      primaryServer = CollectionUtils.random(group.getPeers());
+    }
     RaftClient.Builder builder = RaftClient.newBuilder()
         .setRaftGroup(group)
         .setLeaderId(leaderId)
