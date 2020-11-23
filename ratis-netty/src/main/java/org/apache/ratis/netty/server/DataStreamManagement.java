@@ -23,7 +23,6 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
-import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
@@ -401,13 +400,13 @@ public class DataStreamManagement {
   static RaftClientReply getRaftClientReply(DataStreamReply dataStreamReply) {
     if (dataStreamReply instanceof DataStreamReplyByteBuffer) {
       try {
-        return ClientProtoUtils.toRaftClientReply(
-            RaftClientReplyProto.parseFrom(((DataStreamReplyByteBuffer) dataStreamReply).slice()));
+        return ClientProtoUtils.toRaftClientReply(((DataStreamReplyByteBuffer) dataStreamReply).slice());
       } catch (InvalidProtocolBufferException e) {
-        throw new IllegalStateException("Failed to decode RaftClientReply");
+        throw new IllegalStateException("Failed to parse " + JavaUtils.getClassSimpleName(dataStreamReply.getClass())
+            + ": reply is " + dataStreamReply, e);
       }
     } else {
-      throw new IllegalStateException("Unexpected reply type");
+      throw new IllegalStateException("Unexpected " + dataStreamReply.getClass() + ": reply is " + dataStreamReply);
     }
   }
 

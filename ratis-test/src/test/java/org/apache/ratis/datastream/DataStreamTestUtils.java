@@ -24,16 +24,18 @@ import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientMessage;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.StateMachineDataChannel;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
@@ -43,7 +45,9 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -76,9 +80,21 @@ public interface DataStreamTestUtils {
 
     @Override
     public CompletableFuture<?> link(DataStream stream, LogEntryProto entry) {
-      final SingleDataStream s = getSingleDataStream(ClientInvocationId.valueOf(entry.getStateMachineLogEntry()));
-      s.setLogEntry(entry);
+      LOG.info("link {}", stream);
+      if (stream == null) {
+        return JavaUtils.completeExceptionally(new IllegalStateException("Null stream: entry=" + entry));
+      }
+      ((SingleDataStream)stream).setLogEntry(entry);
       return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
+      final LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
+      updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
+      final SingleDataStream s = getSingleDataStream(ClientInvocationId.valueOf(entry.getStateMachineLogEntry()));
+      final ByteString bytesWritten = bytesWritten2ByteString(s.getWritableByteChannel().getBytesWritten());
+      return CompletableFuture.completedFuture(() -> bytesWritten);
     }
 
     SingleDataStream getSingleDataStream(RaftClientRequest request) {
@@ -87,6 +103,10 @@ public interface DataStreamTestUtils {
 
     SingleDataStream getSingleDataStream(ClientInvocationId invocationId) {
       return streams.get(invocationId);
+    }
+
+    Collection<SingleDataStream> getStreams() {
+      return streams.values();
     }
   }
 
@@ -124,6 +144,12 @@ public interface DataStreamTestUtils {
 
     RaftClientRequest getWriteRequest() {
       return writeRequest;
+    }
+
+    @Override
+    public String toString() {
+      return JavaUtils.getClassSimpleName(getClass()) + ": writeRequest=" + writeRequest
+          + ", logEntry=" + ServerProtoUtils.toString(logEntry);
     }
   }
 
@@ -243,8 +269,8 @@ public interface DataStreamTestUtils {
         CompletionException.class, (Logger) null, AlreadyClosedException.class);
 
     try {
-      final RaftClientReply reply = ClientProtoUtils.toRaftClientReply(RaftClientReplyProto.parseFrom(
-          ((DataStreamReplyByteBuffer) dataStreamReply).slice()));
+      final RaftClientReply reply = ClientProtoUtils.toRaftClientReply(
+          ((DataStreamReplyByteBuffer) dataStreamReply).slice());
       assertRaftClientMessage(out.getHeader(), reply);
       if (reply.isSuccess()) {
         final ByteString bytes = reply.getMessage().getContent();

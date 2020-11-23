@@ -21,7 +21,12 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
+import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
+import org.apache.ratis.datastream.DataStreamTestUtils.SingleDataStream;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.util.CollectionUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -49,11 +54,24 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
   }
 
   void runTestDataStream(CLUSTER cluster) throws Exception {
-    RaftTestUtil.waitForLeader(cluster);
+    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
     final List<CompletableFuture<Void>> futures = new ArrayList<>();
     futures.add(CompletableFuture.runAsync(() -> runTestDataStream(cluster, 5, 10, 1_000_000, 10), executor));
     futures.add(CompletableFuture.runAsync(() -> runTestDataStream(cluster, 2, 20, 1_000, 10_000), executor));
     futures.forEach(CompletableFuture::join);
+
+    // wait for all servers to catch up
+    try (RaftClient client = cluster.createClient()) {
+      client.async().watch(leader.getState().getLastAppliedIndex(), ReplicationLevel.ALL).join();
+    }
+    // assert all streams are linked
+    for (RaftServerProxy proxy : cluster.getServers()) {
+      final RaftServerImpl impl = proxy.getImpl(cluster.getGroupId());
+      final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) impl.getStateMachine();
+      for (SingleDataStream s : stateMachine.getStreams()) {
+        Assert.assertNotNull(s.getLogEntry());
+      }
+    }
   }
 
   void runTestDataStream(CLUSTER cluster, int numClients, int numStreams, int bufferSize, int bufferNum) {

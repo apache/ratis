@@ -37,6 +37,7 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.Truncatio
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog.Task;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -463,8 +464,10 @@ class SegmentedRaftLogWorker implements Runnable {
       if (this.entry == entry) {
         final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
         if (stateMachine != null && proto != null && proto.getType() == StateMachineLogEntryProto.Type.DATASTREAM) {
-          this.stateMachineFuture = server.getDataStreamMap().remove(ClientInvocationId.valueOf(proto))
-              .thenApply(stream -> stateMachine.data().link(stream, entry));
+          final ClientInvocationId invocationId = ClientInvocationId.valueOf(proto);
+          final CompletableFuture<DataStream> removed = server.getDataStreamMap().remove(invocationId);
+          this.stateMachineFuture = removed == null? stateMachine.data().link(null, entry)
+              : removed.thenApply(stream -> stateMachine.data().link(stream, entry));
         } else {
           this.stateMachineFuture = null;
         }
