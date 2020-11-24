@@ -22,17 +22,19 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.protocol.ClientInvocationId;
+import org.apache.ratis.datastream.DataStreamTestUtils.SingleDataStream;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftGroup;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.impl.RaftServerProxy;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Collection;
+import java.io.File;
+import java.io.FileInputStream;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -50,26 +52,70 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
   }
 
   void testStreamWrites(CLUSTER cluster) throws Exception {
-    final RaftServerImpl leader = waitForLeader(cluster);
+    waitForLeader(cluster);
+    runTestDataStreamOutput(cluster);
+    runTestTransferTo(cluster);
+  }
 
-    final RaftGroup raftGroup = cluster.getGroup();
-    final Collection<RaftPeer> peers = raftGroup.getPeers();
-    Assert.assertEquals(NUM_SERVERS, peers.size());
-    RaftPeer raftPeer = peers.iterator().next();
-
+  void runTestDataStreamOutput(CLUSTER cluster) throws Exception {
     final RaftClientRequest request;
-    try (RaftClient client = cluster.createClient(raftPeer)) {
-      // send a stream request
+    final CompletableFuture<RaftClientReply> reply;
+    try (RaftClient client = cluster.createClient()) {
       try(final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream()) {
-        DataStreamTestUtils.writeAndAssertReplies(out, 1000, 10);
         request = out.getHeader();
+        reply = out.getRaftClientReplyFuture();
+
+        // write using DataStreamOutput
+        DataStreamTestUtils.writeAndAssertReplies(out, 1000, 10);
       }
     }
 
-    // verify the write request is in the Raft log.
-    final RaftLog log = leader.getState().getLog();
-    final LogEntryProto entry = DataStreamTestUtils.searchLogEntry(ClientInvocationId.valueOf(request), log);
-    LOG.info("entry={}", entry);
-    Assert.assertNotNull(entry);
+    watchOrSleep(cluster, reply.join().getLogIndex());
+    assertLogEntry(cluster, request);
+  }
+
+  void runTestTransferTo(CLUSTER cluster) throws Exception {
+    final int size = 4_000_000 + ThreadLocalRandom.current().nextInt(1_000_000);
+
+    // create data file
+    final File f = new File(getTestDir(), "a.txt");
+    DataStreamTestUtils.createFile(f, size);
+
+    final RaftClientRequest request;
+    final CompletableFuture<RaftClientReply> reply;
+    try (RaftClient client = cluster.createClient()) {
+      try(final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream()) {
+        request = out.getHeader();
+        reply = out.getRaftClientReplyFuture();
+
+        // write using transferTo WritableByteChannel
+        try(FileInputStream in = new FileInputStream(f)) {
+          final long transferred = in.getChannel().transferTo(0, size, out.getWritableByteChannel());
+          Assert.assertEquals(size, transferred);
+        }
+      }
+    }
+
+    watchOrSleep(cluster, reply.join().getLogIndex());
+    assertLogEntry(cluster, request);
+  }
+
+  void watchOrSleep(CLUSTER cluster, long index) throws Exception {
+    try (RaftClient client = cluster.createClient()) {
+      client.async().watch(index, ReplicationLevel.ALL).join();
+    } catch (UnsupportedOperationException e) {
+      // the cluster does not support watch
+      ONE_SECOND.sleep();
+    }
+  }
+
+  void assertLogEntry(CLUSTER cluster, RaftClientRequest request) throws Exception {
+    for (RaftServerProxy proxy : cluster.getServers()) {
+      final RaftServerImpl impl = proxy.getImpl(cluster.getGroupId());
+      final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) impl.getStateMachine();
+      final SingleDataStream s = stateMachine.getSingleDataStream(request);
+      Assert.assertFalse(s.getDataChannel().isOpen());
+      DataStreamTestUtils.assertLogEntry(impl, s);
+    }
   }
 }

@@ -239,6 +239,13 @@ public interface StateMachine extends Closeable {
    * For write state machine data.
    */
   interface DataChannel extends WritableByteChannel {
+    /**
+     * Similar to {@link java.nio.channels.FileChannel#force(boolean)},
+     * the underlying implementation should force writing the data and/or metadata to the underlying storage.
+     *
+     * @param metadata Should the metadata be forced?
+     * @throws IOException If there are IO errors.
+     */
     void force(boolean metadata) throws IOException;
   }
 

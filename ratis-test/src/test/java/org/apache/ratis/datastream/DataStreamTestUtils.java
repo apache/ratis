@@ -43,12 +43,16 @@ import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -80,6 +84,36 @@ public interface DataStreamTestUtils {
     buffer.flip();
     Assert.assertEquals(length, buffer.remaining());
     return buffer;
+  }
+
+  static void createFile(File f, int size) throws Exception {
+    final ReadableByteChannel source = new ReadableByteChannel() {
+      private int offset = 0;
+
+      @Override
+      public boolean isOpen() {
+        return offset < size;
+      }
+
+      @Override
+      public void close() {
+        offset = size;
+      }
+
+      @Override
+      public int read(ByteBuffer dst) {
+        final int start = offset;
+        for(; dst.remaining() > 0 && isOpen(); offset++) {
+          dst.put(pos2byte(offset));
+        }
+        return offset - start;
+      }
+    };
+    FileUtils.createDirectories(f.getParentFile());
+    try(FileOutputStream out = new FileOutputStream(f)) {
+      final long transferred = out.getChannel().transferFrom(source, 0, size);
+      Assert.assertEquals(size, transferred);
+    }
   }
 
   static ByteString bytesWritten2ByteString(long bytesWritten) {

@@ -37,7 +37,6 @@ import org.apache.ratis.server.RaftServer.Division;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
@@ -341,7 +340,7 @@ public class DataStreamManagement {
     final Stream<RaftClientReply> remoteReplies = results.stream()
         .filter(r -> !r.isCompletedExceptionally())
         .map(CompletableFuture::join)
-        .map(DataStreamManagement::getRaftClientReply);
+        .map(ClientProtoUtils::getRaftClientReply);
 
     // choose the leader's reply if there is any.  Otherwise, use the local reply
     final RaftClientReply chosen = Stream.concat(Stream.of(localReply), remoteReplies)
@@ -395,19 +394,6 @@ public class DataStreamManagement {
 
       sendLeaderFailedReply(results, request, localReply, ctx);
     });
-  }
-
-  static RaftClientReply getRaftClientReply(DataStreamReply dataStreamReply) {
-    if (dataStreamReply instanceof DataStreamReplyByteBuffer) {
-      try {
-        return ClientProtoUtils.toRaftClientReply(((DataStreamReplyByteBuffer) dataStreamReply).slice());
-      } catch (InvalidProtocolBufferException e) {
-        throw new IllegalStateException("Failed to parse " + JavaUtils.getClassSimpleName(dataStreamReply.getClass())
-            + ": reply is " + dataStreamReply, e);
-      }
-    } else {
-      throw new IllegalStateException("Unexpected " + dataStreamReply.getClass() + ": reply is " + dataStreamReply);
-    }
   }
 
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,

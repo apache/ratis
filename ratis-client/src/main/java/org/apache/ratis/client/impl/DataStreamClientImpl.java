@@ -24,16 +24,20 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -60,8 +64,32 @@ public class DataStreamClientImpl implements DataStreamClient {
   public final class DataStreamOutputImpl implements DataStreamOutputRpc {
     private final RaftClientRequest header;
     private final CompletableFuture<DataStreamReply> headerFuture;
-    private final MemoizedSupplier<CompletableFuture<DataStreamReply>> closeSupplier
-        = JavaUtils.memoize(() -> send(Type.STREAM_CLOSE));
+    private final CompletableFuture<RaftClientReply> raftClientReplyFuture = new CompletableFuture<>();
+    private final MemoizedSupplier<CompletableFuture<DataStreamReply>> closeSupplier = JavaUtils.memoize(() -> {
+      final CompletableFuture<DataStreamReply> f = send(Type.STREAM_CLOSE);
+      f.thenApply(ClientProtoUtils::getRaftClientReply).whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
+      return f;
+    });
+    private final MemoizedSupplier<WritableByteChannel> writableByteChannelSupplier
+        = JavaUtils.memoize(() -> new WritableByteChannel() {
+      @Override
+      public int write(ByteBuffer src) throws IOException {
+        final int remaining = src.remaining();
+        final DataStreamReply reply = IOUtils.getFromFuture(writeAsync(src),
+            () -> "write(" + remaining + " bytes for " + ClientInvocationId.valueOf(header) + ")");
+        return Math.toIntExact(reply.getBytesWritten());
+      }
+
+      @Override
+      public boolean isOpen() {
+        return !isClosed();
+      }
+
+      @Override
+      public void close() throws IOException {
+        IOUtils.getFromFuture(closeAsync(), () -> "close(" + ClientInvocationId.valueOf(header) + ")");
+      }
+    });
 
     private long streamOffset = 0;
 
@@ -116,6 +144,16 @@ public class DataStreamClientImpl implements DataStreamClient {
     @Override
     public CompletableFuture<DataStreamReply> getHeaderFuture() {
       return headerFuture;
+    }
+
+    @Override
+    public CompletableFuture<RaftClientReply> getRaftClientReplyFuture() {
+      return raftClientReplyFuture;
+    }
+
+    @Override
+    public WritableByteChannel getWritableByteChannel() {
+      return writableByteChannelSupplier.get();
     }
   }
 
