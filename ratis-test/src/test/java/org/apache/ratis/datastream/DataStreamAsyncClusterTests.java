@@ -21,7 +21,14 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
+import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
+import org.apache.ratis.datastream.DataStreamTestUtils.SingleDataStream;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.util.CollectionUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -50,32 +57,57 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
 
   void runTestDataStream(CLUSTER cluster) throws Exception {
     RaftTestUtil.waitForLeader(cluster);
-    final List<CompletableFuture<Void>> futures = new ArrayList<>();
-    futures.add(CompletableFuture.runAsync(() -> runTestDataStream(cluster, 5, 10, 1_000_000, 10), executor));
-    futures.add(CompletableFuture.runAsync(() -> runTestDataStream(cluster, 2, 20, 1_000, 10_000), executor));
-    futures.forEach(CompletableFuture::join);
+
+    final List<CompletableFuture<Long>> futures = new ArrayList<>();
+    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 5, 10, 1_000_000, 10), executor));
+    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 2, 20, 1_000, 10_000), executor));
+    final long maxIndex = futures.stream()
+        .map(CompletableFuture::join)
+        .max(Long::compareTo)
+        .orElseThrow(IllegalStateException::new);
+
+    // wait for all servers to catch up
+    try (RaftClient client = cluster.createClient()) {
+      client.async().watch(maxIndex, ReplicationLevel.ALL).join();
+    }
+    // assert all streams are linked
+    for (RaftServerProxy proxy : cluster.getServers()) {
+      final RaftServerImpl impl = proxy.getImpl(cluster.getGroupId());
+      final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) impl.getStateMachine();
+      for (SingleDataStream s : stateMachine.getStreams()) {
+        Assert.assertNotNull(s.getLogEntry());
+      }
+    }
   }
 
-  void runTestDataStream(CLUSTER cluster, int numClients, int numStreams, int bufferSize, int bufferNum) {
-    final List<CompletableFuture<Void>> futures = new ArrayList<>();
+  Long runTestDataStream(CLUSTER cluster, int numClients, int numStreams, int bufferSize, int bufferNum) {
+    final List<CompletableFuture<Long>> futures = new ArrayList<>();
     for (int j = 0; j < numClients; j++) {
-      futures.add(CompletableFuture.runAsync(() -> runTestDataStream(cluster, numStreams, bufferSize, bufferNum), executor));
+      futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, numStreams, bufferSize, bufferNum), executor));
     }
     Assert.assertEquals(numClients, futures.size());
-    futures.forEach(CompletableFuture::join);
+    return futures.stream()
+        .map(CompletableFuture::join)
+        .max(Long::compareTo)
+        .orElseThrow(IllegalStateException::new);
   }
 
-  void runTestDataStream(CLUSTER cluster, int numStreams, int bufferSize, int bufferNum) {
+  long runTestDataStream(CLUSTER cluster, int numStreams, int bufferSize, int bufferNum) {
     final Iterable<RaftServer> servers = CollectionUtils.as(cluster.getServers(), s -> s);
-    final List<CompletableFuture<Void>> futures = new ArrayList<>();
+    final RaftPeerId leader = cluster.getLeader().getId();
+    final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
     try(RaftClient client = cluster.createClient()) {
       for (int i = 0; i < numStreams; i++) {
         final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
-        futures.add(CompletableFuture.runAsync(() -> DataStreamTestUtils.writeAndCloseAndAssertReplies(
-            servers, out, bufferSize, bufferNum), executor));
+        futures.add(CompletableFuture.supplyAsync(() -> DataStreamTestUtils.writeAndCloseAndAssertReplies(
+            servers, leader, out, bufferSize, bufferNum).join(), executor));
       }
       Assert.assertEquals(numStreams, futures.size());
-      futures.forEach(CompletableFuture::join);
+      return futures.stream()
+          .map(CompletableFuture::join)
+          .map(RaftClientReply::getLogIndex)
+          .max(Long::compareTo)
+          .orElseThrow(IllegalStateException::new);
     } catch (IOException e) {
       throw new CompletionException(e);
     }

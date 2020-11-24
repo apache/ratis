@@ -93,7 +93,12 @@ public interface StateMachine extends Closeable {
 
     /**
      * Link asynchronously the given stream with the given log entry.
+     * The given stream can be null if it is unavailable due to errors.
+     * In such case, the state machine may either recover the data by itself
+     * or complete the returned future exceptionally.
      *
+     * @param stream the stream, which can possibly be null, to be linked.
+     * @param entry the log entry to be linked.
      * @return a future for the link task.
      */
     default CompletableFuture<?> link(DataStream stream, LogEntryProto entry) {

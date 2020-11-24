@@ -30,7 +30,6 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.protocol.ClientId;
@@ -352,14 +351,14 @@ abstract class DataStreamBaseTest extends BaseTest {
       if (headerException != null) {
         final DataStreamReply headerReply = out.getHeaderFuture().join();
         Assert.assertFalse(headerReply.isSuccess());
-        final RaftClientReply clientReply = ClientProtoUtils.toRaftClientReply(RaftClientReplyProto.parseFrom(
-            ((DataStreamReplyByteBuffer)headerReply).slice()));
+        final RaftClientReply clientReply = ClientProtoUtils.toRaftClientReply(
+            ((DataStreamReplyByteBuffer)headerReply).slice());
         Assert.assertTrue(clientReply.getException().getMessage().contains(headerException.getMessage()));
         return;
       }
 
       final RaftClientReply clientReply = DataStreamTestUtils.writeAndCloseAndAssertReplies(
-          CollectionUtils.as(servers, Server::getRaftServer), out, bufferSize, bufferNum).join();
+          CollectionUtils.as(servers, Server::getRaftServer), null, out, bufferSize, bufferNum).join();
       if (expectedException != null) {
         Assert.assertFalse(clientReply.isSuccess());
         Assert.assertTrue(clientReply.getException().getMessage().contains(
