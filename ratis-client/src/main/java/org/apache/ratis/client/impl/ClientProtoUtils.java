@@ -20,6 +20,7 @@ package org.apache.ratis.client.impl;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.DataStreamException;
@@ -264,6 +265,17 @@ public interface ClientProtoUtils {
       }
     }
     return b.build();
+  }
+
+  static RaftClientReply getRaftClientReply(DataStreamReply reply) {
+    if (!(reply instanceof DataStreamReplyByteBuffer)) {
+      throw new IllegalStateException("Unexpected " + reply.getClass() + ": reply is " + reply);
+    }
+    try {
+      return toRaftClientReply(((DataStreamReplyByteBuffer) reply).slice());
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalStateException("Failed to getRaftClientReply from " + reply, e);
+    }
   }
 
   static RaftClientReply toRaftClientReply(ByteBuffer buffer) throws InvalidProtocolBufferException {

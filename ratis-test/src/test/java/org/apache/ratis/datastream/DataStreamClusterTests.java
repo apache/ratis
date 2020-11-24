@@ -26,24 +26,15 @@ import org.apache.ratis.datastream.DataStreamTestUtils.SingleDataStream;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftGroup;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -114,7 +105,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
       client.async().watch(index, ReplicationLevel.ALL).join();
     } catch (UnsupportedOperationException e) {
       // the cluster does not support watch
-      TimeDuration.valueOf(1, TimeUnit.SECONDS).sleep();
+      ONE_SECOND.sleep();
     }
   }
 

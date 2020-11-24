@@ -22,7 +22,6 @@ import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
@@ -46,15 +45,6 @@ import java.util.concurrent.CompletableFuture;
  * allows client to create streams and send asynchronously.
  */
 public class DataStreamClientImpl implements DataStreamClient {
-  private static RaftClientReply getRaftClientReply(DataStreamReply reply) {
-    try {
-      final DataStreamReplyByteBuffer buffer = (DataStreamReplyByteBuffer) reply;
-      return ClientProtoUtils.toRaftClientReply(buffer.slice());
-    } catch (Throwable t) {
-      throw new IllegalStateException("Failed to getRaftClientReply for " + reply, t);
-    }
-  }
-
   private final ClientId clientId;
   private final RaftGroupId groupId;
 
@@ -77,7 +67,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     private final CompletableFuture<RaftClientReply> raftClientReplyFuture = new CompletableFuture<>();
     private final MemoizedSupplier<CompletableFuture<DataStreamReply>> closeSupplier = JavaUtils.memoize(() -> {
       final CompletableFuture<DataStreamReply> f = send(Type.STREAM_CLOSE);
-      f.thenApply(DataStreamClientImpl::getRaftClientReply).whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
+      f.thenApply(ClientProtoUtils::getRaftClientReply).whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
       return f;
     });
     private final MemoizedSupplier<WritableByteChannel> writableByteChannelSupplier
