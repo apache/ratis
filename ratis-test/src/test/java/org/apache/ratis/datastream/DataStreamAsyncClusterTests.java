@@ -27,9 +27,11 @@ import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.util.CollectionUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -40,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluster>
     extends DataStreamClusterTests<CLUSTER> {
@@ -52,7 +55,17 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
 
   @Test
   public void testMultipleStreamsMultipleServers() throws Exception {
+    // Avoid changing leader
+    final TimeDuration min = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(2, TimeUnit.SECONDS));
+    final TimeDuration max = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(3, TimeUnit.SECONDS));
+
     runWithNewCluster(3, this::runTestDataStream);
+
+    // Reset
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), min);
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), max);
   }
 
   void runTestDataStream(CLUSTER cluster) throws Exception {
@@ -75,7 +88,8 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
       final RaftServerImpl impl = proxy.getImpl(cluster.getGroupId());
       final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) impl.getStateMachine();
       for (SingleDataStream s : stateMachine.getStreams()) {
-        Assert.assertNotNull(s.getLogEntry());
+        Assert.assertFalse(s.getDataChannel().isOpen());
+        DataStreamTestUtils.assertLogEntry(impl, s);
       }
     }
   }

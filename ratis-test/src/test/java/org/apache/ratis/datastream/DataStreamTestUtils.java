@@ -24,6 +24,7 @@ import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.Message;
@@ -33,9 +34,12 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
-import org.apache.ratis.statemachine.StateMachine.StateMachineDataChannel;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -64,6 +68,18 @@ public interface DataStreamTestUtils {
 
   static byte pos2byte(int pos) {
     return (byte) ('A' + pos % MODULUS);
+  }
+
+  static ByteBuffer initBuffer(int offset, int size) {
+    final ByteBuffer buffer = ByteBuffer.allocateDirect(size);
+    final int length = buffer.capacity();
+    buffer.position(0).limit(length);
+    for (int j = 0; j < length; j++) {
+      buffer.put(pos2byte(offset + j));
+    }
+    buffer.flip();
+    Assert.assertEquals(length, buffer.remaining());
+    return buffer;
   }
 
   static ByteString bytesWritten2ByteString(long bytesWritten) {
@@ -95,7 +111,7 @@ public interface DataStreamTestUtils {
       final LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
       updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
       final SingleDataStream s = getSingleDataStream(ClientInvocationId.valueOf(entry.getStateMachineLogEntry()));
-      final ByteString bytesWritten = bytesWritten2ByteString(s.getWritableByteChannel().getBytesWritten());
+      final ByteString bytesWritten = bytesWritten2ByteString(s.getDataChannel().getBytesWritten());
       return CompletableFuture.completedFuture(() -> bytesWritten);
     }
 
@@ -114,7 +130,7 @@ public interface DataStreamTestUtils {
 
   class SingleDataStream implements DataStream {
     private final RaftClientRequest writeRequest;
-    private final DataChannel channel = new DataChannel();
+    private final MyDataChannel channel = new MyDataChannel();
     private volatile LogEntryProto logEntry;
 
     SingleDataStream(RaftClientRequest request) {
@@ -122,7 +138,7 @@ public interface DataStreamTestUtils {
     }
 
     @Override
-    public DataChannel getWritableByteChannel() {
+    public MyDataChannel getDataChannel() {
       return channel;
     }
 
@@ -155,7 +171,7 @@ public interface DataStreamTestUtils {
     }
   }
 
-  class DataChannel implements StateMachineDataChannel {
+  class MyDataChannel implements DataChannel {
     private volatile boolean open = true;
     private int bytesWritten = 0;
     private int forcedPosition = 0;
@@ -253,7 +269,7 @@ public interface DataStreamTestUtils {
     // check stream
     final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) server.getDivision(header.getRaftGroupId()).getStateMachine();
     final SingleDataStream stream = stateMachine.getSingleDataStream(header);
-    final DataChannel channel = stream.getWritableByteChannel();
+    final MyDataChannel channel = stream.getDataChannel();
     Assert.assertEquals(dataSize, channel.getBytesWritten());
     Assert.assertEquals(dataSize, channel.getForcedPosition());
 
@@ -296,15 +312,33 @@ public interface DataStreamTestUtils {
     Assert.assertEquals(expected.getCallId(), computed.getCallId());
   }
 
-  static ByteBuffer initBuffer(int offset, int size) {
-    final ByteBuffer buffer = ByteBuffer.allocateDirect(size);
-    final int length = buffer.capacity();
-    buffer.position(0).limit(length);
-    for (int j = 0; j < length; j++) {
-      buffer.put(pos2byte(offset + j));
+  static LogEntryProto searchLogEntry(ClientInvocationId invocationId, RaftLog log) throws Exception {
+    for (TermIndex termIndex : log.getEntries(0, Long.MAX_VALUE)) {
+      final LogEntryProto entry = log.get(termIndex.getIndex());
+      if (entry.hasStateMachineLogEntry()) {
+        if (invocationId.match(entry.getStateMachineLogEntry())) {
+          return entry;
+        }
+      }
     }
-    buffer.flip();
-    Assert.assertEquals(length, buffer.remaining());
-    return buffer;
+    return null;
+  }
+
+  static void assertLogEntry(LogEntryProto logEntry, RaftClientRequest request) {
+    Assert.assertNotNull(logEntry);
+    Assert.assertTrue(logEntry.hasStateMachineLogEntry());
+    final StateMachineLogEntryProto s = logEntry.getStateMachineLogEntry();
+    Assert.assertEquals(StateMachineLogEntryProto.Type.DATASTREAM, s.getType());
+    Assert.assertEquals(request.getCallId(), s.getCallId());
+    Assert.assertEquals(request.getClientId().toByteString(), s.getClientId());
+  }
+
+  static void assertLogEntry(RaftServerImpl impl, SingleDataStream stream) throws Exception {
+    final RaftClientRequest request = stream.getWriteRequest();
+    final LogEntryProto entryFromStream = stream.getLogEntry();
+    assertLogEntry(entryFromStream, request);
+
+    final LogEntryProto entryFromLog = searchLogEntry(ClientInvocationId.valueOf(request), impl.getState().getLog());
+    Assert.assertSame(entryFromStream, entryFromLog);
   }
 }

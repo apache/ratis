@@ -20,6 +20,7 @@ package org.apache.ratis.protocol;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * The id of a client invocation.
@@ -55,6 +56,13 @@ public final class ClientInvocationId {
 
   public long getLongId() {
     return longId;
+  }
+
+  public boolean match(StateMachineLogEntryProto proto) {
+    return longId == proto.getCallId() && Optional.ofNullable(clientId)
+        .map(RaftId::toByteString)
+        .filter(b -> b.equals(proto.getClientId()))
+        .isPresent();
   }
 
   @Override
