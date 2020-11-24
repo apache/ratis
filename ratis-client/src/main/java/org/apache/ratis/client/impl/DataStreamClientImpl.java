@@ -33,12 +33,15 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.protocol.*;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -176,6 +179,15 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutputRpc stream(RaftClientRequest request) {
+    return new DataStreamOutputImpl(request);
+  }
+
+  @Override
+  public DataStreamOutputRpc stream(ByteBuffer headerMessage) {
+    final Message message =
+        Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
+    RaftClientRequest request = new RaftClientRequest(clientId, dataStreamServer.getId(), groupId,
+        RaftClientImpl.nextCallId(), message, RaftClientRequest.dataStreamRequestType(), null);
     return new DataStreamOutputImpl(request);
   }
 

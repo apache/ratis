@@ -20,8 +20,10 @@ package org.apache.ratis.examples.filestore;
 import org.apache.ratis.examples.filestore.FileInfo.ReadOnly;
 import org.apache.ratis.examples.filestore.FileInfo.UnderConstruction;
 import org.apache.ratis.proto.ExamplesProtos.ReadReplyProto;
+import org.apache.ratis.proto.ExamplesProtos.StreamWriteReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteReplyProto;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.FileUtils;
@@ -35,11 +37,14 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -218,5 +223,59 @@ public class FileStore implements Closeable {
     committer.shutdownNow();
     reader.shutdownNow();
     deleter.shutdownNow();
+  }
+
+  CompletableFuture<StreamWriteReplyProto> streamCommit(String p, long bytesWritten) {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        final Path full = resolve(normalize(p));
+        RandomAccessFile file = new RandomAccessFile(full.toFile(), "r");
+        long len = file.length();
+        return StreamWriteReplyProto.newBuilder().setIsSuccess(len == bytesWritten).setByteWritten(len).build();
+      } catch (FileNotFoundException e) {
+        throw new CompletionException("Failed to find " + p, e);
+      } catch (IOException e) {
+        throw new CompletionException("Failed to get length of " + p, e);
+      }
+    }, committer);
+  }
+
+  public CompletableFuture<FileStoreDataChannel> createDataChannel(String p) {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        final Path full = resolve(normalize(p));
+        return new FileStoreDataChannel(new RandomAccessFile(full.toFile(), "rw"));
+      } catch (IOException e) {
+        throw new CompletionException("Failed to create " + p, e);
+      }
+    }, writer);
+  }
+
+  class FileStoreDataChannel implements StateMachine.DataChannel {
+    private final RandomAccessFile randomAccessFile;
+
+    FileStoreDataChannel(RandomAccessFile file) {
+      randomAccessFile = file;
+    }
+
+    @Override
+    public void force(boolean metadata) throws IOException {
+      randomAccessFile.getChannel().force(metadata);
+    }
+
+    @Override
+    public int write(ByteBuffer src) throws IOException {
+      return randomAccessFile.getChannel().write(src);
+    }
+
+    @Override
+    public boolean isOpen() {
+      return randomAccessFile.getChannel().isOpen();
+    }
+
+    @Override
+    public void close() throws IOException {
+      randomAccessFile.close();
+    }
   }
 }

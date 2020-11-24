@@ -24,6 +24,7 @@ import org.apache.ratis.proto.ExamplesProtos.DeleteReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.DeleteRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.FileStoreRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.ReadRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.StreamWriteRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -40,14 +41,18 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.JavaUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class FileStoreStateMachine extends BaseStateMachine {
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
+  private final ConcurrentMap<LogEntryProto, DataStream> dataStreamToLogEntryMap = new ConcurrentHashMap<>();
 
   private final FileStore files;
 
@@ -153,6 +158,55 @@ public class FileStoreStateMachine extends BaseStateMachine {
     return reply.thenApply(ExamplesProtos.ReadReplyProto::getData);
   }
 
+  class LocalStream implements DataStream {
+    private final DataChannel dataChannel;
+
+    LocalStream(DataChannel dataChannel) {
+      this.dataChannel = dataChannel;
+    }
+
+    @Override
+    public DataChannel getDataChannel() {
+      return dataChannel;
+    }
+
+    @Override
+    public CompletableFuture<?> cleanUp() {
+      return CompletableFuture.supplyAsync(() -> {
+        try {
+          dataChannel.close();
+          return true;
+        } catch (IOException e) {
+          return FileStoreCommon.completeExceptionally("Failed to close data channel", e);
+        }
+      });
+    }
+  }
+
+  @Override
+  public CompletableFuture<DataStream> stream(RaftClientRequest request) {
+    final ByteString reqByteString = request.getMessage().getContent();
+    final FileStoreRequestProto proto;
+    try {
+      proto = FileStoreRequestProto.parseFrom(reqByteString);
+    } catch (InvalidProtocolBufferException e) {
+      return FileStoreCommon.completeExceptionally(
+          "Failed to parse stream header", e);
+    }
+    return files.createDataChannel(proto.getStream().getPath().toStringUtf8())
+        .thenApply(LocalStream::new);
+  }
+
+  @Override
+  public CompletableFuture<?> link(DataStream stream, LogEntryProto entry) {
+    LOG.info("link {}", stream);
+    if (stream == null) {
+      return JavaUtils.completeExceptionally(new IllegalStateException("Null stream: entry=" + entry));
+    }
+    dataStreamToLogEntryMap.put(entry, stream);
+    return CompletableFuture.completedFuture(null);
+  }
+
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     final LogEntryProto entry = trx.getLogEntry();
@@ -174,6 +228,8 @@ public class FileStoreStateMachine extends BaseStateMachine {
         return delete(index, request.getDelete());
       case WRITEHEADER:
         return writeCommit(index, request.getWriteHeader(), smLog.getStateMachineEntry().getStateMachineData().size());
+      case STREAM:
+        return streamCommit(request.getStream());
       case WRITE:
         // WRITE should not happen here since
         // startTransaction converts WRITE requests to WRITEHEADER requests.
@@ -189,6 +245,12 @@ public class FileStoreStateMachine extends BaseStateMachine {
     final String path = header.getPath().toStringUtf8();
     return files.submitCommit(index, path, header.getClose(), header.getOffset(), size)
         .thenApply(reply -> Message.valueOf(reply.toByteString()));
+  }
+
+  private CompletableFuture<Message> streamCommit(StreamWriteRequestProto stream) {
+    final String path = stream.getPath().toStringUtf8();
+    final long size = stream.getLength();
+    return files.streamCommit(path, size).thenApply(reply -> Message.valueOf(reply.toByteString()));
   }
 
   private CompletableFuture<Message> delete(long index, DeleteRequestProto request) {

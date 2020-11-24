@@ -26,6 +26,7 @@ message FileStoreRequestProto {
     WriteRequestHeaderProto writeHeader = 1;
     WriteRequestProto write = 2;
     DeleteRequestProto delete = 3;
+    StreamWriteRequestProto stream = 4;
   }
 }
 
@@ -40,6 +41,11 @@ message WriteRequestHeaderProto {
   bool close = 2; // close the file after write?
   uint64 offset = 3;
   uint64 length = 4;
+}
+
+message StreamWriteRequestProto {
+  bytes path = 1;
+  uint64 length = 2;
 }
 
 message WriteRequestProto {
@@ -65,4 +71,9 @@ message WriteReplyProto {
 
 message DeleteReplyProto {
   bytes resolvedPath = 1;
+}
+
+message StreamWriteReplyProto {
+  bool isSuccess = 1;
+  uint64 byteWritten = 2;
 }
