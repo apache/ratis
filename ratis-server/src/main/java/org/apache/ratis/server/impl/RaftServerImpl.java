@@ -1622,7 +1622,12 @@ public class RaftServerImpl implements RaftServer.Division,
 
     @Override
     public String getLeaderId() {
-      return getState().getLeaderId().toString();
+      RaftPeerId leaderId = getState().getLeaderId();
+      if (leaderId != null) {
+        return leaderId.toString();
+      } else {
+        return null;
+      }
     }
 
     @Override
