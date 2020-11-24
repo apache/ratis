@@ -238,7 +238,7 @@ public interface StateMachine extends Closeable {
   /**
    * For write state machine data.
    */
-  interface StateMachineDataChannel extends WritableByteChannel {
+  interface DataChannel extends WritableByteChannel {
     void force(boolean metadata) throws IOException;
   }
 
@@ -247,7 +247,7 @@ public interface StateMachine extends Closeable {
    */
   interface DataStream {
     /** @return a channel for streaming state machine data. */
-    StateMachineDataChannel getWritableByteChannel();
+    DataChannel getDataChannel();
 
     /**
      * Clean up asynchronously this stream.

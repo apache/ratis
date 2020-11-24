@@ -36,7 +36,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServer.Division;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
-import org.apache.ratis.statemachine.StateMachine.StateMachineDataChannel;
+import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
@@ -251,7 +251,7 @@ public class DataStreamManagement {
   }
 
   static long writeTo(ByteBuf buf, boolean sync, DataStream stream) {
-    final StateMachineDataChannel channel = stream.getWritableByteChannel();
+    final DataChannel channel = stream.getDataChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
       try {
@@ -273,7 +273,7 @@ public class DataStreamManagement {
 
   static long close(DataStream stream) {
     try {
-      stream.getWritableByteChannel().close();
+      stream.getDataChannel().close();
       return 0L;
     } catch (IOException e) {
       throw new CompletionException("Failed to close " + stream, e);

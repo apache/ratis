@@ -23,7 +23,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.DataStreamTestUtils.DataChannel;
+import org.apache.ratis.datastream.DataStreamTestUtils.MyDataChannel;
 import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
@@ -55,7 +55,7 @@ import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.statemachine.StateMachine.StateMachineDataChannel;
+import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
@@ -211,13 +211,13 @@ abstract class DataStreamBaseTest extends BaseTest {
         final MyDivision d = getDivision(request.getRaftGroupId());
         return d.getDataStreamMap()
             .remove(ClientInvocationId.valueOf(request))
-            .thenApply(StateMachine.DataStream::getWritableByteChannel)
+            .thenApply(StateMachine.DataStream::getDataChannel)
             .thenApply(channel -> buildRaftClientReply(request, channel));
       }
 
-      static RaftClientReply buildRaftClientReply(RaftClientRequest request, StateMachineDataChannel channel) {
-        Assert.assertTrue(channel instanceof DataChannel);
-        final DataChannel dataChannel = (DataChannel) channel;
+      static RaftClientReply buildRaftClientReply(RaftClientRequest request, DataChannel channel) {
+        Assert.assertTrue(channel instanceof MyDataChannel);
+        final MyDataChannel dataChannel = (MyDataChannel) channel;
         return RaftClientReply.newBuilder()
             .setRequest(request)
             .setSuccess()
