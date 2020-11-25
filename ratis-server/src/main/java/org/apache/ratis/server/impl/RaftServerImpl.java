@@ -593,6 +593,30 @@ public class RaftServerImpl implements RaftServer.Division,
     return true;
   }
 
+  /**
+   * Return status of the RaftServer.
+   * @return LeaderStatus
+   */
+  public ServerStatus getServerStatus() {
+    if (!isLeader()) {
+      return ServerStatus.NOT_LEADER;
+    }
+
+    final LeaderState leaderState = role.getLeaderState().orElse(null);
+    if (leaderState == null || !leaderState.isReady()) {
+      return ServerStatus.LEADER_AND_NOTREADY;
+    }
+
+    return ServerStatus.LEADER_AND_READY;
+  }
+
+
+  public enum ServerStatus {
+    NOT_LEADER,
+    LEADER_AND_NOTREADY,
+    LEADER_AND_READY;
+  }
+
   NotLeaderException generateNotLeaderException() {
     if (lifeCycle.getCurrentState() != RUNNING) {
       return new NotLeaderException(getMemberId(), null, null);
