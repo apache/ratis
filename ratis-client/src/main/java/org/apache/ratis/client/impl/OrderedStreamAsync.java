@@ -20,10 +20,14 @@ package org.apache.ratis.client.impl;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
+import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
-import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
+import org.apache.ratis.protocol.DataStreamRequest;
+import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SlidingWindow;
@@ -38,14 +42,27 @@ import java.util.function.LongFunction;
 public class OrderedStreamAsync {
   public static final Logger LOG = LoggerFactory.getLogger(OrderedStreamAsync.class);
 
-  static class DataStreamWindowRequest extends DataStreamRequestByteBuffer
-      implements SlidingWindow.ClientSideRequest<DataStreamReply> {
+  static class DataStreamWindowRequest implements SlidingWindow.ClientSideRequest<DataStreamReply> {
+    private final DataStreamRequestHeader header;
+    private final Object data;
     private final long seqNum;
     private final CompletableFuture<DataStreamReply> replyFuture = new CompletableFuture<>();
 
-    DataStreamWindowRequest(Type type, long streamId, long offset, ByteBuffer data, long seqNum) {
-      super(type, streamId, offset, data);
+    DataStreamWindowRequest(DataStreamRequestHeader header, Object data, long seqNum) {
+      this.header = header;
+      this.data = data;
       this.seqNum = seqNum;
+    }
+
+    DataStreamRequest getDataStreamRequest() {
+      if (header.getDataLength() == 0) {
+        return new DataStreamRequestByteBuffer(header, DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER);
+      } else if (data instanceof ByteBuffer) {
+        return new DataStreamRequestByteBuffer(header, (ByteBuffer)data);
+      } else if (data instanceof FilePositionCount) {
+        return new DataStreamRequestFilePositionCount(header, (FilePositionCount)data);
+      }
+      throw new IllegalStateException("Unexpected " + data.getClass());
     }
 
     @Override
@@ -87,16 +104,15 @@ public class OrderedStreamAsync {
     this.requestSemaphore = new Semaphore(RaftClientConfigKeys.DataStream.outstandingRequestsMax(properties));
   }
 
-  CompletableFuture<DataStreamReply> sendRequest(long streamId, long offset, ByteBuffer data, Type type){
-    final int length = data.remaining();
+  CompletableFuture<DataStreamReply> sendRequest(DataStreamRequestHeader header, Object data) {
     try {
       requestSemaphore.acquire();
     } catch (InterruptedException e){
       return JavaUtils.completeExceptionally(IOUtils.toInterruptedIOException(
-          "Interrupted when sending streamId=" + streamId + ", offset= " + offset + ", length=" + length, e));
+          "Interrupted when sending " + JavaUtils.getClassSimpleName(data.getClass()) + ", header= " + header, e));
     }
     final LongFunction<DataStreamWindowRequest> constructor
-        = seqNum -> new DataStreamWindowRequest(type, streamId, offset, data.slice(), seqNum);
+        = seqNum -> new DataStreamWindowRequest(header, data, seqNum);
     return slidingWindow.submitNewRequest(constructor, this::sendRequestToNetwork).
            getReplyFuture().whenComplete((r, e) -> requestSemaphore.release());
   }
@@ -109,7 +125,8 @@ public class OrderedStreamAsync {
     if(slidingWindow.isFirst(request.getSeqNum())){
       request.setFirstRequest();
     }
-    final CompletableFuture<DataStreamReply> requestFuture = dataStreamClientRpc.streamAsync(request);
+    final CompletableFuture<DataStreamReply> requestFuture = dataStreamClientRpc.streamAsync(
+        request.getDataStreamRequest());
     requestFuture.thenApply(reply -> {
       slidingWindow.receiveReply(
           request.getSeqNum(), reply, this::sendRequestToNetwork);

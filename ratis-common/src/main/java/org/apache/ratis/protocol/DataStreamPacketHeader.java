@@ -28,7 +28,7 @@ public class DataStreamPacketHeader extends DataStreamPacketImpl {
 
   private final long dataLength;
 
-  public DataStreamPacketHeader(long streamId, long streamOffset, long dataLength, Type type) {
+  public DataStreamPacketHeader(Type type, long streamId, long streamOffset, long dataLength) {
     super(type, streamId, streamOffset);
     this.dataLength = dataLength;
   }

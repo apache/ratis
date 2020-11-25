@@ -18,8 +18,9 @@
 
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.slf4j.Logger;
@@ -44,15 +45,11 @@ public class DataStreamReplyHeader extends DataStreamPacketHeader implements Dat
       ByteBuf headerBuf = buf.slice(buf.readerIndex(), headerBufLen);
       DataStreamReplyHeaderProto header = DataStreamReplyHeaderProto.parseFrom(headerBuf.nioBuffer());
 
+      final DataStreamPacketHeaderProto h = header.getPacketHeader();
       if (header.getPacketHeader().getDataLength() + headerBufLen <= buf.readableBytes()) {
         buf.readerIndex(buf.readerIndex() + headerBufLen);
-        return new DataStreamReplyHeader(
-            header.getPacketHeader().getStreamId(),
-            header.getPacketHeader().getStreamOffset(),
-            header.getPacketHeader().getDataLength(),
-            header.getPacketHeader().getType(),
-            header.getBytesWritten(),
-            header.getSuccess());
+        return new DataStreamReplyHeader(h.getType(), h.getStreamId(), h.getStreamOffset(), h.getDataLength(),
+            header.getBytesWritten(), header.getSuccess());
       } else {
         buf.resetReaderIndex();
         return null;
@@ -67,9 +64,9 @@ public class DataStreamReplyHeader extends DataStreamPacketHeader implements Dat
   private final long bytesWritten;
   private final boolean success;
 
-  public DataStreamReplyHeader(
-      long streamId, long streamOffset, long dataLength, Type type, long bytesWritten, boolean success) {
-    super(streamId, streamOffset, dataLength, type);
+  public DataStreamReplyHeader(Type type, long streamId, long streamOffset, long dataLength,
+      long bytesWritten, boolean success) {
+    super(type, streamId, streamOffset, dataLength);
     this.bytesWritten = bytesWritten;
     this.success = success;
   }

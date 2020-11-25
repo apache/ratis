@@ -23,11 +23,15 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
 import org.apache.ratis.datastream.DataStreamTestUtils.SingleDataStream;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.util.Timestamp;
+import org.apache.ratis.util.function.CheckedConsumer;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -54,7 +58,16 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
   void testStreamWrites(CLUSTER cluster) throws Exception {
     waitForLeader(cluster);
     runTestDataStreamOutput(cluster);
-    runTestTransferTo(cluster);
+
+    // create data file
+    final int size = 10_000_000 + ThreadLocalRandom.current().nextInt(1_000_000);
+    final File f = new File(getTestDir(), "a.txt");
+    DataStreamTestUtils.createFile(f, size);
+
+    for(int i = 0; i < 3; i++) {
+      runTestWriteFile(cluster, i, writeAsyncDefaultFileRegion(f, size));
+      runTestWriteFile(cluster, i, transferToWritableByteChannel(f, size));
+    }
   }
 
   void runTestDataStreamOutput(CLUSTER cluster) throws Exception {
@@ -74,13 +87,8 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     assertLogEntry(cluster, request);
   }
 
-  void runTestTransferTo(CLUSTER cluster) throws Exception {
-    final int size = 4_000_000 + ThreadLocalRandom.current().nextInt(1_000_000);
-
-    // create data file
-    final File f = new File(getTestDir(), "a.txt");
-    DataStreamTestUtils.createFile(f, size);
-
+  void runTestWriteFile(CLUSTER cluster, int i,
+      CheckedConsumer<DataStreamOutputImpl, Exception> testCase) throws Exception {
     final RaftClientRequest request;
     final CompletableFuture<RaftClientReply> reply;
     try (RaftClient client = cluster.createClient()) {
@@ -88,16 +96,46 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
         request = out.getHeader();
         reply = out.getRaftClientReplyFuture();
 
-        // write using transferTo WritableByteChannel
-        try(FileInputStream in = new FileInputStream(f)) {
-          final long transferred = in.getChannel().transferTo(0, size, out.getWritableByteChannel());
-          Assert.assertEquals(size, transferred);
-        }
+        final Timestamp start = Timestamp.currentTime();
+        testCase.accept(out);
+        LOG.info("{}: {} elapsed {}ms", i, testCase, start.elapsedTimeMs());
       }
     }
 
     watchOrSleep(cluster, reply.join().getLogIndex());
     assertLogEntry(cluster, request);
+  }
+
+  static CheckedConsumer<DataStreamOutputImpl, Exception> transferToWritableByteChannel(File f, int size) {
+    return new CheckedConsumer<DataStreamOutputImpl, Exception>() {
+      @Override
+      public void accept(DataStreamOutputImpl out) throws Exception {
+        try (FileInputStream in = new FileInputStream(f)) {
+          final long transferred = in.getChannel().transferTo(0, size, out.getWritableByteChannel());
+          Assert.assertEquals(size, transferred);
+        }
+      }
+
+      @Override
+      public String toString() {
+        return "transferToWritableByteChannel";
+      }
+    };
+  }
+
+  static CheckedConsumer<DataStreamOutputImpl, Exception> writeAsyncDefaultFileRegion(File f, int size) {
+    return new CheckedConsumer<DataStreamOutputImpl, Exception>() {
+      @Override
+      public void accept(DataStreamOutputImpl out) {
+        final DataStreamReply dataStreamReply = out.writeAsync(f).join();
+        DataStreamTestUtils.assertSuccessReply(Type.STREAM_DATA, size, dataStreamReply);
+      }
+
+      @Override
+      public String toString() {
+        return "writeAsyncDefaultFileRegion";
+      }
+    };
   }
 
   void watchOrSleep(CLUSTER cluster, long index) throws Exception {

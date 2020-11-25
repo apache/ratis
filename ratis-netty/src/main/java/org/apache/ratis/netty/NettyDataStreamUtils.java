@@ -19,16 +19,20 @@ package org.apache.ratis.netty;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
+import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.netty.server.DataStreamRequestByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.protocol.DataStreamPacketHeader;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
+import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBufAllocator;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
+import org.apache.ratis.thirdparty.io.netty.channel.DefaultFileRegion;
 
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -36,8 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public interface NettyDataStreamUtils {
-
-  static ByteBuffer getDataStreamRequestHeaderProtoByteBuf(DataStreamRequestByteBuffer request) {
+  static ByteBuffer getDataStreamRequestHeaderProtoByteBuffer(DataStreamRequest request) {
     DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
         .newBuilder()
         .setStreamId(request.getStreamId())
@@ -69,14 +72,26 @@ public interface NettyDataStreamUtils {
         .asReadOnlyByteBuffer();
   }
 
-  static void encodeDataStreamRequestByteBuffer(DataStreamRequestByteBuffer request, Consumer<ByteBuf> out,
+  static void encodeDataStreamRequestHeader(DataStreamRequest request, Consumer<Object> out,
       ByteBufAllocator allocator) {
-    ByteBuffer headerBuf = getDataStreamRequestHeaderProtoByteBuf(request);
+    final ByteBuffer headerBuf = getDataStreamRequestHeaderProtoByteBuffer(request);
     final ByteBuf headerLenBuf = allocator.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
     headerLenBuf.writeInt(headerBuf.remaining());
     out.accept(headerLenBuf);
     out.accept(Unpooled.wrappedBuffer(headerBuf));
+  }
+
+  static void encodeDataStreamRequestByteBuffer(DataStreamRequestByteBuffer request, Consumer<Object> out,
+      ByteBufAllocator allocator) {
+    encodeDataStreamRequestHeader(request, out, allocator);
     out.accept(Unpooled.wrappedBuffer(request.slice()));
+  }
+
+  static void encodeDataStreamRequestFilePositionCount(
+      DataStreamRequestFilePositionCount request, Consumer<Object> out, ByteBufAllocator allocator) {
+    encodeDataStreamRequestHeader(request, out, allocator);
+    final FilePositionCount f = request.getFile();
+    out.accept(new DefaultFileRegion(f.getFile(), f.getPosition(), f.getCount()));
   }
 
   static void encodeDataStreamReplyByteBuffer(DataStreamReplyByteBuffer reply, Consumer<ByteBuf> out,
