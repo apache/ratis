@@ -45,8 +45,6 @@ import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.function.CheckedFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.File;
@@ -64,8 +62,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class RaftServerProxy implements RaftServer {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftServerProxy.class);
-
   /**
    * A map: {@link RaftGroupId} -> {@link RaftServerImpl} futures.
    *

@@ -27,6 +27,8 @@ import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.LifeCycle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -37,8 +39,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol,
     AdminProtocol, AdminAsynchronousProtocol {
+  Logger LOG = LoggerFactory.getLogger(RaftServer.class);
+
   /** A division of a {@link RaftServer} for a particular group. */
   interface Division {
+    Logger LOG = LoggerFactory.getLogger(Division.class);
+
     /** @return the {@link RaftGroupMemberId} for this division. */
     RaftGroupMemberId getMemberId();
 

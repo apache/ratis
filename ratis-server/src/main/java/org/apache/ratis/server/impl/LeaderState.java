@@ -34,7 +34,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.*;
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.*;
@@ -52,6 +51,8 @@ import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.ratis.server.RaftServer.Division.LOG;
+
 /**
  * States for leader only. It contains three different types of processors:
  * 1. RPC senders: each thread is appending log to a follower
@@ -61,7 +62,6 @@ import java.util.stream.Stream;
  *                           corresponding log entries are committed
  */
 public class LeaderState {
-  private static final Logger LOG = RaftServerImpl.LOG;
   public static final String APPEND_PLACEHOLDER = JavaUtils.getClassSimpleName(LeaderState.class) + ".placeholder";
 
   private enum BootStrapProgress {
