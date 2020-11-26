@@ -21,6 +21,7 @@ package org.apache.ratis.netty.client;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
@@ -94,6 +95,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       public void initChannel(SocketChannel ch) {
         ChannelPipeline p = ch.pipeline();
         p.addLast(newEncoder());
+        p.addLast(newEncoderDataStreamRequestFilePositionCount());
         p.addLast(newDecoder());
         p.addLast(getClientHandler());
       }
@@ -105,6 +107,15 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       @Override
       protected void encode(ChannelHandlerContext context, DataStreamRequestByteBuffer request, List<Object> out) {
         NettyDataStreamUtils.encodeDataStreamRequestByteBuffer(request, out::add, context.alloc());
+      }
+    };
+  }
+
+  MessageToMessageEncoder<DataStreamRequestFilePositionCount> newEncoderDataStreamRequestFilePositionCount() {
+    return new MessageToMessageEncoder<DataStreamRequestFilePositionCount>() {
+      @Override
+      protected void encode(ChannelHandlerContext ctx, DataStreamRequestFilePositionCount request, List<Object> out) {
+        NettyDataStreamUtils.encodeDataStreamRequestFilePositionCount(request, out::add, ctx.alloc());
       }
     };
   }

@@ -265,19 +265,22 @@ public interface DataStreamTestUtils {
 
     { // check header
       final DataStreamReply reply = out.getHeaderFuture().join();
-      Assert.assertTrue(reply.isSuccess());
-      Assert.assertEquals(0, reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), Type.STREAM_HEADER);
+      assertSuccessReply(Type.STREAM_HEADER, 0, reply);
     }
 
     // check writeAsync requests
     for (int i = 0; i < futures.size(); i++) {
       final DataStreamReply reply = futures.get(i).join();
-      Assert.assertTrue(reply.isSuccess());
-      Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), i == futures.size() - 1 ? Type.STREAM_DATA_SYNC : Type.STREAM_DATA);
+      final Type expectedType = i == futures.size() - 1 ? Type.STREAM_DATA_SYNC : Type.STREAM_DATA;
+      assertSuccessReply(expectedType, sizes.get(i).longValue(), reply);
     }
     return dataSize;
+  }
+
+  static void assertSuccessReply(Type expectedType, long expectedBytesWritten, DataStreamReply reply) {
+    Assert.assertTrue(reply.isSuccess());
+    Assert.assertEquals(expectedBytesWritten, reply.getBytesWritten());
+    Assert.assertEquals(expectedType, reply.getType());
   }
 
   static CompletableFuture<RaftClientReply> writeAndCloseAndAssertReplies(

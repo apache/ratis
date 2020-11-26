@@ -121,8 +121,11 @@ public interface ClientProtoUtils {
         request.getSlidingWindowEntry());
   }
 
-  static RaftClientRequestProto toRaftClientRequestProto(
-      RaftClientRequest request) {
+  static ByteBuffer toRaftClientRequestProtoByteBuffer(RaftClientRequest request) {
+    return toRaftClientRequestProto(request).toByteString().asReadOnlyByteBuffer();
+  }
+
+  static RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) {
     final RaftClientRequestProto.Builder b = RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
     if (request.getMessage() != null) {

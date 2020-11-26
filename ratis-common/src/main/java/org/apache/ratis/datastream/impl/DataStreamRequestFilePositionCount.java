@@ -17,20 +17,30 @@
  */
 package org.apache.ratis.datastream.impl;
 
+import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
-import org.apache.ratis.util.Preconditions;
-
-import java.nio.ByteBuffer;
 
 /**
- * Implements {@link DataStreamRequest} with {@link ByteBuffer}.
+ * Implements {@link DataStreamRequest} with {@link FilePositionCount}.
  *
  * This class is immutable.
  */
-public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer implements DataStreamRequest {
-  public DataStreamRequestByteBuffer(DataStreamRequestHeader header, ByteBuffer buffer) {
-    super(header.getType(), header.getStreamId(), header.getStreamOffset(), buffer);
-    Preconditions.assertTrue(header.getDataLength() == buffer.remaining());
+public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl implements DataStreamRequest {
+  private final FilePositionCount file;
+
+  public DataStreamRequestFilePositionCount(DataStreamRequestHeader header, FilePositionCount file) {
+    super(header.getType(), header.getStreamId(), header.getStreamOffset());
+    this.file = file;
+  }
+
+  @Override
+  public long getDataLength() {
+    return file.getCount();
+  }
+
+  /** @return the file with the starting position and the byte count. */
+  public FilePositionCount getFile() {
+    return file;
   }
 }

@@ -21,11 +21,12 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
+import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -95,32 +96,41 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     private DataStreamOutputImpl(RaftClientRequest request) {
       this.header = request;
-      this.headerFuture = orderedStreamAsync.sendRequest(request.getCallId(), -1,
-          ClientProtoUtils.toRaftClientRequestProto(header).toByteString().asReadOnlyByteBuffer(), Type.STREAM_HEADER);
+      final ByteBuffer buffer = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(header);
+      this.headerFuture = send(Type.STREAM_HEADER, buffer, buffer.remaining());
     }
 
-    private CompletableFuture<DataStreamReply> send(Type type, ByteBuffer buffer) {
-      return orderedStreamAsync.sendRequest(header.getCallId(), streamOffset, buffer, type);
+    private CompletableFuture<DataStreamReply> send(Type type, Object data, long length) {
+      final DataStreamRequestHeader h = new DataStreamRequestHeader(type, header.getCallId(), streamOffset, length);
+      return orderedStreamAsync.sendRequest(h, data);
     }
 
     private CompletableFuture<DataStreamReply> send(Type type) {
-      return combineHeader(send(type, DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER));
+      return combineHeader(send(type, null, 0));
     }
 
     private CompletableFuture<DataStreamReply> combineHeader(CompletableFuture<DataStreamReply> future) {
       return future.thenCombine(headerFuture, (reply, headerReply) -> headerReply.isSuccess()? reply : headerReply);
     }
 
-    // send to the attached dataStreamClientRpc
-    @Override
-    public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf, boolean sync) {
+    private CompletableFuture<DataStreamReply> writeAsyncImpl(Object data, long length, boolean sync) {
       if (isClosed()) {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(
             clientId + ": stream already closed, request=" + header));
       }
-      final CompletableFuture<DataStreamReply> f = send(sync ? Type.STREAM_DATA_SYNC : Type.STREAM_DATA, buf);
-      streamOffset += buf.remaining();
+      final CompletableFuture<DataStreamReply> f = send(sync ? Type.STREAM_DATA_SYNC : Type.STREAM_DATA, data, length);
+      streamOffset += length;
       return combineHeader(f);
+    }
+
+    @Override
+    public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, boolean sync) {
+      return writeAsyncImpl(src, src.remaining(), sync);
+    }
+
+    @Override
+    public CompletableFuture<DataStreamReply> writeAsync(FilePositionCount src, boolean sync) {
+      return writeAsyncImpl(src, src.getCount(), sync);
     }
 
     @Override

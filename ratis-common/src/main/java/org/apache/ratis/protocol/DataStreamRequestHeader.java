@@ -18,8 +18,9 @@
 
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.slf4j.Logger;
@@ -47,13 +48,10 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
       ByteBuf headerBuf = buf.slice(buf.readerIndex(), headerBufLen);
       DataStreamRequestHeaderProto header = DataStreamRequestHeaderProto.parseFrom(headerBuf.nioBuffer());
 
-      if (header.getPacketHeader().getDataLength() + headerBufLen <= buf.readableBytes()) {
+      final DataStreamPacketHeaderProto h = header.getPacketHeader();
+      if (h.getDataLength() + headerBufLen <= buf.readableBytes()) {
         buf.readerIndex(buf.readerIndex() + headerBufLen);
-        return new DataStreamRequestHeader(
-            header.getPacketHeader().getStreamId(),
-            header.getPacketHeader().getStreamOffset(),
-            header.getPacketHeader().getDataLength(),
-            header.getPacketHeader().getType());
+        return new DataStreamRequestHeader(h.getType(), h.getStreamId(), h.getStreamOffset(), h.getDataLength());
       } else {
         buf.resetReaderIndex();
         return null;
@@ -65,7 +63,7 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
     }
   }
 
-  public DataStreamRequestHeader(long streamId, long streamOffset, long dataLength, Type type) {
-    super(streamId, streamOffset, dataLength, type);
+  public DataStreamRequestHeader(Type type, long streamId, long streamOffset, long dataLength) {
+    super(type, streamId, streamOffset, dataLength);
   }
 }
