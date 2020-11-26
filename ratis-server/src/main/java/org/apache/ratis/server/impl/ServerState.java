@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static org.apache.ratis.server.impl.RaftServerImpl.LOG;
+import static org.apache.ratis.server.RaftServer.Division.LOG;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.

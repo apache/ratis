@@ -30,6 +30,7 @@ import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
@@ -61,7 +62,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
     RaftServerTestUtil.setWatchRequestsLogLevel(Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
   }
 
   static final int NUM_SERVERS = 3;

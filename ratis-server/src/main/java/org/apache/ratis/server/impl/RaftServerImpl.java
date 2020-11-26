@@ -47,8 +47,6 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.management.ObjectName;
 import java.io.File;
@@ -81,8 +79,6 @@ import com.codahale.metrics.Timer;
 public class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
-
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
@@ -112,14 +108,14 @@ public class RaftServerImpl implements RaftServer.Division,
   private final LeaderElectionMetrics leaderElectionMetrics;
   private final RaftServerMetrics raftServerMetrics;
 
-  private AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
+  private final AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
 
   // To avoid append entry before complete start() method
   // For example, if thread1 start(), but before thread1 startAsFollower(), thread2 receive append entry
   // request, and change state to RUNNING by lifeCycle.compareAndTransition(STARTING, RUNNING),
   // then thread1 execute lifeCycle.transition(RUNNING) in startAsFollower(),
   // So happens IllegalStateException: ILLEGAL TRANSITION: RUNNING -> RUNNING,
-  private AtomicBoolean startComplete;
+  private final AtomicBoolean startComplete;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -297,8 +293,6 @@ public class RaftServerImpl implements RaftServer.Division,
    * the directory is moved to
    * {@link RaftServerConfigKeys#REMOVED_GROUPS_DIR_KEY} location.
    * If the deleteDirectory flag is true, the group is permanently deleted.
-   * @param deleteDirectory
-   * @param renameDirectory
    */
   void groupRemove(boolean deleteDirectory, boolean renameDirectory) {
     final RaftStorageDirectory dir = state.getStorage().getStorageDir();

@@ -24,6 +24,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.Log4jUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -36,7 +37,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    Log4jUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
     Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 

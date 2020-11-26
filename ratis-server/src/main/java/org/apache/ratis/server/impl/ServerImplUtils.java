@@ -21,6 +21,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.IOUtils;
@@ -39,7 +40,7 @@ public final class ServerImplUtils {
   public static RaftServerProxy newRaftServer(
       RaftPeerId id, RaftGroup group, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters) throws IOException {
-    RaftServerProxy.LOG.debug("newRaftServer: {}, {}", id, group);
+    RaftServer.LOG.debug("newRaftServer: {}, {}", id, group);
     final RaftServerProxy proxy = newRaftServer(id, stateMachineRegistry, properties, parameters);
     proxy.initGroups(group);
     return proxy;
@@ -54,7 +55,7 @@ public final class ServerImplUtils {
       // attempt multiple times to avoid temporary bind exception
       proxy = JavaUtils.attemptRepeatedly(
           () -> new RaftServerProxy(id, stateMachineRegistry, properties, parameters),
-          5, sleepTime, "new RaftServerProxy", RaftServerProxy.LOG);
+          5, sleepTime, "new RaftServerProxy", RaftServer.LOG);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException(
