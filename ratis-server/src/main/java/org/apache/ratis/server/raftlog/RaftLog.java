@@ -123,15 +123,20 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
    * Update the last committed index.
    * @param majorityIndex the index that has achieved majority.
    * @param currentTerm the current term.
+   * @param isLeader Is this server the leader?
    * @return true if update is applied; otherwise, return false, i.e. no update required.
    */
-  public boolean updateLastCommitted(long majorityIndex, long currentTerm) {
+  public boolean updateCommitIndex(long majorityIndex, long currentTerm, boolean isLeader) {
     try(AutoCloseableLock writeLock = writeLock()) {
       final long oldCommittedIndex = getLastCommittedIndex();
       final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
       if (oldCommittedIndex < newCommitIndex) {
-        // Only update last committed index for current term. See §5.4.2 in
-        // paper for details.
+        if (!isLeader) {
+          commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
+          return true;
+        }
+
+        // Only update last committed index for current term. See §5.4.2 in paper for details.
         final TermIndex entry = getTermIndex(newCommitIndex);
         if (entry != null && entry.getTerm() == currentTerm) {
           commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);

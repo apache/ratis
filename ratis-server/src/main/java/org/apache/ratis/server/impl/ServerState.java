@@ -382,8 +382,8 @@ public class ServerState implements Closeable {
     }
   }
 
-  boolean updateStatemachine(long majorityIndex, long curTerm) {
-    if (log.updateLastCommitted(majorityIndex, curTerm)) {
+  boolean updateCommitIndex(long majorityIndex, long curTerm, boolean isLeader) {
+    if (log.updateCommitIndex(majorityIndex, curTerm, isLeader)) {
       stateMachineUpdater.notifyUpdater();
       return true;
     }

@@ -433,8 +433,8 @@ public class LeaderState {
   AppendEntriesRequestProto newAppendEntriesRequestProto(RaftPeerId targetId,
       TermIndex previous, List<LogEntryProto> entries, boolean initializing,
       long callId) {
-    return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId,
-        currentTerm, entries, raftLog.getLastCommittedIndex(),
+    return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, currentTerm, entries,
+        ServerImplUtils.effectiveCommitIndex(raftLog.getLastCommittedIndex(), previous, entries.size()),
         initializing, previous, server.getCommitInfos(), callId);
   }
 
@@ -694,7 +694,7 @@ public class LeaderState {
       final TermIndex[] entriesToCommit = raftLog.getEntries(
           oldLastCommitted + 1, majority + 1);
 
-      if (server.getState().updateStatemachine(majority, currentTerm)) {
+      if (server.getState().updateCommitIndex(majority, currentTerm, true)) {
         watchRequests.update(ReplicationLevel.MAJORITY, majority);
         logMetadata(majority);
         commitIndexChanged();
