@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.statemachine;
 
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
@@ -48,7 +49,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
@@ -64,7 +64,7 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
   public static final int NUM_SERVERS = 3;
 
   static class SMTransactionContext extends SimpleStateMachine4Testing {
-    public static SMTransactionContext get(RaftServerImpl s) {
+    public static SMTransactionContext get(RaftServer.Division s) {
       return (SMTransactionContext)s.getStateMachine();
     }
 
@@ -159,10 +159,10 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     }
 
     // check leader
-    RaftServerImpl raftServer = cluster.getLeader();
+    RaftServer.Division raftServer = cluster.getLeader();
     // assert every transaction has obtained context in leader
     final SMTransactionContext sm = SMTransactionContext.get(raftServer);
-    List<Long> ll = sm.applied.stream().collect(Collectors.toList());
+    final List<Long> ll = new ArrayList<>(sm.applied);
     Collections.sort(ll);
     assertEquals(ll.toString(), ll.size(), numTrx);
     for (int i=0; i < numTrx; i++) {

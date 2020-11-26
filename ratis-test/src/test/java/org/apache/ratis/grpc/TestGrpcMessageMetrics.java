@@ -25,7 +25,8 @@ import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
@@ -62,9 +63,9 @@ public class TestGrpcMessageMetrics extends BaseTest
     JavaUtils.attempt(() -> assertMessageCount(cluster.getLeader()), 100, HUNDRED_MILLIS, cluster.getLeader().getId() + "-assertMessageCount", null);
   }
 
-  static void assertMessageCount(RaftServerImpl server) throws  Exception {
+  static void assertMessageCount(RaftServer.Division server) {
     String serverId = server.getId().toString();
-    GrpcService service = (GrpcService)(server.getProxy().getServerRpc());
+    GrpcService service = (GrpcService) RaftServerTestUtil.getServerRpc(server);
     RatisMetricRegistry registry = service.getServerInterceptor().getMetrics().getRegistry();
     String counter_prefix = serverId + "_" + "ratis.grpc.RaftServerProtocolService";
     Assert.assertTrue(registry.counter(counter_prefix + "_" + "requestVote" + "_OK_completed_total").getCount() > 0);

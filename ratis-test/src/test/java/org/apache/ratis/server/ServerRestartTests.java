@@ -31,7 +31,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -109,7 +109,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     writeSomething(newMessage, cluster);
     final int truncatedMessageIndex = messageCount.get() - 1;
 
-    final long leaderLastIndex = cluster.getLeader().getState().getLog().getLastEntryTermIndex().getIndex();
+    final long leaderLastIndex = RaftServerTestUtil.getRaftLog(cluster.getLeader()).getLastEntryTermIndex().getIndex();
     // make sure the restarted follower can catchup
     final ServerState followerState = cluster.getRaftServerImpl(followerId).getState();
     JavaUtils.attemptRepeatedly(() -> {
@@ -127,7 +127,9 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final File leaderOpenLogFile = getOpenLogFile(cluster.getRaftServerImpl(leaderId));
 
     // shutdown all servers
-    cluster.getServers().forEach(RaftServerProxy::close);
+    for(RaftServer s : cluster.getServers()) {
+      s.close();
+    }
 
     // truncate log and
     assertTruncatedLog(followerId, followerOpenLogFile, followerLastIndex, cluster);
@@ -166,7 +168,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final RaftServerImpl server = cluster.restartServer(id, false);
     // the last index should be one less than before
     Assert.assertEquals(lastIndex - 1, server.getState().getLog().getLastEntryTermIndex().getIndex());
-    server.getProxy().close();
+    server.getRaftServer().close();
   }
 
   static List<Path> getOpenLogFiles(RaftServerImpl server) throws Exception {
@@ -195,7 +197,9 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     }
 
     // shutdown all servers
-    cluster.getServers().forEach(RaftServerProxy::close);
+    for(RaftServer s : cluster.getServers()) {
+      s.close();
+    }
 
     for(RaftServerImpl impl : cluster.iterateServerImpls()) {
       final File openLogFile = JavaUtils.attemptRepeatedly(() -> getOpenLogFile(impl),
@@ -221,7 +225,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       });
     }
     final RaftServerImpl server = cluster.restartServer(id, false);
-    server.getProxy().close();
+    server.getRaftServer().close();
   }
 
   @Test
@@ -249,8 +253,8 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     JavaUtils.allOf(futures).get();
 
     final List<RaftPeerId> ids = new ArrayList<>();
-    final RaftServerImpl leader = cluster.getLeader();
-    final RaftLog leaderLog = leader.getState().getLog();
+    final RaftServer.Division leader = cluster.getLeader();
+    final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(leader);
     final RaftPeerId leaderId = leader.getId();
     ids.add(leaderId);
 
@@ -306,8 +310,8 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  static void assertLastLogEntry(RaftServerImpl server) throws RaftLogIOException {
-    final RaftLog raftLog = server.getState().getLog();
+  static void assertLastLogEntry(RaftServer.Division server) throws RaftLogIOException {
+    final RaftLog raftLog = RaftServerTestUtil.getRaftLog(server);
     final long lastIndex = raftLog.getLastEntryTermIndex().getIndex();
     final LogEntryProto lastEntry = raftLog.get(lastIndex);
     Assert.assertTrue(lastEntry.hasMetadataEntry());
@@ -365,7 +369,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
     final RaftLog log = leader.getState().getLog();
     final long size = TestSegmentedRaftLog.getOpenSegmentSize(log);
-    leader.getProxy().close();
+    leader.getRaftServer().close();
 
     // corrupt the log
     final File openLogFile = JavaUtils.attemptRepeatedly(() -> getOpenLogFile(leader),

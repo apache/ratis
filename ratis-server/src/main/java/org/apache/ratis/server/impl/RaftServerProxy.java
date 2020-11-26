@@ -58,6 +58,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -155,6 +156,7 @@ public class RaftServerProxy implements RaftServer {
   }
 
   private final RaftPeerId id;
+  private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(this::buildRaftPeer);
   private final RaftProperties properties;
   private final StateMachine.Registry stateMachineRegistry;
   private final LifeCycle lifeCycle;
@@ -235,6 +237,19 @@ public class RaftServerProxy implements RaftServer {
   @Override
   public RaftPeerId getId() {
     return id;
+  }
+
+  @Override
+  public RaftPeer getPeer() {
+    return peerSupplier.get();
+  }
+
+  private RaftPeer buildRaftPeer() {
+    return RaftPeer.newBuilder()
+        .setId(getId())
+        .setAddress(getServerRpc().getInetSocketAddress())
+        .setDataStreamAddress(getDataStreamServerRpc().getInetSocketAddress())
+        .build();
   }
 
   @Override

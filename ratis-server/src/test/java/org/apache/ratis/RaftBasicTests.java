@@ -71,7 +71,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
     Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftServerTestUtil.getStateMachineUpdaterLog(), Level.DEBUG);
+    RaftServerTestUtil.setStateMachineUpdaterLogLevel(Level.DEBUG);
 
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), TimeDuration.valueOf(5, TimeUnit.SECONDS));
   }

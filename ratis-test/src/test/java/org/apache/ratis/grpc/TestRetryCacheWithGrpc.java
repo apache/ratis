@@ -25,9 +25,8 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -51,9 +50,9 @@ public class TestRetryCacheWithGrpc
     MiniRaftClusterWithGrpc cluster = getFactory().newCluster(NUM_SERVERS, properties);
     cluster.start();
 
-    RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
-    RaftServerProxy leaderProxy = leader.getProxy();
-    for (RaftServerImpl follower : cluster.getFollowers()) {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer leaderProxy = leader.getRaftServer();
+    for (RaftServer.Division follower : cluster.getFollowers()) {
       // block followers to trigger ResourceUnavailableException
       ((SimpleStateMachine4Testing) follower.getStateMachine()).blockWriteStateMachineData();
     }
@@ -74,7 +73,7 @@ public class TestRetryCacheWithGrpc
         return null;
       });
     }
-    for (RaftServerImpl follower : cluster.getFollowers()) {
+    for (RaftServer.Division follower : cluster.getFollowers()) {
       // unblock followers
       ((SimpleStateMachine4Testing)follower.getStateMachine()).unblockWriteStateMachineData();
     }

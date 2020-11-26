@@ -120,7 +120,8 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
       if (getStateMachineException == null) {
         final ConcurrentMap<RaftGroupId, MyDivision> divisions = new ConcurrentHashMap<>();
         when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenAnswer(
-            invocation -> divisions.computeIfAbsent((RaftGroupId)invocation.getArguments()[0], MyDivision::new));
+            invocation -> divisions.computeIfAbsent((RaftGroupId)invocation.getArguments()[0],
+                key -> new MyDivision(raftServer)));
       } else {
         when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenThrow(getStateMachineException);
       }

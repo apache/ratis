@@ -241,7 +241,7 @@ class LeaderElection implements Runnable {
             return;
           case SHUTDOWN:
             LOG.info("{} received shutdown response when requesting votes.", this);
-            server.getProxy().close();
+            server.getRaftServer().close();
             return;
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:

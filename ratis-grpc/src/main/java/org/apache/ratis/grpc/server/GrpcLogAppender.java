@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.grpc.server;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
@@ -69,16 +70,15 @@ public class GrpcLogAppender extends LogAppender {
                          FollowerInfo f) {
     super(server, leaderState, f);
 
-    this.rpcService = (GrpcService) server.getServerRpc();
+    this.rpcService = (GrpcService) server.getRaftServer().getServerRpc();
 
-    maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(
-        server.getProxy().getProperties());
-    requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(server.getProxy().getProperties());
-    installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(
-        server.getProxy().getProperties());
+    final RaftProperties properties = server.getRaftServer().getProperties();
+    this.maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(properties);
+    this.requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(properties);
+    this.installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
+
     grpcServerMetrics = new GrpcServerMetrics(server.getMemberId().toString());
-    grpcServerMetrics.addPendingRequestsCount(getFollowerId().toString(),
-        () -> pendingRequests.logRequestsSize());
+    grpcServerMetrics.addPendingRequestsCount(getFollowerId().toString(), pendingRequests::logRequestsSize);
   }
 
   private GrpcServerProtocolClient getClient() throws IOException {
