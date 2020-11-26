@@ -77,7 +77,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
   private boolean notifiedAsLeader;
 
-  public static SimpleStateMachine4Testing get(RaftServerImpl s) {
+  public static SimpleStateMachine4Testing get(RaftServer.Division s) {
     return (SimpleStateMachine4Testing)s.getStateMachine();
   }
 

@@ -20,8 +20,8 @@ package org.apache.ratis.server;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.rpc.RpcFactory;
 import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 
 /** Raft server interface */
 public interface RaftServer extends Closeable, RpcType.Get,
@@ -48,8 +49,23 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** @return the {@link RaftGroupMemberId} for this division. */
     RaftGroupMemberId getMemberId();
 
+    /** @return the {@link RaftPeerId} for this division. */
+    default RaftPeerId getId() {
+      return getMemberId().getPeerId();
+    }
+
+    /** @return the {@link RaftPeer} for this division. */
+    default RaftPeer getPeer() {
+      return Optional.ofNullable(getGroup())
+          .map(g -> g.getPeer(getId()))
+          .orElseGet(() -> getRaftServer().getPeer());
+    }
+
     /** @return the {@link RaftGroup} for this division. */
     RaftGroup getGroup();
+
+    /** @return the {@link RaftServer} containing this division. */
+    RaftServer getRaftServer();
 
     /** @return the {@link StateMachine} for this division. */
     StateMachine getStateMachine();
@@ -59,6 +75,9 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
   /** @return the server ID. */
   RaftPeerId getId();
+
+  /** @return the {@link RaftPeer} for this server. */
+  RaftPeer getPeer();
 
   /** @return the group IDs the server is part of. */
   Iterable<RaftGroupId> getGroupIds();
@@ -72,7 +91,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
   RaftProperties getProperties();
 
   /** @return the factory for creating server components. */
-  ServerFactory getFactory();
+  RpcFactory getFactory();
 
   /** Start this server. */
   void start() throws IOException;

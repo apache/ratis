@@ -155,7 +155,7 @@ public class LogAppender {
     this.leaderState = leaderState;
     this.raftLog = server.getState().getLog();
 
-    final RaftProperties properties = server.getProxy().getProperties();
+    final RaftProperties properties = server.getRaftServer().getProperties();
     this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties).getSizeInt();
     this.halfMinTimeoutMs = server.getMinTimeoutMs() / 2;
 

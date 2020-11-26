@@ -236,10 +236,11 @@ public class LeaderState {
   private final RaftServerMetrics raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
 
-  LeaderState(RaftServerImpl server, RaftProperties properties) {
+  LeaderState(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.server = server;
 
+    final RaftProperties properties = server.getRaftServer().getProperties();
     stagingCatchupGap = RaftServerConfigKeys.stagingCatchupGap(properties);
     syncInterval = RaftServerConfigKeys.Rpc.sleepTime(properties);
 

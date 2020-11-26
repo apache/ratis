@@ -26,6 +26,10 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DataStreamMap;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -42,6 +46,9 @@ import java.util.stream.Stream;
 public class RaftServerTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerTestUtil.class);
 
+  public static void setStateMachineUpdaterLogLevel(Level level) {
+    Log4jUtils.setLogLevel(StateMachineUpdater.LOG, level);
+  }
   public static void setWatchRequestsLogLevel(Level level) {
     Log4jUtils.setLogLevel(WatchRequests.LOG, level);
   }
@@ -65,7 +72,8 @@ public class RaftServerTestUtil {
     int deadIncluded = 0;
     final RaftConfiguration current = RaftConfiguration.newBuilder()
         .setConf(peers).setLogEntryIndex(0).build();
-    for (RaftServerImpl server : cluster.iterateServerImpls()) {
+    for (RaftServer.Division d : cluster.iterateServerImpls()) {
+      final RaftServerImpl server = (RaftServerImpl)d;
       LOG.info("checking {}", server);
       if (deadPeers != null && deadPeers.contains(server.getId())) {
         if (current.containsInConf(server.getId())) {
@@ -87,12 +95,24 @@ public class RaftServerTestUtil {
     Assert.assertEquals(peers.size(), numIncluded + deadIncluded);
   }
 
-  public static long getRetryCacheSize(RaftServerImpl server) {
-    return server.getRetryCache().size();
+  public static boolean isLeaderReady(RaftServer.Division server) {
+    return ((RaftServerImpl)server).isLeaderReady();
   }
 
-  public static RetryCache.CacheEntry getRetryEntry(RaftServerImpl server, ClientId clientId, long callId) {
-    return server.getRetryCache().get(ClientInvocationId.valueOf(clientId, callId));
+  public static long getCurrentTerm(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getState().getCurrentTerm();
+  }
+
+  public static long getLastAppliedIndex(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getState().getLastAppliedIndex();
+  }
+
+  public static long getRetryCacheSize(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getRetryCache().size();
+  }
+
+  public static RetryCache.CacheEntry getRetryEntry(RaftServer.Division server, ClientId clientId, long callId) {
+    return ((RaftServerImpl)server).getRetryCache().get(ClientInvocationId.valueOf(clientId, callId));
   }
 
   public static boolean isRetryCacheEntryFailed(RetryCache.CacheEntry entry) {
@@ -103,11 +123,31 @@ public class RaftServerTestUtil {
     return server.getRole().getRaftPeerRole();
   }
 
-  private static Optional<LeaderState> getLeaderState(RaftServerImpl server) {
-    return server.getRole().getLeaderState();
+  public static RaftConfiguration getRaftConf(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getRaftConf();
   }
 
-  public static Stream<LogAppender> getLogAppenders(RaftServerImpl server) {
+  public static RaftLog getRaftLog(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getState().getLog();
+  }
+
+  public static RaftStorage getRaftStorage(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getState().getStorage();
+  }
+
+  public static RaftServerMetrics getRaftServerMetrics(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getRaftServerMetrics();
+  }
+
+  public static RaftServerRpc getServerRpc(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getRaftServer().getServerRpc();
+  }
+
+  private static Optional<LeaderState> getLeaderState(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getRole().getLeaderState();
+  }
+
+  public static Stream<LogAppender> getLogAppenders(RaftServer.Division server) {
     return getLeaderState(server).map(LeaderState::getLogAppenders).orElse(null);
   }
 
@@ -115,10 +155,6 @@ public class RaftServerTestUtil {
     final LeaderState leaderState = getLeaderState(server).orElseThrow(
         () -> new IllegalStateException(server + " is not the leader"));
     leaderState.getLogAppenders().forEach(leaderState::restartSender);
-  }
-
-  public static Logger getStateMachineUpdaterLog() {
-    return StateMachineUpdater.LOG;
   }
 
   public static List<RaftServerImpl> getRaftServerImpls(RaftServerProxy proxy) {

@@ -296,7 +296,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public RaftServerProxy putNewServer(RaftPeerId id, RaftGroup group, boolean format) {
     final RaftServerProxy s = newRaftServer(id, group, format);
     Preconditions.assertTrue(servers.put(id, s) == null);
-    peers.put(id, toRaftPeer(s));
+    peers.put(id, s.getPeer());
     return s;
   }
 
@@ -404,23 +404,10 @@ public abstract class MiniRaftCluster implements Closeable {
     };
   }
 
-  public static List<RaftPeer> toRaftPeers(
-      Collection<RaftServerProxy> servers) {
+  private static List<RaftPeer> toRaftPeers(Collection<RaftServerProxy> servers) {
     return servers.stream()
-        .map(MiniRaftCluster::toRaftPeer)
+        .map(RaftServer::getPeer)
         .collect(Collectors.toList());
-  }
-
-  public static RaftPeer toRaftPeer(RaftServerImpl s) {
-    return toRaftPeer(s.getProxy());
-  }
-
-  public static RaftPeer toRaftPeer(RaftServerProxy s) {
-    return RaftPeer.newBuilder()
-            .setId(s.getId())
-            .setAddress(s.getServerRpc().getInetSocketAddress())
-            .setDataStreamAddress(s.getDataStreamServerRpc().getInetSocketAddress())
-            .build();
   }
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer)
@@ -463,7 +450,7 @@ public abstract class MiniRaftCluster implements Closeable {
     Collection<RaftPeer> peers = new ArrayList<>(group.getPeers());
     List<RaftPeer> removedPeers = new ArrayList<>(number);
     if (removeLeader) {
-      final RaftPeer leader = toRaftPeer(RaftTestUtil.waitForLeader(this));
+      final RaftPeer leader = RaftTestUtil.waitForLeader(this).getPeer();
       Preconditions.assertTrue(!excluded.contains(leader));
       peers.remove(leader);
       removedPeers.add(leader);
@@ -471,7 +458,7 @@ public abstract class MiniRaftCluster implements Closeable {
     List<RaftServerImpl> followers = getFollowers();
     for (int i = 0, removed = 0; i < followers.size() &&
         removed < (removeLeader ? number - 1 : number); i++) {
-      RaftPeer toRemove = toRaftPeer(followers.get(i));
+      RaftPeer toRemove = followers.get(i).getPeer();
       if (!excluded.contains(toRemove)) {
         peers.remove(toRemove);
         removedPeers.add(toRemove);

@@ -95,8 +95,6 @@ public class RaftServerImpl implements RaftServer.Division,
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
-  private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(() ->
-      RaftPeer.newBuilder().setId(getId()).setAddress(getServerRpc().getInetSocketAddress()).build());
   private final RoleInfo role;
 
   private final DataStreamMap dataStreamMap;
@@ -152,13 +150,8 @@ public class RaftServerImpl implements RaftServer.Division,
     return new RetryCache(expireTime);
   }
 
-  LogAppender newLogAppender(
-      LeaderState leaderState, FollowerInfo f) {
-    return getProxy().getFactory().newLogAppender(this, leaderState, f);
-  }
-
-  RaftPeer getPeer() {
-    return peerSupplier.get();
+  LogAppender newLogAppender(LeaderState leaderState, FollowerInfo f) {
+    return getRaftServer().getFactory().newLogAppender(this, leaderState, f);
   }
 
   int getMinTimeoutMs() {
@@ -200,7 +193,8 @@ public class RaftServerImpl implements RaftServer.Division,
     return retryCache;
   }
 
-  public RaftServerProxy getProxy() {
+  @Override
+  public RaftServerProxy getRaftServer() {
     return proxy;
   }
 
@@ -434,7 +428,7 @@ public class RaftServerImpl implements RaftServer.Division,
     state.becomeLeader();
 
     // start sending AppendEntries RPC to followers
-    final LogEntryProto e = role.startLeaderState(this, getProxy().getProperties());
+    final LogEntryProto e = role.startLeaderState(this);
     getState().setRaftConf(e);
   }
 

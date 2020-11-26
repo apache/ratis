@@ -73,11 +73,13 @@ import java.util.stream.Collectors;
 
 abstract class DataStreamBaseTest extends BaseTest {
   static class MyDivision implements RaftServer.Division {
+    private final RaftServer server;
     private final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
     private final DataStreamMap streamMap;
 
-    MyDivision(Object name) {
-      this.streamMap = RaftServerTestUtil.newDataStreamMap(name);
+    MyDivision(RaftServer server) {
+      this.server = server;
+      this.streamMap = RaftServerTestUtil.newDataStreamMap(server.getId());
     }
 
     @Override
@@ -88,6 +90,11 @@ abstract class DataStreamBaseTest extends BaseTest {
     @Override
     public RaftGroup getGroup() {
       return null;
+    }
+
+    @Override
+    public RaftServer getRaftServer() {
+      return server;
     }
 
     @Override
@@ -143,27 +150,32 @@ abstract class DataStreamBaseTest extends BaseTest {
   }
 
   protected MyRaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
-    return new MyRaftServer(peer.getId(), properties);
+    return new MyRaftServer(peer, properties);
   }
 
   static class MyRaftServer implements RaftServer {
-      private final RaftPeerId id;
+      private final RaftPeer peer;
       private final RaftProperties properties;
       private final ConcurrentMap<RaftGroupId, MyDivision> divisions = new ConcurrentHashMap<>();
 
-      MyRaftServer(RaftPeerId id, RaftProperties properties) {
-        this.id = id;
+      MyRaftServer(RaftPeer peer, RaftProperties properties) {
+        this.peer = peer;
         this.properties = properties;
       }
 
       @Override
       public RaftPeerId getId() {
-        return id;
+        return peer.getId();
+      }
+
+      @Override
+      public RaftPeer getPeer() {
+        return peer;
       }
 
       @Override
       public MyDivision getDivision(RaftGroupId groupId) {
-        return divisions.computeIfAbsent(groupId, MyDivision::new);
+        return divisions.computeIfAbsent(groupId, key -> new MyDivision(this));
       }
 
       @Override
