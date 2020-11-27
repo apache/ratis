@@ -42,6 +42,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.impl.RetryCache;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.thirdparty.com.google.common.cache.CacheStats;
 import org.apache.ratis.util.Preconditions;
 
 /**
@@ -84,24 +85,24 @@ public final class RaftServerMetrics extends RatisMetrics {
   private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
   private final Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache;
 
-  /** key -> metric */
-  private static final Map<RaftGroupMemberId, RaftServerMetrics> metricsMap = new ConcurrentHashMap<>();
-  /** PeerCommitIndexGaugeKeys: id -> key */
-  private static final Map<RaftPeerId, String> peerCommitIndexGaugeKeys = new ConcurrentHashMap<>();
+  /** id -> metric */
+  private static final Map<RaftGroupMemberId, RaftServerMetrics> METRICS = new ConcurrentHashMap<>();
+  /** id -> key */
+  private static final Map<RaftPeerId, String> PEER_COMMIT_INDEX_GAUGE_KEYS = new ConcurrentHashMap<>();
 
   private static String getPeerCommitIndexGaugeKey(RaftPeerId serverId) {
-    return peerCommitIndexGaugeKeys.computeIfAbsent(serverId,
+    return PEER_COMMIT_INDEX_GAUGE_KEYS.computeIfAbsent(serverId,
         key -> String.format(LEADER_METRIC_PEER_COMMIT_INDEX, key));
   }
 
   public static RaftServerMetrics computeIfAbsentRaftServerMetrics(RaftGroupMemberId serverId,
       Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache, Supplier<RetryCache> retryCache) {
-    return metricsMap.computeIfAbsent(serverId,
+    return METRICS.computeIfAbsent(serverId,
         key -> new RaftServerMetrics(serverId, commitInfoCache, retryCache));
   }
 
   public static void removeRaftServerMetrics(RaftGroupMemberId serverId) {
-    metricsMap.remove(serverId);
+    METRICS.remove(serverId);
   }
 
   public RaftServerMetrics(RaftGroupMemberId serverId,
@@ -158,7 +159,7 @@ public final class RaftServerMetrics extends RatisMetrics {
   @VisibleForTesting
   public static Gauge getPeerCommitIndexGauge(RaftGroupMemberId serverId, RaftPeerId peerId) {
 
-    final RaftServerMetrics serverMetrics = metricsMap.get(serverId);
+    final RaftServerMetrics serverMetrics = METRICS.get(serverId);
     if (serverMetrics == null) {
       return null;
     }
