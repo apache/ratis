@@ -91,7 +91,7 @@ public class RaftServerImpl implements RaftServer.Division,
   private final int maxTimeoutMs;
   private final TimeDuration leaderStepDownWaitTime;
   private final int rpcSlownessTimeoutMs;
-  private final int sleepDeviationThresholdMs;
+  private final TimeDuration sleepDeviationThreshold;
   private final boolean installSnapshotEnabled;
 
   private final LifeCycle lifeCycle;
@@ -128,7 +128,7 @@ public class RaftServerImpl implements RaftServer.Division,
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
     rpcSlownessTimeoutMs = RaftServerConfigKeys.Rpc.slownessTimeout(properties).toIntExact(TimeUnit.MILLISECONDS);
     leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
-    sleepDeviationThresholdMs = RaftServerConfigKeys.sleepDeviationThreshold(properties);
+    this.sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
     Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
@@ -168,16 +168,17 @@ public class RaftServerImpl implements RaftServer.Division,
     return rpcSlownessTimeoutMs;
   }
 
-  int getRandomTimeoutMs() {
-    return minTimeoutMs + ThreadLocalRandom.current().nextInt(maxTimeoutMs - minTimeoutMs + 1);
+  TimeDuration getRandomElectionTimeout() {
+    final long millis = minTimeoutMs + ThreadLocalRandom.current().nextInt(maxTimeoutMs - minTimeoutMs + 1);
+    return TimeDuration.valueOf(millis, TimeUnit.MILLISECONDS);
   }
 
   TimeDuration getLeaderStepDownWaitTime() {
     return leaderStepDownWaitTime;
   }
 
-  int getSleepDeviationThresholdMs() {
-    return sleepDeviationThresholdMs;
+  TimeDuration getSleepDeviationThreshold() {
+    return sleepDeviationThreshold;
   }
 
   @Override

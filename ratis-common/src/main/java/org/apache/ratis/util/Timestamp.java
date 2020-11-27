@@ -67,6 +67,15 @@ public final class Timestamp implements Comparable<Timestamp> {
   }
 
   /**
+   * @param t the time period to be added.
+   * @return a new {@link Timestamp} whose value is calculated
+   *         by adding the given milliseconds to this timestamp.
+   */
+  public Timestamp addTime(TimeDuration t) {
+    return new Timestamp(nanos + t.to(TimeUnit.NANOSECONDS).getDuration());
+  }
+
+  /**
    * @return the elapsed time in milliseconds.
    *         If the timestamp is a future time, the returned value is negative.
    */

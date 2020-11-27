@@ -109,11 +109,14 @@ class FollowerState extends Daemon {
 
   @Override
   public  void run() {
-    long sleepDeviationThresholdMs = server.getSleepDeviationThresholdMs();
+    final TimeDuration sleepDeviationThreshold = server.getSleepDeviationThreshold();
     while (isRunning && server.isFollower()) {
-      final long electionTimeout = server.getRandomTimeoutMs();
+      final TimeDuration electionTimeout = server.getRandomElectionTimeout();
       try {
-        if (!JavaUtils.sleep(electionTimeout, sleepDeviationThresholdMs)) {
+        final TimeDuration extraSleep = electionTimeout.sleep();
+        if (extraSleep.compareTo(sleepDeviationThreshold) > 0) {
+          LOG.warn("Unexpected long sleep: sleep {} but took extra {} (> threshold = {})",
+              electionTimeout, extraSleep, sleepDeviationThreshold);
           continue;
         }
 
@@ -123,10 +126,11 @@ class FollowerState extends Daemon {
           break;
         }
         synchronized (server) {
-          if (outstandingOp.get() == 0 && lastRpcTime.elapsedTimeMs() >= electionTimeout
+          if (outstandingOp.get() == 0
+              && lastRpcTime.elapsedTime().compareTo(electionTimeout) >= 0
               && !lostMajorityHeartbeatsRecently()) {
-            LOG.info("{}: change to CANDIDATE, lastRpcTime:{}ms, electionTimeout:{}ms",
-                this, lastRpcTime.elapsedTimeMs(), electionTimeout);
+            LOG.info("{}: change to CANDIDATE, lastRpcElapsedTime:{}, electionTimeout:{}",
+                this, lastRpcTime.elapsedTime(), electionTimeout);
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.
             // election timeout, should become a candidate
             server.changeToCandidate();
