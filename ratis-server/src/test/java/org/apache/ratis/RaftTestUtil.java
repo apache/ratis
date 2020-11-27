@@ -31,6 +31,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -232,9 +233,9 @@ public interface RaftTestUtil {
     }
   }
 
-  static void assertLogEntries(RaftServerImpl server, long expectedTerm, SimpleMessage... expectedMessages) {
+  static void assertLogEntries(RaftServer.Division server, long expectedTerm, SimpleMessage... expectedMessages) {
     LOG.info("checking raft log for {}", server.getMemberId());
-    final RaftLog log = server.getState().getLog();
+    final RaftLog log = RaftServerTestUtil.getRaftLog(server);
     try {
       RaftTestUtil.assertLogEntries(log, expectedTerm, expectedMessages);
     } catch (AssertionError e) {

@@ -18,10 +18,8 @@
 
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.impl.RaftServerMetrics.*;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.*;
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.ClientInvocationId;
@@ -29,6 +27,7 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -44,19 +43,14 @@ public class TestRetryCacheMetrics {
 
     @BeforeClass
     public static void setUp() {
-      RaftServerImpl raftServer = mock(RaftServerImpl.class);
-
       RaftGroupId raftGroupId = RaftGroupId.randomId();
       RaftPeerId raftPeerId = RaftPeerId.valueOf("TestId");
       RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId
           .valueOf(raftPeerId, raftGroupId);
-      when(raftServer.getMemberId()).thenReturn(raftGroupMemberId);
-
       retryCache = new RetryCache(TimeDuration.valueOf(60, TimeUnit.SECONDS));
-      when(raftServer.getRetryCache()).thenReturn(retryCache);
 
-      RaftServerMetrics raftServerMetrics = RaftServerMetrics
-          .getRaftServerMetrics(raftServer);
+      final RaftServerMetrics raftServerMetrics = RaftServerMetrics.computeIfAbsentRaftServerMetrics(
+          raftGroupMemberId, () -> null, () -> retryCache);
       ratisMetricRegistry = raftServerMetrics.getRegistry();
     }
 

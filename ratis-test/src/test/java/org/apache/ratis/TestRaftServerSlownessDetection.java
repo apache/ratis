@@ -23,8 +23,7 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerMetrics;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
@@ -85,13 +84,12 @@ public class TestRaftServerSlownessDetection extends BaseTest {
 
   @Test
   public void testSlownessDetection() throws Exception {
-    RaftServerImpl leaderServer = RaftTestUtil.waitForLeader(cluster);
+    RaftServer.Division leaderServer = RaftTestUtil.waitForLeader(cluster);
     long slownessTimeout = RaftServerConfigKeys.Rpc
         .slownessTimeout(cluster.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
-    RaftServerImpl failedFollower = cluster.getFollowers().get(0);
+    RaftServer.Division failedFollower = cluster.getFollowers().get(0);
 
-    RatisMetricRegistry ratisMetricRegistry =
-        RaftServerMetrics.getRaftServerMetrics(leaderServer).getRegistry();
+    final RatisMetricRegistry ratisMetricRegistry = RaftServerTestUtil.getRaftServerMetrics(leaderServer).getRegistry();
     SortedMap<String, Gauge> heartbeatElapsedTimeGauges =
         ratisMetricRegistry.getGauges((s, metric) ->
             s.contains("lastHeartbeatElapsedTime"));
@@ -110,7 +108,7 @@ public class TestRaftServerSlownessDetection extends BaseTest {
     Assert.assertTrue(followerHeartBeatElapsedMetricNew > followerHeartBeatElapsedMetric);
 
     // Followers should not get any failed not notification
-    for (RaftServerImpl followerServer : cluster.getFollowers()) {
+    for (RaftServer.Division followerServer : cluster.getFollowers()) {
       Assert.assertNull(SimpleStateMachine4Testing.get(followerServer).getSlownessInfo());
     }
     // the leader should get notification that the follower has failed now

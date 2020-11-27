@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.impl.RaftServerMetrics.RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;

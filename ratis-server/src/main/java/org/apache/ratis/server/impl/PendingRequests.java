@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;

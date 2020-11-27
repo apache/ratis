@@ -28,12 +28,12 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LogAppender;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerMetrics;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
-import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -130,7 +130,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     // Start a 3 node Ratis ring.
     final MiniRaftCluster cluster = newCluster(3);
     cluster.start();
-    RaftServerImpl leaderServer = waitForLeader(cluster);
+    final RaftServer.Division leaderServer = waitForLeader(cluster);
 
     // Write 10 messages to leader.
     try(RaftClient client = cluster.createClient(leaderServer.getId())) {
@@ -141,15 +141,14 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       throw e;
     }
 
-    RatisMetricRegistry ratisMetricRegistry =
-        RaftServerMetrics.getRaftServerMetrics(leaderServer).getRegistry();
+    final RatisMetricRegistry ratisMetricRegistry = RaftServerTestUtil.getRaftServerMetrics(leaderServer).getRegistry();
 
     // Get all last_heartbeat_elapsed_time metric gauges. Should be equal to number of followers.
     SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
         s.contains("lastHeartbeatElapsedTime"));
     assertTrue(heartbeatElapsedTimeGauges.size() == 2);
 
-    for (RaftServerImpl followerServer : cluster.getFollowers()) {
+    for (RaftServer.Division followerServer : cluster.getFollowers()) {
       String followerId = followerServer.getId().toString();
       Gauge metric = heartbeatElapsedTimeGauges.entrySet().parallelStream().filter(e -> e.getKey().contains(
           followerId)).iterator().next().getValue();
@@ -158,7 +157,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       // Metric in nanos > 0.
       assertTrue((long)metric.getValue() > 0);
       // Try to get Heartbeat metrics for follower.
-      RaftServerMetrics followerMetrics = RaftServerMetrics.getRaftServerMetrics(followerServer);
+      final RaftServerMetrics followerMetrics = RaftServerTestUtil.getRaftServerMetrics(followerServer);
       // Metric should not exist. It only exists in leader.
       assertTrue(followerMetrics.getRegistry().getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty());
       for (boolean heartbeat : new boolean[] { true, false }) {
@@ -208,8 +207,8 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       }
     }
 
-    final ServerState leaderState = cluster.getLeader().getState();
-    final RaftLog leaderLog = leaderState.getLog();
+    final RaftServer.Division leader = cluster.getLeader();
+    final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
     final EnumMap<LogEntryBodyCase, AtomicLong> counts = RaftTestUtil.countEntries(leaderLog);
     LOG.info("counts = " + counts);
     Assert.assertEquals(6 * numMsgs * numClients, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());
@@ -217,6 +216,6 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     final LogEntryProto last = RaftTestUtil.getLastEntry(LogEntryBodyCase.STATEMACHINELOGENTRY, leaderLog);
     LOG.info("last = " + ServerProtoUtils.toLogEntryString(last));
     Assert.assertNotNull(last);
-    Assert.assertTrue(last.getIndex() <= leaderState.getLastAppliedIndex());
+    Assert.assertTrue(last.getIndex() <= RaftServerTestUtil.getLastAppliedIndex(leader));
   }
 }

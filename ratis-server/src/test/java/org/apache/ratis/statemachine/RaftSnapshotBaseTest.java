@@ -37,7 +37,6 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
@@ -76,9 +75,9 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 10;
 
   public static List<File> getSnapshotFiles(MiniRaftCluster cluster, long startIndex, long endIndex) {
-    final RaftServerImpl leader = cluster.getLeader();
+    final RaftServer.Division leader = cluster.getLeader();
     final SimpleStateMachineStorage storage = SimpleStateMachine4Testing.get(leader).getStateMachineStorage();
-    final long term = leader.getState().getCurrentTerm();
+    final long term = RaftServerTestUtil.getCurrentTerm(leader);
     return LongStream.range(startIndex, endIndex)
         .mapToObj(i -> storage.getSnapshotFile(term, i))
         .collect(Collectors.toList());
@@ -86,8 +85,8 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
 
   public static void assertLeaderContent(MiniRaftCluster cluster) throws Exception {
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
-    final RaftLog leaderLog = leader.getState().getLog();
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(leader);
     final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
     final LogEntryProto e = leaderLog.get(lastIndex);
     Assert.assertTrue(e.hasMetadataEntry());
@@ -151,7 +150,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       }
     }
 
-    final long nextIndex = cluster.getLeader().getState().getLog().getNextIndex();
+    final long nextIndex = RaftServerTestUtil.getRaftLog(cluster.getLeader()).getNextIndex();
     LOG.info("nextIndex = {}", nextIndex);
     // wait for the snapshot to be done
     final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
@@ -199,10 +198,9 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       }
 
       // wait for the snapshot to be done
-      RaftStorageDirectory storageDirectory = cluster.getLeader().getState()
-          .getStorage().getStorageDir();
+      RaftStorageDirectory storageDirectory = RaftServerTestUtil.getRaftStorage(cluster.getLeader()).getStorageDir();
 
-      final long nextIndex = cluster.getLeader().getState().getLog().getNextIndex();
+      final long nextIndex = RaftServerTestUtil.getRaftLog(cluster.getLeader()).getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
       JavaUtils.attemptRepeatedly(() -> {
@@ -239,9 +237,9 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       cluster.setConfiguration(change.allPeersInNewConf);
 
       for (String newPeer : newPeers) {
-        RaftServerImpl s = cluster.getRaftServerImpl(RaftPeerId.valueOf(newPeer));
+        final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));
         SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
-        Assert.assertTrue(simpleStateMachine.getLifeCycleState() == LifeCycle.State.RUNNING);
+        Assert.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
       }
 
       // Verify installSnapshot counter on leader before restart.
@@ -262,18 +260,19 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     }
   }
 
-  protected void verifyInstallSnapshotMetric(RaftServerImpl leader) {
-    Counter installSnapshotCounter = leader.getRaftServerMetrics().getCounter(LOG_APPENDER_INSTALL_SNAPSHOT_METRIC);
+  protected void verifyInstallSnapshotMetric(RaftServer.Division leader) {
+    final Counter installSnapshotCounter = RaftServerTestUtil.getRaftServerMetrics(leader)
+        .getCounter(LOG_APPENDER_INSTALL_SNAPSHOT_METRIC);
     Assert.assertNotNull(installSnapshotCounter);
     Assert.assertTrue(installSnapshotCounter.getCount() >= 1);
   }
 
-  private static void verifyTakeSnapshotMetric(RaftServerImpl leader) {
+  private static void verifyTakeSnapshotMetric(RaftServer.Division leader) {
     Timer timer = getTakeSnapshotTimer(leader);
     Assert.assertTrue(timer.getCount() > 0);
   }
 
-  private static Timer getTakeSnapshotTimer(RaftServerImpl leader) {
+  private static Timer getTakeSnapshotTimer(RaftServer.Division leader) {
     MetricRegistryInfo info = new MetricRegistryInfo(leader.getMemberId().toString(),
         RATIS_APPLICATION_NAME_METRICS,
         RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC);
