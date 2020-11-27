@@ -42,7 +42,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.impl.RetryCache;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
-import org.apache.ratis.thirdparty.com.google.common.cache.CacheStats;
 import org.apache.ratis.util.Preconditions;
 
 /**
