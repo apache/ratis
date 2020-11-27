@@ -16,14 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.server.impl;
+package org.apache.ratis.server.metrics;
 
 import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_APPEND_ENTRIES_LATENCY;
 
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
@@ -31,12 +34,13 @@ import com.codahale.metrics.Timer;
 
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftClientRequest.Type;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.metrics.RatisMetrics;
+import org.apache.ratis.server.impl.RetryCache;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Preconditions;
 
@@ -76,30 +80,36 @@ public final class RaftServerMetrics extends RatisMetrics {
   public static final String RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT =
       "numFailedClientStreamOnServer";
 
-  private Map<String, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
-  private CommitInfoCache commitInfoCache;
+  /** Follower Id -> heartbeat elapsed */
+  private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
+  private final Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache;
 
-  private static Map<String, RaftServerMetrics> metricsMap = new ConcurrentHashMap<>();
+  /** id -> metric */
+  private static final Map<RaftGroupMemberId, RaftServerMetrics> METRICS = new ConcurrentHashMap<>();
+  /** id -> key */
+  private static final Map<RaftPeerId, String> PEER_COMMIT_INDEX_GAUGE_KEYS = new ConcurrentHashMap<>();
 
-  public static RaftServerMetrics getRaftServerMetrics(
-      RaftServerImpl raftServer) {
-    RaftServerMetrics serverMetrics = new RaftServerMetrics(raftServer);
-    metricsMap.put(raftServer.getMemberId().toString(), serverMetrics);
-    return serverMetrics;
+  private static String getPeerCommitIndexGaugeKey(RaftPeerId serverId) {
+    return PEER_COMMIT_INDEX_GAUGE_KEYS.computeIfAbsent(serverId,
+        key -> String.format(LEADER_METRIC_PEER_COMMIT_INDEX, key));
   }
 
-  public static void removeRaftServerMetrics(RaftServerImpl raftServer) {
-    String memberId = raftServer.getMemberId().toString();
-    if (metricsMap.containsKey(memberId)) {
-      metricsMap.remove(memberId);
-    }
+  public static RaftServerMetrics computeIfAbsentRaftServerMetrics(RaftGroupMemberId serverId,
+      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache, Supplier<RetryCache> retryCache) {
+    return METRICS.computeIfAbsent(serverId,
+        key -> new RaftServerMetrics(serverId, commitInfoCache, retryCache));
   }
 
-  private RaftServerMetrics(RaftServerImpl server) {
-    registry = getMetricRegistryForRaftServer(server.getMemberId().toString());
-    commitInfoCache = server.getCommitInfoCache();
-    addPeerCommitIndexGauge(server.getId());
-    addRetryCacheMetric(server);
+  public static void removeRaftServerMetrics(RaftGroupMemberId serverId) {
+    METRICS.remove(serverId);
+  }
+
+  public RaftServerMetrics(RaftGroupMemberId serverId,
+      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache, Supplier<RetryCache> retryCache) {
+    this.registry = getMetricRegistryForRaftServer(serverId.toString());
+    this.commitInfoCache = commitInfoCache;
+    addPeerCommitIndexGauge(serverId.getPeerId());
+    addRetryCacheMetric(retryCache);
   }
 
   private RatisMetricRegistry getMetricRegistryForRaftServer(String serverId) {
@@ -108,20 +118,18 @@ public final class RaftServerMetrics extends RatisMetrics {
         RATIS_SERVER_METRICS_DESC));
   }
 
-  private void addRetryCacheMetric(RaftServerImpl raftServer) {
-    registry.gauge(RETRY_CACHE_ENTRY_COUNT_METRIC, () -> () -> raftServer.getRetryCache().size());
-    registry.gauge(RETRY_CACHE_HIT_COUNT_METRIC, () -> () -> raftServer.getRetryCache().stats().hitCount());
-    registry.gauge(RETRY_CACHE_HIT_RATE_METRIC, () -> () -> raftServer.getRetryCache().stats().hitRate());
-    registry.gauge(RETRY_CACHE_MISS_COUNT_METRIC, () -> () -> raftServer.getRetryCache().stats().missCount());
-    registry.gauge(RETRY_CACHE_MISS_RATE_METRIC, () -> () -> raftServer.getRetryCache().stats().missRate());
+  private void addRetryCacheMetric(Supplier<RetryCache> retryCache) {
+    registry.gauge(RETRY_CACHE_ENTRY_COUNT_METRIC, () -> () -> retryCache.get().size());
+    registry.gauge(RETRY_CACHE_HIT_COUNT_METRIC  , () -> () -> retryCache.get().stats().hitCount());
+    registry.gauge(RETRY_CACHE_HIT_RATE_METRIC   , () -> () -> retryCache.get().stats().hitRate());
+    registry.gauge(RETRY_CACHE_MISS_COUNT_METRIC , () -> () -> retryCache.get().stats().missCount());
+    registry.gauge(RETRY_CACHE_MISS_RATE_METRIC  , () -> () -> retryCache.get().stats().missRate());
   }
 
   /**
    * Register a follower with this Leader Metrics registry instance.
-   * @param peer {@Link RaftPeer} representing the follower
    */
-  public void addFollower(RaftPeer peer) {
-    String followerName = peer.getId().toString();
+  public void addFollower(RaftPeerId followerName) {
     String followerHbMetricKey = String.format(
         FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC,
         followerName);
@@ -130,43 +138,32 @@ public final class RaftServerMetrics extends RatisMetrics {
     registry.gauge(followerHbMetricKey,
         () -> () -> followerLastHeartbeatElapsedTimeMap.get(followerName));
 
-    addPeerCommitIndexGauge(peer.getId());
+    addPeerCommitIndexGauge(followerName);
   }
 
   /**
    * Register a commit index tracker for the peer in cluster.
    */
   public void addPeerCommitIndexGauge(RaftPeerId peerId) {
-    String followerCommitIndexKey = String.format(
-        LEADER_METRIC_PEER_COMMIT_INDEX, peerId);
-    registry.gauge(followerCommitIndexKey, () -> () -> {
-      RaftProtos.CommitInfoProto commitInfoProto = commitInfoCache.get(peerId);
-      if (commitInfoProto != null) {
-        return commitInfoProto.getCommitIndex();
-      }
-      return 0L;
-    });
+    registry.gauge(getPeerCommitIndexGaugeKey(peerId), () -> () -> Optional.ofNullable(commitInfoCache.get())
+        .map(cache -> cache.apply(peerId))
+        .map(CommitInfoProto::getCommitIndex)
+        .orElse(0L));
   }
 
   /**
    * Get the commit index gauge for the given peer of the server
-   * @param server
-   * @param peerServer
    * @return Metric Gauge holding the value of commit index of the peer
    */
   @VisibleForTesting
-  public static Gauge getPeerCommitIndexGauge(RaftServerImpl server,
-      RaftServerImpl peerServer) {
+  public static Gauge getPeerCommitIndexGauge(RaftGroupMemberId serverId, RaftPeerId peerId) {
 
-    RaftServerMetrics serverMetrics =
-        metricsMap.get(server.getMemberId().toString());
+    final RaftServerMetrics serverMetrics = METRICS.get(serverId);
     if (serverMetrics == null) {
       return null;
     }
 
-    String followerCommitIndexKey = String.format(
-        LEADER_METRIC_PEER_COMMIT_INDEX,
-        peerServer.getPeer().getId().toString());
+    final String followerCommitIndexKey = getPeerCommitIndexGaugeKey(peerId);
 
     SortedMap<String, Gauge> map =
         serverMetrics.registry.getGauges((s, metric) ->
@@ -178,12 +175,11 @@ public final class RaftServerMetrics extends RatisMetrics {
 
   /**
    * Record heartbeat elapsed time for a follower within a Raft group.
-   * @param peer {@Link RaftPeer} representing the follower.
-   * @param elapsedTime Elapsed time in Nanos.
+   * @param followerId the follower id.
+   * @param elapsedTimeNs Elapsed time in Nanos.
    */
-  public void recordFollowerHeartbeatElapsedTime(RaftPeer peer, long elapsedTime) {
-    followerLastHeartbeatElapsedTimeMap.put(peer.getId().toString(),
-        elapsedTime);
+  public void recordFollowerHeartbeatElapsedTime(RaftPeerId followerId, long elapsedTimeNs) {
+    followerLastHeartbeatElapsedTimeMap.put(followerId, elapsedTimeNs);
   }
 
   public Timer getFollowerAppendEntryTimer(boolean isHeartbeat) {
@@ -198,13 +194,13 @@ public final class RaftServerMetrics extends RatisMetrics {
     return registry.counter(counterName);
   }
 
-  public Timer getClientRequestTimer(RaftClientRequest request) {
+  public Timer getClientRequestTimer(Type request) {
     if (request.is(TypeCase.READ)) {
       return getTimer(RAFT_CLIENT_READ_REQUEST);
     } else if (request.is(TypeCase.STALEREAD)) {
       return getTimer(RAFT_CLIENT_STALE_READ_REQUEST);
     } else if (request.is(TypeCase.WATCH)) {
-      String watchType = RaftClientRequest.Type.toString(request.getType().getWatch().getReplication());
+      String watchType = Type.toString(request.getWatch().getReplication());
       return getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, watchType));
     } else if (request.is(TypeCase.WRITE)) {
       return getTimer(RAFT_CLIENT_WRITE_REQUEST);
@@ -216,27 +212,27 @@ public final class RaftServerMetrics extends RatisMetrics {
     registry.counter(REQUEST_QUEUE_LIMIT_HIT_COUNTER).inc();
   }
 
-  void addNumPendingRequestsGauge(Gauge queueSize) {
+  public void addNumPendingRequestsGauge(Gauge queueSize) {
     registry.gauge(REQUEST_QUEUE_SIZE, () -> queueSize);
   }
 
-  boolean removeNumPendingRequestsGauge() {
+  public boolean removeNumPendingRequestsGauge() {
     return registry.remove(REQUEST_QUEUE_SIZE);
   }
 
-  void addNumPendingRequestsByteSize(Gauge byteSize) {
+  public void addNumPendingRequestsByteSize(Gauge byteSize) {
     registry.gauge(REQUEST_BYTE_SIZE, () -> byteSize);
   }
 
-  boolean removeNumPendingRequestsByteSize() {
+  public boolean removeNumPendingRequestsByteSize() {
     return registry.remove(REQUEST_BYTE_SIZE);
   }
 
-  void onRequestByteSizeLimitHit() {
+  public void onRequestByteSizeLimitHit() {
     registry.counter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER).inc();
   }
 
-  void onResourceLimitHit() {
+  public void onResourceLimitHit() {
     registry.counter(RESOURCE_LIMIT_HIT_COUNTER).inc();
   }
 
@@ -259,6 +255,21 @@ public final class RaftServerMetrics extends RatisMetrics {
   void onFailedClientStream() {
     registry.counter(RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT).inc();
   }
+
+  public void incFailedRequestCount(Type type) {
+    if (type.is(TypeCase.STALEREAD)) {
+      onFailedClientStaleRead();
+    } else if (type.is(TypeCase.WATCH)) {
+      onFailedClientWatch();
+    } else if (type.is(TypeCase.WRITE)) {
+      onFailedClientWrite();
+    } else if (type.is(TypeCase.READ)) {
+      onFailedClientRead();
+    } else if (type.is(TypeCase.MESSAGESTREAM)) {
+      onFailedClientStream();
+    }
+  }
+
   public RatisMetricRegistry getRegistry() {
     return registry;
   }

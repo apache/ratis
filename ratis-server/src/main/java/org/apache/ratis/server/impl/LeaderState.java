@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LogAppenderMetrics;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -454,7 +455,7 @@ public class LeaderState {
               server.getRpcSlownessTimeoutMs());
           LogAppender logAppender = server.newLogAppender(this, f);
           peerIdFollowerInfoMap.put(peer.getId(), f);
-          raftServerMetrics.addFollower(f.getPeer());
+          raftServerMetrics.addFollower(peer.getId());
           logAppenderMetrics.addFollowerGauges(f);
           return logAppender;
         }).collect(Collectors.toList());
@@ -988,12 +989,9 @@ public class LeaderState {
 
   /**
    * Record Follower Heartbeat Elapsed Time.
-   * @param follower RaftPeer.
-   * @param elapsedTime Elapsed time in Nanos.
    */
-  void recordFollowerHeartbeatElapsedTime(RaftPeer follower, long elapsedTime) {
-    raftServerMetrics.recordFollowerHeartbeatElapsedTime(follower,
-        elapsedTime);
+  void recordFollowerHeartbeatElapsedTime(RaftPeerId followerId, TimeDuration elapsedTime) {
+    raftServerMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime.toLong(TimeUnit.NANOSECONDS));
   }
 
   @Override

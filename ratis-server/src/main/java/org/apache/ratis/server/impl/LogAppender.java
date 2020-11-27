@@ -565,8 +565,8 @@ public class LogAppender {
     if (follower.isSlow()) {
       server.getStateMachine().leaderEvent().notifyFollowerSlowness(server.getRoleInfoProto());
     }
-    leaderState.recordFollowerHeartbeatElapsedTime(follower.getPeer(),
-        follower.getLastRpcResponseTime().elapsedTime().getDuration());
+    leaderState.recordFollowerHeartbeatElapsedTime(follower.getPeer().getId(),
+        follower.getLastRpcResponseTime().elapsedTime());
   }
 
   public synchronized void notifyAppend() {

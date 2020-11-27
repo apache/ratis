@@ -505,8 +505,8 @@ public abstract class MiniRaftCluster implements Closeable {
     return b.toString();
   }
 
-  public RaftServerImpl getLeaderAndSendFirstMessage(boolean ignoreException) throws IOException {
-    final RaftServerImpl leader = getLeader();
+  public RaftServer.Division getLeaderAndSendFirstMessage(boolean ignoreException) throws IOException {
+    final RaftServer.Division leader = getLeader();
     try(RaftClient client = createClient(leader.getId())) {
       client.io().send(new RaftTestUtil.SimpleMessage("first msg to make leader ready"));
     } catch (IOException e) {
@@ -590,11 +590,17 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   boolean isLeader(String leaderId) {
-    final RaftServerImpl leader = getLeader();
+    final RaftServer.Division leader = getLeader();
     return leader != null && leader.getId().toString().equals(leaderId);
   }
 
   public List<RaftServerImpl> getFollowers() {
+    return getServerAliveStream()
+        .filter(RaftServerImpl::isFollower)
+        .collect(Collectors.toList());
+  }
+
+  public List<RaftServer.Division> getFollowerDivisions() {
     return getServerAliveStream()
         .filter(RaftServerImpl::isFollower)
         .collect(Collectors.toList());
@@ -610,6 +616,10 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public Iterable<RaftServerImpl> iterateServerImpls() {
+    return CollectionUtils.as(getServers(), this::getRaftServerImpl);
+  }
+
+  public Iterable<RaftServer.Division> iterateDivisions() {
     return CollectionUtils.as(getServers(), this::getRaftServerImpl);
   }
 
@@ -636,20 +646,24 @@ public abstract class MiniRaftCluster implements Closeable {
     return servers.get(id);
   }
 
+  public RaftServer.Division getDivision(RaftPeerId id) {
+    return getRaftServerImpl(servers.get(id));
+  }
+
+  public RaftServer.Division getDivision(RaftPeerId id, RaftGroupId groupId) {
+    return RaftServerTestUtil.getRaftServerImpl(servers.get(id), groupId);
+  }
+
   public RaftServerImpl getRaftServerImpl(RaftPeerId id) {
     return getRaftServerImpl(servers.get(id));
   }
 
   public RaftServerImpl getRaftServerImpl(RaftPeerId id, RaftGroupId groupId) {
-    return getRaftServerImpl(servers.get(id), groupId);
+    return RaftServerTestUtil.getRaftServerImpl(servers.get(id), groupId);
   }
 
   public RaftServerImpl getRaftServerImpl(RaftServerProxy proxy) {
     return RaftServerTestUtil.getRaftServerImpl(proxy, getGroupId());
-  }
-
-  public RaftServerImpl getRaftServerImpl(RaftServerProxy proxy, RaftGroupId groupId) {
-    return RaftServerTestUtil.getRaftServerImpl(proxy, groupId);
   }
 
   public List<RaftPeer> getPeers() {

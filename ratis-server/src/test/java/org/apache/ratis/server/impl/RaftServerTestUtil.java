@@ -28,6 +28,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.JavaUtils;
@@ -107,6 +108,10 @@ public class RaftServerTestUtil {
     return ((RaftServerImpl)server).getState().getLastAppliedIndex();
   }
 
+  public static long getLatestInstalledSnapshotIndex(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getState().getLatestInstalledSnapshotIndex();
+  }
+
   public static long getRetryCacheSize(RaftServer.Division server) {
     return ((RaftServerImpl)server).getRetryCache().size();
   }
@@ -167,5 +172,15 @@ public class RaftServerTestUtil {
 
   public static DataStreamMap newDataStreamMap(Object name) {
     return new DataStreamMapImpl(name);
+  }
+
+  public static void shutdown(RaftServer.Division server) {
+    ((RaftServerImpl)server).shutdown();
+  }
+
+  public static void assertLostMajorityHeartbeatsRecently(RaftServer.Division leader) {
+    final FollowerState f = ((RaftServerImpl)leader).getRole().getFollowerState().orElse(null);
+    Assert.assertNotNull(f);
+    Assert.assertTrue(f.lostMajorityHeartbeatsRecently());
   }
 }

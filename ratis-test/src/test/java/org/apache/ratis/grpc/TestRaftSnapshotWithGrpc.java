@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -23,7 +23,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
 import org.junit.Assert;
 
@@ -36,7 +36,7 @@ public class TestRaftSnapshotWithGrpc extends RaftSnapshotBaseTest {
   }
 
   @Override
-  protected void verifyInstallSnapshotMetric(RaftServerImpl leader) {
+  protected void verifyInstallSnapshotMetric(RaftServer.Division leader) {
     MetricRegistryInfo info = new MetricRegistryInfo(leader.getMemberId().toString(),
         "ratis_grpc", "log_appender", "Metrics for Ratis Grpc Log Appender");
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);

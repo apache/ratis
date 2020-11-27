@@ -17,14 +17,14 @@
  */
 package org.apache.ratis.grpc;
 
-import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_READ_REQUEST;
-import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_STALE_READ_REQUEST;
-import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_WATCH_REQUEST;
-import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_WRITE_REQUEST;
-import static org.apache.ratis.server.impl.RaftServerMetrics.REQUEST_QUEUE_LIMIT_HIT_COUNTER;
-import static org.apache.ratis.server.impl.RaftServerMetrics.REQUEST_BYTE_SIZE;
-import static org.apache.ratis.server.impl.RaftServerMetrics.REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER;
-import static org.apache.ratis.server.impl.RaftServerMetrics.RESOURCE_LIMIT_HIT_COUNTER;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.RAFT_CLIENT_READ_REQUEST;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.RAFT_CLIENT_STALE_READ_REQUEST;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.RAFT_CLIENT_WATCH_REQUEST;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.RAFT_CLIENT_WRITE_REQUEST;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.REQUEST_QUEUE_LIMIT_HIT_COUNTER;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.REQUEST_BYTE_SIZE;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.RESOURCE_LIMIT_HIT_COUNTER;
 
 import com.codahale.metrics.Gauge;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -51,7 +51,7 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerMetrics;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
@@ -107,7 +107,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
     ServerImplUtils.newRaftServer(leaderId, cluster.getGroup(), gid -> stateMachine, p, null);
     // Close the server rpc for leader so that new raft server can be bound to it.
-    cluster.getLeader().getServerRpc().close();
+    RaftServerTestUtil.getServerRpc(cluster.getLeader()).close();
 
     // Create a raft server proxy with server rpc bound to same address as
     // the leader. This step would fail as the raft storage has been locked by
@@ -229,9 +229,8 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       client.async().send(new SimpleMessage(message));
 
 
-      final SortedMap<String, Gauge> gaugeMap =
-              cluster.getLeader().getRaftServerMetrics().getRegistry()
-                      .getGauges((s, metric) -> s.contains(REQUEST_BYTE_SIZE));
+      final SortedMap<String, Gauge> gaugeMap = RaftServerTestUtil.getRaftServerMetrics(cluster.getLeader())
+          .getRegistry().getGauges((s, metric) -> s.contains(REQUEST_BYTE_SIZE));
 
       RaftTestUtil.waitFor(() -> (int) gaugeMap.get(gaugeMap.firstKey()).getValue() == message.length(),
               300, 5000);
@@ -243,8 +242,8 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       }
 
       // Because we have passed 11 requests, and the element queue size is 10.
-      RaftTestUtil.waitFor(() -> cluster.getLeader().getRaftServerMetrics().getCounter(REQUEST_QUEUE_LIMIT_HIT_COUNTER)
-              .getCount() == 1, 300, 5000);
+      RaftTestUtil.waitFor(() -> RaftServerTestUtil.getRaftServerMetrics(cluster.getLeader())
+          .getCounter(REQUEST_QUEUE_LIMIT_HIT_COUNTER).getCount() == 1, 300, 5000);
 
       stateMachine.unblockFlushStateMachineData();
 
@@ -255,10 +254,10 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       client.async().send(new SimpleMessage(RandomStringUtils.random(120, true, false)));
       clients.add(client);
 
-      RaftTestUtil.waitFor(() -> cluster.getLeader().getRaftServerMetrics()
+      RaftTestUtil.waitFor(() -> RaftServerTestUtil.getRaftServerMetrics(cluster.getLeader())
               .getCounter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER).getCount() == 1, 300, 5000);
 
-      Assert.assertEquals(2, cluster.getLeader().getRaftServerMetrics()
+      Assert.assertEquals(2, RaftServerTestUtil.getRaftServerMetrics(cluster.getLeader())
               .getCounter(RESOURCE_LIMIT_HIT_COUNTER).getCount());
     } finally {
       for (RaftClient client : clients) {

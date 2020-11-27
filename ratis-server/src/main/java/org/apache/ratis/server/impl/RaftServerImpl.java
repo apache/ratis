@@ -36,6 +36,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -140,7 +141,8 @@ public class RaftServerImpl implements RaftServer.Division,
 
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(this);
-    this.raftServerMetrics = RaftServerMetrics.getRaftServerMetrics(this);
+    this.raftServerMetrics = RaftServerMetrics.computeIfAbsentRaftServerMetrics(
+        getMemberId(), () -> commitInfoCache::get, () -> retryCache);
 
     this.startComplete = new AtomicBoolean(false);
   }
@@ -356,7 +358,7 @@ public class RaftServerImpl implements RaftServer.Division,
       try {
         leaderElectionMetrics.unregister();
         raftServerMetrics.unregister();
-        RaftServerMetrics.removeRaftServerMetrics(this);
+        RaftServerMetrics.removeRaftServerMetrics(getMemberId());
       } catch (Exception ignored) {
         LOG.warn("{}: Failed to unregister metric", getMemberId(), ignored);
       }
@@ -672,8 +674,7 @@ public class RaftServerImpl implements RaftServer.Division,
       RaftClientRequest request) throws IOException {
     assertLifeCycleState(LifeCycle.States.RUNNING);
     LOG.debug("{}: receive client request({})", getMemberId(), request);
-    Timer timer = raftServerMetrics.getClientRequestTimer(request);
-    final Timer.Context timerContext = (timer != null) ? timer.time() : null;
+    final Optional<Timer> timer = Optional.ofNullable(raftServerMetrics.getClientRequestTimer(request.getType()));
 
     CompletableFuture<RaftClientReply> replyFuture;
 
@@ -735,28 +736,14 @@ public class RaftServerImpl implements RaftServer.Division,
 
     final RaftClientRequest.Type type = request.getType();
     replyFuture.whenComplete((clientReply, exception) -> {
-      if (clientReply.isSuccess() && timerContext != null) {
-        timerContext.stop();
+      if (clientReply.isSuccess()) {
+        timer.map(Timer::time).ifPresent(Timer.Context::stop);
       }
       if (exception != null || clientReply.getException() != null) {
-        incFailedRequestCount(type);
+        raftServerMetrics.incFailedRequestCount(type);
       }
     });
     return replyFuture;
-  }
-
-  private void incFailedRequestCount(RaftClientRequest.Type type) {
-    if (type.is(TypeCase.STALEREAD)) {
-      raftServerMetrics.onFailedClientStaleRead();
-    } else if (type.is(TypeCase.WATCH)) {
-      raftServerMetrics.onFailedClientWatch();
-    } else if (type.is(TypeCase.WRITE)) {
-      raftServerMetrics.onFailedClientWrite();
-    } else if (type.is(TypeCase.READ)) {
-      raftServerMetrics.onFailedClientRead();
-    } else if (type.is(TypeCase.MESSAGESTREAM)) {
-      raftServerMetrics.onFailedClientStream();
-    }
   }
 
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
