@@ -22,15 +22,11 @@ import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.ServerState;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -43,16 +39,11 @@ public class TestLeaderElectionMetrics {
   private static RatisMetricRegistry ratisMetricRegistry;
 
   @BeforeClass
-  public static void setUp() throws Exception {
-    RaftServerImpl raftServer = mock(RaftServerImpl.class);
-    ServerState serverStateMock = mock(ServerState.class);
-    when(raftServer.getState()).thenReturn(serverStateMock);
-    when(serverStateMock.getLastLeaderElapsedTimeMs()).thenReturn(1000L);
+  public static void setUp() {
     RaftGroupId raftGroupId = RaftGroupId.randomId();
     RaftPeerId raftPeerId = RaftPeerId.valueOf("TestId");
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
-    when(raftServer.getMemberId()).thenReturn(raftGroupMemberId);
-    leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(raftServer);
+    leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(raftGroupMemberId, () -> 1000L);
     ratisMetricRegistry = leaderElectionMetrics.getRegistry();
   }
 

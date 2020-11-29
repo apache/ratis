@@ -140,7 +140,8 @@ public class RaftServerImpl implements RaftServer.Division,
     this.dataStreamMap = new DataStreamMapImpl(id);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
-    this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(this);
+    this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
+        getMemberId(), state::getLastLeaderElapsedTimeMs);
     this.raftServerMetrics = RaftServerMetrics.computeIfAbsentRaftServerMetrics(
         getMemberId(), () -> commitInfoCache::get, () -> retryCache);
 

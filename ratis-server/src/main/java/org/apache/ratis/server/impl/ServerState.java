@@ -266,9 +266,8 @@ public class ServerState implements Closeable {
         .isPresent();
   }
 
-  public long getLastLeaderElapsedTimeMs() {
-    final Timestamp t = lastNoLeaderTime;
-    return t == null ? 0 : t.elapsedTimeMs();
+  long getLastLeaderElapsedTimeMs() {
+    return Optional.ofNullable(lastNoLeaderTime).map(Timestamp::elapsedTimeMs).orElse(0L);
   }
 
   void becomeLeader() {

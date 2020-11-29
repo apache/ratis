@@ -28,6 +28,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.util.ExitUtils;
@@ -103,20 +104,17 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   void runTestLostMajorityHeartbeats(CLUSTER cluster) throws Exception {
-    final RaftServerImpl leader = waitForLeader(cluster);
+    final TimeDuration maxTimeout = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
+    final RaftServer.Division leader = waitForLeader(cluster);
     try {
       isolate(cluster, leader.getId());
-      Thread.sleep(leader.getMaxTimeoutMs());
-      Thread.sleep(leader.getMaxTimeoutMs());
-      final Optional<FollowerState> optional = leader.getRole().getFollowerState();
-      Assert.assertTrue(optional.isPresent());
-      final FollowerState followerState = optional.get();
-      Assert.assertTrue(followerState.lostMajorityHeartbeatsRecently());
+      maxTimeout.sleep();
+      maxTimeout.sleep();
+      RaftServerTestUtil.assertLostMajorityHeartbeatsRecently(leader);
     } finally {
       deIsolate(cluster, leader.getId());
     }
   }
-
 
   @Test
   public void testEnforceLeader() throws Exception {
@@ -139,13 +137,13 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   static void enforceLeader(MiniRaftCluster cluster, final String newLeader, Logger LOG) throws InterruptedException {
     LOG.info(cluster.printServers());
     for(int i = 0; !cluster.tryEnforceLeader(newLeader) && i < 10; i++) {
-      RaftServerImpl currLeader = cluster.getLeader();
+      final RaftServer.Division currLeader = cluster.getLeader();
       LOG.info("try enforcing leader to " + newLeader + " but " +
           (currLeader == null ? "no leader for round " + i : "new leader is " + currLeader.getId()));
     }
     LOG.info(cluster.printServers());
 
-    final RaftServerImpl leader = cluster.getLeader();
+    final RaftServer.Division leader = cluster.getLeader();
     Assert.assertEquals(newLeader, leader.getId().toString());
   }
 
@@ -162,7 +160,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       i.next().start();
     }
 
-    final RaftServerImpl leader = waitForLeader(cluster);
+    final RaftServer.Division leader = waitForLeader(cluster);
     final TimeDuration sleepTime = TimeDuration.valueOf(3, TimeUnit.SECONDS);
     LOG.info("sleep " + sleepTime);
     sleepTime.sleep();
@@ -182,7 +180,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     try(final MiniRaftCluster cluster = newCluster(3)) {
       cluster.start();
 
-      final RaftServerImpl leader = waitForLeader(cluster);
+      final RaftServer.Division leader = waitForLeader(cluster);
       try (RaftClient client = cluster.createClient(leader.getId())) {
         client.io().send(new RaftTestUtil.SimpleMessage("message"));
         Thread.sleep(1000);
@@ -217,9 +215,10 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     Timestamp timestamp = Timestamp.currentTime();
     final MiniRaftCluster cluster = newCluster(3);
     cluster.start();
-    RaftServerImpl leaderServer = waitForLeader(cluster);
+    final RaftServer.Division leaderServer = waitForLeader(cluster);
 
-    RatisMetricRegistry ratisMetricRegistry = LeaderElectionMetrics.getLeaderElectionMetrics(leaderServer).getRegistry();
+    final RatisMetricRegistry ratisMetricRegistry = LeaderElectionMetrics.getMetricRegistryForLeaderElection(
+        leaderServer.getMemberId());
 
     // Verify each metric individually.
     long numLeaderElections = ratisMetricRegistry.counter(LEADER_ELECTION_COUNT_METRIC).getCount();
@@ -270,8 +269,9 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     RaftServerImpl server = mock(RaftServerImpl.class);
     when(server.isAlive()).thenReturn(alive);
     when(server.isCandidate()).thenReturn(false);
-    when(server.getMemberId()).thenReturn(RaftGroupMemberId.valueOf(RaftPeerId.valueOf("any"), RaftGroupId.randomId()));
-    LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(server);
+    final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(RaftPeerId.valueOf("any"), RaftGroupId.randomId());
+    when(server.getMemberId()).thenReturn(memberId);
+    LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(memberId, () -> 0);
     when(server.getLeaderElectionMetrics()).thenReturn(leaderElectionMetrics);
     return server;
   }
