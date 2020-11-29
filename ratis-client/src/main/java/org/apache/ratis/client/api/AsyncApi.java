@@ -40,6 +40,8 @@ public interface AsyncApi {
    */
   CompletableFuture<RaftClientReply> send(Message message);
 
+  CompletableFuture<RaftClientReply> sendForward(Message message);
+
   /**
    * Send the given readonly message asynchronously to the raft service.
    *

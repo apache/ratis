@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
@@ -71,6 +72,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
     StateMachine getStateMachine();
 
     DataStreamMap getDataStreamMap();
+
+    RaftClient getRaftClient();
   }
 
   /** @return the server ID. */

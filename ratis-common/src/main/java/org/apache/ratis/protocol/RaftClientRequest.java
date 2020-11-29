@@ -30,6 +30,7 @@ import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.
  */
 public class RaftClientRequest extends RaftClientMessage {
   private static final Type DATA_STREAM_DEFAULT = new Type(DataStreamRequestTypeProto.getDefaultInstance());
+  private static final Type FORWARD_DEFAULT = new Type(ForwardRequestTypeProto.getDefaultInstance());
   private static final Type WRITE_DEFAULT = new Type(WriteRequestTypeProto.getDefaultInstance());
   private static final Type WATCH_DEFAULT = new Type(
       WatchRequestTypeProto.newBuilder().setIndex(0L).setReplication(ReplicationLevel.MAJORITY).build());
@@ -43,6 +44,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public static Type dataStreamRequestType() {
     return DATA_STREAM_DEFAULT;
+  }
+
+  public static Type forwardRequestType() {
+    return FORWARD_DEFAULT;
   }
 
   public static Type messageStreamRequestType(long streamId, long messageId, boolean endOfRequest) {
@@ -77,6 +82,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
     public static Type valueOf(DataStreamRequestTypeProto dataStream) {
       return DATA_STREAM_DEFAULT;
+    }
+
+    public static Type valueOf(ForwardRequestTypeProto forward) {
+      return FORWARD_DEFAULT;
     }
 
     public static Type valueOf(ReadRequestTypeProto read) {
@@ -117,6 +126,10 @@ public class RaftClientRequest extends RaftClientMessage {
       this(DATASTREAM, dataStream);
     }
 
+    private Type(ForwardRequestTypeProto forward) {
+      this(FORWARD, forward);
+    }
+
     private Type(MessageStreamRequestTypeProto messageStream) {
       this(MESSAGESTREAM, messageStream);
     }
@@ -149,6 +162,11 @@ public class RaftClientRequest extends RaftClientMessage {
     public DataStreamRequestTypeProto getDataStream() {
       Preconditions.assertTrue(is(DATASTREAM));
       return (DataStreamRequestTypeProto)proto;
+    }
+
+    public ForwardRequestTypeProto getForward() {
+      Preconditions.assertTrue(is(FORWARD));
+      return (ForwardRequestTypeProto)proto;
     }
 
     public MessageStreamRequestTypeProto getMessageStream() {
@@ -190,6 +208,8 @@ public class RaftClientRequest extends RaftClientMessage {
           return "RW";
         case DATASTREAM:
           return "DataStream";
+        case FORWARD:
+          return "Forward";
         case MESSAGESTREAM:
           return toString(getMessageStream());
         case READ:

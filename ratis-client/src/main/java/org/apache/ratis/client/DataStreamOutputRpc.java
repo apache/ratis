@@ -26,7 +26,4 @@ import java.util.concurrent.CompletableFuture;
 public interface DataStreamOutputRpc extends DataStreamOutput {
   /** Get the future of the header request. */
   CompletableFuture<DataStreamReply> getHeaderFuture();
-
-  /** Create a transaction asynchronously once the stream data is replicated to all servers */
-  CompletableFuture<DataStreamReply> startTransactionAsync();
 }

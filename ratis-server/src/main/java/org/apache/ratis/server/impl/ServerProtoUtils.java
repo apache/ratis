@@ -243,6 +243,7 @@ public interface ServerProtoUtils {
     switch (typeCase) {
       case WRITE: return StateMachineLogEntryProto.Type.WRITE;
       case DATASTREAM: return StateMachineLogEntryProto.Type.DATASTREAM;
+      case FORWARD: return StateMachineLogEntryProto.Type.FORWARD;
       default:
         throw new IllegalStateException("Unexpected type case " + typeCase);
     }

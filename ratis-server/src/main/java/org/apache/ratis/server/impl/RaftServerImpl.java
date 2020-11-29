@@ -17,6 +17,9 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
@@ -30,6 +33,7 @@ import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.StaleReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -47,6 +51,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.*;
 
 import javax.management.ObjectName;
@@ -100,6 +105,8 @@ public class RaftServerImpl implements RaftServer.Division,
 
   private final DataStreamMap dataStreamMap;
 
+  private final MemoizedSupplier<RaftClient> raftClient;
+
   private final RetryCache retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
 
@@ -146,6 +153,16 @@ public class RaftServerImpl implements RaftServer.Division,
         getMemberId(), () -> commitInfoCache::get, () -> retryCache);
 
     this.startComplete = new AtomicBoolean(false);
+
+    this.raftClient = JavaUtils.memoize(() -> {
+      final RaftProperties p = new RaftProperties();
+      RaftConfigKeys.Rpc.setType(p, SupportedRpcType.GRPC);
+      RaftClient client = RaftClient.newBuilder()
+          .setRaftGroup(group)
+          .setProperties(p)
+          .build();
+      return client;
+    });
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
@@ -190,6 +207,11 @@ public class RaftServerImpl implements RaftServer.Division,
   @Override
   public DataStreamMap getDataStreamMap() {
     return dataStreamMap;
+  }
+
+  @Override
+  public RaftClient getRaftClient() {
+    return raftClient.get();
   }
 
   @VisibleForTesting
@@ -671,6 +693,14 @@ public class RaftServerImpl implements RaftServer.Division,
     }
   }
 
+  private RaftClientRequest getDataStreamRaftClientRequest(RaftClientRequest request)
+      throws InvalidProtocolBufferException {
+    Preconditions.assertTrue(request.is(TypeCase.FORWARD));
+    return ClientProtoUtils.toRaftClientRequest(
+        RaftClientRequestProto.parseFrom(
+            request.getMessage().getContent().asReadOnlyByteBuffer()));
+  }
+
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
@@ -720,10 +750,16 @@ public class RaftServerImpl implements RaftServer.Division,
         } else {
           final RetryCache.CacheEntry cacheEntry = previousResult.getEntry();
 
+          RaftClientRequest dataStreamRequest = null;
+          if (request.is(TypeCase.FORWARD)) {
+            dataStreamRequest = getDataStreamRaftClientRequest(request);
+          }
+
           // TODO: this client request will not be added to pending requests until
           // later which means that any failure in between will leave partial state in
           // the state machine. We should call cancelTransaction() for failed requests
-          TransactionContext context = stateMachine.startTransaction(request);
+          TransactionContext context = stateMachine.startTransaction(
+              request.is(TypeCase.FORWARD) ? dataStreamRequest : request);
           if (context.getException() != null) {
             final StateMachineException e = new StateMachineException(getMemberId(), context.getException());
             final RaftClientReply exceptionReply = newExceptionReply(request, e);

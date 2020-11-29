@@ -45,6 +45,11 @@ class AsyncImpl implements AsyncApi {
   }
 
   @Override
+  public CompletableFuture<RaftClientReply> sendForward(Message message) {
+    return send(RaftClientRequest.forwardRequestType(), message, null);
+  }
+
+  @Override
   public CompletableFuture<RaftClientReply> sendReadOnly(Message message) {
     return send(RaftClientRequest.readRequestType(), message, null);
   }

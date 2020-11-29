@@ -142,11 +142,6 @@ public class DataStreamClientImpl implements DataStreamClient {
       return closeSupplier.isInitialized();
     }
 
-    @Override
-    public CompletableFuture<DataStreamReply> startTransactionAsync() {
-      return send(Type.START_TRANSACTION);
-    }
-
     public RaftClientRequest getHeader() {
       return header;
     }

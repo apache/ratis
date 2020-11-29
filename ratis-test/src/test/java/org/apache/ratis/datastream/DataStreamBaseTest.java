@@ -106,6 +106,11 @@ abstract class DataStreamBaseTest extends BaseTest {
     public DataStreamMap getDataStreamMap() {
       return streamMap;
     }
+
+    @Override
+    public RaftClient getRaftClient() {
+      return null;
+    }
   }
 
   static class Server {

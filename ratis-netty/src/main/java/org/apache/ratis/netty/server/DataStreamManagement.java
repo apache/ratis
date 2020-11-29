@@ -19,6 +19,7 @@
 package org.apache.ratis.netty.server;
 
 import org.apache.ratis.client.DataStreamOutputRpc;
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -27,6 +28,7 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -50,6 +52,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -61,10 +64,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class DataStreamManagement {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamManagement.class);
+
+  private Map<RaftGroupId, RaftClient> clientMap = new ConcurrentHashMap<>();
 
   static class LocalStream {
     private final CompletableFuture<DataStream> streamFuture;
@@ -95,16 +99,6 @@ public class DataStreamManagement {
 
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request) {
       return out.writeAsync(request.slice().nioBuffer(), request.getType() == Type.STREAM_DATA_SYNC);
-    }
-
-    CompletableFuture<DataStreamReply> startTransaction(DataStreamRequestByteBuf request,
-        ChannelHandlerContext ctx, Executor executor) {
-      return out.startTransactionAsync().thenApplyAsync(reply -> {
-        if (reply.isSuccess()) {
-          ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
-        }
-        return reply;
-      }, executor);
     }
 
     CompletableFuture<DataStreamReply> close() {
@@ -280,18 +274,6 @@ public class DataStreamManagement {
   }
 
   static DataStreamReplyByteBuffer newDataStreamReplyByteBuffer(
-      DataStreamRequestByteBuf request, DataStreamReply reply) {
-    final ByteBuffer buffer = reply instanceof DataStreamReplyByteBuffer?
-        ((DataStreamReplyByteBuffer)reply).slice(): null;
-    return DataStreamReplyByteBuffer.newBuilder()
-        .setDataStreamPacket(request)
-        .setBuffer(buffer)
-        .setSuccess(reply.isSuccess())
-        .setBytesWritten(reply.getBytesWritten())
-        .build();
-  }
-
-  static DataStreamReplyByteBuffer newDataStreamReplyByteBuffer(
       DataStreamRequestByteBuf request, RaftClientReply reply) {
     final ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
     return DataStreamReplyByteBuffer.newBuilder()
@@ -316,14 +298,13 @@ public class DataStreamManagement {
   private CompletableFuture<Void> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
       ChannelHandlerContext ctx) {
     try {
-      return server.submitClientRequestAsync(info.getRequest()).thenAcceptAsync(reply -> {
+      final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(info.request);
+      return server.getDivision(info.getRequest().getRaftGroupId())
+          .getRaftClient()
+          .async()
+          .sendForward(Message.valueOf(proto.toByteString()))
+          .thenAcceptAsync(reply -> {
         if (reply.isSuccess()) {
-          ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
-        } else if (request.getType() == Type.STREAM_CLOSE) {
-          // if this server is not the leader, forward start transition to the other peers
-          // there maybe other unexpected reason cause failure except not leader, forwardStartTransaction anyway
-          forwardStartTransaction(info, request, reply, ctx, executor);
-        } else if (request.getType() == Type.START_TRANSACTION){
           ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
         } else {
           throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
@@ -332,23 +313,6 @@ public class DataStreamManagement {
     } catch (IOException e) {
       throw new CompletionException(e);
     }
-  }
-
-  static void sendLeaderFailedReply(final List<CompletableFuture<DataStreamReply>> results,
-      DataStreamRequestByteBuf request, RaftClientReply localReply, ChannelHandlerContext ctx) {
-    // get replies from the results, ignored exceptional replies
-    final Stream<RaftClientReply> remoteReplies = results.stream()
-        .filter(r -> !r.isCompletedExceptionally())
-        .map(CompletableFuture::join)
-        .map(ClientProtoUtils::getRaftClientReply);
-
-    // choose the leader's reply if there is any.  Otherwise, use the local reply
-    final RaftClientReply chosen = Stream.concat(Stream.of(localReply), remoteReplies)
-        .filter(reply -> reply.getNotLeaderException() == null)
-        .findAny().orElse(localReply);
-
-    // send reply
-    ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, chosen));
   }
 
   static void replyDataStreamException(RaftServer server, Throwable cause, RaftClientRequest raftClientRequest,
@@ -380,22 +344,6 @@ public class DataStreamManagement {
     }
   }
 
-  static void forwardStartTransaction(StreamInfo info, DataStreamRequestByteBuf request, RaftClientReply localReply,
-      ChannelHandlerContext ctx, Executor executor) {
-    final List<CompletableFuture<DataStreamReply>> results = info.applyToRemotes(
-        out -> out.startTransaction(request, ctx, executor));
-
-    JavaUtils.allOf(results).thenAccept(v -> {
-      for (CompletableFuture<DataStreamReply> result : results) {
-        if (result.join().isSuccess()) {
-          return;
-        }
-      }
-
-      sendLeaderFailedReply(results, request, localReply, ctx);
-    });
-  }
-
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
       CheckedFunction<RaftClientRequest, List<DataStreamOutputRpc>, IOException> getDataStreamOutput) {
     LOG.debug("{}: read {}", this, request);
@@ -412,22 +360,6 @@ public class DataStreamManagement {
     } else {
       info = Optional.ofNullable(streams.get(key)).orElseThrow(
           () -> new IllegalStateException("Failed to get StreamInfo for " + request));
-    }
-
-
-    if (request.getType() == Type.START_TRANSACTION) {
-      // for peers to start transaction
-      composeAsync(info.getPrevious(), executor, v -> startTransaction(info, request, ctx))
-          .whenComplete((v, exception) -> {
-        try {
-          if (exception != null) {
-            replyDataStreamException(server, exception, info.getRequest(), request, ctx);
-          }
-        } finally {
-          buf.release();
-        }
-      });
-      return;
     }
 
     final CompletableFuture<Long> localWrite;

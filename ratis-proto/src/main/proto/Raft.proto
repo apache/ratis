@@ -73,6 +73,7 @@ message StateMachineLogEntryProto {
   enum Type {
     WRITE = 0;
     DATASTREAM = 1;
+    FORWARD = 2;
   }
 
   Type type = 13;
@@ -265,6 +266,9 @@ message MessageStreamRequestTypeProto {
 message DataStreamRequestTypeProto {
 }
 
+message ForwardRequestTypeProto {
+}
+
 message ReadRequestTypeProto {
 }
 
@@ -289,6 +293,7 @@ message RaftClientRequestProto {
     WatchRequestTypeProto watch = 6;
     MessageStreamRequestTypeProto messageStream = 7;
     DataStreamRequestTypeProto dataStream = 8;
+    ForwardRequestTypeProto forward = 9;
   }
 }
 
@@ -298,7 +303,6 @@ message DataStreamPacketHeaderProto {
     STREAM_DATA = 1;
     STREAM_DATA_SYNC = 2;
     STREAM_CLOSE = 3;
-    START_TRANSACTION = 4;
   }
 
   uint64 streamId = 1;
