@@ -30,7 +30,7 @@ public class RatisMetrics {
   @SuppressWarnings("VisibilityModifier")
   protected RatisMetricRegistry registry;
 
-  protected RatisMetricRegistry create(MetricRegistryInfo info) {
+  protected static RatisMetricRegistry create(MetricRegistryInfo info) {
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
     return metricRegistry.orElseGet(() -> {
       LOG.info("Creating Metrics Registry : {}", info.getName());

@@ -25,7 +25,6 @@ import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUESTS_TOTAL;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.SortedMap;
@@ -38,8 +37,6 @@ import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.ServerState;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -54,15 +51,10 @@ public class TestGrpcServerMetrics {
 
   @BeforeClass
   public static void setUp() throws Exception {
-    RaftServerImpl raftServer = mock(RaftServerImpl.class);
-    ServerState serverStateMock = mock(ServerState.class);
-    when(raftServer.getState()).thenReturn(serverStateMock);
-    when(serverStateMock.getLastLeaderElapsedTimeMs()).thenReturn(1000L);
     raftGroupId = RaftGroupId.randomId();
     raftPeerId = RaftPeerId.valueOf("TestId");
     followerId = RaftPeerId.valueOf("FollowerId");
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
-    when(raftServer.getMemberId()).thenReturn(raftGroupMemberId);
     grpcServerMetrics = new GrpcServerMetrics(raftGroupMemberId.toString());
     ratisMetricRegistry = grpcServerMetrics.getRegistry();
   }
