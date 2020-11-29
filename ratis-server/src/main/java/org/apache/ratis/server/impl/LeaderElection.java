@@ -285,7 +285,7 @@ class LeaderElection implements Runnable {
 
   private ResultAndTerm waitForResults(final long electionTerm, final int submitted,
       RaftConfiguration conf, Executor voteExecutor) throws InterruptedException {
-    final Timestamp timeout = Timestamp.currentTime().addTimeMs(server.getRandomTimeoutMs());
+    final Timestamp timeout = Timestamp.currentTime().addTime(server.getRandomElectionTimeout());
     final Map<RaftPeerId, RequestVoteReplyProto> responses = new HashMap<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
@@ -336,9 +336,7 @@ class LeaderElection implements Runnable {
 
         // remove higher priority peer, so that we check higherPriorityPeers empty to make sure
         // all higher priority peers have replied
-        if (higherPriorityPeers.contains(replierId)) {
-          higherPriorityPeers.remove(replierId);
-        }
+        higherPriorityPeers.remove(replierId);
 
         if (r.getServerReply().getSuccess()) {
           votedPeers.add(replierId);

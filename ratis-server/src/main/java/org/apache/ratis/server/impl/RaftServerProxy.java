@@ -35,7 +35,7 @@ import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.JvmPauseMonitor;
+import org.apache.ratis.util.JvmPauseMonitor;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.statemachine.StateMachine;
@@ -44,6 +44,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.Closeable;
@@ -168,6 +169,7 @@ public class RaftServerProxy implements RaftServer {
 
   private final ImplMap impls = new ImplMap();
   private final ExecutorService implExecutor = Executors.newSingleThreadExecutor();
+
   private final JvmPauseMonitor pauseMonitor;
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
@@ -184,7 +186,20 @@ public class RaftServerProxy implements RaftServer {
     this.lifeCycle = new LifeCycle(this.id + "-" + JavaUtils.getClassSimpleName(getClass()));
 
     this.dataStreamServerRpc = new DataStreamServerImpl(this, parameters).getServerRpc();
-    this.pauseMonitor = new JvmPauseMonitor(this);
+
+    final TimeDuration rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
+    final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
+    this.pauseMonitor = new JvmPauseMonitor(id,
+        extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime));
+  }
+
+  private void handleJvmPause(TimeDuration extraSleep, TimeDuration closeThreshold, TimeDuration stepDownThreshold)
+      throws IOException {
+    if (extraSleep.compareTo(closeThreshold) > 0) {
+      close();
+    } else if (extraSleep.compareTo(stepDownThreshold) > 0) {
+      getImpls().forEach(RaftServerImpl::stepDownOnJvmPause);
+    }
   }
 
   /** Check the storage dir and add groups*/

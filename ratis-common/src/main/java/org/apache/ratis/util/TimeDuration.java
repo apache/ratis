@@ -299,15 +299,22 @@ public final class TimeDuration implements Comparable<TimeDuration> {
     return duration <= 0;
   }
 
-  /** Performs a {@link TimeUnit#sleep(long)} using this {@link TimeDuration}. */
-  public void sleep() throws InterruptedException {
-    sleep(null);
+  /** The same as sleep(null). */
+  public TimeDuration sleep() throws InterruptedException {
+    return sleep(null);
   }
 
-  public void sleep(Consumer<Object> log) throws InterruptedException {
+  /**
+   * Performs a {@link TimeUnit#sleep(long)} using this {@link TimeDuration}.
+   *
+   * @param log If not null, use it to print log messages.
+   * @return the difference of the actual sleep time duration and this {@link TimeDuration}.
+   */
+  public TimeDuration sleep(Consumer<Object> log) throws InterruptedException {
     if (log != null) {
       log.accept(StringUtils.stringSupplierAsObject(() -> "Start sleeping " + this));
     }
+    final Timestamp start = Timestamp.currentTime();
     try {
       unit.sleep(duration);
       if (log != null) {
@@ -320,6 +327,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
       }
       throw ie;
     }
+    return start.elapsedTime().subtract(this);
   }
 
   @Override

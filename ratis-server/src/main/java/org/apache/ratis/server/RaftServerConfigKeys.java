@@ -62,10 +62,10 @@ public interface RaftServerConfigKeys {
   }
 
   String SLEEP_DEVIATION_THRESHOLD_KEY = PREFIX + ".sleep.deviation.threshold";
-  int SLEEP_DEVIATION_THRESHOLD_DEFAULT = 300;
-  static int sleepDeviationThreshold(RaftProperties properties) {
-    return getInt(properties::getInt, SLEEP_DEVIATION_THRESHOLD_KEY,
-        SLEEP_DEVIATION_THRESHOLD_DEFAULT, getDefaultLog());
+  TimeDuration SLEEP_DEVIATION_THRESHOLD_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
+  static TimeDuration sleepDeviationThreshold(RaftProperties properties) {
+    return getTimeDuration(properties.getTimeDuration(SLEEP_DEVIATION_THRESHOLD_DEFAULT.getUnit()),
+        SLEEP_DEVIATION_THRESHOLD_KEY, SLEEP_DEVIATION_THRESHOLD_DEFAULT, getDefaultLog());
   }
   static void setSleepDeviationThreshold(RaftProperties properties, int thresholdMs) {
     setInt(properties::setInt, SLEEP_DEVIATION_THRESHOLD_KEY, thresholdMs);
