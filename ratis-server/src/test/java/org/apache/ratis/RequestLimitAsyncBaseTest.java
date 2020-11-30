@@ -28,7 +28,6 @@ import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.util.Log4jUtils;
@@ -67,7 +66,7 @@ public abstract class RequestLimitAsyncBaseTest<CLUSTER extends MiniRaftCluster>
   }
 
   void runTestWriteElementLimit(CLUSTER cluster) throws Exception {
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
 
     try (RaftClient c1 = cluster.createClient(leader.getId())) {
       { // send first message to make sure the cluster is working

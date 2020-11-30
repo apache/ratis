@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.conf.ConfUtils.requireMin;
 
@@ -106,7 +107,8 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     serverRequestReply.getQueue(leaderId).blockSendRequestTo.set(block);
 
     // set delay takeRequest for the other queues
-    getServers().stream().filter(s -> !s.getId().toString().equals(leaderId))
+    StreamSupport.stream(getServers().spliterator(), false)
+        .filter(s -> !s.getId().toString().equals(leaderId))
         .map(s -> serverRequestReply.getQueue(s.getId().toString()))
         .forEach(q -> q.delayTakeRequestTo.set(delayMs));
 

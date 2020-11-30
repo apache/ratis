@@ -112,7 +112,7 @@ public class TestRaftLogMetrics extends BaseTest
     assertRaftLogWritePathMetrics(cluster.getLeader());
 
     // For followers, flush can be lagged behind.  Attempt multiple times.
-    for(RaftServer.Division f : cluster.getFollowerDivisions()) {
+    for(RaftServer.Division f : cluster.getFollowers()) {
       JavaUtils.attempt(() -> assertFlushCount(f), 10, HUNDRED_MILLIS, f.getId() + "-assertFlushCount", null);
       // We have already waited enough for follower metrics to populate.
       assertRaftLogWritePathMetrics(f);

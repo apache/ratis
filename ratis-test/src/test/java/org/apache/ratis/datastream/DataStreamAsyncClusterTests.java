@@ -28,8 +28,6 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
@@ -84,8 +82,8 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
       client.async().watch(maxIndex, ReplicationLevel.ALL).join();
     }
     // assert all streams are linked
-    for (RaftServerProxy proxy : cluster.getServers()) {
-      final RaftServerImpl impl = proxy.getImpl(cluster.getGroupId());
+    for (RaftServer proxy : cluster.getServers()) {
+      final RaftServer.Division impl = proxy.getDivision(cluster.getGroupId());
       final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) impl.getStateMachine();
       for (SingleDataStream s : stateMachine.getStreams()) {
         Assert.assertFalse(s.getDataChannel().isOpen());

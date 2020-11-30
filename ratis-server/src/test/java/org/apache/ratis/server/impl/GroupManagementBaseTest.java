@@ -291,8 +291,8 @@ public abstract class GroupManagementBaseTest extends BaseTest {
         final RaftGroup g = groups[i];
         LOG.info(i + ") close " + cluster.printServers(g.getGroupId()));
         for(RaftPeer p : g.getPeers()) {
-          final File root = cluster.getServer(p.getId()).getImpl(g.getGroupId())
-              .getState().getStorage().getStorageDir().getRoot();
+          final RaftServer.Division d = cluster.getDivision(p.getId(), g.getGroupId());
+          final File root = RaftServerTestUtil.getRaftStorage(d).getStorageDir().getRoot();
           Assert.assertTrue(root.exists());
           Assert.assertTrue(root.isDirectory());
 

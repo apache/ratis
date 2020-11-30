@@ -62,6 +62,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -208,10 +209,10 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
     try (final RaftClient client = cluster.createClient()) {
       //Set blockTransaction flag so that transaction blocks
-      cluster.getServers().stream()
-              .map(cluster::getRaftServerImpl)
-              .map(SimpleStateMachine4Testing::get)
-              .forEach(SimpleStateMachine4Testing::blockStartTransaction);
+      StreamSupport.stream(cluster.getServers().spliterator(), false)
+          .map(cluster::getDivision)
+          .map(SimpleStateMachine4Testing::get)
+          .forEach(SimpleStateMachine4Testing::blockStartTransaction);
 
       //Send numMessages which are blocked and do not release the client semaphore permits
       AtomicInteger blockedRequestsCount = new AtomicInteger();
@@ -238,10 +239,10 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       RaftClientTestUtil.assertAsyncRequestSemaphore(client, 0, 1);
 
       //Unset the blockTransaction flag so that semaphore permits can be released
-      cluster.getServers().stream()
-              .map(cluster::getRaftServerImpl)
-              .map(SimpleStateMachine4Testing::get)
-              .forEach(SimpleStateMachine4Testing::unblockStartTransaction);
+      StreamSupport.stream(cluster.getServers().spliterator(), false)
+          .map(cluster::getDivision)
+          .map(SimpleStateMachine4Testing::get)
+          .forEach(SimpleStateMachine4Testing::unblockStartTransaction);
 
       for (int i = 0; i <= numMessages; i++) {
         futures[i].join();
@@ -464,7 +465,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   private void runTestNoRetryWaitOnNotLeaderException(MiniRaftCluster cluster) throws Exception {
     final RaftServer.Division leader = waitForLeader(cluster);
-    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final List<RaftServer.Division> followers = cluster.getFollowers();
     Assert.assertNotNull(followers);
     Assert.assertEquals(2, followers.size());
     Assert.assertNotSame(leader, followers.get(0));

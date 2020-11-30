@@ -155,7 +155,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     cluster.initServers();
 
     // start all except one servers
-    final Iterator<RaftServerProxy> i = cluster.getServers().iterator();
+    final Iterator<RaftServer> i = cluster.getServers().iterator();
     for(int j = 1; j < numServer; j++) {
       i.next().start();
     }
@@ -166,7 +166,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     sleepTime.sleep();
 
     // start the last server
-    final RaftServerProxy lastServer = i.next();
+    final RaftServerProxy lastServer = (RaftServerProxy) i.next();
     lastServer.start();
     final RaftPeerId lastServerLeaderId = JavaUtils.attemptRepeatedly(
         () -> Optional.ofNullable(lastServer.getImpls().iterator().next().getState().getLeaderId())

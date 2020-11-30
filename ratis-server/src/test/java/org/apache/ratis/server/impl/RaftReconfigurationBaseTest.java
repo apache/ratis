@@ -321,7 +321,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
   void runTestBootstrapReconf(int numNewPeer, boolean startNewPeer, CLUSTER cluster) throws Exception {
       LOG.info("Originally {} peer(s), add {} more, startNewPeer={}",
-          cluster.getServers().size(), numNewPeer, startNewPeer);
+          cluster.getNumServers(), numNewPeer, startNewPeer);
       RaftTestUtil.waitForLeader(cluster);
       final RaftPeerId leaderId = cluster.getLeader().getId();
       try (final RaftClient client = cluster.createClient(leaderId)) {

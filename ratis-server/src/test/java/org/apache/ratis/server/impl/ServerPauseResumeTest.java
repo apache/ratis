@@ -27,6 +27,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.junit.Assert;
 import org.junit.Test;
@@ -45,18 +46,18 @@ public abstract class ServerPauseResumeTest <CLUSTER extends MiniRaftCluster>
 
   void runTestPauseResume(CLUSTER cluster) throws InterruptedException, IOException {
     // wait leader be elected.
-    RaftServerImpl leader = waitForLeader(cluster);
+    final RaftServer.Division leader = waitForLeader(cluster);
     RaftPeerId leaderId = leader.getId();
-    List<RaftServerImpl> followers = cluster.getFollowers();
+    final List<RaftServer.Division> followers = cluster.getFollowers();
     Assert.assertTrue(followers.size() >= 1);
-    RaftServerImpl follower = followers.get(0);
+    final RaftServerImpl follower = (RaftServerImpl)followers.get(0);
 
     SimpleMessage[] batch1 = SimpleMessage.create(100, "batch1");
     Thread writeThread = RaftTestUtil.sendMessageInNewThread(cluster, leaderId, batch1);
 
     writeThread.join();
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
-    RaftLog leaderLog = leader.getState().getLog();
+    final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(leader);
     // leader should contain all logs.
     Assert.assertTrue(RaftTestUtil.logEntriesContains(leaderLog, batch1));
     RaftLog followerLog = follower.getState().getLog();

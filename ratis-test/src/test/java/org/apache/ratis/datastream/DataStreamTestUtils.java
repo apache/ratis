@@ -34,7 +34,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -370,12 +370,13 @@ public interface DataStreamTestUtils {
     Assert.assertEquals(request.getClientId().toByteString(), s.getClientId());
   }
 
-  static void assertLogEntry(RaftServerImpl impl, SingleDataStream stream) throws Exception {
+  static void assertLogEntry(RaftServer.Division division, SingleDataStream stream) throws Exception {
     final RaftClientRequest request = stream.getWriteRequest();
     final LogEntryProto entryFromStream = stream.getLogEntry();
     assertLogEntry(entryFromStream, request);
 
-    final LogEntryProto entryFromLog = searchLogEntry(ClientInvocationId.valueOf(request), impl.getState().getLog());
+    final LogEntryProto entryFromLog = searchLogEntry(ClientInvocationId.valueOf(request),
+        RaftServerTestUtil.getRaftLog(division));
     Assert.assertSame(entryFromStream, entryFromLog);
   }
 }
