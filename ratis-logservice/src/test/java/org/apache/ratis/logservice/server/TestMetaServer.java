@@ -31,8 +31,6 @@ import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.util.LogServiceCluster;
 import org.apache.ratis.logservice.util.TestUtils;
 import org.apache.ratis.metrics.JVMMetrics;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.AfterClass;
@@ -183,14 +181,12 @@ public class TestMetaServer {
             assert (listLogs.stream().filter(log -> log.getLogName().getName().startsWith("testReadWrite")).count() == 1);
             List<LogServer> workers = cluster.getWorkers();
             for (LogServer worker : workers) {
-                RaftServerImpl server = ((RaftServerProxy) worker.getServer())
-                        .getImpl(listLogs.get(0).getRaftGroup().getGroupId());
+                worker.getServer().getDivision(listLogs.get(0).getRaftGroup().getGroupId());
                 // TODO: perform all additional checks on state machine level
             }
             writer.write(testMessage);
             for (LogServer worker : workers) {
-                RaftServerImpl server = ((RaftServerProxy) worker.getServer())
-                        .getImpl(listLogs.get(0).getRaftGroup().getGroupId());
+                worker.getServer().getDivision(listLogs.get(0).getRaftGroup().getGroupId());
             }
 //        assert(stream.getSize() > 0); //TODO: Doesn't work
             LogReader reader = stream.createReader();

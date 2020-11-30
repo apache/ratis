@@ -38,7 +38,7 @@ import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
-import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -418,8 +418,8 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     LOG.info("Running testCheckLeadershipFailure");
 
     waitForLeader(cluster);
-    RaftServerImpl prevLeader = cluster.getLeader();
-    long termOfPrevLeader = prevLeader.getState().getCurrentTerm();
+    final RaftServer.Division prevLeader = cluster.getLeader();
+    final long termOfPrevLeader = RaftServerTestUtil.getCurrentTerm(prevLeader);
     LOG.info("Previous Leader is elected on term {}", termOfPrevLeader);
 
     try (final RaftClient client = cluster.createClient()) {
@@ -447,8 +447,8 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     }
 
     waitForLeader(cluster);
-    RaftServerImpl currLeader = cluster.getLeader();
-    long termOfCurrLeader = currLeader.getState().getCurrentTerm();
+    final RaftServer.Division currLeader = cluster.getLeader();
+    final long termOfCurrLeader = RaftServerTestUtil.getCurrentTerm(currLeader);
     LOG.info("Current Leader is elected on term {}", termOfCurrLeader);
 
     // leader on termOfPrevLeader should step-down.
@@ -463,8 +463,8 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   }
 
   private void runTestNoRetryWaitOnNotLeaderException(MiniRaftCluster cluster) throws Exception {
-    final RaftServerImpl leader = waitForLeader(cluster);
-    final List<RaftServerImpl> followers = cluster.getFollowers();
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
     Assert.assertNotNull(followers);
     Assert.assertEquals(2, followers.size());
     Assert.assertNotSame(leader, followers.get(0));

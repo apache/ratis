@@ -537,7 +537,7 @@ public abstract class MiniRaftCluster implements Closeable {
    * @return the unique leader with the highest term. Or, return null if there is no leader.
    * @throws IllegalStateException if there are multiple leaders with the same highest term.
    */
-  public RaftServerImpl getLeader() {
+  public RaftServer.Division getLeader() {
     return getLeader(getLeaders(null), null, leaders -> {
       throw newIllegalStateExceptionForMultipleLeaders(null, leaders);
     });

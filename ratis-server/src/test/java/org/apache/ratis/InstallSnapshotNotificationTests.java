@@ -23,8 +23,8 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -129,10 +129,10 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       // wait for the snapshot to be done
-      RaftStorageDirectory storageDirectory = cluster.getLeader().getState()
-          .getStorage().getStorageDir();
+      final RaftServer.Division leader = cluster.getLeader();
+      final RaftStorageDirectory storageDirectory = RaftServerTestUtil.getRaftStorage(leader).getStorageDir();
 
-      final long nextIndex = cluster.getLeader().getState().getLog().getNextIndex();
+      final long nextIndex = RaftServerTestUtil.getRaftLog(leader).getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
           nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
@@ -176,10 +176,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Check the installed snapshot index on each Follower matches with the
       // leader snapshot.
-      for (RaftServerImpl follower : cluster.getFollowers()) {
-        follower.getState().getStorage().getStorageDir().getStateMachineDir();
+      for (RaftServer.Division follower : cluster.getFollowers()) {
         Assert.assertEquals(leaderSnapshotInfo.getIndex(),
-            follower.getState().getLatestInstalledSnapshotIndex());
+            RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
       }
 
       // restart the peer and check if it can correctly handle conf change
@@ -198,7 +197,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   private void testRestartFollower(CLUSTER cluster) throws Exception {
     leaderSnapshotInfoRef.set(null);
     int i = 0;
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
 
     try (final RaftClient client = cluster.createClient(leaderId)) {
@@ -209,7 +208,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     }
 
     // wait for the snapshot to be done
-    final long oldLeaderNextIndex = leader.getState().getLog().getNextIndex();
+    final long oldLeaderNextIndex = RaftServerTestUtil.getRaftLog(leader).getNextIndex();
     {
       LOG.info("{}: oldLeaderNextIndex = {}", leaderId, oldLeaderNextIndex);
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
@@ -230,12 +229,12 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
     FIVE_SECONDS.sleep();
     cluster.restartServer(followerId, false);
-    final RaftServerImpl follower = cluster.getRaftServerImpl(followerId);
+    final RaftServer.Division follower = cluster.getDivision(followerId);
     JavaUtils.attempt(() -> {
-      final long newLeaderNextIndex = leader.getState().getLog().getNextIndex();
+      final long newLeaderNextIndex = RaftServerTestUtil.getRaftLog(leader).getNextIndex();
       LOG.info("{}: newLeaderNextIndex = {}", leaderId, newLeaderNextIndex);
       Assert.assertTrue(newLeaderNextIndex > oldLeaderNextIndex);
-      Assert.assertEquals(newLeaderNextIndex, follower.getState().getLog().getNextIndex());
+      Assert.assertEquals(newLeaderNextIndex, RaftServerTestUtil.getRaftLog(follower).getNextIndex());
     }, 10, ONE_SECOND, "followerNextIndex", LOG);
 
   }

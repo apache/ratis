@@ -80,8 +80,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
     for (int i = 0; i < peersWithPriority.size(); i ++) {
       RaftPeerId peerId = peersWithPriority.get(i).getId();
-      RaftServerImpl server = cluster.getRaftServerImpl(peerId, groupId);
-      RaftConfiguration conf = server.getState().getRaftConf();
+      final RaftServer.Division server = cluster.getDivision(peerId, groupId);
+      final RaftConfiguration conf = RaftServerTestUtil.getRaftConf(server);
 
       for (int j = 0; j < peersWithPriority.size(); j ++) {
         int priorityInConf = conf.getPeer(peersWithPriority.get(j).getId()).getPriority();
@@ -266,7 +266,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       LOG.info("Start changing the configuration: {}",
           asList(c1.allPeersInNewConf));
-      Assert.assertFalse(cluster.getLeader().getRaftConf().isTransitional());
+      Assert.assertFalse(RaftServerTestUtil.getRaftConf(cluster.getLeader()).isTransitional());
 
       final RaftClientRpc sender = client.getClientRpc();
       final SetConfigurationRequest request = cluster.newSetConfigurationRequest(
@@ -359,11 +359,11 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         LOG.info(cluster.printServers());
         assertSuccess(success);
 
-        final RaftLog leaderLog = cluster.getLeader().getState().getLog();
+        final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
         for (RaftPeer newPeer : c1.newPeers) {
+          final RaftServer.Division d = cluster.getDivision(newPeer.getId());
           Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
-                  cluster.getRaftServerImpl(newPeer.getId()).getState().getLog()
-                          .getEntries(0, Long.MAX_VALUE));
+              RaftServerTestUtil.getRaftLog(d).getEntries(0, Long.MAX_VALUE));
         }
       }
   }
@@ -410,11 +410,11 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       TimeUnit.SECONDS.sleep(1);
       // the leader cannot generate the (old, new) conf, and it will keep
       // bootstrapping the 2 new peers since they have not started yet
-      Assert.assertFalse(cluster.getLeader().getRaftConf().isTransitional());
+      Assert.assertFalse(RaftServerTestUtil.getRaftConf(cluster.getLeader()).isTransitional());
 
       // only (0) the first conf entry, (1) the 1st setConf entry and (2) a metadata entry
       {
-        final RaftLog leaderLog = cluster.getLeader().getState().getLog();
+        final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
         for(LogEntryProto e : RaftTestUtil.getLogEntryProtos(leaderLog)) {
           LOG.info("{}", ServerProtoUtils.toLogEntryString(e));
         }
@@ -465,13 +465,13 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   }
 
   void runTestNoChangeRequest(CLUSTER cluster) throws Exception {
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     try(final RaftClient client = cluster.createClient(leader.getId())) {
       client.io().send(new SimpleMessage("m"));
 
-      final RaftLog leaderLog = leader.getState().getLog();
+      final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(leader);
       final long committedIndex = leaderLog.getLastCommittedIndex();
-      final RaftConfiguration confBefore = cluster.getLeader().getRaftConf();
+      final RaftConfiguration confBefore = RaftServerTestUtil.getRaftConf(cluster.getLeader());
 
       // no real configuration change in the request
       final RaftClientReply reply = client.setConfiguration(cluster.getPeers().toArray(RaftPeer.emptyArray()));
@@ -481,7 +481,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         final LogEntryProto e = leaderLog.get(i);
         Assert.assertTrue(e.hasMetadataEntry());
       }
-      Assert.assertSame(confBefore, cluster.getLeader().getRaftConf());
+      Assert.assertSame(confBefore, RaftServerTestUtil.getRaftConf(cluster.getLeader()));
       client.close();
     }
   }
@@ -573,10 +573,10 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     try {
       RaftTestUtil.waitForLeader(cluster);
 
-      final RaftServerImpl leader = cluster.getLeader();
+      final RaftServer.Division leader = cluster.getLeader();
       final RaftPeerId leaderId = leader.getId();
 
-      final RaftLog log = leader.getState().getLog();
+      final RaftLog log = RaftServerTestUtil.getRaftLog(leader);
       log2 = log;
       Thread.sleep(1000);
 

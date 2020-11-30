@@ -40,7 +40,8 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
@@ -71,7 +72,7 @@ public class TestRaftLogMetrics extends BaseTest
   }
 
   static class MetricsStateMachine extends BaseStateMachine {
-    static MetricsStateMachine get(RaftServerImpl s) {
+    static MetricsStateMachine get(RaftServer.Division s) {
       return (MetricsStateMachine)s.getStateMachine();
     }
 
@@ -111,7 +112,7 @@ public class TestRaftLogMetrics extends BaseTest
     assertRaftLogWritePathMetrics(cluster.getLeader());
 
     // For followers, flush can be lagged behind.  Attempt multiple times.
-    for(RaftServerImpl f : cluster.getFollowers()) {
+    for(RaftServer.Division f : cluster.getFollowerDivisions()) {
       JavaUtils.attempt(() -> assertFlushCount(f), 10, HUNDRED_MILLIS, f.getId() + "-assertFlushCount", null);
       // We have already waited enough for follower metrics to populate.
       assertRaftLogWritePathMetrics(f);
@@ -121,13 +122,13 @@ public class TestRaftLogMetrics extends BaseTest
     JavaUtils.attempt(() -> assertCommitCount(cluster.getLeader(), numMsg), 10, HUNDRED_MILLIS, cluster.getLeader().getId() + "-assertCommitCount", null);
   }
 
-  static void assertCommitCount(RaftServerImpl server, int expectedMsgs) throws  Exception {
-    RatisMetricRegistry rlm = server.getState().getLog().getRaftLogMetrics().getRegistry();
+  static void assertCommitCount(RaftServer.Division server, int expectedMsgs) {
+    final RatisMetricRegistry rlm = RaftServerTestUtil.getRaftLog(server).getRaftLogMetrics().getRegistry();
     long stmCount = rlm.counter(STATE_MACHINE_LOG_ENTRY_COUNT).getCount();
-    Assert.assertTrue(stmCount == expectedMsgs);
+    Assert.assertEquals(expectedMsgs, stmCount);
   }
 
-  static void assertFlushCount(RaftServerImpl server) throws Exception {
+  static void assertFlushCount(RaftServer.Division server) throws Exception {
     final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getMemberId().toString());
     RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics(server.getMemberId().toString()).getRegistry();
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_FLUSH_TIME);
@@ -150,7 +151,7 @@ public class TestRaftLogMetrics extends BaseTest
             .intValue());
   }
 
-  static void assertRaftLogWritePathMetrics(RaftServerImpl server) throws Exception {
+  static void assertRaftLogWritePathMetrics(RaftServer.Division server) throws Exception {
     final String syncTimeMetric = RaftStorageTestUtils.getRaftLogFullMetric(server.getMemberId().toString(), RAFT_LOG_SYNC_TIME);
     RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics(server.getMemberId().toString()).getRegistry();
 
@@ -169,7 +170,7 @@ public class TestRaftLogMetrics extends BaseTest
             .intValue());
 
     long cacheMissCount = ratisMetricRegistry.counter(RAFT_LOG_CACHE_MISS_COUNT).getCount();
-    Assert.assertTrue(cacheMissCount == 0);
+    Assert.assertEquals(0, cacheMissCount);
 
     long cacheHitsCount = ratisMetricRegistry.counter(RAFT_LOG_CACHE_HIT_COUNT).getCount();
     Assert.assertTrue(cacheHitsCount > 0);
