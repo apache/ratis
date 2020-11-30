@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -25,6 +25,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -41,12 +42,11 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
   protected static class StateMachineWithConditionalWait extends
       SimpleStateMachine4Testing {
 
-    Long objectToWait = new Long(0);
+    private final Long objectToWait = 0L;
     volatile boolean blockOnApply = true;
 
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-      CompletableFuture<Message> future = new CompletableFuture<Message>();
       if (blockOnApply) {
         synchronized (objectToWait) {
           try {
@@ -59,8 +59,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
       }
       RaftProtos.LogEntryProto entry = trx.getLogEntry();
       updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
-      future.complete(new RaftTestUtil.SimpleMessage("done"));
-      return future;
+      return CompletableFuture.completedFuture(new RaftTestUtil.SimpleMessage("done"));
     }
 
     public void unBlockApplyTxn() {
@@ -79,7 +78,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     final MiniRaftCluster cluster = newCluster(3);
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
-    RaftServerImpl leader = cluster.getLeader();
+    final RaftServer.Division leader = cluster.getLeader();
     RaftPeerId leaderId = leader.getId();
 
     //Unblock leader and one follower
@@ -101,20 +100,16 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
               logIndex, RaftProtos.ReplicationLevel.ALL_COMMITTED);
       watchReply.getCommitInfos().forEach(
               val -> Assert.assertTrue(val.getCommitIndex() >= logIndex));
-      RaftServerImpl secondFollower = cluster.getFollowers().get(1);
+      final RaftServer.Division secondFollower = cluster.getFollowers().get(1);
       // Second follower is blocked in apply transaction
-      Assert.assertTrue(
-              secondFollower.getState().getLastAppliedIndex()
-                      < logIndex);
+      Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(secondFollower) < logIndex);
 
       // Now shutdown the follower in a separate thread
-      Thread t = new Thread(() -> secondFollower.groupRemove(true, false));
+      final Thread t = new Thread(() -> RaftServerTestUtil.shutdown(secondFollower));
       t.start();
 
       // The second follower should still be blocked in apply transaction
-      Assert.assertTrue(
-              secondFollower.getState().getLastAppliedIndex()
-                      < logIndex);
+      Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(secondFollower) < logIndex);
 
       // Now unblock the second follower
       ((StateMachineWithConditionalWait) secondFollower.getStateMachine())
@@ -122,9 +117,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
 
       // Now wait for the thread
       t.join(5000);
-      Assert.assertEquals(
-              secondFollower.getState().getLastAppliedIndex(),
-              logIndex);
+      Assert.assertEquals(logIndex, RaftServerTestUtil.getLastAppliedIndex(secondFollower));
 
       cluster.shutdown();
     }

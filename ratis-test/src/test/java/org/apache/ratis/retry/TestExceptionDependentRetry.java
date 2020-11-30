@@ -18,6 +18,7 @@
 
 package org.apache.ratis.retry;
 
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.retry.ClientRetryEvent;
@@ -27,8 +28,8 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.TimeDuration;
@@ -45,7 +46,7 @@ import static org.junit.Assert.fail;
 /**
  * Class to test {@link ExceptionDependentRetry}.
  */
-public class TestExceptionDependentRetry implements MiniRaftClusterWithGrpc.FactoryGet {
+public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
 
   @Test
   public void testExceptionDependentRetrySuccess() {
@@ -166,38 +167,38 @@ public class TestExceptionDependentRetry implements MiniRaftClusterWithGrpc.Fact
   }
 
   @Test
-  public void testExceptionRetryAttempts()
-      throws InterruptedException, IOException {
-    RaftProperties prop = new RaftProperties();
+  public void testExceptionRetryAttempts() throws Exception {
+    final RaftProperties prop = getProperties();
     RaftClientConfigKeys.Rpc.setRequestTimeout(prop, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS));
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     RaftServerConfigKeys.Write.setElementLimit(prop, 1);
-    MiniRaftClusterWithGrpc cluster = getFactory().newCluster(1, prop);
-    RaftServerImpl leader = null;
-    try {
-      cluster.start();
-      ExceptionDependentRetry.Builder builder =
-          ExceptionDependentRetry.newBuilder();
-      builder.setExceptionToPolicy(TimeoutIOException.class,
-          MultipleLinearRandomRetry.parseCommaSeparated("1ms, 5"));
-      builder.setDefaultPolicy(RetryPolicies.retryForeverNoSleep());
 
-      // create a client with the exception dependent policy
-      try (final RaftClient client = cluster.createClient(builder.build())) {
-        client.async().send(new RaftTestUtil.SimpleMessage("1")).get();
+    runWithNewCluster(1, this::runTestExceptionRetryAttempts);
+  }
 
-        leader = cluster.getLeader();
-        ((SimpleStateMachine4Testing) leader.getStateMachine()).blockWriteStateMachineData();
+  void runTestExceptionRetryAttempts(MiniRaftClusterWithGrpc cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final ExceptionDependentRetry policy = ExceptionDependentRetry.newBuilder()
+        .setExceptionToPolicy(TimeoutIOException.class, MultipleLinearRandomRetry.parseCommaSeparated("1ms, 5"))
+        .setDefaultPolicy(RetryPolicies.retryForeverNoSleep())
+        .build();
 
-        client.async().send(new RaftTestUtil.SimpleMessage("2")).get();
-      }
+    // create a client with the exception dependent policy
+    try (final RaftClient client = cluster.createClient(policy)) {
+      client.async().send(new RaftTestUtil.SimpleMessage("1")).get();
+    }
+
+    try (final RaftClient client = cluster.createClient(policy)) {
+      SimpleStateMachine4Testing.get(leader).blockWriteStateMachineData();
+
+      client.async().send(new RaftTestUtil.SimpleMessage("2")).get();
       Assert.fail("Test should have failed.");
     } catch (ExecutionException e) {
       RaftRetryFailureException rrfe = (RaftRetryFailureException) e.getCause();
       Assert.assertEquals(16, rrfe.getAttemptCount());
     } finally {
-      ((SimpleStateMachine4Testing)leader.getStateMachine()).unblockWriteStateMachineData();
+      SimpleStateMachine4Testing.get(leader).unblockWriteStateMachineData();
       cluster.shutdown();
     }
   }

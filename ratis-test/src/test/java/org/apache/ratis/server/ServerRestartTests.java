@@ -30,10 +30,8 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
-import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -111,20 +109,20 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
     final long leaderLastIndex = RaftServerTestUtil.getRaftLog(cluster.getLeader()).getLastEntryTermIndex().getIndex();
     // make sure the restarted follower can catchup
-    final ServerState followerState = cluster.getRaftServerImpl(followerId).getState();
+    final RaftServer.Division followerState = cluster.getDivision(followerId);
     JavaUtils.attemptRepeatedly(() -> {
-      Assert.assertTrue(followerState.getLastAppliedIndex() >= leaderLastIndex);
+      Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(followerState) >= leaderLastIndex);
       return null;
     }, 10, ONE_SECOND, "follower catchup", LOG);
 
     // make sure the restarted peer's log segments is correct
-    final RaftServerImpl follower = cluster.restartServer(followerId, false);
-    final RaftLog followerLog = follower.getState().getLog();
+    final RaftServer.Division follower = cluster.restartServer(followerId, false);
+    final RaftLog followerLog = RaftServerTestUtil.getRaftLog(follower);
     final long followerLastIndex = followerLog.getLastEntryTermIndex().getIndex();
     Assert.assertTrue(followerLastIndex >= leaderLastIndex);
 
     final File followerOpenLogFile = getOpenLogFile(follower);
-    final File leaderOpenLogFile = getOpenLogFile(cluster.getRaftServerImpl(leaderId));
+    final File leaderOpenLogFile = getOpenLogFile(cluster.getDivision(leaderId));
 
     // shutdown all servers
     for(RaftServer s : cluster.getServers()) {
@@ -165,20 +163,20 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   static void assertTruncatedLog(RaftPeerId id, File openLogFile, long lastIndex, MiniRaftCluster cluster) throws Exception {
     // truncate log
     FileUtils.truncateFile(openLogFile, openLogFile.length() - 1);
-    final RaftServerImpl server = cluster.restartServer(id, false);
+    final RaftServer.Division server = cluster.restartServer(id, false);
     // the last index should be one less than before
-    Assert.assertEquals(lastIndex - 1, server.getState().getLog().getLastEntryTermIndex().getIndex());
+    Assert.assertEquals(lastIndex - 1, RaftServerTestUtil.getRaftLog(server).getLastEntryTermIndex().getIndex());
     server.getRaftServer().close();
   }
 
-  static List<Path> getOpenLogFiles(RaftServerImpl server) throws Exception {
-    return server.getState().getStorage().getStorageDir().getLogSegmentFiles().stream()
+  static List<Path> getOpenLogFiles(RaftServer.Division server) throws Exception {
+    return RaftServerTestUtil.getRaftStorage(server).getStorageDir().getLogSegmentFiles().stream()
         .filter(LogPathAndIndex::isOpen)
         .map(LogPathAndIndex::getPath)
         .collect(Collectors.toList());
   }
 
-  static File getOpenLogFile(RaftServerImpl server) throws Exception {
+  static File getOpenLogFile(RaftServer.Division server) throws Exception {
     final List<Path> openLogs = getOpenLogFiles(server);
     Assert.assertEquals(1, openLogs.size());
     return openLogs.get(0).toFile();
@@ -191,7 +189,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
   void runTestRestartWithCorruptedLogHeader(MiniRaftCluster cluster) throws Exception {
     RaftTestUtil.waitForLeader(cluster);
-    for(RaftServerImpl impl : cluster.iterateServerImpls()) {
+    for(RaftServer.Division impl : cluster.iterateDivisions()) {
       JavaUtils.attemptRepeatedly(() -> getOpenLogFile(impl), 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS),
           impl.getId() + ": wait for log file creation", LOG);
     }
@@ -201,7 +199,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       s.close();
     }
 
-    for(RaftServerImpl impl : cluster.iterateServerImpls()) {
+    for(RaftServer.Division impl : cluster.iterateDivisions()) {
       final File openLogFile = JavaUtils.attemptRepeatedly(() -> getOpenLogFile(impl),
           10, HUNDRED_MILLIS, impl.getId() + "-getOpenLogFile", LOG);
       for(int i = 0; i < SegmentedRaftLogFormat.getHeaderLength(); i++) {
@@ -224,7 +222,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
         return null;
       });
     }
-    final RaftServerImpl server = cluster.restartServer(id, false);
+    final RaftServer.Division server = cluster.restartServer(id, false);
     server.getRaftServer().close();
   }
 
@@ -277,10 +275,10 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     LOG.info("{}: leader lastAppliedTermIndex = {}", leaderId, lastAppliedTermIndex);
 
     // check follower logs
-    for(RaftServerImpl s : cluster.iterateServerImpls()) {
+    for(RaftServer.Division s : cluster.iterateDivisions()) {
       if (!s.getId().equals(leaderId)) {
         ids.add(s.getId());
-        RaftTestUtil.assertSameLog(leaderLog, s.getState().getLog());
+        RaftTestUtil.assertSameLog(leaderLog, RaftServerTestUtil.getRaftLog(s));
       }
     }
 
@@ -294,18 +292,18 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     // Restart and kill servers one by one so that they won't talk to each other.
     for(RaftPeerId id : ids) {
       cluster.restartServer(id, false);
-      final RaftServerImpl server = cluster.getRaftServerImpl(id);
-      final RaftLog raftLog = server.getState().getLog();
+      final RaftServer.Division server = cluster.getDivision(id);
+      final RaftLog raftLog = RaftServerTestUtil.getRaftLog(server);
       JavaUtils.attemptRepeatedly(() -> {
         Assert.assertTrue(raftLog.getLastCommittedIndex() >= loggedCommitIndex);
         return null;
       }, 10, HUNDRED_MILLIS, id + "(commitIndex >= loggedCommitIndex)", LOG);
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(server.getState().getLastAppliedIndex() >= loggedCommitIndex);
+        Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(server) >= loggedCommitIndex);
         return null;
       }, 10, HUNDRED_MILLIS, id + "(lastAppliedIndex >= loggedCommitIndex)", LOG);
       LOG.info("{}: commitIndex={}, lastAppliedIndex={}",
-          id, raftLog.getLastCommittedIndex(), server.getState().getLastAppliedIndex());
+          id, raftLog.getLastCommittedIndex(), RaftServerTestUtil.getLastAppliedIndex(server));
       cluster.killServer(id);
     }
   }
@@ -352,7 +350,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
   private void runTestRestartWithCorruptedLogEntry(CLUSTER cluster) throws Exception {
     // this is the only server
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId id = leader.getId();
 
     // send a few messages
@@ -367,7 +365,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       Assert.assertTrue(client.io().sendReadOnly(lastMessage).isSuccess());
     }
 
-    final RaftLog log = leader.getState().getLog();
+    final RaftLog log = RaftServerTestUtil.getRaftLog(leader);
     final long size = TestSegmentedRaftLog.getOpenSegmentSize(log);
     leader.getRaftServer().close();
 

@@ -28,7 +28,7 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
@@ -76,9 +76,9 @@ public class TestArithmeticLogDump extends BaseTest {
 
   @Test
   public void testLogDump() throws Exception {
-    RaftServerImpl leaderServer = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division leaderServer = RaftTestUtil.waitForLeader(cluster);
     List<RaftStorageDirectory.LogPathAndIndex> files =
-        leaderServer.getState().getStorage().getStorageDir().getLogSegmentFiles();
+        RaftServerTestUtil.getRaftStorage(leaderServer).getStorageDir().getLogSegmentFiles();
     Assert.assertEquals(1, files.size());
     cluster.shutdown();
 

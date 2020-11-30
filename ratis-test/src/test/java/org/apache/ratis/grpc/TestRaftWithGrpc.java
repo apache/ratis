@@ -83,14 +83,14 @@ public class TestRaftWithGrpc
           replyFuture = client.async().send(new RaftTestUtil.SimpleMessage("abc"));
       TimeDuration.valueOf(5 , TimeUnit.SECONDS).sleep();
       // replyFuture should not be completed until append request is unblocked.
-      Assert.assertTrue(!replyFuture.isDone());
+      Assert.assertFalse(replyFuture.isDone());
       // unblock append request.
       cluster.getServerAliveStream()
           .filter(impl -> !impl.isLeader())
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
 
-      final RaftLog leaderLog = cluster.getLeader().getState().getLog();
+      final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
       // The entries have been appended in the followers
       // although the append entry timed out at the leader
       cluster.getServerAliveStream().filter(impl -> !impl.isLeader()).forEach(raftServer ->

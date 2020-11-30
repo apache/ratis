@@ -120,7 +120,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     }
 
     JavaUtils.attempt(() -> {
-      RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
       Assert.assertTrue(leader.getId() == peers.get(suggestedLeaderIndex).getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
 
@@ -134,7 +134,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     cluster.setBlockRequestsFrom(suggestedLeader, true);
 
     JavaUtils.attempt(() -> {
-      RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
       Assert.assertTrue(leader.getId() != peers.get(suggestedLeaderIndex).getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
 
@@ -154,13 +154,13 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     // suggested leader with highest priority rejoin cluster, then current leader will yield
     // leadership to suggested leader when suggested leader catch up the log.
     JavaUtils.attempt(() -> {
-      RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
       Assert.assertTrue(leader.getId() == peers.get(suggestedLeaderIndex).getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
 
     cluster.killServer(peers.get(suggestedLeaderIndex).getId());
     JavaUtils.attempt(() -> {
-      RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
       Assert.assertTrue(leader.getId() != peers.get(suggestedLeaderIndex).getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
 
@@ -347,7 +347,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     final RaftPeerId peerId = peer.getId();
     final RaftGroup group = RaftGroup.valueOf(cluster.getGroupId(), peer);
     try (final RaftClient client = cluster.createClient()) {
-      Assert.assertEquals(group, cluster.getRaftServerImpl(peerId).getGroup());
+      Assert.assertEquals(group, cluster.getDivision(peerId).getGroup());
       try {
         client.getGroupManagementApi(peer.getId()).add(group);
       } catch (IOException ex) {
@@ -355,7 +355,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
         // the exception is instance of AlreadyExistsException
         Assert.assertTrue(ex.toString().contains(AlreadyExistsException.class.getCanonicalName()));
       }
-      Assert.assertEquals(group, cluster.getRaftServerImpl(peerId).getGroup());
+      Assert.assertEquals(group, cluster.getDivision(peerId).getGroup());
       cluster.shutdown();
     }
   }
@@ -372,8 +372,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     final RaftGroup group1 = RaftGroup.valueOf(cluster1.getGroupId(), peer1);
     final RaftGroup group2 = RaftGroup.valueOf(cluster2.getGroupId(), peer1);
     try (final RaftClient client = cluster1.createClient()) {
-      Assert.assertEquals(group1,
-          cluster1.getRaftServerImpl(peerId1).getGroup());
+      Assert.assertEquals(group1, cluster1.getDivision(peerId1).getGroup());
       try {
 
         // Group2 is added to one of the peers in Group1
@@ -421,7 +420,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     final RaftGroup group2 = RaftGroup.valueOf(cluster2.getGroupId(), peer1);
     try (final RaftClient client = cluster1.createClient()) {
       Assert.assertEquals(group1,
-          cluster1.getRaftServerImpl(peerId1).getGroup());
+          cluster1.getDivision(peerId1).getGroup());
       try {
 
         // Group2 is added again to one of the peers in Group1

@@ -33,9 +33,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.util.Log4jUtils;
 import org.junit.*;
@@ -152,7 +149,7 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     // TODO: there eshould be a better way to ensure all data is replicated and applied
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
 
-    for (RaftServerImpl raftServer : cluster.iterateServerImpls()) {
+    for (RaftServer.Division raftServer : cluster.iterateDivisions()) {
       final SMTransactionContext sm = SMTransactionContext.get(raftServer);
       sm.rethrowIfException();
       assertEquals(numTrx, sm.numApplied.get());
@@ -193,10 +190,9 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
         }
       }
 
-      final RaftServerProxy proxy = cluster.getServer(id);
+      final RaftServer server = cluster.getServer(id);
       for(Map.Entry<RaftGroupId, StateMachine> e: registry.entrySet()) {
-        final RaftServerImpl impl = RaftServerTestUtil.getRaftServerImpl(proxy, e.getKey());
-        Assert.assertSame(e.getValue(), impl.getStateMachine());
+        Assert.assertSame(e.getValue(), server.getDivision(e.getKey()).getStateMachine());
       }
     }
   }

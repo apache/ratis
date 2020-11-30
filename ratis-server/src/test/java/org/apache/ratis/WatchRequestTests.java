@@ -32,7 +32,6 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -218,13 +217,13 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     final int numMessages = p.numMessages;
 
     // blockStartTransaction of the leader so that no transaction can be committed MAJORITY
-    final RaftServerImpl leader = cluster.getLeader();
+    final RaftServer.Division leader = cluster.getLeader();
     LOG.info("block leader {}", leader.getId());
     SimpleStateMachine4Testing.get(leader).blockStartTransaction();
 
     // blockFlushStateMachineData a follower so that no transaction can be ALL_COMMITTED
-    final List<RaftServerImpl> followers = cluster.getFollowers();
-    final RaftServerImpl blockedFollower = followers.get(ThreadLocalRandom.current().nextInt(followers.size()));
+    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final RaftServer.Division blockedFollower = followers.get(ThreadLocalRandom.current().nextInt(followers.size()));
     LOG.info("block follower {}", blockedFollower.getId());
     SimpleStateMachine4Testing.get(blockedFollower).blockFlushStateMachineData();
 
@@ -340,8 +339,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     final int numMessages = p.numMessages;
 
     // blockFlushStateMachineData a follower so that no transaction can be ALL_COMMITTED
-    final List<RaftServerImpl> followers = cluster.getFollowers();
-    final RaftServerImpl blockedFollower = followers.get(ThreadLocalRandom.current().nextInt(followers.size()));
+    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final RaftServer.Division blockedFollower = followers.get(ThreadLocalRandom.current().nextInt(followers.size()));
     LOG.info("block follower {}", blockedFollower.getId());
     SimpleStateMachine4Testing.get(blockedFollower).blockFlushStateMachineData();
 
@@ -392,13 +391,13 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     final TimeDuration watchTimeoutDenomination = RaftServerConfigKeys.Watch.timeoutDenomination(properties);
 
     // blockStartTransaction of the leader so that no transaction can be committed MAJORITY
-    final RaftServerImpl leader = cluster.getLeader();
+    final RaftServer.Division leader = cluster.getLeader();
     LOG.info("block leader {}", leader.getId());
     SimpleStateMachine4Testing.get(leader).blockStartTransaction();
 
     // blockFlushStateMachineData a follower so that no transaction can be ALL_COMMITTED
-    final List<RaftServerImpl> followers = cluster.getFollowers();
-    final RaftServerImpl blockedFollower = followers.get(ThreadLocalRandom.current().nextInt(followers.size()));
+    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final RaftServer.Division blockedFollower = followers.get(ThreadLocalRandom.current().nextInt(followers.size()));
     LOG.info("block follower {}", blockedFollower.getId());
     SimpleStateMachine4Testing.get(blockedFollower).blockFlushStateMachineData();
 
