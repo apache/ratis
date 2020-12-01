@@ -47,9 +47,6 @@ public interface RaftClient extends Closeable {
   /** @return the cluster leaderId recorded by this client. */
   RaftPeerId getLeaderId();
 
-  /** @return the cluster primary server recorded by this client. */
-  RaftPeer getPrimaryDataStreamServer();
-
   /** @return the {@link RaftClientRpc}. */
   RaftClientRpc getClientRpc();
 

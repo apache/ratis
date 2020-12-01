@@ -101,6 +101,7 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
         when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenReturn(myDivision);
 
         RaftClient client = Mockito.mock(RaftClient.class);
+        when(client.getId()).thenReturn(clientId);
         myDivision.setRaftClient(client);
         AsyncRpcApi asyncRpcApi = Mockito.mock(AsyncRpcApi.class);
         when(client.async()).thenReturn(asyncRpcApi);

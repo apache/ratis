@@ -37,6 +37,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -106,8 +107,7 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
         .orElseThrow(IllegalStateException::new);
   }
 
-  ClientId getPrimaryClientId(CLUSTER cluster, RaftClient client) {
-    RaftPeer primary = client.getPrimaryDataStreamServer();
+  ClientId getPrimaryClientId(CLUSTER cluster, RaftPeer primary) {
     return cluster.getDivision(primary.getId()).getRaftClient().getId();
   }
 
@@ -115,8 +115,9 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     final Iterable<RaftServer> servers = CollectionUtils.as(cluster.getServers(), s -> s);
     final RaftPeerId leader = cluster.getLeader().getId();
     final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
-    try(RaftClient client = cluster.createClient()) {
-      ClientId primaryClientId = getPrimaryClientId(cluster, client);
+    final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
+    try(RaftClient client = cluster.createClient(primaryServer)) {
+      ClientId primaryClientId = getPrimaryClientId(cluster, primaryServer);
       for (int i = 0; i < numStreams; i++) {
         final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
         futures.add(CompletableFuture.supplyAsync(() -> DataStreamTestUtils.writeAndCloseAndAssertReplies(
