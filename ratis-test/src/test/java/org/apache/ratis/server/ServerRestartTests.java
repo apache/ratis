@@ -19,7 +19,7 @@ package org.apache.ratis.server;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;

@@ -18,7 +18,8 @@
 package org.apache.ratis;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.MiniRaftCluster.PeerChanges;
+import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster.PeerChanges;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;

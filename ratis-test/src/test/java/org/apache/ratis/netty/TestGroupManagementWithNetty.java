@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.netty;
 
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.GroupManagementBaseTest;
 
 public class TestGroupManagementWithNetty extends GroupManagementBaseTest {

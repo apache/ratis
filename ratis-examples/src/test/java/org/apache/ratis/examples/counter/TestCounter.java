@@ -18,7 +18,7 @@
 
 package org.apache.ratis.examples.counter;
 
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.ParameterizedBaseTest;
 import org.apache.ratis.examples.counter.server.CounterStateMachine;

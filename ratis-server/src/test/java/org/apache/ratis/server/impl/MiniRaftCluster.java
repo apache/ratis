@@ -15,8 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis;
+package org.apache.ratis.server.impl;
 
+import org.apache.ratis.BaseTest;
+import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -33,10 +35,6 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.raftlog.memory.MemoryRaftLog;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.StateMachine;
@@ -361,15 +359,15 @@ public abstract class MiniRaftCluster implements Closeable {
       }
       final RaftProperties prop = new RaftProperties(properties);
       RaftServerConfigKeys.setStorageDir(prop, Collections.singletonList(dir));
-      return newRaftServer(id, getStateMachineRegistry(properties), group, prop);
+      return ServerImplUtils.newRaftServer(id, group, getStateMachineRegistry(prop), prop,
+          setPropertiesAndInitParameters(id, group, prop));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
-  protected abstract RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine.Registry stateMachineRegistry , RaftGroup group,
-      RaftProperties properties) throws IOException;
+  protected abstract Parameters setPropertiesAndInitParameters(
+      RaftPeerId id, RaftGroup group, RaftProperties properties);
 
   public void setStateMachineRegistry(StateMachine.Registry stateMachineRegistry) {
     this.stateMachineRegistry = stateMachineRegistry;
@@ -519,12 +517,13 @@ public abstract class MiniRaftCluster implements Closeable {
     return leader;
   }
 
-  IllegalStateException newIllegalStateExceptionForNoLeaders(RaftGroupId groupId) {
+  public IllegalStateException newIllegalStateExceptionForNoLeaders(RaftGroupId groupId) {
     final String g = groupId == null? "": " for " + groupId;
     return new IllegalStateException("No leader yet " + g + ": " + printServers(groupId));
   }
 
-  IllegalStateException newIllegalStateExceptionForMultipleLeaders(RaftGroupId groupId, List<RaftServer.Division> leaders) {
+  public IllegalStateException newIllegalStateExceptionForMultipleLeaders(RaftGroupId groupId,
+      List<RaftServer.Division> leaders) {
     final String g = groupId == null? "": " for " + groupId;
     return new IllegalStateException("Found multiple leaders" + g
         + " at the same term (=" + RaftServerTestUtil.getCurrentTerm(leaders.get(0))
@@ -545,7 +544,7 @@ public abstract class MiniRaftCluster implements Closeable {
     });
   }
 
-  RaftServer.Division getLeader(RaftGroupId groupId, Runnable handleNoLeaders,
+  public RaftServer.Division getLeader(RaftGroupId groupId, Runnable handleNoLeaders,
       Consumer<List<RaftServer.Division>> handleMultipleLeaders) {
     return getLeader(getLeaders(groupId), handleNoLeaders, handleMultipleLeaders);
   }

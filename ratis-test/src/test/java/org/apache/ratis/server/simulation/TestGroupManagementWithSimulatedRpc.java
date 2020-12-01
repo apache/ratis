@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.GroupManagementBaseTest;
 
 public class TestGroupManagementWithSimulatedRpc extends GroupManagementBaseTest {

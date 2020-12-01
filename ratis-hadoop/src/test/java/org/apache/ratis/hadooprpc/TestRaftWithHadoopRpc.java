@@ -20,7 +20,7 @@ package org.apache.ratis.hadooprpc;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.log4j.Level;
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;

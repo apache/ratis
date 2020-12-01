@@ -34,7 +34,7 @@ import java.util.List;
 import javax.management.ObjectName;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
