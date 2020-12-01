@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
 import org.apache.ratis.server.impl.TestRatisServerMetricsBase;
 
 /** Tests on Ratis server metrics with simulated rpc. */

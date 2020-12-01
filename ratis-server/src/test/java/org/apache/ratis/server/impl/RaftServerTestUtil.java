@@ -18,7 +18,6 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
@@ -40,7 +39,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 

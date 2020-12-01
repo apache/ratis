@@ -18,15 +18,13 @@
 package org.apache.ratis.server.simulation;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.ConfUtils;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.server.impl.ServerImplUtils;
-import org.apache.ratis.statemachine.StateMachine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,12 +87,10 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   }
 
   @Override
-  protected RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine.Registry stateMachineRegistry , RaftGroup group,
-      RaftProperties properties) throws IOException {
+  protected Parameters setPropertiesAndInitParameters(RaftPeerId id, RaftGroup group, RaftProperties properties) {
     serverRequestReply.addPeer(id);
     client2serverRequestReply.addPeer(id);
-    return ServerImplUtils.newRaftServer(id, group, stateMachineRegistry, properties, parameters);
+    return parameters;
   }
 
   @Override

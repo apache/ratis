@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RetryCacheTests;
 import org.apache.ratis.conf.RaftProperties;

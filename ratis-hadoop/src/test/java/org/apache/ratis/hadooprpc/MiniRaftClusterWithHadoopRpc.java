@@ -18,23 +18,19 @@
 package org.apache.ratis.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.hadooprpc.server.HadoopRpcService;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
-import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.server.impl.ServerImplUtils;
-import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 
 public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithHadoopRpc.class);
@@ -80,15 +76,11 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   }
 
   @Override
-  protected RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine.Registry stateMachineRegistry , RaftGroup group,
-      RaftProperties properties) throws IOException {
+  protected Parameters setPropertiesAndInitParameters(RaftPeerId id, RaftGroup group, RaftProperties properties) {
     final Configuration hconf = new Configuration(hadoopConf);
     final String address = "0.0.0.0:" + getPort(id, group);
     HadoopConfigKeys.Ipc.setAddress(hconf, address);
-
-    return ServerImplUtils.newRaftServer(id, group, stateMachineRegistry, properties,
-        HadoopFactory.newRaftParameters(hconf));
+    return HadoopFactory.newRaftParameters(hconf);
   }
 
   @Override

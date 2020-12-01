@@ -17,18 +17,15 @@
  */
 package org.apache.ratis.datastream;
 
-import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.statemachine.StateMachine;
-
-import java.io.IOException;
 
 /**
  * A {@link MiniRaftCluster} with {{@link SupportedRpcType#NETTY}} and {@link SupportedDataStreamType#NETTY}.
@@ -56,9 +53,8 @@ public class MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty extends MiniR
   }
 
   @Override
-  protected RaftServerProxy newRaftServer(RaftPeerId id, StateMachine.Registry stateMachineRegistry, RaftGroup group,
-      RaftProperties properties) throws IOException {
+  protected Parameters setPropertiesAndInitParameters(RaftPeerId id, RaftGroup group, RaftProperties properties) {
     NettyConfigKeys.DataStream.setPort(properties, getDataStreamPort(id, group));
-    return super.newRaftServer(id, stateMachineRegistry, group, properties);
+    return super.setPropertiesAndInitParameters(id, group, properties);
   }
 }

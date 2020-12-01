@@ -17,11 +17,8 @@
  */
 package org.apache.ratis.hadooprpc;
 
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
-
-import java.io.IOException;
 
 public class TestRaftSnapshotWithHadoopRpc extends RaftSnapshotBaseTest {
   @Override
