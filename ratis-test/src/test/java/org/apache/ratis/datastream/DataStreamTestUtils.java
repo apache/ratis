@@ -25,6 +25,7 @@ import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.Message;
@@ -284,7 +285,8 @@ public interface DataStreamTestUtils {
   }
 
   static CompletableFuture<RaftClientReply> writeAndCloseAndAssertReplies(
-      Iterable<RaftServer> servers, RaftPeerId leader, DataStreamOutputImpl out, int bufferSize, int bufferNum) {
+      Iterable<RaftServer> servers, RaftPeerId leader, DataStreamOutputImpl out, int bufferSize, int bufferNum,
+      ClientId primaryClientId) {
     LOG.info("start Stream{}", out.getHeader().getCallId());
     final int bytesWritten = writeAndAssertReplies(out, bufferSize, bufferNum);
     try {
@@ -296,7 +298,7 @@ public interface DataStreamTestUtils {
     }
     LOG.info("Stream{}: bytesWritten={}", out.getHeader().getCallId(), bytesWritten);
 
-    return out.closeAsync().thenCompose(reply -> assertCloseReply(out, reply, bytesWritten, leader));
+    return out.closeAsync().thenCompose(reply -> assertCloseReply(out, reply, bytesWritten, leader, primaryClientId));
   }
 
   static void assertHeader(RaftServer server, RaftClientRequest header, int dataSize) throws Exception {
@@ -313,11 +315,11 @@ public interface DataStreamTestUtils {
     // check writeRequest
     final RaftClientRequest writeRequest = stream.getWriteRequest();
     Assert.assertEquals(RaftClientRequest.dataStreamRequestType(), writeRequest.getType());
-    assertRaftClientMessage(header, null, writeRequest);
+    assertRaftClientMessage(header, null, writeRequest, header.getClientId());
   }
 
   static CompletableFuture<RaftClientReply> assertCloseReply(DataStreamOutputImpl out, DataStreamReply dataStreamReply,
-      long bytesWritten, RaftPeerId leader) {
+      long bytesWritten, RaftPeerId leader, ClientId primaryClientId) {
     // Test close idempotent
     Assert.assertSame(dataStreamReply, out.closeAsync().join());
     BaseTest.testFailureCase("writeAsync should fail",
@@ -327,7 +329,7 @@ public interface DataStreamTestUtils {
     final DataStreamReplyByteBuffer buffer = (DataStreamReplyByteBuffer) dataStreamReply;
     try {
       final RaftClientReply reply = ClientProtoUtils.toRaftClientReply(buffer.slice());
-      assertRaftClientMessage(out.getHeader(), leader, reply);
+      assertRaftClientMessage(out.getHeader(), leader, reply, primaryClientId);
       if (reply.isSuccess()) {
         final ByteString bytes = reply.getMessage().getContent();
         if (!bytes.equals(MOCK)) {
@@ -341,12 +343,12 @@ public interface DataStreamTestUtils {
     }
   }
 
-  static void assertRaftClientMessage(RaftClientMessage expected, RaftPeerId expectedServerId, RaftClientMessage computed) {
+  static void assertRaftClientMessage(
+      RaftClientMessage expected, RaftPeerId expectedServerId, RaftClientMessage computed, ClientId expectedClientId) {
     Assert.assertNotNull(computed);
-    Assert.assertEquals(expected.getClientId(), computed.getClientId());
+    Assert.assertEquals(expectedClientId, computed.getClientId());
     Assert.assertEquals(Optional.ofNullable(expectedServerId).orElseGet(expected::getServerId), computed.getServerId());
     Assert.assertEquals(expected.getRaftGroupId(), computed.getRaftGroupId());
-    Assert.assertEquals(expected.getCallId(), computed.getCallId());
   }
 
   static LogEntryProto searchLogEntry(ClientInvocationId invocationId, RaftLog log) throws Exception {

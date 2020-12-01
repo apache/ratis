@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.datastream;
 
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -35,6 +37,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -104,15 +107,21 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
         .orElseThrow(IllegalStateException::new);
   }
 
+  ClientId getPrimaryClientId(CLUSTER cluster, RaftPeer primary) {
+    return cluster.getDivision(primary.getId()).getRaftClient().getId();
+  }
+
   long runTestDataStream(CLUSTER cluster, int numStreams, int bufferSize, int bufferNum) {
     final Iterable<RaftServer> servers = CollectionUtils.as(cluster.getServers(), s -> s);
     final RaftPeerId leader = cluster.getLeader().getId();
     final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
-    try(RaftClient client = cluster.createClient()) {
+    final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
+    try(RaftClient client = cluster.createClient(primaryServer)) {
+      ClientId primaryClientId = getPrimaryClientId(cluster, primaryServer);
       for (int i = 0; i < numStreams; i++) {
         final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
         futures.add(CompletableFuture.supplyAsync(() -> DataStreamTestUtils.writeAndCloseAndAssertReplies(
-            servers, leader, out, bufferSize, bufferNum).join(), executor));
+            servers, leader, out, bufferSize, bufferNum, primaryClientId).join(), executor));
       }
       Assert.assertEquals(numStreams, futures.size());
       return futures.stream()

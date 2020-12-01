@@ -19,7 +19,9 @@ package org.apache.ratis.client.impl;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ratis.client.api.AsyncApi;
+
+import org.apache.ratis.client.AsyncRpcApi;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -27,7 +29,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 
 /** Async api implementations. */
-class AsyncImpl implements AsyncApi {
+class AsyncImpl implements AsyncRpcApi {
   private final RaftClientImpl client;
 
   AsyncImpl(RaftClientImpl client) {
@@ -57,5 +59,11 @@ class AsyncImpl implements AsyncApi {
   @Override
   public CompletableFuture<RaftClientReply> watch(long index, ReplicationLevel replication) {
     return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), client);
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> sendForward(RaftClientRequest request) {
+    final RaftProtos.RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
+    return send(RaftClientRequest.forwardRequestType(), Message.valueOf(proto.toByteString()), null);
   }
 }

@@ -19,6 +19,8 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.client.AsyncRpcApi;
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.ClientId;
@@ -74,17 +76,16 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
     return super.newRaftServer(peer, p);
   }
 
-  private void testMockCluster(int leaderIndex, int numServers, RaftException leaderException,
-      Exception submitException) throws Exception {
-    testMockCluster(leaderIndex, numServers, leaderException, submitException, null);
+  private void testMockCluster(int numServers, RaftException leaderException,
+      IllegalStateException submitException) throws Exception {
+    testMockCluster(numServers, leaderException, submitException, null);
   }
 
-  private void testMockCluster(int leaderIndex, int numServers, RaftException leaderException,
-      Exception submitException, IOException getStateMachineException) throws Exception {
+  private void testMockCluster(int numServers, RaftException leaderException,
+      IllegalStateException submitException, IOException getStateMachineException) throws Exception {
     List<RaftServer> raftServers = new ArrayList<>();
     ClientId clientId = ClientId.randomId();
     RaftGroupId groupId = RaftGroupId.randomId();
-    final RaftPeer suggestedLeader = RaftPeer.newBuilder().setId("s" + leaderIndex).build();
 
     for (int i = 0; i < numServers; i ++) {
       RaftServer raftServer = mock(RaftServer.class);
@@ -93,35 +94,31 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
       NettyConfigKeys.DataStream.setPort(properties, NetUtils.createLocalServerAddress().getPort());
       RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
 
-      if (submitException != null) {
-        when(raftServer.submitClientRequestAsync(Mockito.any(RaftClientRequest.class)))
-            .thenThrow(submitException);
-      } else {
-        final boolean isLeader = i == leaderIndex;
-        when(raftServer.submitClientRequestAsync(Mockito.any(RaftClientRequest.class)))
-            .thenAnswer((Answer<CompletableFuture<RaftClientReply>>) invocation -> {
-              final RaftClientRequest r = (RaftClientRequest) invocation.getArguments()[0];
-              final RaftClientReply reply;
-              if (isLeader) {
-                final RaftClientReply.Builder b = RaftClientReply.newBuilder().setRequest(r);
-                reply = leaderException != null? b.setException(leaderException).build()
-                    : b.setSuccess().setMessage(() -> DataStreamTestUtils.MOCK).build();
-              } else {
-                final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(peerId, groupId);
-                final NotLeaderException notLeaderException = new NotLeaderException(memberId, suggestedLeader, null);
-                reply = RaftClientReply.newBuilder().setRequest(r).setException(notLeaderException).build();
-              }
-              return CompletableFuture.completedFuture(reply);
-            });
-      }
-
       when(raftServer.getProperties()).thenReturn(properties);
       when(raftServer.getId()).thenReturn(peerId);
       if (getStateMachineException == null) {
-        final ConcurrentMap<RaftGroupId, MyDivision> divisions = new ConcurrentHashMap<>();
-        when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenAnswer(
-            invocation -> divisions.computeIfAbsent((RaftGroupId)invocation.getArguments()[0],
-                key -> new MyDivision(raftServer)));
+        MyDivision myDivision = new MyDivision(raftServer);
+        when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenReturn(myDivision);
+
+        RaftClient client = Mockito.mock(RaftClient.class);
+        when(client.getId()).thenReturn(clientId);
+        myDivision.setRaftClient(client);
+        AsyncRpcApi asyncRpcApi = Mockito.mock(AsyncRpcApi.class);
+        when(client.async()).thenReturn(asyncRpcApi);
+
+        if (submitException != null) {
+          when(asyncRpcApi.sendForward(Mockito.any(RaftClientRequest.class))).thenThrow(submitException);
+        } else if (i == 0) {
+          // primary
+          when(asyncRpcApi.sendForward(Mockito.any(RaftClientRequest.class)))
+              .thenAnswer((Answer<CompletableFuture<RaftClientReply>>) invocation -> {
+                final RaftClientRequest r = (RaftClientRequest) invocation.getArguments()[0];
+                final RaftClientReply.Builder b = RaftClientReply.newBuilder().setRequest(r);
+                final RaftClientReply reply = leaderException != null? b.setException(leaderException).build()
+                      : b.setSuccess().setMessage(() -> DataStreamTestUtils.MOCK).build();
+                return CompletableFuture.completedFuture(reply);
+              });
+        }
       } else {
         when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenThrow(getStateMachineException);
       }
@@ -147,54 +144,30 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
   }
 
   @Test
-  public void testCloseStreamPrimaryIsLeader() throws Exception {
-    // primary is 0, leader is 0
-    testMockCluster(0, 3, null, null);
-  }
-
-  @Test
-  public void testCloseStreamPrimaryIsNotLeader() throws Exception {
-    // primary is 0, leader is 1
-    testMockCluster(1, 3, null, null);
+  public void testCloseStreamPrimary() throws Exception {
+    testMockCluster(3, null, null);
   }
 
   @Test
   public void testCloseStreamOneServer() throws Exception {
-    // primary is 0, leader is 0
-    testMockCluster(0, 1, null, null);
+    testMockCluster(1, null, null);
   }
 
   @Test
-  public void testStateMachineExceptionInReplyPrimaryIsLeader() throws Exception {
-    // primary is 0, leader is 0
+  public void testStateMachineExceptionInReply() throws Exception {
     StateMachineException stateMachineException = new StateMachineException("leader throw StateMachineException");
-    testMockCluster(0, 3, stateMachineException, null);
+    testMockCluster(3, stateMachineException, null);
   }
 
   @Test
-  public void testStateMachineExceptionInReplyPrimaryIsNotLeader() throws Exception {
-    // primary is 0, leader is 1
-    StateMachineException stateMachineException = new StateMachineException("leader throw StateMachineException");
-    testMockCluster(1, 3, stateMachineException, null);
-  }
-
-  @Test
-  public void testDataStreamExceptionInReplyPrimaryIsLeader() throws Exception {
-    // primary is 0, leader is 0
-    IOException ioException = new IOException("leader throw IOException");
-    testMockCluster(0, 3, null, ioException);
-  }
-
-  @Test
-  public void testDataStreamExceptionInReplyPrimaryIsNotLeader() throws Exception {
-    // primary is 0, leader is 1
-    IOException ioException = new IOException("leader throw IOException");
-    testMockCluster(1, 3, null, ioException);
+  public void testDataStreamExceptionInReply() throws Exception {
+    IllegalStateException submitException = new IllegalStateException("primary throw IllegalStateException");
+    testMockCluster(3, null, submitException);
   }
 
   @Test
   public void testDataStreamExceptionGetStateMachine() throws Exception {
     final IOException getStateMachineException = new IOException("Failed to get StateMachine");
-    testMockCluster(1, 1, null, null, getStateMachineException);
+    testMockCluster(1, null, null, getStateMachineException);
   }
 }

@@ -60,6 +60,7 @@ import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
 import org.junit.Assert;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -71,11 +72,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
+import static org.mockito.Mockito.when;
+
 abstract class DataStreamBaseTest extends BaseTest {
   static class MyDivision implements RaftServer.Division {
     private final RaftServer server;
     private final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
     private final DataStreamMap streamMap;
+    private RaftClient client;
 
     MyDivision(RaftServer server) {
       this.server = server;
@@ -105,6 +109,15 @@ abstract class DataStreamBaseTest extends BaseTest {
     @Override
     public DataStreamMap getDataStreamMap() {
       return streamMap;
+    }
+
+    public void setRaftClient(RaftClient client) {
+      this.client = client;
+    }
+
+    @Override
+    public RaftClient getRaftClient() {
+      return this.client;
     }
   }
 
@@ -355,6 +368,10 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
+  ClientId getPrimaryClientId() throws IOException {
+    return getPrimaryServer().raftServer.getDivision(raftGroup.getGroupId()).getRaftClient().getId();
+  }
+
   void runTestMockCluster(ClientId clientId, int bufferSize, int bufferNum,
       Exception expectedException, Exception headerException)
       throws IOException {
@@ -370,7 +387,8 @@ abstract class DataStreamBaseTest extends BaseTest {
       }
 
       final RaftClientReply clientReply = DataStreamTestUtils.writeAndCloseAndAssertReplies(
-          CollectionUtils.as(servers, Server::getRaftServer), null, out, bufferSize, bufferNum).join();
+          CollectionUtils.as(servers, Server::getRaftServer), null, out, bufferSize, bufferNum,
+          getPrimaryClientId()).join();
       if (expectedException != null) {
         Assert.assertFalse(clientReply.isSuccess());
         Assert.assertTrue(clientReply.getException().getMessage().contains(

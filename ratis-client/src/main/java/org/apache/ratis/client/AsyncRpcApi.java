@@ -17,13 +17,20 @@
  */
 package org.apache.ratis.client;
 
-import org.apache.ratis.client.api.DataStreamOutput;
-import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.client.api.AsyncApi;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
 
 import java.util.concurrent.CompletableFuture;
 
-/** An RPC interface which extends the user interface {@link DataStreamOutput}. */
-public interface DataStreamOutputRpc extends DataStreamOutput {
-  /** Get the future of the header request. */
-  CompletableFuture<DataStreamReply> getHeaderFuture();
+/** An RPC interface which extends the user interface {@link AsyncApi}. */
+public interface AsyncRpcApi extends AsyncApi {
+  /**
+   * Send the given RaftClientRequest asynchronously to the raft service.
+   * The RaftClientRequest will wrapped as Message in a new RaftClientRequest
+   * and leader will be decode it from the Message
+   * @param request The RaftClientRequest.
+   * @return a future of the reply.
+   */
+  CompletableFuture<RaftClientReply> sendForward(RaftClientRequest request);
 }
