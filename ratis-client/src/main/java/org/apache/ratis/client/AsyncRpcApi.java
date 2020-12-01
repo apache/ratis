@@ -15,12 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.datastream;
+package org.apache.ratis.client;
 
-import org.junit.Ignore;
+import org.apache.ratis.client.api.AsyncApi;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
 
-@Ignore("Ignored by runzhiwang, because NettyClientRpc does not support sendRequestAsync")
-public class TestNettyDataStreamWithNettyCluster
-    extends DataStreamClusterTests<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty>
-    implements MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty.FactoryGet {
+import java.util.concurrent.CompletableFuture;
+
+/** An RPC interface which extends the user interface {@link AsyncApi}. */
+public interface AsyncRpcApi extends AsyncApi {
+  /**
+   * Send the given RaftClientRequest asynchronously to the raft service.
+   * The RaftClientRequest will wrapped as Message in a new RaftClientRequest
+   * and leader will be decode it from the Message
+   * @param request The RaftClientRequest.
+   * @return a future of the reply.
+   */
+  CompletableFuture<RaftClientReply> sendForward(RaftClientRequest request);
 }

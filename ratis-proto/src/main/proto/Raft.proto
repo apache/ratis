@@ -73,7 +73,6 @@ message StateMachineLogEntryProto {
   enum Type {
     WRITE = 0;
     DATASTREAM = 1;
-    FORWARD = 2;
   }
 
   Type type = 13;

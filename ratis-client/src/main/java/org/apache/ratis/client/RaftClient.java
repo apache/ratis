@@ -18,7 +18,6 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.RaftConfigKeys;
-import org.apache.ratis.client.api.AsyncApi;
 import org.apache.ratis.client.api.BlockingApi;
 import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.GroupManagementApi;
@@ -53,8 +52,8 @@ public interface RaftClient extends Closeable {
   /** Get the {@link GroupManagementApi} for the given server. */
   GroupManagementApi getGroupManagementApi(RaftPeerId server);
 
-  /** Get the {@link AsyncApi}. */
-  AsyncApi async();
+  /** Get the {@link AsyncRpcApi}. */
+  AsyncRpcApi async();
 
   /** @return the {@link MessageStreamApi}. */
   MessageStreamApi getMessageStreamApi();

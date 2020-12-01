@@ -343,10 +343,8 @@ public interface DataStreamTestUtils {
 
   static void assertRaftClientMessage(RaftClientMessage expected, RaftPeerId expectedServerId, RaftClientMessage computed) {
     Assert.assertNotNull(computed);
-    Assert.assertEquals(expected.getClientId(), computed.getClientId());
     Assert.assertEquals(Optional.ofNullable(expectedServerId).orElseGet(expected::getServerId), computed.getServerId());
     Assert.assertEquals(expected.getRaftGroupId(), computed.getRaftGroupId());
-    Assert.assertEquals(expected.getCallId(), computed.getCallId());
   }
 
   static LogEntryProto searchLogEntry(ClientInvocationId invocationId, RaftLog log) throws Exception {

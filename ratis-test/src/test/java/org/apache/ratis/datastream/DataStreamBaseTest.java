@@ -60,6 +60,7 @@ import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
 import org.junit.Assert;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -71,11 +72,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
+import static org.mockito.Mockito.when;
+
 abstract class DataStreamBaseTest extends BaseTest {
   static class MyDivision implements RaftServer.Division {
     private final RaftServer server;
     private final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
     private final DataStreamMap streamMap;
+    private RaftClient client;
 
     MyDivision(RaftServer server) {
       this.server = server;
@@ -107,9 +111,13 @@ abstract class DataStreamBaseTest extends BaseTest {
       return streamMap;
     }
 
+    public void setRaftClient(RaftClient client) {
+      this.client = client;
+    }
+
     @Override
     public RaftClient getRaftClient() {
-      return null;
+      return this.client;
     }
   }
 

@@ -19,7 +19,6 @@
 package org.apache.ratis.netty.server;
 
 import org.apache.ratis.client.DataStreamOutputRpc;
-import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -28,7 +27,6 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -52,7 +50,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -67,8 +64,6 @@ import java.util.stream.Collectors;
 
 public class DataStreamManagement {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamManagement.class);
-
-  private Map<RaftGroupId, RaftClient> clientMap = new ConcurrentHashMap<>();
 
   static class LocalStream {
     private final CompletableFuture<DataStream> streamFuture;
@@ -298,18 +293,12 @@ public class DataStreamManagement {
   private CompletableFuture<Void> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
       ChannelHandlerContext ctx) {
     try {
-      final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(info.request);
-      return server.getDivision(info.getRequest().getRaftGroupId())
+      return server.getDivision(info.getRequest()
+          .getRaftGroupId())
           .getRaftClient()
           .async()
-          .sendForward(Message.valueOf(proto.toByteString()))
-          .thenAcceptAsync(reply -> {
-        if (reply.isSuccess()) {
-          ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
-        } else {
-          throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
-        }
-      }, executor);
+          .sendForward(info.request)
+          .thenAcceptAsync(reply -> ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply)), executor);
     } catch (IOException e) {
       throw new CompletionException(e);
     }
