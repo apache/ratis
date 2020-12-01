@@ -30,7 +30,6 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -50,7 +49,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Objects;
@@ -66,23 +64,23 @@ import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 
 
 public interface RaftTestUtil {
   Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
 
-  static RaftServerImpl waitForLeader(MiniRaftCluster cluster)
+  static RaftServer.Division waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {
     return waitForLeader(cluster, null);
   }
 
-  static RaftServerImpl waitForLeader(MiniRaftCluster cluster, RaftGroupId groupId)
+  static RaftServer.Division waitForLeader(MiniRaftCluster cluster, RaftGroupId groupId)
       throws InterruptedException {
     return waitForLeader(cluster, groupId, true);
   }
 
-  static RaftServerImpl waitForLeader(
-      MiniRaftCluster cluster, RaftGroupId groupId, boolean expectLeader)
+  static RaftServer.Division waitForLeader(MiniRaftCluster cluster, RaftGroupId groupId, boolean expectLeader)
       throws InterruptedException {
     final String name = "waitForLeader-" + groupId + "-(expectLeader? " + expectLeader + ")";
     final int numAttempts = expectLeader? 100: 10;
@@ -93,14 +91,14 @@ public interface RaftTestUtil {
     final Runnable handleNoLeaders = () -> {
       throw cluster.newIllegalStateExceptionForNoLeaders(groupId);
     };
-    final Consumer<List<RaftServerImpl>> handleMultipleLeaders = leaders -> {
+    final Consumer<List<RaftServer.Division>> handleMultipleLeaders = leaders -> {
       final IllegalStateException ise = cluster.newIllegalStateExceptionForMultipleLeaders(groupId, leaders);
       exception.set(ise);
     };
 
-    final RaftServerImpl leader = JavaUtils.attemptRepeatedly(() -> {
-      RaftServerImpl l = cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders);
-      if (l != null && !l.isLeaderReady()) {
+    final RaftServer.Division leader = JavaUtils.attemptRepeatedly(() -> {
+      final RaftServer.Division l = cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders);
+      if (l != null && !RaftServerTestUtil.isLeaderReady(l)) {
         throw new IllegalStateException("Leader: "+ l.getMemberId() +  " not ready");
       }
       return l;
@@ -119,7 +117,7 @@ public interface RaftTestUtil {
   }
 
   static RaftPeerId waitAndKillLeader(MiniRaftCluster cluster) throws InterruptedException {
-    final RaftServerImpl leader = waitForLeader(cluster);
+    final RaftServer.Division leader = waitForLeader(cluster);
     Assert.assertNotNull(leader);
 
     LOG.info("killing leader = " + leader);
@@ -222,7 +220,7 @@ public interface RaftTestUtil {
   }
 
   static void assertLogEntries(MiniRaftCluster cluster, SimpleMessage expectedMessage) {
-    final int size = cluster.getServers().size();
+    final int size = cluster.getNumServers();
     final long count = cluster.getServerAliveStream()
         .map(s -> s.getState().getLog())
         .filter(log -> logEntriesContains(log, expectedMessage))
@@ -426,8 +424,7 @@ public interface RaftTestUtil {
     }
   }
 
-  static <SERVER extends RaftServer> void blockQueueAndSetDelay(
-      Collection<SERVER> servers,
+  static void blockQueueAndSetDelay(Iterable<RaftServer> servers,
       DelayLocalExecutionInjection injection, String leaderId, int delayMs,
       TimeDuration maxTimeout) throws InterruptedException {
     // block reqeusts sent to leader if delayMs > 0
@@ -441,7 +438,8 @@ public interface RaftTestUtil {
     }
 
     // delay RaftServerRequest for other servers
-    servers.stream().filter(s -> !s.getId().toString().equals(leaderId))
+    StreamSupport.stream(servers.spliterator(), false)
+        .filter(s -> !s.getId().toString().equals(leaderId))
         .forEach(s -> {
           if (block) {
             injection.setDelayMs(s.getId().toString(), delayMs);

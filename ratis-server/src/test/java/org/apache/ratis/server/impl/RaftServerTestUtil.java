@@ -73,7 +73,7 @@ public class RaftServerTestUtil {
     int deadIncluded = 0;
     final RaftConfiguration current = RaftConfiguration.newBuilder()
         .setConf(peers).setLogEntryIndex(0).build();
-    for (RaftServer.Division d : cluster.iterateServerImpls()) {
+    for (RaftServer.Division d : cluster.iterateDivisions()) {
       final RaftServerImpl server = (RaftServerImpl)d;
       LOG.info("checking {}", server);
       if (deadPeers != null && deadPeers.contains(server.getId())) {
@@ -108,6 +108,14 @@ public class RaftServerTestUtil {
     return ((RaftServerImpl)server).getState().getLastAppliedIndex();
   }
 
+  public static long getNextIndex(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getState().getNextIndex();
+  }
+
+  public static long[] getFollowerNextIndices(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getFollowerNextIndices();
+  }
+
   public static long getLatestInstalledSnapshotIndex(RaftServer.Division server) {
     return ((RaftServerImpl)server).getState().getLatestInstalledSnapshotIndex();
   }
@@ -124,8 +132,8 @@ public class RaftServerTestUtil {
     return entry.isFailed();
   }
 
-  public static RaftPeerRole getRole(RaftServerImpl server) {
-    return server.getRole().getRaftPeerRole();
+  public static RaftPeerRole getRole(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getRole().getRaftPeerRole();
   }
 
   public static RaftConfiguration getRaftConf(RaftServer.Division server) {
@@ -156,18 +164,14 @@ public class RaftServerTestUtil {
     return getLeaderState(server).map(LeaderState::getLogAppenders).orElse(null);
   }
 
-  public static void restartLogAppenders(RaftServerImpl server) {
+  public static void restartLogAppenders(RaftServer.Division server) {
     final LeaderState leaderState = getLeaderState(server).orElseThrow(
         () -> new IllegalStateException(server + " is not the leader"));
     leaderState.getLogAppenders().forEach(leaderState::restartSender);
   }
 
-  public static List<RaftServerImpl> getRaftServerImpls(RaftServerProxy proxy) {
-    return JavaUtils.callAsUnchecked(proxy::getImpls);
-  }
-
-  public static RaftServerImpl getRaftServerImpl(RaftServerProxy proxy, RaftGroupId groupId) {
-    return JavaUtils.callAsUnchecked(() -> proxy.getImpl(groupId));
+  public static RaftServer.Division getDivision(RaftServer server, RaftGroupId groupId) {
+    return JavaUtils.callAsUnchecked(() -> server.getDivision(groupId));
   }
 
   public static DataStreamMap newDataStreamMap(Object name) {

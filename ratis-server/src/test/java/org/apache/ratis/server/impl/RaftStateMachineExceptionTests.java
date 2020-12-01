@@ -126,7 +126,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
         Assert.assertNotNull(reply.getStateMachineException());
       }
 
-      for (RaftServerImpl server : cluster.iterateServerImpls()) {
+      for (RaftServer.Division server : cluster.iterateDivisions()) {
         LOG.info("check server " + server.getId());
 
         JavaUtils.attemptRepeatedly(() -> {
@@ -135,7 +135,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
           return null;
         }, 5, BaseTest.ONE_SECOND, "GetRetryEntry", LOG);
 
-        final RaftLog log = server.getState().getLog();
+        final RaftLog log = RaftServerTestUtil.getRaftLog(server);
         RaftTestUtil.logEntriesContains(log, oldLastApplied + 1, log.getNextIndex(), message);
       }
 
@@ -149,7 +149,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
   }
 
   private void runTestRetryOnExceptionDuringReplication(CLUSTER cluster) throws Exception {
-    final RaftServerImpl oldLeader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division oldLeader = RaftTestUtil.waitForLeader(cluster);
     cluster.getLeaderAndSendFirstMessage(true);
     // turn on the preAppend failure switch
     failPreAppend = true;
@@ -166,7 +166,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(oldEntry));
 
       // At this point of time the old leader would have stepped down. wait for leader election to complete
-      final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
       // retry
       r = cluster.newRaftClientRequest(client.getId(), leader.getId(), callId, message);
       reply = rpc.sendRequest(r);

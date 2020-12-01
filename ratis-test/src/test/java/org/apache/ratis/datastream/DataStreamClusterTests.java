@@ -28,8 +28,7 @@ import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedConsumer;
 import org.junit.Assert;
@@ -148,8 +147,8 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
   }
 
   void assertLogEntry(CLUSTER cluster, RaftClientRequest request) throws Exception {
-    for (RaftServerProxy proxy : cluster.getServers()) {
-      final RaftServerImpl impl = proxy.getImpl(cluster.getGroupId());
+    for (RaftServer proxy : cluster.getServers()) {
+      final RaftServer.Division impl = proxy.getDivision(cluster.getGroupId());
       final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) impl.getStateMachine();
       final SingleDataStream s = stateMachine.getSingleDataStream(request);
       Assert.assertFalse(s.getDataChannel().isOpen());

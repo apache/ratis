@@ -300,7 +300,7 @@ public abstract class MiniRaftCluster implements Closeable {
     return s;
   }
 
-  private Collection<RaftServerProxy> putNewServers(
+  private Collection<RaftServer> putNewServers(
       Iterable<RaftPeerId> peers, boolean format) {
     return StreamSupport.stream(peers.spliterator(), false)
         .map(id -> putNewServer(id, group, format))
@@ -325,11 +325,11 @@ public abstract class MiniRaftCluster implements Closeable {
   /**
    * start a stopped server again.
    */
-  public RaftServerImpl restartServer(RaftPeerId serverId, boolean format) throws IOException {
+  public RaftServer.Division restartServer(RaftPeerId serverId, boolean format) throws IOException {
     return restartServer(serverId, group, format);
   }
 
-  public RaftServerImpl restartServer(RaftPeerId serverId, RaftGroup group, boolean format) throws IOException {
+  public RaftServer.Division restartServer(RaftPeerId serverId, RaftGroup group, boolean format) throws IOException {
     killServer(serverId);
     servers.remove(serverId);
 
@@ -404,8 +404,8 @@ public abstract class MiniRaftCluster implements Closeable {
     };
   }
 
-  private static List<RaftPeer> toRaftPeers(Collection<RaftServerProxy> servers) {
-    return servers.stream()
+  private static List<RaftPeer> toRaftPeers(Iterable<RaftServer> servers) {
+    return StreamSupport.stream(servers.spliterator(), false)
         .map(RaftServer::getPeer)
         .collect(Collectors.toList());
   }
@@ -419,13 +419,15 @@ public abstract class MiniRaftCluster implements Closeable {
     LOG.info("Add new peers {}", Arrays.asList(ids));
 
     // create and add new RaftServers
-    final Collection<RaftServerProxy> newServers = putNewServers(
+    final Collection<RaftServer> newServers = putNewServers(
         CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf), true);
 
     startServers(newServers);
     if (!startNewPeer) {
       // start and then close, in order to bind the port
-      newServers.forEach(RaftServerProxy::close);
+      for(RaftServer s : newServers) {
+        s.close();
+      }
     }
 
     final Collection<RaftPeer> newPeers = toRaftPeers(newServers);
@@ -455,7 +457,7 @@ public abstract class MiniRaftCluster implements Closeable {
       peers.remove(leader);
       removedPeers.add(leader);
     }
-    List<RaftServerImpl> followers = getFollowers();
+    final List<RaftServer.Division> followers = getFollowers();
     for (int i = 0, removed = 0; i < followers.size() &&
         removed < (removeLeader ? number - 1 : number); i++) {
       RaftPeer toRemove = followers.get(i).getPeer();
@@ -492,11 +494,11 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public String printAllLogs() {
     StringBuilder b = new StringBuilder("\n#servers = " + servers.size() + "\n");
-    for (RaftServerImpl s : iterateServerImpls()) {
+    for (RaftServer.Division s : iterateDivisions()) {
       b.append("  ");
       b.append(s).append("\n");
 
-      final RaftLog log = s.getState().getLog();
+      final RaftLog log = RaftServerTestUtil.getRaftLog(s);
       if (log instanceof MemoryRaftLog) {
         b.append("    ");
         b.append(((MemoryRaftLog) log).getEntryString());
@@ -522,10 +524,10 @@ public abstract class MiniRaftCluster implements Closeable {
     return new IllegalStateException("No leader yet " + g + ": " + printServers(groupId));
   }
 
-  IllegalStateException newIllegalStateExceptionForMultipleLeaders(RaftGroupId groupId, List<RaftServerImpl> leaders) {
+  IllegalStateException newIllegalStateExceptionForMultipleLeaders(RaftGroupId groupId, List<RaftServer.Division> leaders) {
     final String g = groupId == null? "": " for " + groupId;
     return new IllegalStateException("Found multiple leaders" + g
-        + " at the same term (=" + leaders.get(0).getState().getCurrentTerm()
+        + " at the same term (=" + RaftServerTestUtil.getCurrentTerm(leaders.get(0))
         + "), leaders.size() = " + leaders.size() + " > 1, leaders = " + leaders
         + ": " + printServers(groupId));
   }
@@ -543,13 +545,13 @@ public abstract class MiniRaftCluster implements Closeable {
     });
   }
 
-  RaftServerImpl getLeader(RaftGroupId groupId, Runnable handleNoLeaders,
-      Consumer<List<RaftServerImpl>> handleMultipleLeaders) {
+  RaftServer.Division getLeader(RaftGroupId groupId, Runnable handleNoLeaders,
+      Consumer<List<RaftServer.Division>> handleMultipleLeaders) {
     return getLeader(getLeaders(groupId), handleNoLeaders, handleMultipleLeaders);
   }
 
-  static RaftServerImpl getLeader(List<RaftServerImpl> leaders, Runnable handleNoLeaders,
-      Consumer<List<RaftServerImpl>> handleMultipleLeaders) {
+  static RaftServer.Division getLeader(List<RaftServer.Division> leaders, Runnable handleNoLeaders,
+      Consumer<List<RaftServer.Division>> handleMultipleLeaders) {
     if (leaders.isEmpty()) {
       if (handleNoLeaders != null) {
         handleNoLeaders.run();
@@ -569,14 +571,14 @@ public abstract class MiniRaftCluster implements Closeable {
    * @return the list of leaders with the highest term (i.e. leaders with a lower term are not included).
    *         from the given group.
    */
-  private List<RaftServerImpl> getLeaders(RaftGroupId groupId) {
+  private List<RaftServer.Division> getLeaders(RaftGroupId groupId) {
     final Stream<RaftServerImpl> serverAliveStream = getServerAliveStream(groupId);
-    final List<RaftServerImpl> leaders = new ArrayList<>();
+    final List<RaftServer.Division> leaders = new ArrayList<>();
     serverAliveStream.filter(RaftServerImpl::isLeader).forEach(s -> {
       if (leaders.isEmpty()) {
         leaders.add(s);
       } else {
-        final long leaderTerm = leaders.get(0).getState().getCurrentTerm();
+        final long leaderTerm = RaftServerTestUtil.getCurrentTerm(leaders.get(0));
         final long term = s.getState().getCurrentTerm();
         if (term >= leaderTerm) {
           if (term > leaderTerm) {
@@ -594,40 +596,34 @@ public abstract class MiniRaftCluster implements Closeable {
     return leader != null && leader.getId().toString().equals(leaderId);
   }
 
-  public List<RaftServerImpl> getFollowers() {
+  public List<RaftServer.Division> getFollowers() {
     return getServerAliveStream()
         .filter(RaftServerImpl::isFollower)
         .collect(Collectors.toList());
   }
 
-  public List<RaftServer.Division> getFollowerDivisions() {
-    return getServerAliveStream()
-        .filter(RaftServerImpl::isFollower)
-        .collect(Collectors.toList());
+  public int getNumServers() {
+    return servers.size();
   }
 
-  public Collection<RaftServerProxy> getServers() {
-    return servers.values();
+  public Iterable<RaftServer> getServers() {
+    return CollectionUtils.as(servers.values(), s -> s);
   }
 
   private Stream<RaftServerProxy> getRaftServerProxyStream(RaftGroupId groupId) {
-    return getServers().stream()
+    return servers.values().stream()
         .filter(s -> groupId == null || s.containsGroup(groupId));
   }
 
-  public Iterable<RaftServerImpl> iterateServerImpls() {
-    return CollectionUtils.as(getServers(), this::getRaftServerImpl);
-  }
-
   public Iterable<RaftServer.Division> iterateDivisions() {
-    return CollectionUtils.as(getServers(), this::getRaftServerImpl);
+    return CollectionUtils.as(getServers(), this::getDivision);
   }
 
   private Stream<RaftServerImpl> getServerStream(RaftGroupId groupId) {
     final Stream<RaftServerProxy> stream = getRaftServerProxyStream(groupId);
     return groupId != null?
-        stream.filter(s -> s.containsGroup(groupId)).map(s -> RaftServerTestUtil.getRaftServerImpl(s, groupId))
-        : stream.flatMap(s -> RaftServerTestUtil.getRaftServerImpls(s).stream());
+        stream.map(s -> JavaUtils.callAsUnchecked(() -> s.getImpl(groupId)))
+        : stream.flatMap(s -> JavaUtils.callAsUnchecked(s::getImpls).stream());
   }
 
   public Stream<RaftServerImpl> getServerAliveStream() {
@@ -647,23 +643,15 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public RaftServer.Division getDivision(RaftPeerId id) {
-    return getRaftServerImpl(servers.get(id));
+    return getDivision(servers.get(id));
   }
 
   public RaftServer.Division getDivision(RaftPeerId id, RaftGroupId groupId) {
-    return RaftServerTestUtil.getRaftServerImpl(servers.get(id), groupId);
+    return RaftServerTestUtil.getDivision(servers.get(id), groupId);
   }
 
-  public RaftServerImpl getRaftServerImpl(RaftPeerId id) {
-    return getRaftServerImpl(servers.get(id));
-  }
-
-  public RaftServerImpl getRaftServerImpl(RaftPeerId id, RaftGroupId groupId) {
-    return RaftServerTestUtil.getRaftServerImpl(servers.get(id), groupId);
-  }
-
-  public RaftServerImpl getRaftServerImpl(RaftServerProxy proxy) {
-    return RaftServerTestUtil.getRaftServerImpl(proxy, getGroupId());
+  public RaftServer.Division getDivision(RaftServer server) {
+    return RaftServerTestUtil.getDivision(server, getGroupId());
   }
 
   public List<RaftPeer> getPeers() {
@@ -762,7 +750,7 @@ public abstract class MiniRaftCluster implements Closeable {
     ExitUtils.setTerminateOnUncaughtException(false);
 
     final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), Daemon::new);
-    getServers().forEach(proxy -> executor.submit(proxy::close));
+    getServers().forEach(proxy -> executor.submit(() -> JavaUtils.runAsUnchecked(proxy::close)));
     try {
       executor.shutdown();
       // just wait for a few seconds

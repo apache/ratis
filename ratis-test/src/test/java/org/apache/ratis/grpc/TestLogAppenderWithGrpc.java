@@ -25,9 +25,9 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.FollowerInfo;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -64,12 +64,12 @@ public class TestLogAppenderWithGrpc
     // client and leader setup
     try (final RaftClient client = cluster.createClient(cluster.getGroup())) {
       client.io().send(new RaftTestUtil.SimpleMessage("m"));
-      RaftServerImpl leader = waitForLeader(cluster);
-      long initialNextIndex = leader.getState().getNextIndex();
+      final RaftServer.Division leader = waitForLeader(cluster);
+      long initialNextIndex = RaftServerTestUtil.getNextIndex(leader);
 
-      for (RaftServerImpl server : cluster.getFollowers()) {
+      for (RaftServer.Division server : cluster.getFollowers()) {
         // block the appends in the follower
-        ((SimpleStateMachine4Testing) server.getStateMachine()).blockWriteStateMachineData();
+        SimpleStateMachine4Testing.get(server).blockWriteStateMachineData();
       }
       Collection<CompletableFuture<RaftClientReply>> futures = new ArrayList<>(maxAppends * 2);
       for (int i = 0; i < maxAppends * 2; i++) {
@@ -77,14 +77,14 @@ public class TestLogAppenderWithGrpc
       }
 
       FIVE_SECONDS.sleep();
-      for (long nextIndex : leader.getFollowerNextIndices()) {
+      for (long nextIndex : RaftServerTestUtil.getFollowerNextIndices(leader)) {
         // Verify nextIndex does not progress due to pendingRequests limit
         Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
       }
       ONE_SECOND.sleep();
-      for (RaftServerImpl server : cluster.getFollowers()) {
+      for (RaftServer.Division server : cluster.getFollowers()) {
         // unblock the appends in the follower
-        ((SimpleStateMachine4Testing) server.getStateMachine()).unblockWriteStateMachineData();
+        SimpleStateMachine4Testing.get(server).unblockWriteStateMachineData();
       }
 
       JavaUtils.allOf(futures).join();
@@ -98,7 +98,7 @@ public class TestLogAppenderWithGrpc
   }
 
   private void runTestRestartLogAppender(MiniRaftClusterWithGrpc cluster) throws Exception {
-    final RaftServerImpl leader = waitForLeader(cluster);
+    final RaftServer.Division leader = waitForLeader(cluster);
 
     int messageCount = 0;
     // Send some messages
@@ -126,7 +126,7 @@ public class TestLogAppenderWithGrpc
       }
     }
 
-    final RaftServerImpl newLeader = waitForLeader(cluster);
+    final RaftServer.Division newLeader = waitForLeader(cluster);
     if (leader == newLeader) {
       final GrpcServerMetrics newleaderMetrics = new GrpcServerMetrics(leader.getMemberId().toString());
 

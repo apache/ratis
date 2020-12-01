@@ -184,7 +184,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final RaftPeerId leaderId = leader.getId();
     final long term = RaftServerTestUtil.getCurrentTerm(leader);
 
-    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final List<RaftServer.Division> followers = cluster.getFollowers();
     final List<RaftServer.Division> followersToSendLog = followers.subList(0, followers.size() / 2);
     for (int i = followers.size() / 2; i < NUM_SERVERS - 1; i++) {
       cluster.killServer(followers.get(i).getId());
@@ -228,7 +228,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   void runTestOldLeaderNotCommit(CLUSTER cluster) throws Exception {
     final RaftPeerId leaderId = waitForLeader(cluster).getId();
 
-    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final List<RaftServer.Division> followers = cluster.getFollowers();
     final RaftServer.Division followerToCommit = followers.get(0);
     try {
       for (int i = 1; i < NUM_SERVERS - 1; i++) {
@@ -484,7 +484,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   }
 
   private static void checkFollowerCommitLagsLeader(MiniRaftCluster cluster) {
-    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final List<RaftServer.Division> followers = cluster.getFollowers();
     final RaftGroupMemberId leader = cluster.getLeader().getMemberId();
 
     Gauge leaderCommitGauge = RaftServerMetrics.getPeerCommitIndexGauge(leader, leader.getPeerId());

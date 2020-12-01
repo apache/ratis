@@ -222,7 +222,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     SimpleStateMachine4Testing.get(leader).blockStartTransaction();
 
     // blockFlushStateMachineData a follower so that no transaction can be ALL_COMMITTED
-    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final List<RaftServer.Division> followers = cluster.getFollowers();
     final RaftServer.Division blockedFollower = followers.get(ThreadLocalRandom.current().nextInt(followers.size()));
     LOG.info("block follower {}", blockedFollower.getId());
     SimpleStateMachine4Testing.get(blockedFollower).blockFlushStateMachineData();
@@ -339,7 +339,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     final int numMessages = p.numMessages;
 
     // blockFlushStateMachineData a follower so that no transaction can be ALL_COMMITTED
-    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final List<RaftServer.Division> followers = cluster.getFollowers();
     final RaftServer.Division blockedFollower = followers.get(ThreadLocalRandom.current().nextInt(followers.size()));
     LOG.info("block follower {}", blockedFollower.getId());
     SimpleStateMachine4Testing.get(blockedFollower).blockFlushStateMachineData();
@@ -396,7 +396,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     SimpleStateMachine4Testing.get(leader).blockStartTransaction();
 
     // blockFlushStateMachineData a follower so that no transaction can be ALL_COMMITTED
-    final List<RaftServer.Division> followers = cluster.getFollowerDivisions();
+    final List<RaftServer.Division> followers = cluster.getFollowers();
     final RaftServer.Division blockedFollower = followers.get(ThreadLocalRandom.current().nextInt(followers.size()));
     LOG.info("block follower {}", blockedFollower.getId());
     SimpleStateMachine4Testing.get(blockedFollower).blockFlushStateMachineData();

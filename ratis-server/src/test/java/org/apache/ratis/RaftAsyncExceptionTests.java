@@ -38,6 +38,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.StreamSupport;
 
 public abstract class RaftAsyncExceptionTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -104,15 +105,15 @@ public abstract class RaftAsyncExceptionTests<CLUSTER extends MiniRaftCluster>
 
       RaftClientConfigKeys.Rpc.setRequestTimeout(properties.get(), ONE_SECOND);
       // Block StartTransaction
-      cluster.getServers().stream()
-          .map(cluster::getRaftServerImpl)
+      StreamSupport.stream(cluster.getServers().spliterator(), false)
+          .map(cluster::getDivision)
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::blockStartTransaction);
       final CompletableFuture<RaftClientReply> replyFuture = client.async().send(new SimpleMessage("m1"));
       FIVE_SECONDS.sleep();
       // Unblock StartTransaction
-      cluster.getServers().stream()
-          .map(cluster::getRaftServerImpl)
+      StreamSupport.stream(cluster.getServers().spliterator(), false)
+          .map(cluster::getDivision)
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockStartTransaction);
       // The request should succeed after start transaction is unblocked

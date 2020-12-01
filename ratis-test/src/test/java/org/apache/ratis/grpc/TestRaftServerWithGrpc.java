@@ -48,9 +48,9 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerImplUtils;
@@ -94,11 +94,11 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   }
 
   void runTestServerRestartOnException(MiniRaftClusterWithGrpc cluster) throws Exception {
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
 
     final RaftProperties p = getProperties();
-    GrpcConfigKeys.Server.setPort(p, leader.getServerRpc().getInetSocketAddress().getPort());
+    GrpcConfigKeys.Server.setPort(p, RaftServerTestUtil.getServerRpc(leader).getInetSocketAddress().getPort());
 
     // Create a raft server proxy with server rpc bound to a different address
     // compared to leader. This helps in locking the raft storage directory to
@@ -145,7 +145,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   }
 
   void runTestLeaderRestart(MiniRaftClusterWithGrpc cluster) throws Exception {
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
 
     try (final RaftClient client = cluster.createClient()) {
       // send a request to make sure leader is ready
@@ -269,8 +269,8 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
   void testRaftClientRequestMetrics(MiniRaftClusterWithGrpc cluster) throws IOException,
       ExecutionException, InterruptedException {
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
-    RaftServerMetrics raftServerMetrics = leader.getRaftServerMetrics();
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    RaftServerMetrics raftServerMetrics = RaftServerTestUtil.getRaftServerMetrics(leader);
 
     try (final RaftClient client = cluster.createClient()) {
       final CompletableFuture<RaftClientReply> f1 = client.async().send(new SimpleMessage("testing"));
