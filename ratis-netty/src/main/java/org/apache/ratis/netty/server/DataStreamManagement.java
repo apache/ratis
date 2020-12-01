@@ -18,6 +18,7 @@
 
 package org.apache.ratis.netty.server;
 
+import org.apache.ratis.client.AsyncRpcApi;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
@@ -293,11 +294,11 @@ public class DataStreamManagement {
   private CompletableFuture<Void> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
       ChannelHandlerContext ctx) {
     try {
-      return server.getDivision(info.getRequest()
+      AsyncRpcApi asyncRpcApi = (AsyncRpcApi) (server.getDivision(info.getRequest()
           .getRaftGroupId())
           .getRaftClient()
-          .async()
-          .sendForward(info.request)
+          .async());
+      return asyncRpcApi.sendForward(info.request)
           .thenAcceptAsync(reply -> ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply)), executor);
     } catch (IOException e) {
       throw new CompletionException(e);
