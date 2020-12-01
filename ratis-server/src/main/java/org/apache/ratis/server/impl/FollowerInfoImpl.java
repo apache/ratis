@@ -19,18 +19,15 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.util.Timestamp;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-public class FollowerInfo {
-  public static final Logger LOG = LoggerFactory.getLogger(FollowerInfo.class);
-
+class FollowerInfoImpl implements FollowerInfo {
   private final String name;
   private final Consumer<Object> infoIndexChange;
   private final Consumer<Object> debugIndexChange;
@@ -43,10 +40,8 @@ public class FollowerInfo {
   private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex snapshotIndex = new RaftLogIndex("snapshotIndex", 0L);
   private volatile boolean attendVote;
-  private final int rpcSlownessTimeoutMs;
 
-  FollowerInfo(RaftGroupMemberId id, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
-      boolean attendVote, int rpcSlownessTimeoutMs) {
+  FollowerInfoImpl(RaftGroupMemberId id, RaftPeer peer, Timestamp lastRpcTime, long nextIndex, boolean attendVote) {
     this.name = id + "->" + peer.getId();
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
     this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
@@ -56,56 +51,66 @@ public class FollowerInfo {
     this.lastRpcSendTime = new AtomicReference<>(lastRpcTime);
     this.nextIndex = new RaftLogIndex("nextIndex", nextIndex);
     this.attendVote = attendVote;
-    this.rpcSlownessTimeoutMs = rpcSlownessTimeoutMs;
   }
 
+  @Override
   public long getMatchIndex() {
     return matchIndex.get();
   }
 
+  @Override
   public boolean updateMatchIndex(long newMatchIndex) {
     return matchIndex.updateToMax(newMatchIndex, debugIndexChange);
   }
 
-  /** @return the commit index acked by the follower. */
-  long getCommitIndex() {
+  @Override
+  public long getCommitIndex() {
     return commitIndex.get();
   }
 
-  boolean updateCommitIndex(long newCommitIndex) {
+  @Override
+  public boolean updateCommitIndex(long newCommitIndex) {
     return commitIndex.updateToMax(newCommitIndex, debugIndexChange);
   }
 
-  long getSnapshotIndex() {
+  @Override
+  public long getSnapshotIndex() {
     return snapshotIndex.get();
   }
 
+  @Override
   public long getNextIndex() {
     return nextIndex.get();
   }
 
+  @Override
   public void increaseNextIndex(long newNextIndex) {
     nextIndex.updateIncreasingly(newNextIndex, debugIndexChange);
   }
 
+  @Override
   public void decreaseNextIndex(long newNextIndex) {
     nextIndex.updateUnconditionally(old -> old <= 0L? old: Math.min(old - 1, newNextIndex), infoIndexChange);
   }
 
-  public void updateNextIndex(long newNextIndex) {
+  @Override
+  public void setNextIndex(long newNextIndex) {
     nextIndex.updateUnconditionally(old -> newNextIndex >= 0 ? newNextIndex : old, infoIndexChange);
   }
 
-  public void updateNextIndexToMax(long newNextIndex) {
+  @Override
+  public void updateNextIndex(long newNextIndex) {
     nextIndex.updateToMax(newNextIndex, infoIndexChange);
   }
 
+  @Override
   public void setSnapshotIndex(long newSnapshotIndex) {
     snapshotIndex.setUnconditionally(newSnapshotIndex, infoIndexChange);
     matchIndex.setUnconditionally(newSnapshotIndex, infoIndexChange);
     nextIndex.setUnconditionally(newSnapshotIndex + 1, infoIndexChange);
   }
 
+  @Override
   public String getName() {
     return name;
   }
@@ -126,29 +131,28 @@ public class FollowerInfo {
     return attendVote;
   }
 
+  @Override
   public RaftPeer getPeer() {
     return peer;
   }
 
-  /** Update lastRpcResponseTime to the current time. */
+  @Override
   public void updateLastRpcResponseTime() {
     lastRpcResponseTime.set(Timestamp.currentTime());
   }
 
-  Timestamp getLastRpcResponseTime() {
+  @Override
+  public Timestamp getLastRpcResponseTime() {
     return lastRpcResponseTime.get();
   }
 
-  /** Update lastRpcSendTime to the current time. */
+  @Override
   public void updateLastRpcSendTime() {
     lastRpcSendTime.set(Timestamp.currentTime());
   }
 
+  @Override
   public Timestamp getLastRpcTime() {
     return Timestamp.latest(lastRpcResponseTime.get(), lastRpcSendTime.get());
-  }
-
-  boolean isSlow() {
-    return lastRpcResponseTime.get().elapsedTimeMs() > rpcSlownessTimeoutMs;
   }
 }

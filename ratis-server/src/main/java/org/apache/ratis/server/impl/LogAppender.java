@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
@@ -231,8 +232,7 @@ public class LogAppender {
     final long heartbeatRemainingMs = getHeartbeatRemainingTime();
     if (heartbeatRemainingMs <= 0L || heartbeat) {
       // heartbeat
-      return leaderState.newAppendEntriesRequestProto(
-          getFollowerId(), previous, Collections.emptyList(), !follower.isAttendingVote(), callId);
+      return leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(), previous, callId);
     }
 
     Preconditions.assertTrue(buffer.isEmpty(), () -> "buffer has " + buffer.getNumElements() + " elements.");
@@ -254,8 +254,7 @@ public class LogAppender {
             follower.getName(), entry, time, exception));
     buffer.clear();
     assertProtos(protos, followerNext, previous, snapshotIndex);
-    return leaderState.newAppendEntriesRequestProto(
-        getFollowerId(), previous, protos, !follower.isAttendingVote(), callId);
+    return leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
   }
 
   private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous, long snapshotIndex) {
@@ -554,19 +553,15 @@ public class LogAppender {
   }
 
   protected void submitEventOnSuccessAppend() {
-    if (follower.isAttendingVote()) {
-      leaderState.submitUpdateCommitEvent();
-    } else {
-      leaderState.submitCheckStagingEvent();
-    }
+    leaderState.submitEventOnSuccessAppend(follower);
   }
 
   protected void checkSlowness() {
-    if (follower.isSlow()) {
+    final TimeDuration lastRpcResponseElapsed = follower.getLastRpcResponseTime().elapsedTime();
+    if (lastRpcResponseElapsed.compareTo(server.getRpcSlownessTimeout()) > 0) {
       server.getStateMachine().leaderEvent().notifyFollowerSlowness(server.getRoleInfoProto());
     }
-    leaderState.recordFollowerHeartbeatElapsedTime(follower.getPeer().getId(),
-        follower.getLastRpcResponseTime().elapsedTime());
+    leaderState.recordFollowerHeartbeatElapsedTime(follower.getPeer().getId(), lastRpcResponseElapsed);
   }
 
   public synchronized void notifyAppend() {
@@ -603,12 +598,7 @@ public class LogAppender {
 
   protected boolean checkResponseTerm(long responseTerm) {
     synchronized (server) {
-      if (isAppenderRunning() && follower.isAttendingVote()
-          && responseTerm > leaderState.getCurrentTerm()) {
-        leaderState.submitStepDownEvent(responseTerm, LeaderState.StepDownReason.HIGHER_TERM);
-        return true;
-      }
+      return isAppenderRunning() && leaderState.handleResponseTerm(follower, responseTerm);
     }
-    return false;
   }
 }

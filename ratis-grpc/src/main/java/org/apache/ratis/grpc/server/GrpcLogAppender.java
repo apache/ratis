@@ -23,7 +23,7 @@ import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.FollowerInfo;
+import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.impl.LeaderState;
 import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -247,7 +247,7 @@ public class GrpcLogAppender extends LogAppender {
   }
 
   private void increaseNextIndex(final long installedSnapshotIndex) {
-    getFollower().updateNextIndexToMax(installedSnapshotIndex + 1);
+    getFollower().updateNextIndex(installedSnapshotIndex + 1);
   }
 
   /**
@@ -346,7 +346,7 @@ public class GrpcLogAppender extends LogAppender {
 
   private synchronized void updateNextIndex(long replyNextIndex) {
     pendingRequests.clear();
-    getFollower().updateNextIndex(replyNextIndex);
+    getFollower().setNextIndex(replyNextIndex);
   }
 
   private class InstallSnapshotResponseHandler implements StreamObserver<InstallSnapshotReplyProto> {

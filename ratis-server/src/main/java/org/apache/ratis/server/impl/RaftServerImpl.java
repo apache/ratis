@@ -33,6 +33,7 @@ import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.StaleReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.DataStreamMap;
+import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
@@ -93,7 +94,7 @@ public class RaftServerImpl implements RaftServer.Division,
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
   private final TimeDuration leaderStepDownWaitTime;
-  private final int rpcSlownessTimeoutMs;
+  private final TimeDuration rpcSlownessTimeout;
   private final TimeDuration sleepDeviationThreshold;
   private final boolean installSnapshotEnabled;
 
@@ -131,7 +132,7 @@ public class RaftServerImpl implements RaftServer.Division,
     final RaftProperties properties = proxy.getProperties();
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toIntExact(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
-    rpcSlownessTimeoutMs = RaftServerConfigKeys.Rpc.slownessTimeout(properties).toIntExact(TimeUnit.MILLISECONDS);
+    this.rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
     leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
@@ -178,8 +179,8 @@ public class RaftServerImpl implements RaftServer.Division,
     return maxTimeoutMs;
   }
 
-  int getRpcSlownessTimeoutMs() {
-    return rpcSlownessTimeoutMs;
+  TimeDuration getRpcSlownessTimeout() {
+    return rpcSlownessTimeout;
   }
 
   TimeDuration getRandomElectionTimeout() {

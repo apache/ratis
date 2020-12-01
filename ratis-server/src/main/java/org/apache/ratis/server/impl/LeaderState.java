@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
+import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LogAppenderMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
@@ -316,6 +317,14 @@ public class LeaderState {
     return currentTerm;
   }
 
+  boolean handleResponseTerm(FollowerInfo follower, long followerTerm) {
+    if (isAttendingVote(follower) && followerTerm > getCurrentTerm()) {
+      submitStepDownEvent(followerTerm, LeaderState.StepDownReason.HIGHER_TERM);
+      return true;
+    }
+    return false;
+  }
+
   TimeDuration getSyncInterval() {
     return syncInterval;
   }
@@ -432,9 +441,10 @@ public class LeaderState {
     }
   }
 
-  AppendEntriesRequestProto newAppendEntriesRequestProto(RaftPeerId targetId,
-      TermIndex previous, List<LogEntryProto> entries, boolean initializing,
-      long callId) {
+  AppendEntriesRequestProto newAppendEntriesRequestProto(FollowerInfo follower,
+      List<LogEntryProto> entries, TermIndex previous, long callId) {
+    final boolean initializing = isAttendingVote(follower);
+    final RaftPeerId targetId = follower.getPeer().getId();
     return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, currentTerm, entries,
         ServerImplUtils.effectiveCommitIndex(raftLog.getLastCommittedIndex(), previous, entries.size()),
         initializing, previous, server.getCommitInfos(), callId);
@@ -451,12 +461,11 @@ public class LeaderState {
     final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final List<LogAppender> newAppenders = newPeers.stream()
         .map(peer -> {
-          final FollowerInfo f = new FollowerInfo(server.getMemberId(), peer, t, nextIndex, attendVote,
-              server.getRpcSlownessTimeoutMs());
+          final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, t, nextIndex, attendVote);
           LogAppender logAppender = server.newLogAppender(this, f);
           peerIdFollowerInfoMap.put(peer.getId(), f);
           raftServerMetrics.addFollower(peer.getId());
-          logAppenderMetrics.addFollowerGauges(f);
+          logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
           return logAppender;
         }).collect(Collectors.toList());
     senders.addAll(newAppenders);
@@ -570,9 +579,8 @@ public class LeaderState {
    *    caught-up.
    * 3. Otherwise the peer is making progressing. Keep waiting.
    */
-  private BootStrapProgress checkProgress(FollowerInfo follower,
-      long committed) {
-    Preconditions.assertTrue(!follower.isAttendingVote());
+  private BootStrapProgress checkProgress(FollowerInfo follower, long committed) {
+    Preconditions.assertTrue(!isAttendingVote(follower));
     final Timestamp progressTime = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-3L * server.getMaxTimeoutMs());
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
@@ -589,13 +597,17 @@ public class LeaderState {
   private Collection<BootStrapProgress> checkAllProgress(long committed) {
     Preconditions.assertTrue(inStagingState());
     return senders.stream()
-        .filter(sender -> !sender.getFollower().isAttendingVote())
+        .filter(sender -> !isAttendingVote(sender.getFollower()))
         .map(sender -> checkProgress(sender.getFollower(), committed))
         .collect(Collectors.toCollection(ArrayList::new));
   }
 
-  void submitCheckStagingEvent() {
-    eventQueue.submit(checkStagingEvent);
+  void submitEventOnSuccessAppend(FollowerInfo follower) {
+    if (isAttendingVote(follower)) {
+      submitUpdateCommitEvent();
+    } else {
+      eventQueue.submit(checkStagingEvent);
+    }
   }
 
   private void checkStaging() {
@@ -611,7 +623,10 @@ public class LeaderState {
       } else if (!reports.contains(BootStrapProgress.PROGRESSING)) {
         // all caught up!
         applyOldNewConf();
-        senders.forEach(s -> s.getFollower().startAttendVote());
+        senders.stream()
+            .map(LogAppender::getFollower)
+            .map(FollowerInfoImpl.class::cast)
+            .forEach(FollowerInfoImpl::startAttendVote);
       }
     }
   }
@@ -961,7 +976,7 @@ public class LeaderState {
     void fail(BootStrapProgress progress) {
       final String message = this + ": Fail to set configuration " + newConf + " due to " + progress;
       LOG.debug(message);
-      stopAndRemoveSenders(s -> !s.getFollower().isAttendingVote());
+      stopAndRemoveSenders(s -> !isAttendingVote(s.getFollower()));
 
       LeaderState.this.stagingState = null;
       // send back failure response to client's request
@@ -985,6 +1000,10 @@ public class LeaderState {
 
   Stream<LogAppender> getLogAppenders() {
     return senders.stream();
+  }
+
+  private static boolean isAttendingVote(FollowerInfo follower) {
+    return ((FollowerInfoImpl)follower).isAttendingVote();
   }
 
   /**
