@@ -195,7 +195,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  private void isolate(MiniRaftCluster cluster, RaftPeerId id) {
+  public static void isolate(MiniRaftCluster cluster, RaftPeerId id) {
     try {
       BlockRequestHandlingInjection.getInstance().blockReplier(id.toString());
       cluster.setBlockRequestsFrom(id.toString(), true);
@@ -204,7 +204,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  private void deIsolate(MiniRaftCluster cluster, RaftPeerId id) {
+  public static void deIsolate(MiniRaftCluster cluster, RaftPeerId id) {
     BlockRequestHandlingInjection.getInstance().unblockReplier(id.toString());
     cluster.setBlockRequestsFrom(id.toString(), false);
   }

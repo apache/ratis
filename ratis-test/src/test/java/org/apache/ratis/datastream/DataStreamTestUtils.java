@@ -18,6 +18,8 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -35,6 +37,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.LeaderElectionTests;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -64,6 +67,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 public interface DataStreamTestUtils {
   Logger LOG = LoggerFactory.getLogger(DataStreamTestUtils.class);
@@ -286,22 +290,33 @@ public interface DataStreamTestUtils {
 
   static CompletableFuture<RaftClientReply> writeAndCloseAndAssertReplies(
       Iterable<RaftServer> servers, RaftPeerId leader, DataStreamOutputImpl out, int bufferSize, int bufferNum,
-      ClientId primaryClientId) {
+      ClientId primaryClientId, MiniRaftCluster cluster, boolean stepDownLeader) {
     LOG.info("start Stream{}", out.getHeader().getCallId());
     final int bytesWritten = writeAndAssertReplies(out, bufferSize, bufferNum);
     try {
       for (RaftServer s : servers) {
-        assertHeader(s, out.getHeader(), bytesWritten);
+        assertHeader(s, out.getHeader(), bytesWritten, stepDownLeader);
       }
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
     LOG.info("Stream{}: bytesWritten={}", out.getHeader().getCallId(), bytesWritten);
 
-    return out.closeAsync().thenCompose(reply -> assertCloseReply(out, reply, bytesWritten, leader, primaryClientId));
+    if (stepDownLeader) {
+      try {
+        LeaderElectionTests.isolate(cluster, leader);
+        Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
+        LeaderElectionTests.deIsolate(cluster, leader);
+      } catch (Exception ignored) {
+      }
+    }
+
+    return out.closeAsync().thenCompose(
+        reply -> assertCloseReply(out, reply, bytesWritten, leader, primaryClientId, cluster, stepDownLeader));
   }
 
-  static void assertHeader(RaftServer server, RaftClientRequest header, int dataSize) throws Exception {
+  static void assertHeader(RaftServer server, RaftClientRequest header, int dataSize, boolean stepDownLeader)
+      throws Exception {
     // check header
     Assert.assertEquals(RaftClientRequest.dataStreamRequestType(), header.getType());
 
@@ -319,8 +334,15 @@ public interface DataStreamTestUtils {
   }
 
   static CompletableFuture<RaftClientReply> assertCloseReply(DataStreamOutputImpl out, DataStreamReply dataStreamReply,
-      long bytesWritten, RaftPeerId leader, ClientId primaryClientId) {
+      long bytesWritten, RaftPeerId leader, ClientId primaryClientId, MiniRaftCluster cluster, boolean stepDownLeader) {
     // Test close idempotent
+    if (stepDownLeader) {
+      try {
+        leader = RaftTestUtil.waitForLeader(cluster).getId();
+      } catch (Exception ignored) {
+      }
+    }
+
     Assert.assertSame(dataStreamReply, out.closeAsync().join());
     BaseTest.testFailureCase("writeAsync should fail",
         () -> out.writeAsync(DataStreamRequestByteBuffer.EMPTY_BYTE_BUFFER).join(),
