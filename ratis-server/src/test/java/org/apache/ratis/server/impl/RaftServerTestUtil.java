@@ -18,7 +18,6 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -84,7 +83,7 @@ public class RaftServerTestUtil {
         numIncluded++;
         Assert.assertTrue(server.getRaftConf().isStable());
         Assert.assertTrue(server.getRaftConf().hasNoChange(peers));
-      } else if (server.isAlive()) {
+      } else if (server.getInfo().isAlive()) {
         // The server is successfully removed from the conf
         // It may not be shutdown since it may not be able to talk to the new leader (who is not in its conf).
         Assert.assertTrue(server.getRaftConf().isStable());
@@ -92,10 +91,6 @@ public class RaftServerTestUtil {
       }
     }
     Assert.assertEquals(peers.size(), numIncluded + deadIncluded);
-  }
-
-  public static boolean isLeaderReady(RaftServer.Division server) {
-    return ((RaftServerImpl)server).isLeaderReady();
   }
 
   public static long getCurrentTerm(RaftServer.Division server) {
@@ -130,10 +125,6 @@ public class RaftServerTestUtil {
     return entry.isFailed();
   }
 
-  public static RaftPeerRole getRole(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getRole().getRaftPeerRole();
-  }
-
   public static RaftConfiguration getRaftConf(RaftServer.Division server) {
     return ((RaftServerImpl)server).getRaftConf();
   }
@@ -154,16 +145,16 @@ public class RaftServerTestUtil {
     return ((RaftServerImpl)server).getRaftServer().getServerRpc();
   }
 
-  private static Optional<LeaderState> getLeaderState(RaftServer.Division server) {
+  private static Optional<LeaderStateImpl> getLeaderState(RaftServer.Division server) {
     return ((RaftServerImpl)server).getRole().getLeaderState();
   }
 
   public static Stream<LogAppender> getLogAppenders(RaftServer.Division server) {
-    return getLeaderState(server).map(LeaderState::getLogAppenders).orElse(null);
+    return getLeaderState(server).map(LeaderStateImpl::getLogAppenders).orElse(null);
   }
 
   public static void restartLogAppenders(RaftServer.Division server) {
-    final LeaderState leaderState = getLeaderState(server).orElseThrow(
+    final LeaderStateImpl leaderState = getLeaderState(server).orElseThrow(
         () -> new IllegalStateException(server + " is not the leader"));
     leaderState.getLogAppenders().forEach(leaderState::restartSender);
   }

@@ -21,6 +21,7 @@ import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Daemon;
@@ -170,7 +171,7 @@ class LeaderElection implements Runnable {
         LOG.info("{}: {} is safely ignored since this is already {}",
             this, JavaUtils.getClassSimpleName(e.getClass()), state, e);
       } else {
-        if (!server.isAlive()) {
+        if (!server.getInfo().isAlive()) {
           LOG.info("{}: {} is safely ignored since the server is not alive: {}",
               this, JavaUtils.getClassSimpleName(e.getClass()), server, e);
         } else {
@@ -187,7 +188,8 @@ class LeaderElection implements Runnable {
   }
 
   private boolean shouldRun() {
-    return lifeCycle.getCurrentState().isRunning() && server.isCandidate() && server.isAlive();
+    final DivisionInfo info = server.getInfo();
+    return lifeCycle.getCurrentState().isRunning() && info.isCandidate() && info.isAlive();
   }
 
   private boolean shouldRun(long electionTerm) {

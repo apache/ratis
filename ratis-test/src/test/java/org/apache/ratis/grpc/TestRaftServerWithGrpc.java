@@ -172,7 +172,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
       // change leader
       RaftTestUtil.changeLeader(cluster, leader.getId());
-      Assert.assertNotEquals(RaftPeerRole.LEADER, RaftServerTestUtil.getRole(leader));
+      Assert.assertNotEquals(RaftPeerRole.LEADER, leader.getInfo().getCurrentRole());
 
       // the blocked request should fail
       testFailureCase("request should fail", futureBlocked::get,

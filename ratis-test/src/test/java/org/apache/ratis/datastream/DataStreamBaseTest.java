@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
@@ -60,7 +61,6 @@ import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
 import org.junit.Assert;
-import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -71,8 +71,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-
-import static org.mockito.Mockito.when;
 
 abstract class DataStreamBaseTest extends BaseTest {
   static class MyDivision implements RaftServer.Division {
@@ -88,6 +86,11 @@ abstract class DataStreamBaseTest extends BaseTest {
 
     @Override
     public RaftGroupMemberId getMemberId() {
+      return null;
+    }
+
+    @Override
+    public DivisionInfo getInfo() {
       return null;
     }
 

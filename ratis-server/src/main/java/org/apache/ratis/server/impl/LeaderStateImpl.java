@@ -18,27 +18,47 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
-import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.leader.FollowerInfo;
+import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.metrics.LogAppenderMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.*;
+import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.CollectionUtils;
+import org.apache.ratis.util.Daemon;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -63,22 +83,11 @@ import static org.apache.ratis.server.RaftServer.Division.LOG;
  * 3. PendingRequestHandler: a handler sending back responses to clients when
  *                           corresponding log entries are committed
  */
-public class LeaderState {
+class LeaderStateImpl implements LeaderState {
   public static final String APPEND_PLACEHOLDER = JavaUtils.getClassSimpleName(LeaderState.class) + ".placeholder";
 
   private enum BootStrapProgress {
     NOPROGRESS, PROGRESSING, CAUGHTUP
-  }
-
-  enum StepDownReason {
-    HIGHER_TERM, HIGHER_PRIORITY, LOST_MAJORITY_HEARTBEATS, STATE_MACHINE_EXCEPTION, JVM_PAUSE;
-
-    private final String longName = JavaUtils.getClassSimpleName(getClass()) + ":" + name();
-
-    @Override
-    public String toString() {
-      return longName;
-    }
   }
 
   static class StateUpdateEvent {
@@ -238,7 +247,7 @@ public class LeaderState {
   private final RaftServerMetrics raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
 
-  LeaderState(RaftServerImpl server) {
+  LeaderStateImpl(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.server = server;
 
@@ -319,7 +328,7 @@ public class LeaderState {
 
   boolean handleResponseTerm(FollowerInfo follower, long followerTerm) {
     if (isAttendingVote(follower) && followerTerm > getCurrentTerm()) {
-      submitStepDownEvent(followerTerm, LeaderState.StepDownReason.HIGHER_TERM);
+      submitStepDownEvent(followerTerm, StepDownReason.HIGHER_TERM);
       return true;
     }
     return false;
@@ -846,7 +855,7 @@ public class LeaderState {
   }
 
   private void yieldLeaderToHigherPriorityPeer() {
-    if (!server.getRole().isLeader()) {
+    if (!server.getInfo().isLeader()) {
       return;
     }
 
@@ -892,7 +901,7 @@ public class LeaderState {
    * round of heartbeats to a majority of its cluster.
    */
   private void checkLeadership() {
-    if (!server.getRole().isLeader()) {
+    if (!server.getInfo().isLeader()) {
       return;
     }
 
@@ -978,7 +987,7 @@ public class LeaderState {
       LOG.debug(message);
       stopAndRemoveSenders(s -> !isAttendingVote(s.getFollower()));
 
-      LeaderState.this.stagingState = null;
+      stagingState = null;
       // send back failure response to client's request
       pendingRequests.failSetConfiguration(new ReconfigurationTimeoutException(message));
     }

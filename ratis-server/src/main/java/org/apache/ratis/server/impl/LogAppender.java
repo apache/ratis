@@ -19,8 +19,11 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -139,7 +142,7 @@ public class LogAppender {
 
   private final String name;
   private final RaftServerImpl server;
-  private final LeaderState leaderState;
+  private final LeaderStateImpl leaderState;
   private final RaftLog raftLog;
   private final FollowerInfo follower;
 
@@ -149,16 +152,16 @@ public class LogAppender {
 
   private final AppenderDaemon daemon;
 
-  public LogAppender(RaftServerImpl server, LeaderState leaderState, FollowerInfo f) {
+  public LogAppender(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
     this.name = follower.getName() + "-" + JavaUtils.getClassSimpleName(getClass());
-    this.server = server;
-    this.leaderState = leaderState;
-    this.raftLog = server.getState().getLog();
+    this.server = (RaftServerImpl) server;
+    this.leaderState = (LeaderStateImpl) leaderState;
+    this.raftLog = this.server.getState().getLog();
 
     final RaftProperties properties = server.getRaftServer().getProperties();
     this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties).getSizeInt();
-    this.halfMinTimeoutMs = server.getMinTimeoutMs() / 2;
+    this.halfMinTimeoutMs = this.server.getMinTimeoutMs() / 2;
 
     final SizeInBytes bufferByteLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
     final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
@@ -166,8 +169,12 @@ public class LogAppender {
     this.daemon = new AppenderDaemon();
   }
 
-  public RaftServerImpl getServer() {
+  protected RaftServer.Division getServer() {
     return server;
+  }
+
+  protected RaftServerRpc getServerRpc() {
+    return server.getRaftServer().getServerRpc();
   }
 
   public RaftLog getRaftLog() {

@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
@@ -265,9 +266,11 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   private static RaftServerImpl createMockServer(boolean alive) {
+    final DivisionInfo info = mock(DivisionInfo.class);
+    when(info.isAlive()).thenReturn(alive);
+    when(info.isCandidate()).thenReturn(false);
     RaftServerImpl server = mock(RaftServerImpl.class);
-    when(server.isAlive()).thenReturn(alive);
-    when(server.isCandidate()).thenReturn(false);
+    when(server.getInfo()).thenReturn(info);
     final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(RaftPeerId.valueOf("any"), RaftGroupId.randomId());
     when(server.getMemberId()).thenReturn(memberId);
     LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(memberId, () -> 0);

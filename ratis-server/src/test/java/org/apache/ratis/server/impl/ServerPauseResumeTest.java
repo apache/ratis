@@ -66,7 +66,7 @@ public abstract class ServerPauseResumeTest <CLUSTER extends MiniRaftCluster>
     // pause follower.
     boolean isSuccess = follower.pause();
     Assert.assertTrue(isSuccess);
-    Assert.assertTrue(follower.isPausingOrPaused());
+    Assert.assertTrue(follower.getInfo().getLifeCycleState().isPausingOrPaused());
 
     SimpleMessage[] batch2 = SimpleMessage.create(100, "batch2");
     Thread writeThread2 = RaftTestUtil.sendMessageInNewThread(cluster, leaderId, batch2);
@@ -79,7 +79,7 @@ public abstract class ServerPauseResumeTest <CLUSTER extends MiniRaftCluster>
     // resume follower.
     isSuccess = follower.resume();
     Assert.assertTrue(isSuccess);
-    Assert.assertTrue(!follower.isPausingOrPaused());
+    Assert.assertFalse(follower.getInfo().getLifeCycleState().isPausingOrPaused());
 
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
     // follower should contain all logs.

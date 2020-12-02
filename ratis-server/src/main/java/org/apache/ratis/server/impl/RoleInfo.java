@@ -39,7 +39,7 @@ class RoleInfo {
   private final RaftPeerId id;
   private volatile RaftPeerRole role;
   /** Used when the peer is leader */
-  private final AtomicReference<LeaderState> leaderState = new AtomicReference<>();
+  private final AtomicReference<LeaderStateImpl> leaderState = new AtomicReference<>();
   /** Used when the peer is follower, to monitor election timeout */
   private final AtomicReference<FollowerState> followerState = new AtomicReference<>();
   /** Used when the peer is candidate, to request votes from other peers */
@@ -50,10 +50,6 @@ class RoleInfo {
   RoleInfo(RaftPeerId id) {
     this.id = id;
     this.transitionTime = new AtomicReference<>(Timestamp.currentTime());
-  }
-
-  RaftPeerRole getRaftPeerRole() {
-    return role;
   }
 
   void transitionRole(RaftPeerRole newRole) {
@@ -69,32 +65,24 @@ class RoleInfo {
     return role;
   }
 
-  boolean isFollower() {
-    return role == RaftPeerRole.FOLLOWER;
+  boolean isLeaderReady() {
+    return getLeaderState().map(LeaderStateImpl::isReady).orElse(false);
   }
 
-  boolean isCandidate() {
-    return role == RaftPeerRole.CANDIDATE;
-  }
-
-  boolean isLeader() {
-    return role == RaftPeerRole.LEADER;
-  }
-
-  Optional<LeaderState> getLeaderState() {
+  Optional<LeaderStateImpl> getLeaderState() {
     return Optional.ofNullable(leaderState.get());
   }
 
-  LeaderState getLeaderStateNonNull() {
+  LeaderStateImpl getLeaderStateNonNull() {
     return Objects.requireNonNull(leaderState.get(), "leaderState is null");
   }
 
   LogEntryProto startLeaderState(RaftServerImpl server) {
-    return updateAndGet(leaderState, new LeaderState(server)).start();
+    return updateAndGet(leaderState, new LeaderStateImpl(server)).start();
   }
 
   void shutdownLeaderState(boolean allowNull) {
-    final LeaderState leader = leaderState.getAndSet(null);
+    final LeaderStateImpl leader = leaderState.getAndSet(null);
     if (leader == null) {
       if (!allowNull) {
         throw new NullPointerException("leaderState == null");

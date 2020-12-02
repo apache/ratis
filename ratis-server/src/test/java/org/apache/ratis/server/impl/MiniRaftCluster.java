@@ -573,7 +573,7 @@ public abstract class MiniRaftCluster implements Closeable {
   private List<RaftServer.Division> getLeaders(RaftGroupId groupId) {
     final Stream<RaftServerImpl> serverAliveStream = getServerAliveStream(groupId);
     final List<RaftServer.Division> leaders = new ArrayList<>();
-    serverAliveStream.filter(RaftServerImpl::isLeader).forEach(s -> {
+    serverAliveStream.filter(server -> server.getInfo().isLeader()).forEach(s -> {
       if (leaders.isEmpty()) {
         leaders.add(s);
       } else {
@@ -597,7 +597,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public List<RaftServer.Division> getFollowers() {
     return getServerAliveStream()
-        .filter(RaftServerImpl::isFollower)
+        .filter(server -> server.getInfo().isFollower())
         .collect(Collectors.toList());
   }
 
@@ -630,7 +630,7 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   private Stream<RaftServerImpl> getServerAliveStream(RaftGroupId groupId) {
-    return getServerStream(groupId).filter(RaftServerImpl::isAlive);
+    return getServerStream(groupId).filter(server -> server.getInfo().isAlive());
   }
 
   private RetryPolicy getDefaultRetryPolicy() {

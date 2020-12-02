@@ -31,6 +31,7 @@ import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -65,7 +66,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   private static final DelayLocalExecutionInjection logSyncDelay =
       new DelayLocalExecutionInjection(RaftLog.LOG_SYNC);
   private static final DelayLocalExecutionInjection leaderPlaceHolderDelay =
-      new DelayLocalExecutionInjection(LeaderState.APPEND_PLACEHOLDER);
+      new DelayLocalExecutionInjection(LeaderStateImpl.APPEND_PLACEHOLDER);
 
   static final int STAGING_CATCHUP_GAP = 10;
 

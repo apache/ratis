@@ -99,7 +99,7 @@ public interface RaftTestUtil {
 
     final RaftServer.Division leader = JavaUtils.attemptRepeatedly(() -> {
       final RaftServer.Division l = cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders);
-      if (l != null && !RaftServerTestUtil.isLeaderReady(l)) {
+      if (l != null && !l.getInfo().isLeaderReady()) {
         throw new IllegalStateException("Leader: "+ l.getMemberId() +  " not ready");
       }
       return l;

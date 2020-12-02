@@ -75,7 +75,7 @@ public class TestRaftWithGrpc
     try (final RaftClient client = cluster.createClient()) {
       // block append requests
       cluster.getServerAliveStream()
-          .filter(impl -> !impl.isLeader())
+          .filter(impl -> !impl.getInfo().isLeader())
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::blockWriteStateMachineData);
 
@@ -86,14 +86,14 @@ public class TestRaftWithGrpc
       Assert.assertFalse(replyFuture.isDone());
       // unblock append request.
       cluster.getServerAliveStream()
-          .filter(impl -> !impl.isLeader())
+          .filter(impl -> !impl.getInfo().isLeader())
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
 
       final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
       // The entries have been appended in the followers
       // although the append entry timed out at the leader
-      cluster.getServerAliveStream().filter(impl -> !impl.isLeader()).forEach(raftServer ->
+      cluster.getServerAliveStream().filter(impl -> !impl.getInfo().isLeader()).forEach(raftServer ->
           JavaUtils.runAsUnchecked(() -> JavaUtils.attempt(() -> {
         final long leaderNextIndex = leaderLog.getNextIndex();
         final TermIndex[] leaderEntries = leaderLog.getEntries(0, Long.MAX_VALUE);

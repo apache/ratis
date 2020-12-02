@@ -389,7 +389,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     try (final RaftClient client = cluster.createClient()) {
       // block append requests
       cluster.getServerAliveStream()
-          .filter(impl -> !impl.isLeader())
+          .filter(impl -> !impl.getInfo().isLeader())
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::blockWriteStateMachineData);
 
@@ -399,7 +399,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       Assert.assertFalse(replyFuture.isDone());
       // unblock append request.
       cluster.getServerAliveStream()
-          .filter(impl -> !impl.isLeader())
+          .filter(impl -> !impl.getInfo().isLeader())
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
 
@@ -427,7 +427,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     try (final RaftClient client = cluster.createClient()) {
       // block append entries request
       cluster.getServerAliveStream()
-          .filter(impl -> !impl.isLeader())
+          .filter(impl -> !impl.getInfo().isLeader())
           .map(SimpleStateMachine4Testing::get)
           .forEach(peer -> logSyncDelay.setDelayMs(peer.getId().toString(), 1000));
 
@@ -440,7 +440,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
       // previous leader should not there.
       cluster.getServerAliveStream()
-          .forEach(impl -> Assert.assertTrue(!impl.isLeader()
+          .forEach(impl -> Assert.assertTrue(!impl.getInfo().isLeader()
               || impl.getState().getCurrentTerm() > termOfPrevLeader));
 
     } finally {
