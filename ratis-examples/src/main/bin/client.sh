@@ -32,4 +32,4 @@ shift
 subcommand="$1"
 shift
 
-java ${LOGGER_OPTS} -jar $ARTIFACT "$example" "$subcommand" $QUORUM_OPTS "$@"
+java ${LOGGER_OPTS} -jar $ARTIFACT "$example" "$subcommand" "$@"
