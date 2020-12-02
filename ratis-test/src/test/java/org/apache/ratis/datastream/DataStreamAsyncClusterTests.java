@@ -69,20 +69,46 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), max);
   }
 
+  @Test
+  public void testMultipleStreamsMultipleServersStepDownLeader() throws Exception {
+    runWithNewCluster(3, this::runTestDataStreamStepDownLeader);
+  }
+
+  void runTestDataStreamStepDownLeader(CLUSTER cluster) throws Exception {
+    runTestDataStream(cluster, true);
+  }
+
   void runTestDataStream(CLUSTER cluster) throws Exception {
+    runTestDataStream(cluster, false);
+  }
+
+  void runTestDataStream(CLUSTER cluster, boolean stepDownLeader) throws Exception {
     RaftTestUtil.waitForLeader(cluster);
 
     final List<CompletableFuture<Long>> futures = new ArrayList<>();
-    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 5, 10, 1_000_000, 10), executor));
-    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 2, 20, 1_000, 10_000), executor));
+    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 5, 10, 1_000_000, 10, stepDownLeader), executor));
+    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 2, 20, 1_000, 10_000, stepDownLeader), executor));
     final long maxIndex = futures.stream()
         .map(CompletableFuture::join)
         .max(Long::compareTo)
         .orElseThrow(IllegalStateException::new);
 
+    if (stepDownLeader) {
+      final RaftPeerId oldLeader = cluster.getLeader().getId();
+      final CompletableFuture<RaftPeerId> changeLeader = futures.get(0).thenApplyAsync(dummy -> {
+        try {
+          return RaftTestUtil.changeLeader(cluster, oldLeader);
+        } catch (Exception e) {
+          throw new CompletionException("Failed to change leader from " + oldLeader, e);
+        }
+      });
+      LOG.info("Changed leader from {} to {}", oldLeader, changeLeader.join());
+    }
+
     // wait for all servers to catch up
     try (RaftClient client = cluster.createClient()) {
-      client.async().watch(maxIndex, ReplicationLevel.ALL).join();
+      RaftClientReply reply = client.async().watch(maxIndex, ReplicationLevel.ALL).join();
+      Assert.assertTrue(reply.isSuccess());
     }
     // assert all streams are linked
     for (RaftServer proxy : cluster.getServers()) {
@@ -95,10 +121,12 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     }
   }
 
-  Long runTestDataStream(CLUSTER cluster, int numClients, int numStreams, int bufferSize, int bufferNum) {
+  Long runTestDataStream(
+      CLUSTER cluster, int numClients, int numStreams, int bufferSize, int bufferNum, boolean stepDownLeader) {
     final List<CompletableFuture<Long>> futures = new ArrayList<>();
     for (int j = 0; j < numClients; j++) {
-      futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, numStreams, bufferSize, bufferNum), executor));
+      futures.add(CompletableFuture.supplyAsync(
+          () -> runTestDataStream(cluster, numStreams, bufferSize, bufferNum, stepDownLeader), executor));
     }
     Assert.assertEquals(numClients, futures.size());
     return futures.stream()
@@ -111,7 +139,7 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     return cluster.getDivision(primary.getId()).getRaftClient().getId();
   }
 
-  long runTestDataStream(CLUSTER cluster, int numStreams, int bufferSize, int bufferNum) {
+  long runTestDataStream(CLUSTER cluster, int numStreams, int bufferSize, int bufferNum, boolean stepDownLeader) {
     final Iterable<RaftServer> servers = CollectionUtils.as(cluster.getServers(), s -> s);
     final RaftPeerId leader = cluster.getLeader().getId();
     final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
@@ -121,7 +149,7 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
       for (int i = 0; i < numStreams; i++) {
         final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
         futures.add(CompletableFuture.supplyAsync(() -> DataStreamTestUtils.writeAndCloseAndAssertReplies(
-            servers, leader, out, bufferSize, bufferNum, primaryClientId).join(), executor));
+            servers, leader, out, bufferSize, bufferNum, primaryClientId, cluster, stepDownLeader).join(), executor));
       }
       Assert.assertEquals(numStreams, futures.size());
       return futures.stream()

@@ -18,6 +18,8 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -64,6 +66,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 public interface DataStreamTestUtils {
   Logger LOG = LoggerFactory.getLogger(DataStreamTestUtils.class);
@@ -286,22 +289,24 @@ public interface DataStreamTestUtils {
 
   static CompletableFuture<RaftClientReply> writeAndCloseAndAssertReplies(
       Iterable<RaftServer> servers, RaftPeerId leader, DataStreamOutputImpl out, int bufferSize, int bufferNum,
-      ClientId primaryClientId) {
+      ClientId primaryClientId, MiniRaftCluster cluster, boolean stepDownLeader) {
     LOG.info("start Stream{}", out.getHeader().getCallId());
     final int bytesWritten = writeAndAssertReplies(out, bufferSize, bufferNum);
     try {
       for (RaftServer s : servers) {
-        assertHeader(s, out.getHeader(), bytesWritten);
+        assertHeader(s, out.getHeader(), bytesWritten, stepDownLeader);
       }
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
     LOG.info("Stream{}: bytesWritten={}", out.getHeader().getCallId(), bytesWritten);
 
-    return out.closeAsync().thenCompose(reply -> assertCloseReply(out, reply, bytesWritten, leader, primaryClientId));
+    return out.closeAsync().thenCompose(
+        reply -> assertCloseReply(out, reply, bytesWritten, leader, primaryClientId, cluster, stepDownLeader));
   }
 
-  static void assertHeader(RaftServer server, RaftClientRequest header, int dataSize) throws Exception {
+  static void assertHeader(RaftServer server, RaftClientRequest header, int dataSize, boolean stepDownLeader)
+      throws Exception {
     // check header
     Assert.assertEquals(RaftClientRequest.dataStreamRequestType(), header.getType());
 
@@ -315,11 +320,11 @@ public interface DataStreamTestUtils {
     // check writeRequest
     final RaftClientRequest writeRequest = stream.getWriteRequest();
     Assert.assertEquals(RaftClientRequest.dataStreamRequestType(), writeRequest.getType());
-    assertRaftClientMessage(header, null, writeRequest, header.getClientId());
+    assertRaftClientMessage(header, null, writeRequest, header.getClientId(), stepDownLeader);
   }
 
   static CompletableFuture<RaftClientReply> assertCloseReply(DataStreamOutputImpl out, DataStreamReply dataStreamReply,
-      long bytesWritten, RaftPeerId leader, ClientId primaryClientId) {
+      long bytesWritten, RaftPeerId leader, ClientId primaryClientId, MiniRaftCluster cluster, boolean stepDownLeader) {
     // Test close idempotent
     Assert.assertSame(dataStreamReply, out.closeAsync().join());
     BaseTest.testFailureCase("writeAsync should fail",
@@ -329,7 +334,7 @@ public interface DataStreamTestUtils {
     final DataStreamReplyByteBuffer buffer = (DataStreamReplyByteBuffer) dataStreamReply;
     try {
       final RaftClientReply reply = ClientProtoUtils.toRaftClientReply(buffer.slice());
-      assertRaftClientMessage(out.getHeader(), leader, reply, primaryClientId);
+      assertRaftClientMessage(out.getHeader(), leader, reply, primaryClientId, stepDownLeader);
       if (reply.isSuccess()) {
         final ByteString bytes = reply.getMessage().getContent();
         if (!bytes.equals(MOCK)) {
@@ -344,10 +349,14 @@ public interface DataStreamTestUtils {
   }
 
   static void assertRaftClientMessage(
-      RaftClientMessage expected, RaftPeerId expectedServerId, RaftClientMessage computed, ClientId expectedClientId) {
+      RaftClientMessage expected, RaftPeerId expectedServerId, RaftClientMessage computed, ClientId expectedClientId,
+      boolean stepDownLeader) {
     Assert.assertNotNull(computed);
     Assert.assertEquals(expectedClientId, computed.getClientId());
-    Assert.assertEquals(Optional.ofNullable(expectedServerId).orElseGet(expected::getServerId), computed.getServerId());
+    if (!stepDownLeader) {
+      Assert.assertEquals(
+          Optional.ofNullable(expectedServerId).orElseGet(expected::getServerId), computed.getServerId());
+    }
     Assert.assertEquals(expected.getRaftGroupId(), computed.getRaftGroupId());
   }
 
@@ -379,6 +388,6 @@ public interface DataStreamTestUtils {
 
     final LogEntryProto entryFromLog = searchLogEntry(ClientInvocationId.valueOf(request),
         RaftServerTestUtil.getRaftLog(division));
-    Assert.assertSame(entryFromStream, entryFromLog);
+    Assert.assertEquals(entryFromStream, entryFromLog);
   }
 }

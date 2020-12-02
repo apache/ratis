@@ -391,7 +391,7 @@ abstract class DataStreamBaseTest extends BaseTest {
 
       final RaftClientReply clientReply = DataStreamTestUtils.writeAndCloseAndAssertReplies(
           CollectionUtils.as(servers, Server::getRaftServer), null, out, bufferSize, bufferNum,
-          getPrimaryClientId()).join();
+          getPrimaryClientId(), null, false).join();
       if (expectedException != null) {
         Assert.assertFalse(clientReply.isSuccess());
         Assert.assertTrue(clientReply.getException().getMessage().contains(
