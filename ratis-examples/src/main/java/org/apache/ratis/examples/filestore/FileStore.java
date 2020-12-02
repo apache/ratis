@@ -232,10 +232,8 @@ public class FileStore implements Closeable {
         RandomAccessFile file = new RandomAccessFile(full.toFile(), "r");
         long len = file.length();
         return StreamWriteReplyProto.newBuilder().setIsSuccess(len == bytesWritten).setByteWritten(len).build();
-      } catch (FileNotFoundException e) {
-        throw new CompletionException("Failed to find " + p, e);
       } catch (IOException e) {
-        throw new CompletionException("Failed to get length of " + p, e);
+        throw new CompletionException("Failed to commit stream write on file " + p, e);
       }
     }, committer);
   }
