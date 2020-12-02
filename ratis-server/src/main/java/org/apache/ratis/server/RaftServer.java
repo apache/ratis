@@ -62,6 +62,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
           .orElseGet(() -> getRaftServer().getPeer());
     }
 
+    DivisionInfo getInfo();
+
     /** @return the {@link RaftGroup} for this division. */
     RaftGroup getGroup();
 

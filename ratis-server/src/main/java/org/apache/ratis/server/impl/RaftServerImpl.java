@@ -33,11 +33,13 @@ import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.StaleReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.DataStreamMap;
+import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -89,8 +91,27 @@ public class RaftServerImpl implements RaftServer.Division,
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
 
+  class Info implements DivisionInfo {
+    @Override
+    public RaftPeerRole getCurrentRole() {
+      return getRole().getCurrentRole();
+    }
+
+    @Override
+    public boolean isLeaderReady() {
+      return isLeader() && getRole().isLeaderReady();
+    }
+
+    @Override
+    public LifeCycle.State getLifeCycleState() {
+      return lifeCycle.getCurrentState();
+    }
+  }
+
   private final RaftServerProxy proxy;
   private final StateMachine stateMachine;
+  private final Info info =  new Info();
+
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
   private final TimeDuration leaderStepDownWaitTime;
@@ -287,8 +308,9 @@ public class RaftServerImpl implements RaftServer.Division,
     return getState().getMemberId();
   }
 
-  public RaftPeerId getId() {
-    return getMemberId().getPeerId();
+  @Override
+  public DivisionInfo getInfo() {
+    return info;
   }
 
   RoleInfo getRole() {
@@ -393,34 +415,6 @@ public class RaftServerImpl implements RaftServer.Division,
     });
   }
 
-  public boolean isAlive() {
-    return !lifeCycle.getCurrentState().isClosingOrClosed();
-  }
-
-  public boolean isFollower() {
-    return role.isFollower();
-  }
-
-  public boolean isCandidate() {
-    return role.isCandidate();
-  }
-
-  public boolean isLeader() {
-    return role.isLeader();
-  }
-
-  public boolean isPausingOrPaused() {
-    return lifeCycle.getCurrentState().isPausingOrPaused();
-  }
-
-  /**
-   * return ref to the commit info cache.
-   * @return commit info cache
-   */
-  public CommitInfoCache getCommitInfoCache() {
-    return commitInfoCache;
-  }
-
   /**
    * Change the server state to Follower if this server is in a different role or force is true.
    * @param newTerm The new term.
@@ -452,7 +446,7 @@ public class RaftServerImpl implements RaftServer.Division,
   }
 
   synchronized void changeToLeader() {
-    Preconditions.assertTrue(isCandidate());
+    Preconditions.assertTrue(getInfo().isCandidate());
     role.shutdownLeaderElection();
     setRole(RaftPeerRole.LEADER, "changeToLeader");
     state.becomeLeader();
@@ -468,7 +462,7 @@ public class RaftServerImpl implements RaftServer.Division,
     infos.add(updateCommitInfoCache());
 
     // add the commit infos of other servers
-    if (isLeader()) {
+    if (getInfo().isLeader()) {
       role.getLeaderState().ifPresent(
           leader -> leader.updateFollowerCommitInfos(commitInfoCache, infos));
     } else {
@@ -528,7 +522,7 @@ public class RaftServerImpl implements RaftServer.Division,
   }
 
   synchronized void changeToCandidate() {
-    Preconditions.assertTrue(isFollower());
+    Preconditions.assertTrue(getInfo().isFollower());
     role.shutdownFollowerState();
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
     if (state.shouldNotifyExtendedNoLeader()) {
@@ -580,13 +574,12 @@ public class RaftServerImpl implements RaftServer.Division,
       return RetryCache.failWithException(e, entry);
     }
 
-    if (!isLeader()) {
+    if (!getInfo().isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
       final RaftClientReply reply = newExceptionReply(request, exception);
       return RetryCache.failWithReply(reply, entry);
     }
-    final LeaderState leaderState = role.getLeaderState().orElse(null);
-    if (leaderState == null || !leaderState.isReady()) {
+    if (!getInfo().isLeaderReady()) {
       final RetryCache.CacheEntry cacheEntry = retryCache.get(ClientInvocationId.valueOf(request));
       if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
         return cacheEntry.getReplyFuture();
@@ -596,19 +589,6 @@ public class RaftServerImpl implements RaftServer.Division,
       return RetryCache.failWithReply(reply, entry);
     }
     return null;
-  }
-
-  public boolean isLeaderReady() {
-    if (!isLeader()) {
-      return false;
-    }
-
-    final LeaderState leaderState = role.getLeaderState().orElse(null);
-    if (leaderState == null || !leaderState.isReady()) {
-      return false;
-    }
-
-    return true;
   }
 
   NotLeaderException generateNotLeaderException() {
@@ -658,7 +638,7 @@ public class RaftServerImpl implements RaftServer.Division,
       }
 
       // append the message to its local log
-      final LeaderState leaderState = role.getLeaderStateNonNull();
+      final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
       final PendingRequests.Permit permit = leaderState.tryAcquirePendingRequest(request.getMessage());
       if (permit == null) {
         cacheEntry.failWithException(new ResourceUnavailableException(
@@ -673,7 +653,7 @@ public class RaftServerImpl implements RaftServer.Division,
         RaftClientReply exceptionReply = newExceptionReply(request, e);
         cacheEntry.failWithReply(exceptionReply);
         // leader will step down here
-        if (isLeader()) {
+        if (getInfo().isLeader()) {
           leaderState.submitStepDownEvent(LeaderState.StepDownReason.STATE_MACHINE_EXCEPTION);
         }
         return CompletableFuture.completedFuture(exceptionReply);
@@ -692,7 +672,7 @@ public class RaftServerImpl implements RaftServer.Division,
   }
 
   public void stepDownOnJvmPause() {
-    if (isLeader()) {
+    if (getInfo().isLeader()) {
       role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
     }
   }
@@ -892,7 +872,7 @@ public class RaftServerImpl implements RaftServer.Division,
       }
 
       final RaftConfiguration current = getRaftConf();
-      final LeaderState leaderState = role.getLeaderStateNonNull();
+      final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
       // make sure there is no other raft reconfiguration in progress
       if (!current.isStable() || leaderState.inStagingState() || !state.isConfCommitted()) {
         throw new ReconfigurationInProgressException(
@@ -917,11 +897,11 @@ public class RaftServerImpl implements RaftServer.Division,
   private boolean shouldWithholdVotes(long candidateTerm) {
     if (state.getCurrentTerm() < candidateTerm) {
       return false;
-    } else if (isLeader()) {
+    } else if (getInfo().isLeader()) {
       return true;
     } else {
       // following a leader and not yet timeout
-      return isFollower() && state.hasLeader()
+      return getInfo().isFollower() && state.hasLeader()
           && role.getFollowerState().map(FollowerState::shouldWithholdVotes).orElse(false);
     }
   }
@@ -936,7 +916,7 @@ public class RaftServerImpl implements RaftServer.Division,
    */
   private boolean shouldSendShutdown(RaftPeerId candidateId,
       TermIndex candidateLastEntry) {
-    return isLeader()
+    return getInfo().isLeader()
         && getRaftConf().isStable()
         && getState().isConfCommitted()
         && !getRaftConf().containsInConf(candidateId)
@@ -1509,7 +1489,7 @@ public class RaftServerImpl implements RaftServer.Division,
   }
 
   public void submitUpdateCommitEvent() {
-    role.getLeaderState().ifPresent(LeaderState::submitUpdateCommitEvent);
+    role.getLeaderState().ifPresent(LeaderStateImpl::submitUpdateCommitEvent);
   }
 
   /**
@@ -1525,7 +1505,7 @@ public class RaftServerImpl implements RaftServer.Division,
     final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
     // update the retry cache
     final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
-    if (isLeader()) {
+    if (getInfo().isLeader()) {
       Preconditions.assertTrue(cacheEntry != null && !cacheEntry.isCompletedNormally(),
               "retry cache entry should be pending: %s", cacheEntry);
     }
@@ -1548,9 +1528,8 @@ public class RaftServerImpl implements RaftServer.Division,
 
       // update pending request
       synchronized (RaftServerImpl.this) {
-        final LeaderState leaderState = role.getLeaderState().orElse(null);
-        if (isLeader() && leaderState != null) { // is leader and is running
-          leaderState.replyPendingRequest(logIndex, r);
+        if (getInfo().isLeader()) {
+          role.getLeaderState().ifPresent(leader -> leader.replyPendingRequest(logIndex, r));
         }
       }
       cacheEntry.updateResult(r);
@@ -1558,10 +1537,10 @@ public class RaftServerImpl implements RaftServer.Division,
   }
 
   public long[] getFollowerNextIndices() {
-    if (!isLeader()) {
+    if (!getInfo().isLeader()) {
       return null;
     }
-    return role.getLeaderState().map(LeaderState::getFollowerNextIndices).orElse(null);
+    return role.getLeaderState().map(LeaderStateImpl::getFollowerNextIndices).orElse(null);
   }
 
   CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) {
@@ -1658,7 +1637,7 @@ public class RaftServerImpl implements RaftServer.Division,
 
     @Override
     public List<String> getFollowers() {
-      return role.getLeaderState().map(LeaderState::getFollowers).orElse(Collections.emptyList())
+      return role.getLeaderState().map(LeaderStateImpl::getFollowers).orElse(Collections.emptyList())
           .stream().map(RaftPeer::toString).collect(Collectors.toList());
     }
 

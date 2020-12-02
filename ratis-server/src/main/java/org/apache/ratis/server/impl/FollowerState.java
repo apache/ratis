@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -110,7 +111,7 @@ class FollowerState extends Daemon {
   @Override
   public  void run() {
     final TimeDuration sleepDeviationThreshold = server.getSleepDeviationThreshold();
-    while (isRunning && server.isFollower()) {
+    while (isRunning && server.getInfo().isFollower()) {
       final TimeDuration electionTimeout = server.getRandomElectionTimeout();
       try {
         final TimeDuration extraSleep = electionTimeout.sleep();
@@ -120,7 +121,7 @@ class FollowerState extends Daemon {
           continue;
         }
 
-        final boolean isFollower = server.isFollower();
+        final boolean isFollower = server.getInfo().isFollower();
         if (!isRunning || !isFollower) {
           LOG.info("{}: Stopping now (isRunning? {}, isFollower? {})", this, isRunning, isFollower);
           break;

@@ -18,9 +18,10 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.rpc.RpcFactory;
-import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.leader.FollowerInfo;
+import org.apache.ratis.server.leader.LeaderState;
 
 /** A factory interface for creating server components. */
 public interface ServerFactory extends RpcFactory {
@@ -34,7 +35,7 @@ public interface ServerFactory extends RpcFactory {
   }
 
   /** Create a new {@link LogAppender}. */
-  default LogAppender newLogAppender(RaftServerImpl server, LeaderState state, FollowerInfo f) {
+  default LogAppender newLogAppender(RaftServer.Division server, LeaderState state, FollowerInfo f) {
     return new LogAppender(server, state, f);
   }
 

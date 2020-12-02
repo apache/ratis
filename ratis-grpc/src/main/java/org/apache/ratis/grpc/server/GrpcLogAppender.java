@@ -22,11 +22,11 @@ import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.FollowerInfo;
-import org.apache.ratis.server.impl.LeaderState;
+import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.impl.LogAppender;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -52,7 +52,6 @@ import com.codahale.metrics.Timer;
 public class GrpcLogAppender extends LogAppender {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcLogAppender.class);
 
-  private final GrpcService rpcService;
   private final RequestMap pendingRequests = new RequestMap();
   private final int maxPendingRequestsNum;
   private long callId = 0;
@@ -66,11 +65,10 @@ public class GrpcLogAppender extends LogAppender {
 
   private final GrpcServerMetrics grpcServerMetrics;
 
-  public GrpcLogAppender(RaftServerImpl server, LeaderState leaderState,
-                         FollowerInfo f) {
+  public GrpcLogAppender(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     super(server, leaderState, f);
 
-    this.rpcService = (GrpcService) server.getRaftServer().getServerRpc();
+    Preconditions.assertNotNull(getServerRpc(), "getServerRpc()");
 
     final RaftProperties properties = server.getRaftServer().getProperties();
     this.maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(properties);
@@ -81,8 +79,13 @@ public class GrpcLogAppender extends LogAppender {
     grpcServerMetrics.addPendingRequestsCount(getFollowerId().toString(), pendingRequests::logRequestsSize);
   }
 
+  @Override
+  protected GrpcService getServerRpc() {
+    return (GrpcService)super.getServerRpc();
+  }
+
   private GrpcServerProtocolClient getClient() throws IOException {
-    return rpcService.getProxies().getProxy(getFollowerId());
+    return getServerRpc().getProxies().getProxy(getFollowerId());
   }
 
   private synchronized void resetClient(AppendEntriesRequest request, boolean onError) {

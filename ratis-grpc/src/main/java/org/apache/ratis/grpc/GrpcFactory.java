@@ -25,9 +25,11 @@ import org.apache.ratis.grpc.server.GrpcLogAppender;
 import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.*;
+import org.apache.ratis.server.impl.LogAppender;
+import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.server.leader.FollowerInfo;
+import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,8 +78,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   @Override
-  public LogAppender newLogAppender(RaftServerImpl server, LeaderState state,
-                                    FollowerInfo f) {
+  public LogAppender newLogAppender(RaftServer.Division server, LeaderState state, FollowerInfo f) {
     return new GrpcLogAppender(server, state, f);
   }
 
