@@ -18,8 +18,6 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -37,7 +35,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -66,7 +64,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
 public interface DataStreamTestUtils {
   Logger LOG = LoggerFactory.getLogger(DataStreamTestUtils.class);
@@ -386,8 +383,7 @@ public interface DataStreamTestUtils {
     final LogEntryProto entryFromStream = stream.getLogEntry();
     assertLogEntry(entryFromStream, request);
 
-    final LogEntryProto entryFromLog = searchLogEntry(ClientInvocationId.valueOf(request),
-        RaftServerTestUtil.getRaftLog(division));
+    final LogEntryProto entryFromLog = searchLogEntry(ClientInvocationId.valueOf(request), division.getRaftLog());
     Assert.assertEquals(entryFromStream, entryFromLog);
   }
 }

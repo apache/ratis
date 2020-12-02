@@ -496,7 +496,7 @@ public abstract class MiniRaftCluster implements Closeable {
       b.append("  ");
       b.append(s).append("\n");
 
-      final RaftLog log = RaftServerTestUtil.getRaftLog(s);
+      final RaftLog log = s.getRaftLog();
       if (log instanceof MemoryRaftLog) {
         b.append("    ");
         b.append(((MemoryRaftLog) log).getEntryString());

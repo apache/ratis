@@ -134,7 +134,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
           return null;
         }, 5, BaseTest.ONE_SECOND, "GetRetryEntry", LOG);
 
-        final RaftLog log = RaftServerTestUtil.getRaftLog(server);
+        final RaftLog log = server.getRaftLog();
         RaftTestUtil.logEntriesContains(log, oldLastApplied + 1, log.getNextIndex(), message);
       }
 

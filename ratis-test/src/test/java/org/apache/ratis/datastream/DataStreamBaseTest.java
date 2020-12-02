@@ -55,6 +55,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.util.CollectionUtils;
@@ -107,6 +108,11 @@ abstract class DataStreamBaseTest extends BaseTest {
     @Override
     public MultiDataStreamStateMachine getStateMachine() {
       return stateMachine;
+    }
+
+    @Override
+    public RaftLog getRaftLog() {
+      return null;
     }
 
     @Override

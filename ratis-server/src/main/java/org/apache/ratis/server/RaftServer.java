@@ -26,6 +26,7 @@ import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
@@ -73,6 +74,10 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** @return the {@link StateMachine} for this division. */
     StateMachine getStateMachine();
 
+    /** @return the raft log of this division. */
+    RaftLog getRaftLog();
+
+    /** @return the data stream map of this division. */
     DataStreamMap getDataStreamMap();
 
     RaftClient getRaftClient();

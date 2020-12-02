@@ -31,7 +31,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -223,7 +222,7 @@ public interface RaftTestUtil {
   static void assertLogEntries(MiniRaftCluster cluster, SimpleMessage expectedMessage) {
     final int size = cluster.getNumServers();
     final long count = cluster.getServerAliveStream()
-        .map(s -> s.getState().getLog())
+        .map(RaftServer.Division::getRaftLog)
         .filter(log -> logEntriesContains(log, expectedMessage))
         .count();
     if (2*count <= size) {
@@ -234,7 +233,7 @@ public interface RaftTestUtil {
 
   static void assertLogEntries(RaftServer.Division server, long expectedTerm, SimpleMessage... expectedMessages) {
     LOG.info("checking raft log for {}", server.getMemberId());
-    final RaftLog log = RaftServerTestUtil.getRaftLog(server);
+    final RaftLog log = server.getRaftLog();
     try {
       RaftTestUtil.assertLogEntries(log, expectedTerm, expectedMessages);
     } catch (AssertionError e) {

@@ -107,7 +107,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     writeSomething(newMessage, cluster);
     final int truncatedMessageIndex = messageCount.get() - 1;
 
-    final long leaderLastIndex = RaftServerTestUtil.getRaftLog(cluster.getLeader()).getLastEntryTermIndex().getIndex();
+    final long leaderLastIndex = cluster.getLeader().getRaftLog().getLastEntryTermIndex().getIndex();
     // make sure the restarted follower can catchup
     final RaftServer.Division followerState = cluster.getDivision(followerId);
     JavaUtils.attemptRepeatedly(() -> {
@@ -117,7 +117,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
     // make sure the restarted peer's log segments is correct
     final RaftServer.Division follower = cluster.restartServer(followerId, false);
-    final RaftLog followerLog = RaftServerTestUtil.getRaftLog(follower);
+    final RaftLog followerLog = follower.getRaftLog();
     final long followerLastIndex = followerLog.getLastEntryTermIndex().getIndex();
     Assert.assertTrue(followerLastIndex >= leaderLastIndex);
 
@@ -165,7 +165,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     FileUtils.truncateFile(openLogFile, openLogFile.length() - 1);
     final RaftServer.Division server = cluster.restartServer(id, false);
     // the last index should be one less than before
-    Assert.assertEquals(lastIndex - 1, RaftServerTestUtil.getRaftLog(server).getLastEntryTermIndex().getIndex());
+    Assert.assertEquals(lastIndex - 1, server.getRaftLog().getLastEntryTermIndex().getIndex());
     server.getRaftServer().close();
   }
 
@@ -252,7 +252,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
     final List<RaftPeerId> ids = new ArrayList<>();
     final RaftServer.Division leader = cluster.getLeader();
-    final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(leader);
+    final RaftLog leaderLog = leader.getRaftLog();
     final RaftPeerId leaderId = leader.getId();
     ids.add(leaderId);
 
@@ -278,7 +278,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     for(RaftServer.Division s : cluster.iterateDivisions()) {
       if (!s.getId().equals(leaderId)) {
         ids.add(s.getId());
-        RaftTestUtil.assertSameLog(leaderLog, RaftServerTestUtil.getRaftLog(s));
+        RaftTestUtil.assertSameLog(leaderLog, s.getRaftLog());
       }
     }
 
@@ -293,7 +293,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     for(RaftPeerId id : ids) {
       cluster.restartServer(id, false);
       final RaftServer.Division server = cluster.getDivision(id);
-      final RaftLog raftLog = RaftServerTestUtil.getRaftLog(server);
+      final RaftLog raftLog = server.getRaftLog();
       JavaUtils.attemptRepeatedly(() -> {
         Assert.assertTrue(raftLog.getLastCommittedIndex() >= loggedCommitIndex);
         return null;
@@ -309,7 +309,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   }
 
   static void assertLastLogEntry(RaftServer.Division server) throws RaftLogIOException {
-    final RaftLog raftLog = RaftServerTestUtil.getRaftLog(server);
+    final RaftLog raftLog = server.getRaftLog();
     final long lastIndex = raftLog.getLastEntryTermIndex().getIndex();
     final LogEntryProto lastEntry = raftLog.get(lastIndex);
     Assert.assertTrue(lastEntry.hasMetadataEntry());
@@ -365,7 +365,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       Assert.assertTrue(client.io().sendReadOnly(lastMessage).isSuccess());
     }
 
-    final RaftLog log = RaftServerTestUtil.getRaftLog(leader);
+    final RaftLog log = leader.getRaftLog();
     final long size = TestSegmentedRaftLog.getOpenSegmentSize(log);
     leader.getRaftServer().close();
 

@@ -86,7 +86,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
   public static void assertLeaderContent(MiniRaftCluster cluster) throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
-    final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(leader);
+    final RaftLog leaderLog = leader.getRaftLog();
     final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
     final LogEntryProto e = leaderLog.get(lastIndex);
     Assert.assertTrue(e.hasMetadataEntry());
@@ -150,7 +150,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       }
     }
 
-    final long nextIndex = RaftServerTestUtil.getRaftLog(cluster.getLeader()).getNextIndex();
+    final long nextIndex = cluster.getLeader().getRaftLog().getNextIndex();
     LOG.info("nextIndex = {}", nextIndex);
     // wait for the snapshot to be done
     final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
@@ -200,7 +200,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       // wait for the snapshot to be done
       RaftStorageDirectory storageDirectory = RaftServerTestUtil.getRaftStorage(cluster.getLeader()).getStorageDir();
 
-      final long nextIndex = RaftServerTestUtil.getRaftLog(cluster.getLeader()).getNextIndex();
+      final long nextIndex = cluster.getLeader().getRaftLog().getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
       JavaUtils.attemptRepeatedly(() -> {

@@ -27,12 +27,12 @@ import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
-import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
+import org.mockito.internal.util.reflection.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -125,12 +125,16 @@ public class RaftServerTestUtil {
     return entry.isFailed();
   }
 
-  public static RaftConfiguration getRaftConf(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getRaftConf();
+  static ServerState getState(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getState();
   }
 
-  public static RaftLog getRaftLog(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getState().getLog();
+  public static ConfigurationManager getConfigurationManager(RaftServer.Division server) {
+    return (ConfigurationManager) Whitebox.getInternalState(getState(server), "configurationManager");
+  }
+
+  public static RaftConfiguration getRaftConf(RaftServer.Division server) {
+    return ((RaftServerImpl)server).getRaftConf();
   }
 
   public static RaftStorage getRaftStorage(RaftServer.Division server) {

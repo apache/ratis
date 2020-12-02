@@ -274,7 +274,7 @@ public class ServerState implements Closeable {
     setLeader(getMemberId().getPeerId(), "becomeLeader");
   }
 
-  public RaftLog getLog() {
+  RaftLog getLog() {
     return log;
   }
 

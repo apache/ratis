@@ -31,7 +31,6 @@ import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -39,7 +38,6 @@ import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
-import org.mockito.internal.util.reflection.Whitebox;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -241,9 +239,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         // check configuration manager's internal state
         // each reconf will generate two configurations: (old, new) and (new)
         cluster.getServerAliveStream().forEach(server -> {
-          ConfigurationManager confManager =
-                  (ConfigurationManager) Whitebox.getInternalState(server.getState(),
-                          "configurationManager");
+          final ConfigurationManager confManager = RaftServerTestUtil.getConfigurationManager(server);
           // each reconf will generate two configurations: (old, new) and (new)
           // each leader change generates one configuration.
           // expectedConf = 1 (init) + 2*2 (two conf changes) + #leader
@@ -359,11 +355,11 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         LOG.info(cluster.printServers());
         assertSuccess(success);
 
-        final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
+        final RaftLog leaderLog = cluster.getLeader().getRaftLog();
         for (RaftPeer newPeer : c1.newPeers) {
           final RaftServer.Division d = cluster.getDivision(newPeer.getId());
           Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
-              RaftServerTestUtil.getRaftLog(d).getEntries(0, Long.MAX_VALUE));
+              d.getRaftLog().getEntries(0, Long.MAX_VALUE));
         }
       }
   }
@@ -414,7 +410,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       // only (0) the first conf entry, (1) the 1st setConf entry and (2) a metadata entry
       {
-        final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
+        final RaftLog leaderLog = cluster.getLeader().getRaftLog();
         for(LogEntryProto e : RaftTestUtil.getLogEntryProtos(leaderLog)) {
           LOG.info("{}", ServerProtoUtils.toLogEntryString(e));
         }
@@ -469,7 +465,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     try(final RaftClient client = cluster.createClient(leader.getId())) {
       client.io().send(new SimpleMessage("m"));
 
-      final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(leader);
+      final RaftLog leaderLog = leader.getRaftLog();
       final long committedIndex = leaderLog.getLastCommittedIndex();
       final RaftConfiguration confBefore = RaftServerTestUtil.getRaftConf(cluster.getLeader());
 
@@ -576,7 +572,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       final RaftServer.Division leader = cluster.getLeader();
       final RaftPeerId leaderId = leader.getId();
 
-      final RaftLog log = RaftServerTestUtil.getRaftLog(leader);
+      final RaftLog log = leader.getRaftLog();
       log2 = log;
       Thread.sleep(1000);
 
