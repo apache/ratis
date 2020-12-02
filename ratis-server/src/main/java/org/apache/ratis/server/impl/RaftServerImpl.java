@@ -915,7 +915,7 @@ public class RaftServerImpl implements RaftServer.Division,
   }
 
   private boolean shouldWithholdVotes(long candidateTerm) {
-    if (state.getCurrentTerm() < candidateTerm) {
+    if (state.getCurrentTerm() >= candidateTerm) {
       return false;
     } else if (isLeader()) {
       return true;
