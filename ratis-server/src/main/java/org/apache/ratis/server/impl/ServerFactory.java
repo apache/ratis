@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.rpc.RpcFactory;
+import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 
@@ -33,15 +34,9 @@ public interface ServerFactory extends RpcFactory {
   }
 
   /** Create a new {@link LogAppender}. */
-  LogAppender newLogAppender(RaftServerImpl server, LeaderState state, FollowerInfo f);
+  default LogAppender newLogAppender(RaftServerImpl server, LeaderState state, FollowerInfo f) {
+    return new LogAppender(server, state, f);
+  }
 
   RaftServerRpc newRaftServerRpc(RaftServer server);
-
-  abstract class BaseFactory implements ServerFactory {
-    @Override
-    public LogAppender newLogAppender(
-        RaftServerImpl server, LeaderState state, FollowerInfo f) {
-      return new LogAppender(server, state, f);
-    }
-  }
 }

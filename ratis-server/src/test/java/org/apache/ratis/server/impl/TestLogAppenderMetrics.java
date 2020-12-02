@@ -20,13 +20,10 @@ package org.apache.ratis.server.impl;
 import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_MATCH_INDEX;
 import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_NEXT_INDEX;
 import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_RPC_RESP_TIME;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.metrics.LogAppenderMetrics;
 import org.apache.ratis.util.Timestamp;
@@ -40,20 +37,18 @@ public class TestLogAppenderMetrics {
 
   private RatisMetricRegistry ratisMetricRegistry;
   private RaftPeerId raftPeerId;
-  private FollowerInfo followerInfo;
+  private MyFollowerInfo followerInfo;
 
   @Before
   public void setup() {
     RaftGroupId raftGroupId = RaftGroupId.randomId();
     raftPeerId = RaftPeerId.valueOf("TestId");
-    final RaftPeer raftPeer = RaftPeer.newBuilder().setId(raftPeerId).build();
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
-    LogAppender logAppender = mock(LogAppender.class);
-    followerInfo = new TestFollowerInfo(raftGroupMemberId, raftPeer, Timestamp.currentTime(), 100L, true, 1000);
-    when(logAppender.getFollower()).thenReturn(followerInfo);
+    followerInfo = new MyFollowerInfo(100L);
     LogAppenderMetrics logAppenderMetrics = new LogAppenderMetrics(raftGroupMemberId);
     ratisMetricRegistry = logAppenderMetrics.getRegistry();
-    logAppenderMetrics.addFollowerGauges(followerInfo);
+    logAppenderMetrics.addFollowerGauges(raftPeerId, followerInfo::getNextIndex, followerInfo::getMatchIndex,
+        followerInfo::getLastRpcTime);
   }
 
   @Test
@@ -75,11 +70,37 @@ public class TestLogAppenderMetrics {
     Assert.assertNotNull(rpcTime.getValue());
   }
 
-  private static class TestFollowerInfo extends FollowerInfo {
-    TestFollowerInfo(RaftGroupMemberId id, RaftPeer peer, Timestamp
-        lastRpcTime, long nextIndex, boolean attendVote, int
-        rpcSlownessTimeoutMs) {
-      super(id, peer, lastRpcTime, nextIndex, attendVote, rpcSlownessTimeoutMs);
+  private static class MyFollowerInfo {
+    private volatile long nextIndex;
+    private volatile long matchIndex;
+    private volatile Timestamp lastRpcTime = Timestamp.currentTime();
+
+    MyFollowerInfo(long nextIndex) {
+      this.nextIndex = nextIndex;
+    }
+
+    long getNextIndex() {
+      return nextIndex;
+    }
+
+    void updateNextIndex(long nextIndex) {
+      this.nextIndex = nextIndex;
+    }
+
+    long getMatchIndex() {
+      return matchIndex;
+    }
+
+    void updateMatchIndex(long matchIndex) {
+      this.matchIndex = matchIndex;
+    }
+
+    Timestamp getLastRpcTime() {
+      return lastRpcTime;
+    }
+
+    void updateLastRpcResponseTime() {
+      lastRpcTime = Timestamp.currentTime();
     }
   }
 }

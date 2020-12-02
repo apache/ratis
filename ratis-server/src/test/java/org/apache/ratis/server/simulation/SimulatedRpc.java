@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -41,7 +41,7 @@ class SimulatedRpc implements RpcType {
     return new Factory(parameters);
   }
 
-  static class Factory extends ServerFactory.BaseFactory implements ClientFactory {
+  static class Factory implements ServerFactory, ClientFactory {
     static String SERVER_REQUEST_REPLY_KEY = "raft.simulated.serverRequestReply";
     static String CLIENT_TO_SERVER_REQUEST_REPLY_KEY = "raft.simulated.client2serverRequestReply";
 

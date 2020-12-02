@@ -25,7 +25,11 @@ import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.server.impl.FollowerInfo;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.Timestamp;
+
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 public final class LogAppenderMetrics extends RatisMetrics {
   public static final String RATIS_LOG_APPENDER_METRICS = "log_appender";
@@ -41,13 +45,10 @@ public final class LogAppenderMetrics extends RatisMetrics {
         RATIS_LOG_APPENDER_METRICS, RATIS_LOG_APPENDER_METRICS_DESC));
   }
 
-  public void addFollowerGauges(FollowerInfo followerInfo) {
-    registry.gauge(String.format(FOLLOWER_NEXT_INDEX,
-        followerInfo.getPeer().getId().toString()),
-        () -> followerInfo::getNextIndex);
-    registry.gauge(String.format(FOLLOWER_MATCH_INDEX, followerInfo.getPeer().getId().toString()),
-        () -> followerInfo::getMatchIndex);
-    registry.gauge(String.format(FOLLOWER_RPC_RESP_TIME, followerInfo.getPeer().getId().toString()),
-        () -> () -> followerInfo.getLastRpcTime().elapsedTimeMs());
+  public void addFollowerGauges(RaftPeerId id, LongSupplier getNextIndex, LongSupplier getMatchIndex,
+      Supplier<Timestamp> getLastRpcTime) {
+    registry.gauge(String.format(FOLLOWER_NEXT_INDEX, id), () -> getNextIndex::getAsLong);
+    registry.gauge(String.format(FOLLOWER_MATCH_INDEX, id), () -> getMatchIndex::getAsLong);
+    registry.gauge(String.format(FOLLOWER_RPC_RESP_TIME, id), () -> () -> getLastRpcTime.get().elapsedTimeMs());
   }
 }
