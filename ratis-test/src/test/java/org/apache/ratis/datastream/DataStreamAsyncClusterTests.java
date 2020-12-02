@@ -70,7 +70,7 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
   }
 
   @Test
-  public void testSingleStreamMultipleServersStepDownLeader() throws Exception {
+  public void testMultipleStreamsMultipleServersStepDownLeader() throws Exception {
     runWithNewCluster(3, this::runTestDataStreamStepDownLeader);
   }
 
@@ -86,20 +86,29 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     RaftTestUtil.waitForLeader(cluster);
 
     final List<CompletableFuture<Long>> futures = new ArrayList<>();
-    if (stepDownLeader) {
-      futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 1, 1, 1_000_000, 10, stepDownLeader), executor));
-    } else {
-      futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 5, 10, 1_000_000, 10, stepDownLeader), executor));
-      futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 2, 20, 1_000, 10_000, stepDownLeader), executor));
-    }
+    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 5, 10, 1_000_000, 10, stepDownLeader), executor));
+    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 2, 20, 1_000, 10_000, stepDownLeader), executor));
     final long maxIndex = futures.stream()
         .map(CompletableFuture::join)
         .max(Long::compareTo)
         .orElseThrow(IllegalStateException::new);
 
+    if (stepDownLeader) {
+      final RaftPeerId oldLeader = cluster.getLeader().getId();
+      final CompletableFuture<RaftPeerId> changeLeader = futures.get(0).thenApplyAsync(dummy -> {
+        try {
+          return RaftTestUtil.changeLeader(cluster, oldLeader);
+        } catch (Exception e) {
+          throw new CompletionException("Failed to change leader from " + oldLeader, e);
+        }
+      });
+      LOG.info("Changed leader from {} to {}", oldLeader, changeLeader.join());
+    }
+
     // wait for all servers to catch up
     try (RaftClient client = cluster.createClient()) {
-      client.async().watch(maxIndex, ReplicationLevel.ALL).join();
+      RaftClientReply reply = client.async().watch(maxIndex, ReplicationLevel.ALL).join();
+      Assert.assertTrue(reply.isSuccess());
     }
     // assert all streams are linked
     for (RaftServer proxy : cluster.getServers()) {
