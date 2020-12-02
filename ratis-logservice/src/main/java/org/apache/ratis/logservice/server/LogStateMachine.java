@@ -119,7 +119,7 @@ public class LogStateMachine extends BaseStateMachine {
   private RaftLog log;
 
 
-  private RaftServer server;
+  private RaftServer proxy;
   private ExecutorService executorService;
   private boolean isArchivalRequest;
   private ArchivalInfo archivalInfo;
@@ -153,7 +153,7 @@ public class LogStateMachine extends BaseStateMachine {
       RaftStorage raftStorage) throws IOException {
     super.initialize(server, groupId, raftStorage);
     this.storage.init(raftStorage);
-    this.server = server;
+    this.proxy = server;
     //TODO: using groupId for metric now but better to tag it with LogName
     this.logServiceMetrics = new LogServiceMetrics(groupId.toString(),
         server.getId().toString());
@@ -179,7 +179,7 @@ public class LogStateMachine extends BaseStateMachine {
 
   private void checkInitialization() throws IOException {
     if (this.log == null) {
-      this.log = server.getDivision(getGroupId()).getRaftLog();
+      this.log = proxy.getDivision(getGroupId()).getRaftLog();
     }
   }
 
