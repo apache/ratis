@@ -487,7 +487,7 @@ public class RaftServerImpl implements RaftServer.Division,
         getGroup(), getRoleInfoProto(), state.getStorage().getStorageDir().hasMetaFile());
   }
 
-  RoleInfoProto getRoleInfoProto() {
+  public RoleInfoProto getRoleInfoProto() {
     RaftPeerRole currentRole = role.getCurrentRole();
     RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
         .setSelf(getPeer().getRaftPeerProto())
