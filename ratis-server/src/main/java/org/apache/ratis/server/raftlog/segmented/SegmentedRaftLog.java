@@ -183,6 +183,7 @@ public class SegmentedRaftLog extends RaftLog {
   private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
 
+  @SuppressWarnings("parameternumber")
   public SegmentedRaftLog(RaftGroupMemberId memberId, RaftServer.Division server,
       StateMachine stateMachine, Consumer<LogEntryProto> notifyTruncatedLogEntry, Runnable submitUpdateCommitEvent,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
