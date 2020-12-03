@@ -86,7 +86,7 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     }
 
     // check the leader's raft log
-    final RaftLog raftLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
+    final RaftLog raftLog = cluster.getLeader().getRaftLog();
     final AtomicInteger i = new AtomicInteger();
     checkLog(raftLog, numRequests, () -> toBytes(i.getAndIncrement()));
   }
@@ -151,12 +151,12 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
 
     LOG.info("Start to check leader's log");
     final AtomicInteger index = new AtomicInteger(0);
-    checkLog(RaftServerTestUtil.getRaftLog(leader), expectedTxs.size(),
+    checkLog(leader.getRaftLog(), expectedTxs.size(),
         () -> expectedTxs.get(index.getAndIncrement()));
   }
 
   private RaftLog assertRaftLog(int expectedEntries, RaftServer.Division server) throws Exception {
-    final RaftLog raftLog = RaftServerTestUtil.getRaftLog(server);
+    final RaftLog raftLog = server.getRaftLog();
     final EnumMap<LogEntryBodyCase, AtomicLong> counts = RaftTestUtil.countEntries(raftLog);
     Assert.assertEquals(expectedEntries, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());
 

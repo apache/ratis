@@ -69,8 +69,6 @@ import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.logservice.server.ArchivalInfo.ArchivalStatus;
-import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -121,7 +119,7 @@ public class LogStateMachine extends BaseStateMachine {
   private RaftLog log;
 
 
-  private RaftServerProxy proxy ;
+  private RaftServer proxy;
   private ExecutorService executorService;
   private boolean isArchivalRequest;
   private ArchivalInfo archivalInfo;
@@ -155,7 +153,7 @@ public class LogStateMachine extends BaseStateMachine {
       RaftStorage raftStorage) throws IOException {
     super.initialize(server, groupId, raftStorage);
     this.storage.init(raftStorage);
-    this.proxy = (RaftServerProxy) server;
+    this.proxy = server;
     //TODO: using groupId for metric now but better to tag it with LogName
     this.logServiceMetrics = new LogServiceMetrics(groupId.toString(),
         server.getId().toString());
@@ -181,8 +179,7 @@ public class LogStateMachine extends BaseStateMachine {
 
   private void checkInitialization() throws IOException {
     if (this.log == null) {
-      ServerState serverState = proxy.getImpl(getGroupId()).getState();
-      this.log = serverState.getLog();
+      this.log = proxy.getDivision(getGroupId()).getRaftLog();
     }
   }
 

@@ -56,10 +56,10 @@ public abstract class ServerPauseResumeTest <CLUSTER extends MiniRaftCluster>
 
     writeThread.join();
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
-    final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(leader);
+    final RaftLog leaderLog = leader.getRaftLog();
     // leader should contain all logs.
     Assert.assertTrue(RaftTestUtil.logEntriesContains(leaderLog, batch1));
-    RaftLog followerLog = follower.getState().getLog();
+    RaftLog followerLog = follower.getRaftLog();
     // follower should contain all logs.
     Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, batch1));
 

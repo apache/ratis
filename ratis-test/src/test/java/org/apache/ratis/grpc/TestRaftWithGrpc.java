@@ -90,7 +90,7 @@ public class TestRaftWithGrpc
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
 
-      final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
+      final RaftLog leaderLog = cluster.getLeader().getRaftLog();
       // The entries have been appended in the followers
       // although the append entry timed out at the leader
       cluster.getServerAliveStream().filter(impl -> !impl.getInfo().isLeader()).forEach(raftServer ->
@@ -98,7 +98,7 @@ public class TestRaftWithGrpc
         final long leaderNextIndex = leaderLog.getNextIndex();
         final TermIndex[] leaderEntries = leaderLog.getEntries(0, Long.MAX_VALUE);
 
-        final RaftLog followerLog = raftServer.getState().getLog();
+        final RaftLog followerLog = raftServer.getRaftLog();
         Assert.assertEquals(leaderNextIndex, followerLog.getNextIndex());
         final TermIndex[] serverEntries = followerLog.getEntries(0, Long.MAX_VALUE);
         Assert.assertArrayEquals(serverEntries, leaderEntries);

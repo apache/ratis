@@ -209,7 +209,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     }
 
     final RaftServer.Division leader = cluster.getLeader();
-    final RaftLog leaderLog = RaftServerTestUtil.getRaftLog(cluster.getLeader());
+    final RaftLog leaderLog = cluster.getLeader().getRaftLog();
     final EnumMap<LogEntryBodyCase, AtomicLong> counts = RaftTestUtil.countEntries(leaderLog);
     LOG.info("counts = " + counts);
     Assert.assertEquals(6 * numMsgs * numClients, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());

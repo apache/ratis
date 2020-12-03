@@ -196,7 +196,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
     for (RaftServer.Division followerToSendLog : followersToSendLog) {
-      RaftLog followerLog = RaftServerTestUtil.getRaftLog(followerToSendLog);
+      RaftLog followerLog = followerToSendLog.getRaftLog();
       Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, messages));
     }
 
@@ -217,7 +217,8 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     Assert.assertTrue(followersToSendLogIds.contains(newLeaderId));
 
-    cluster.getServerAliveStream().map(s -> s.getState().getLog())
+    cluster.getServerAliveStream()
+        .map(RaftServer.Division::getRaftLog)
         .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages));
   }
 
@@ -244,7 +245,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     RaftTestUtil.sendMessageInNewThread(cluster, leaderId, messages);
 
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
-    RaftTestUtil.logEntriesContains(RaftServerTestUtil.getRaftLog(followerToCommit), messages);
+    RaftTestUtil.logEntriesContains(followerToCommit.getRaftLog(), messages);
 
     cluster.killServer(leaderId);
     cluster.killServer(followerToCommit.getId());
@@ -257,8 +258,8 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     final Predicate<LogEntryProto> predicate = l -> l.getTerm() != 1;
     cluster.getServerAliveStream()
-            .map(s -> s.getState().getLog())
-            .forEach(log -> RaftTestUtil.checkLogEntries(log, messages, predicate));
+        .map(RaftServer.Division::getRaftLog)
+        .forEach(log -> RaftTestUtil.checkLogEntries(log, messages, predicate));
   }
 
   static class Client4TestWithLoad extends Thread {

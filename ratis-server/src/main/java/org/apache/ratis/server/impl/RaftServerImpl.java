@@ -223,6 +223,11 @@ public class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
+  public RaftLog getRaftLog() {
+    return getState().getLog();
+  }
+
+  @Override
   public DataStreamMap getDataStreamMap() {
     return dataStreamMap;
   }

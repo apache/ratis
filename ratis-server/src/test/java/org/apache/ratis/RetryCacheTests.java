@@ -100,7 +100,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       Assert.assertEquals(2, RaftServerTestUtil.getRetryCacheSize(server));
       Assert.assertNotNull(RaftServerTestUtil.getRetryEntry(server, clientId, callId));
       // make sure there is only one log entry committed
-      Assert.assertEquals(1, count(RaftServerTestUtil.getRaftLog(server), oldLastApplied + 1));
+      Assert.assertEquals(1, count(server.getRaftLog(), oldLastApplied + 1));
     }
   }
 
@@ -163,7 +163,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       }
 
       // check the new leader and make sure the retry did not get committed
-      Assert.assertEquals(0, count(RaftServerTestUtil.getRaftLog(cluster.getLeader()), oldLastApplied + 1));
+      Assert.assertEquals(0, count(cluster.getLeader().getRaftLog(), oldLastApplied + 1));
     }
   }
 }
