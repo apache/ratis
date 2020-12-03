@@ -501,7 +501,7 @@ public class SegmentedRaftLog extends RaftLog {
       }
       if (openSegment.getEndIndex() <= lastSnapshotIndex) {
         fileLogWorker.closeLogSegment(openSegment);
-        cache.rollOpenSegment(true);
+        cache.rollOpenSegment(false);
       }
     }
     return purgeImpl(lastSnapshotIndex);
