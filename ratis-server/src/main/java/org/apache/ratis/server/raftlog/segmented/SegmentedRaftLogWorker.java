@@ -24,8 +24,8 @@ import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -58,7 +58,7 @@ import java.util.function.Supplier;
  * This class takes the responsibility of all the raft log related I/O ops for a
  * raft peer.
  */
-class SegmentedRaftLogWorker implements Runnable {
+class SegmentedRaftLogWorker {
   static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogWorker.class);
 
   static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
@@ -169,13 +169,13 @@ class SegmentedRaftLogWorker implements Runnable {
 
   private final long segmentMaxSize;
   private final long preallocatedSize;
-  private final RaftServerImpl server;
+  private final RaftServer.Division server;
   private int flushBatchSize;
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
   SegmentedRaftLogWorker(RaftGroupMemberId memberId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
-                         RaftServerImpl server, RaftStorage storage, RaftProperties properties,
+                         RaftServer.Division server, RaftStorage storage, RaftProperties properties,
                          RaftLogMetrics metricRegistry) {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     LOG.info("new {} for {}", name, storage);
@@ -197,7 +197,7 @@ class SegmentedRaftLogWorker implements Runnable {
 
     this.stateMachineDataPolicy = new StateMachineDataPolicy(properties);
 
-    this.workerThread = new Thread(this, name);
+    this.workerThread = new Thread(this::run, name);
 
     // Server Id can be null in unit tests
     metricRegistry.addDataQueueSizeGauge(queue);
@@ -272,9 +272,7 @@ class SegmentedRaftLogWorker implements Runnable {
             + ". The SegmentedRaftLogWorker already stopped.");
       } else {
         LOG.error("Failed to add IO task {}", task, e);
-        if (server != null) {
-          server.shutdown();
-        }
+        Optional.ofNullable(server).ifPresent(RaftServer.Division::close);
       }
     }
     return task;
@@ -284,9 +282,7 @@ class SegmentedRaftLogWorker implements Runnable {
     return running && workerThread.isAlive();
   }
 
-  @Override
-  public void run() {
-
+  private void run() {
     // if and when a log task encounters an exception
     RaftLogIOException logIOException = null;
 
@@ -337,10 +333,7 @@ class SegmentedRaftLogWorker implements Runnable {
               Thread.currentThread().getName(), e);
         } else {
           LOG.error("{} hit exception", Thread.currentThread().getName(), e);
-          // Shutdown raft group instead of terminating jvm.
-          if (server != null) {
-            server.shutdown();
-          }
+          Optional.ofNullable(server).ifPresent(RaftServer.Division::close);
         }
       }
     }

@@ -331,9 +331,9 @@ public abstract class MiniRaftCluster implements Closeable {
     killServer(serverId);
     servers.remove(serverId);
 
-    final RaftServerProxy proxy = putNewServer(serverId, group, format);
+    final RaftServer proxy = putNewServer(serverId, group, format);
     proxy.start();
-    return group == null? null: proxy.getImpl(group.getGroupId());
+    return group == null? null: proxy.getDivision(group.getGroupId());
   }
 
   public void restart(boolean format) throws IOException {
@@ -571,7 +571,7 @@ public abstract class MiniRaftCluster implements Closeable {
    *         from the given group.
    */
   private List<RaftServer.Division> getLeaders(RaftGroupId groupId) {
-    final Stream<RaftServerImpl> serverAliveStream = getServerAliveStream(groupId);
+    final Stream<RaftServer.Division> serverAliveStream = getServerAliveStream(groupId);
     final List<RaftServer.Division> leaders = new ArrayList<>();
     serverAliveStream.filter(server -> server.getInfo().isLeader()).forEach(s -> {
       if (leaders.isEmpty()) {
@@ -611,25 +611,25 @@ public abstract class MiniRaftCluster implements Closeable {
 
   private Stream<RaftServerProxy> getRaftServerProxyStream(RaftGroupId groupId) {
     return servers.values().stream()
-        .filter(s -> groupId == null || s.containsGroup(groupId));
+        .filter(s -> groupId == null || s.getGroupIds().contains(groupId));
   }
 
   public Iterable<RaftServer.Division> iterateDivisions() {
     return CollectionUtils.as(getServers(), this::getDivision);
   }
 
-  private Stream<RaftServerImpl> getServerStream(RaftGroupId groupId) {
+  private Stream<RaftServer.Division> getServerStream(RaftGroupId groupId) {
     final Stream<RaftServerProxy> stream = getRaftServerProxyStream(groupId);
     return groupId != null?
-        stream.map(s -> JavaUtils.callAsUnchecked(() -> s.getImpl(groupId)))
+        stream.map(s -> JavaUtils.callAsUnchecked(() -> s.getDivision(groupId)))
         : stream.flatMap(s -> JavaUtils.callAsUnchecked(s::getImpls).stream());
   }
 
-  public Stream<RaftServerImpl> getServerAliveStream() {
+  public Stream<RaftServer.Division> getServerAliveStream() {
     return getServerAliveStream(getGroupId());
   }
 
-  private Stream<RaftServerImpl> getServerAliveStream(RaftGroupId groupId) {
+  private Stream<RaftServer.Division> getServerAliveStream(RaftGroupId groupId) {
     return getServerStream(groupId).filter(server -> server.getInfo().isAlive());
   }
 
@@ -639,6 +639,10 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public RaftServerProxy getServer(RaftPeerId id) {
     return servers.get(id);
+  }
+
+  public ServerFactory getServerFactory(RaftPeerId id) {
+    return servers.get(id).getFactory();
   }
 
   public RaftServer.Division getDivision(RaftPeerId id) {

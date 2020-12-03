@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.ClientInvocationId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 
@@ -43,7 +44,7 @@ public class RetryCacheTestUtil {
     }
   }
 
-  public static void getOrCreateEntry(RetryCache cache, ClientInvocationId invocationId) {
-    cache.getOrCreateEntry(invocationId);
+  public static void getOrCreateEntry(RaftServer.Division server, ClientInvocationId invocationId) {
+    ((RaftServerImpl)server).getRetryCache().getOrCreateEntry(invocationId);
   }
 }

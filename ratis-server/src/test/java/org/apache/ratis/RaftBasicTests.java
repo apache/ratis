@@ -434,7 +434,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       // Create an entry corresponding to the callId and clientId
       // in each server's retry cache.
       cluster.getServerAliveStream().forEach(
-          raftServer -> RetryCacheTestUtil.getOrCreateEntry(raftServer.getRetryCache(), invocationId));
+          raftServer -> RetryCacheTestUtil.getOrCreateEntry(raftServer, invocationId));
       // Client request for the callId now waits
       // as there is already a cache entry in the server for the request.
       // Ideally the client request should timeout and the client should retry.

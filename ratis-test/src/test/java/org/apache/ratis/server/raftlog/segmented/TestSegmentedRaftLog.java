@@ -28,9 +28,9 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.impl.RetryCache;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -63,12 +63,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.codahale.metrics.Timer;
 
@@ -109,7 +103,11 @@ public class TestSegmentedRaftLog extends BaseTest {
   private int bufferSize;
 
   SegmentedRaftLog newSegmentedRaftLog() {
-    return new SegmentedRaftLog(memberId, null, storage, -1, properties);
+    return newSegmentedRaftLog(storage, properties);
+  }
+
+  static SegmentedRaftLog newSegmentedRaftLog(RaftStorage storage, RaftProperties properties) {
+    return new SegmentedRaftLog(memberId, null, null, null, null, storage, -1, properties);
   }
 
   @Before
@@ -430,7 +428,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     final RaftProperties p = new RaftProperties();
     RaftServerConfigKeys.Log.setPurgeGap(p, purgeGap);
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, storage, -1, p)) {
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLog(storage, p)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
       final CompletableFuture<Long> f = raftLog.purge(purgeIndex);
@@ -449,13 +447,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     List<SegmentRange> ranges = prepareRanges(0, 5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
-    RaftServerImpl server = mock(RaftServerImpl.class);
     RetryCache retryCache = RetryCacheTestUtil.createRetryCache();
-    when(server.getRetryCache()).thenReturn(retryCache);
-    final RaftGroupMemberId id = RaftGroupMemberId.valueOf(RaftPeerId.valueOf("s0"), RaftGroupId.randomId());
-    when(server.getMemberId()).thenReturn(id);
-    doCallRealMethod().when(server).notifyTruncatedLogEntry(any(LogEntryProto.class));
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, server, storage, -1, properties)) {
+    try (SegmentedRaftLog raftLog = RaftServerTestUtil.newSegmentedRaftLog(memberId, retryCache, storage, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       entries.forEach(entry -> RetryCacheTestUtil.createEntry(retryCache, entry));
       // append entries to the raftlog
@@ -470,7 +463,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     List<LogEntryProto> newEntries = prepareLogEntries(
         Arrays.asList(r1, r2, r3), null);
 
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, server, storage, -1, properties)) {
+    try (SegmentedRaftLog raftLog = RaftServerTestUtil.newSegmentedRaftLog(memberId, retryCache, storage, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       LOG.info("newEntries[0] = {}", newEntries.get(0));
       final int last = newEntries.size() - 1;
@@ -487,7 +480,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
 
     // load the raftlog again and check
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, server, storage, -1, properties)) {
+    try (SegmentedRaftLog raftLog = RaftServerTestUtil.newSegmentedRaftLog(memberId, retryCache, storage, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);
@@ -507,7 +500,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     final List<LogEntryProto> entries = prepareLogEntries(range, null, true, new ArrayList<>());
 
     final SimpleStateMachine4Testing sm = new SimpleStateMachine4Testing();
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, storage, -1, properties)) {
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, -1, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
 
       int next = 0;
@@ -571,10 +564,8 @@ public class TestSegmentedRaftLog extends BaseTest {
       }
     };
 
-    RaftServerImpl server = mock(RaftServerImpl.class);
-    doNothing().when(server).shutdown();
     Throwable ex = null; // TimeoutIOException
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, server, sm, null, storage, -1, properties)) {
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, -1, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // SegmentedRaftLogWorker should catch TimeoutIOException
       CompletableFuture<Long> f = raftLog.appendEntry(entry);

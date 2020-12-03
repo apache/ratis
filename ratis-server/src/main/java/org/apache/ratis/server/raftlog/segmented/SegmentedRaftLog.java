@@ -20,8 +20,8 @@ package org.apache.ratis.server.raftlog.segmented;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -125,13 +125,9 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
-  /** The methods defined in {@link RaftServerImpl} which are used in {@link SegmentedRaftLog}. */
+  /** The server methods used in {@link SegmentedRaftLog}. */
   interface ServerLogMethods {
     ServerLogMethods DUMMY = new ServerLogMethods() {};
-
-    default boolean shouldEvictCache() {
-      return false;
-    }
 
     default long[] getFollowerNextIndices() {
       return null;
@@ -150,17 +146,13 @@ public class SegmentedRaftLog extends RaftLog {
    * When the server is null, return the dummy instance of {@link ServerLogMethods}.
    * Otherwise, the server is non-null, return the implementation using the given server.
    */
-  private ServerLogMethods newServerLogMethods(RaftServerImpl impl) {
+  private ServerLogMethods newServerLogMethods(RaftServer.Division impl,
+      Consumer<LogEntryProto> notifyTruncatedLogEntry) {
     if (impl == null) {
       return ServerLogMethods.DUMMY;
     }
 
     return new ServerLogMethods() {
-      @Override
-      public boolean shouldEvictCache() {
-        return cache.shouldEvict();
-      }
-
       @Override
       public long[] getFollowerNextIndices() {
         return impl.getInfo().getFollowerNextIndices();
@@ -175,7 +167,7 @@ public class SegmentedRaftLog extends RaftLog {
       public void notifyTruncatedLogEntry(TermIndex ti) {
         try {
           final LogEntryProto entry = get(ti.getIndex());
-          impl.notifyTruncatedLogEntry(entry);
+          notifyTruncatedLogEntry.accept(entry);
         } catch (RaftLogIOException e) {
           LOG.error("{}: Failed to read log {}", getName(), ti, e);
         }
@@ -191,18 +183,12 @@ public class SegmentedRaftLog extends RaftLog {
   private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
 
-  public SegmentedRaftLog(RaftGroupMemberId memberId, RaftServerImpl server,
-      RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
-    this(memberId, server, server != null? server.getStateMachine(): null,
-        server != null? server::submitUpdateCommitEvent: null,
-        storage, lastIndexInSnapshot, properties);
-  }
-
-  SegmentedRaftLog(RaftGroupMemberId memberId, RaftServerImpl server,
-      StateMachine stateMachine, Runnable submitUpdateCommitEvent,
+  @SuppressWarnings("parameternumber")
+  public SegmentedRaftLog(RaftGroupMemberId memberId, RaftServer.Division server,
+      StateMachine stateMachine, Consumer<LogEntryProto> notifyTruncatedLogEntry, Runnable submitUpdateCommitEvent,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
     super(memberId, lastIndexInSnapshot, properties);
-    this.server = newServerLogMethods(server);
+    this.server = newServerLogMethods(server, notifyTruncatedLogEntry);
     this.storage = storage;
     this.stateMachine = stateMachine;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
@@ -317,7 +303,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   private void checkAndEvictCache() {
-    if (server.shouldEvictCache()) {
+    if (cache.shouldEvict()) {
       // TODO if the cache is hitting the maximum size and we cannot evict any
       // segment's cache, should block the new entry appending or new segment
       // allocation.

@@ -44,8 +44,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
     AdminProtocol, AdminAsynchronousProtocol {
   Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
-  /** A division of a {@link RaftServer} for a particular group. */
-  interface Division {
+  /** A division of a {@link RaftServer} for a particular {@link RaftGroup}. */
+  interface Division extends Closeable {
     Logger LOG = LoggerFactory.getLogger(Division.class);
 
     /** @return the {@link RaftGroupMemberId} for this division. */
@@ -63,6 +63,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
           .orElseGet(() -> getRaftServer().getPeer());
     }
 
+    /** @return the information about this division. */
     DivisionInfo getInfo();
 
     /** @return the {@link RaftGroup} for this division. */
@@ -80,7 +81,11 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** @return the data stream map of this division. */
     DataStreamMap getDataStreamMap();
 
+    /** @return the internal {@link RaftClient} of this division. */
     RaftClient getRaftClient();
+
+    @Override
+    void close();
   }
 
   /** @return the server ID. */

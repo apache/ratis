@@ -83,7 +83,7 @@ import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 import com.codahale.metrics.Timer;
 
-public class RaftServerImpl implements RaftServer.Division,
+class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
@@ -270,7 +270,7 @@ public class RaftServerImpl implements RaftServer.Division,
     return proxy;
   }
 
-  public RaftServerRpc getServerRpc() {
+  RaftServerRpc getServerRpc() {
     return proxy.getServerRpc();
   }
 
@@ -327,7 +327,7 @@ public class RaftServerImpl implements RaftServer.Division,
     // do not start FollowerState
   }
 
-  public ServerState getState() {
+  ServerState getState() {
     return state;
   }
 
@@ -365,7 +365,7 @@ public class RaftServerImpl implements RaftServer.Division,
     final RaftStorageDirectory dir = state.getStorage().getStorageDir();
 
     /* Shutdown is triggered here inorder to avoid any locked files. */
-    shutdown();
+    close();
     getStateMachine().event().notifyGroupRemove();
     if (deleteDirectory) {
       for (int i = 0; i < FileUtils.NUM_ATTEMPTS; i ++) {
@@ -398,7 +398,8 @@ public class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  public void shutdown() {
+  @Override
+  public void close() {
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: shutdown", getMemberId());
       try {
@@ -699,7 +700,7 @@ public class RaftServerImpl implements RaftServer.Division,
     return pending.getFuture();
   }
 
-  public void stepDownOnJvmPause() {
+  void stepDownOnJvmPause() {
     if (getInfo().isLeader()) {
       role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
     }
@@ -1282,7 +1283,7 @@ public class RaftServerImpl implements RaftServer.Division,
     return reply;
   }
 
-  public boolean pause() throws IOException {
+  boolean pause() throws IOException {
     // TODO: should pause() be limited on only working for a follower?
 
     // Now the state of lifeCycle should be PAUSING, which will prevent future other operations.
@@ -1299,7 +1300,7 @@ public class RaftServerImpl implements RaftServer.Division,
     return true;
   }
 
-  public boolean resume() throws IOException {
+  boolean resume() throws IOException {
     synchronized (this) {
       if (!lifeCycle.compareAndTransition(PAUSED, STARTING)) {
         return false;
@@ -1516,7 +1517,7 @@ public class RaftServerImpl implements RaftServer.Division,
     return ServerProtoUtils.toRequestVoteRequestProto(getMemberId(), targetId, term, lastEntry);
   }
 
-  public void submitUpdateCommitEvent() {
+  void submitUpdateCommitEvent() {
     role.getLeaderState().ifPresent(LeaderStateImpl::submitUpdateCommitEvent);
   }
 
@@ -1605,7 +1606,7 @@ public class RaftServerImpl implements RaftServer.Division,
    *
    * @param logEntry the log entry being truncated
    */
-  public void notifyTruncatedLogEntry(LogEntryProto logEntry) {
+  void notifyTruncatedLogEntry(LogEntryProto logEntry) {
     if (logEntry.hasStateMachineLogEntry()) {
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
       final RetryCache.CacheEntry cacheEntry = getRetryCache().get(invocationId);
@@ -1617,11 +1618,11 @@ public class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  public LeaderElectionMetrics getLeaderElectionMetrics() {
+  LeaderElectionMetrics getLeaderElectionMetrics() {
     return leaderElectionMetrics;
   }
 
-  public RaftServerMetrics getRaftServerMetrics() {
+  RaftServerMetrics getRaftServerMetrics() {
     return raftServerMetrics;
   }
 

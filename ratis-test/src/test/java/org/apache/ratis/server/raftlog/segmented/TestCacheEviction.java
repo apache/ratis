@@ -28,7 +28,7 @@ import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerConstants;
-import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
@@ -165,13 +165,10 @@ public class TestCacheEviction extends BaseTest {
     RaftServerConfigKeys.setStorageDir(prop,  Collections.singletonList(storageDir));
     RaftStorage storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
 
-    RaftServerImpl server = Mockito.mock(RaftServerImpl.class);
     final DivisionInfo info = Mockito.mock(DivisionInfo.class);
     Mockito.when(info.getLastAppliedIndex()).thenReturn(0L);
     Mockito.when(info.getFollowerNextIndices()).thenReturn(new long[]{});
-    Mockito.when(server.getInfo()).thenReturn(info);
-
-    SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, server, storage, -1, prop);
+    final SegmentedRaftLog raftLog = RaftServerTestUtil.newSegmentedRaftLog(memberId, info, storage, prop);
     raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
     List<SegmentRange> slist = TestSegmentedRaftLog.prepareRanges(0, maxCachedNum, 7, 0);
     LogEntryProto[] entries = generateEntries(slist);

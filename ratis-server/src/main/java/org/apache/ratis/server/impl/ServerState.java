@@ -187,7 +187,11 @@ class ServerState implements Closeable {
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
       log = new MemoryRaftLog(memberId, lastIndexInSnapshot, prop);
     } else {
-      log = new SegmentedRaftLog(memberId, server, storage, lastIndexInSnapshot, prop);
+      log = new SegmentedRaftLog(memberId, server,
+          server.getStateMachine(),
+          server::notifyTruncatedLogEntry,
+          server::submitUpdateCommitEvent,
+          storage, lastIndexInSnapshot, prop);
     }
     log.open(lastIndexInSnapshot, logConsumer);
     return log;

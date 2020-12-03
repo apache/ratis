@@ -18,20 +18,26 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DataStreamMap;
+import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
+import org.mockito.Mockito;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +46,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.stream.Stream;
+
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class RaftServerTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerTestUtil.class);
@@ -159,13 +170,30 @@ public class RaftServerTestUtil {
     return new DataStreamMapImpl(name);
   }
 
-  public static void shutdown(RaftServer.Division server) {
-    ((RaftServerImpl)server).shutdown();
-  }
-
   public static void assertLostMajorityHeartbeatsRecently(RaftServer.Division leader) {
     final FollowerState f = ((RaftServerImpl)leader).getRole().getFollowerState().orElse(null);
     Assert.assertNotNull(f);
     Assert.assertTrue(f.lostMajorityHeartbeatsRecently());
+  }
+
+  public static SegmentedRaftLog newSegmentedRaftLog(RaftGroupMemberId memberId, DivisionInfo info,
+      RaftStorage storage, RaftProperties properties) {
+    final RaftServerImpl server = Mockito.mock(RaftServerImpl.class);
+    Mockito.when(server.getInfo()).thenReturn(info);
+
+    return new SegmentedRaftLog(memberId, server, null,
+        server::notifyTruncatedLogEntry,
+        server::submitUpdateCommitEvent,
+        storage, -1, properties);
+  }
+
+  public static SegmentedRaftLog newSegmentedRaftLog(RaftGroupMemberId memberId, RetryCache retryCache,
+      RaftStorage storage, RaftProperties properties) {
+    final RaftServerImpl server = mock(RaftServerImpl.class);
+    when(server.getRetryCache()).thenReturn(retryCache);
+    when(server.getMemberId()).thenReturn(memberId);
+    doCallRealMethod().when(server).notifyTruncatedLogEntry(any(RaftProtos.LogEntryProto.class));
+    return new SegmentedRaftLog(memberId, server, null,
+        server::notifyTruncatedLogEntry, server::submitUpdateCommitEvent, storage, -1, properties);
   }
 }
