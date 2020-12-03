@@ -18,7 +18,6 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.Log4jUtils;
 
 public interface SegmentedRaftLogTestUtils {

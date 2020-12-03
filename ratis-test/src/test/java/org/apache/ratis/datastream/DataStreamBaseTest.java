@@ -128,6 +128,9 @@ abstract class DataStreamBaseTest extends BaseTest {
     public RaftClient getRaftClient() {
       return this.client;
     }
+
+    @Override
+    public void close() {}
   }
 
   static class Server {

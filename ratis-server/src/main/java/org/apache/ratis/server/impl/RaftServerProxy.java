@@ -63,7 +63,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class RaftServerProxy implements RaftServer {
+class RaftServerProxy implements RaftServer {
   /**
    * A map: {@link RaftGroupId} -> {@link RaftServerImpl} futures.
    *
@@ -110,8 +110,22 @@ public class RaftServerProxy implements RaftServer {
         return;
       }
       isClosed = true;
-      map.values().parallelStream().map(CompletableFuture::join)
-          .forEach(RaftServerImpl::shutdown);
+      map.entrySet().parallelStream().forEach(entry -> close(entry.getKey(), entry.getValue()));
+    }
+
+    private void close(RaftGroupId groupId, CompletableFuture<RaftServerImpl> future) {
+      final RaftServerImpl impl;
+      try {
+        impl = future.join();
+      } catch (Throwable t) {
+        LOG.warn("{}: Failed to join the division for {}", getId(), groupId, t);
+        return;
+      }
+      try {
+        impl.close();
+      } catch (Throwable t) {
+        LOG.warn("{}: Failed to close the division for {}", getId(), groupId, t);
+      }
     }
 
     synchronized List<RaftGroupId> getGroupIds() {
@@ -292,19 +306,15 @@ public class RaftServerProxy implements RaftServer {
     return properties;
   }
 
-  public RaftServerRpc getServerRpc() {
+  RaftServerRpc getServerRpc() {
     return serverRpc;
   }
 
-  public DataStreamServerRpc getDataStreamServerRpc() {
+  DataStreamServerRpc getDataStreamServerRpc() {
     return dataStreamServerRpc;
   }
 
-  public boolean containsGroup(RaftGroupId groupId) {
-    return impls.containsGroup(groupId);
-  }
-
-  public CompletableFuture<RaftServerImpl> addGroup(RaftGroup group) {
+  private CompletableFuture<RaftServerImpl> addGroup(RaftGroup group) {
     return impls.addNew(group);
   }
 
@@ -316,12 +326,12 @@ public class RaftServerProxy implements RaftServer {
     return getImpl(ProtoUtils.toRaftGroupId(proto.getRaftGroupId()));
   }
 
-  public RaftServerImpl getImpl(RaftGroupId groupId) throws IOException {
+  private RaftServerImpl getImpl(RaftGroupId groupId) throws IOException {
     Objects.requireNonNull(groupId, "groupId == null");
     return IOUtils.getFromFuture(getImplFuture(groupId), this::getId);
   }
 
-  public List<RaftServerImpl> getImpls() throws IOException {
+  List<RaftServerImpl> getImpls() throws IOException {
     final List<RaftServerImpl> list = new ArrayList<>();
     for(CompletableFuture<RaftServerImpl> f : impls.getAll()) {
       list.add(IOUtils.getFromFuture(f, this::getId));

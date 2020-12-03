@@ -773,7 +773,7 @@ class LeaderStateImpl implements LeaderState {
           }
           // the pending request handler will send NotLeaderException for
           // pending client requests when it stops
-          server.shutdown();
+          server.close();
         }
       }
     }

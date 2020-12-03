@@ -30,6 +30,7 @@ import com.codahale.metrics.Gauge;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -115,10 +116,16 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // the rpc server on failure.
     RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
     testFailureCase("start a new server with the same address",
-        () -> ServerImplUtils.newRaftServer(leaderId, cluster.getGroup(), gid -> stateMachine, p, null).start(),
+        () -> startNewServer(leaderId, cluster.getGroup(), stateMachine, p),
         IOException.class, OverlappingFileLockException.class);
     // Try to start a raft server rpc at the leader address.
-    cluster.getServer(leaderId).getFactory().newRaftServerRpc(cluster.getServer(leaderId));
+    cluster.getServerFactory(leaderId).newRaftServerRpc(cluster.getServer(leaderId));
+  }
+
+  static void startNewServer(RaftPeerId id, RaftGroup group, StateMachine stateMachine, RaftProperties properties)
+      throws Exception {
+    final RaftServer d = ServerImplUtils.newRaftServer(id, group, gid -> stateMachine, properties, null);
+    d.start();
   }
 
   @Test
@@ -128,7 +135,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
   void runTestUnsupportedMethods(MiniRaftClusterWithGrpc cluster) throws Exception {
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
-    final RaftServerRpc rpc = cluster.getServer(leaderId).getFactory().newRaftServerRpc(cluster.getServer(leaderId));
+    final RaftServerRpc rpc = cluster.getServerFactory(leaderId).newRaftServerRpc(cluster.getServer(leaderId));
 
     testFailureCase("appendEntries",
         () -> rpc.appendEntries(null),

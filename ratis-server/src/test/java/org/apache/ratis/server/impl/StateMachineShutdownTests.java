@@ -104,7 +104,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
       Assert.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);
 
       // Now shutdown the follower in a separate thread
-      final Thread t = new Thread(() -> RaftServerTestUtil.shutdown(secondFollower));
+      final Thread t = new Thread(secondFollower::close);
       t.start();
 
       // The second follower should still be blocked in apply transaction
