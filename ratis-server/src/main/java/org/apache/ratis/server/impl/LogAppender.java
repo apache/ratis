@@ -566,7 +566,7 @@ public class LogAppender {
   protected void checkSlowness() {
     final TimeDuration lastRpcResponseElapsed = follower.getLastRpcResponseTime().elapsedTime();
     if (lastRpcResponseElapsed.compareTo(server.getRpcSlownessTimeout()) > 0) {
-      server.getStateMachine().leaderEvent().notifyFollowerSlowness(server.getRoleInfoProto());
+      server.getStateMachine().leaderEvent().notifyFollowerSlowness(server.getInfo().getRoleInfoProto());
     }
     leaderState.recordFollowerHeartbeatElapsedTime(follower.getPeer().getId(), lastRpcResponseElapsed);
   }

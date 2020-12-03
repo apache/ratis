@@ -526,7 +526,7 @@ public abstract class MiniRaftCluster implements Closeable {
       List<RaftServer.Division> leaders) {
     final String g = groupId == null? "": " for " + groupId;
     return new IllegalStateException("Found multiple leaders" + g
-        + " at the same term (=" + RaftServerTestUtil.getCurrentTerm(leaders.get(0))
+        + " at the same term (=" + leaders.get(0).getInfo().getCurrentTerm()
         + "), leaders.size() = " + leaders.size() + " > 1, leaders = " + leaders
         + ": " + printServers(groupId));
   }
@@ -577,8 +577,8 @@ public abstract class MiniRaftCluster implements Closeable {
       if (leaders.isEmpty()) {
         leaders.add(s);
       } else {
-        final long leaderTerm = RaftServerTestUtil.getCurrentTerm(leaders.get(0));
-        final long term = s.getState().getCurrentTerm();
+        final long leaderTerm = leaders.get(0).getInfo().getCurrentTerm();
+        final long term = s.getInfo().getCurrentTerm();
         if (term >= leaderTerm) {
           if (term > leaderTerm) {
             leaders.clear();

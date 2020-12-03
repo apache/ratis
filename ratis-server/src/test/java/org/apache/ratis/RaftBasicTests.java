@@ -121,7 +121,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       cluster.restartServer(s.getId(), false);
     }
     RaftServer.Division leader = waitForLeader(cluster);
-    final long term = RaftServerTestUtil.getCurrentTerm(leader);
+    final long term = leader.getInfo().getCurrentTerm();
 
     final CompletableFuture<Void> killAndRestartFollower = killAndRestartServer(
         cluster.getFollowers().get(0).getId(), 0, 1000, cluster, LOG);
@@ -183,7 +183,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   void runTestOldLeaderCommit(CLUSTER cluster) throws Exception {
     final RaftServer.Division leader = waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
-    final long term = RaftServerTestUtil.getCurrentTerm(leader);
+    final long term = leader.getInfo().getCurrentTerm();
 
     final List<RaftServer.Division> followers = cluster.getFollowers();
     final List<RaftServer.Division> followersToSendLog = followers.subList(0, followers.size() / 2);

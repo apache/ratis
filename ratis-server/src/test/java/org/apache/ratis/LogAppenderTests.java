@@ -217,6 +217,6 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     final LogEntryProto last = RaftTestUtil.getLastEntry(LogEntryBodyCase.STATEMACHINELOGENTRY, leaderLog);
     LOG.info("last = " + ServerProtoUtils.toLogEntryString(last));
     Assert.assertNotNull(last);
-    Assert.assertTrue(last.getIndex() <= RaftServerTestUtil.getLastAppliedIndex(leader));
+    Assert.assertTrue(last.getIndex() <= leader.getInfo().getLastAppliedIndex());
   }
 }

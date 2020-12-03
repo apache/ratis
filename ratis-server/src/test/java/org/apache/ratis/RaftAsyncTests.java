@@ -421,7 +421,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
     waitForLeader(cluster);
     final RaftServer.Division prevLeader = cluster.getLeader();
-    final long termOfPrevLeader = RaftServerTestUtil.getCurrentTerm(prevLeader);
+    final long termOfPrevLeader = prevLeader.getInfo().getCurrentTerm();
     LOG.info("Previous Leader is elected on term {}", termOfPrevLeader);
 
     try (final RaftClient client = cluster.createClient()) {
@@ -440,8 +440,8 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
       // previous leader should not there.
       cluster.getServerAliveStream()
-          .forEach(impl -> Assert.assertTrue(!impl.getInfo().isLeader()
-              || impl.getState().getCurrentTerm() > termOfPrevLeader));
+          .map(RaftServer.Division::getInfo)
+          .forEach(info -> Assert.assertTrue(!info.isLeader() || info.getCurrentTerm() > termOfPrevLeader));
 
     } finally {
       // unblock append entries request
@@ -450,7 +450,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
     waitForLeader(cluster);
     final RaftServer.Division currLeader = cluster.getLeader();
-    final long termOfCurrLeader = RaftServerTestUtil.getCurrentTerm(currLeader);
+    final long termOfCurrLeader = currLeader.getInfo().getCurrentTerm();
     LOG.info("Current Leader is elected on term {}", termOfCurrLeader);
 
     // leader on termOfPrevLeader should step-down.

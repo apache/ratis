@@ -64,7 +64,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
   void runTestBasicRetry(CLUSTER cluster) throws Exception {
     RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage(false).getId();
-    final long oldLastApplied = RaftServerTestUtil.getLastAppliedIndex(cluster.getLeader());
+    final long oldLastApplied = cluster.getLeader().getInfo().getLastAppliedIndex();
 
     try (final RaftClient client = cluster.createClient(leaderId)) {
       final RaftClientRpc rpc = client.getClientRpc();
@@ -90,11 +90,11 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
   }
 
   public void assertServer(MiniRaftCluster cluster, ClientId clientId, long callId, long oldLastApplied) throws Exception {
-    final long leaderApplied = RaftServerTestUtil.getLastAppliedIndex(cluster.getLeader());
+    final long leaderApplied = cluster.getLeader().getInfo().getLastAppliedIndex();
     // make sure retry cache has the entry
     for (RaftServer.Division server : cluster.iterateDivisions()) {
       LOG.info("check server " + server.getId());
-      if (RaftServerTestUtil.getLastAppliedIndex(server) < leaderApplied) {
+      if (server.getInfo().getLastAppliedIndex() < leaderApplied) {
         Thread.sleep(1000);
       }
       Assert.assertEquals(2, RaftServerTestUtil.getRetryCacheSize(server));
@@ -133,7 +133,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
               callId, new SimpleMessage("message"));
       assertReply(rpc.sendRequest(r), client, callId);
-      final long oldLastApplied = RaftServerTestUtil.getLastAppliedIndex(cluster.getLeader());
+      final long oldLastApplied = cluster.getLeader().getInfo().getLastAppliedIndex();
 
       // trigger the reconfiguration, make sure the original leader is kicked out
       PeerChanges change = cluster.addNewPeers(2, true);

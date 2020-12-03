@@ -163,12 +163,12 @@ public class SegmentedRaftLog extends RaftLog {
 
       @Override
       public long[] getFollowerNextIndices() {
-        return impl.getFollowerNextIndices();
+        return impl.getInfo().getFollowerNextIndices();
       }
 
       @Override
       public long getLastAppliedIndex() {
-        return impl.getState().getLastAppliedIndex();
+        return impl.getInfo().getLastAppliedIndex();
       }
 
       @Override

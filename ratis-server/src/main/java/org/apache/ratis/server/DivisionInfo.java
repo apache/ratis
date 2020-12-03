@@ -19,31 +19,54 @@
 package org.apache.ratis.server;
 
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.util.LifeCycle;
 
 /**
  * Information of a {@link RaftServer.Division}.
  */
 public interface DivisionInfo {
+  /** @return the current role of this server division. */
   RaftPeerRole getCurrentRole();
 
+  /** Is this server division currently a follower? */
   default boolean isFollower() {
     return getCurrentRole() == RaftPeerRole.FOLLOWER;
   }
 
+  /** Is this server division currently a candidate? */
   default boolean isCandidate() {
     return getCurrentRole() == RaftPeerRole.CANDIDATE;
   }
 
+  /** Is this server division currently the leader? */
   default boolean isLeader() {
     return getCurrentRole() == RaftPeerRole.LEADER;
   }
 
+  /** Is this server division currently the leader and ready? */
   boolean isLeaderReady();
 
+  /** @return the life cycle state of this server division. */
   LifeCycle.State getLifeCycleState();
 
+  /** Is this server division alive? */
   default boolean isAlive() {
     return !getLifeCycleState().isClosingOrClosed();
   }
+
+  /** @return the role information of this server division. */
+  RoleInfoProto getRoleInfoProto();
+
+  /** @return the current term of this server division. */
+  long getCurrentTerm();
+
+  /** @return the last log index already applied by the state machine of this server division. */
+  long getLastAppliedIndex();
+
+  /**
+   * @return an array of next indices of the followers if this server division is the leader;
+   *         otherwise, return null.
+   */
+  long[] getFollowerNextIndices();
 }

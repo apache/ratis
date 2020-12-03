@@ -22,7 +22,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.SizeInBytes;
@@ -163,7 +162,7 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     final LogEntryProto last = RaftTestUtil.getLastEntry(LogEntryBodyCase.STATEMACHINELOGENTRY, raftLog);
     Assert.assertNotNull(last);
     Assert.assertTrue(raftLog.getLastCommittedIndex() >= last.getIndex());
-    Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(server) >= last.getIndex());
+    Assert.assertTrue(server.getInfo().getLastAppliedIndex() >= last.getIndex());
     return raftLog;
   }
 
@@ -311,7 +310,7 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     // leaders. It may be larger than result+2 because the client may resend
     // requests and we do not have retry cache on servers yet.
     LOG.info("last applied index: {}. total number of requests: {}",
-        RaftServerTestUtil.getLastAppliedIndex(newLeader), result.get());
-    Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(newLeader) >= result.get() + 1);
+        newLeader.getInfo().getLastAppliedIndex(), result.get());
+    Assert.assertTrue(newLeader.getInfo().getLastAppliedIndex() >= result.get() + 1);
   }
 }
