@@ -262,8 +262,8 @@ class LeaderElection implements Runnable {
       Collection<RaftPeer> others, Executor voteExecutor) {
     int submitted = 0;
     for (final RaftPeer peer : others) {
-      final RequestVoteRequestProto r = server.createRequestVoteRequest(
-          peer.getId(), electionTerm, lastEntry);
+      final RequestVoteRequestProto r = ServerProtoUtils.toRequestVoteRequestProto(
+          server.getMemberId(), peer.getId(), electionTerm, lastEntry);
       voteExecutor.submit(() -> server.getServerRpc().requestVote(r));
       submitted++;
     }

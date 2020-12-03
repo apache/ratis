@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -31,22 +31,23 @@ import org.apache.ratis.server.storage.FileInfo;
 public interface SnapshotInfo {
 
   /**
-   * Returns the term and index corresponding to this snapshot.
    * @return The term and index corresponding to this snapshot.
    */
   TermIndex getTermIndex();
 
   /**
-   * Returns the term corresponding to this snapshot.
    * @return The term corresponding to this snapshot.
    */
-  long getTerm();
+  default long getTerm() {
+    return getTermIndex().getTerm();
+  }
 
   /**
-   * Returns the index corresponding to this snapshot.
    * @return The index corresponding to this snapshot.
    */
-  long getIndex();
+  default long getIndex() {
+    return getTermIndex().getIndex();
+  }
 
   /**
    * Returns a list of files corresponding to this snapshot. This list should include all

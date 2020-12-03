@@ -23,10 +23,12 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcFactory;
 import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
@@ -67,7 +69,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
     DivisionInfo getInfo();
 
     /** @return the {@link RaftGroup} for this division. */
-    RaftGroup getGroup();
+    default RaftGroup getGroup() {
+      return RaftGroup.valueOf(getMemberId().getGroupId(), getRaftConf().getPeers());
+    }
+
+    /** @return the current {@link RaftConfiguration} for this division. */
+    RaftConfiguration getRaftConf();
 
     /** @return the {@link RaftServer} containing this division. */
     RaftServer getRaftServer();
@@ -77,6 +84,9 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the raft log of this division. */
     RaftLog getRaftLog();
+
+    /** @return the storage of this division. */
+    RaftStorage getRaftStorage();
 
     /** @return the data stream map of this division. */
     DataStreamMap getDataStreamMap();

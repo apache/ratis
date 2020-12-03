@@ -477,8 +477,7 @@ public class GrpcLogAppender extends LogAppender {
     final String requestId = UUID.randomUUID().toString();
     try {
       snapshotRequestObserver = getClient().installSnapshot(responseHandler);
-      for (InstallSnapshotRequestProto request :
-          new SnapshotRequestIter(snapshot, requestId)) {
+      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
         if (isAppenderRunning()) {
           snapshotRequestObserver.onNext(request);
           getFollower().updateLastRpcSendTime();
@@ -524,7 +523,7 @@ public class GrpcLogAppender extends LogAppender {
     final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler(true);
     StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver = null;
     // prepare and enqueue the notify install snapshot request.
-    final InstallSnapshotRequestProto request = createInstallSnapshotNotificationRequest(firstAvailableLogTermIndex);
+    final InstallSnapshotRequestProto request = newInstallSnapshotNotificationRequest(firstAvailableLogTermIndex);
     if (LOG.isInfoEnabled()) {
       LOG.info("{}: send {}", this, ServerProtoUtils.toString(request));
     }

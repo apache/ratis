@@ -45,10 +45,9 @@ import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
-import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -251,6 +250,11 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
+  public RaftStorage getRaftStorage() {
+    return getState().getStorage();
+  }
+
+  @Override
   public DataStreamMap getDataStreamMap() {
     return dataStreamMap;
   }
@@ -345,13 +349,9 @@ class RaftServerImpl implements RaftServer.Division,
     return role;
   }
 
-  RaftConfiguration getRaftConf() {
-    return getState().getRaftConf();
-  }
-
   @Override
-  public RaftGroup getGroup() {
-    return RaftGroup.valueOf(getMemberId().getGroupId(), getRaftConf().getPeers());
+  public RaftConfiguration getRaftConf() {
+    return getState().getRaftConf();
   }
 
   /**
@@ -1492,29 +1492,6 @@ class RaftServerImpl implements RaftServer.Division,
       return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
           currentTerm, InstallSnapshotResult.IN_PROGRESS, -1);
     }
-  }
-
-  synchronized InstallSnapshotRequestProto createInstallSnapshotRequest(
-      RaftPeerId targetId, String requestId, int requestIndex,
-      SnapshotInfo snapshot, List<FileChunkProto> chunks, boolean done) {
-    OptionalLong totalSize = snapshot.getFiles().stream()
-        .mapToLong(FileInfo::getFileSize).reduce(Long::sum);
-    assert totalSize.isPresent();
-    return ServerProtoUtils.toInstallSnapshotRequestProto(getMemberId(), targetId,
-        requestId, requestIndex, state.getCurrentTerm(), snapshot.getTermIndex(),
-        chunks, totalSize.getAsLong(), done, getRaftConf());
-  }
-
-  synchronized InstallSnapshotRequestProto createInstallSnapshotRequest(
-      RaftPeerId targetId, TermIndex firstAvailableLogTermIndex) {
-    assert (firstAvailableLogTermIndex.getIndex() > 0);
-    return ServerProtoUtils.toInstallSnapshotRequestProto(getMemberId(), targetId,
-        state.getCurrentTerm(), firstAvailableLogTermIndex, getRaftConf());
-  }
-
-  synchronized RequestVoteRequestProto createRequestVoteRequest(
-      RaftPeerId targetId, long term, TermIndex lastEntry) {
-    return ServerProtoUtils.toRequestVoteRequestProto(getMemberId(), targetId, term, lastEntry);
   }
 
   void submitUpdateCommitEvent() {
