@@ -33,6 +33,7 @@ import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -1138,6 +1139,9 @@ public class RaftProperties {
       name = wrapper.getName();
 
       DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+      docBuilderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
       //ignore all comments inside the xml file
       docBuilderFactory.setIgnoringComments(true);
 
@@ -1309,6 +1313,9 @@ public class RaftProperties {
       DOMSource source = new DOMSource(doc);
       StreamResult result = new StreamResult(out);
       TransformerFactory transFactory = TransformerFactory.newInstance();
+      transFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      transFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+      transFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
       Transformer transformer = transFactory.newTransformer();
 
       // Important to not hold Configuration log while writing result, since
@@ -1326,8 +1333,11 @@ public class RaftProperties {
   private synchronized Document asXmlDocument() throws IOException {
     Document doc;
     try {
-      doc =
-        DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
+      DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+      docBuilderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+      doc = docBuilderFactory.newDocumentBuilder().newDocument();
     } catch (ParserConfigurationException pe) {
       throw new IOException(pe);
     }
