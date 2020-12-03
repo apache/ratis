@@ -101,14 +101,14 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
               val -> Assert.assertTrue(val.getCommitIndex() >= logIndex));
       final RaftServer.Division secondFollower = cluster.getFollowers().get(1);
       // Second follower is blocked in apply transaction
-      Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(secondFollower) < logIndex);
+      Assert.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);
 
       // Now shutdown the follower in a separate thread
       final Thread t = new Thread(() -> RaftServerTestUtil.shutdown(secondFollower));
       t.start();
 
       // The second follower should still be blocked in apply transaction
-      Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(secondFollower) < logIndex);
+      Assert.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);
 
       // Now unblock the second follower
       ((StateMachineWithConditionalWait) secondFollower.getStateMachine())
@@ -116,7 +116,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
 
       // Now wait for the thread
       t.join(5000);
-      Assert.assertEquals(logIndex, RaftServerTestUtil.getLastAppliedIndex(secondFollower));
+      Assert.assertEquals(logIndex, secondFollower.getInfo().getLastAppliedIndex());
 
       cluster.shutdown();
     }

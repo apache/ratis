@@ -105,7 +105,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     cluster.getLeaderAndSendFirstMessage(true);
-    final long oldLastApplied = RaftServerTestUtil.getLastAppliedIndex(cluster.getLeader());
+    final long oldLastApplied = cluster.getLeader().getInfo().getLastAppliedIndex();
 
     try (final RaftClient client = cluster.createClient(leaderId)) {
       final RaftClientRpc rpc = client.getClientRpc();

@@ -77,7 +77,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   public static List<File> getSnapshotFiles(MiniRaftCluster cluster, long startIndex, long endIndex) {
     final RaftServer.Division leader = cluster.getLeader();
     final SimpleStateMachineStorage storage = SimpleStateMachine4Testing.get(leader).getStateMachineStorage();
-    final long term = RaftServerTestUtil.getCurrentTerm(leader);
+    final long term = leader.getInfo().getCurrentTerm();
     return LongStream.range(startIndex, endIndex)
         .mapToObj(i -> storage.getSnapshotFile(term, i))
         .collect(Collectors.toList());

@@ -111,7 +111,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     // make sure the restarted follower can catchup
     final RaftServer.Division followerState = cluster.getDivision(followerId);
     JavaUtils.attemptRepeatedly(() -> {
-      Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(followerState) >= leaderLastIndex);
+      Assert.assertTrue(followerState.getInfo().getLastAppliedIndex() >= leaderLastIndex);
       return null;
     }, 10, ONE_SECOND, "follower catchup", LOG);
 
@@ -299,11 +299,11 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
         return null;
       }, 10, HUNDRED_MILLIS, id + "(commitIndex >= loggedCommitIndex)", LOG);
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(RaftServerTestUtil.getLastAppliedIndex(server) >= loggedCommitIndex);
+        Assert.assertTrue(server.getInfo().getLastAppliedIndex() >= loggedCommitIndex);
         return null;
       }, 10, HUNDRED_MILLIS, id + "(lastAppliedIndex >= loggedCommitIndex)", LOG);
       LOG.info("{}: commitIndex={}, lastAppliedIndex={}",
-          id, raftLog.getLastCommittedIndex(), RaftServerTestUtil.getLastAppliedIndex(server));
+          id, raftLog.getLastCommittedIndex(), server.getInfo().getLastAppliedIndex());
       cluster.killServer(id);
     }
   }

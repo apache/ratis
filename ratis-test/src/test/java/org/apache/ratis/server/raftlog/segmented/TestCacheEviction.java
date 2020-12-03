@@ -18,18 +18,18 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
-import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.LogSegmentList;
@@ -166,10 +166,10 @@ public class TestCacheEviction extends BaseTest {
     RaftStorage storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
 
     RaftServerImpl server = Mockito.mock(RaftServerImpl.class);
-    ServerState state = Mockito.mock(ServerState.class);
-    Mockito.when(server.getState()).thenReturn(state);
-    Mockito.when(server.getFollowerNextIndices()).thenReturn(new long[]{});
-    Mockito.when(state.getLastAppliedIndex()).thenReturn(0L);
+    final DivisionInfo info = Mockito.mock(DivisionInfo.class);
+    Mockito.when(info.getLastAppliedIndex()).thenReturn(0L);
+    Mockito.when(info.getFollowerNextIndices()).thenReturn(new long[]{});
+    Mockito.when(server.getInfo()).thenReturn(info);
 
     SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, server, storage, -1, prop);
     raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
@@ -181,8 +181,8 @@ public class TestCacheEviction extends BaseTest {
     Assert.assertEquals(maxCachedNum - 1,
         raftLog.getRaftLogCache().getCachedSegmentNum());
 
-    Mockito.when(server.getFollowerNextIndices()).thenReturn(new long[]{21, 40, 40});
-    Mockito.when(state.getLastAppliedIndex()).thenReturn(35L);
+    Mockito.when(info.getLastAppliedIndex()).thenReturn(35L);
+    Mockito.when(info.getFollowerNextIndices()).thenReturn(new long[]{21, 40, 40});
     slist = TestSegmentedRaftLog.prepareRanges(maxCachedNum, maxCachedNum + 2, 7, 7 * maxCachedNum);
     entries = generateEntries(slist);
     raftLog.append(entries).forEach(CompletableFuture::join);

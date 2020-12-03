@@ -93,20 +93,8 @@ public class RaftServerTestUtil {
     Assert.assertEquals(peers.size(), numIncluded + deadIncluded);
   }
 
-  public static long getCurrentTerm(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getState().getCurrentTerm();
-  }
-
-  public static long getLastAppliedIndex(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getState().getLastAppliedIndex();
-  }
-
   public static long getNextIndex(RaftServer.Division server) {
     return ((RaftServerImpl)server).getState().getNextIndex();
-  }
-
-  public static long[] getFollowerNextIndices(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getFollowerNextIndices();
   }
 
   public static long getLatestInstalledSnapshotIndex(RaftServer.Division server) {

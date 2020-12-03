@@ -106,6 +106,29 @@ public class RaftServerImpl implements RaftServer.Division,
     public LifeCycle.State getLifeCycleState() {
       return lifeCycle.getCurrentState();
     }
+
+    @Override
+    public RoleInfoProto getRoleInfoProto() {
+      return RaftServerImpl.this.getRoleInfoProto();
+    }
+
+    @Override
+    public long getCurrentTerm() {
+      return getState().getCurrentTerm();
+    }
+
+    @Override
+    public long getLastAppliedIndex() {
+      return getState().getLastAppliedIndex();
+    }
+
+    @Override
+    public long[] getFollowerNextIndices() {
+      return role.getLeaderState()
+          .filter(leader -> isLeader())
+          .map(LeaderStateImpl::getFollowerNextIndices)
+          .orElse(null);
+    }
   }
 
   private final RaftServerProxy proxy;
@@ -486,7 +509,7 @@ public class RaftServerImpl implements RaftServer.Division,
         getGroup(), getRoleInfoProto(), state.getStorage().getStorageDir().hasMetaFile());
   }
 
-  public RoleInfoProto getRoleInfoProto() {
+  RoleInfoProto getRoleInfoProto() {
     RaftPeerRole currentRole = role.getCurrentRole();
     RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
         .setSelf(getPeer().getRaftPeerProto())
@@ -1539,13 +1562,6 @@ public class RaftServerImpl implements RaftServer.Division,
       }
       cacheEntry.updateResult(r);
     });
-  }
-
-  public long[] getFollowerNextIndices() {
-    if (!getInfo().isLeader()) {
-      return null;
-    }
-    return role.getLeaderState().map(LeaderStateImpl::getFollowerNextIndices).orElse(null);
   }
 
   CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) {

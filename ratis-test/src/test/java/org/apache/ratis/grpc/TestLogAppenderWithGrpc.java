@@ -77,7 +77,7 @@ public class TestLogAppenderWithGrpc
       }
 
       FIVE_SECONDS.sleep();
-      for (long nextIndex : RaftServerTestUtil.getFollowerNextIndices(leader)) {
+      for (long nextIndex : leader.getInfo().getFollowerNextIndices()) {
         // Verify nextIndex does not progress due to pendingRequests limit
         Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
       }

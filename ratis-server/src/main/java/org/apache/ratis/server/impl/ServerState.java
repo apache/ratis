@@ -54,7 +54,7 @@ import static org.apache.ratis.server.RaftServer.Division.LOG;
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
  */
-public class ServerState implements Closeable {
+class ServerState implements Closeable {
   private final RaftGroupMemberId memberId;
   private final RaftServerImpl server;
   /** Raft log */
@@ -197,7 +197,7 @@ public class ServerState implements Closeable {
     return configurationManager.getCurrent();
   }
 
-  public long getCurrentTerm() {
+  long getCurrentTerm() {
     return currentTerm.get();
   }
 
@@ -278,7 +278,7 @@ public class ServerState implements Closeable {
     return log;
   }
 
-  public TermIndex getLastEntry() {
+  TermIndex getLastEntry() {
     TermIndex lastEntry = getLog().getLastEntryTermIndex();
     if (lastEntry == null) {
       // lastEntry may need to be derived from snapshot
@@ -408,7 +408,7 @@ public class ServerState implements Closeable {
     storage.close();
   }
 
-  public RaftStorage getStorage() {
+  RaftStorage getStorage() {
     return storage;
   }
 
@@ -429,7 +429,7 @@ public class ServerState implements Closeable {
     return server.getStateMachine().getLatestSnapshot();
   }
 
-  public long getLatestInstalledSnapshotIndex() {
+  long getLatestInstalledSnapshotIndex() {
     final TermIndex ti = latestInstalledSnapshot.get();
     return ti != null? ti.getIndex(): 0L;
   }
@@ -444,13 +444,13 @@ public class ServerState implements Closeable {
     return Math.max(latestSnapshotIndex, getLatestInstalledSnapshotIndex());
   }
 
-  public long getNextIndex() {
+  long getNextIndex() {
     final long logNextIndex = log.getNextIndex();
     final long snapshotNextIndex = getSnapshotIndex() + 1;
     return Math.max(logNextIndex, snapshotNextIndex);
   }
 
-  public long getLastAppliedIndex() {
+  long getLastAppliedIndex() {
     return stateMachineUpdater.getStateMachineLastAppliedIndex();
   }
 
