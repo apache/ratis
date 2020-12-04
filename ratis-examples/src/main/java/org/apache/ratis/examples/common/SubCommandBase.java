@@ -34,14 +34,15 @@ public abstract class SubCommandBase {
   private String raftGroupId = "demoRaftGroup123";
 
   @Parameter(names = {"--peers", "-r"}, description =
-      "Raft peers (format: name:host:port,"
+      "Raft peers (format: name:host:port:dataStreamPort,"
           + "name:host:port)", required = true)
   private String peers;
 
   public static RaftPeer[] parsePeers(String peers) {
     return Stream.of(peers.split(",")).map(address -> {
       String[] addressParts = address.split(":");
-      return RaftPeer.newBuilder().setId(addressParts[0]).setAddress(addressParts[1] + ":" + addressParts[2]).build();
+      return RaftPeer.newBuilder().setId(addressParts[0]).setAddress(addressParts[1] + ":" + addressParts[2])
+          .setDataStreamAddress(addressParts[1] + ":" + addressParts[3]).build();
     }).toArray(RaftPeer[]::new);
   }
 
@@ -49,6 +50,13 @@ public abstract class SubCommandBase {
     return parsePeers(peers);
   }
 
+  public RaftPeer getPrimary() {
+    return parsePeers(peers)[0];
+  }
+
+  public boolean isPrimary(String id) {
+    return getPrimary().getId().toString().equals(id);
+  }
   public abstract void run() throws Exception;
 
   public String getRaftGroupId() {
