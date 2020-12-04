@@ -137,12 +137,10 @@ public class SegmentedRaftLogCache {
     private final Object name;
     private final List<LogSegment> segments = new ArrayList<>();
     private final AutoCloseableReadWriteLock lock;
-    private long sizeInBytes;
 
     LogSegmentList(Object name) {
       this.name = name;
       this.lock = new AutoCloseableReadWriteLock(name);
-      this.sizeInBytes = 0;
     }
 
     AutoCloseableLock readLock() {
@@ -167,8 +165,27 @@ public class SegmentedRaftLogCache {
       }
     }
 
-    long sizeInBytes() {
-      return sizeInBytes;
+    long getTotalFileSize() {
+      try(AutoCloseableLock readLock = readLock()) {
+        long size = 0;
+        // TODO(runzhiwang): If there is performance problem, we do not need to re-calculate it every time
+        // because it is only for metric
+        for (LogSegment seg : segments) {
+           size += seg.getTotalFileSize();
+        }
+        return size;
+      }
+    }
+
+    long getTotalCacheSize() {
+      try(AutoCloseableLock readLock = readLock()) {
+        long size = 0;
+        // TODO(runzhiwang): If there is performance problem, start a daemon thread to checkAndEvictCache.
+        for (LogSegment seg : segments) {
+          size += seg.getTotalCacheSize();
+        }
+        return size;
+      }
     }
 
     long countCached() {
@@ -231,7 +248,6 @@ public class SegmentedRaftLogCache {
 
     boolean add(LogSegment logSegment) {
       try(AutoCloseableLock writeLock = writeLock()) {
-        sizeInBytes += logSegment.getTotalSize();
         return segments.add(logSegment);
       }
     }
@@ -240,7 +256,6 @@ public class SegmentedRaftLogCache {
       try(AutoCloseableLock writeLock = writeLock()) {
         segments.forEach(LogSegment::clear);
         segments.clear();
-        sizeInBytes = 0;
       }
     }
 
@@ -258,9 +273,8 @@ public class SegmentedRaftLogCache {
               openSegment.truncate(index);
               Preconditions.assertTrue(!openSegment.isOpen());
               final SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
-                  oldEnd, true, openSegment.getTotalSize(), openSegment.getEndIndex());
+                  oldEnd, true, openSegment.getTotalFileSize(), openSegment.getEndIndex());
               segments.add(openSegment);
-              sizeInBytes += openSegment.getTotalSize();
               clearOpenSegment.run();
               return new TruncationSegments(info, Collections.emptyList());
             }
@@ -269,15 +283,12 @@ public class SegmentedRaftLogCache {
           final LogSegment ts = segments.get(segmentIndex);
           final long oldEnd = ts.getEndIndex();
           final List<SegmentFileInfo> list = new ArrayList<>();
-          sizeInBytes -= ts.getTotalSize();
           ts.truncate(index);
-          sizeInBytes += ts.getTotalSize();
           final int size = segments.size();
           for(int i = size - 1;
               i >= (ts.numOfEntries() == 0? segmentIndex: segmentIndex + 1);
               i--) {
             LogSegment s = segments.remove(i);
-            sizeInBytes -= s.getTotalSize();
             final long endOfS = i == segmentIndex? oldEnd: s.getEndIndex();
             s.clear();
             list.add(new SegmentFileInfo(s.getStartIndex(), endOfS, false, 0, s.getEndIndex()));
@@ -286,7 +297,7 @@ public class SegmentedRaftLogCache {
             list.add(deleteOpenSegment(openSegment, clearOpenSegment));
           }
           SegmentFileInfo t = ts.numOfEntries() == 0? null:
-              new SegmentFileInfo(ts.getStartIndex(), oldEnd, false, ts.getTotalSize(), ts.getEndIndex());
+              new SegmentFileInfo(ts.getStartIndex(), oldEnd, false, ts.getTotalFileSize(), ts.getEndIndex());
           return new TruncationSegments(t, list);
         }
         return null;
@@ -303,7 +314,6 @@ public class SegmentedRaftLogCache {
             list.add(SegmentFileInfo.newClosedSegmentFileInfo(ls));
           }
           segments.clear();
-          sizeInBytes = 0;
         } else if (segmentIndex >= 0) {
           // we start to purge the closedSegments which do not overlap with index.
           LogSegment overlappedSegment = segments.get(segmentIndex);
@@ -313,7 +323,6 @@ public class SegmentedRaftLogCache {
               segmentIndex : segmentIndex - 1;
           for (int i = startIndex; i >= 0; i--) {
             LogSegment segment = segments.remove(i);
-            sizeInBytes -= segment.getTotalSize();
             list.add(SegmentFileInfo.newClosedSegmentFileInfo(segment));
           }
         } else {
@@ -342,6 +351,7 @@ public class SegmentedRaftLogCache {
 
   private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
+  private final long maxSegmentCacheSize;
 
   SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties,
                                 RaftLogMetrics raftLogMetrics) {
@@ -353,6 +363,7 @@ public class SegmentedRaftLogCache {
     this.raftLogMetrics.addClosedSegmentsSizeInBytes(this);
     this.raftLogMetrics.addOpenSegmentSizeInBytes(this);
     this.maxCachedSegments = RaftServerConfigKeys.Log.segmentCacheNumMax(properties);
+    this.maxSegmentCacheSize = RaftServerConfigKeys.Log.segmentCacheSizeMax(properties).getSize();
   }
 
   int getMaxCachedSegments() {
@@ -373,15 +384,19 @@ public class SegmentedRaftLogCache {
   }
 
   public long getClosedSegmentsSizeInBytes() {
-    return closedSegments.sizeInBytes();
+    return closedSegments.getTotalFileSize();
   }
 
   public long getOpenSegmentSizeInBytes() {
-    return openSegment.getTotalSize();
+    return openSegment.getTotalFileSize();
+  }
+
+  public long getTotalCacheSize() {
+    return closedSegments.getTotalCacheSize() + openSegment.getTotalCacheSize();
   }
 
   boolean shouldEvict() {
-    return closedSegments.countCached() > maxCachedSegments;
+    return closedSegments.countCached() > maxCachedSegments || getTotalCacheSize() > maxSegmentCacheSize;
   }
 
   void evictCache(long[] followerIndices, long safeEvictIndex, long lastAppliedIndex) {

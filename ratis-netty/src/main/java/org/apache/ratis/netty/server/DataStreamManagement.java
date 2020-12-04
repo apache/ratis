@@ -375,7 +375,6 @@ public class DataStreamManagement {
           } else if (request.getType() == Type.STREAM_CLOSE) {
             if (info.isPrimary()) {
               // after all server close stream, primary server start transaction
-              // TODO(runzhiwang): send start transaction to leader directly
               startTransaction(info, request, ctx);
             } else {
               sendReply(remoteWrites, request, bytesWritten, ctx);

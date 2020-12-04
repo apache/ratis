@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 
@@ -62,22 +63,21 @@ public class LogSegment implements Comparable<Long> {
 
   enum Op {
     LOAD_SEGMENT_FILE,
-    CHECK_SEGMENT_FILE_FULL_WITH_STATE_MACHINE_CACHE,
-    CHECK_SEGMENT_FILE_FULL_WITHOUT_STATE_MACHINE_CACHE,
+    REMOVE_CACHE,
+    CHECK_SEGMENT_FILE_FULL,
     WRITE_CACHE_WITH_STATE_MACHINE_CACHE,
     WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE
   }
 
   static long getEntrySize(LogEntryProto entry, Op op) {
     LogEntryProto e = entry;
-    if (op == Op.CHECK_SEGMENT_FILE_FULL_WITH_STATE_MACHINE_CACHE) {
+    if (op == Op.CHECK_SEGMENT_FILE_FULL) {
       e = ServerProtoUtils.removeStateMachineData(entry);
     } else if (op == Op.LOAD_SEGMENT_FILE || op == Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE) {
       Preconditions.assertTrue(entry == ServerProtoUtils.removeStateMachineData(entry),
           () -> "Unexpected LogEntryProto with StateMachine data: op=" + op + ", entry=" + entry);
     } else {
-      Preconditions.assertTrue(op == Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE ||
-          op == Op.CHECK_SEGMENT_FILE_FULL_WITHOUT_STATE_MACHINE_CACHE,
+      Preconditions.assertTrue(op == Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE || op == Op.REMOVE_CACHE,
           () -> "Unexpected op " + op + ", entry=" + entry);
     }
     final int serialized = e.getSerializedSize();
@@ -180,9 +180,9 @@ public class LogSegment implements Comparable<Long> {
       // The segment does not have any entries, delete the file.
       FileUtils.deleteFile(file);
       return null;
-    } else if (file.length() > segment.getTotalSize()) {
+    } else if (file.length() > segment.getTotalFileSize()) {
       // The segment has extra padding, truncate it.
-      FileUtils.truncateFile(file, segment.getTotalSize());
+      FileUtils.truncateFile(file, segment.getTotalFileSize());
     }
 
     try {
@@ -230,7 +230,7 @@ public class LogSegment implements Comparable<Long> {
       // note the loading should not exceed the endIndex: it is possible that
       // the on-disk log file should be truncated but has not been done yet.
       readSegmentFile(file, startIndex, endIndex, isOpen, getLogCorruptionPolicy(), raftLogMetrics,
-          entry -> entryCache.put(ServerProtoUtils.toTermIndex(entry), entry));
+          entry -> putEntryCache(ServerProtoUtils.toTermIndex(entry), entry, Op.LOAD_SEGMENT_FILE));
       loadingTimes.incrementAndGet();
       return Objects.requireNonNull(entryCache.get(key.getTermIndex()));
     }
@@ -243,7 +243,8 @@ public class LogSegment implements Comparable<Long> {
   }
 
   private volatile boolean isOpen;
-  private long totalSize = SegmentedRaftLogFormat.getHeaderLength();
+  private long totalFileSize = SegmentedRaftLogFormat.getHeaderLength();
+  private AtomicLong totalCacheSize = new AtomicLong(0);
   /** Segment start index, inclusive. */
   private long startIndex;
   /** Segment end index, inclusive. */
@@ -311,15 +312,15 @@ public class LogSegment implements Comparable<Long> {
           "gap between entries %s and %s", entry.getIndex(), currentLast.getTermIndex().getIndex());
     }
 
-    final LogRecord record = new LogRecord(totalSize, entry);
+    final LogRecord record = new LogRecord(totalFileSize, entry);
     records.add(record);
     if (keepEntryInCache) {
-      entryCache.put(record.getTermIndex(), entry);
+      putEntryCache(record.getTermIndex(), entry, op);
     }
     if (entry.hasConfigurationEntry()) {
       configEntries.add(record.getTermIndex());
     }
-    totalSize += getEntrySize(entry, op);
+    totalFileSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
   }
 
@@ -362,8 +363,12 @@ public class LogSegment implements Comparable<Long> {
     return configEntries.contains(ti);
   }
 
-  long getTotalSize() {
-    return totalSize;
+  long getTotalFileSize() {
+    return totalFileSize;
+  }
+
+  long getTotalCacheSize() {
+    return totalCacheSize.get();
   }
 
   /**
@@ -373,9 +378,9 @@ public class LogSegment implements Comparable<Long> {
     Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
     for (long index = endIndex; index >= fromIndex; index--) {
       LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
-      entryCache.remove(removed.getTermIndex());
+      removeEntryCache(removed.getTermIndex(), Op.REMOVE_CACHE);
       configEntries.remove(removed.getTermIndex());
-      totalSize = removed.offset;
+      totalFileSize = removed.offset;
     }
     isOpen = false;
     this.endIndex = fromIndex - 1;
@@ -400,7 +405,7 @@ public class LogSegment implements Comparable<Long> {
 
   synchronized void clear() {
     records.clear();
-    entryCache.clear();
+    evictCache();
     configEntries.clear();
     endIndex = startIndex - 1;
   }
@@ -409,8 +414,21 @@ public class LogSegment implements Comparable<Long> {
     return loadingTimes.get();
   }
 
-  synchronized void evictCache() {
+  void evictCache() {
     entryCache.clear();
+    totalCacheSize.set(0);
+  }
+
+  void putEntryCache(TermIndex key, LogEntryProto value, Op op) {
+    entryCache.put(key, value);
+    totalCacheSize.getAndAdd(getEntrySize(value, op));
+  }
+
+  void removeEntryCache(TermIndex key, Op op) {
+    LogEntryProto value = entryCache.remove(key);
+    if (value != null) {
+      totalCacheSize.getAndAdd(-getEntrySize(value, op));
+    }
   }
 
   boolean hasCache() {

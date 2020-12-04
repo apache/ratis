@@ -128,7 +128,7 @@ public class TestLogSegment extends BaseTest {
     Assert.assertEquals(start, segment.getStartIndex());
     Assert.assertEquals(end, segment.getEndIndex());
     Assert.assertEquals(isOpen, segment.isOpen());
-    Assert.assertEquals(totalSize, segment.getTotalSize());
+    Assert.assertEquals(totalSize, segment.getTotalFileSize());
 
     long offset = SegmentedRaftLogFormat.getHeaderLength();
     for (long i = start; i <= end; i++) {
@@ -183,7 +183,7 @@ public class TestLogSegment extends BaseTest {
     LogSegment closedSegment = LogSegment.loadSegment(storage, closedSegmentFile,
         1000, 1099, false, loadInitial, null, null);
     checkLogSegment(closedSegment, 1000, 1099, false,
-        closedSegment.getTotalSize(), 1);
+        closedSegment.getTotalFileSize(), 1);
     Assert.assertEquals(loadInitial ? 0 : 1, closedSegment.getLoadingTimes());
   }
 
@@ -205,7 +205,7 @@ public class TestLogSegment extends BaseTest {
       segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
     }
 
-    Assert.assertTrue(segment.getTotalSize() >= max);
+    Assert.assertTrue(segment.getTotalFileSize() >= max);
     checkLogSegment(segment, start, i - 1 + start, true, size, term);
   }
 

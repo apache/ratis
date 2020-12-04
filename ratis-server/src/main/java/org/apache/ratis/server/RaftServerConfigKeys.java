@@ -221,6 +221,16 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, SEGMENT_CACHE_NUM_MAX_KEY, maxCachedSegmentNum);
     }
 
+    String SEGMENT_CACHE_SIZE_MAX_KEY = PREFIX + ".segment.cache.size.max";
+    SizeInBytes SEGMENT_CACHE_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("200MB");
+    static SizeInBytes segmentCacheSizeMax(RaftProperties properties) {
+      return getSizeInBytes(properties::getSizeInBytes, SEGMENT_CACHE_SIZE_MAX_KEY,
+          SEGMENT_CACHE_SIZE_MAX_DEFAULT, getDefaultLog());
+    }
+    static void setSegmentCacheSizeMax(RaftProperties properties, SizeInBytes maxCachedSegmentSize) {
+      setSizeInBytes(properties::set, SEGMENT_CACHE_SIZE_MAX_KEY, maxCachedSegmentSize);
+    }
+
     String PREALLOCATED_SIZE_KEY = PREFIX + ".preallocated.size";
     SizeInBytes PREALLOCATED_SIZE_DEFAULT = SizeInBytes.valueOf("4MB");
     static SizeInBytes preallocatedSize(RaftProperties properties) {

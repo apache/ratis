@@ -391,13 +391,9 @@ public class SegmentedRaftLog extends RaftLog {
       if (currentOpenSegment == null) {
         cache.addOpenSegment(entry.getIndex());
         fileLogWorker.startLogSegment(entry.getIndex());
-      } else if (isSegmentFull(currentOpenSegment, entry,
-          stateMachineCachingEnabled ?
-              LogSegment.Op.CHECK_SEGMENT_FILE_FULL_WITH_STATE_MACHINE_CACHE:
-              LogSegment.Op.CHECK_SEGMENT_FILE_FULL_WITHOUT_STATE_MACHINE_CACHE)) {
+      } else if (isSegmentFull(currentOpenSegment, entry)) {
         cache.rollOpenSegment(true);
         fileLogWorker.rollLogSegment(currentOpenSegment);
-        checkAndEvictCache();
       } else if (currentOpenSegment.numOfEntries() > 0 &&
           currentOpenSegment.getLastTermIndex().getTerm() != entry.getTerm()) {
         // the term changes
@@ -407,8 +403,10 @@ public class SegmentedRaftLog extends RaftLog {
             currentTerm, entry.getTerm());
         cache.rollOpenSegment(true);
         fileLogWorker.rollLogSegment(currentOpenSegment);
-        checkAndEvictCache();
       }
+
+      //TODO(runzhiwang): If there is performance problem, start a daemon thread to checkAndEvictCache
+      checkAndEvictCache();
 
       // If the entry has state machine data, then the entry should be inserted
       // to statemachine first and then to the cache. Not following the order
@@ -431,20 +429,15 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
-  private boolean isSegmentFull(LogSegment segment, LogEntryProto entry, LogSegment.Op op) {
-    // Check total size of entries with data whether exceed segmentMaxSize.
-    // Segment File contains entries after removing state machine data
-    // LogSegment#entryCache contains entries whether removing state machine data depends on stateMachineCachingEnabled
-    // If only check total size of entries without state machine data, LogSegment#entryCache which contains entries with
-    // state machine data maybe OOM before segment file exceed segmentMaxSize
-    if (segment.getTotalSize() >= segmentMaxSize) {
+  private boolean isSegmentFull(LogSegment segment, LogEntryProto entry) {
+    if (segment.getTotalFileSize() >= segmentMaxSize) {
       return true;
     } else {
-      final long entrySize = LogSegment.getEntrySize(entry, op);
+      final long entrySize = LogSegment.getEntrySize(entry, LogSegment.Op.CHECK_SEGMENT_FILE_FULL);
       // if entry size is greater than the max segment size, write it directly
       // into the current segment
       return entrySize <= segmentMaxSize &&
-          segment.getTotalSize() + entrySize > segmentMaxSize;
+          segment.getTotalFileSize() + entrySize > segmentMaxSize;
     }
   }
 
