@@ -34,6 +34,7 @@ import org.apache.ratis.protocol.exceptions.StaleReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DivisionInfo;
+import org.apache.ratis.server.DivisionProperties;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -134,10 +135,9 @@ class RaftServerImpl implements RaftServer.Division,
   private final StateMachine stateMachine;
   private final Info info =  new Info();
 
-  private final int minTimeoutMs;
+  private final DivisionProperties divisionProperties;
   private final int maxTimeoutMs;
   private final TimeDuration leaderStepDownWaitTime;
-  private final TimeDuration rpcSlownessTimeout;
   private final TimeDuration sleepDeviationThreshold;
   private final boolean installSnapshotEnabled;
 
@@ -173,14 +173,11 @@ class RaftServerImpl implements RaftServer.Division,
     this.role = new RoleInfo(id);
 
     final RaftProperties properties = proxy.getProperties();
-    minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toIntExact(TimeUnit.MILLISECONDS);
-    maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
-    this.rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
+    this.divisionProperties = new DivisionPropertiesImpl(properties);
+    maxTimeoutMs = properties().maxRpcTimeoutMs();
     leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
-    Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
-        "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.proxy = proxy;
 
     this.state = new ServerState(id, group, properties, this, stateMachine);
@@ -205,6 +202,11 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
 
+  @Override
+  public DivisionProperties properties() {
+    return divisionProperties;
+  }
+
   private RetryCache initRetryCache(RaftProperties prop) {
     final TimeDuration expireTime = RaftServerConfigKeys.RetryCache.expiryTime(prop);
     return new RetryCache(expireTime);
@@ -214,20 +216,13 @@ class RaftServerImpl implements RaftServer.Division,
     return getRaftServer().getFactory().newLogAppender(this, leaderState, f);
   }
 
-  int getMinTimeoutMs() {
-    return minTimeoutMs;
-  }
-
   int getMaxTimeoutMs() {
     return maxTimeoutMs;
   }
 
-  TimeDuration getRpcSlownessTimeout() {
-    return rpcSlownessTimeout;
-  }
-
   TimeDuration getRandomElectionTimeout() {
-    final long millis = minTimeoutMs + ThreadLocalRandom.current().nextInt(maxTimeoutMs - minTimeoutMs + 1);
+    final int min = properties().minRpcTimeoutMs();
+    final int millis = min + ThreadLocalRandom.current().nextInt(properties().maxRpcTimeoutMs() - min + 1);
     return TimeDuration.valueOf(millis, TimeUnit.MILLISECONDS);
   }
 
@@ -1599,7 +1594,8 @@ class RaftServerImpl implements RaftServer.Division,
     return leaderElectionMetrics;
   }
 
-  RaftServerMetrics getRaftServerMetrics() {
+  @Override
+  public RaftServerMetrics getRaftServerMetrics() {
     return raftServerMetrics;
   }
 

@@ -87,7 +87,7 @@ class FollowerState extends Daemon {
   }
 
   boolean shouldWithholdVotes() {
-    return lastRpcTime.elapsedTimeMs() < server.getMinTimeoutMs();
+    return lastRpcTime.elapsedTime().compareTo(server.properties().minRpcTimeout()) < 0;
   }
 
   void stopRunning() {

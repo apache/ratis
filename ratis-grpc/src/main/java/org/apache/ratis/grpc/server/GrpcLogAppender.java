@@ -140,8 +140,7 @@ public class GrpcLogAppender extends LogAppender {
         appendLog(installSnapshotRequired || haveTooManyPendingRequests());
 
       }
-      checkSlowness();
-
+      getLeaderState().checkHealth(getFollower());
     }
 
     Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObserver::onCompleted);
@@ -299,9 +298,9 @@ public class GrpcLogAppender extends LogAppender {
       switch (reply.getResult()) {
         case SUCCESS:
           grpcServerMetrics.onRequestSuccess(getFollowerId().toString(), reply.getIsHearbeat());
-          updateCommitIndex(reply.getFollowerCommit());
+          getLeaderState().onFollowerCommitIndex(getFollower(), reply.getFollowerCommit());
           if (getFollower().updateMatchIndex(reply.getMatchIndex())) {
-            submitEventOnSuccessAppend();
+            getLeaderState().onFollowerSuccessAppendEntries(getFollower());
           }
           break;
         case NOT_LEADER:
@@ -417,7 +416,7 @@ public class GrpcLogAppender extends LogAppender {
           final long followerSnapshotIndex = reply.getSnapshotIndex();
           LOG.info("{}: Already Installed Snapshot Index {}.", this, followerSnapshotIndex);
           getFollower().setSnapshotIndex(followerSnapshotIndex);
-          updateCommitIndex(followerSnapshotIndex);
+          getLeaderState().onFollowerCommitIndex(getFollower(), followerSnapshotIndex);
           increaseNextIndex(followerSnapshotIndex);
           removePending(reply);
           break;

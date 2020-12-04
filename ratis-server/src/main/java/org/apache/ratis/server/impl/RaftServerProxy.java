@@ -292,11 +292,6 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public RpcType getRpcType() {
-    return getFactory().getRpcType();
-  }
-
-  @Override
   public ServerFactory getFactory() {
     return factory;
   }
@@ -306,7 +301,8 @@ class RaftServerProxy implements RaftServer {
     return properties;
   }
 
-  RaftServerRpc getServerRpc() {
+  @Override
+  public RaftServerRpc getServerRpc() {
     return serverRpc;
   }
 

@@ -25,6 +25,7 @@ import org.apache.ratis.rpc.RpcFactory;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.ServerImplUtils;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -49,6 +50,9 @@ public interface RaftServer extends Closeable, RpcType.Get,
   /** A division of a {@link RaftServer} for a particular {@link RaftGroup}. */
   interface Division extends Closeable {
     Logger LOG = LoggerFactory.getLogger(Division.class);
+
+    /** @return the {@link DivisionProperties} for this division. */
+    DivisionProperties properties();
 
     /** @return the {@link RaftGroupMemberId} for this division. */
     RaftGroupMemberId getMemberId();
@@ -78,6 +82,9 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link RaftServer} containing this division. */
     RaftServer getRaftServer();
+
+    /** @return the {@link RaftServerMetrics} for this division. */
+    RaftServerMetrics getRaftServerMetrics();
 
     /** @return the {@link StateMachine} for this division. */
     StateMachine getStateMachine();
@@ -114,6 +121,13 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
   /** @return the server properties. */
   RaftProperties getProperties();
+
+  /** @return the rpc service. */
+  RaftServerRpc getServerRpc();
+
+  default RpcType getRpcType() {
+    return getFactory().getRpcType();
+  }
 
   /** @return the factory for creating server components. */
   RpcFactory getFactory();

@@ -242,7 +242,6 @@ class LeaderStateImpl implements LeaderState {
   private volatile boolean running = true;
 
   private final int stagingCatchupGap;
-  private final TimeDuration syncInterval;
   private final long placeHolderIndex;
   private final RaftServerMetrics raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
@@ -253,7 +252,6 @@ class LeaderStateImpl implements LeaderState {
 
     final RaftProperties properties = server.getRaftServer().getProperties();
     stagingCatchupGap = RaftServerConfigKeys.stagingCatchupGap(properties);
-    syncInterval = RaftServerConfigKeys.Rpc.sleepTime(properties);
 
     final ServerState state = server.getState();
     this.raftLog = state.getLog();
@@ -326,16 +324,13 @@ class LeaderStateImpl implements LeaderState {
     return currentTerm;
   }
 
-  boolean handleResponseTerm(FollowerInfo follower, long followerTerm) {
+  @Override
+  public boolean onFollowerTerm(FollowerInfo follower, long followerTerm) {
     if (isAttendingVote(follower) && followerTerm > getCurrentTerm()) {
       submitStepDownEvent(followerTerm, StepDownReason.HIGHER_TERM);
       return true;
     }
     return false;
-  }
-
-  TimeDuration getSyncInterval() {
-    return syncInterval;
   }
 
   /**
@@ -413,7 +408,14 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  void commitIndexChanged() {
+  @Override
+  public void onFollowerCommitIndex(FollowerInfo follower, long commitIndex) {
+    if (follower.updateCommitIndex(commitIndex)) {
+      commitIndexChanged();
+    }
+  }
+
+  private void commitIndexChanged() {
     getMajorityMin(FollowerInfo::getCommitIndex, raftLog::getLastCommittedIndex).ifPresent(m -> {
       // Normally, leader commit index is always ahead of followers.
       // However, after a leader change, the new leader commit index may
@@ -450,7 +452,8 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  AppendEntriesRequestProto newAppendEntriesRequestProto(FollowerInfo follower,
+  @Override
+  public AppendEntriesRequestProto newAppendEntriesRequestProto(FollowerInfo follower,
       List<LogEntryProto> entries, TermIndex previous, long callId) {
     final boolean initializing = isAttendingVote(follower);
     final RaftPeerId targetId = follower.getPeer().getId();
@@ -487,7 +490,8 @@ class LeaderStateImpl implements LeaderState {
     senders.removeAll(toStop);
   }
 
-  void restartSender(LogAppender sender) {
+  @Override
+  public void restart(LogAppender sender) {
     final FollowerInfo follower = sender.getFollower();
     LOG.info("{}: Restarting {} for {}", this, JavaUtils.getClassSimpleName(sender.getClass()), follower.getName());
     sender.stopAppender();
@@ -611,7 +615,8 @@ class LeaderStateImpl implements LeaderState {
         .collect(Collectors.toCollection(ArrayList::new));
   }
 
-  void submitEventOnSuccessAppend(FollowerInfo follower) {
+  @Override
+  public void onFollowerSuccessAppendEntries(FollowerInfo follower) {
     if (isAttendingVote(follower)) {
       submitUpdateCommitEvent();
     } else {
@@ -767,7 +772,7 @@ class LeaderStateImpl implements LeaderState {
           LOG.info("{} is not included in the new configuration {}. Will shutdown server...", this, conf);
           try {
             // leave some time for all RPC senders to send out new conf entry
-            Thread.sleep(server.getMinTimeoutMs());
+            server.properties().minRpcTimeout().sleep();
           } catch (InterruptedException ignored) {
             Thread.currentThread().interrupt();
           }
@@ -1015,10 +1020,13 @@ class LeaderStateImpl implements LeaderState {
     return ((FollowerInfoImpl)follower).isAttendingVote();
   }
 
-  /**
-   * Record Follower Heartbeat Elapsed Time.
-   */
-  void recordFollowerHeartbeatElapsedTime(RaftPeerId followerId, TimeDuration elapsedTime) {
+  @Override
+  public void checkHealth(FollowerInfo follower) {
+    final TimeDuration elapsedTime = follower.getLastRpcResponseTime().elapsedTime();
+    if (elapsedTime.compareTo(server.properties().rpcSlownessTimeout()) > 0) {
+      server.getStateMachine().leaderEvent().notifyFollowerSlowness(server.getInfo().getRoleInfoProto());
+    }
+    final RaftPeerId followerId = follower.getPeer().getId();
     raftServerMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime.toLong(TimeUnit.NANOSECONDS));
   }
 
