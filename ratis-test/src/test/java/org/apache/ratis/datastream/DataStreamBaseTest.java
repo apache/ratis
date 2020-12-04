@@ -53,9 +53,11 @@ import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
+import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.util.CollectionUtils;
@@ -96,7 +98,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
 
     @Override
-    public RaftGroup getGroup() {
+    public RaftConfiguration getRaftConf() {
       return null;
     }
 
@@ -112,6 +114,11 @@ abstract class DataStreamBaseTest extends BaseTest {
 
     @Override
     public RaftLog getRaftLog() {
+      return null;
+    }
+
+    @Override
+    public RaftStorage getRaftStorage() {
       return null;
     }
 

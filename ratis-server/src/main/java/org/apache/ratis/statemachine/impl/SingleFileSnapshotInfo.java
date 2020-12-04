@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.statemachine.impl;
 
-import java.util.Arrays;
+import java.util.Collections;
 
 import org.apache.ratis.server.storage.FileInfo;
 
@@ -28,7 +28,7 @@ import org.apache.ratis.server.storage.FileInfo;
  */
 public class SingleFileSnapshotInfo extends FileListSnapshotInfo {
   public SingleFileSnapshotInfo(FileInfo fileInfo, long term, long endIndex) {
-    super(Arrays.asList(fileInfo), term, endIndex);
+    super(Collections.singletonList(fileInfo), term, endIndex);
   }
 
   /** @return the file associated with the snapshot. */

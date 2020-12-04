@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,12 +17,14 @@
  */
 package org.apache.ratis.statemachine.impl;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.util.JavaUtils;
 
 /**
  * Each snapshot has a list of files.
@@ -35,22 +37,12 @@ public class FileListSnapshotInfo implements SnapshotInfo {
 
   public FileListSnapshotInfo(List<FileInfo> files, long term, long index) {
     this.termIndex = TermIndex.newTermIndex(term, index);
-    this.files = Collections.unmodifiableList(files);
+    this.files = Collections.unmodifiableList(new ArrayList<>(files));
   }
 
   @Override
   public TermIndex getTermIndex() {
     return termIndex;
-  }
-
-  @Override
-  public long getTerm() {
-    return termIndex.getTerm();
-  }
-
-  @Override
-  public long getIndex() {
-    return termIndex.getIndex();
   }
 
   @Override
@@ -60,6 +52,6 @@ public class FileListSnapshotInfo implements SnapshotInfo {
 
   @Override
   public String toString() {
-    return termIndex + ":" + files;
+    return JavaUtils.getClassSimpleName(getClass()) + getTermIndex() + ":" + files;
   }
 }

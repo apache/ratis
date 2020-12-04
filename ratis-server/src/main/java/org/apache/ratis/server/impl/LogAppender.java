@@ -25,22 +25,17 @@ import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLog.EntryWithData;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.nio.file.Path;
 import java.util.*;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
@@ -179,10 +174,6 @@ public class LogAppender {
 
   public RaftLog getRaftLog() {
     return raftLog;
-  }
-
-  public long getHalfMinTimeoutMs() {
-    return halfMinTimeoutMs;
   }
 
   @Override
@@ -330,126 +321,24 @@ public class LogAppender {
     }
   }
 
-  protected class SnapshotRequestIter
-      implements Iterable<InstallSnapshotRequestProto> {
-    private final SnapshotInfo snapshot;
-    private final List<FileInfo> files;
-    private FileInputStream in;
-    private int fileIndex = 0;
-
-    private FileInfo currentFileInfo;
-    private byte[] currentBuf;
-    private long currentFileSize;
-    private long currentOffset = 0;
-    private int chunkIndex = 0;
-
-    private final String requestId;
-    private int requestIndex = 0;
-
-    public SnapshotRequestIter(SnapshotInfo snapshot, String requestId)
-        throws IOException {
-      this.snapshot = snapshot;
-      this.requestId = requestId;
-      this.files = snapshot.getFiles();
-      if (files.size() > 0) {
-        startReadFile();
-      }
-    }
-
-    private void startReadFile() throws IOException {
-      currentFileInfo = files.get(fileIndex);
-      File snapshotFile = currentFileInfo.getPath().toFile();
-      currentFileSize = snapshotFile.length();
-      final int bufLength = getSnapshotChunkLength(currentFileSize);
-      currentBuf = new byte[bufLength];
-      currentOffset = 0;
-      chunkIndex = 0;
-      in = new FileInputStream(snapshotFile);
-    }
-
-    private int getSnapshotChunkLength(long len) {
-      return len < snapshotChunkMaxSize? (int)len: snapshotChunkMaxSize;
-    }
-
-    @Override
-    public Iterator<InstallSnapshotRequestProto> iterator() {
-      return new Iterator<InstallSnapshotRequestProto>() {
-        @Override
-        public boolean hasNext() {
-          return fileIndex < files.size();
-        }
-
-        @Override
-        public InstallSnapshotRequestProto next() {
-          if (fileIndex >= files.size()) {
-            throw new NoSuchElementException();
-          }
-          final int targetLength = getSnapshotChunkLength(
-              currentFileSize - currentOffset);
-          FileChunkProto chunk;
-          try {
-            chunk = readFileChunk(currentFileInfo, in, currentBuf,
-                targetLength, currentOffset, chunkIndex);
-            boolean done = (fileIndex == files.size() - 1) &&
-                chunk.getDone();
-            InstallSnapshotRequestProto request =
-                server.createInstallSnapshotRequest(follower.getPeer().getId(),
-                    requestId, requestIndex++, snapshot,
-                    Collections.singletonList(chunk), done);
-            currentOffset += targetLength;
-            chunkIndex++;
-
-            if (currentOffset >= currentFileSize) {
-              in.close();
-              fileIndex++;
-              if (fileIndex < files.size()) {
-                startReadFile();
-              }
-            }
-
-            return request;
-          } catch (IOException e) {
-            if (in != null) {
-              try {
-                in.close();
-              } catch (IOException ignored) {
-              }
-            }
-            LOG.warn("{}: Failed to prepare installSnapshot request", LogAppender.this, e);
-            throw new RuntimeException(e);
-          }
-        }
-      };
+  protected InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex) {
+    Preconditions.assertTrue(firstAvailableLogTermIndex.getIndex() > 0);
+    synchronized (server) {
+      return ServerProtoUtils.toInstallSnapshotRequestProto(server.getMemberId(), getFollowerId(),
+          server.getInfo().getCurrentTerm(), firstAvailableLogTermIndex, server.getRaftConf());
     }
   }
 
-  protected InstallSnapshotRequestProto createInstallSnapshotNotificationRequest(
-      TermIndex firstLogStartTermIndex) {
-    return server.createInstallSnapshotRequest(getFollowerId(), firstLogStartTermIndex);
-  }
-
-  private FileChunkProto readFileChunk(FileInfo fileInfo,
-      FileInputStream in, byte[] buf, int length, long offset, int chunkIndex)
-      throws IOException {
-    FileChunkProto.Builder builder = FileChunkProto.newBuilder()
-        .setOffset(offset).setChunkIndex(chunkIndex);
-    IOUtils.readFully(in, buf, 0, length);
-    Path relativePath = server.getState().getStorage().getStorageDir()
-        .relativizeToRoot(fileInfo.getPath());
-    builder.setFilename(relativePath.toString());
-    builder.setDone(offset + length == fileInfo.getFileSize());
-    builder.setFileDigest(
-        ByteString.copyFrom(fileInfo.getFileDigest().getDigest()));
-    builder.setData(ByteString.copyFrom(buf, 0, length));
-    return builder.build();
+  protected Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(
+      String requestId, SnapshotInfo snapshot) {
+    return new InstallSnapshotRequests(server, getFollowerId(), requestId, snapshot, snapshotChunkMaxSize);
   }
 
   private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot) throws InterruptedIOException {
     String requestId = UUID.randomUUID().toString();
     InstallSnapshotReplyProto reply = null;
     try {
-      for (InstallSnapshotRequestProto request :
-          new SnapshotRequestIter(snapshot, requestId)) {
+      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
         follower.updateLastRpcSendTime();
         reply = server.getServerRpc().installSnapshot(request);
         follower.updateLastRpcResponseTime();
