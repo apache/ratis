@@ -74,7 +74,7 @@ public class TestSegmentedRaftLog extends BaseTest {
   }
 
   public static long getOpenSegmentSize(RaftLog raftLog) {
-    return ((SegmentedRaftLog)raftLog).getRaftLogCache().getOpenSegment().getTotalSize();
+    return ((SegmentedRaftLog)raftLog).getRaftLogCache().getOpenSegment().getTotalFileSize();
   }
 
   private static final RaftPeerId peerId = RaftPeerId.valueOf("s0");
