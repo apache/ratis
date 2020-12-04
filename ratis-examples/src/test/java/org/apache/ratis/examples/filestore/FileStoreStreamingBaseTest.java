@@ -17,20 +17,12 @@
  */
 package org.apache.ratis.examples.filestore;
 
-import java.io.Closeable;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.stream.Stream;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamTestUtils;
-import org.apache.ratis.examples.filestore.FileStoreBaseTest.Writer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftGroup;
@@ -51,7 +43,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluster>
     extends BaseTest
