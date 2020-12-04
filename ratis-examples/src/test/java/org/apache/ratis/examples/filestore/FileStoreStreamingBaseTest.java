@@ -85,36 +85,35 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
       throws Exception {
     LOG.info("runTestSingleFile with path={}, fileLength={}", path, fileLength);
     final int size = fileLength.getSizeInt();
-    final DataStreamOutput dataStreamOutput;
     try (FileStoreClient client = newClient.get()) {
-      dataStreamOutput = client.getStreamOutput(path, size);
-    }
-    final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-    final List<Integer> sizes = new ArrayList<>();
+      final DataStreamOutput dataStreamOutput = client.getStreamOutput(path, size);
+      final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
+      final List<Integer> sizes = new ArrayList<>();
 
-    for(int offset = 0; offset < size; ) {
-      final int remaining = size - offset;
-      final int length = Math.min(remaining, bufferSize);
-      final boolean close = length == remaining;
+      for(int offset = 0; offset < size; ) {
+        final int remaining = size - offset;
+        final int length = Math.min(remaining, bufferSize);
+        final boolean close = length == remaining;
 
-      LOG.trace("write {}, offset={}, length={}, close? {}",
-          path, offset, length, close);
-      final ByteBuffer bf = DataStreamTestUtils.initBuffer(0, length);
-      futures.add(dataStreamOutput.writeAsync(bf, close));
-      sizes.add(length);
-      offset += length;
-    }
+        LOG.trace("write {}, offset={}, length={}, close? {}",
+            path, offset, length, close);
+        final ByteBuffer bf = DataStreamTestUtils.initBuffer(0, length);
+        futures.add(dataStreamOutput.writeAsync(bf, close));
+        sizes.add(length);
+        offset += length;
+      }
 
-    DataStreamReply reply = dataStreamOutput.closeAsync().join();
-    Assert.assertTrue(reply.isSuccess());
-
-    // TODO: handle when any of the writeAsync has failed.
-    // check writeAsync requests
-    for (int i = 0; i < futures.size(); i++) {
-      reply = futures.get(i).join();
+      DataStreamReply reply = dataStreamOutput.closeAsync().join();
       Assert.assertTrue(reply.isSuccess());
-      Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), i == futures.size() - 1 ? DataStreamPacketHeaderProto.Type.STREAM_DATA_SYNC : DataStreamPacketHeaderProto.Type.STREAM_DATA);
+
+      // TODO: handle when any of the writeAsync has failed.
+      // check writeAsync requests
+      for (int i = 0; i < futures.size(); i++) {
+        reply = futures.get(i).join();
+        Assert.assertTrue(reply.isSuccess());
+        Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
+        Assert.assertEquals(reply.getType(), i == futures.size() - 1 ? DataStreamPacketHeaderProto.Type.STREAM_DATA_SYNC : DataStreamPacketHeaderProto.Type.STREAM_DATA);
+      }
     }
   }
 }

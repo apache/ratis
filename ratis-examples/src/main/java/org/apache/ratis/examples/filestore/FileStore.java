@@ -24,6 +24,7 @@ import org.apache.ratis.proto.ExamplesProtos.StreamWriteReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteReplyProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.FileUtils;
@@ -227,13 +228,29 @@ public class FileStore implements Closeable {
 
   CompletableFuture<StreamWriteReplyProto> streamCommit(String p, long bytesWritten) {
     return CompletableFuture.supplyAsync(() -> {
+      long len = 0;
       try {
         final Path full = resolve(normalize(p));
         RandomAccessFile file = new RandomAccessFile(full.toFile(), "r");
-        long len = file.length();
+        len = file.length();
         return StreamWriteReplyProto.newBuilder().setIsSuccess(len == bytesWritten).setByteWritten(len).build();
       } catch (IOException e) {
-        throw new CompletionException("Failed to commit stream write on file " + p, e);
+        throw new CompletionException("Failed to commit stream write on file:" + p +
+        ", expected written bytes:" + bytesWritten + ", actual written bytes:" + len, e);
+      }
+    }, committer);
+  }
+
+  CompletableFuture<?> streamLink(DataStream dataStream) {
+    return CompletableFuture.supplyAsync(() -> {
+      if (dataStream == null) {
+        return JavaUtils.completeExceptionally(new IllegalStateException("Null stream: entry=" + dataStream));
+      }
+      if (dataStream.getDataChannel().isOpen()) {
+        return JavaUtils.completeExceptionally(
+            new IllegalStateException("DataStream: " + dataStream + " is not closed properly"));
+      } else {
+        return CompletableFuture.completedFuture(null);
       }
     }, committer);
   }

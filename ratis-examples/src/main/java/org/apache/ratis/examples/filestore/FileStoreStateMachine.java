@@ -41,18 +41,14 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.JavaUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 public class FileStoreStateMachine extends BaseStateMachine {
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
-  private final ConcurrentMap<LogEntryProto, DataStream> dataStreamToLogEntryMap = new ConcurrentHashMap<>();
 
   private final FileStore files;
 
@@ -199,12 +195,8 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<?> link(DataStream stream, LogEntryProto entry) {
-    LOG.info("link {}", stream);
-    if (stream == null) {
-      return JavaUtils.completeExceptionally(new IllegalStateException("Null stream: entry=" + entry));
-    }
-    dataStreamToLogEntryMap.put(entry, stream);
-    return CompletableFuture.completedFuture(null);
+    LOG.info("linking {}", stream);
+    return files.streamLink(stream);
   }
 
   @Override
