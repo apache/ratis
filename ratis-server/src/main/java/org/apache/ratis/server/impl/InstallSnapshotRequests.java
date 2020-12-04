@@ -100,8 +100,8 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
         fileIndex++;
       }
 
-      final boolean done = fileIndex == numFiles - 1 && chunk.getDone();
-      return newInstallSnapshotRequest(requestIndex++, chunk, done);
+      final boolean done = fileIndex == numFiles && chunk.getDone();
+      return newInstallSnapshotRequest(chunk, done);
     } catch (IOException e) {
       if (current != null) {
         try {
@@ -114,13 +114,12 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
     }
   }
 
-  private InstallSnapshotRequestProto newInstallSnapshotRequest(
-      int requestIndex, FileChunkProto chunk, boolean done) {
+  private InstallSnapshotRequestProto newInstallSnapshotRequest(FileChunkProto chunk, boolean done) {
     final long totalSize = snapshot.getFiles().stream().mapToLong(FileInfo::getFileSize).reduce(Long::sum).orElseThrow(
         () -> new IllegalStateException("Failed to compute total size for snapshot " + snapshot));
     synchronized (server) {
       return ServerProtoUtils.toInstallSnapshotRequestProto(server.getMemberId(), followerId,
-          requestId, requestIndex, server.getInfo().getCurrentTerm(), snapshot.getTermIndex(),
+          requestId, requestIndex++, server.getInfo().getCurrentTerm(), snapshot.getTermIndex(),
           Collections.singletonList(chunk), totalSize, done, server.getRaftConf());
     }
   }
