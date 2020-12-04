@@ -79,8 +79,8 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
         () -> new FileStoreClient(cluster.getGroup(), getProperties(), raftPeer);
 
     testSingleFile("foo", SizeInBytes.valueOf("2M"), 10_000, newClient);
-    testSingleFile("foo", SizeInBytes.valueOf("2M"), 1000, newClient);
-    testSingleFile("foo", SizeInBytes.valueOf("20M"), 100_000, newClient);
+    testSingleFile("bar", SizeInBytes.valueOf("2M"), 1000, newClient);
+    testSingleFile("sar", SizeInBytes.valueOf("20M"), 100_000, newClient);
 
     cluster.shutdown();
   }
