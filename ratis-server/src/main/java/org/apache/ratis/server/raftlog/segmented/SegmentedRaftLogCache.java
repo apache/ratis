@@ -521,11 +521,11 @@ public class SegmentedRaftLogCache {
             closedSegments.get(closedSegments.size() - 1).getLastTermIndex());
   }
 
-  void appendEntry(LogEntryProto entry) {
+  void appendEntry(LogEntryProto entry, LogSegment.Op op) {
     // SegmentedRaftLog does the segment creation/rolling work. Here we just
     // simply append the entry into the open segment.
     Preconditions.assertTrue(openSegment != null);
-    openSegment.appendToOpenSegment(entry);
+    openSegment.appendToOpenSegment(entry, op);
   }
 
   /**

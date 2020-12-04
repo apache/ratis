@@ -60,8 +60,27 @@ public class LogSegment implements Comparable<Long> {
 
   static final Logger LOG = LoggerFactory.getLogger(LogSegment.class);
 
-  static long getEntrySize(LogEntryProto entry) {
-    final int serialized = ServerProtoUtils.removeStateMachineData(entry).getSerializedSize();
+  enum Op {
+    LOAD_SEGMENT_FILE,
+    CHECK_SEGMENT_FILE_FULL_WITH_STATE_MACHINE_CACHE,
+    CHECK_SEGMENT_FILE_FULL_WITHOUT_STATE_MACHINE_CACHE,
+    WRITE_CACHE_WITH_STATE_MACHINE_CACHE,
+    WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE
+  }
+
+  static long getEntrySize(LogEntryProto entry, Op op) {
+    LogEntryProto e = entry;
+    if (op == Op.CHECK_SEGMENT_FILE_FULL_WITH_STATE_MACHINE_CACHE) {
+      e = ServerProtoUtils.removeStateMachineData(entry);
+    } else if (op == Op.LOAD_SEGMENT_FILE || op == Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE) {
+      Preconditions.assertTrue(entry == ServerProtoUtils.removeStateMachineData(entry),
+          () -> "Unexpected LogEntryProto with StateMachine data: op=" + op + ", entry=" + entry);
+    } else {
+      Preconditions.assertTrue(op == Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE ||
+          op == Op.CHECK_SEGMENT_FILE_FULL_WITHOUT_STATE_MACHINE_CACHE,
+          () -> "Unexpected op " + op + ", entry=" + entry);
+    }
+    final int serialized = e.getSerializedSize();
     return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4L;
   }
 
@@ -139,7 +158,7 @@ public class LogSegment implements Comparable<Long> {
 
     final CorruptionPolicy corruptionPolicy = CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
     final int entryCount = readSegmentFile(file, start, end, isOpen, corruptionPolicy, raftLogMetrics, entry -> {
-      segment.append(keepEntryInCache || isOpen, entry);
+      segment.append(keepEntryInCache || isOpen, entry, Op.LOAD_SEGMENT_FILE);
       if (logConsumer != null) {
         logConsumer.accept(entry);
       }
@@ -273,12 +292,12 @@ public class LogSegment implements Comparable<Long> {
     return CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
   }
 
-  void appendToOpenSegment(LogEntryProto entry) {
+  void appendToOpenSegment(LogEntryProto entry, Op op) {
     Preconditions.assertTrue(isOpen(), "The log segment %s is not open for append", this);
-    append(true, entry);
+    append(true, entry, op);
   }
 
-  private void append(boolean keepEntryInCache, LogEntryProto entry) {
+  private void append(boolean keepEntryInCache, LogEntryProto entry, Op op) {
     Objects.requireNonNull(entry, "entry == null");
     if (records.isEmpty()) {
       Preconditions.assertTrue(entry.getIndex() == startIndex,
@@ -300,7 +319,7 @@ public class LogSegment implements Comparable<Long> {
     if (entry.hasConfigurationEntry()) {
       configEntries.add(record.getTermIndex());
     }
-    totalSize += getEntrySize(entry);
+    totalSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
   }
 

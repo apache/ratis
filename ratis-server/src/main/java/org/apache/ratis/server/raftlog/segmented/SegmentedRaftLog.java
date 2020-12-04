@@ -391,7 +391,10 @@ public class SegmentedRaftLog extends RaftLog {
       if (currentOpenSegment == null) {
         cache.addOpenSegment(entry.getIndex());
         fileLogWorker.startLogSegment(entry.getIndex());
-      } else if (isSegmentFull(currentOpenSegment, entry)) {
+      } else if (isSegmentFull(currentOpenSegment, entry,
+          stateMachineCachingEnabled ?
+              LogSegment.Op.CHECK_SEGMENT_FILE_FULL_WITH_STATE_MACHINE_CACHE:
+              LogSegment.Op.CHECK_SEGMENT_FILE_FULL_WITHOUT_STATE_MACHINE_CACHE)) {
         cache.rollOpenSegment(true);
         fileLogWorker.rollLogSegment(currentOpenSegment);
         checkAndEvictCache();
@@ -414,9 +417,10 @@ public class SegmentedRaftLog extends RaftLog {
           fileLogWorker.writeLogEntry(entry).getFuture();
       if (stateMachineCachingEnabled) {
         // The stateMachineData will be cached inside the StateMachine itself.
-        cache.appendEntry(ServerProtoUtils.removeStateMachineData(entry));
+        cache.appendEntry(ServerProtoUtils.removeStateMachineData(entry),
+            LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE);
       } else {
-        cache.appendEntry(entry);
+        cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       }
       return writeFuture;
     } catch (Exception e) {
@@ -427,11 +431,16 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
-  private boolean isSegmentFull(LogSegment segment, LogEntryProto entry) {
+  private boolean isSegmentFull(LogSegment segment, LogEntryProto entry, LogSegment.Op op) {
+    // Check total size of entries with data whether exceed segmentMaxSize.
+    // Segment File contains entries after removing state machine data
+    // LogSegment#entryCache contains entries whether removing state machine data depends on stateMachineCachingEnabled
+    // If only check total size of entries without state machine data, LogSegment#entryCache which contains entries with
+    // state machine data maybe OOM before segment file exceed segmentMaxSize
     if (segment.getTotalSize() >= segmentMaxSize) {
       return true;
     } else {
-      final long entrySize = LogSegment.getEntrySize(entry);
+      final long entrySize = LogSegment.getEntrySize(entry, op);
       // if entry size is greater than the max segment size, write it directly
       // into the current segment
       return entrySize <= segmentMaxSize &&

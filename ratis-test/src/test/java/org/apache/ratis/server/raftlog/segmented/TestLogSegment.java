@@ -142,7 +142,7 @@ public class TestLogSegment extends BaseTest {
       if (entry == null) {
         entry = segment.loadCache(record);
       }
-      offset += getEntrySize(entry);
+      offset += getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
     }
   }
 
@@ -201,8 +201,8 @@ public class TestLogSegment extends BaseTest {
     while (size < max) {
       SimpleOperation op = new SimpleOperation("m" + i);
       LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i++ + start);
-      size += getEntrySize(entry);
-      segment.appendToOpenSegment(entry);
+      size += getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
     }
 
     Assert.assertTrue(segment.getTotalSize() >= max);
@@ -234,18 +234,18 @@ public class TestLogSegment extends BaseTest {
     final StateMachineLogEntryProto m = op.getLogEntryContent();
     try {
       LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m, 0, 1001);
-      segment.appendToOpenSegment(entry);
+      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       Assert.fail("should fail since the entry's index needs to be 1000");
     } catch (IllegalStateException e) {
       // the exception is expected.
     }
 
     LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m, 0, 1000);
-    segment.appendToOpenSegment(entry);
+    segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
 
     try {
       entry = ServerProtoUtils.toLogEntryProto(m, 0, 1002);
-      segment.appendToOpenSegment(entry);
+      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       Assert.fail("should fail since the entry's index needs to be 1001");
     } catch (IllegalStateException e) {
       // the exception is expected.
@@ -260,7 +260,7 @@ public class TestLogSegment extends BaseTest {
     for (int i = 0; i < 100; i++) {
       LogEntryProto entry = ServerProtoUtils.toLogEntryProto(
           new SimpleOperation("m" + i).getLogEntryContent(), term, i + start);
-      segment.appendToOpenSegment(entry);
+      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
     }
 
     // truncate an open segment (remove 1080~1099)
@@ -313,7 +313,7 @@ public class TestLogSegment extends BaseTest {
         1024, 1024, ByteBuffer.allocateDirect(bufferSize))) {
       SimpleOperation op = new SimpleOperation(new String(content));
       LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
-      size = LogSegment.getEntrySize(entry);
+      size = LogSegment.getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       out.write(entry);
     }
     Assert.assertEquals(file.length(),
@@ -340,7 +340,7 @@ public class TestLogSegment extends BaseTest {
     Arrays.fill(content, (byte) 1);
     SimpleOperation op = new SimpleOperation(new String(content));
     LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
-    final long entrySize = LogSegment.getEntrySize(entry);
+    final long entrySize = LogSegment.getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
 
     long totalSize = SegmentedRaftLogFormat.getHeaderLength();
     long preallocated = 16 * 1024;
