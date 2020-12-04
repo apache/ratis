@@ -420,7 +420,8 @@ public class LogSegment implements Comparable<Long> {
   }
 
   void putEntryCache(TermIndex key, LogEntryProto value, Op op) {
-    entryCache.put(key, value);
+    final LogEntryProto previous = entryCache.put(key, value);
+    Preconditions.assertNull(previous, "entryCache shouldn't contains duplicated entry");
     totalCacheSize.getAndAdd(getEntrySize(value, op));
   }
 
