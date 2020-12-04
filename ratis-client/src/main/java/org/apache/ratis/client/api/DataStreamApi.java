@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.client.api;
 
+import java.nio.ByteBuffer;
+
 /**
  * Stream data asynchronously to all the servers in the {@link org.apache.ratis.protocol.RaftGroup}.
  * Clients may stream data to the nearest server and then the server will forward the data to the other servers.
@@ -37,4 +39,7 @@ package org.apache.ratis.client.api;
 public interface DataStreamApi {
   /** Create a stream to write data. */
   DataStreamOutput stream();
+
+  /** Create a stream by providing a customized header message. */
+  DataStreamOutput stream(ByteBuffer headerMessage);
 }

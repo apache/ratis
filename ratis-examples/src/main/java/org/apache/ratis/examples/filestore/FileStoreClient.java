@@ -18,18 +18,21 @@
 package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.ExamplesProtos.DeleteReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.DeleteRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.FileStoreRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.ReadReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.ReadRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.StreamWriteRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
@@ -57,6 +60,15 @@ public class FileStoreClient implements Closeable {
     this.client = RaftClient.newBuilder()
         .setProperties(properties)
         .setRaftGroup(group)
+        .build();
+  }
+
+  public FileStoreClient(RaftGroup group, RaftProperties properties, RaftPeer primaryDataStreamServer)
+      throws IOException {
+    this.client = RaftClient.newBuilder()
+        .setProperties(properties)
+        .setRaftGroup(group)
+        .setPrimaryDataStreamServer(primaryDataStreamServer)
         .build();
   }
 
@@ -139,6 +151,15 @@ public class FileStoreClient implements Closeable {
     buffer.limit(chunkSize);
     final ByteString reply = writeImpl(this::send, path, offset, close, buffer);
     return WriteReplyProto.parseFrom(reply).getLength();
+  }
+
+  public DataStreamOutput getStreamOutput(String path, int dataSize) {
+    final StreamWriteRequestProto header = StreamWriteRequestProto.newBuilder()
+        .setPath(ProtoUtils.toByteString(path))
+        .setLength(dataSize)
+        .build();
+    final FileStoreRequestProto request = FileStoreRequestProto.newBuilder().setStream(header).build();
+    return client.getDataStreamApi().stream(request.toByteString().asReadOnlyByteBuffer());
   }
 
   public CompletableFuture<Long> writeAsync(String path, long offset, boolean close, ByteBuffer buffer) {
