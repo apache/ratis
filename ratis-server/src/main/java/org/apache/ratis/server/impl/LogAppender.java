@@ -96,7 +96,7 @@ public class LogAppender {
             lifeCycle.transitionIfNotEqual(EXCEPTION);
           }
           if (lifeCycle.getCurrentState() == EXCEPTION) {
-            leaderState.restartSender(LogAppender.this);
+            leaderState.restart(LogAppender.this);
           }
         }
       }
@@ -136,8 +136,8 @@ public class LogAppender {
   }
 
   private final String name;
-  private final RaftServerImpl server;
-  private final LeaderStateImpl leaderState;
+  private final RaftServer.Division server;
+  private final LeaderState leaderState;
   private final RaftLog raftLog;
   private final FollowerInfo follower;
 
@@ -150,13 +150,13 @@ public class LogAppender {
   public LogAppender(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
     this.name = follower.getName() + "-" + JavaUtils.getClassSimpleName(getClass());
-    this.server = (RaftServerImpl) server;
-    this.leaderState = (LeaderStateImpl) leaderState;
-    this.raftLog = this.server.getState().getLog();
+    this.server = server;
+    this.leaderState = leaderState;
+    this.raftLog = server.getRaftLog();
 
     final RaftProperties properties = server.getRaftServer().getProperties();
     this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties).getSizeInt();
-    this.halfMinTimeoutMs = this.server.getMinTimeoutMs() / 2;
+    this.halfMinTimeoutMs = server.properties().minRpcTimeoutMs() / 2;
 
     final SizeInBytes bufferByteLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
     final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
@@ -201,6 +201,10 @@ public class LogAppender {
     return getFollower().getPeer().getId();
   }
 
+  public LeaderState getLeaderState() {
+    return leaderState;
+  }
+
   private TermIndex getPrevious(long nextIndex) {
     if (nextIndex == RaftLog.LEAST_VALID_LOG_INDEX) {
       return null;
@@ -212,7 +216,7 @@ public class LogAppender {
       return previous;
     }
 
-    final SnapshotInfo snapshot = server.getState().getLatestSnapshot();
+    final SnapshotInfo snapshot = server.getStateMachine().getLatestSnapshot();
     if (snapshot != null) {
       final TermIndex snapshotTermIndex = snapshot.getTermIndex();
       if (snapshotTermIndex.getIndex() == previousIndex) {
@@ -294,10 +298,10 @@ public class LogAppender {
         }
 
         follower.updateLastRpcSendTime();
-        final AppendEntriesReplyProto r = server.getServerRpc().appendEntries(request);
+        final AppendEntriesReplyProto r = getServerRpc().appendEntries(request);
         follower.updateLastRpcResponseTime();
 
-        updateCommitIndex(r.getFollowerCommit());
+        getLeaderState().onFollowerCommitIndex(getFollower(), r.getFollowerCommit());
         return r;
       } catch (InterruptedIOException | RaftLogIOException e) {
         throw e;
@@ -309,16 +313,10 @@ public class LogAppender {
         handleException(ioe);
       }
       if (isAppenderRunning()) {
-        leaderState.getSyncInterval().sleep();
+        server.properties().rpcSleepTime().sleep();
       }
     }
     return null;
-  }
-
-  protected void updateCommitIndex(long commitIndex) {
-    if (follower.updateCommitIndex(commitIndex)) {
-      leaderState.commitIndexChanged();
-    }
   }
 
   protected InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex) {
@@ -340,7 +338,7 @@ public class LogAppender {
     try {
       for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
         follower.updateLastRpcSendTime();
-        reply = server.getServerRpc().installSnapshot(request);
+        reply = getServerRpc().installSnapshot(request);
         follower.updateLastRpcResponseTime();
 
         if (!reply.getServerReply().getSuccess()) {
@@ -369,7 +367,7 @@ public class LogAppender {
     // 1. there is no local log entry but there is snapshot
     // 2. or the follower's next index is smaller than the log start index
     if (follower.getNextIndex() < raftLog.getNextIndex()) {
-      SnapshotInfo snapshot = server.getState().getLatestSnapshot();
+      final SnapshotInfo snapshot = server.getStateMachine().getLatestSnapshot();
       if (follower.getNextIndex() < logStartIndex ||
           (logStartIndex == RaftLog.INVALID_LOG_INDEX && snapshot != null)) {
         return snapshot;
@@ -406,7 +404,7 @@ public class LogAppender {
           }
         }
       }
-      checkSlowness();
+      getLeaderState().checkHealth(getFollower());
     }
   }
 
@@ -425,7 +423,7 @@ public class LogAppender {
           if (nextIndex > oldNextIndex) {
             follower.updateMatchIndex(nextIndex - 1);
             follower.increaseNextIndex(nextIndex);
-            submitEventOnSuccessAppend();
+            getLeaderState().onFollowerSuccessAppendEntries(getFollower());
           }
           break;
         case NOT_LEADER:
@@ -445,19 +443,7 @@ public class LogAppender {
 
   private void handleException(Exception e) {
     LOG.trace("TRACE", e);
-    server.getServerRpc().handleException(follower.getPeer().getId(), e, false);
-  }
-
-  protected void submitEventOnSuccessAppend() {
-    leaderState.submitEventOnSuccessAppend(follower);
-  }
-
-  protected void checkSlowness() {
-    final TimeDuration lastRpcResponseElapsed = follower.getLastRpcResponseTime().elapsedTime();
-    if (lastRpcResponseElapsed.compareTo(server.getRpcSlownessTimeout()) > 0) {
-      server.getStateMachine().leaderEvent().notifyFollowerSlowness(server.getInfo().getRoleInfoProto());
-    }
-    leaderState.recordFollowerHeartbeatElapsedTime(follower.getPeer().getId(), lastRpcResponseElapsed);
+    getServerRpc().handleException(getFollowerId(), e, false);
   }
 
   public synchronized void notifyAppend() {
@@ -494,7 +480,7 @@ public class LogAppender {
 
   protected boolean checkResponseTerm(long responseTerm) {
     synchronized (server) {
-      return isAppenderRunning() && leaderState.handleResponseTerm(follower, responseTerm);
+      return isAppenderRunning() && leaderState.onFollowerTerm(follower, responseTerm);
     }
   }
 }

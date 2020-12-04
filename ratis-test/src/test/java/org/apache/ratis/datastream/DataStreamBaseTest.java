@@ -19,6 +19,8 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.DivisionInfo;
+import org.apache.ratis.server.DivisionProperties;
+import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
@@ -56,6 +58,7 @@ import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
@@ -88,6 +91,11 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
 
     @Override
+    public DivisionProperties properties() {
+      return null;
+    }
+
+    @Override
     public RaftGroupMemberId getMemberId() {
       return null;
     }
@@ -105,6 +113,11 @@ abstract class DataStreamBaseTest extends BaseTest {
     @Override
     public RaftServer getRaftServer() {
       return server;
+    }
+
+    @Override
+    public RaftServerMetrics getRaftServerMetrics() {
+      return null;
     }
 
     @Override
@@ -236,7 +249,7 @@ abstract class DataStreamBaseTest extends BaseTest {
       }
 
       @Override
-      public RpcType getRpcType() {
+      public RaftServerRpc getServerRpc() {
         return null;
       }
 
