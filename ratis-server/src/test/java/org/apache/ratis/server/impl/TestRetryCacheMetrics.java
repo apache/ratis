@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.util.TimeDuration;
+import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -53,6 +54,12 @@ public class TestRetryCacheMetrics {
           raftGroupMemberId, () -> null, () -> retryCache);
       ratisMetricRegistry = raftServerMetrics.getRegistry();
     }
+    
+    @After
+    public void tearDown() {
+        retryCache.close();
+        checkEntryCount(0);
+    }
 
     @Test
     public void testRetryCacheEntryCount() {
@@ -64,9 +71,6 @@ public class TestRetryCacheMetrics {
 
       retryCache.refreshEntry(entry);
       checkEntryCount(1);
-
-      retryCache.close();
-      checkEntryCount(0);
     }
 
     @Test
