@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import com.codahale.metrics.Timer;
@@ -107,7 +108,8 @@ public class TestSegmentedRaftLog extends BaseTest {
   }
 
   static SegmentedRaftLog newSegmentedRaftLog(RaftStorage storage, RaftProperties properties) {
-    return new SegmentedRaftLog(memberId, null, null, null, null, storage, -1, properties);
+    return new SegmentedRaftLog(memberId, null, null, null, null, storage,
+        () -> -1, properties);
   }
 
   @Before
@@ -500,7 +502,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     final List<LogEntryProto> entries = prepareLogEntries(range, null, true, new ArrayList<>());
 
     final SimpleStateMachine4Testing sm = new SimpleStateMachine4Testing();
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, -1, properties)) {
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, () -> -1, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
 
       int next = 0;
@@ -565,7 +567,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     };
 
     Throwable ex = null; // TimeoutIOException
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, -1, properties)) {
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, () -> -1, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // SegmentedRaftLogWorker should catch TimeoutIOException
       CompletableFuture<Long> f = raftLog.appendEntry(entry);

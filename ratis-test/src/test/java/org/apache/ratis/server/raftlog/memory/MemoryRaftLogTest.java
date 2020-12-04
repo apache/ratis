@@ -49,7 +49,7 @@ public class MemoryRaftLogTest extends BaseTest {
     final RaftGroupId groupId = RaftGroupId.randomId();
     final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(peerId, groupId);
 
-    MemoryRaftLog raftLog = new MemoryRaftLog(memberId, -1, prop);
+    MemoryRaftLog raftLog = new MemoryRaftLog(memberId, () -> -1, prop);
     raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
     LogEntryProto[] entries1 = new LogEntryProto[2];
     entries1[0] = LogEntryProto.newBuilder().setIndex(0).setTerm(0).build();
@@ -77,7 +77,7 @@ public class MemoryRaftLogTest extends BaseTest {
     final RaftGroupId groupId = RaftGroupId.randomId();
     final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(peerId, groupId);
 
-    MemoryRaftLog raftLog = new MemoryRaftLog(memberId, -1, prop);
+    MemoryRaftLog raftLog = new MemoryRaftLog(memberId, () -> -1, prop);
     raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
     LogEntryProto[] entries1 = new LogEntryProto[2];
     entries1[0] = LogEntryProto.newBuilder().setIndex(0).setTerm(0).build();

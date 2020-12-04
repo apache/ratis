@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 
 /**
  * Base class of RaftLog. Currently we provide two types of RaftLog
@@ -84,19 +85,24 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private final Runner runner = new Runner(this::getName);
   private final OpenCloseState state;
   private final RaftLogMetrics raftLogMetrics;
+  private final LongSupplier snapshotIndexSupplier;
 
   private volatile LogEntryProto lastMetadataEntry = null;
 
-  protected RaftLog(RaftGroupMemberId memberId, long commitIndex, RaftProperties properties) {
+  protected RaftLog(RaftGroupMemberId memberId,
+                    LongSupplier commitIndexSupplier,
+                    RaftProperties properties) {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     this.memberId = memberId;
-    this.commitIndex = new RaftLogIndex("commitIndex", commitIndex);
-    this.snapshotIndex = new RaftLogIndex("snapshotIndex", commitIndex);
+    long index = commitIndexSupplier.getAsLong();
+    this.commitIndex = new RaftLogIndex("commitIndex", index);
+    this.snapshotIndex = new RaftLogIndex("snapshotIndex", index);
     this.purgeIndex = new RaftLogIndex("purgeIndex", LEAST_VALID_LOG_INDEX - 1);
     this.purgeGap = RaftServerConfigKeys.Log.purgeGap(properties);
     this.raftLogMetrics = new RaftLogMetrics(memberId.toString());
     this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
     this.state = new OpenCloseState(getName());
+    this.snapshotIndexSupplier = commitIndexSupplier;
   }
 
   public RaftLogMetrics getRaftLogMetrics() {
@@ -359,6 +365,9 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
               "is greater than 1, entry: %s",
           lastTermIndex.getIndex(), latestSnapshotIndex, entry);
     } else {
+      // No logs are present. Check state machine's snapshot index.
+      updateSnapshotIndex(snapshotIndexSupplier.getAsLong());
+      latestSnapshotIndex = getSnapshotIndex();
       Preconditions.assertTrue(entry.getIndex() == latestSnapshotIndex + 1,
           "Difference between entry index and RaftLog's latest snapshot index %d is greater than 1 " +
               "and in between log entries are not present, entry: %s",

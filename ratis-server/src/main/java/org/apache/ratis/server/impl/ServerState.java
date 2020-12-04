@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 
 import static org.apache.ratis.server.RaftServer.Division.LOG;
 
@@ -110,22 +111,31 @@ class ServerState implements Closeable {
         RaftServerConfigKeys.Log.corruptionPolicy(prop));
     snapshotManager = new SnapshotManager(storage, id);
 
-    long lastApplied = initStatemachine(stateMachine, group.getGroupId());
+    initStatemachine(stateMachine, group.getGroupId());
 
     // On start the leader is null, start the clock now
     leaderId = null;
     this.lastNoLeaderTime = Timestamp.currentTime();
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
 
+    LongSupplier snapshotIndexSupplier = () -> {
+      SnapshotInfo snapshot = stateMachine.getLatestSnapshot();
+      if (snapshot == null || snapshot.getTermIndex().getIndex() < 0) {
+        return RaftLog.INVALID_LOG_INDEX;
+      }
+      return snapshot.getIndex();
+    };
+
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
-    this.log = initRaftLog(getMemberId(), server, storage, this::setRaftConf, lastApplied, prop);
+    this.log = initRaftLog(getMemberId(), server, storage, this::setRaftConf, snapshotIndexSupplier, prop);
 
     RaftLog.Metadata metadata = log.loadMetadata();
     currentTerm.set(metadata.getTerm());
     votedFor = metadata.getVotedFor();
 
-    stateMachineUpdater = new StateMachineUpdater(stateMachine, server, this, lastApplied, prop);
+    stateMachineUpdater = new StateMachineUpdater(stateMachine, server, this,
+        snapshotIndexSupplier.getAsLong(), prop);
   }
 
   RaftGroupMemberId getMemberId() {
@@ -156,21 +166,14 @@ class ServerState implements Closeable {
         .orElseThrow(() -> new IOException("No storage directory found."));
   }
 
-  private long initStatemachine(StateMachine sm, RaftGroupId gid)
+  private void initStatemachine(StateMachine sm, RaftGroupId gid)
       throws IOException {
     sm.initialize(server.getRaftServer(), gid, storage);
-    SnapshotInfo snapshot = sm.getLatestSnapshot();
-
-    if (snapshot == null || snapshot.getTermIndex().getIndex() < 0) {
-      return RaftLog.INVALID_LOG_INDEX;
-    }
-
     // get the raft configuration from raft metafile
     RaftConfiguration raftConf = storage.readRaftConfiguration();
     if (raftConf != null) {
       setRaftConf(raftConf.getLogEntryIndex(), raftConf);
     }
-    return snapshot.getIndex();
   }
 
   void writeRaftConfiguration(LogEntryProto conf) {
@@ -182,17 +185,19 @@ class ServerState implements Closeable {
   }
 
   private static RaftLog initRaftLog(RaftGroupMemberId memberId, RaftServerImpl server, RaftStorage storage,
-      Consumer<LogEntryProto> logConsumer, long lastIndexInSnapshot, RaftProperties prop) throws IOException {
+      Consumer<LogEntryProto> logConsumer, LongSupplier snapshotIndexSupplier,
+      RaftProperties prop) throws IOException {
     final RaftLog log;
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
-      log = new MemoryRaftLog(memberId, lastIndexInSnapshot, prop);
+      log = new MemoryRaftLog(memberId, snapshotIndexSupplier, prop);
     } else {
       log = new SegmentedRaftLog(memberId, server,
           server.getStateMachine(),
           server::notifyTruncatedLogEntry,
           server::submitUpdateCommitEvent,
-          storage, lastIndexInSnapshot, prop);
+          storage, snapshotIndexSupplier, prop);
     }
+    long lastIndexInSnapshot = snapshotIndexSupplier.getAsLong();
     log.open(lastIndexInSnapshot, logConsumer);
     return log;
   }

@@ -184,7 +184,7 @@ public class RaftServerTestUtil {
     return new SegmentedRaftLog(memberId, server, null,
         server::notifyTruncatedLogEntry,
         server::submitUpdateCommitEvent,
-        storage, -1, properties);
+        storage, () -> -1, properties);
   }
 
   public static SegmentedRaftLog newSegmentedRaftLog(RaftGroupMemberId memberId, RetryCache retryCache,
@@ -194,6 +194,6 @@ public class RaftServerTestUtil {
     when(server.getMemberId()).thenReturn(memberId);
     doCallRealMethod().when(server).notifyTruncatedLogEntry(any(RaftProtos.LogEntryProto.class));
     return new SegmentedRaftLog(memberId, server, null,
-        server::notifyTruncatedLogEntry, server::submitUpdateCommitEvent, storage, -1, properties);
+        server::notifyTruncatedLogEntry, server::submitUpdateCommitEvent, storage, () -> -1, properties);
   }
 }
