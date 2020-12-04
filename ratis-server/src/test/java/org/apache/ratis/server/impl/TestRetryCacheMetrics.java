@@ -57,7 +57,7 @@ public class TestRetryCacheMetrics {
     
     @After
     public void tearDown() {
-    	retryCache.close();
+        retryCache.close();
         checkEntryCount(0);
     }
 
