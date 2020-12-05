@@ -19,11 +19,13 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -65,6 +67,12 @@ public final class ServerImplUtils {
     }
     return proxy;
   }
+
+  public static Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(RaftServer.Division server,
+      RaftPeerId targetId, String requestId, SnapshotInfo snapshot, int snapshotChunkMaxSize) {
+    return new InstallSnapshotRequests(server, targetId, requestId, snapshot, snapshotChunkMaxSize);
+  }
+
 
   static long effectiveCommitIndex(long leaderCommitIndex, TermIndex followerPrevious, int numAppendEntries) {
     final long p = Optional.ofNullable(followerPrevious).map(TermIndex::getIndex).orElse(RaftLog.LEAST_VALID_LOG_INDEX);

@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.function.UnaryOperator;
 
 /**
  * The life cycle of a machine.
@@ -169,6 +170,53 @@ public class LifeCycle {
     if (from != to) {
       State.validate(name, from, to);
     }
+  }
+
+  /**
+   * Transition from the current state to the given state only if the transition is valid.
+   * If the transition is invalid, this is a no-op.
+   *
+   * @return true if the updated state equals to the given state.
+   */
+  public boolean transitionIfValid(final State to) {
+    final State updated = current.updateAndGet(from -> State.isValid(from, to)? to : from);
+    return updated == to;
+  }
+
+  /**
+   * Transition using the given operator.
+   *
+   * @return the updated state if there is a transition;
+   *         otherwise, return null to indicate no state change.
+   */
+  public State transition(UnaryOperator<State> operator) {
+    for(;;) {
+      final State previous = current.get();
+      final State applied = operator.apply(previous);
+      if (previous == applied) {
+        return null; // no change required
+      }
+      State.validate(name, previous, applied);
+      if (current.compareAndSet(previous, applied)) {
+        return applied;
+      }
+      // state has been changed, retry
+    }
+  }
+
+  /**
+   * Transition using the given operator.
+   *
+   * @return the updated state.
+   */
+  public State transitionAndGet(UnaryOperator<State> operator) {
+    return current.updateAndGet(previous -> {
+      final State applied = operator.apply(previous);
+      if (applied != previous) {
+        State.validate(name, previous, applied);
+      }
+      return applied;
+    });
   }
 
   /**
