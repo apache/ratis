@@ -126,18 +126,14 @@ public class DataStream extends Client {
 
     for(long offset = 0L; offset < fileSize;) {
       final ByteBuf buf = alloc.directBuffer(bufferSize);
-      final ByteBuffer byteBuffer = buf.nioBuffers()[0];
-      Preconditions.assertTrue(byteBuffer.remaining() > 0);
-
-      final int bytesRead = fileChannel.read(byteBuffer);
+      final int bytesRead = buf.writeBytes(fileChannel, bufferSize);
       if (bytesRead < 0) {
         throw new IllegalStateException("Failed to read " + fileSize
             + " byte(s). The channel has reached end-of-stream at " + offset);
       } else if (bytesRead > 0) {
         offset += bytesRead;
 
-        byteBuffer.flip();
-        final CompletableFuture<DataStreamReply> f = dataStreamOutput.writeAsync(byteBuffer, offset == fileSize);
+        final CompletableFuture<DataStreamReply> f = dataStreamOutput.writeAsync(buf.nioBuffer(), offset == fileSize);
         f.thenRun(buf::release);
         futures.add(f);
       }
