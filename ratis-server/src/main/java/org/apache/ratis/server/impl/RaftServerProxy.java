@@ -63,7 +63,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-class RaftServerProxy implements RaftServer {
+public class RaftServerProxy implements RaftServer {
   /**
    * A map: {@link RaftGroupId} -> {@link RaftServerImpl} futures.
    *
@@ -306,7 +306,7 @@ class RaftServerProxy implements RaftServer {
     return serverRpc;
   }
 
-  DataStreamServerRpc getDataStreamServerRpc() {
+  public DataStreamServerRpc getDataStreamServerRpc() {
     return dataStreamServerRpc;
   }
 
