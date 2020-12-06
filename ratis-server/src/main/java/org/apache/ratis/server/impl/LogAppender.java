@@ -21,8 +21,8 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -40,100 +40,12 @@ import java.util.*;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.metrics.RaftLogMetrics.LOG_APPENDER_INSTALL_SNAPSHOT_METRIC;
-import static org.apache.ratis.util.LifeCycle.State.CLOSED;
-import static org.apache.ratis.util.LifeCycle.State.CLOSING;
-import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
-import static org.apache.ratis.util.LifeCycle.State.NEW;
-import static org.apache.ratis.util.LifeCycle.State.RUNNING;
-import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 /**
  * A daemon thread appending log entries to a follower peer.
  */
 public class LogAppender {
   public static final Logger LOG = LoggerFactory.getLogger(LogAppender.class);
-
-  class AppenderDaemon {
-    private final String name = LogAppender.this + "-" + JavaUtils.getClassSimpleName(getClass());
-    private final LifeCycle lifeCycle = new LifeCycle(name);
-    private final Daemon daemon = new Daemon(this::run);
-
-    void start() {
-      // The life cycle state could be already closed due to server shutdown.
-      synchronized (lifeCycle) {
-        if (lifeCycle.compareAndTransition(NEW, STARTING)) {
-          daemon.start();
-        }
-      }
-    }
-
-    void run() {
-      synchronized (lifeCycle) {
-        if (!isRunning()) {
-          return;
-        }
-        transitionLifeCycle(RUNNING);
-      }
-      try {
-        runAppenderImpl();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        LOG.info(this + " was interrupted: " + e);
-      } catch (InterruptedIOException e) {
-        LOG.info(this + " was interrupted: " + e);
-      } catch (RaftLogIOException e) {
-        LOG.error(this + " failed RaftLog", e);
-        transitionLifeCycle(EXCEPTION);
-      } catch (IOException e) {
-        LOG.error(this + " failed IOException", e);
-        transitionLifeCycle(EXCEPTION);
-      } catch (Throwable e) {
-        LOG.error(this + " unexpected exception", e);
-        transitionLifeCycle(EXCEPTION);
-      } finally {
-        synchronized (lifeCycle) {
-          if (!lifeCycle.compareAndTransition(CLOSING, CLOSED)) {
-            lifeCycle.transitionIfNotEqual(EXCEPTION);
-          }
-          if (lifeCycle.getCurrentState() == EXCEPTION) {
-            leaderState.restart(LogAppender.this);
-          }
-        }
-      }
-    }
-
-    boolean isRunning() {
-      return !LifeCycle.States.CLOSING_OR_CLOSED_OR_EXCEPTION.contains(lifeCycle.getCurrentState());
-    }
-
-    void stop() {
-      synchronized (lifeCycle) {
-        if (LifeCycle.States.CLOSING_OR_CLOSED.contains(lifeCycle.getCurrentState())) {
-          return;
-        }
-        if (lifeCycle.compareAndTransition(NEW, CLOSED)) {
-          return;
-        }
-        transitionLifeCycle(CLOSING);
-      }
-      daemon.interrupt();
-    }
-
-    @Override
-    public String toString() {
-      return name;
-    }
-
-    private boolean transitionLifeCycle(LifeCycle.State to) {
-      synchronized (lifeCycle) {
-        if (LifeCycle.State.isValid(lifeCycle.getCurrentState(), to)) {
-          lifeCycle.transition(to);
-          return true;
-        }
-        return false;
-      }
-    }
-  }
 
   private final String name;
   private final RaftServer.Division server;
@@ -145,7 +57,7 @@ public class LogAppender {
   private final int snapshotChunkMaxSize;
   private final long halfMinTimeoutMs;
 
-  private final AppenderDaemon daemon;
+  private final LogAppenderDaemon daemon;
 
   public LogAppender(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -161,7 +73,7 @@ public class LogAppender {
     final SizeInBytes bufferByteLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
     final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
     this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
-    this.daemon = new AppenderDaemon();
+    this.daemon = new LogAppenderDaemon(this);
   }
 
   protected RaftServer.Division getServer() {
@@ -182,15 +94,15 @@ public class LogAppender {
   }
 
   void startAppender() {
-    daemon.start();
+    daemon.tryToStart();
   }
 
   public boolean isAppenderRunning() {
-    return daemon.isRunning();
+    return daemon.isWorking();
   }
 
   public void stopAppender() {
-    daemon.stop();
+    daemon.tryToClose();
   }
 
   public FollowerInfo getFollower() {
@@ -329,7 +241,8 @@ public class LogAppender {
 
   protected Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(
       String requestId, SnapshotInfo snapshot) {
-    return new InstallSnapshotRequests(server, getFollowerId(), requestId, snapshot, snapshotChunkMaxSize);
+    return ServerImplUtils.newInstallSnapshotRequests(server, getFollowerId(), requestId,
+        snapshot, snapshotChunkMaxSize);
   }
 
   private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot) throws InterruptedIOException {
