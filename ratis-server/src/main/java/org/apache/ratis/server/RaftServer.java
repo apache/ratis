@@ -21,7 +21,6 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
-import org.apache.ratis.rpc.RpcFactory;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.ServerImplUtils;
@@ -130,7 +129,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
   }
 
   /** @return the factory for creating server components. */
-  RpcFactory getFactory();
+  ServerFactory getFactory();
 
   /** Start this server. */
   void start() throws IOException;

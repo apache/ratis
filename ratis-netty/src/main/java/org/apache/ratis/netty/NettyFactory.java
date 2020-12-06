@@ -25,7 +25,7 @@ import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.server.ServerFactory;
 
 public class NettyFactory implements ServerFactory, ClientFactory {
   public NettyFactory(Parameters parameters) {}

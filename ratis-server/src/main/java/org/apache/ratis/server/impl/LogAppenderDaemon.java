@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
@@ -74,7 +75,7 @@ class LogAppenderDaemon {
   private void run() {
     try {
       if (lifeCycle.transition(TRY_TO_RUN) == RUNNING) {
-        logAppender.runAppenderImpl();
+        logAppender.run();
       }
       lifeCycle.compareAndTransition(RUNNING, CLOSING);
     } catch (InterruptedException e) {
