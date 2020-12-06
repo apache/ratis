@@ -49,8 +49,8 @@ public class LoadGen extends Client {
 
     long endTime = System.currentTimeMillis();
 
-    System.out.println("Total files written: " + numFiles);
-    System.out.println("Each files size: " + fileSizeInBytes);
+    System.out.println("Total files written: " + getNumFiles());
+    System.out.println("Each files size: " + getFileSizeInBytes());
     System.out.println("Total data written: " + totalWrittenBytes + " bytes");
     System.out.println("Total time taken: " + (endTime - startTime) + " millis");
 
@@ -67,18 +67,18 @@ public class LoadGen extends Client {
       File file = new File(path);
       FileInputStream fis = new FileInputStream(file);
 
-      int bytesToRead = bufferSizeInBytes;
-      if (fileSizeInBytes > 0L && fileSizeInBytes < (long)bufferSizeInBytes) {
-        bytesToRead = fileSizeInBytes;
+      int bytesToRead = getBufferSizeInBytes();
+      if (getFileSizeInBytes() > 0L && getFileSizeInBytes() < (long)getBufferSizeInBytes()) {
+        bytesToRead = getFileSizeInBytes();
       }
 
       byte[] buffer = new byte[bytesToRead];
       long offset = 0L;
       while(fis.read(buffer, 0, bytesToRead) > 0) {
         ByteBuffer b = ByteBuffer.wrap(buffer);
-        futures.add(fileStoreClient.writeAsync(path, offset, offset + bytesToRead == fileSizeInBytes, b));
+        futures.add(fileStoreClient.writeAsync(path, offset, offset + bytesToRead == getFileSizeInBytes(), b));
         offset += bytesToRead;
-        bytesToRead = (int)Math.min(fileSizeInBytes - offset, bufferSizeInBytes);
+        bytesToRead = (int)Math.min(getFileSizeInBytes() - offset, getBufferSizeInBytes());
         if (bytesToRead > 0) {
           buffer = new byte[bytesToRead];
         }
@@ -98,8 +98,8 @@ public class LoadGen extends Client {
         writtenLen += future.join();
       }
 
-      if (writtenLen != fileSizeInBytes) {
-        System.out.println("File written:" + writtenLen + " does not match expected:" + fileSizeInBytes);
+      if (writtenLen != getFileSizeInBytes()) {
+        System.out.println("File written:" + writtenLen + " does not match expected:" + getFileSizeInBytes());
       }
 
       totalBytes += writtenLen;

@@ -49,14 +49,26 @@ import java.util.concurrent.TimeUnit;
 public abstract class Client extends SubCommandBase {
 
   @Parameter(names = {"--size"}, description = "Size of each file in bytes", required = true)
-  protected int fileSizeInBytes;
+  private int fileSizeInBytes;
 
   @Parameter(names = {"--bufferSize"}, description = "Size of buffer in bytes, should less than 4MB, " +
       "i.e BUFFER_BYTE_LIMIT_DEFAULT", required = true)
-  protected int bufferSizeInBytes;
+  private int bufferSizeInBytes;
 
   @Parameter(names = {"--numFiles"}, description = "Number of files to be written", required = true)
-  protected int numFiles;
+  private int numFiles;
+
+  public int getFileSizeInBytes() {
+    return fileSizeInBytes;
+  }
+
+  public int getBufferSizeInBytes() {
+    return bufferSizeInBytes;
+  }
+
+  public int getNumFiles() {
+    return numFiles;
+  }
 
   @Override
   public void run() throws Exception {

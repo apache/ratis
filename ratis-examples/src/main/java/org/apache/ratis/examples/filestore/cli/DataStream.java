@@ -42,8 +42,8 @@ import java.util.concurrent.CompletableFuture;
 @Parameters(commandDescription = "Load Generator for FileStore DataStream")
 public class DataStream extends Client {
 
-  @Parameter(names = {"--type"}, description = "DirectByteBuffer, MappedByteBuffer, transferTo", required = true)
-  private String dataStreamType;
+  @Parameter(names = {"--type"}, description = "DirectByteBuffer, MappedByteBuffer, NettyFileRegion", required = true)
+  private String dataStreamType = "NettyFileRegion";
 
   @Override
   protected void operation(RaftClient client) throws IOException {
@@ -57,8 +57,8 @@ public class DataStream extends Client {
 
     long endTime = System.currentTimeMillis();
 
-    System.out.println("Total files written: " + numFiles);
-    System.out.println("Each files size: " + fileSizeInBytes);
+    System.out.println("Total files written: " + getNumFiles());
+    System.out.println("Each files size: " + getFileSizeInBytes());
     System.out.println("Total data written: " + totalWrittenBytes + " bytes");
     System.out.println("Total time taken: " + (endTime - startTime) + " millis");
 
@@ -78,8 +78,8 @@ public class DataStream extends Client {
         fileMap.put(path, writeByDirectByteBuffer(dataStreamOutput, fis.getChannel()));
       } else if (dataStreamType.equals("MappedByteBuffer")) {
         fileMap.put(path, writeByMappedByteBuffer(dataStreamOutput, fis.getChannel()));
-      } else if (dataStreamType.equals("transferTo")) {
-        fileMap.put(path, writeByTransferTo(dataStreamOutput, file));
+      } else if (dataStreamType.equals("NettyFileRegion")) {
+        fileMap.put(path, writeByNettyFileRegion(dataStreamOutput, file));
       } else {
         System.err.println("Error: dataStreamType should be one of DirectByteBuffer, MappedByteBuffer, transferTo");
       }
@@ -95,8 +95,8 @@ public class DataStream extends Client {
         writtenLen += future.join().getBytesWritten();
       }
 
-      if (writtenLen != fileSizeInBytes) {
-        System.out.println("File written:" + writtenLen + " does not match expected:" + fileSizeInBytes);
+      if (writtenLen != getFileSizeInBytes()) {
+        System.out.println("File written:" + writtenLen + " does not match expected:" + getFileSizeInBytes());
       }
 
       totalBytes += writtenLen;
@@ -108,9 +108,9 @@ public class DataStream extends Client {
       FileChannel fileChannel) throws IOException {
     List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
 
-    int bytesToRead = bufferSizeInBytes;
-    if (fileSizeInBytes > 0L && fileSizeInBytes < bufferSizeInBytes) {
-      bytesToRead = fileSizeInBytes;
+    int bytesToRead = getBufferSizeInBytes();
+    if (getFileSizeInBytes() > 0L && getFileSizeInBytes() < getBufferSizeInBytes()) {
+      bytesToRead = getFileSizeInBytes();
     }
 
     ByteBuffer byteBuffer = ByteBuffer.allocateDirect(bytesToRead);
@@ -118,9 +118,9 @@ public class DataStream extends Client {
 
     while (fileChannel.read(byteBuffer) > 0) {
       byteBuffer.flip();
-      futures.add(dataStreamOutput.writeAsync(byteBuffer, offset + bytesToRead == fileSizeInBytes));
+      futures.add(dataStreamOutput.writeAsync(byteBuffer, offset + bytesToRead == getFileSizeInBytes()));
       offset += bytesToRead;
-      bytesToRead = (int) Math.min(fileSizeInBytes - offset, bufferSizeInBytes);
+      bytesToRead = (int) Math.min(getFileSizeInBytes() - offset, getBufferSizeInBytes());
       if (bytesToRead > 0) {
         byteBuffer = ByteBuffer.allocateDirect(bytesToRead);
       }
@@ -132,12 +132,13 @@ public class DataStream extends Client {
   private List<CompletableFuture<DataStreamReply>> writeByMappedByteBuffer(DataStreamOutput dataStreamOutput,
       FileChannel fileChannel) throws IOException {
     List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-    MappedByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileSizeInBytes);
+    MappedByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, getFileSizeInBytes());
     futures.add(dataStreamOutput.writeAsync(mappedByteBuffer, true));
     return futures;
   }
 
-  private List<CompletableFuture<DataStreamReply>> writeByTransferTo(DataStreamOutput dataStreamOutput, File file) {
+  private List<CompletableFuture<DataStreamReply>> writeByNettyFileRegion(
+      DataStreamOutput dataStreamOutput, File file) {
     List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
     futures.add(dataStreamOutput.writeAsync(file));
     return futures;
