@@ -189,6 +189,12 @@ public class DataStreamManagement {
       LOG.debug("get({}) returns {}", key, info);
       return info;
     }
+
+    StreamInfo remove(Key key) {
+      final StreamInfo info = map.remove(key);
+      LOG.debug("remove({}) returns {}", key, info);
+      return info;
+    }
   }
 
   private final RaftServer server;
@@ -347,6 +353,9 @@ public class DataStreamManagement {
         throw new IllegalStateException("Failed to create a new stream for " + request
             + " since a stream already exists: " + info);
       }
+    } else if (request.getType() == Type.STREAM_CLOSE) {
+      info = Optional.ofNullable(streams.remove(key)).orElseThrow(
+          () -> new IllegalStateException("Failed to remove StreamInfo for " + request));
     } else {
       info = Optional.ofNullable(streams.get(key)).orElseThrow(
           () -> new IllegalStateException("Failed to get StreamInfo for " + request));
