@@ -17,32 +17,25 @@
  */
 package org.apache.ratis.server.impl;
 
-import java.io.Closeable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheStats;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.ratis.util.Timestamp;
 
-public class RetryCache implements Closeable {
-  static final Logger LOG = LoggerFactory.getLogger(RetryCache.class);
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
-  /**
-   * CacheEntry is tracked using unique client ID and callId of the RPC request
-   */
-  @VisibleForTesting
-  public static class CacheEntry {
+class RetryCacheImpl implements RetryCache {
+  static class CacheEntry implements Entry {
     private final ClientInvocationId key;
-    private final CompletableFuture<RaftClientReply> replyFuture =
-        new CompletableFuture<>();
+    private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
 
     /**
      * "failed" means we failed to commit the request into the raft group, or
@@ -89,11 +82,13 @@ public class RetryCache implements Closeable {
       replyFuture.completeExceptionally(t);
     }
 
-    CompletableFuture<RaftClientReply> getReplyFuture() {
+    @Override
+    public CompletableFuture<RaftClientReply> getReplyFuture() {
       return replyFuture;
     }
 
-    ClientInvocationId getKey() {
+    @Override
+    public ClientInvocationId getKey() {
       return key;
     }
   }
@@ -116,12 +111,55 @@ public class RetryCache implements Closeable {
     }
   }
 
+  static class StatisticsImpl implements Statistics {
+    static final TimeDuration EXPIRY_TIME = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
+
+    private final long size;
+    private final CacheStats cacheStats;
+    private final Timestamp creation = Timestamp.currentTime();
+
+    StatisticsImpl(Cache<?, ?> cache) {
+      this.size = cache.size();
+      this.cacheStats = cache.stats();
+    }
+
+    boolean isExpired() {
+      return creation.elapsedTime().compareTo(EXPIRY_TIME) > 0;
+    }
+
+    @Override
+    public long size() {
+      return size;
+    }
+
+    @Override
+    public long hitCount() {
+      return cacheStats.hitCount();
+    }
+
+    @Override
+    public double hitRate() {
+      return cacheStats.hitRate();
+    }
+
+    @Override
+    public long missCount() {
+      return cacheStats.missCount();
+    }
+
+    @Override
+    public double missRate() {
+      return cacheStats.missRate();
+    }
+  }
+
   private final Cache<ClientInvocationId, CacheEntry> cache;
+  private final AtomicReference<StatisticsImpl> statistics = new AtomicReference<>();
 
   /**
    * @param expirationTime time for an entry to expire in milliseconds
    */
-  RetryCache(TimeDuration expirationTime) {
+  RetryCacheImpl(TimeDuration expirationTime) {
     cache = CacheBuilder.newBuilder()
         .recordStats()
         .expireAfterWrite(expirationTime.getDuration(), expirationTime.getUnit())
@@ -139,13 +177,13 @@ public class RetryCache implements Closeable {
   }
 
   CacheEntry refreshEntry(CacheEntry newEntry) {
-    cache.put(newEntry.key, newEntry);
+    cache.put(newEntry.getKey(), newEntry);
     return newEntry;
   }
 
   CacheQueryResult queryCache(ClientInvocationId key) {
     final CacheEntry newEntry = new CacheEntry(key);
-    CacheEntry cacheEntry;
+    final CacheEntry cacheEntry;
     try {
       cacheEntry = cache.get(key, () -> newEntry);
     } catch (ExecutionException e) {
@@ -165,7 +203,7 @@ public class RetryCache implements Closeable {
       // need to recheck, since there may be other retry attempts being
       // processed at the same time. The recheck+replacement should be protected
       // by lock.
-      CacheEntry currentEntry = cache.getIfPresent(key);
+      final CacheEntry currentEntry = cache.getIfPresent(key);
       if (currentEntry == cacheEntry || currentEntry == null) {
         // if the failed entry has not got replaced by another retry, or the
         // failed entry got invalidated, we add a new cache entry
@@ -176,17 +214,13 @@ public class RetryCache implements Closeable {
     }
   }
 
-  @VisibleForTesting
-  public long size() {
-    return cache.size();
+  @Override
+  public Statistics getStatistics() {
+    return statistics.updateAndGet(old -> old == null || old.isExpired()? new StatisticsImpl(cache): old);
   }
 
-  public CacheStats stats() {
-    return cache.stats();
-  }
-
-  @VisibleForTesting
-  CacheEntry get(ClientInvocationId key) {
+  @Override
+  public CacheEntry getIfPresent(ClientInvocationId key) {
     return cache.getIfPresent(key);
   }
 

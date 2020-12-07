@@ -94,6 +94,9 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** @return the storage of this division. */
     RaftStorage getRaftStorage();
 
+    /** @return the retry cache of this division. */
+    RetryCache getRetryCache();
+
     /** @return the data stream map of this division. */
     DataStreamMap getDataStreamMap();
 

@@ -27,7 +27,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.junit.Test;
@@ -67,7 +67,7 @@ public class TestRetryCacheWithGrpc
       CompletableFuture<RaftClientReply> f = leaderProxy.submitClientRequestAsync(r);
       f.exceptionally(e -> {
         if (e.getCause() instanceof ResourceUnavailableException) {
-          RaftServerTestUtil.isRetryCacheEntryFailed(RaftServerTestUtil.getRetryEntry(leader, clientId, cid));
+          RetryCacheTestUtil.isFailed(RetryCacheTestUtil.get(leader, clientId, cid));
           failure.set(true);
         }
         return null;

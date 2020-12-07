@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class TestRetryCacheMetrics {
     private static RatisMetricRegistry ratisMetricRegistry;
-    private static RetryCache retryCache;
+    private static RetryCacheImpl retryCache;
 
     @BeforeClass
     public static void setUp() {
@@ -48,7 +48,7 @@ public class TestRetryCacheMetrics {
       RaftPeerId raftPeerId = RaftPeerId.valueOf("TestId");
       RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId
           .valueOf(raftPeerId, raftGroupId);
-      retryCache = new RetryCache(TimeDuration.valueOf(60, TimeUnit.SECONDS));
+      retryCache = new RetryCacheImpl(TimeDuration.valueOf(60, TimeUnit.SECONDS));
 
       final RaftServerMetrics raftServerMetrics = RaftServerMetrics.computeIfAbsentRaftServerMetrics(
           raftGroupMemberId, () -> null, () -> retryCache);
@@ -67,7 +67,7 @@ public class TestRetryCacheMetrics {
 
       ClientId clientId = ClientId.randomId();
       final ClientInvocationId key = ClientInvocationId.valueOf(clientId, 1);
-      RetryCache.CacheEntry entry = new RetryCache.CacheEntry(key);
+      final RetryCacheImpl.CacheEntry entry = new RetryCacheImpl.CacheEntry(key);
 
       retryCache.refreshEntry(entry);
       checkEntryCount(1);
