@@ -19,16 +19,13 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.DataStreamTestUtils;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
-import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.junit.Assert;
@@ -38,11 +35,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -60,7 +59,7 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
   static final int NUM_PEERS = 3;
 
   @Test
-  public void testFileStoreStream() throws Exception {
+  public void testFileStoreStreamSingleFile() throws Exception {
     final CLUSTER cluster = newCluster(NUM_PEERS);
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
@@ -72,9 +71,30 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
 
     final CheckedSupplier<FileStoreClient, IOException> newClient =
         () -> new FileStoreClient(cluster.getGroup(), getProperties(), raftPeer);
-    // TODO: configurable buffer size
-    final int bufferSize = 10_000;
-    testSingleFile("foo", SizeInBytes.valueOf("2M"), bufferSize, newClient);
+
+    testSingleFile("foo", SizeInBytes.valueOf("2M"), 10_000, newClient);
+    testSingleFile("bar", SizeInBytes.valueOf("2M"), 1000, newClient);
+    testSingleFile("sar", SizeInBytes.valueOf("20M"), 100_000, newClient);
+
+    cluster.shutdown();
+  }
+
+  @Test
+  public void testFileStoreStreamMultipleFiles() throws Exception {
+    final CLUSTER cluster = newCluster(NUM_PEERS);
+    cluster.start();
+    RaftTestUtil.waitForLeader(cluster);
+
+    final RaftGroup raftGroup = cluster.getGroup();
+    final Collection<RaftPeer> peers = raftGroup.getPeers();
+    Assert.assertEquals(NUM_PEERS, peers.size());
+    RaftPeer raftPeer = peers.iterator().next();
+
+    final CheckedSupplier<FileStoreClient, IOException> newClient =
+        () -> new FileStoreClient(cluster.getGroup(), getProperties(), raftPeer);
+
+    testMultipleFiles("foo", 5, SizeInBytes.valueOf("2M"), 10_000, newClient);
+    testMultipleFiles("bar", 10, SizeInBytes.valueOf("2M"), 1000, newClient);
 
     cluster.shutdown();
   }
@@ -84,36 +104,37 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
       IOException> newClient)
       throws Exception {
     LOG.info("runTestSingleFile with path={}, fileLength={}", path, fileLength);
-    final int size = fileLength.getSizeInt();
-    try (FileStoreClient client = newClient.get()) {
-      final DataStreamOutput dataStreamOutput = client.getStreamOutput(path, size);
-      final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-      final List<Integer> sizes = new ArrayList<>();
+    FileStoreWriter.newBuilder()
+        .setFileName(path)
+        .setFileSize(fileLength)
+        .setBufferSize(bufferSize)
+        .setFileStoreClientSupplier(newClient)
+        .build().streamWriteAndVerify();
+  }
 
-      for(int offset = 0; offset < size; ) {
-        final int remaining = size - offset;
-        final int length = Math.min(remaining, bufferSize);
-        final boolean close = length == remaining;
+  private void testMultipleFiles(String pathBase, int numFile, SizeInBytes fileLength,
+      int bufferSize, CheckedSupplier<FileStoreClient, IOException> newClient) throws Exception {
+    final ExecutorService executor = Executors.newFixedThreadPool(numFile);
 
-        LOG.trace("write {}, offset={}, length={}, close? {}",
-            path, offset, length, close);
-        final ByteBuffer bf = DataStreamTestUtils.initBuffer(0, length);
-        futures.add(dataStreamOutput.writeAsync(bf, close));
-        sizes.add(length);
-        offset += length;
-      }
-
-      DataStreamReply reply = dataStreamOutput.closeAsync().join();
-      Assert.assertTrue(reply.isSuccess());
-
-      // TODO: handle when any of the writeAsync has failed.
-      // check writeAsync requests
-      for (int i = 0; i < futures.size(); i++) {
-        reply = futures.get(i).join();
-        Assert.assertTrue(reply.isSuccess());
-        Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-        Assert.assertEquals(reply.getType(), i == futures.size() - 1 ? DataStreamPacketHeaderProto.Type.STREAM_DATA_SYNC : DataStreamPacketHeaderProto.Type.STREAM_DATA);
-      }
+    final List<Future<FileStoreWriter>> writerFutures = new ArrayList<>();
+    for (int i = 0; i < numFile; i++) {
+      String path =  pathBase + "-" + i;
+      final Callable<FileStoreWriter> callable = LogUtils.newCallable(LOG,
+          () -> FileStoreWriter.newBuilder()
+              .setFileName(path)
+              .setFileSize(fileLength)
+              .setBufferSize(bufferSize)
+              .setFileStoreClientSupplier(newClient)
+              .build().streamWriteAndVerify(),
+          () -> path);
+      writerFutures.add(executor.submit(callable));
     }
+    for (Future<FileStoreWriter> future : writerFutures) {
+      future.get();
+    }
+  }
+
+  static class StreamWriter {
+
   }
 }
