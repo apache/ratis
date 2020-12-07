@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 
@@ -229,10 +230,16 @@ public class LogSegment implements Comparable<Long> {
       final File file = getSegmentFile();
       // note the loading should not exceed the endIndex: it is possible that
       // the on-disk log file should be truncated but has not been done yet.
-      readSegmentFile(file, startIndex, endIndex, isOpen, getLogCorruptionPolicy(), raftLogMetrics,
-          entry -> putEntryCache(ServerProtoUtils.toTermIndex(entry), entry, Op.LOAD_SEGMENT_FILE));
+      final AtomicReference<LogEntryProto> toReturn = new AtomicReference<>();
+      readSegmentFile(file, startIndex, endIndex, isOpen, getLogCorruptionPolicy(), raftLogMetrics, entry -> {
+        final TermIndex ti = ServerProtoUtils.toTermIndex(entry);
+        putEntryCache(ti, entry, Op.LOAD_SEGMENT_FILE);
+        if (ti.equals(key.getTermIndex())) {
+          toReturn.set(entry);
+        }
+      });
       loadingTimes.incrementAndGet();
-      return Objects.requireNonNull(entryCache.get(key.getTermIndex()));
+      return Objects.requireNonNull(toReturn.get());
     }
   }
 
