@@ -24,10 +24,10 @@ import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.LogAppenderBase;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.leader.LogAppenderBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
@@ -114,10 +114,6 @@ public class GrpcLogAppender extends LogAppenderBase {
     getFollower().decreaseNextIndex(nextIndex);
   }
 
-  private boolean haveLogEntriesToSendOut() {
-    return shouldAppendEntries(getFollower().getNextIndex());
-  }
-
   private boolean isFollowerCommitBehindLastCommitIndex() {
     return getRaftLog().getLastCommittedIndex() > getFollower().getCommitIndex();
   }
@@ -129,7 +125,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       installSnapshotRequired = false;
 
       //HB period is expired OR we have messages OR follower is behind with commit index
-      if (haveLogEntriesToSendOut() || heartbeatTimeout() || isFollowerCommitBehindLastCommitIndex()) {
+      if (shouldSendAppendEntries() || isFollowerCommitBehindLastCommitIndex()) {
 
         if (installSnapshotEnabled) {
           SnapshotInfo snapshot = shouldInstallSnapshot();
@@ -156,11 +152,11 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private long getWaitTimeMs() {
     if (haveTooManyPendingRequests()) {
-      return getHeartbeatRemainingTime(); // Should wait for a short time
-    } else if (haveLogEntriesToSendOut() || heartbeatTimeout()) {
+      return getHeartbeatRemainingTimeMs(); // Should wait for a short time
+    } else if (shouldSendAppendEntries()) {
       return 0L;
     }
-    return Math.min(10L, getHeartbeatRemainingTime());
+    return Math.min(10L, getHeartbeatRemainingTimeMs());
   }
 
   private void mayWait() {
@@ -188,8 +184,8 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   @Override
-  public boolean shouldSendRequest() {
-    return appendLogRequestObserver == null || super.shouldSendRequest();
+  public boolean shouldSendAppendEntries() {
+    return appendLogRequestObserver == null || super.shouldSendAppendEntries();
   }
 
   /**
@@ -313,7 +309,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           break;
         case NOT_LEADER:
           grpcServerMetrics.onRequestNotLeader(getFollowerId().toString());
-          if (checkResponseTerm(reply.getTerm())) {
+          if (onFollowerTerm(reply.getTerm())) {
             return;
           }
           break;
@@ -429,7 +425,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           removePending(reply);
           break;
         case NOT_LEADER:
-          checkResponseTerm(reply.getTerm());
+          onFollowerTerm(reply.getTerm());
           break;
         case CONF_MISMATCH:
           LOG.error("{}: Configuration Mismatch ({}): Leader {} has it set to {} but follower {} has it set to {}",
@@ -565,12 +561,13 @@ public class GrpcLogAppender extends LogAppenderBase {
    * @return the first available log's start term index
    */
   private TermIndex shouldNotifyToInstallSnapshot() {
-    if (getFollower().getNextIndex() < getRaftLog().getStartIndex()) {
+    final long leaderStartIndex = getRaftLog().getStartIndex();
+    if (getFollower().getNextIndex() < leaderStartIndex) {
       // The Leader does not have the logs from the Follower's last log
       // index onwards. And install snapshot is disabled. So the Follower
       // should be notified to install the latest snapshot through its
       // State Machine.
-      return getRaftLog().getTermIndex(getRaftLog().getStartIndex());
+      return getRaftLog().getTermIndex(leaderStartIndex);
     }
     return null;
   }
