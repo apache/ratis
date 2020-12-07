@@ -35,6 +35,7 @@ import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
+import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.LogAppenderMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -284,7 +285,7 @@ class LeaderStateImpl implements LeaderState {
         server.getId().toString(), null);
     raftLog.append(placeHolder);
     processor.start();
-    senders.forEach(LogAppender::startAppender);
+    senders.forEach(LogAppender::start);
     return placeHolder;
   }
 
@@ -295,7 +296,7 @@ class LeaderStateImpl implements LeaderState {
   void stop() {
     this.running = false;
     // do not interrupt event processor since it may be in the middle of logSync
-    senders.forEach(LogAppender::stopAppender);
+    senders.forEach(LogAppender::stop);
     final NotLeaderException nle = server.generateNotLeaderException();
     final Collection<CommitInfoProto> commitInfos = server.getCommitInfos();
     try {
@@ -313,7 +314,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void notifySenders() {
-    senders.forEach(LogAppender::notifyAppend);
+    senders.forEach(LogAppender::notifyLogAppender);
   }
 
   boolean inStagingState() {
@@ -466,7 +467,7 @@ class LeaderStateImpl implements LeaderState {
    * Update sender list for setConfiguration request
    */
   void addAndStartSenders(Collection<RaftPeer> newPeers) {
-    addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false).forEach(LogAppender::startAppender);
+    addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false).forEach(LogAppender::start);
   }
 
   Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote) {
@@ -486,7 +487,7 @@ class LeaderStateImpl implements LeaderState {
 
   void stopAndRemoveSenders(Predicate<LogAppender> predicate) {
     final List<LogAppender> toStop = senders.stream().filter(predicate).collect(Collectors.toList());
-    toStop.forEach(LogAppender::stopAppender);
+    toStop.forEach(LogAppender::stop);
     senders.removeAll(toStop);
   }
 
@@ -494,7 +495,7 @@ class LeaderStateImpl implements LeaderState {
   public void restart(LogAppender sender) {
     final FollowerInfo follower = sender.getFollower();
     LOG.info("{}: Restarting {} for {}", this, JavaUtils.getClassSimpleName(sender.getClass()), follower.getName());
-    sender.stopAppender();
+    sender.stop();
     senders.removeAll(Collections.singleton(sender));
     addAndStartSenders(Collections.singleton(follower.getPeer()));
   }
@@ -504,7 +505,7 @@ class LeaderStateImpl implements LeaderState {
    */
   private void updateSenders(RaftConfiguration conf) {
     Preconditions.assertTrue(conf.isStable() && !inStagingState());
-    stopAndRemoveSenders(s -> !conf.containsInConf(s.getFollower().getPeer().getId()));
+    stopAndRemoveSenders(s -> !conf.containsInConf(s.getFollowerId()));
   }
 
   void submitStepDownEvent(StepDownReason reason) {
@@ -845,14 +846,14 @@ class LeaderStateImpl implements LeaderState {
   private List<List<RaftPeerId>> divideFollowers(RaftConfiguration conf) {
     List<List<RaftPeerId>> lists = new ArrayList<>(2);
     List<RaftPeerId> listForNew = senders.stream()
-        .filter(sender -> conf.containsInConf(sender.getFollower().getPeer().getId()))
-        .map(sender -> sender.getFollower().getPeer().getId())
+        .map(LogAppender::getFollowerId)
+        .filter(conf::containsInConf)
         .collect(Collectors.toList());
     lists.add(listForNew);
     if (conf.isTransitional()) {
       List<RaftPeerId> listForOld = senders.stream()
-          .filter(sender -> conf.containsInOldConf(sender.getFollower().getPeer().getId()))
-          .map(sender -> sender.getFollower().getPeer().getId())
+          .map(LogAppender::getFollowerId)
+          .filter(conf::containsInOldConf)
           .collect(Collectors.toList());
       lists.add(listForOld);
     }
@@ -923,7 +924,7 @@ class LeaderStateImpl implements LeaderState {
         .filter(sender -> sender.getFollower()
                                 .getLastRpcResponseTime()
                                 .elapsedTimeMs() <= server.getMaxTimeoutMs())
-        .map(sender -> sender.getFollower().getPeer().getId())
+        .map(LogAppender::getFollowerId)
         .collect(Collectors.toList());
 
     final RaftConfiguration conf = server.getRaftConf();

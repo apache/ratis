@@ -374,7 +374,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public CompletableFuture<ByteString> read(LogEntryProto entry) {
     return blocking.getFuture(Blocking.Type.READ_STATE_MACHINE_DATA)
-                   .thenApply((v) -> null);
+        .thenApply(v -> STATE_MACHINE_DATA);
   }
 
   @Override

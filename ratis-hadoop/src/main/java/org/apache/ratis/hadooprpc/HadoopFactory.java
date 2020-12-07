@@ -26,7 +26,7 @@ import org.apache.ratis.hadooprpc.server.HadoopRpcService;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.server.ServerFactory;
 
 public class HadoopFactory implements ServerFactory, ClientFactory {
   public static Parameters newRaftParameters(Configuration conf) {

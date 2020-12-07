@@ -19,7 +19,6 @@ package org.apache.ratis.server.leader;
 
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.util.JavaUtils;
 

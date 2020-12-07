@@ -30,6 +30,7 @@ import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorage;

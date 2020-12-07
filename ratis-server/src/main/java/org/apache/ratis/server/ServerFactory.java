@@ -15,13 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.impl;
+package org.apache.ratis.server;
 
 import org.apache.ratis.rpc.RpcFactory;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.impl.LogAppenderBase;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
+import org.apache.ratis.server.leader.LogAppender;
 
 /** A factory interface for creating server components. */
 public interface ServerFactory extends RpcFactory {
@@ -36,7 +36,7 @@ public interface ServerFactory extends RpcFactory {
 
   /** Create a new {@link LogAppender}. */
   default LogAppender newLogAppender(RaftServer.Division server, LeaderState state, FollowerInfo f) {
-    return new LogAppender(server, state, f);
+    return new LogAppenderBase(server, state, f);
   }
 
   RaftServerRpc newRaftServerRpc(RaftServer server);
