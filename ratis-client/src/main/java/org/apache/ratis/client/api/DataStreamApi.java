@@ -38,7 +38,9 @@ import java.nio.ByteBuffer;
  */
 public interface DataStreamApi {
   /** Create a stream to write data. */
-  DataStreamOutput stream();
+  default DataStreamOutput stream() {
+    return stream(null);
+  }
 
   /** Create a stream by providing a customized header message. */
   DataStreamOutput stream(ByteBuffer headerMessage);
