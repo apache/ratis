@@ -118,24 +118,20 @@ class ServerState implements Closeable {
     this.lastNoLeaderTime = Timestamp.currentTime();
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
 
-    LongSupplier snapshotIndexSupplier = () -> {
-      SnapshotInfo snapshot = stateMachine.getLatestSnapshot();
-      if (snapshot == null || snapshot.getTermIndex().getIndex() < 0) {
-        return RaftLog.INVALID_LOG_INDEX;
-      }
-      return snapshot.getIndex();
-    };
+    final LongSupplier getSnapshotIndexFromStateMachine = () -> Optional.ofNullable(stateMachine.getLatestSnapshot())
+        .map(SnapshotInfo::getIndex)
+        .filter(i -> i >= 0)
+        .orElse(RaftLog.INVALID_LOG_INDEX);
 
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
-    this.log = initRaftLog(getMemberId(), server, storage, this::setRaftConf, snapshotIndexSupplier, prop);
+    this.log = initRaftLog(getMemberId(), server, storage, this::setRaftConf, getSnapshotIndexFromStateMachine, prop);
 
     RaftLog.Metadata metadata = log.loadMetadata();
     currentTerm.set(metadata.getTerm());
     votedFor = metadata.getVotedFor();
 
-    stateMachineUpdater = new StateMachineUpdater(stateMachine, server, this,
-        snapshotIndexSupplier.getAsLong(), prop);
+    stateMachineUpdater = new StateMachineUpdater(stateMachine, server, this, log.getSnapshotIndex(), prop);
   }
 
   RaftGroupMemberId getMemberId() {
@@ -185,20 +181,19 @@ class ServerState implements Closeable {
   }
 
   private static RaftLog initRaftLog(RaftGroupMemberId memberId, RaftServerImpl server, RaftStorage storage,
-      Consumer<LogEntryProto> logConsumer, LongSupplier snapshotIndexSupplier,
+      Consumer<LogEntryProto> logConsumer, LongSupplier getSnapshotIndexFromStateMachine,
       RaftProperties prop) throws IOException {
     final RaftLog log;
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
-      log = new MemoryRaftLog(memberId, snapshotIndexSupplier, prop);
+      log = new MemoryRaftLog(memberId, getSnapshotIndexFromStateMachine, prop);
     } else {
       log = new SegmentedRaftLog(memberId, server,
           server.getStateMachine(),
           server::notifyTruncatedLogEntry,
           server::submitUpdateCommitEvent,
-          storage, snapshotIndexSupplier, prop);
+          storage, getSnapshotIndexFromStateMachine, prop);
     }
-    long lastIndexInSnapshot = snapshotIndexSupplier.getAsLong();
-    log.open(lastIndexInSnapshot, logConsumer);
+    log.open(log.getSnapshotIndex(), logConsumer);
     return log;
   }
 

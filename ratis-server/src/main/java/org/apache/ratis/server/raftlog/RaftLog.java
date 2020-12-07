@@ -85,16 +85,16 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private final Runner runner = new Runner(this::getName);
   private final OpenCloseState state;
   private final RaftLogMetrics raftLogMetrics;
-  private final LongSupplier snapshotIndexSupplier;
+  private final LongSupplier getSnapshotIndexFromStateMachine;
 
   private volatile LogEntryProto lastMetadataEntry = null;
 
   protected RaftLog(RaftGroupMemberId memberId,
-                    LongSupplier commitIndexSupplier,
+                    LongSupplier getSnapshotIndexFromStateMachine,
                     RaftProperties properties) {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     this.memberId = memberId;
-    long index = commitIndexSupplier.getAsLong();
+    long index = getSnapshotIndexFromStateMachine.getAsLong();
     this.commitIndex = new RaftLogIndex("commitIndex", index);
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", index);
     this.purgeIndex = new RaftLogIndex("purgeIndex", LEAST_VALID_LOG_INDEX - 1);
@@ -102,7 +102,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     this.raftLogMetrics = new RaftLogMetrics(memberId.toString());
     this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
     this.state = new OpenCloseState(getName());
-    this.snapshotIndexSupplier = commitIndexSupplier;
+    this.getSnapshotIndexFromStateMachine = getSnapshotIndexFromStateMachine;
   }
 
   public RaftLogMetrics getRaftLogMetrics() {
@@ -151,6 +151,10 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       }
     }
     return false;
+  }
+
+  protected void updateSnapshotIndexFromStateMachine() {
+      updateSnapshotIndex(getSnapshotIndexFromStateMachine.getAsLong());
   }
 
   /**
@@ -208,6 +212,8 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       // the SM wants to attach a logic depending on ordered execution in the log commit order.
       try {
         operation = operation.preAppendTransaction();
+      } catch (StateMachineException smEx) {
+        throw smEx;
       } catch (IOException e) {
         throw new StateMachineException(memberId, e);
       }
@@ -365,9 +371,6 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
               "is greater than 1, entry: %s",
           lastTermIndex.getIndex(), latestSnapshotIndex, entry);
     } else {
-      // No logs are present. Check state machine's snapshot index.
-      updateSnapshotIndex(snapshotIndexSupplier.getAsLong());
-      latestSnapshotIndex = getSnapshotIndex();
       Preconditions.assertTrue(entry.getIndex() == latestSnapshotIndex + 1,
           "Difference between entry index and RaftLog's latest snapshot index %d is greater than 1 " +
               "and in between log entries are not present, entry: %s",
