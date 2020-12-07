@@ -90,6 +90,8 @@ public class DataStream extends Client {
       } else {
         System.err.println("Error: dataStreamType should be one of DirectByteBuffer, MappedByteBuffer, transferTo");
       }
+
+      dataStreamOutput.closeAsync();
     }
     return fileMap;
   }
