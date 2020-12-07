@@ -37,36 +37,67 @@ import java.io.IOException;
 public interface LogAppender {
   Logger LOG = LoggerFactory.getLogger(LogAppender.class);
 
+  /** Create the default {@link LogAppender}. */
+  static LogAppender newLogAppenderDefault(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
+    return new LogAppenderDefault(server, leaderState, f);
+  }
+
+  /** @return the server. */
   RaftServer.Division getServer();
 
+  /** The same as getServer().getRaftServer().getServerRpc(). */
   default RaftServerRpc getServerRpc() {
     return getServer().getRaftServer().getServerRpc();
   }
 
+  /** The same as getServer().getRaftLog(). */
   default RaftLog getRaftLog() {
     return getServer().getRaftLog();
   }
 
+  /** Start this {@link LogAppender}. */
   void start();
 
+  /** Is this {@link LogAppender} running? */
   boolean isRunning();
 
+  /** Stop this {@link LogAppender}. */
   void stop();
 
+  /** @return the leader state. */
   LeaderState getLeaderState();
 
+  /** @return the follower information for this {@link LogAppender}. */
   FollowerInfo getFollower();
 
+  /** The same as getFollower().getPeer().getId(). */
   default RaftPeerId getFollowerId() {
     return getFollower().getPeer().getId();
   }
 
+  /**
+   * Create a {@link AppendEntriesRequestProto} object using the {@link FollowerInfo} of this {@link LogAppender}.
+   * The {@link AppendEntriesRequestProto} object may contain zero or more log entries.
+   * When there is zero log entries, the {@link AppendEntriesRequestProto} object is a heartbeat.
+   *
+   * @param callId The call id of the returned request.
+   * @param heartbeat the returned request must be a heartbeat.
+   *
+   * @return a new {@link AppendEntriesRequestProto} object.
+   */
   AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat) throws RaftLogIOException;
 
+  /** @return a new {@link InstallSnapshotRequestProto} object. */
   InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex);
 
+  /** @return an {@link Iterable} of {@link InstallSnapshotRequestProto} for sending the given snapshot. */
   Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId, SnapshotInfo snapshot);
 
+  /**
+   * Should this {@link LogAppender} send a snapshot to the follower?
+   *
+   * @return the snapshot if it should install a snapshot; otherwise, return null.
+   */
   default SnapshotInfo shouldInstallSnapshot() {
     // we should install snapshot if the follower needs to catch up and:
     // 1. there is no local log entry but there is snapshot
@@ -82,37 +113,47 @@ public interface LogAppender {
     return null;
   }
 
+  /** Define how this {@link LogAppender} should run. */
   void run() throws InterruptedException, IOException;
 
+  /**
+   * Similar to {@link #notify()}, wake up this {@link LogAppender} for an event, which can be:
+   * (1) new log entries available,
+   * (2) log indices changed, or
+   * (3) a snapshot installation completed.
+   */
   default void notifyLogAppender() {
     synchronized (this) {
       notify();
     }
   }
 
-  /** Should the leader send appendEntries RPC to this follower? */
-  default boolean shouldSendRequest() {
-    return shouldAppendEntries(getFollower().getNextIndex()) || heartbeatTimeout();
+  /** Should the leader send appendEntries RPC to the follower? */
+  default boolean shouldSendAppendEntries() {
+    return hasAppendEntries() || shouldHeartbeat();
   }
 
-  default boolean shouldAppendEntries(long followerIndex) {
-    return followerIndex < getRaftLog().getNextIndex();
+  /** Does it has outstanding appendEntries? */
+  default boolean hasAppendEntries() {
+    return getFollower().getNextIndex() < getRaftLog().getNextIndex();
   }
 
-  default boolean heartbeatTimeout() {
-    return getHeartbeatRemainingTime() <= 0;
+  /** The same as getHeartbeatRemainingTime() <= 0. */
+  default boolean shouldHeartbeat() {
+    return getHeartbeatRemainingTimeMs() <= 0;
   }
 
   /**
    * @return the time in milliseconds that the leader should send a heartbeat.
    */
-  default long getHeartbeatRemainingTime() {
+  default long getHeartbeatRemainingTimeMs() {
     return getServer().properties().minRpcTimeoutMs()/2 - getFollower().getLastRpcTime().elapsedTimeMs();
   }
 
-  default boolean checkResponseTerm(long responseTerm) {
+  /** Handle the event that the follower has replied a term. */
+  default boolean onFollowerTerm(long followerTerm) {
     synchronized (getServer()) {
-      return isRunning() && getLeaderState().onFollowerTerm(getFollower(), responseTerm);
+      return isRunning() && getLeaderState().onFollowerTerm(getFollower(), followerTerm);
     }
   }
 }

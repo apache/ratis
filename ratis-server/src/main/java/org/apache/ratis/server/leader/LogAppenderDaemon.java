@@ -15,9 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.impl;
+package org.apache.ratis.server.leader;
 
-import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
