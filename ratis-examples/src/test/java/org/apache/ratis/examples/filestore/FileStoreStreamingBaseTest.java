@@ -19,12 +19,8 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.DataStreamTestUtils;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
-import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
@@ -39,12 +35,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -110,62 +104,37 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
       IOException> newClient)
       throws Exception {
     LOG.info("runTestSingleFile with path={}, fileLength={}", path, fileLength);
-    new StreamWriter().write(path, fileLength, bufferSize, newClient);
+    FileStoreWriter.newBuilder()
+        .setFileName(path)
+        .setFileSize(fileLength)
+        .setBufferSize(bufferSize)
+        .setFileStoreClientSupplier(newClient)
+        .build().streamWriteAndVerify();
   }
 
   private void testMultipleFiles(String pathBase, int numFile, SizeInBytes fileLength,
       int bufferSize, CheckedSupplier<FileStoreClient, IOException> newClient) throws Exception {
     final ExecutorService executor = Executors.newFixedThreadPool(numFile);
 
-    final List<Future<StreamWriter>> writerFutures = new ArrayList<>();
+    final List<Future<FileStoreWriter>> writerFutures = new ArrayList<>();
     for (int i = 0; i < numFile; i++) {
       String path =  pathBase + "-" + i;
-      final Callable<StreamWriter> callable = LogUtils.newCallable(LOG,
-          () -> new StreamWriter().write(path, fileLength, bufferSize, newClient),
+      final Callable<FileStoreWriter> callable = LogUtils.newCallable(LOG,
+          () -> FileStoreWriter.newBuilder()
+              .setFileName(path)
+              .setFileSize(fileLength)
+              .setBufferSize(bufferSize)
+              .setFileStoreClientSupplier(newClient)
+              .build().streamWriteAndVerify(),
           () -> path);
       writerFutures.add(executor.submit(callable));
     }
-    for (Future<StreamWriter> future : writerFutures) {
+    for (Future<FileStoreWriter> future : writerFutures) {
       future.get();
     }
   }
 
   static class StreamWriter {
-    public StreamWriter write(
-        String path, SizeInBytes fileLength, int bufferSize, CheckedSupplier<FileStoreClient,
-        IOException> newClient) throws IOException {
-      final int size = fileLength.getSizeInt();
-      try (FileStoreClient client = newClient.get()) {
-        final DataStreamOutput dataStreamOutput = client.getStreamOutput(path, size);
-        final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-        final List<Integer> sizes = new ArrayList<>();
 
-        for(int offset = 0; offset < size; ) {
-          final int remaining = size - offset;
-          final int length = Math.min(remaining, bufferSize);
-          final boolean close = length == remaining;
-
-          LOG.trace("write {}, offset={}, length={}, close? {}",
-              path, offset, length, close);
-          final ByteBuffer bf = DataStreamTestUtils.initBuffer(0, length);
-          futures.add(dataStreamOutput.writeAsync(bf, close));
-          sizes.add(length);
-          offset += length;
-        }
-
-        DataStreamReply reply = dataStreamOutput.closeAsync().join();
-        Assert.assertTrue(reply.isSuccess());
-
-        // TODO: handle when any of the writeAsync has failed.
-        // check writeAsync requests
-        for (int i = 0; i < futures.size(); i++) {
-          reply = futures.get(i).join();
-          Assert.assertTrue(reply.isSuccess());
-          Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-          Assert.assertEquals(reply.getType(), i == futures.size() - 1 ? DataStreamPacketHeaderProto.Type.STREAM_DATA_SYNC : DataStreamPacketHeaderProto.Type.STREAM_DATA);
-        }
-      }
-      return this;
-    }
   }
 }
