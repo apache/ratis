@@ -212,6 +212,8 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       // the SM wants to attach a logic depending on ordered execution in the log commit order.
       try {
         operation = operation.preAppendTransaction();
+      } catch (StateMachineException e) {
+        throw e;
       } catch (IOException e) {
         throw new StateMachineException(memberId, e);
       }
