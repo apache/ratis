@@ -153,7 +153,7 @@ public class FileStoreClient implements Closeable {
     return WriteReplyProto.parseFrom(reply).getLength();
   }
 
-  public DataStreamOutput getStreamOutput(String path, int dataSize) {
+  public DataStreamOutput getStreamOutput(String path, long dataSize) {
     final StreamWriteRequestProto header = StreamWriteRequestProto.newBuilder()
         .setPath(ProtoUtils.toByteString(path))
         .setLength(dataSize)
