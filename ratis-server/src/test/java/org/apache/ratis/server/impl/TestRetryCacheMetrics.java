@@ -21,26 +21,27 @@ package org.apache.ratis.server.impl;
 import static org.apache.ratis.server.metrics.RaftServerMetrics.*;
 import static org.junit.Assert.assertEquals;
 
+import com.codahale.metrics.Gauge;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
-import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
 
 /**
  * Test for metrics of retry cache.
  */
 public class TestRetryCacheMetrics {
     private static RatisMetricRegistry ratisMetricRegistry;
-    private static RetryCache retryCache;
+    private static RetryCacheImpl retryCache;
 
     @BeforeClass
     public static void setUp() {
@@ -48,10 +49,10 @@ public class TestRetryCacheMetrics {
       RaftPeerId raftPeerId = RaftPeerId.valueOf("TestId");
       RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId
           .valueOf(raftPeerId, raftGroupId);
-      retryCache = new RetryCache(TimeDuration.valueOf(60, TimeUnit.SECONDS));
+      retryCache = new RetryCacheImpl(RaftServerConfigKeys.RetryCache.EXPIRY_TIME_DEFAULT, null);
 
       final RaftServerMetrics raftServerMetrics = RaftServerMetrics.computeIfAbsentRaftServerMetrics(
-          raftGroupMemberId, () -> null, () -> retryCache);
+          raftGroupMemberId, () -> null, retryCache::getStatistics);
       ratisMetricRegistry = raftServerMetrics.getRegistry();
     }
     
@@ -67,7 +68,7 @@ public class TestRetryCacheMetrics {
 
       ClientId clientId = ClientId.randomId();
       final ClientInvocationId key = ClientInvocationId.valueOf(clientId, 1);
-      RetryCache.CacheEntry entry = new RetryCache.CacheEntry(key);
+      final RetryCacheImpl.CacheEntry entry = new RetryCacheImpl.CacheEntry(key);
 
       retryCache.refreshEntry(entry);
       checkEntryCount(1);
@@ -110,9 +111,11 @@ public class TestRetryCacheMetrics {
       assertEquals(missRate.doubleValue(), rate, 0.0);
     }
 
-    private static void checkEntryCount(long count) {
-      Long entryCount = (Long) ratisMetricRegistry.getGauges((s, metric) ->
-          s.contains(RETRY_CACHE_ENTRY_COUNT_METRIC)).values().iterator().next().getValue();
-      assertEquals(entryCount.longValue(), count);
+    private static void checkEntryCount(long expected) {
+      final Map<String, Gauge> map = ratisMetricRegistry.getGauges(
+          (s, metric) -> s.contains(RETRY_CACHE_ENTRY_COUNT_METRIC));
+      assertEquals(1, map.size());
+      final Map.Entry<String, Gauge> entry = map.entrySet().iterator().next();
+      assertEquals(expected, entry.getValue().getValue());
     }
 }

@@ -29,7 +29,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.JavaUtils;
@@ -97,8 +97,8 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       if (server.getInfo().getLastAppliedIndex() < leaderApplied) {
         Thread.sleep(1000);
       }
-      Assert.assertEquals(2, RaftServerTestUtil.getRetryCacheSize(server));
-      Assert.assertNotNull(RaftServerTestUtil.getRetryEntry(server, clientId, callId));
+      Assert.assertEquals(2, server.getRetryCache().getStatistics().size());
+      Assert.assertNotNull(RetryCacheTestUtil.get(server, clientId, callId));
       // make sure there is only one log entry committed
       Assert.assertEquals(1, count(server.getRaftLog(), oldLastApplied + 1));
     }

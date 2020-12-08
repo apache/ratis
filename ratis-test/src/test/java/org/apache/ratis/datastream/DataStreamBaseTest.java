@@ -21,6 +21,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
@@ -131,6 +132,11 @@ abstract class DataStreamBaseTest extends BaseTest {
 
     @Override
     public RaftStorage getRaftStorage() {
+      return null;
+    }
+
+    @Override
+    public RetryCache getRetryCache() {
       return null;
     }
 

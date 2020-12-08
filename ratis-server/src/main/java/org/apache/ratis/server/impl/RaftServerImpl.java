@@ -40,6 +40,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
@@ -52,7 +53,6 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.*;
 
@@ -150,7 +150,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final MemoizedSupplier<RaftClient> raftClient;
 
-  private final RetryCache retryCache;
+  private final RetryCacheImpl retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
 
   private final RaftServerJmxAdapter jmxAdapter;
@@ -182,7 +182,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.proxy = proxy;
 
     this.state = new ServerState(id, group, properties, this, stateMachine);
-    this.retryCache = initRetryCache(properties);
+    this.retryCache = new RetryCacheImpl(properties);
     this.inProgressInstallSnapshotRequest = new AtomicReference<>(null);
     this.dataStreamMap = new DataStreamMapImpl(id);
 
@@ -190,7 +190,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
     this.raftServerMetrics = RaftServerMetrics.computeIfAbsentRaftServerMetrics(
-        getMemberId(), () -> commitInfoCache::get, () -> retryCache);
+        getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
 
@@ -206,11 +206,6 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public DivisionProperties properties() {
     return divisionProperties;
-  }
-
-  private RetryCache initRetryCache(RaftProperties prop) {
-    final TimeDuration expireTime = RaftServerConfigKeys.RetryCache.expiryTime(prop);
-    return new RetryCache(expireTime);
   }
 
   LogAppender newLogAppender(LeaderState leaderState, FollowerInfo f) {
@@ -260,8 +255,8 @@ class RaftServerImpl implements RaftServer.Division,
     return raftClient.get();
   }
 
-  @VisibleForTesting
-  public RetryCache getRetryCache() {
+  @Override
+  public RetryCacheImpl getRetryCache() {
     return retryCache;
   }
 
@@ -591,27 +586,26 @@ class RaftServerImpl implements RaftServer.Division,
   /**
    * @return null if the server is in leader state.
    */
-  private CompletableFuture<RaftClientReply> checkLeaderState(
-      RaftClientRequest request, RetryCache.CacheEntry entry) {
+  private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry) {
     try {
       assertGroup(request.getRequestorId(), request.getRaftGroupId());
     } catch (GroupMismatchException e) {
-      return RetryCache.failWithException(e, entry);
+      return RetryCacheImpl.failWithException(e, entry);
     }
 
     if (!getInfo().isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
       final RaftClientReply reply = newExceptionReply(request, exception);
-      return RetryCache.failWithReply(reply, entry);
+      return RetryCacheImpl.failWithReply(reply, entry);
     }
     if (!getInfo().isLeaderReady()) {
-      final RetryCache.CacheEntry cacheEntry = retryCache.get(ClientInvocationId.valueOf(request));
+      final CacheEntry cacheEntry = retryCache.getIfPresent(ClientInvocationId.valueOf(request));
       if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
         return cacheEntry.getReplyFuture();
       }
       final LeaderNotReadyException lnre = new LeaderNotReadyException(getMemberId());
       final RaftClientReply reply = newExceptionReply(request, lnre);
-      return RetryCache.failWithReply(reply, entry);
+      return RetryCacheImpl.failWithReply(reply, entry);
     }
     return null;
   }
@@ -650,8 +644,7 @@ class RaftServerImpl implements RaftServer.Division,
    * Handle a normal update request from client.
    */
   private CompletableFuture<RaftClientReply> appendTransaction(
-      RaftClientRequest request, TransactionContext context,
-      RetryCache.CacheEntry cacheEntry) throws IOException {
+      RaftClientRequest request, TransactionContext context, CacheEntry cacheEntry) throws IOException {
     assertLifeCycleState(LifeCycle.States.RUNNING);
     CompletableFuture<RaftClientReply> reply;
 
@@ -716,7 +709,7 @@ class RaftServerImpl implements RaftServer.Division,
     LOG.debug("{}: receive client request({})", getMemberId(), request);
     final Optional<Timer> timer = Optional.ofNullable(raftServerMetrics.getClientRequestTimer(request.getType()));
 
-    CompletableFuture<RaftClientReply> replyFuture;
+    final CompletableFuture<RaftClientReply> replyFuture;
 
     if (request.is(TypeCase.STALEREAD)) {
       replyFuture = staleReadAsync(request);
@@ -750,14 +743,13 @@ class RaftServerImpl implements RaftServer.Division,
         replyFuture = streamAsync(request);
       } else {
         // query the retry cache
-        final RetryCache.CacheQueryResult previousResult = retryCache.queryCache(ClientInvocationId.valueOf(request));
-        if (previousResult.isRetry()) {
+        final RetryCacheImpl.CacheQueryResult queryResult = retryCache.queryCache(ClientInvocationId.valueOf(request));
+        final CacheEntry cacheEntry = queryResult.getEntry();
+        if (queryResult.isRetry()) {
           // if the previous attempt is still pending or it succeeded, return its
           // future
-          replyFuture = previousResult.getEntry().getReplyFuture();
+          replyFuture = cacheEntry.getReplyFuture();
         } else {
-          final RetryCache.CacheEntry cacheEntry = previousResult.getEntry();
-
           // TODO: this client request will not be added to pending requests until
           // later which means that any failure in between will leave partial state in
           // the state machine. We should call cancelTransaction() for failed requests
@@ -1506,13 +1498,13 @@ class RaftServerImpl implements RaftServer.Division,
     Preconditions.assertTrue(logEntry.hasStateMachineLogEntry());
     final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
     // update the retry cache
-    final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
+    final CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
     if (getInfo().isLeader()) {
       Preconditions.assertTrue(cacheEntry != null && !cacheEntry.isCompletedNormally(),
               "retry cache entry should be pending: %s", cacheEntry);
     }
     if (cacheEntry.isFailed()) {
-      retryCache.refreshEntry(new RetryCache.CacheEntry(cacheEntry.getKey()));
+      retryCache.refreshEntry(new CacheEntry(cacheEntry.getKey()));
     }
 
     final long logIndex = logEntry.getIndex();
@@ -1582,7 +1574,7 @@ class RaftServerImpl implements RaftServer.Division,
   void notifyTruncatedLogEntry(LogEntryProto logEntry) {
     if (logEntry.hasStateMachineLogEntry()) {
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
-      final RetryCache.CacheEntry cacheEntry = getRetryCache().get(invocationId);
+      final CacheEntry cacheEntry = getRetryCache().getIfPresent(invocationId);
       if (cacheEntry != null) {
         cacheEntry.failWithReply(newReplyBuilder(invocationId, logEntry.getIndex())
             .setException(generateNotLeaderException())

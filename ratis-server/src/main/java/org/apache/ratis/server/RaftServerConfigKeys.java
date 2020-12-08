@@ -501,6 +501,16 @@ public interface RaftServerConfigKeys {
     static void setExpiryTime(RaftProperties properties, TimeDuration expiryTime) {
       setTimeDuration(properties::setTimeDuration, EXPIRY_TIME_KEY, expiryTime);
     }
+
+    String STATISTICS_EXPIRY_TIME_KEY = PREFIX + ".statistics.expirytime";
+    TimeDuration STATISTICS_EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(100, TimeUnit.MICROSECONDS);
+    static TimeDuration statisticsExpiryTime(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(STATISTICS_EXPIRY_TIME_DEFAULT.getUnit()),
+          STATISTICS_EXPIRY_TIME_KEY, STATISTICS_EXPIRY_TIME_DEFAULT, getDefaultLog());
+    }
+    static void setStatisticsExpiryTime(RaftProperties properties, TimeDuration expiryTime) {
+      setTimeDuration(properties::setTimeDuration, STATISTICS_EXPIRY_TIME_KEY, expiryTime);
+    }
   }
 
   interface Notification {

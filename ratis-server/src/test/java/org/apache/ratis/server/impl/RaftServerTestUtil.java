@@ -19,9 +19,6 @@ package org.apache.ratis.server.impl;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -47,11 +44,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.stream.Stream;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class RaftServerTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerTestUtil.class);
@@ -111,18 +103,6 @@ public class RaftServerTestUtil {
 
   public static long getLatestInstalledSnapshotIndex(RaftServer.Division server) {
     return ((RaftServerImpl)server).getState().getLatestInstalledSnapshotIndex();
-  }
-
-  public static long getRetryCacheSize(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getRetryCache().size();
-  }
-
-  public static RetryCache.CacheEntry getRetryEntry(RaftServer.Division server, ClientId clientId, long callId) {
-    return ((RaftServerImpl)server).getRetryCache().get(ClientInvocationId.valueOf(clientId, callId));
-  }
-
-  public static boolean isRetryCacheEntryFailed(RetryCache.CacheEntry entry) {
-    return entry.isFailed();
   }
 
   static ServerState getState(RaftServer.Division server) {
@@ -186,15 +166,5 @@ public class RaftServerTestUtil {
         server::notifyTruncatedLogEntry,
         server::submitUpdateCommitEvent,
         storage, -1, properties);
-  }
-
-  public static SegmentedRaftLog newSegmentedRaftLog(RaftGroupMemberId memberId, RetryCache retryCache,
-      RaftStorage storage, RaftProperties properties) {
-    final RaftServerImpl server = mock(RaftServerImpl.class);
-    when(server.getRetryCache()).thenReturn(retryCache);
-    when(server.getMemberId()).thenReturn(memberId);
-    doCallRealMethod().when(server).notifyTruncatedLogEntry(any(RaftProtos.LogEntryProto.class));
-    return new SegmentedRaftLog(memberId, server, null,
-        server::notifyTruncatedLogEntry, server::submitUpdateCommitEvent, storage, -1, properties);
   }
 }

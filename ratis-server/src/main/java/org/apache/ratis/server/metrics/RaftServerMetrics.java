@@ -40,7 +40,7 @@ import org.apache.ratis.protocol.RaftClientRequest.Type;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.metrics.RatisMetrics;
-import org.apache.ratis.server.impl.RetryCache;
+import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Preconditions;
 
@@ -95,9 +95,10 @@ public final class RaftServerMetrics extends RatisMetrics {
   }
 
   public static RaftServerMetrics computeIfAbsentRaftServerMetrics(RaftGroupMemberId serverId,
-      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache, Supplier<RetryCache> retryCache) {
+      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
+      Supplier<RetryCache.Statistics> retryCacheStatistics) {
     return METRICS.computeIfAbsent(serverId,
-        key -> new RaftServerMetrics(serverId, commitInfoCache, retryCache));
+        key -> new RaftServerMetrics(serverId, commitInfoCache, retryCacheStatistics));
   }
 
   public static void removeRaftServerMetrics(RaftGroupMemberId serverId) {
@@ -105,11 +106,12 @@ public final class RaftServerMetrics extends RatisMetrics {
   }
 
   public RaftServerMetrics(RaftGroupMemberId serverId,
-      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache, Supplier<RetryCache> retryCache) {
+      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
+      Supplier<RetryCache.Statistics> retryCacheStatistics) {
     this.registry = getMetricRegistryForRaftServer(serverId.toString());
     this.commitInfoCache = commitInfoCache;
     addPeerCommitIndexGauge(serverId.getPeerId());
-    addRetryCacheMetric(retryCache);
+    addRetryCacheMetric(retryCacheStatistics);
   }
 
   private RatisMetricRegistry getMetricRegistryForRaftServer(String serverId) {
@@ -118,12 +120,12 @@ public final class RaftServerMetrics extends RatisMetrics {
         RATIS_SERVER_METRICS_DESC));
   }
 
-  private void addRetryCacheMetric(Supplier<RetryCache> retryCache) {
-    registry.gauge(RETRY_CACHE_ENTRY_COUNT_METRIC, () -> () -> retryCache.get().size());
-    registry.gauge(RETRY_CACHE_HIT_COUNT_METRIC  , () -> () -> retryCache.get().stats().hitCount());
-    registry.gauge(RETRY_CACHE_HIT_RATE_METRIC   , () -> () -> retryCache.get().stats().hitRate());
-    registry.gauge(RETRY_CACHE_MISS_COUNT_METRIC , () -> () -> retryCache.get().stats().missCount());
-    registry.gauge(RETRY_CACHE_MISS_RATE_METRIC  , () -> () -> retryCache.get().stats().missRate());
+  private void addRetryCacheMetric(Supplier<RetryCache.Statistics> retryCacheStatistics) {
+    registry.gauge(RETRY_CACHE_ENTRY_COUNT_METRIC, () -> () -> retryCacheStatistics.get().size());
+    registry.gauge(RETRY_CACHE_HIT_COUNT_METRIC  , () -> () -> retryCacheStatistics.get().hitCount());
+    registry.gauge(RETRY_CACHE_HIT_RATE_METRIC   , () -> () -> retryCacheStatistics.get().hitRate());
+    registry.gauge(RETRY_CACHE_MISS_COUNT_METRIC , () -> () -> retryCacheStatistics.get().missCount());
+    registry.gauge(RETRY_CACHE_MISS_RATE_METRIC  , () -> () -> retryCacheStatistics.get().missRate());
   }
 
   /**
