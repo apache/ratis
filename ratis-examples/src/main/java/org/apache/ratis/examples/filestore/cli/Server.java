@@ -40,6 +40,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.File;
@@ -79,6 +80,8 @@ public class Server extends SubCommandBase {
     RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
     RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
+    RaftServerConfigKeys.Write.setElementLimit(properties, 40960);
+    RaftServerConfigKeys.Write.setByteLimit(properties, SizeInBytes.valueOf("1000MB"));
     ConfUtils.setFile(properties::setFile, FileStoreCommon.STATEMACHINE_DIR_KEY,
         storageDir);
     StateMachine stateMachine = new FileStoreStateMachine(properties);
