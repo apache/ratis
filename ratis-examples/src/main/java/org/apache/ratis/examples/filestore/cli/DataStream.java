@@ -49,8 +49,32 @@ public class DataStream extends Client {
   @Parameter(names = {"--type"}, description = "DirectByteBuffer, MappedByteBuffer, NettyFileRegion", required = true)
   private String dataStreamType = "NettyFileRegion";
 
+  @Parameter(names = {"--syncSize"}, description = "Sync every syncSize, syncSize % bufferSize should be zero," +
+      "-1 means on sync", required = true)
+  private int syncSize = -1;
+
+  private boolean checkParam() {
+    if (syncSize != -1 && syncSize % getBufferSizeInBytes() != 0) {
+      System.err.println("Error: syncSize % bufferSize should be zero");
+      return false;
+    }
+
+    if (!dataStreamType.equals("DirectByteBuffer") &&
+        !dataStreamType.equals("MappedByteBuffer") &&
+        !dataStreamType.equals("NettyFileRegion")) {
+      System.err.println("Error: dataStreamType should be one of DirectByteBuffer, MappedByteBuffer, transferTo");
+      return false;
+    }
+
+    return true;
+  }
+
   @Override
   protected void operation(RaftClient client) throws IOException {
+    if (!checkParam()) {
+      stop(client);
+    }
+
     List<String> paths = generateFiles();
     FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting DataStream write now ");
@@ -66,8 +90,7 @@ public class DataStream extends Client {
     System.out.println("Total data written: " + totalWrittenBytes + " bytes");
     System.out.println("Total time taken: " + (endTime - startTime) + " millis");
 
-    client.close();
-    System.exit(0);
+    stop(client);
   }
 
   private Map<String, List<CompletableFuture<DataStreamReply>>> streamWrite(
@@ -87,8 +110,6 @@ public class DataStream extends Client {
         fileMap.put(path, writeByMappedByteBuffer(dataStreamOutput, fis.getChannel()));
       } else if (dataStreamType.equals("NettyFileRegion")) {
         fileMap.put(path, writeByNettyFileRegion(dataStreamOutput, file));
-      } else {
-        System.err.println("Error: dataStreamType should be one of DirectByteBuffer, MappedByteBuffer, transferTo");
       }
 
       dataStreamOutput.closeAsync();
@@ -131,8 +152,8 @@ public class DataStream extends Client {
             + " byte(s). The channel has reached end-of-stream at " + offset);
       } else if (bytesRead > 0) {
         offset += bytesRead;
-
-        final CompletableFuture<DataStreamReply> f = dataStreamOutput.writeAsync(buf.nioBuffer());
+        final CompletableFuture<DataStreamReply> f = dataStreamOutput.writeAsync(buf.nioBuffer(),
+            syncSize > 0 && (offset == fileSize || offset % syncSize == 0));
         f.thenRun(buf::release);
         futures.add(f);
       }

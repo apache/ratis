@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -107,19 +108,25 @@ public abstract class Client extends SubCommandBase {
     operation(client);
   }
 
-  public List<String> generateFiles() throws IOException {
+
+  protected void stop(RaftClient client) throws IOException {
+    client.close();
+    System.exit(0);
+  }
+
+  protected List<String> generateFiles() throws IOException {
     String entropy = RandomStringUtils.randomAlphanumeric(numFiles);
     List<String> paths = new ArrayList<>();
     for (int i = 0; i < numFiles; i ++) {
       String path = "file-" + entropy + "-" + i;
       paths.add(path);
-      writeFile(path, fileSizeInBytes, bufferSizeInBytes);
+      writeFile(path, fileSizeInBytes, bufferSizeInBytes, new Random().nextInt(127) + 1);
     }
 
     return paths;
   }
 
-  public void writeFile(String path, int fileSize, int bufferSize) throws IOException {
+  protected void writeFile(String path, int fileSize, int bufferSize, int random) throws IOException {
     RandomAccessFile raf = null;
     try {
       raf = new RandomAccessFile(path, "rw");
@@ -129,7 +136,7 @@ public abstract class Client extends SubCommandBase {
         final int chunkSize = Math.min(remaining, bufferSize);
         byte[] buffer = new byte[chunkSize];
         for (int i = 0; i < chunkSize; i ++) {
-          buffer[i]= (byte) ('A' + i % 23);
+          buffer[i]= (byte) (i % random);
         }
         raf.write(buffer);
         offset += chunkSize;

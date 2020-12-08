@@ -20,7 +20,6 @@ package org.apache.ratis.examples.filestore;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.CollectionUtils;
-import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.Preconditions;
@@ -30,13 +29,10 @@ import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -78,7 +74,6 @@ abstract class FileInfo {
 
   ByteString read(CheckedFunction<Path, Path, IOException> resolver, long offset, long length, boolean readCommitted)
       throws IOException {
-    flush();
     if (readCommitted && offset + length > getCommittedSize()) {
       throw new IOException("Failed to read Committed: offset (=" + offset
           + " + length (=" + length + ") > size = " + getCommittedSize()
@@ -124,30 +119,6 @@ abstract class FileInfo {
     }
   }
 
-  static class FileOut implements Closeable {
-    private final OutputStream out;
-    private final WritableByteChannel channel;
-
-    FileOut(Path p) throws IOException {
-      this.out = FileUtils.createNewFile(p);
-      this.channel = Channels.newChannel(out);
-    }
-
-    int write(ByteBuffer data) throws IOException {
-      return channel.write(data);
-    }
-
-    void flush() throws IOException {
-      out.flush();
-    }
-
-    @Override
-    public void close() throws IOException {
-      channel.close();
-      out.close();
-    }
-  }
-
   static class WriteInfo {
     /** Future to make sure that each commit is executed after the corresponding write. */
     private final CompletableFuture<Integer> writeFuture;
@@ -176,14 +147,12 @@ abstract class FileInfo {
   }
 
   static class UnderConstruction extends FileInfo {
-    private FileOut out;
+    private FileStore.FileStoreDataChannel out;
 
     /** The size written to a local file. */
     private volatile long writeSize;
     /** The size committed to client. */
     private volatile long committedSize;
-    /** The size at last flush. */
-    private volatile long flushSize;
 
     /** A queue to make sure that the writes are in order. */
     private final TaskQueue writeQueue = new TaskQueue("writeQueue");
@@ -211,26 +180,27 @@ abstract class FileInfo {
     }
 
     CompletableFuture<Integer> submitCreate(
-        CheckedFunction<Path, Path, IOException> resolver, ByteString data, boolean close,
+        CheckedFunction<Path, Path, IOException> resolver, ByteString data, boolean close, boolean sync,
         ExecutorService executor, RaftPeerId id, long index) {
       final Supplier<String> name = () -> "create(" + getRelativePath() + ", "
           + close + ") @" + id + ":" + index;
       final CheckedSupplier<Integer, IOException> task = LogUtils.newCheckedSupplier(LOG, () -> {
         if (out == null) {
-          out = new FileOut(resolver.apply(getRelativePath()));
+          out = new FileStore.FileStoreDataChannel(new RandomAccessFile(resolver.apply(getRelativePath()).toFile(),
+              "rw"));
         }
-        return write(0L, data, close);
+        return write(0L, data, close, sync);
       }, name);
       return submitWrite(task, executor, id, index);
     }
 
     CompletableFuture<Integer> submitWrite(
-        long offset, ByteString data, boolean close, ExecutorService executor,
+        long offset, ByteString data, boolean close, boolean sync, ExecutorService executor,
         RaftPeerId id, long index) {
       final Supplier<String> name = () -> "write(" + getRelativePath() + ", "
           + offset + ", " + close + ") @" + id + ":" + index;
       final CheckedSupplier<Integer, IOException> task = LogUtils.newCheckedSupplier(LOG,
-          () -> write(offset, data, close), name);
+          () -> write(offset, data, close, sync), name);
       return submitWrite(task, executor, id, index);
     }
 
@@ -244,7 +214,7 @@ abstract class FileInfo {
       return f;
     }
 
-    private int write(long offset, ByteString data, boolean close) throws IOException {
+    private int write(long offset, ByteString data, boolean close, boolean sync) throws IOException {
       // If leader finish write data with offset = 4096 and writeSize become 8192,
       // and 2 follower has not written the data with offset = 4096,
       // then start a leader election. So client will retry send the data with offset = 4096,
@@ -273,23 +243,14 @@ abstract class FileInfo {
           }
         }
 
+        if (sync) {
+          out.force(false);
+        }
+
         if (close) {
           out.close();
         }
         return n;
-      }
-    }
-
-    void flush() throws IOException {
-      if (flushSize >= committedSize) {
-        return;
-      }
-      synchronized (out) {
-        if (flushSize >= committedSize) {
-          return;
-        }
-        out.flush();
-        flushSize = writeSize;
       }
     }
 

@@ -77,7 +77,7 @@ public abstract class FileStoreAsyncBaseTest<CLUSTER extends MiniRaftCluster>
         .setAsyncExecutor(executor)
         .setFileStoreClientSupplier(() -> client)
         .build()
-        .writeAsync()
+        .writeAsync(false)
         .thenCompose(FileStoreWriter::verifyAsync)
         .thenCompose(FileStoreWriter::deleteAsync)
         .get();
@@ -99,7 +99,7 @@ public abstract class FileStoreAsyncBaseTest<CLUSTER extends MiniRaftCluster>
               .setAsyncExecutor(executor)
               .setFileStoreClientSupplier(() -> client)
               .build()
-              .writeAsync(),
+              .writeAsync(false),
           () -> path + ":" + fileLength);
       writerFutures.add(callable.call());
     }

@@ -145,11 +145,11 @@ public class FileStoreClient implements Closeable {
     return sendReadOnlyFunction.apply(read.toByteString());
   }
 
-  public long write(String path, long offset, boolean close, ByteBuffer buffer)
+  public long write(String path, long offset, boolean close, ByteBuffer buffer, boolean sync)
       throws IOException {
     final int chunkSize = FileStoreCommon.getChunkSize(buffer.remaining());
     buffer.limit(chunkSize);
-    final ByteString reply = writeImpl(this::send, path, offset, close, buffer);
+    final ByteString reply = writeImpl(this::send, path, offset, close, buffer, sync);
     return WriteReplyProto.parseFrom(reply).getLength();
   }
 
@@ -162,21 +162,22 @@ public class FileStoreClient implements Closeable {
     return client.getDataStreamApi().stream(request.toByteString().asReadOnlyByteBuffer());
   }
 
-  public CompletableFuture<Long> writeAsync(String path, long offset, boolean close, ByteBuffer buffer) {
-    return writeImpl(this::sendAsync, path, offset, close, buffer
+  public CompletableFuture<Long> writeAsync(String path, long offset, boolean close, ByteBuffer buffer, boolean sync) {
+    return writeImpl(this::sendAsync, path, offset, close, buffer, sync
     ).thenApply(reply -> JavaUtils.supplyAndWrapAsCompletionException(
         () -> WriteReplyProto.parseFrom(reply).getLength()));
   }
 
   private static <OUTPUT, THROWABLE extends Throwable> OUTPUT writeImpl(
       CheckedFunction<ByteString, OUTPUT, THROWABLE> sendFunction,
-      String path, long offset, boolean close, ByteBuffer data)
+      String path, long offset, boolean close, ByteBuffer data, boolean sync)
       throws THROWABLE {
     final WriteRequestHeaderProto.Builder header = WriteRequestHeaderProto.newBuilder()
         .setPath(ProtoUtils.toByteString(path))
         .setOffset(offset)
         .setLength(data.remaining())
-        .setClose(close);
+        .setClose(close)
+        .setSync(sync);
 
     final WriteRequestProto.Builder write = WriteRequestProto.newBuilder()
         .setHeader(header)
