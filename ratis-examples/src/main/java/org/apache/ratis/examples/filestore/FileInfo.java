@@ -62,7 +62,12 @@ abstract class FileInfo {
     return relativePath;
   }
 
-  long getSize() {
+  long getWriteSize() {
+    throw new UnsupportedOperationException(
+        "File " + getRelativePath() + " size is unknown.");
+  }
+
+  long getCommittedSize() {
     throw new UnsupportedOperationException(
         "File " + getRelativePath() + " size is unknown.");
   }
@@ -71,12 +76,16 @@ abstract class FileInfo {
     // no-op
   }
 
-  ByteString read(CheckedFunction<Path, Path, IOException> resolver, long offset, long length)
+  ByteString read(CheckedFunction<Path, Path, IOException> resolver, long offset, long length, boolean readCommitted)
       throws IOException {
     flush();
-    if (offset + length > getSize()) {
-      throw new IOException("Failed to read: offset (=" + offset
-          + " + length (=" + length + ") > size = " + getSize()
+    if (readCommitted && offset + length > getCommittedSize()) {
+      throw new IOException("Failed to read Committed: offset (=" + offset
+          + " + length (=" + length + ") > size = " + getCommittedSize()
+          + ", path=" + getRelativePath());
+    } else if (offset + length > getWriteSize()){
+      throw new IOException("Failed to read Wrote: offset (=" + offset
+          + " + length (=" + length + ") > size = " + getWriteSize()
           + ", path=" + getRelativePath());
     }
 
@@ -95,16 +104,23 @@ abstract class FileInfo {
   }
 
   static class ReadOnly extends FileInfo {
-    private final long size;
+    private final long committedSize;
+    private final long writeSize;
 
     ReadOnly(UnderConstruction f) {
       super(f.getRelativePath());
-      this.size = f.getSize();
+      this.committedSize = f.getCommittedSize();
+      this.writeSize = f.getWriteSize();
     }
 
     @Override
-    long getSize() {
-      return size;
+    long getCommittedSize() {
+      return committedSize;
+    }
+
+    @Override
+    long getWriteSize() {
+      return writeSize;
     }
   }
 
@@ -185,8 +201,13 @@ abstract class FileInfo {
     }
 
     @Override
-    long getSize() {
+    long getCommittedSize() {
       return committedSize;
+    }
+
+    @Override
+    long getWriteSize() {
+      return writeSize;
     }
 
     CompletableFuture<Integer> submitCreate(

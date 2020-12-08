@@ -137,7 +137,7 @@ public class FileStore implements Closeable {
     return full;
   }
 
-  CompletableFuture<ReadReplyProto> read(String relative, long offset, long length) {
+  CompletableFuture<ReadReplyProto> read(String relative, long offset, long length, boolean readCommitted) {
     final Supplier<String> name = () -> "read(" + relative
         + ", " + offset + ", " + length + ") @" + getId();
     final CheckedSupplier<ReadReplyProto, IOException> task = LogUtils.newCheckedSupplier(LOG, () -> {
@@ -146,7 +146,7 @@ public class FileStore implements Closeable {
           .setResolvedPath(FileStoreCommon.toByteString(info.getRelativePath()))
           .setOffset(offset);
 
-      final ByteString bytes = info.read(this::resolve, offset, length);
+      final ByteString bytes = info.read(this::resolve, offset, length, readCommitted);
       return reply.setData(bytes).build();
     }, name);
     return submit(task, reader);

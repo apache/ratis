@@ -132,7 +132,7 @@ public class DataStream extends Client {
       } else if (bytesRead > 0) {
         offset += bytesRead;
 
-        final CompletableFuture<DataStreamReply> f = dataStreamOutput.writeAsync(buf.nioBuffer(), offset == fileSize);
+        final CompletableFuture<DataStreamReply> f = dataStreamOutput.writeAsync(buf.nioBuffer());
         f.thenRun(buf::release);
         futures.add(f);
       }
@@ -145,7 +145,7 @@ public class DataStream extends Client {
       FileChannel fileChannel) throws IOException {
     List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
     MappedByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, getFileSizeInBytes());
-    futures.add(dataStreamOutput.writeAsync(mappedByteBuffer, true));
+    futures.add(dataStreamOutput.writeAsync(mappedByteBuffer));
     return futures;
   }
 

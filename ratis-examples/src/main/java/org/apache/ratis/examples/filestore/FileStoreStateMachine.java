@@ -87,7 +87,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
     }
 
     final String path = proto.getPath().toStringUtf8();
-    return files.read(path, proto.getOffset(), proto.getLength())
+    return files.read(path, proto.getOffset(), proto.getLength(), true)
         .thenApply(reply -> Message.valueOf(reply.toByteString()));
   }
 
@@ -149,7 +149,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
     final WriteRequestHeaderProto h = proto.getWriteHeader();
     CompletableFuture<ExamplesProtos.ReadReplyProto> reply =
-        files.read(h.getPath().toStringUtf8(), h.getOffset(), h.getLength());
+        files.read(h.getPath().toStringUtf8(), h.getOffset(), h.getLength(), false);
 
     return reply.thenApply(ExamplesProtos.ReadReplyProto::getData);
   }
