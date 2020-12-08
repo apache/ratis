@@ -26,14 +26,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link RetryCache} stores client replies in order to handle retires.
+ * For a server to store {@link RaftClientReply} futures in order to handle client retires.
  */
 public interface RetryCache extends Closeable {
   Logger LOG = LoggerFactory.getLogger(RetryCache.class);
 
   /**
    * Entry of a {@link RetryCache},
-   * which the key is a {@link ClientInvocationId}
+   * where the key is a {@link ClientInvocationId}
    * and the value is a {@link CompletableFuture} of a {@link RaftClientReply}.
    */
   interface Entry {

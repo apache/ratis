@@ -38,7 +38,7 @@ import static org.mockito.Mockito.when;
 
 public class RetryCacheTestUtil {
   public static RetryCache createRetryCache(){
-    return new RetryCacheImpl(TimeDuration.valueOf(60, TimeUnit.SECONDS));
+    return new RetryCacheImpl(TimeDuration.valueOf(60, TimeUnit.SECONDS), null);
   }
 
   public static void createEntry(RetryCache cache, LogEntryProto logEntry){

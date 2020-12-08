@@ -182,8 +182,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.proxy = proxy;
 
     this.state = new ServerState(id, group, properties, this, stateMachine);
-    final TimeDuration expireTime = RaftServerConfigKeys.RetryCache.expiryTime(properties);
-    this.retryCache = new RetryCacheImpl(expireTime);
+    this.retryCache = new RetryCacheImpl(properties);
     this.inProgressInstallSnapshotRequest = new AtomicReference<>(null);
     this.dataStreamMap = new DataStreamMapImpl(id);
 
@@ -191,7 +190,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
     this.raftServerMetrics = RaftServerMetrics.computeIfAbsentRaftServerMetrics(
-        getMemberId(), () -> commitInfoCache::get, () -> retryCache);
+        getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
 

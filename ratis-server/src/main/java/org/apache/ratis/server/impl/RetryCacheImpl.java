@@ -17,8 +17,10 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
@@ -27,9 +29,9 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 class RetryCacheImpl implements RetryCache {
@@ -111,9 +113,7 @@ class RetryCacheImpl implements RetryCache {
     }
   }
 
-  static class StatisticsImpl implements Statistics {
-    static final TimeDuration EXPIRY_TIME = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
-
+  class StatisticsImpl implements Statistics {
     private final long size;
     private final CacheStats cacheStats;
     private final Timestamp creation = Timestamp.currentTime();
@@ -121,10 +121,11 @@ class RetryCacheImpl implements RetryCache {
     StatisticsImpl(Cache<?, ?> cache) {
       this.size = cache.size();
       this.cacheStats = cache.stats();
+      System.out.println("new StatisticsImpl " + this);
     }
 
     boolean isExpired() {
-      return creation.elapsedTime().compareTo(EXPIRY_TIME) > 0;
+      return Optional.ofNullable(statisticsExpiryTime).map(t -> creation.elapsedTime().compareTo(t) > 0).orElse(true);
     }
 
     @Override
@@ -151,19 +152,33 @@ class RetryCacheImpl implements RetryCache {
     public double missRate() {
       return cacheStats.missRate();
     }
+
+    @Override
+    public String toString() {
+      return creation + ":size=" + size + "," + cacheStats;
+    }
   }
 
   private final Cache<ClientInvocationId, CacheEntry> cache;
+  /** Cache statistics to reduce the number of expensive statistics computations. */
   private final AtomicReference<StatisticsImpl> statistics = new AtomicReference<>();
+  private final TimeDuration statisticsExpiryTime;
+
+  RetryCacheImpl(RaftProperties properties) {
+    this(RaftServerConfigKeys.RetryCache.expiryTime(properties),
+         RaftServerConfigKeys.RetryCache.statisticsExpiryTime(properties));
+  }
 
   /**
-   * @param expirationTime time for an entry to expire in milliseconds
+   * @param cacheExpiryTime time for a cache entry to expire.
+   * @param statisticsExpiryTime time for a {@link RetryCache.Statistics} object to expire.
    */
-  RetryCacheImpl(TimeDuration expirationTime) {
-    cache = CacheBuilder.newBuilder()
+  RetryCacheImpl(TimeDuration cacheExpiryTime, TimeDuration statisticsExpiryTime) {
+    this.cache = CacheBuilder.newBuilder()
         .recordStats()
-        .expireAfterWrite(expirationTime.getDuration(), expirationTime.getUnit())
+        .expireAfterWrite(cacheExpiryTime.getDuration(), cacheExpiryTime.getUnit())
         .build();
+    this.statisticsExpiryTime = statisticsExpiryTime;
   }
 
   CacheEntry getOrCreateEntry(ClientInvocationId key) {
@@ -228,6 +243,7 @@ class RetryCacheImpl implements RetryCache {
   public synchronized void close() {
     if (cache != null) {
       cache.invalidateAll();
+      statistics.set(null);
     }
   }
 
