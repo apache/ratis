@@ -19,18 +19,23 @@ package org.apache.ratis.examples.filestore.cli;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.examples.common.SubCommandBase;
 import org.apache.ratis.examples.filestore.FileStoreCommon;
 import org.apache.ratis.examples.filestore.FileStoreStateMachine;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.metrics.JVMMetrics;
+import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.LifeCycle;
@@ -38,8 +43,11 @@ import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Class to start a ratis arithmetic example server.
@@ -60,8 +68,15 @@ public class Server extends SubCommandBase {
     RaftPeerId peerId = RaftPeerId.valueOf(id);
     RaftProperties properties = new RaftProperties();
 
+    // Avoid leader change affect the performance
+    RaftServerConfigKeys.Rpc.setTimeoutMin(properties, TimeDuration.valueOf(2, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(properties, TimeDuration.valueOf(3, TimeUnit.SECONDS));
+
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
+    final int dataStreamport = NetUtils.createSocketAddr(getPeer(peerId).getDataStreamAddress()).getPort();
+    NettyConfigKeys.DataStream.setPort(properties, dataStreamport);
+    RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
     RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
     ConfUtils.setFile(properties::setFile, FileStoreCommon.STATEMACHINE_DIR_KEY,
@@ -78,9 +93,17 @@ public class Server extends SubCommandBase {
 
     raftServer.start();
 
+    if (isPrimary(id)) {
+      ((RaftServerProxy) raftServer).getDataStreamServerRpc()
+          .addRaftPeers(getOtherRaftPeers(Arrays.asList(getPeers())));
+    }
+
     for (; raftServer.getLifeCycleState() != LifeCycle.State.CLOSED; ) {
       TimeUnit.SECONDS.sleep(1);
     }
   }
 
+  private Collection<RaftPeer> getOtherRaftPeers(Collection<RaftPeer> peers) {
+    return peers.stream().filter(r -> !r.getId().toString().equals(id)).collect(Collectors.toList());
+  }
 }

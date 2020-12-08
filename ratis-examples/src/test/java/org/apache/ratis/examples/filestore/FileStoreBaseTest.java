@@ -86,7 +86,12 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
       throws Exception {
     LOG.info("runTestSingleFile with path={}, fileLength={}", path, fileLength);
 
-    try (final Writer w = new Writer(path, fileLength, null, newClient)) {
+    try (final FileStoreWriter w =
+             FileStoreWriter.newBuilder()
+                 .setFileName(path)
+                 .setFileSize(fileLength)
+                 .setFileStoreClientSupplier(newClient)
+                 .build()) {
       w.write().verify().delete();
     }
   }
@@ -99,196 +104,32 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
 
     final ExecutorService executor = Executors.newFixedThreadPool(20);
 
-    final List<Future<Writer>> writerFutures = new ArrayList<>();
+    final List<Future<FileStoreWriter>> writerFutures = new ArrayList<>();
     for (int i = 0; i < numFile; i++) {
       final String path = String.format("%s%02d", pathPrefix, i);
-      final Callable<Writer> callable = LogUtils.newCallable(LOG,
-          () -> new Writer(path, fileLength, null, newClient).write(),
+      final Callable<FileStoreWriter> callable = LogUtils.newCallable(LOG,
+          () -> FileStoreWriter.newBuilder()
+              .setFileName(path)
+              .setFileSize(fileLength)
+              .setFileStoreClientSupplier(newClient)
+              .build().write(),
           () -> path + ":" + fileLength);
       writerFutures.add(executor.submit(callable));
     }
 
-    final List<Writer> writers = new ArrayList<>();
-    for(Future<Writer> f : writerFutures) {
+    final List<FileStoreWriter> writers = new ArrayList<>();
+    for(Future<FileStoreWriter> f : writerFutures) {
       writers.add(f.get());
     }
 
     writerFutures.clear();
-    for (Writer w : writers) {
+    for (FileStoreWriter w : writers) {
       writerFutures.add(executor.submit(() -> w.verify().delete()));
     }
-    for(Future<Writer> f : writerFutures) {
+    for(Future<FileStoreWriter> f : writerFutures) {
       f.get().close();
     }
 
     executor.shutdown();
-  }
-
-  static class Writer implements Closeable {
-    final long seed = ThreadLocalRandom.current().nextLong();
-    final byte[] buffer = new byte[4 << 10];
-
-    final String fileName;
-    final SizeInBytes fileSize;
-    final FileStoreClient client;
-    final Executor asyncExecutor;
-
-    Writer(String fileName, SizeInBytes fileSize, Executor asyncExecutor,
-        CheckedSupplier<FileStoreClient, IOException> clientSupplier)
-        throws IOException {
-      this.fileName = fileName;
-      this.fileSize = fileSize;
-      this.client = clientSupplier.get();
-      this.asyncExecutor = asyncExecutor;
-    }
-
-    ByteBuffer randomBytes(int length, Random random) {
-      Preconditions.assertTrue(length <= buffer.length);
-      random.nextBytes(buffer);
-      final ByteBuffer b = ByteBuffer.wrap(buffer);
-      b.limit(length);
-      return b;
-    }
-
-    Writer write() throws IOException {
-      final Random r = new Random(seed);
-      final int size = fileSize.getSizeInt();
-
-      for(int offset = 0; offset < size; ) {
-        final int remaining = size - offset;
-        final int length = Math.min(remaining, buffer.length);
-        final boolean close = length == remaining;
-
-        final ByteBuffer b = randomBytes(length, r);
-
-        LOG.trace("write {}, offset={}, length={}, close? {}",
-            fileName, offset, length, close);
-        final long written = client.write(fileName, offset, close, b);
-        Assert.assertEquals(length, written);
-        offset += written;
-      }
-      return this;
-    }
-
-    CompletableFuture<Writer> writeAsync() {
-      Objects.requireNonNull(asyncExecutor, "asyncExecutor == null");
-      final Random r = new Random(seed);
-      final int size = fileSize.getSizeInt();
-
-      final CompletableFuture<Writer> returnFuture = new CompletableFuture<>();
-      final AtomicInteger callCount = new AtomicInteger();
-      final AtomicInteger n = new AtomicInteger();
-      for(; n.get() < size; ) {
-        final int offset = n.get();
-        final int remaining = size - offset;
-        final int length = Math.min(remaining, buffer.length);
-        final boolean close = length == remaining;
-
-        final ByteBuffer b = randomBytes(length, r);
-
-        callCount.incrementAndGet();
-        n.addAndGet(length);
-
-        LOG.trace("writeAsync {}, offset={}, length={}, close? {}",
-            fileName, offset, length, close);
-        client.writeAsync(fileName, offset, close, b)
-            .thenAcceptAsync(written -> Assert.assertEquals(length, (long)written), asyncExecutor)
-            .thenRun(() -> {
-              final int count = callCount.decrementAndGet();
-              LOG.trace("writeAsync {}, offset={}, length={}, close? {}: n={}, callCount={}",
-                  fileName, offset, length, close, n.get(), count);
-              if (n.get() == size && count == 0) {
-                returnFuture.complete(this);
-              }
-            })
-            .exceptionally(e -> {
-              returnFuture.completeExceptionally(e);
-              return null;
-            });
-      }
-      return returnFuture;
-    }
-
-    Writer verify() throws IOException {
-      final Random r = new Random(seed);
-      final int size = fileSize.getSizeInt();
-
-      for(int offset = 0; offset < size; ) {
-        final int remaining = size - offset;
-        final int n = Math.min(remaining, buffer.length);
-        final ByteString read = client.read(fileName, offset, n);
-        final ByteBuffer expected = randomBytes(n, r);
-        verify(read, offset, n, expected);
-        offset += n;
-      }
-      return this;
-    }
-
-    CompletableFuture<Writer> verifyAsync() {
-      Objects.requireNonNull(asyncExecutor, "asyncExecutor == null");
-      final Random r = new Random(seed);
-      final int size = fileSize.getSizeInt();
-
-      final CompletableFuture<Writer> returnFuture = new CompletableFuture<>();
-      final AtomicInteger callCount = new AtomicInteger();
-      final AtomicInteger n = new AtomicInteger();
-      for(; n.get() < size; ) {
-        final int offset = n.get();
-        final int remaining = size - offset;
-        final int length = Math.min(remaining, buffer.length);
-
-        callCount.incrementAndGet();
-        n.addAndGet(length);
-        final ByteBuffer expected = ByteString.copyFrom(randomBytes(length, r)).asReadOnlyByteBuffer();
-
-        client.readAsync(fileName, offset, length)
-            .thenAcceptAsync(read -> verify(read, offset, length, expected), asyncExecutor)
-            .thenRun(() -> {
-              final int count = callCount.decrementAndGet();
-              LOG.trace("verifyAsync {}, offset={}, length={}: n={}, callCount={}",
-                  fileName, offset, length, n.get(), count);
-              if (n.get() == size && count == 0) {
-                returnFuture.complete(this);
-              }
-            })
-            .exceptionally(e -> {
-              returnFuture.completeExceptionally(e);
-              return null;
-            });
-      }
-      Assert.assertEquals(size, n.get());
-      return returnFuture;
-    }
-
-    void verify(ByteString read, int offset, int length, ByteBuffer expected) {
-      Assert.assertEquals(length, read.size());
-      assertBuffers(offset, length, expected, read.asReadOnlyByteBuffer());
-    }
-
-    CompletableFuture<Writer> deleteAsync() {
-      Objects.requireNonNull(asyncExecutor, "asyncExecutor == null");
-      return client.deleteAsync(fileName).thenApplyAsync(reply -> this, asyncExecutor);
-    }
-
-    Writer delete() throws IOException {
-      client.delete(fileName);
-      return this;
-    }
-
-    @Override
-    public void close() throws IOException {
-      client.close();
-    }
-  }
-
-  static void assertBuffers(int offset, int length, ByteBuffer expected, ByteBuffer computed) {
-    try {
-      Assert.assertEquals(expected, computed);
-    } catch(AssertionError e) {
-      LOG.error("Buffer mismatched at offset=" + offset + ", length=" + length
-          + "\n  expected = " + StringUtils.bytes2HexString(expected)
-          + "\n  computed = " + StringUtils.bytes2HexString(computed), e);
-      throw e;
-    }
   }
 }

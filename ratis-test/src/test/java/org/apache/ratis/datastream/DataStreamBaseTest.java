@@ -19,6 +19,9 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.DivisionInfo;
+import org.apache.ratis.server.DivisionProperties;
+import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
@@ -49,13 +52,13 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.server.ServerFactory;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
@@ -88,6 +91,11 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
 
     @Override
+    public DivisionProperties properties() {
+      return null;
+    }
+
+    @Override
     public RaftGroupMemberId getMemberId() {
       return null;
     }
@@ -108,6 +116,11 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
 
     @Override
+    public RaftServerMetrics getRaftServerMetrics() {
+      return null;
+    }
+
+    @Override
     public MultiDataStreamStateMachine getStateMachine() {
       return stateMachine;
     }
@@ -119,6 +132,11 @@ abstract class DataStreamBaseTest extends BaseTest {
 
     @Override
     public RaftStorage getRaftStorage() {
+      return null;
+    }
+
+    @Override
+    public RetryCache getRetryCache() {
       return null;
     }
 
@@ -236,7 +254,7 @@ abstract class DataStreamBaseTest extends BaseTest {
       }
 
       @Override
-      public RpcType getRpcType() {
+      public RaftServerRpc getServerRpc() {
         return null;
       }
 

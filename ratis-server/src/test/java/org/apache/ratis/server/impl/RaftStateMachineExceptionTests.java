@@ -27,6 +27,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -129,8 +130,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
         LOG.info("check server " + server.getId());
 
         JavaUtils.attemptRepeatedly(() -> {
-          Assert.assertNotNull(
-              RaftServerTestUtil.getRetryEntry(server, client.getId(), callId));
+          Assert.assertNotNull(RetryCacheTestUtil.get(server, client.getId(), callId));
           return null;
         }, 5, BaseTest.ONE_SECOND, "GetRetryEntry", LOG);
 
@@ -160,9 +160,9 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       RaftClientReply reply = rpc.sendRequest(r);
       Objects.requireNonNull(reply.getStateMachineException());
 
-      final RetryCache.CacheEntry oldEntry = RaftServerTestUtil.getRetryEntry(oldLeader, client.getId(), callId);
+      final RetryCache.Entry oldEntry = RetryCacheTestUtil.get(oldLeader, client.getId(), callId);
       Assert.assertNotNull(oldEntry);
-      Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(oldEntry));
+      Assert.assertTrue(RetryCacheTestUtil.isFailed(oldEntry));
 
       // At this point of time the old leader would have stepped down. wait for leader election to complete
       final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
@@ -171,10 +171,9 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       reply = rpc.sendRequest(r);
       Objects.requireNonNull(reply.getStateMachineException());
 
-      RetryCache.CacheEntry currentEntry = RaftServerTestUtil.getRetryEntry(
-              leader, client.getId(), callId);
+      final RetryCache.Entry currentEntry = RetryCacheTestUtil.get(leader, client.getId(), callId);
       Assert.assertNotNull(currentEntry);
-      Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(currentEntry));
+      Assert.assertTrue(RetryCacheTestUtil.isFailed(currentEntry));
       Assert.assertNotEquals(oldEntry, currentEntry);
       failPreAppend = false;
     }

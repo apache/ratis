@@ -171,13 +171,6 @@ public class DataStreamClientImpl implements DataStreamClient {
   }
 
   @Override
-  public DataStreamOutputRpc stream() {
-    final RaftClientRequest request = new RaftClientRequest(clientId, dataStreamServer.getId(), groupId,
-        RaftClientImpl.nextCallId(), RaftClientRequest.dataStreamRequestType());
-    return new DataStreamOutputImpl(request);
-  }
-
-  @Override
   public DataStreamOutputRpc stream(RaftClientRequest request) {
     return new DataStreamOutputImpl(request);
   }

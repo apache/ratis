@@ -429,7 +429,7 @@ class ServerState implements Closeable {
     latestInstalledSnapshot.set(lastTermIndexInSnapshot);
   }
 
-  SnapshotInfo getLatestSnapshot() {
+  private SnapshotInfo getLatestSnapshot() {
     return server.getStateMachine().getLatestSnapshot();
   }
 

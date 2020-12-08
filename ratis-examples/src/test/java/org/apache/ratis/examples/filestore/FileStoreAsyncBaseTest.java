@@ -22,7 +22,6 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.examples.filestore.FileStoreBaseTest.Writer;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -72,10 +71,15 @@ public abstract class FileStoreAsyncBaseTest<CLUSTER extends MiniRaftCluster>
       throws Exception {
     LOG.info("runTestSingleFile with path={}, fileLength={}", path, fileLength);
 
-    new Writer(path, fileLength, executor, () -> client)
+    FileStoreWriter.newBuilder()
+        .setFileName(path)
+        .setFileSize(fileLength)
+        .setAsyncExecutor(executor)
+        .setFileStoreClientSupplier(() -> client)
+        .build()
         .writeAsync()
-        .thenCompose(Writer::verifyAsync)
-        .thenCompose(Writer::deleteAsync)
+        .thenCompose(FileStoreWriter::verifyAsync)
+        .thenCompose(FileStoreWriter::deleteAsync)
         .get();
   }
 
@@ -85,25 +89,31 @@ public abstract class FileStoreAsyncBaseTest<CLUSTER extends MiniRaftCluster>
     LOG.info("runTestMultipleFile with pathPrefix={}, numFile={}, fileLength={}",
         pathPrefix, numFile, fileLength);
 
-    final List<CompletableFuture<Writer>> writerFutures = new ArrayList<>();
+    final List<CompletableFuture<FileStoreWriter>> writerFutures = new ArrayList<>();
     for (int i = 0; i < numFile; i++) {
       final String path = String.format("%s%02d", pathPrefix, i);
-      final Callable<CompletableFuture<Writer>> callable = LogUtils.newCallable(LOG,
-          () -> new Writer(path, fileLength, executor, () -> client).writeAsync(),
+      final Callable<CompletableFuture<FileStoreWriter>> callable = LogUtils.newCallable(LOG,
+          () -> FileStoreWriter.newBuilder()
+              .setFileName(path)
+              .setFileSize(fileLength)
+              .setAsyncExecutor(executor)
+              .setFileStoreClientSupplier(() -> client)
+              .build()
+              .writeAsync(),
           () -> path + ":" + fileLength);
       writerFutures.add(callable.call());
     }
 
-    final List<Writer> writers = new ArrayList<>();
-    for(CompletableFuture<Writer> f : writerFutures) {
+    final List<FileStoreWriter> writers = new ArrayList<>();
+    for(CompletableFuture<FileStoreWriter> f : writerFutures) {
       writers.add(f.get());
     }
 
     writerFutures.clear();
-    for (Writer w : writers) {
-      writerFutures.add(w.verifyAsync().thenCompose(Writer::deleteAsync));
+    for (FileStoreWriter w : writers) {
+      writerFutures.add(w.verifyAsync().thenCompose(FileStoreWriter::deleteAsync));
     }
-    for(CompletableFuture<Writer> f : writerFutures) {
+    for(CompletableFuture<FileStoreWriter> f : writerFutures) {
       f.get();
     }
   }

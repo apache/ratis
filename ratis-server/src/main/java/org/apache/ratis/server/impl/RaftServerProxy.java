@@ -35,6 +35,7 @@ import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.ServerFactory;
 import org.apache.ratis.util.JvmPauseMonitor;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
@@ -63,7 +64,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-class RaftServerProxy implements RaftServer {
+public class RaftServerProxy implements RaftServer {
   /**
    * A map: {@link RaftGroupId} -> {@link RaftServerImpl} futures.
    *
@@ -292,11 +293,6 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public RpcType getRpcType() {
-    return getFactory().getRpcType();
-  }
-
-  @Override
   public ServerFactory getFactory() {
     return factory;
   }
@@ -306,11 +302,12 @@ class RaftServerProxy implements RaftServer {
     return properties;
   }
 
-  RaftServerRpc getServerRpc() {
+  @Override
+  public RaftServerRpc getServerRpc() {
     return serverRpc;
   }
 
-  DataStreamServerRpc getDataStreamServerRpc() {
+  public DataStreamServerRpc getDataStreamServerRpc() {
     return dataStreamServerRpc;
   }
 

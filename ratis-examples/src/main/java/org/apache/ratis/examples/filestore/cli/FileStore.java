@@ -34,6 +34,7 @@ public final class FileStore {
     List<SubCommandBase> commands = new ArrayList<>();
     commands.add(new Server());
     commands.add(new LoadGen());
+    commands.add(new DataStream());
     return commands;
   }
 }

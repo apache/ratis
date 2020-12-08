@@ -221,6 +221,16 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, SEGMENT_CACHE_NUM_MAX_KEY, maxCachedSegmentNum);
     }
 
+    String SEGMENT_CACHE_SIZE_MAX_KEY = PREFIX + ".segment.cache.size.max";
+    SizeInBytes SEGMENT_CACHE_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("200MB");
+    static SizeInBytes segmentCacheSizeMax(RaftProperties properties) {
+      return getSizeInBytes(properties::getSizeInBytes, SEGMENT_CACHE_SIZE_MAX_KEY,
+          SEGMENT_CACHE_SIZE_MAX_DEFAULT, getDefaultLog());
+    }
+    static void setSegmentCacheSizeMax(RaftProperties properties, SizeInBytes maxCachedSegmentSize) {
+      setSizeInBytes(properties::set, SEGMENT_CACHE_SIZE_MAX_KEY, maxCachedSegmentSize);
+    }
+
     String PREALLOCATED_SIZE_KEY = PREFIX + ".preallocated.size";
     SizeInBytes PREALLOCATED_SIZE_DEFAULT = SizeInBytes.valueOf("4MB");
     static SizeInBytes preallocatedSize(RaftProperties properties) {
@@ -490,6 +500,16 @@ public interface RaftServerConfigKeys {
     }
     static void setExpiryTime(RaftProperties properties, TimeDuration expiryTime) {
       setTimeDuration(properties::setTimeDuration, EXPIRY_TIME_KEY, expiryTime);
+    }
+
+    String STATISTICS_EXPIRY_TIME_KEY = PREFIX + ".statistics.expirytime";
+    TimeDuration STATISTICS_EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(100, TimeUnit.MICROSECONDS);
+    static TimeDuration statisticsExpiryTime(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(STATISTICS_EXPIRY_TIME_DEFAULT.getUnit()),
+          STATISTICS_EXPIRY_TIME_KEY, STATISTICS_EXPIRY_TIME_DEFAULT, getDefaultLog());
+    }
+    static void setStatisticsExpiryTime(RaftProperties properties, TimeDuration expiryTime) {
+      setTimeDuration(properties::setTimeDuration, STATISTICS_EXPIRY_TIME_KEY, expiryTime);
     }
   }
 

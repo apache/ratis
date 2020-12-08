@@ -17,11 +17,14 @@
  */
 package org.apache.ratis.examples.filestore.cli;
 
+import com.beust.jcommander.Parameter;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.examples.common.SubCommandBase;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcFactory;
@@ -35,6 +38,9 @@ import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -42,6 +48,27 @@ import java.util.concurrent.TimeUnit;
  */
 public abstract class Client extends SubCommandBase {
 
+  @Parameter(names = {"--size"}, description = "Size of each file in bytes", required = true)
+  private int fileSizeInBytes;
+
+  @Parameter(names = {"--bufferSize"}, description = "Size of buffer in bytes, should less than 4MB, " +
+      "i.e BUFFER_BYTE_LIMIT_DEFAULT", required = true)
+  private int bufferSizeInBytes;
+
+  @Parameter(names = {"--numFiles"}, description = "Number of files to be written", required = true)
+  private int numFiles;
+
+  public int getFileSizeInBytes() {
+    return fileSizeInBytes;
+  }
+
+  public int getBufferSizeInBytes() {
+    return bufferSizeInBytes;
+  }
+
+  public int getNumFiles() {
+    return numFiles;
+  }
 
   @Override
   public void run() throws Exception {
@@ -58,6 +85,7 @@ public abstract class Client extends SubCommandBase {
         SizeInBytes.valueOf(raftSegmentPreallocatedSize));
     RaftServerConfigKeys.Log.setSegmentSizeMax(raftProperties,
         SizeInBytes.valueOf(1 * 1024 * 1024 * 1024L));
+    RaftConfigKeys.DataStream.setType(raftProperties, SupportedDataStreamType.NETTY);
 
     RaftServerConfigKeys.Log.setSegmentCacheNumMax(raftProperties, 2);
 
@@ -73,9 +101,44 @@ public abstract class Client extends SubCommandBase {
         RaftClient.newBuilder().setProperties(raftProperties);
     builder.setRaftGroup(raftGroup);
     builder.setClientRpc(new GrpcFactory(new Parameters()).newRaftClientRpc(ClientId.randomId(), raftProperties));
+    builder.setPrimaryDataStreamServer(getPrimary());
     RaftClient client = builder.build();
 
     operation(client);
+  }
+
+  public List<String> generateFiles() throws IOException {
+    String entropy = RandomStringUtils.randomAlphanumeric(numFiles);
+    List<String> paths = new ArrayList<>();
+    for (int i = 0; i < numFiles; i ++) {
+      String path = "file-" + entropy + "-" + i;
+      paths.add(path);
+      writeFile(path, fileSizeInBytes, bufferSizeInBytes);
+    }
+
+    return paths;
+  }
+
+  public void writeFile(String path, int fileSize, int bufferSize) throws IOException {
+    RandomAccessFile raf = null;
+    try {
+      raf = new RandomAccessFile(path, "rw");
+      int offset = 0;
+      while (offset < fileSize) {
+        final int remaining = fileSize - offset;
+        final int chunkSize = Math.min(remaining, bufferSize);
+        byte[] buffer = new byte[chunkSize];
+        for (int i = 0; i < chunkSize; i ++) {
+          buffer[i]= (byte) ('A' + i % 23);
+        }
+        raf.write(buffer);
+        offset += chunkSize;
+      }
+    } finally {
+      if (raf != null) {
+        raf.close();
+      }
+    }
   }
 
   protected abstract void operation(RaftClient client) throws IOException;
