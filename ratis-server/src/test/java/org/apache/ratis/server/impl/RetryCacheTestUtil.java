@@ -82,6 +82,7 @@ public class RetryCacheTestUtil {
     when(server.getMemberId()).thenReturn(memberId);
     doCallRealMethod().when(server).notifyTruncatedLogEntry(any(LogEntryProto.class));
     return new SegmentedRaftLog(memberId, server, null,
-        server::notifyTruncatedLogEntry, server::submitUpdateCommitEvent, storage, -1, properties);
+        server::notifyTruncatedLogEntry, server::submitUpdateCommitEvent,
+        storage, () -> -1, properties);
   }
 }

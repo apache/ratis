@@ -165,6 +165,6 @@ public class RaftServerTestUtil {
     return new SegmentedRaftLog(memberId, server, null,
         server::notifyTruncatedLogEntry,
         server::submitUpdateCommitEvent,
-        storage, -1, properties);
+        storage, () -> -1, properties);
   }
 }

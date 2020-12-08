@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 
 import com.codahale.metrics.Timer;
 
@@ -186,8 +187,8 @@ public class SegmentedRaftLog extends RaftLog {
   @SuppressWarnings("parameternumber")
   public SegmentedRaftLog(RaftGroupMemberId memberId, RaftServer.Division server,
       StateMachine stateMachine, Consumer<LogEntryProto> notifyTruncatedLogEntry, Runnable submitUpdateCommitEvent,
-      RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
-    super(memberId, lastIndexInSnapshot, properties);
+      RaftStorage storage, LongSupplier snapshotIndexSupplier, RaftProperties properties) {
+    super(memberId, snapshotIndexSupplier, properties);
     this.server = newServerLogMethods(server, notifyTruncatedLogEntry);
     this.storage = storage;
     this.stateMachine = stateMachine;
@@ -355,6 +356,7 @@ public class SegmentedRaftLog extends RaftLog {
   protected CompletableFuture<Long> purgeImpl(long index) {
     try (AutoCloseableLock writeLock = writeLock()) {
       SegmentedRaftLogCache.TruncationSegments ts = cache.purge(index);
+      updateSnapshotIndexFromStateMachine();
       LOG.debug("purging segments:{}", ts);
       if (ts != null) {
         Task task = fileLogWorker.purge(ts);

@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 
 /**
  * A simple RaftLog implementation in memory. Used only for testing.
@@ -72,8 +73,10 @@ public class MemoryRaftLog extends RaftLog {
   private final EntryList entries = new EntryList();
   private final AtomicReference<Metadata> metadata = new AtomicReference<>(new Metadata(null, 0));
 
-  public MemoryRaftLog(RaftGroupMemberId memberId, long commitIndex, RaftProperties properties) {
-    super(memberId, commitIndex, properties);
+  public MemoryRaftLog(RaftGroupMemberId memberId,
+                       LongSupplier commitIndexSupplier,
+                       RaftProperties properties) {
+    super(memberId, commitIndexSupplier, properties);
   }
 
   @Override
