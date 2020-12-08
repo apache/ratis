@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
@@ -178,14 +179,14 @@ public interface ServerProtoUtils {
 
   static RaftConfigurationProto.Builder toRaftConfigurationProto(RaftConfiguration conf) {
     return RaftConfigurationProto.newBuilder()
-        .addAllPeers(ProtoUtils.toRaftPeerProtos(conf.getPeersInConf()))
-        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPeersInOldConf()));
+        .addAllPeers(ProtoUtils.toRaftPeerProtos(conf.getCurrentPeers()))
+        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers()));
   }
 
-  static RaftConfiguration toRaftConfiguration(LogEntryProto entry) {
+  static RaftConfigurationImpl toRaftConfiguration(LogEntryProto entry) {
     Preconditions.assertTrue(entry.hasConfigurationEntry());
     final RaftConfigurationProto proto = entry.getConfigurationEntry();
-    final RaftConfiguration.Builder b = RaftConfiguration.newBuilder()
+    final RaftConfigurationImpl.Builder b = RaftConfigurationImpl.newBuilder()
         .setConf(ProtoUtils.toRaftPeers(proto.getPeersList()))
         .setLogEntryIndex(entry.getIndex());
     if (proto.getOldPeersCount() > 0) {
@@ -398,7 +399,7 @@ public interface ServerProtoUtils {
             .setDone(done);
     // Set term to DEFAULT_TERM as this term is not going to used by installSnapshot to update the RaftConfiguration
     final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, DEFAULT_TERM,
-        raftConfiguration.getLogEntryIndex());
+        ((RaftConfigurationImpl)raftConfiguration).getLogEntryIndex());
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
         .setLastRaftConfigurationLogEntryProto(confLogEntryProto)
@@ -415,7 +416,7 @@ public interface ServerProtoUtils {
             .setFirstAvailableTermIndex(toTermIndexProto(firstAvailable));
     // Set term to DEFAULT_TERM as this term is not going to used by installSnapshot to update the RaftConfiguration
     final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, DEFAULT_TERM,
-        raftConfiguration.getLogEntryIndex());
+        ((RaftConfigurationImpl)raftConfiguration).getLogEntryIndex());
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
         .setLastRaftConfigurationLogEntryProto(confLogEntryProto)

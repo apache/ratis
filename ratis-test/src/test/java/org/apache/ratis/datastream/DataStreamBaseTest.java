@@ -55,7 +55,7 @@ import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
-import org.apache.ratis.server.impl.RaftConfiguration;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.ServerFactory;
 import org.apache.ratis.server.metrics.RaftServerMetrics;

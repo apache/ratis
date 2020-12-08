@@ -22,7 +22,6 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -73,7 +72,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link RaftGroup} for this division. */
     default RaftGroup getGroup() {
-      return RaftGroup.valueOf(getMemberId().getGroupId(), getRaftConf().getPeers());
+      return RaftGroup.valueOf(getMemberId().getGroupId(), getRaftConf().getAllPeers());
     }
 
     /** @return the current {@link RaftConfiguration} for this division. */

@@ -22,6 +22,7 @@ import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DivisionInfo;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Daemon;
@@ -205,7 +206,7 @@ class LeaderElection implements Runnable {
     while (shouldRun()) {
       // one round of requestVotes
       final long electionTerm;
-      final RaftConfiguration conf;
+      final RaftConfigurationImpl conf;
       synchronized (server) {
         if (!shouldRun()) {
           break;
@@ -274,7 +275,7 @@ class LeaderElection implements Runnable {
     Set<RaftPeerId> higherPriorityPeers = new HashSet<>();
 
     int currPriority = conf.getPeer(server.getId()).getPriority();
-    Collection<RaftPeer> peers = conf.getPeers();
+    final Collection<RaftPeer> peers = conf.getAllPeers();
 
     for (RaftPeer peer : peers) {
       if (peer.getPriority() > currPriority) {
@@ -286,7 +287,7 @@ class LeaderElection implements Runnable {
   }
 
   private ResultAndTerm waitForResults(final long electionTerm, final int submitted,
-      RaftConfiguration conf, Executor voteExecutor) throws InterruptedException {
+      RaftConfigurationImpl conf, Executor voteExecutor) throws InterruptedException {
     final Timestamp timeout = Timestamp.currentTime().addTime(server.getRandomElectionTimeout());
     final Map<RaftPeerId, RequestVoteReplyProto> responses = new HashMap<>();
     final List<Exception> exceptions = new ArrayList<>();

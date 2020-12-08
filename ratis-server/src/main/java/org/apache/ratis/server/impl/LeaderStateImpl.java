@@ -266,7 +266,7 @@ class LeaderStateImpl implements LeaderState {
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
 
-    final RaftConfiguration conf = server.getRaftConf();
+    final RaftConfigurationImpl conf = state.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
     placeHolderIndex = raftLog.getNextIndex();
 
@@ -430,9 +430,8 @@ class LeaderStateImpl implements LeaderState {
 
   private void applyOldNewConf() {
     final ServerState state = server.getState();
-    final RaftConfiguration current = server.getRaftConf();
-    final RaftConfiguration oldNewConf= stagingState.generateOldNewConf(current,
-        state.getLog().getNextIndex());
+    final RaftConfigurationImpl current = state.getRaftConf();
+    final RaftConfigurationImpl oldNewConf= stagingState.generateOldNewConf(current, state.getLog().getNextIndex());
     // apply the (old, new) configuration to log, and use it as the current conf
     long index = state.getLog().append(state.getCurrentTerm(), oldNewConf);
     updateConfiguration(index, oldNewConf);
@@ -441,7 +440,7 @@ class LeaderStateImpl implements LeaderState {
     notifySenders();
   }
 
-  private void updateConfiguration(long logIndex, RaftConfiguration newConf) {
+  private void updateConfiguration(long logIndex, RaftConfigurationImpl newConf) {
     voterLists = divideFollowers(newConf);
     server.getState().setRaftConf(logIndex, newConf);
   }
@@ -503,7 +502,7 @@ class LeaderStateImpl implements LeaderState {
   /**
    * Update the RpcSender list based on the current configuration
    */
-  private void updateSenders(RaftConfiguration conf) {
+  private void updateSenders(RaftConfigurationImpl conf) {
     Preconditions.assertTrue(conf.isStable() && !inStagingState());
     stopAndRemoveSenders(s -> !conf.containsInConf(s.getFollowerId()));
   }
@@ -545,8 +544,8 @@ class LeaderStateImpl implements LeaderState {
   private void prepare() {
     synchronized (server) {
       if (running) {
-        final RaftConfiguration conf = server.getRaftConf();
-        if (conf.isTransitional() && server.getState().isConfCommitted()) {
+        final ServerState state = server.getState();
+        if (state.getRaftConf().isTransitional() && state.isConfCommitted()) {
           // the configuration is in transitional state, and has been committed
           // so it is time to generate and replicate (new) conf.
           replicateNewConf();
@@ -692,7 +691,7 @@ class LeaderStateImpl implements LeaderState {
 
   private Optional<MinMajorityMax> getMajorityMin(ToLongFunction<FollowerInfo> followerIndex, LongSupplier logIndex) {
     final RaftPeerId selfId = server.getId();
-    final RaftConfiguration conf = server.getRaftConf();
+    final RaftConfigurationImpl conf = server.getRaftConf();
 
     final List<RaftPeerId> followers = voterLists.get(0);
     final boolean includeSelf = conf.containsInConf(selfId);
@@ -762,7 +761,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private void checkAndUpdateConfiguration(TermIndex[] entriesToCheck) {
-    final RaftConfiguration conf = server.getRaftConf();
+    final RaftConfigurationImpl conf = server.getRaftConf();
     if (committedConf(entriesToCheck)) {
       if (conf.isTransitional()) {
         replicateNewConf();
@@ -793,8 +792,8 @@ class LeaderStateImpl implements LeaderState {
    * 4) start replicating the log entry
    */
   private void replicateNewConf() {
-    final RaftConfiguration conf = server.getRaftConf();
-    final RaftConfiguration newConf = RaftConfiguration.newBuilder()
+    final RaftConfigurationImpl conf = server.getRaftConf();
+    final RaftConfigurationImpl newConf = RaftConfigurationImpl.newBuilder()
         .setConf(conf)
         .setLogEntryIndex(raftLog.getNextIndex())
         .build();
@@ -843,7 +842,7 @@ class LeaderStateImpl implements LeaderState {
     return indices;
   }
 
-  private List<List<RaftPeerId>> divideFollowers(RaftConfiguration conf) {
+  private List<List<RaftPeerId>> divideFollowers(RaftConfigurationImpl conf) {
     List<List<RaftPeerId>> lists = new ArrayList<>(2);
     List<RaftPeerId> listForNew = senders.stream()
         .map(LogAppender::getFollowerId)
@@ -865,7 +864,7 @@ class LeaderStateImpl implements LeaderState {
       return;
     }
 
-    final RaftConfiguration conf = server.getRaftConf();
+    final RaftConfigurationImpl conf = server.getRaftConf();
     int leaderPriority = conf.getPeer(server.getId()).getPriority();
 
     for (LogAppender logAppender : senders.getSenders()) {
@@ -927,7 +926,7 @@ class LeaderStateImpl implements LeaderState {
         .map(LogAppender::getFollowerId)
         .collect(Collectors.toList());
 
-    final RaftConfiguration conf = server.getRaftConf();
+    final RaftConfigurationImpl conf = server.getRaftConf();
 
     if (conf.hasMajority(activePeers, server.getId())) {
       // leadership check passed
@@ -971,9 +970,8 @@ class LeaderStateImpl implements LeaderState {
       this.newConf = newConf;
     }
 
-    RaftConfiguration generateOldNewConf(RaftConfiguration current,
-        long logIndex) {
-      return RaftConfiguration.newBuilder()
+    RaftConfigurationImpl generateOldNewConf(RaftConfigurationImpl current, long logIndex) {
+      return RaftConfigurationImpl.newBuilder()
           .setConf(newConf)
           .setOldConf(current)
           .setLogEntryIndex(logIndex)

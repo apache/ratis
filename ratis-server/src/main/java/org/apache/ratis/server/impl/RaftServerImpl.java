@@ -279,8 +279,8 @@ class RaftServerImpl implements RaftServer.Division,
     if (!lifeCycle.compareAndTransition(NEW, STARTING)) {
       return false;
     }
-    RaftConfiguration conf = getRaftConf();
-    if (conf != null && conf.contains(getId())) {
+    final RaftConfigurationImpl conf = getRaftConf();
+    if (conf != null && conf.containsInBothConfs(getId())) {
       LOG.info("{}: start as a follower, conf={}", getMemberId(), conf);
       startAsFollower();
     } else {
@@ -341,7 +341,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
-  public RaftConfiguration getRaftConf() {
+  public RaftConfigurationImpl getRaftConf() {
     return getState().getRaftConf();
   }
 
@@ -486,7 +486,7 @@ class RaftServerImpl implements RaftServer.Division,
       role.getLeaderState().ifPresent(
           leader -> leader.updateFollowerCommitInfos(commitInfoCache, infos));
     } else {
-      getRaftConf().getPeers().stream()
+      getRaftConf().getAllPeers().stream()
           .map(RaftPeer::getId)
           .filter(id -> !id.equals(getId()))
           .map(commitInfoCache::get)
@@ -620,8 +620,8 @@ class RaftServerImpl implements RaftServer.Division,
       // leader, but it is about to step down. set the suggested leader as null.
       leaderId = null;
     }
-    RaftConfiguration conf = getRaftConf();
-    Collection<RaftPeer> peers = conf.getPeers();
+    final RaftConfigurationImpl conf = getRaftConf();
+    Collection<RaftPeer> peers = conf.getAllPeers();
     return new NotLeaderException(getMemberId(), conf.getPeer(leaderId), peers);
   }
 
@@ -888,7 +888,7 @@ class RaftServerImpl implements RaftServer.Division,
         return reply;
       }
 
-      final RaftConfiguration current = getRaftConf();
+      final RaftConfigurationImpl current = getRaftConf();
       final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
       // make sure there is no other raft reconfiguration in progress
       if (!current.isStable() || leaderState.inStagingState() || !state.isConfCommitted()) {
