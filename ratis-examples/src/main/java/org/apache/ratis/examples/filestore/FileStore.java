@@ -195,7 +195,7 @@ public class FileStore implements Closeable {
   }
 
   CompletableFuture<Integer> write(
-      long index, String relative, boolean close, long offset, ByteString data) {
+      long index, String relative, boolean close, boolean sync, long offset, ByteString data) {
     final int size = data != null? data.size(): 0;
     LOG.trace("write {}, offset={}, size={}, close? {} @{}:{}",
         relative, offset, size, close, getId(), index);
@@ -214,8 +214,8 @@ public class FileStore implements Closeable {
     }
 
     return size == 0 && !close? CompletableFuture.completedFuture(0)
-        : createNew? uc.submitCreate(this::resolve, data, close, writer, getId(), index)
-        : uc.submitWrite(offset, data, close, writer, getId(), index);
+        : createNew? uc.submitCreate(this::resolve, data, close, sync, writer, getId(), index)
+        : uc.submitWrite(offset, data, close, sync, writer, getId(), index);
   }
 
   @Override
@@ -266,7 +266,7 @@ public class FileStore implements Closeable {
     }, writer);
   }
 
-  class FileStoreDataChannel implements StateMachine.DataChannel {
+  static class FileStoreDataChannel implements StateMachine.DataChannel {
     private final RandomAccessFile randomAccessFile;
 
     FileStoreDataChannel(RandomAccessFile file) {

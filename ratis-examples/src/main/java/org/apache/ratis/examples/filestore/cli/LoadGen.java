@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.examples.filestore.cli;
 
+import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.filestore.FileStoreClient;
@@ -37,6 +38,9 @@ import java.util.concurrent.CompletableFuture;
 @Parameters(commandDescription = "Load Generator for FileStore")
 public class LoadGen extends Client {
 
+  @Parameter(names = {"--sync"}, description = "Whether sync every bufferSize", required = true)
+  private int sync = 0;
+
   @Override
   protected void operation(RaftClient client) throws IOException {
     List<String> paths = generateFiles();
@@ -54,8 +58,7 @@ public class LoadGen extends Client {
     System.out.println("Total data written: " + totalWrittenBytes + " bytes");
     System.out.println("Total time taken: " + (endTime - startTime) + " millis");
 
-    client.close();
-    System.exit(0);
+    stop(client);
   }
 
   private Map<String, List<CompletableFuture<Long>>> writeByHeapByteBuffer(
@@ -76,7 +79,8 @@ public class LoadGen extends Client {
       long offset = 0L;
       while(fis.read(buffer, 0, bytesToRead) > 0) {
         ByteBuffer b = ByteBuffer.wrap(buffer);
-        futures.add(fileStoreClient.writeAsync(path, offset, offset + bytesToRead == getFileSizeInBytes(), b));
+        futures.add(fileStoreClient.writeAsync(path, offset, offset + bytesToRead == getFileSizeInBytes(), b,
+            sync == 1));
         offset += bytesToRead;
         bytesToRead = (int)Math.min(getFileSizeInBytes() - offset, getBufferSizeInBytes());
         if (bytesToRead > 0) {

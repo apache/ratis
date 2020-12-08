@@ -113,7 +113,7 @@ class FileStoreWriter implements Closeable {
     return b;
   }
 
-  FileStoreWriter write() throws IOException {
+  FileStoreWriter write(boolean sync) throws IOException {
     final Random r = new Random(seed);
     final int size = fileSize.getSizeInt();
 
@@ -126,7 +126,7 @@ class FileStoreWriter implements Closeable {
 
       LOG.trace("write {}, offset={}, length={}, close? {}",
           fileName, offset, length, close);
-      final long written = client.write(fileName, offset, close, b);
+      final long written = client.write(fileName, offset, close, b, sync);
       Assert.assertEquals(length, written);
       offset += written;
     }
@@ -167,7 +167,7 @@ class FileStoreWriter implements Closeable {
     return this;
   }
 
-  CompletableFuture<FileStoreWriter> writeAsync() {
+  CompletableFuture<FileStoreWriter> writeAsync(boolean sync) {
     Objects.requireNonNull(asyncExecutor, "asyncExecutor == null");
     final Random r = new Random(seed);
     final int size = fileSize.getSizeInt();
@@ -188,7 +188,7 @@ class FileStoreWriter implements Closeable {
 
       LOG.trace("writeAsync {}, offset={}, length={}, close? {}",
           fileName, offset, length, close);
-      client.writeAsync(fileName, offset, close, b)
+      client.writeAsync(fileName, offset, close, b, sync)
           .thenAcceptAsync(written -> Assert.assertEquals(length, (long)written), asyncExecutor)
           .thenRun(() -> {
             final int count = callCount.decrementAndGet();

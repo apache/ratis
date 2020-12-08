@@ -92,7 +92,7 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
                  .setFileSize(fileLength)
                  .setFileStoreClientSupplier(newClient)
                  .build()) {
-      w.write().verify().delete();
+      w.write(false).verify().delete();
     }
   }
 
@@ -112,7 +112,7 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
               .setFileName(path)
               .setFileSize(fileLength)
               .setFileStoreClientSupplier(newClient)
-              .build().write(),
+              .build().write(false),
           () -> path + ":" + fileLength);
       writerFutures.add(executor.submit(callable));
     }
