@@ -116,6 +116,10 @@ public class RaftServerTestUtil {
     return (ConfigurationManager) Whitebox.getInternalState(getState(server), "configurationManager");
   }
 
+  public static RaftConfiguration newRaftConfiguration(Collection<RaftPeer> peers) {
+    return RaftConfigurationImpl.newBuilder().setConf(peers).build();
+  }
+
   public static RaftConfiguration getRaftConf(RaftServer.Division server) {
     return ((RaftServerImpl)server).getRaftConf();
   }

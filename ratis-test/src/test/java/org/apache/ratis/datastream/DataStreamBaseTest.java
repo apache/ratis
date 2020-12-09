@@ -80,7 +80,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 abstract class DataStreamBaseTest extends BaseTest {
-  static class MyDivision implements RaftServer.Division {
+  class MyDivision implements RaftServer.Division {
     private final RaftServer server;
     private final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
     private final DataStreamMap streamMap;
@@ -108,7 +108,8 @@ abstract class DataStreamBaseTest extends BaseTest {
 
     @Override
     public RaftConfiguration getRaftConf() {
-      return null;
+      final List<RaftPeer> peers = servers.stream().map(Server::getPeer).collect(Collectors.toList());
+      return RaftServerTestUtil.newRaftConfiguration(peers);
     }
 
     @Override
@@ -204,7 +205,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     return new MyRaftServer(peer, properties);
   }
 
-  static class MyRaftServer implements RaftServer {
+  class MyRaftServer implements RaftServer {
       private final RaftPeer peer;
       private final RaftProperties properties;
       private final ConcurrentMap<RaftGroupId, MyDivision> divisions = new ConcurrentHashMap<>();
@@ -283,7 +284,7 @@ abstract class DataStreamBaseTest extends BaseTest {
             .thenApply(channel -> buildRaftClientReply(request, channel));
       }
 
-      static RaftClientReply buildRaftClientReply(RaftClientRequest request, DataChannel channel) {
+      RaftClientReply buildRaftClientReply(RaftClientRequest request, DataChannel channel) {
         Assert.assertTrue(channel instanceof MyDataChannel);
         final MyDataChannel dataChannel = (MyDataChannel) channel;
         return RaftClientReply.newBuilder()
