@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.Parameters;
@@ -26,7 +25,8 @@ import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.server.impl.*;
+import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 
 /**
  * A {@link MiniRaftCluster} with {{@link SupportedRpcType#GRPC}} and data stream disabled.

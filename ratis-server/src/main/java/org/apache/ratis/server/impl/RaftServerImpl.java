@@ -903,8 +903,7 @@ class RaftServerImpl implements RaftServer.Division,
         return pending.getFuture();
       }
 
-      // add new peers into the rpc service
-      getServerRpc().addRaftPeers(peersInNewConf);
+      getRaftServer().addRaftPeers(peersInNewConf);
       // add staging state into the leaderState
       pending = leaderState.startSetConfiguration(request);
     }

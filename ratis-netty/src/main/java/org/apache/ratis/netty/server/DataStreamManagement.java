@@ -31,6 +31,7 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
 import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.server.RaftServer;
@@ -43,7 +44,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
-import org.apache.ratis.util.function.CheckedFunction;
+import org.apache.ratis.util.function.CheckedBiFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -226,13 +227,23 @@ public class DataStreamManagement {
   }
 
   private StreamInfo newStreamInfo(ByteBuf buf,
-      CheckedFunction<RaftClientRequest, List<DataStreamOutputRpc>, IOException> getDataStreamOutput) {
+      CheckedBiFunction<RaftClientRequest, List<RaftPeer>, List<DataStreamOutputRpc>, IOException> getStreams) {
     try {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
       final boolean isPrimary = server.getId().equals(request.getServerId());
-      return new StreamInfo(request, isPrimary, computeDataStreamIfAbsent(request),
-          isPrimary? getDataStreamOutput.apply(request): Collections.emptyList());
+      final List<DataStreamOutputRpc> outs;
+      if (isPrimary) {
+        final RaftGroupId groupId = request.getRaftGroupId();
+        // get the other peers from the current configuration
+        final List<RaftPeer> others = server.getDivision(groupId).getRaftConf().getCurrentPeers().stream()
+            .filter(p -> !p.getId().equals(server.getId()))
+            .collect(Collectors.toList());
+        outs = getStreams.apply(request, others);
+      } else {
+        outs = Collections.emptyList();
+      }
+      return new StreamInfo(request, isPrimary, computeDataStreamIfAbsent(request), outs);
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
@@ -341,13 +352,13 @@ public class DataStreamManagement {
   }
 
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
-      CheckedFunction<RaftClientRequest, List<DataStreamOutputRpc>, IOException> getDataStreamOutput) {
+      CheckedBiFunction<RaftClientRequest, List<RaftPeer>, List<DataStreamOutputRpc>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
     final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
-      final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getDataStreamOutput));
+      final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getStreams));
       info = streams.computeIfAbsent(key, id -> supplier.get());
       if (!supplier.isInitialized()) {
         throw new IllegalStateException("Failed to create a new stream for " + request

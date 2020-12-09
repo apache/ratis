@@ -18,6 +18,8 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.server.DataStreamServer;
+import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
 import org.apache.ratis.server.RaftServerRpc;
@@ -54,7 +56,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.ServerFactory;
@@ -161,12 +162,12 @@ abstract class DataStreamBaseTest extends BaseTest {
   static class Server {
     private final RaftPeer peer;
     private final RaftServer raftServer;
-    private final DataStreamServerImpl dataStreamServer;
+    private final DataStreamServer dataStreamServer;
 
     Server(RaftPeer peer, RaftServer raftServer) {
       this.peer = peer;
       this.raftServer = raftServer;
-      this.dataStreamServer = new DataStreamServerImpl(raftServer, null);
+      this.dataStreamServer = RaftServerTestUtil.newDataStreamServer(raftServer);
     }
 
     RaftPeer getPeer() {
@@ -255,6 +256,11 @@ abstract class DataStreamBaseTest extends BaseTest {
 
       @Override
       public RaftServerRpc getServerRpc() {
+        return null;
+      }
+
+      @Override
+      public DataStreamServerRpc getDataStreamServerRpc() {
         return null;
       }
 

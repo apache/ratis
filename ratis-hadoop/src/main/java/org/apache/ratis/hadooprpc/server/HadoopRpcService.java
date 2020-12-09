@@ -38,7 +38,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.impl.RaftServerRpcWithProxy;
+import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import com.google.protobuf.BlockingService;
 import com.google.protobuf.ByteString;

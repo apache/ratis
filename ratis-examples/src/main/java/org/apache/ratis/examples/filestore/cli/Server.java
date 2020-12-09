@@ -35,7 +35,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.LifeCycle;
@@ -44,7 +43,6 @@ import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -95,11 +93,6 @@ public class Server extends SubCommandBase {
         .build();
 
     raftServer.start();
-
-    if (isPrimary(id)) {
-      ((RaftServerProxy) raftServer).getDataStreamServerRpc()
-          .addRaftPeers(getOtherRaftPeers(Arrays.asList(getPeers())));
-    }
 
     for (; raftServer.getLifeCycleState() != LifeCycle.State.CLOSED; ) {
       TimeUnit.SECONDS.sleep(1);

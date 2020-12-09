@@ -126,6 +126,10 @@ public interface RaftServer extends Closeable, RpcType.Get,
   /** @return the rpc service. */
   RaftServerRpc getServerRpc();
 
+  /** @return the data stream rpc service. */
+  DataStreamServerRpc getDataStreamServerRpc();
+
+  /** @return the {@link RpcType}. */
   default RpcType getRpcType() {
     return getFactory().getRpcType();
   }
