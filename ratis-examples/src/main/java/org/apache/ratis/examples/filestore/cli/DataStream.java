@@ -200,7 +200,7 @@ public class DataStream extends Client {
 
     boolean isSync(long position) {
       if (syncSize > 0) {
-        if (position >= fileSize || syncPosition - position >= syncSize) {
+        if (position >= fileSize || position - syncPosition >= syncSize) {
           syncPosition = position;
           return true;
         }

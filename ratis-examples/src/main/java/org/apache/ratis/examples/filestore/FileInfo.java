@@ -186,8 +186,7 @@ abstract class FileInfo {
           + close + ") @" + id + ":" + index;
       final CheckedSupplier<Integer, IOException> task = LogUtils.newCheckedSupplier(LOG, () -> {
         if (out == null) {
-          out = new FileStore.FileStoreDataChannel(new RandomAccessFile(resolver.apply(getRelativePath()).toFile(),
-              "rw"));
+          out = new FileStore.FileStoreDataChannel(resolver.apply(getRelativePath()));
         }
         return write(0L, data, close, sync);
       }, name);
