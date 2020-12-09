@@ -41,6 +41,7 @@ import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -60,7 +61,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -68,12 +68,6 @@ import java.util.function.Supplier;
 
 /** A client who sends requests to a raft service. */
 public final class RaftClientImpl implements RaftClient {
-  private static final AtomicLong CALL_ID_COUNTER = new AtomicLong();
-
-  static long nextCallId() {
-    return CALL_ID_COUNTER.getAndIncrement() & Long.MAX_VALUE;
-  }
-
   public abstract static class PendingClientRequest {
     private final long creationTimeInMs = System.currentTimeMillis();
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
@@ -225,7 +219,7 @@ public final class RaftClientImpl implements RaftClient {
       throws IOException {
     Objects.requireNonNull(peersInNewConf, "peersInNewConf == null");
 
-    final long callId = nextCallId();
+    final long callId = CallId.getAndIncrement();
     // also refresh the rpc proxies for these peers
     clientRpc.addRaftPeers(peersInNewConf);
     return io().sendRequestWithRetry(() -> new SetConfigurationRequest(
@@ -342,10 +336,6 @@ public final class RaftClientImpl implements RaftClient {
       }
       clientRpc.handleException(oldLeader, ioe, true);
     }
-  }
-
-  long getCallId() {
-    return CALL_ID_COUNTER.get();
   }
 
   @Override

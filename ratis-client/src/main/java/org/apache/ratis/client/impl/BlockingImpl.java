@@ -34,6 +34,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +76,7 @@ class BlockingImpl implements BlockingApi {
       Objects.requireNonNull(message, "message == null");
     }
 
-    final long callId = RaftClientImpl.nextCallId();
+    final long callId = CallId.getAndIncrement();
     return sendRequestWithRetry(() -> client.newRaftClientRequest(server, callId, message, type, null));
   }
 

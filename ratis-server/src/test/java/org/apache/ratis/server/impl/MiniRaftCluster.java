@@ -33,6 +33,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.ServerFactory;
@@ -76,8 +77,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
 public abstract class MiniRaftCluster implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
@@ -714,7 +713,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public RaftClientRequest newRaftClientRequest(
       ClientId clientId, RaftPeerId leaderId, Message message) {
-    return newRaftClientRequest(clientId, leaderId, DEFAULT_CALLID, message);
+    return newRaftClientRequest(clientId, leaderId, CallId.getDefault(), message);
   }
 
   public RaftClientRequest newRaftClientRequest(
@@ -726,7 +725,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public SetConfigurationRequest newSetConfigurationRequest(
       ClientId clientId, RaftPeerId leaderId,
       RaftPeer... peers) {
-    return new SetConfigurationRequest(clientId, leaderId, getGroupId(), DEFAULT_CALLID, Arrays.asList(peers));
+    return new SetConfigurationRequest(clientId, leaderId, getGroupId(), CallId.getDefault(), Arrays.asList(peers));
   }
 
   public void setConfiguration(RaftPeer... peers) throws IOException {

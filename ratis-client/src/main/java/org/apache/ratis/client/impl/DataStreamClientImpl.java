@@ -32,6 +32,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -180,7 +181,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     final Message message =
         Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
     RaftClientRequest request = new RaftClientRequest(clientId, dataStreamServer.getId(), groupId,
-        RaftClientImpl.nextCallId(), message, RaftClientRequest.dataStreamRequestType(), null);
+        CallId.getAndIncrement(), message, RaftClientRequest.dataStreamRequestType(), null);
     return new DataStreamOutputImpl(request);
   }
 
