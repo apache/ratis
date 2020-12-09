@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream.impl;
 
 import org.apache.ratis.io.FilePositionCount;
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 
@@ -28,9 +29,11 @@ import org.apache.ratis.protocol.DataStreamRequestHeader;
  */
 public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl implements DataStreamRequest {
   private final FilePositionCount file;
+  private WriteOption[] options;
 
   public DataStreamRequestFilePositionCount(DataStreamRequestHeader header, FilePositionCount file) {
     super(header.getType(), header.getStreamId(), header.getStreamOffset());
+    this.options = header.getWriteOptions();
     this.file = file;
   }
 
@@ -42,5 +45,10 @@ public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl imp
   /** @return the file with the starting position and the byte count. */
   public FilePositionCount getFile() {
     return file;
+  }
+
+  @Override
+  public WriteOption[] getWriteOptions() {
+    return options;
   }
 }

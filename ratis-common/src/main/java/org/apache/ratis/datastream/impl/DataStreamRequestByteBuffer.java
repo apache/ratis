@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.datastream.impl;
 
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.util.Preconditions;
@@ -29,8 +30,16 @@ import java.nio.ByteBuffer;
  * This class is immutable.
  */
 public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer implements DataStreamRequest {
+  private WriteOption[] options;
+
   public DataStreamRequestByteBuffer(DataStreamRequestHeader header, ByteBuffer buffer) {
     super(header.getType(), header.getStreamId(), header.getStreamOffset(), buffer);
+    this.options = header.getWriteOptions();
     Preconditions.assertTrue(header.getDataLength() == buffer.remaining());
+  }
+
+  @Override
+  public WriteOption[] getWriteOptions() {
+    return options;
   }
 }

@@ -18,6 +18,8 @@
 
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.io.StandardWriteOption;
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
@@ -51,7 +53,13 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
       final DataStreamPacketHeaderProto h = header.getPacketHeader();
       if (h.getDataLength() + headerBufLen <= buf.readableBytes()) {
         buf.readerIndex(buf.readerIndex() + headerBufLen);
-        return new DataStreamRequestHeader(h.getType(), h.getStreamId(), h.getStreamOffset(), h.getDataLength());
+        WriteOption[] options = new WriteOption[h.getOptionsCount()];
+        for (int i = 0; i < options.length; i++) {
+          options[i] = StandardWriteOption.values()[h.getOptions(i).ordinal()];
+        }
+
+        return new DataStreamRequestHeader(h.getType(), h.getStreamId(), h.getStreamOffset(), h.getDataLength(),
+            options);
       } else {
         buf.resetReaderIndex();
         return null;
@@ -63,7 +71,15 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
     }
   }
 
-  public DataStreamRequestHeader(Type type, long streamId, long streamOffset, long dataLength) {
+  private final WriteOption[] options;
+
+  public DataStreamRequestHeader(Type type, long streamId, long streamOffset, long dataLength, WriteOption... options) {
     super(type, streamId, streamOffset, dataLength);
+    this.options = options;
+  }
+
+  @Override
+  public WriteOption[] getWriteOptions() {
+    return options;
   }
 }
