@@ -214,14 +214,16 @@ public class DataStream extends Client {
       }
 
       final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-      try (FileInputStream fis = new FileInputStream(file);
-           DataStreamOutput out = client.getStreamOutput(path, fileSize)) {
+      final DataStreamOutput out = client.getStreamOutput(path, fileSize);
+      try (FileInputStream fis = new FileInputStream(file)) {
         final FileChannel in = fis.getChannel();
         for (long offset = 0L; offset < fileSize; ) {
           offset += write(in, out, offset, futures);
         }
       } catch (Throwable e) {
         throw new IOException("Failed to transfer " + path);
+      } finally {
+        futures.add(out.closeAsync());
       }
       return futures;
     }
