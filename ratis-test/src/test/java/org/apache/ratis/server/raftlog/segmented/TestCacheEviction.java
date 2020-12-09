@@ -27,7 +27,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -35,6 +34,7 @@ import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheIn
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.LogSegmentList;
 import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog.SegmentRange;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
@@ -163,7 +163,7 @@ public class TestCacheEviction extends BaseTest {
 
     File storageDir = getTestDir();
     RaftServerConfigKeys.setStorageDir(prop,  Collections.singletonList(storageDir));
-    RaftStorage storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
+    RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
 
     final DivisionInfo info = Mockito.mock(DivisionInfo.class);
     Mockito.when(info.getLastAppliedIndex()).thenReturn(0L);

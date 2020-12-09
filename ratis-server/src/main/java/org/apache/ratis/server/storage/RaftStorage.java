@@ -20,7 +20,6 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.RaftConfiguration;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.ratis.util.JavaUtils;
@@ -34,9 +33,16 @@ import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.file.Files;
+import java.util.Optional;
 
+/** The storage of a {@link org.apache.ratis.server.RaftServer}. */
 public class RaftStorage implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(RaftStorage.class);
+
+  public enum StartupOption {
+    /** Format the storage. */
+    FORMAT;
+  }
 
   // TODO support multiple storage directories
   private final RaftStorageDirectory storageDir;
@@ -44,15 +50,13 @@ public class RaftStorage implements Closeable {
   private final CorruptionPolicy logCorruptionPolicy;
   private volatile MetaFile metaFile;
 
-  public RaftStorage(File dir, RaftServerConstants.StartupOption option)
-      throws IOException {
-    this(dir, option, CorruptionPolicy.getDefault());
+  public RaftStorage(File dir, CorruptionPolicy logCorruptionPolicy) throws IOException {
+    this(dir, logCorruptionPolicy, null);
   }
 
-  public RaftStorage(File dir, RaftServerConstants.StartupOption option, CorruptionPolicy logCorruptionPolicy)
-      throws IOException {
+  public RaftStorage(File dir, CorruptionPolicy logCorruptionPolicy, StartupOption option) throws IOException {
     this.storageDir = new RaftStorageDirectory(dir);
-    if (option == RaftServerConstants.StartupOption.FORMAT) {
+    if (option == StartupOption.FORMAT) {
       if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
         throw new IOException("Cannot format " + storageDir);
       }
@@ -68,7 +72,7 @@ public class RaftStorage implements Closeable {
             + ". Its state: " + state);
       }
     }
-    this.logCorruptionPolicy = logCorruptionPolicy;
+    this.logCorruptionPolicy = Optional.ofNullable(logCorruptionPolicy).orElseGet(CorruptionPolicy::getDefault);
   }
 
   StorageState getState() {
