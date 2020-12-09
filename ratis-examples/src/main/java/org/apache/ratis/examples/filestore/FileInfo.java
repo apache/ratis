@@ -30,7 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
@@ -66,10 +65,6 @@ abstract class FileInfo {
   long getCommittedSize() {
     throw new UnsupportedOperationException(
         "File " + getRelativePath() + " size is unknown.");
-  }
-
-  void flush() throws IOException {
-    // no-op
   }
 
   ByteString read(CheckedFunction<Path, Path, IOException> resolver, long offset, long length, boolean readCommitted)
@@ -186,8 +181,7 @@ abstract class FileInfo {
           + close + ") @" + id + ":" + index;
       final CheckedSupplier<Integer, IOException> task = LogUtils.newCheckedSupplier(LOG, () -> {
         if (out == null) {
-          out = new FileStore.FileStoreDataChannel(new RandomAccessFile(resolver.apply(getRelativePath()).toFile(),
-              "rw"));
+          out = new FileStore.FileStoreDataChannel(resolver.apply(getRelativePath()));
         }
         return write(0L, data, close, sync);
       }, name);

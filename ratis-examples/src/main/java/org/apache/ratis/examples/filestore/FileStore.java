@@ -259,7 +259,7 @@ public class FileStore implements Closeable {
     return CompletableFuture.supplyAsync(() -> {
       try {
         final Path full = resolve(normalize(p));
-        return new FileStoreDataChannel(new RandomAccessFile(full.toFile(), "rw"));
+        return new FileStoreDataChannel(full);
       } catch (IOException e) {
         throw new CompletionException("Failed to create " + p, e);
       }
@@ -267,14 +267,17 @@ public class FileStore implements Closeable {
   }
 
   static class FileStoreDataChannel implements StateMachine.DataChannel {
+    private final Path path;
     private final RandomAccessFile randomAccessFile;
 
-    FileStoreDataChannel(RandomAccessFile file) {
-      randomAccessFile = file;
+    FileStoreDataChannel(Path path) throws FileNotFoundException {
+      this.path = path;
+      this.randomAccessFile = new RandomAccessFile(path.toFile(), "rw");
     }
 
     @Override
     public void force(boolean metadata) throws IOException {
+      LOG.debug("force({}) at {}", metadata, path);
       randomAccessFile.getChannel().force(metadata);
     }
 
