@@ -52,7 +52,7 @@ public class LoadGen extends Client {
     FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting Async write now ");
 
-    final ExecutorService executor = Executors.newFixedThreadPool(getNumFiles());
+    final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
 
     long startTime = System.currentTimeMillis();
 
