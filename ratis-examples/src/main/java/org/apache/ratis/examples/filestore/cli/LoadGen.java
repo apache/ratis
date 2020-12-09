@@ -21,16 +21,21 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.filestore.FileStoreClient;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
+import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Subcommand to generate load in filestore state machine.
@@ -42,14 +47,16 @@ public class LoadGen extends Client {
   private int sync = 0;
 
   @Override
-  protected void operation(RaftClient client) throws IOException {
+  protected void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException {
     List<String> paths = generateFiles();
     FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting Async write now ");
 
+    final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
+
     long startTime = System.currentTimeMillis();
 
-    long totalWrittenBytes = waitWriteFinish(writeByHeapByteBuffer(paths, fileStoreClient));
+    long totalWrittenBytes = waitWriteFinish(writeByHeapByteBuffer(paths, fileStoreClient, executor));
 
     long endTime = System.currentTimeMillis();
 
@@ -61,44 +68,59 @@ public class LoadGen extends Client {
     stop(client);
   }
 
-  private Map<String, List<CompletableFuture<Long>>> writeByHeapByteBuffer(
-      List<String> paths, FileStoreClient fileStoreClient) throws IOException {
-    Map<String, List<CompletableFuture<Long>>> fileMap = new HashMap<>();
+  long write(FileChannel in, long offset, FileStoreClient fileStoreClient, String path,
+      List<CompletableFuture<Long>> futures) throws IOException {
+    final int bufferSize = getBufferSizeInBytes();
+    final ByteBuf buf = PooledByteBufAllocator.DEFAULT.heapBuffer(bufferSize);
+    final int bytesRead = buf.writeBytes(in, bufferSize);
+
+    if (bytesRead < 0) {
+      throw new IllegalStateException("Failed to read " + bufferSize + " byte(s) from " + this
+          + ". The channel has reached end-of-stream at " + offset);
+    } else if (bytesRead > 0) {
+      final CompletableFuture<Long> f = fileStoreClient.writeAsync(
+          path, offset, offset + bytesRead == getFileSizeInBytes(), buf.nioBuffer(),
+          sync == 1);
+      f.thenRun(buf::release);
+      futures.add(f);
+    }
+    return bytesRead;
+  }
+
+  private Map<String, CompletableFuture<List<CompletableFuture<Long>>>> writeByHeapByteBuffer(
+      List<String> paths, FileStoreClient fileStoreClient, ExecutorService executor) {
+    Map<String, CompletableFuture<List<CompletableFuture<Long>>>> fileMap = new HashMap<>();
 
     for(String path : paths) {
-      List<CompletableFuture<Long>> futures = new ArrayList<>();
-      File file = new File(path);
-      FileInputStream fis = new FileInputStream(file);
-
-      int bytesToRead = getBufferSizeInBytes();
-      if (getFileSizeInBytes() > 0L && getFileSizeInBytes() < (long)getBufferSizeInBytes()) {
-        bytesToRead = getFileSizeInBytes();
-      }
-
-      byte[] buffer = new byte[bytesToRead];
-      long offset = 0L;
-      while(fis.read(buffer, 0, bytesToRead) > 0) {
-        ByteBuffer b = ByteBuffer.wrap(buffer);
-        futures.add(fileStoreClient.writeAsync(path, offset, offset + bytesToRead == getFileSizeInBytes(), b,
-            sync == 1));
-        offset += bytesToRead;
-        bytesToRead = (int)Math.min(getFileSizeInBytes() - offset, getBufferSizeInBytes());
-        if (bytesToRead > 0) {
-          buffer = new byte[bytesToRead];
+      final CompletableFuture<List<CompletableFuture<Long>>> future = new CompletableFuture<>();
+      CompletableFuture.supplyAsync(() -> {
+        List<CompletableFuture<Long>> futures = new ArrayList<>();
+        File file = new File(path);
+        try (FileInputStream fis = new FileInputStream(file)) {
+          final FileChannel in = fis.getChannel();
+          for (long offset = 0L; offset < getFileSizeInBytes(); ) {
+            offset += write(in, offset, fileStoreClient, path, futures);
+          }
+        } catch (Throwable e) {
+          future.completeExceptionally(e);
         }
-      }
 
-      fileMap.put(path, futures);
+        future.complete(futures);
+        return future;
+      }, executor);
+
+      fileMap.put(path, future);
     }
 
     return fileMap;
   }
 
-  private long waitWriteFinish(Map<String, List<CompletableFuture<Long>>> fileMap) {
+  private long waitWriteFinish(Map<String, CompletableFuture<List<CompletableFuture<Long>>>> fileMap)
+      throws ExecutionException, InterruptedException {
     long totalBytes = 0;
-    for (List<CompletableFuture<Long>> futures : fileMap.values()) {
+    for (CompletableFuture<List<CompletableFuture<Long>>> futures : fileMap.values()) {
       long writtenLen = 0;
-      for (CompletableFuture<Long> future : futures) {
+      for (CompletableFuture<Long> future : futures.get()) {
         writtenLen += future.join();
       }
 

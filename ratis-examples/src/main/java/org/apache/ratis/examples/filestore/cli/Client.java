@@ -18,7 +18,6 @@
 package org.apache.ratis.examples.filestore.cli;
 
 import com.beust.jcommander.Parameter;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
@@ -42,6 +41,8 @@ import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -58,6 +59,12 @@ public abstract class Client extends SubCommandBase {
 
   @Parameter(names = {"--numFiles"}, description = "Number of files to be written", required = true)
   private int numFiles;
+
+  private static final int MAX_THREADS_NUM = 100;
+
+  public int getNumThread() {
+    return numFiles < MAX_THREADS_NUM ? numFiles : MAX_THREADS_NUM;
+  }
 
   public int getFileSizeInBytes() {
     return fileSizeInBytes;
@@ -115,10 +122,10 @@ public abstract class Client extends SubCommandBase {
   }
 
   protected List<String> generateFiles() throws IOException {
-    String entropy = RandomStringUtils.randomAlphanumeric(numFiles);
+    UUID uuid = UUID.randomUUID();
     List<String> paths = new ArrayList<>();
     for (int i = 0; i < numFiles; i ++) {
-      String path = "file-" + entropy + "-" + i;
+      String path = "file-" + uuid + "-" + i;
       paths.add(path);
       writeFile(path, fileSizeInBytes, bufferSizeInBytes, new Random().nextInt(127) + 1);
     }
@@ -148,5 +155,5 @@ public abstract class Client extends SubCommandBase {
     }
   }
 
-  protected abstract void operation(RaftClient client) throws IOException;
+  protected abstract void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException;
 }

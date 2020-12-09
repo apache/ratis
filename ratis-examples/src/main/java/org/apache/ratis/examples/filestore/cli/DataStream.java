@@ -41,6 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 
 /**
@@ -109,7 +112,7 @@ public class DataStream extends Client {
   }
 
   @Override
-  protected void operation(RaftClient client) throws IOException {
+  protected void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException {
     if (!checkParam()) {
       stop(client);
     }
@@ -118,9 +121,11 @@ public class DataStream extends Client {
     FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting DataStream write now ");
 
+    final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
+
     long startTime = System.currentTimeMillis();
 
-    long totalWrittenBytes = waitStreamFinish(streamWrite(paths, fileStoreClient));
+    long totalWrittenBytes = waitStreamFinish(streamWrite(paths, fileStoreClient, executor));
 
     long endTime = System.currentTimeMillis();
 
@@ -132,28 +137,39 @@ public class DataStream extends Client {
     stop(client);
   }
 
-  private Map<String, List<CompletableFuture<DataStreamReply>>> streamWrite(
-      List<String> paths, FileStoreClient fileStoreClient) throws IOException {
-    Map<String, List<CompletableFuture<DataStreamReply>>> fileMap = new HashMap<>();
-    for(String path : paths) {
-      File file = new File(path);
-      final long fileLength = file.length();
-      Preconditions.assertTrue(fileLength == getFileSizeInBytes(), "Unexpected file size: expected size is "
-          + getFileSizeInBytes() + " but actual size is " + fileLength);
+  private Map<String, CompletableFuture<List<CompletableFuture<DataStreamReply>>>> streamWrite(
+      List<String> paths, FileStoreClient fileStoreClient, ExecutorService executor) {
+    Map<String, CompletableFuture<List<CompletableFuture<DataStreamReply>>>> fileMap = new HashMap<>();
 
-      final Type type = Optional.ofNullable(Type.valueOfIgnoreCase(dataStreamType))
-          .orElseThrow(IllegalStateException::new);
-      final TransferType writer = type.getConstructor().apply(path, this);
-      fileMap.put(path, writer.transfer(fileStoreClient));
+    for(String path : paths) {
+      final CompletableFuture<List<CompletableFuture<DataStreamReply>>> future = new CompletableFuture<>();
+      CompletableFuture.supplyAsync(() -> {
+        File file = new File(path);
+        final long fileLength = file.length();
+        Preconditions.assertTrue(fileLength == getFileSizeInBytes(), "Unexpected file size: expected size is "
+            + getFileSizeInBytes() + " but actual size is " + fileLength);
+
+        final Type type = Optional.ofNullable(Type.valueOfIgnoreCase(dataStreamType))
+            .orElseThrow(IllegalStateException::new);
+        final TransferType writer = type.getConstructor().apply(path, this);
+        try {
+          future.complete(writer.transfer(fileStoreClient));
+        } catch (IOException e) {
+          future.completeExceptionally(e);
+        }
+        return future;
+      }, executor);
+      fileMap.put(path, future);
     }
     return fileMap;
   }
 
-  private long waitStreamFinish(Map<String, List<CompletableFuture<DataStreamReply>>> fileMap) {
+  private long waitStreamFinish(Map<String, CompletableFuture<List<CompletableFuture<DataStreamReply>>>> fileMap)
+      throws ExecutionException, InterruptedException {
     long totalBytes = 0;
-    for (List<CompletableFuture<DataStreamReply>> futures : fileMap.values()) {
+    for (CompletableFuture<List<CompletableFuture<DataStreamReply>>> futures : fileMap.values()) {
       long writtenLen = 0;
-      for (CompletableFuture<DataStreamReply> future : futures) {
+      for (CompletableFuture<DataStreamReply> future : futures.get()) {
         writtenLen += future.join().getBytesWritten();
       }
 
