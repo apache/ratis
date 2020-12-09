@@ -20,7 +20,6 @@ package org.apache.ratis.server.storage;
 import static org.apache.ratis.statemachine.impl.SimpleStateMachineStorage.SNAPSHOT_REGEX;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
@@ -58,16 +57,20 @@ public class TestRaftStorage extends BaseTest {
     }
   }
 
+  static RaftStorage formatRaftStorage(File dir) throws IOException {
+    return new RaftStorage(dir, null, RaftStorage.StartupOption.FORMAT);
+  }
+
   @Test
   public void testNotExistent() throws IOException {
     FileUtils.deleteFully(storageDir);
 
     // we will format the empty directory
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     Assert.assertEquals(StorageState.NORMAL, storage.getState());
 
     try {
-      new RaftStorage(storageDir, StartupOption.FORMAT).close();
+      formatRaftStorage(storageDir).close();
       Assert.fail("the format should fail since the storage is still locked");
     } catch (IOException e) {
       Assert.assertTrue(e.getMessage().contains("directory is already locked"));
@@ -77,7 +80,7 @@ public class TestRaftStorage extends BaseTest {
     FileUtils.deleteFully(storageDir);
     Assert.assertTrue(storageDir.createNewFile());
     try {
-      new RaftStorage(storageDir, StartupOption.REGULAR);
+      RaftStorageTestUtils.newRaftStorage(storageDir);
       Assert.fail();
     } catch (IOException e) {
       Assert.assertTrue(
@@ -99,7 +102,7 @@ public class TestRaftStorage extends BaseTest {
       sd.unlock();
     }
 
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     Assert.assertEquals(StorageState.NORMAL, storage.getState());
     storage.close();
 
@@ -121,7 +124,7 @@ public class TestRaftStorage extends BaseTest {
     Assert.assertEquals("peer1", metaFile.getVotedFor());
 
     // test format
-    storage = new RaftStorage(storageDir, StartupOption.FORMAT);
+    storage = formatRaftStorage(storageDir);
     Assert.assertEquals(StorageState.NORMAL, storage.getState());
     metaFile = new MetaFile(sd.getMetaFile());
     Assert.assertEquals(MetaFile.DEFAULT_TERM, metaFile.getTerm());
@@ -131,7 +134,7 @@ public class TestRaftStorage extends BaseTest {
 
   @Test
   public void testMetaFile() throws Exception {
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.FORMAT);
+    RaftStorage storage = formatRaftStorage(storageDir);
     File m = storage.getStorageDir().getMetaFile();
     Assert.assertTrue(m.exists());
     MetaFile metaFile = new MetaFile(m);
@@ -156,7 +159,7 @@ public class TestRaftStorage extends BaseTest {
    */
   @Test
   public void testCleanMetaTmpFile() throws Exception {
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     Assert.assertEquals(StorageState.NORMAL, storage.getState());
     storage.close();
 
@@ -167,7 +170,7 @@ public class TestRaftStorage extends BaseTest {
     Assert.assertEquals(StorageState.NOT_FORMATTED, sd.analyzeStorage(false));
 
     try {
-      new RaftStorage(storageDir, StartupOption.REGULAR);
+      RaftStorageTestUtils.newRaftStorage(storageDir);
       Assert.fail("should throw IOException since storage dir is not formatted");
     } catch (IOException e) {
       Assert.assertTrue(
@@ -175,12 +178,12 @@ public class TestRaftStorage extends BaseTest {
     }
 
     // let the storage dir contain both raft-meta and raft-meta.tmp
-    new RaftStorage(storageDir, StartupOption.FORMAT).close();
+    formatRaftStorage(storageDir).close();
     Assert.assertTrue(sd.getMetaFile().exists());
     Assert.assertTrue(sd.getMetaTmpFile().createNewFile());
     Assert.assertTrue(sd.getMetaTmpFile().exists());
     try {
-      storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+      storage = RaftStorageTestUtils.newRaftStorage(storageDir);
       Assert.assertEquals(StorageState.NORMAL, storage.getState());
       Assert.assertFalse(sd.getMetaTmpFile().exists());
       Assert.assertTrue(sd.getMetaFile().exists());
@@ -224,7 +227,7 @@ public class TestRaftStorage extends BaseTest {
 
 
     SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     simpleStateMachineStorage.init(storage);
 
     List<Long> indices = new ArrayList<>();

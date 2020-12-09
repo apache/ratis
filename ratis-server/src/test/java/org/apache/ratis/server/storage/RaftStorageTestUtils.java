@@ -28,9 +28,14 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.AutoCloseableLock;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.function.Consumer;
 
 public interface RaftStorageTestUtils {
+  static RaftStorage newRaftStorage(File dir) throws IOException {
+    return new RaftStorage(dir, null);
+  }
 
   static String getLogFlushTimeMetric(String memberId) {
     return getRaftLogFullMetric(memberId, RAFT_LOG_FLUSH_TIME);

@@ -21,7 +21,6 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -29,6 +28,7 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
@@ -88,7 +88,7 @@ public class TestLogSegment extends BaseTest {
     if (!isOpen) {
       Preconditions.assertTrue(!isLastEntryPartiallyWritten, "For closed log, the last entry cannot be partially written.");
     }
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final File file = isOpen ?
         storage.getStorageDir().getOpenLogFile(startIndex) :
         storage.getStorageDir().getClosedLogFile(startIndex, startIndex + numEntries - 1);
@@ -169,7 +169,7 @@ public class TestLogSegment extends BaseTest {
   private void testLoadSegment(boolean loadInitial, boolean isLastEntryPartiallyWritten) throws Exception {
     // load an open segment
     final File openSegmentFile = prepareLog(true, 0, 100, 0, isLastEntryPartiallyWritten);
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile, 0,
         INVALID_LOG_INDEX, true, loadInitial, null, null);
     final int delta = isLastEntryPartiallyWritten? 1: 0;
@@ -214,7 +214,7 @@ public class TestLogSegment extends BaseTest {
     RaftLogMetrics raftLogMetrics = new RaftLogMetrics("test");
 
     final File openSegmentFile = prepareLog(true, 0, 100, 0, true);
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile, 0,
         INVALID_LOG_INDEX, true, true, null, raftLogMetrics);
     checkLogSegment(openSegment, 0, 98, true, openSegmentFile.length(), 0);
@@ -284,7 +284,7 @@ public class TestLogSegment extends BaseTest {
 
   @Test
   public void testPreallocateSegment() throws Exception {
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final File file = storage.getStorageDir().getOpenLogFile(0);
     final int[] maxSizes = new int[]{1024, 1025, 1024 * 1024 - 1, 1024 * 1024,
         1024 * 1024 + 1, 2 * 1024 * 1024 - 1, 2 * 1024 * 1024,
@@ -333,7 +333,7 @@ public class TestLogSegment extends BaseTest {
   @Test
   public void testPreallocationAndAppend() throws Exception {
     final SizeInBytes max = SizeInBytes.valueOf(2, TraditionalBinaryPrefix.MEGA);
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final File file = storage.getStorageDir().getOpenLogFile(0);
 
     final byte[] content = new byte[1024];
@@ -363,7 +363,7 @@ public class TestLogSegment extends BaseTest {
 
   @Test
   public void testZeroSizeInProgressFile() throws Exception {
-    final RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final File file = storage.getStorageDir().getOpenLogFile(0);
     storage.close();
 
