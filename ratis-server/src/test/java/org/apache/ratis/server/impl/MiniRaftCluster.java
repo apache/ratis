@@ -280,17 +280,6 @@ public abstract class MiniRaftCluster implements Closeable {
     return this;
   }
 
-  private void initDataStreamServer() {
-    LOG.info("Setting up data stream servers");
-    for (RaftServerProxy serverProxy : servers.values()) {
-      serverProxy.getDataStreamServerRpc().addRaftPeers(getOtherRaftPeers(serverProxy.getId()));
-    }
-  }
-
-  private Collection<RaftPeer> getOtherRaftPeers(RaftPeerId id) {
-    return peers.values().stream().filter(r -> !r.getId().equals(id)).collect(Collectors.toList());
-  }
-
   public RaftServerProxy putNewServer(RaftPeerId id, RaftGroup group, boolean format) {
     final RaftServerProxy s = newRaftServer(id, group, format);
     Preconditions.assertTrue(servers.put(id, s) == null);
@@ -313,7 +302,6 @@ public abstract class MiniRaftCluster implements Closeable {
     LOG.info(".............................................................. ");
 
     initServers();
-    initDataStreamServer();
     startServers(servers.values());
 
     this.timer.updateAndGet(t -> t != null? t

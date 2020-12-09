@@ -58,21 +58,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyServerStreamRpc.class);
 
-  /**
-   * Proxies to other peers.
-   *
-   * Invariant: all the {@link #peers} must exist in the {@link #map}.
-   */
+  /** Proxies to other peers. */
   static class Proxies {
-    private final Set<RaftPeer> peers = new CopyOnWriteArraySet<>();
     private final PeerProxyMap<DataStreamClient> map;
 
     Proxies(PeerProxyMap<DataStreamClient> map) {
@@ -82,14 +75,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     void addPeers(Collection<RaftPeer> newPeers) {
       // add to the map first in order to preserve the invariant.
       map.addRaftPeers(newPeers);
-      // must use atomic addAll
-      peers.addAll(newPeers);
     }
 
-    List<DataStreamOutputRpc> getDataStreamOutput(RaftClientRequest request) throws IOException {
+    List<DataStreamOutputRpc> getDataStreamOutput(RaftClientRequest request, List<RaftPeer> peers) throws IOException {
       final List<DataStreamOutputRpc> outs = new ArrayList<>();
       try {
-        getDataStreamOutput(outs, request);
+        getDataStreamOutput(request, peers, outs);
       } catch (IOException e) {
         outs.forEach(DataStreamOutputRpc::closeAsync);
         throw e;
@@ -97,7 +88,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return outs;
     }
 
-    private void getDataStreamOutput(List<DataStreamOutputRpc> outs, RaftClientRequest request)
+    private void getDataStreamOutput(RaftClientRequest request, List<RaftPeer> peers, List<DataStreamOutputRpc> outs)
         throws IOException {
       for (RaftPeer peer : peers) {
         try {

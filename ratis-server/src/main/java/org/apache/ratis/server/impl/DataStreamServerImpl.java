@@ -29,12 +29,12 @@ import org.apache.ratis.server.RaftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DataStreamServerImpl implements DataStreamServer {
+class DataStreamServerImpl implements DataStreamServer {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamServerImpl.class);
 
   private final DataStreamServerRpc serverRpc;
 
-  public DataStreamServerImpl(RaftServer server, Parameters parameters) {
+  DataStreamServerImpl(RaftServer server, Parameters parameters) {
     final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(server.getProperties(), LOG::info);
     this.serverRpc = DataStreamServerFactory.newInstance(type, parameters).newDataStreamServerRpc(server);
   }

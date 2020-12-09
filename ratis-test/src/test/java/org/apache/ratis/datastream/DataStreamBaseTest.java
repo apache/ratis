@@ -18,6 +18,8 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.server.DataStreamServer;
+import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
 import org.apache.ratis.server.RaftServerRpc;
@@ -54,7 +56,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.ServerFactory;
@@ -79,7 +80,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 abstract class DataStreamBaseTest extends BaseTest {
-  static class MyDivision implements RaftServer.Division {
+  class MyDivision implements RaftServer.Division {
     private final RaftServer server;
     private final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
     private final DataStreamMap streamMap;
@@ -107,7 +108,8 @@ abstract class DataStreamBaseTest extends BaseTest {
 
     @Override
     public RaftConfiguration getRaftConf() {
-      return null;
+      final List<RaftPeer> peers = servers.stream().map(Server::getPeer).collect(Collectors.toList());
+      return RaftServerTestUtil.newRaftConfiguration(peers);
     }
 
     @Override
@@ -161,12 +163,12 @@ abstract class DataStreamBaseTest extends BaseTest {
   static class Server {
     private final RaftPeer peer;
     private final RaftServer raftServer;
-    private final DataStreamServerImpl dataStreamServer;
+    private final DataStreamServer dataStreamServer;
 
     Server(RaftPeer peer, RaftServer raftServer) {
       this.peer = peer;
       this.raftServer = raftServer;
-      this.dataStreamServer = new DataStreamServerImpl(raftServer, null);
+      this.dataStreamServer = RaftServerTestUtil.newDataStreamServer(raftServer);
     }
 
     RaftPeer getPeer() {
@@ -203,7 +205,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     return new MyRaftServer(peer, properties);
   }
 
-  static class MyRaftServer implements RaftServer {
+  class MyRaftServer implements RaftServer {
       private final RaftPeer peer;
       private final RaftProperties properties;
       private final ConcurrentMap<RaftGroupId, MyDivision> divisions = new ConcurrentHashMap<>();
@@ -259,6 +261,11 @@ abstract class DataStreamBaseTest extends BaseTest {
       }
 
       @Override
+      public DataStreamServerRpc getDataStreamServerRpc() {
+        return null;
+      }
+
+      @Override
       public RaftClientReply submitClientRequest(RaftClientRequest request) {
         return submitClientRequestAsync(request).join();
       }
@@ -277,7 +284,7 @@ abstract class DataStreamBaseTest extends BaseTest {
             .thenApply(channel -> buildRaftClientReply(request, channel));
       }
 
-      static RaftClientReply buildRaftClientReply(RaftClientRequest request, DataChannel channel) {
+      RaftClientReply buildRaftClientReply(RaftClientRequest request, DataChannel channel) {
         Assert.assertTrue(channel instanceof MyDataChannel);
         final MyDataChannel dataChannel = (MyDataChannel) channel;
         return RaftClientReply.newBuilder()

@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DataStreamMap;
+import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
@@ -115,6 +116,10 @@ public class RaftServerTestUtil {
     return (ConfigurationManager) Whitebox.getInternalState(getState(server), "configurationManager");
   }
 
+  public static RaftConfiguration newRaftConfiguration(Collection<RaftPeer> peers) {
+    return RaftConfigurationImpl.newBuilder().setConf(peers).build();
+  }
+
   public static RaftConfiguration getRaftConf(RaftServer.Division server) {
     return ((RaftServerImpl)server).getRaftConf();
   }
@@ -147,6 +152,10 @@ public class RaftServerTestUtil {
 
   public static RaftServer.Division getDivision(RaftServer server, RaftGroupId groupId) {
     return JavaUtils.callAsUnchecked(() -> server.getDivision(groupId));
+  }
+
+  public static DataStreamServer newDataStreamServer(RaftServer server) {
+    return new DataStreamServerImpl(server, null);
   }
 
   public static DataStreamMap newDataStreamMap(Object name) {

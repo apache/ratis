@@ -54,6 +54,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -242,10 +243,16 @@ public class RaftServerProxy implements RaftServer {
     raftGroup.ifPresent(this::addGroup);
   }
 
+  void addRaftPeers(Collection<RaftPeer> peers) {
+    final List<RaftPeer> others = peers.stream().filter(p -> !p.getId().equals(getId())).collect(Collectors.toList());
+    getServerRpc().addRaftPeers(others);
+    getDataStreamServerRpc().addRaftPeers(others);
+  }
+
   private CompletableFuture<RaftServerImpl> newRaftServerImpl(RaftGroup group) {
     return CompletableFuture.supplyAsync(() -> {
       try {
-        serverRpc.addRaftPeers(group.getPeers());
+        addRaftPeers(group.getPeers());
         return new RaftServerImpl(group, stateMachineRegistry.apply(group.getGroupId()), this);
       } catch(IOException e) {
         throw new CompletionException(getId() + ": Failed to initialize server for " + group, e);
@@ -307,6 +314,7 @@ public class RaftServerProxy implements RaftServer {
     return serverRpc;
   }
 
+  @Override
   public DataStreamServerRpc getDataStreamServerRpc() {
     return dataStreamServerRpc;
   }
