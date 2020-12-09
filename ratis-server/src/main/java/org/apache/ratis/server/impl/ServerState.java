@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -99,8 +100,7 @@ class ServerState implements Closeable {
       throws IOException {
     this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId());
     this.server = server;
-    RaftConfiguration initialConf = RaftConfiguration.newBuilder()
-        .setConf(group.getPeers()).build();
+    final RaftConfigurationImpl initialConf = RaftConfigurationImpl.newBuilder().setConf(group.getPeers()).build();
     configurationManager = new ConfigurationManager(initialConf);
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
@@ -167,8 +167,8 @@ class ServerState implements Closeable {
     sm.initialize(server.getRaftServer(), gid, storage);
     // get the raft configuration from raft metafile
     RaftConfiguration raftConf = storage.readRaftConfiguration();
-    if (raftConf != null) {
-      setRaftConf(raftConf.getLogEntryIndex(), raftConf);
+    if (raftConf instanceof RaftConfigurationImpl) {
+      setRaftConf(((RaftConfigurationImpl)raftConf).getLogEntryIndex(), raftConf);
     }
   }
 
@@ -197,7 +197,7 @@ class ServerState implements Closeable {
     return log;
   }
 
-  RaftConfiguration getRaftConf() {
+  RaftConfigurationImpl getRaftConf() {
     return configurationManager.getCurrent();
   }
 
@@ -373,7 +373,7 @@ class ServerState implements Closeable {
 
   void setRaftConf(long logIndex, RaftConfiguration conf) {
     configurationManager.addConfiguration(logIndex, conf);
-    server.getServerRpc().addRaftPeers(conf.getPeers());
+    server.getServerRpc().addRaftPeers(conf.getAllPeers());
     LOG.info("{}: set configuration {} at {}", getMemberId(), conf, logIndex);
     LOG.trace("{}: {}", getMemberId(), configurationManager);
   }

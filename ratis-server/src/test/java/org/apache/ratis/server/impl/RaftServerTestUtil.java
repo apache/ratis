@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DivisionInfo;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.leader.LogAppender;
@@ -72,7 +73,7 @@ public class RaftServerTestUtil {
 
     int numIncluded = 0;
     int deadIncluded = 0;
-    final RaftConfiguration current = RaftConfiguration.newBuilder()
+    final RaftConfigurationImpl current = RaftConfigurationImpl.newBuilder()
         .setConf(peers).setLogEntryIndex(0).build();
     for (RaftServer.Division d : cluster.iterateDivisions()) {
       final RaftServerImpl server = (RaftServerImpl)d;
@@ -83,15 +84,16 @@ public class RaftServerTestUtil {
         }
         continue;
       }
+      final RaftConfigurationImpl conf = server.getState().getRaftConf();
       if (current.containsInConf(server.getId())) {
         numIncluded++;
-        Assert.assertTrue(server.getRaftConf().isStable());
-        Assert.assertTrue(server.getRaftConf().hasNoChange(peers));
+        Assert.assertTrue(conf.isStable());
+        Assert.assertTrue(conf.hasNoChange(peers));
       } else if (server.getInfo().isAlive()) {
         // The server is successfully removed from the conf
         // It may not be shutdown since it may not be able to talk to the new leader (who is not in its conf).
-        Assert.assertTrue(server.getRaftConf().isStable());
-        Assert.assertFalse(server.getRaftConf().containsInConf(server.getId()));
+        Assert.assertTrue(conf.isStable());
+        Assert.assertFalse(conf.containsInConf(server.getId()));
       }
     }
     Assert.assertEquals(peers.size(), numIncluded + deadIncluded);

@@ -19,11 +19,15 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.Preconditions;
 
-import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -34,14 +38,13 @@ import java.util.stream.Collectors;
  *
  * The objects of this class are immutable.
  */
-public final class RaftConfiguration {
+final class RaftConfigurationImpl implements RaftConfiguration {
   /** Create a {@link Builder}. */
-  public static Builder newBuilder() {
+  static Builder newBuilder() {
     return new Builder();
   }
 
-  /** To build {@link RaftConfiguration} objects. */
-  public static final class Builder {
+  static final class Builder {
     private PeerConfiguration oldConf;
     private PeerConfiguration conf;
     private long logEntryIndex = RaftLog.INVALID_LOG_INDEX;
@@ -51,18 +54,18 @@ public final class RaftConfiguration {
 
     private Builder() {}
 
-    public Builder setConf(PeerConfiguration conf) {
+    Builder setConf(PeerConfiguration conf) {
       Objects.requireNonNull(conf);
       Preconditions.assertTrue(this.conf == null, "conf is already set.");
       this.conf = conf;
       return this;
     }
 
-    public Builder setConf(Iterable<RaftPeer> peers) {
+    Builder setConf(Iterable<RaftPeer> peers) {
       return setConf(new PeerConfiguration(peers));
     }
 
-    Builder setConf(RaftConfiguration transitionalConf) {
+    Builder setConf(RaftConfigurationImpl transitionalConf) {
       Objects.requireNonNull(transitionalConf);
       Preconditions.assertTrue(transitionalConf.isTransitional());
 
@@ -72,18 +75,18 @@ public final class RaftConfiguration {
     }
 
 
-    public Builder setOldConf(PeerConfiguration oldConf) {
+    Builder setOldConf(PeerConfiguration oldConf) {
       Objects.requireNonNull(oldConf);
       Preconditions.assertTrue(this.oldConf == null, "oldConf is already set.");
       this.oldConf = oldConf;
       return this;
     }
 
-    public Builder setOldConf(Iterable<RaftPeer> oldPeers) {
+    Builder setOldConf(Iterable<RaftPeer> oldPeers) {
       return setOldConf(new PeerConfiguration(oldPeers));
     }
 
-    Builder setOldConf(RaftConfiguration stableConf) {
+    Builder setOldConf(RaftConfigurationImpl stableConf) {
       Objects.requireNonNull(stableConf);
       Preconditions.assertTrue(stableConf.isStable());
 
@@ -92,22 +95,21 @@ public final class RaftConfiguration {
       return setOldConf(stableConf.conf);
     }
 
-    public Builder setLogEntryIndex(long logEntryIndex) {
+    Builder setLogEntryIndex(long logEntryIndex) {
       Preconditions.assertTrue(logEntryIndex != RaftLog.INVALID_LOG_INDEX);
       Preconditions.assertTrue(this.logEntryIndex == RaftLog.INVALID_LOG_INDEX, "logEntryIndex is already set.");
       this.logEntryIndex = logEntryIndex;
       return this;
     }
 
-    /** Build a {@link RaftConfiguration}. */
-    public RaftConfiguration build() {
+    RaftConfigurationImpl build() {
       if (forceTransitional) {
         Preconditions.assertTrue(oldConf != null);
       }
       if (forceStable) {
         Preconditions.assertTrue(oldConf == null);
       }
-      return new RaftConfiguration(conf, oldConf, logEntryIndex);
+      return new RaftConfigurationImpl(conf, oldConf, logEntryIndex);
     }
   }
 
@@ -122,7 +124,7 @@ public final class RaftConfiguration {
   /** The index of the corresponding log entry for this configuration. */
   private final long logEntryIndex;
 
-  private RaftConfiguration(PeerConfiguration conf, PeerConfiguration oldConf,
+  private RaftConfigurationImpl(PeerConfiguration conf, PeerConfiguration oldConf,
       long logEntryIndex) {
     this.conf = Objects.requireNonNull(conf);
     this.oldConf = oldConf;
@@ -151,15 +153,12 @@ public final class RaftConfiguration {
    * @return true iff the given peer is contained in conf and,
    *         if old conf exists, is contained in old conf.
    */
-  boolean contains(RaftPeerId peerId) {
+  boolean containsInBothConfs(RaftPeerId peerId) {
     return containsInConf(peerId) &&
         (oldConf == null || containsInOldConf(peerId));
   }
 
-  /**
-   * @return the peer corresponding to the given id;
-   *         or return null if the peer is not in this configuration.
-   */
+  @Override
   public RaftPeer getPeer(RaftPeerId id) {
     if (id == null) {
       return null;
@@ -173,8 +172,8 @@ public final class RaftConfiguration {
     return null;
   }
 
-  /** @return all the peers from the conf, and the old conf if it exists. */
-  public Collection<RaftPeer> getPeers() {
+  @Override
+  public Collection<RaftPeer> getAllPeers() {
     final Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers());
     if (oldConf != null) {
       oldConf.getPeers().stream().filter(p -> !peers.contains(p))
@@ -187,7 +186,7 @@ public final class RaftConfiguration {
    * @return all the peers other than the given self id from the conf,
    *         and the old conf if it exists.
    */
-  public Collection<RaftPeer> getOtherPeers(RaftPeerId selfId) {
+  Collection<RaftPeer> getOtherPeers(RaftPeerId selfId) {
     Collection<RaftPeer> others = conf.getOtherPeers(selfId);
     if (oldConf != null) {
       oldConf.getOtherPeers(selfId).stream()
@@ -236,20 +235,13 @@ public final class RaftConfiguration {
     return peers.stream().filter(p -> !containsInConf(p.getId())).collect(Collectors.toList());
   }
 
-  RaftPeer getRandomPeer(RaftPeerId exclusiveId) {
-    final List<RaftPeer> peers = conf.getOtherPeers(exclusiveId);
-    if (peers.isEmpty()) {
-      return null;
-    }
-    final int index = ThreadLocalRandom.current().nextInt(peers.size());
-    return peers.get(index);
-  }
-
-  Collection<RaftPeer> getPeersInOldConf() {
+  @Override
+  public Collection<RaftPeer> getPreviousPeers() {
     return oldConf != null ? oldConf.getPeers() : Collections.emptyList();
   }
 
-  Collection<RaftPeer> getPeersInConf() {
+  @Override
+  public Collection<RaftPeer> getCurrentPeers() {
     return conf.getPeers();
   }
 
@@ -260,7 +252,7 @@ public final class RaftConfiguration {
     } else if (obj == null || obj.getClass() != this.getClass()) {
       return false;
     }
-    final RaftConfiguration that = (RaftConfiguration)obj;
+    final RaftConfigurationImpl that = (RaftConfigurationImpl)obj;
     return this.logEntryIndex == that.logEntryIndex
         && Objects.equals(this.conf,  that.conf)
         && Objects.equals(this.oldConf,  that.oldConf);
