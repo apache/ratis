@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -54,7 +55,7 @@ public interface UnorderedAsync {
   }
 
   static CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, RaftClientImpl client) {
-    final long callId = RaftClientImpl.nextCallId();
+    final long callId = CallId.getAndIncrement();
     final PendingClientRequest pending = new PendingUnorderedRequest(
         () -> client.newRaftClientRequest(null, callId, null, type, null));
     sendRequestWithRetry(pending, client);

@@ -22,6 +22,7 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -31,7 +32,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.UUID;
 
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.metrics.RaftLogMetrics.LOG_APPENDER_INSTALL_SNAPSHOT_METRIC;
 
 /**
@@ -51,7 +51,7 @@ class LogAppenderDefault extends LogAppenderBase {
     while (isRunning()) { // keep retrying for IOException
       try {
         if (request == null || request.getEntriesCount() == 0) {
-          request = newAppendEntriesRequest(DEFAULT_CALLID, false);
+          request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
         }
 
         if (request == null) {

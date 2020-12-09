@@ -18,9 +18,6 @@
 package org.apache.ratis.server.impl;
 
 public final class RaftServerConstants {
-  public static final long DEFAULT_CALLID = 0;
-  public static final long DEFAULT_TERM = 0;
-
   private RaftServerConstants() {
     //Never constructed
   }

@@ -30,6 +30,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -163,7 +164,7 @@ public final class OrderedAsync {
           "Interrupted when sending " + type + ", message=" + message, e));
     }
 
-    final long callId = RaftClientImpl.nextCallId();
+    final long callId = CallId.getAndIncrement();
     final LongFunction<PendingOrderedRequest> constructor = seqNum -> new PendingOrderedRequest(callId, seqNum,
         slidingWindowEntry -> client.newRaftClientRequest(server, callId, message, type, slidingWindowEntry));
     return getSlidingWindow(server).submitNewRequest(constructor, this::sendRequestWithRetry

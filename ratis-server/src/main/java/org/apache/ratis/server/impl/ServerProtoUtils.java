@@ -38,9 +38,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_TERM;
-
 /** Server proto utilities for internal use. */
 public interface ServerProtoUtils {
   static TermIndex toTermIndex(TermIndexProto p) {
@@ -195,10 +192,10 @@ public interface ServerProtoUtils {
     return b.build();
   }
 
-  static LogEntryProto toLogEntryProto(RaftConfiguration conf, long term, long index) {
-    return LogEntryProto.newBuilder()
-        .setTerm(term)
-        .setIndex(index)
+  static LogEntryProto toLogEntryProto(RaftConfiguration conf, Long term, long index) {
+    final LogEntryProto.Builder b = LogEntryProto.newBuilder();
+    Optional.ofNullable(term).ifPresent(b::setTerm);
+    return b.setIndex(index)
         .setConfigurationEntry(toRaftConfigurationProto(conf))
         .build();
   }
@@ -321,7 +318,7 @@ public interface ServerProtoUtils {
   static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
       RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success) {
     return ClientProtoUtils.toRaftRpcReplyProtoBuilder(
-        requestorId.toByteString(), replyId.getPeerId().toByteString(), replyId.getGroupId(), DEFAULT_CALLID, success);
+        requestorId.toByteString(), replyId.getPeerId().toByteString(), replyId.getGroupId(), null, success);
   }
 
   static RequestVoteReplyProto toRequestVoteReplyProto(
@@ -336,7 +333,7 @@ public interface ServerProtoUtils {
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       RaftGroupMemberId requestorId, RaftPeerId replyId) {
     return ClientProtoUtils.toRaftRpcRequestProtoBuilder(
-        requestorId.getPeerId().toByteString(), replyId.toByteString(), requestorId.getGroupId(), DEFAULT_CALLID, null);
+        requestorId.getPeerId().toByteString(), replyId.toByteString(), requestorId.getGroupId(), null, null);
   }
 
   static RequestVoteRequestProto toRequestVoteRequestProto(
@@ -397,8 +394,8 @@ public interface ServerProtoUtils {
             .addAllFileChunks(chunks)
             .setTotalSize(totalSize)
             .setDone(done);
-    // Set term to DEFAULT_TERM as this term is not going to used by installSnapshot to update the RaftConfiguration
-    final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, DEFAULT_TERM,
+    // term is not going to used by installSnapshot to update the RaftConfiguration
+    final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, null,
         ((RaftConfigurationImpl)raftConfiguration).getLogEntryIndex());
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
@@ -414,8 +411,8 @@ public interface ServerProtoUtils {
     final InstallSnapshotRequestProto.NotificationProto.Builder notificationProto =
         InstallSnapshotRequestProto.NotificationProto.newBuilder()
             .setFirstAvailableTermIndex(toTermIndexProto(firstAvailable));
-    // Set term to DEFAULT_TERM as this term is not going to used by installSnapshot to update the RaftConfiguration
-    final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, DEFAULT_TERM,
+    // term is not going to used by installSnapshot to update the RaftConfiguration
+    final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, null,
         ((RaftConfigurationImpl)raftConfiguration).getLogEntryIndex());
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))

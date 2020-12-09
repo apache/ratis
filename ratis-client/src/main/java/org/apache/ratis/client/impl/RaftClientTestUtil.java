@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.CallId;
 
 /** Interface for testing raft client. */
 public interface RaftClientTestUtil {
@@ -31,7 +32,7 @@ public interface RaftClientTestUtil {
   }
 
   static ClientInvocationId getClientInvocationId(RaftClient client) {
-    return ClientInvocationId.valueOf(client.getId(), ((RaftClientImpl)client).getCallId());
+    return ClientInvocationId.valueOf(client.getId(), CallId.get());
   }
 
   static RaftClientRequest newRaftClientRequest(RaftClient client, RaftPeerId server,

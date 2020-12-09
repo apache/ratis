@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.proto.RaftProtos.*;
@@ -47,18 +48,17 @@ import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDe
 public interface ClientProtoUtils {
 
   static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
-      ByteString requestorId, ByteString replyId, RaftGroupId groupId,
-      long callId, boolean success) {
+      ByteString requestorId, ByteString replyId, RaftGroupId groupId, Long callId, boolean success) {
     return RaftRpcReplyProto.newBuilder()
         .setRequestorId(requestorId)
         .setReplyId(replyId)
         .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId))
-        .setCallId(callId)
+        .setCallId(Optional.ofNullable(callId).orElseGet(CallId::getDefault))
         .setSuccess(success);
   }
 
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      ByteString requesterId, ByteString replyId, RaftGroupId groupId, long callId,
+      ByteString requesterId, ByteString replyId, RaftGroupId groupId, Long callId,
       SlidingWindowEntry slidingWindowEntry) {
     if (slidingWindowEntry == null) {
       slidingWindowEntry = SlidingWindowEntry.getDefaultInstance();
@@ -67,7 +67,7 @@ public interface ClientProtoUtils {
         .setRequestorId(requesterId)
         .setReplyId(replyId)
         .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId))
-        .setCallId(callId)
+        .setCallId(Optional.ofNullable(callId).orElseGet(CallId::getDefault))
         .setSlidingWindowEntry(slidingWindowEntry);
   }
 
