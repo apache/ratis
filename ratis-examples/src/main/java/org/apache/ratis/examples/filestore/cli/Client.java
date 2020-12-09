@@ -42,6 +42,7 @@ import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -148,5 +149,5 @@ public abstract class Client extends SubCommandBase {
     }
   }
 
-  protected abstract void operation(RaftClient client) throws IOException;
+  protected abstract void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException;
 }
