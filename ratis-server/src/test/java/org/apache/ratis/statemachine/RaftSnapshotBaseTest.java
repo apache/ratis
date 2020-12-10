@@ -198,7 +198,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       }
 
       // wait for the snapshot to be done
-      RaftStorageDirectory storageDirectory = RaftServerTestUtil.getRaftStorage(cluster.getLeader()).getStorageDir();
+      final RaftStorageDirectory storageDirectory = cluster.getLeader().getRaftStorage().getStorageDir();
 
       final long nextIndex = cluster.getLeader().getRaftLog().getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
@@ -261,7 +261,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   }
 
   protected void verifyInstallSnapshotMetric(RaftServer.Division leader) {
-    final Counter installSnapshotCounter = RaftServerTestUtil.getRaftServerMetrics(leader)
+    final Counter installSnapshotCounter = leader.getRaftServerMetrics()
         .getCounter(LOG_APPENDER_INSTALL_SNAPSHOT_METRIC);
     Assert.assertNotNull(installSnapshotCounter);
     Assert.assertTrue(installSnapshotCounter.getCount() >= 1);

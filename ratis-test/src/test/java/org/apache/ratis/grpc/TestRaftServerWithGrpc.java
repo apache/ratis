@@ -30,7 +30,6 @@ import com.codahale.metrics.Gauge;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -54,7 +53,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.Log4jUtils;
@@ -106,7 +104,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // be used by next raft server proxy instance.
     final StateMachine stateMachine = cluster.getLeader().getStateMachine();
     RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
-    ServerImplUtils.newRaftServer(leaderId, cluster.getGroup(), gid -> stateMachine, p, null);
+    cluster.newRaftServer(leaderId, stateMachine, p);
     // Close the server rpc for leader so that new raft server can be bound to it.
     RaftServerTestUtil.getServerRpc(cluster.getLeader()).close();
 
@@ -116,16 +114,10 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // the rpc server on failure.
     RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
     testFailureCase("start a new server with the same address",
-        () -> startNewServer(leaderId, cluster.getGroup(), stateMachine, p),
+        () -> cluster.newRaftServer(leaderId, stateMachine, p).start(),
         IOException.class, OverlappingFileLockException.class);
     // Try to start a raft server rpc at the leader address.
     cluster.getServerFactory(leaderId).newRaftServerRpc(cluster.getServer(leaderId));
-  }
-
-  static void startNewServer(RaftPeerId id, RaftGroup group, StateMachine stateMachine, RaftProperties properties)
-      throws Exception {
-    final RaftServer d = ServerImplUtils.newRaftServer(id, group, gid -> stateMachine, properties, null);
-    d.start();
   }
 
   @Test
@@ -236,7 +228,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       client.async().send(new SimpleMessage(message));
 
 
-      final SortedMap<String, Gauge> gaugeMap = RaftServerTestUtil.getRaftServerMetrics(cluster.getLeader())
+      final SortedMap<String, Gauge> gaugeMap = cluster.getLeader().getRaftServerMetrics()
           .getRegistry().getGauges((s, metric) -> s.contains(REQUEST_BYTE_SIZE));
 
       RaftTestUtil.waitFor(() -> (int) gaugeMap.get(gaugeMap.firstKey()).getValue() == message.length(),
@@ -249,7 +241,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       }
 
       // Because we have passed 11 requests, and the element queue size is 10.
-      RaftTestUtil.waitFor(() -> RaftServerTestUtil.getRaftServerMetrics(cluster.getLeader())
+      RaftTestUtil.waitFor(() -> cluster.getLeader().getRaftServerMetrics()
           .getCounter(REQUEST_QUEUE_LIMIT_HIT_COUNTER).getCount() == 1, 300, 5000);
 
       stateMachine.unblockFlushStateMachineData();
@@ -261,10 +253,10 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       client.async().send(new SimpleMessage(RandomStringUtils.random(120, true, false)));
       clients.add(client);
 
-      RaftTestUtil.waitFor(() -> RaftServerTestUtil.getRaftServerMetrics(cluster.getLeader())
+      RaftTestUtil.waitFor(() -> cluster.getLeader().getRaftServerMetrics()
               .getCounter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER).getCount() == 1, 300, 5000);
 
-      Assert.assertEquals(2, RaftServerTestUtil.getRaftServerMetrics(cluster.getLeader())
+      Assert.assertEquals(2, cluster.getLeader().getRaftServerMetrics()
               .getCounter(RESOURCE_LIMIT_HIT_COUNTER).getCount());
     } finally {
       for (RaftClient client : clients) {
@@ -277,7 +269,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   void testRaftClientRequestMetrics(MiniRaftClusterWithGrpc cluster) throws IOException,
       ExecutionException, InterruptedException {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
-    RaftServerMetrics raftServerMetrics = RaftServerTestUtil.getRaftServerMetrics(leader);
+    RaftServerMetrics raftServerMetrics = leader.getRaftServerMetrics();
 
     try (final RaftClient client = cluster.createClient()) {
       final CompletableFuture<RaftClientReply> f1 = client.async().send(new SimpleMessage("testing"));

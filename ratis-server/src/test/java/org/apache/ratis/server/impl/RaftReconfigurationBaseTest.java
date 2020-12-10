@@ -86,7 +86,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     for (int i = 0; i < peersWithPriority.size(); i ++) {
       RaftPeerId peerId = peersWithPriority.get(i).getId();
       final RaftServer.Division server = cluster.getDivision(peerId, groupId);
-      final RaftConfiguration conf = RaftServerTestUtil.getRaftConf(server);
+      final RaftConfiguration conf = server.getRaftConf();
 
       for (int j = 0; j < peersWithPriority.size(); j ++) {
         int priorityInConf = conf.getPeer(peersWithPriority.get(j).getId()).getPriority();
@@ -474,7 +474,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       final RaftLog leaderLog = leader.getRaftLog();
       final long committedIndex = leaderLog.getLastCommittedIndex();
-      final RaftConfiguration confBefore = RaftServerTestUtil.getRaftConf(cluster.getLeader());
+      final RaftConfiguration confBefore = cluster.getLeader().getRaftConf();
 
       // no real configuration change in the request
       final RaftClientReply reply = client.setConfiguration(cluster.getPeers().toArray(RaftPeer.emptyArray()));
@@ -484,7 +484,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         final LogEntryProto e = leaderLog.get(i);
         Assert.assertTrue(e.hasMetadataEntry());
       }
-      Assert.assertSame(confBefore, RaftServerTestUtil.getRaftConf(cluster.getLeader()));
+      Assert.assertSame(confBefore, cluster.getLeader().getRaftConf());
       client.close();
     }
   }

@@ -30,7 +30,6 @@ import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.leader.LogAppender;
-import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.JavaUtils;
@@ -118,18 +117,6 @@ public class RaftServerTestUtil {
 
   public static RaftConfiguration newRaftConfiguration(Collection<RaftPeer> peers) {
     return RaftConfigurationImpl.newBuilder().setConf(peers).build();
-  }
-
-  public static RaftConfiguration getRaftConf(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getRaftConf();
-  }
-
-  public static RaftStorage getRaftStorage(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getState().getStorage();
-  }
-
-  public static RaftServerMetrics getRaftServerMetrics(RaftServer.Division server) {
-    return ((RaftServerImpl)server).getRaftServerMetrics();
   }
 
   public static RaftServerRpc getServerRpc(RaftServer.Division server) {

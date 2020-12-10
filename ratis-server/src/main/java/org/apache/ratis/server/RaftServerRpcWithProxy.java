@@ -29,28 +29,30 @@ import java.util.Collection;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/** Implementing {@link RaftServerRpc} using a {@link PeerProxyMap}. */
+/** An abstract implementation of {@link RaftServerRpc} using a {@link PeerProxyMap}. */
 public abstract class RaftServerRpcWithProxy<PROXY extends Closeable, PROXIES extends PeerProxyMap<PROXY>>
     implements RaftServerRpc {
   private final Supplier<RaftPeerId> idSupplier;
   private final Supplier<LifeCycle> lifeCycleSupplier;
   private final Supplier<PROXIES> proxiesSupplier;
 
-  public RaftServerRpcWithProxy(Supplier<RaftPeerId> idSupplier, Function<RaftPeerId, PROXIES> proxyCreater) {
+  protected RaftServerRpcWithProxy(Supplier<RaftPeerId> idSupplier, Function<RaftPeerId, PROXIES> proxyCreater) {
     this.idSupplier = idSupplier;
     this.lifeCycleSupplier = JavaUtils.memoize(
         () -> new LifeCycle(getId() + "-" + JavaUtils.getClassSimpleName(getClass())));
     this.proxiesSupplier = JavaUtils.memoize(() -> proxyCreater.apply(getId()));
   }
 
+  /** @return the server id. */
   public RaftPeerId getId() {
     return idSupplier.get();
   }
 
-  public LifeCycle getLifeCycle() {
+  private LifeCycle getLifeCycle() {
     return lifeCycleSupplier.get();
   }
 
+  /** @return the underlying {@link PeerProxyMap}. */
   public PROXIES getProxies() {
     return proxiesSupplier.get();
   }
@@ -70,13 +72,15 @@ public abstract class RaftServerRpcWithProxy<PROXY extends Closeable, PROXIES ex
     getLifeCycle().startAndTransition(this::startImpl, IOException.class);
   }
 
-  public abstract void startImpl() throws IOException;
+  /** Implementation of the {@link #start()} method. */
+  protected abstract void startImpl() throws IOException;
 
   @Override
   public final void close() throws IOException{
-    getLifeCycle().checkStateAndClose(() -> closeImpl());
+    getLifeCycle().checkStateAndClose(this::closeImpl);
   }
 
+  /** Implementation of the {@link #close()} method. */
   public void closeImpl() throws IOException {
     getProxies().close();
   }

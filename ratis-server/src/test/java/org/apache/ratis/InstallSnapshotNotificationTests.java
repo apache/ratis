@@ -131,7 +131,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // wait for the snapshot to be done
       final RaftServer.Division leader = cluster.getLeader();
-      final RaftStorageDirectory storageDirectory = RaftServerTestUtil.getRaftStorage(leader).getStorageDir();
+      final RaftStorageDirectory storageDirectory = leader.getRaftStorage().getStorageDir();
 
       final long nextIndex = leader.getRaftLog().getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
