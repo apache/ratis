@@ -118,8 +118,8 @@ public class DataStream extends Client {
     }
 
     final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
-
     List<String> paths = generateFiles(executor);
+    dropCache();
     FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting DataStream write now ");
 

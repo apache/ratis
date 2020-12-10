@@ -40,7 +40,6 @@ import org.apache.ratis.util.TimeDuration;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -137,6 +136,12 @@ public abstract class Client extends SubCommandBase {
   public String getPath(String fileName) {
     int hash = fileName.hashCode() % storageDir.size();
     return new File(storageDir.get(Math.abs(hash)), fileName).getAbsolutePath();
+  }
+
+  protected void dropCache() throws InterruptedException, IOException {
+    String[] cmds = {"/bin/sh","-c","echo 3 > /proc/sys/vm/drop_caches"};
+    Process pro = Runtime.getRuntime().exec(cmds);
+    pro.waitFor();
   }
 
   private CompletableFuture<Long> writeFileAsync(String path, ExecutorService executor) {

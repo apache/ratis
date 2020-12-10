@@ -50,6 +50,7 @@ public class LoadGen extends Client {
   protected void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException {
     final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
     List<String> paths = generateFiles(executor);
+    dropCache();
     FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting Async write now ");
 
