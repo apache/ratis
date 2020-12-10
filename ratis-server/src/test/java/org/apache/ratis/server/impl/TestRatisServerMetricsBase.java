@@ -61,7 +61,7 @@ public abstract class TestRatisServerMetricsBase<CLUSTER extends MiniRaftCluster
         0, Message.EMPTY, RaftClientRequest.staleReadRequestType(Long.MAX_VALUE), null);
     final CompletableFuture<RaftClientReply> f = leaderImpl.getRaftServer().submitClientRequestAsync(r);
     Assert.assertTrue(!f.get().isSuccess());
-    assertEquals(1L, RaftServerTestUtil.getRaftServerMetrics(leaderImpl).getRegistry()
+    assertEquals(1L, leaderImpl.getRaftServerMetrics().getRegistry()
         .counter(RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT).getCount());
   }
 }

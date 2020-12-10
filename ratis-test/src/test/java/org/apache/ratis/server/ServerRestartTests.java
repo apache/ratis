@@ -170,7 +170,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   }
 
   static List<Path> getOpenLogFiles(RaftServer.Division server) throws Exception {
-    return RaftServerTestUtil.getRaftStorage(server).getStorageDir().getLogSegmentFiles().stream()
+    return server.getRaftStorage().getStorageDir().getLogSegmentFiles().stream()
         .filter(LogPathAndIndex::isOpen)
         .map(LogPathAndIndex::getPath)
         .collect(Collectors.toList());

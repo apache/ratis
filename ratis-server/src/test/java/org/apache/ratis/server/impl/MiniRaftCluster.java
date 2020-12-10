@@ -354,6 +354,10 @@ public abstract class MiniRaftCluster implements Closeable {
     }
   }
 
+  public RaftServer newRaftServer(RaftPeerId id, StateMachine stateMachine, RaftProperties p) throws IOException {
+    return ServerImplUtils.newRaftServer(id, getGroup(), gid -> stateMachine, p, null);
+  }
+
   protected abstract Parameters setPropertiesAndInitParameters(
       RaftPeerId id, RaftGroup group, RaftProperties properties);
 
