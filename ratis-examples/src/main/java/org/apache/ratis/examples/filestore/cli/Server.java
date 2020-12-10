@@ -62,6 +62,18 @@ public class Server extends SubCommandBase {
       required = true)
   private List<File> storageDir = new ArrayList<>();
 
+  @Parameter(names = {"--writeThreadNum"}, description = "Number of write thread")
+  private int writeThreadNum = 10;
+
+  @Parameter(names = {"--readThreadNum"}, description = "Number of read thread")
+  private int readThreadNum = 10;
+
+  @Parameter(names = {"--commitThreadNum"}, description = "Number of commit thread")
+  private int commitThreadNum = 3;
+
+  @Parameter(names = {"--deleteThreadNum"}, description = "Number of delete thread")
+  private int deleteThreadNum = 3;
+
   @Override
   public void run() throws Exception {
     JVMMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
@@ -82,8 +94,11 @@ public class Server extends SubCommandBase {
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
     RaftServerConfigKeys.Write.setElementLimit(properties, 40960);
     RaftServerConfigKeys.Write.setByteLimit(properties, SizeInBytes.valueOf("1000MB"));
-    ConfUtils.setFiles(properties::setFiles, FileStoreCommon.STATEMACHINE_DIR_KEY,
-        storageDir);
+    ConfUtils.setFiles(properties::setFiles, FileStoreCommon.STATEMACHINE_DIR_KEY, storageDir);
+    ConfUtils.setInt(properties::setInt, FileStoreCommon.STATEMACHINE_WRITE_THREAD_NUM, writeThreadNum);
+    ConfUtils.setInt(properties::setInt, FileStoreCommon.STATEMACHINE_READ_THREAD_NUM, readThreadNum);
+    ConfUtils.setInt(properties::setInt, FileStoreCommon.STATEMACHINE_COMMIT_THREAD_NUM, commitThreadNum);
+    ConfUtils.setInt(properties::setInt, FileStoreCommon.STATEMACHINE_DELETE_THREAD_NUM, deleteThreadNum);
     StateMachine stateMachine = new FileStoreStateMachine(properties);
 
     final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),
@@ -99,9 +114,5 @@ public class Server extends SubCommandBase {
     for (; raftServer.getLifeCycleState() != LifeCycle.State.CLOSED; ) {
       TimeUnit.SECONDS.sleep(1);
     }
-  }
-
-  private Collection<RaftPeer> getOtherRaftPeers(Collection<RaftPeer> peers) {
-    return peers.stream().filter(r -> !r.getId().toString().equals(id)).collect(Collectors.toList());
   }
 }

@@ -55,10 +55,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
   private final FileStore files;
 
   public FileStoreStateMachine(RaftProperties properties) {
-    final List<File> dirs = ConfUtils.getFiles(properties::getFiles, FileStoreCommon.STATEMACHINE_DIR_KEY,
-        null, LOG::info);
-    Objects.requireNonNull(dirs, FileStoreCommon.STATEMACHINE_DIR_KEY + " is not set.");
-    this.files = new FileStore(this::getId, dirs);
+    this.files = new FileStore(this::getId, properties);
   }
 
   @Override
