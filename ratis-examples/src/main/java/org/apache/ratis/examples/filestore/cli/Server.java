@@ -43,8 +43,9 @@ import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -57,8 +58,9 @@ public class Server extends SubCommandBase {
   @Parameter(names = {"--id", "-i"}, description = "Raft id of this server", required = true)
   private String id;
 
-  @Parameter(names = {"--storage", "-s"}, description = "Storage dir", required = true)
-  private File storageDir;
+  @Parameter(names = {"--storage", "-s"}, description = "Storage dir, eg. --storage dir1 --storage dir2",
+      required = true)
+  private List<File> storageDir = new ArrayList<>();
 
   @Override
   public void run() throws Exception {
@@ -77,10 +79,10 @@ public class Server extends SubCommandBase {
     NettyConfigKeys.DataStream.setPort(properties, dataStreamport);
     RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
-    RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
+    RaftServerConfigKeys.setStorageDir(properties, storageDir);
     RaftServerConfigKeys.Write.setElementLimit(properties, 40960);
     RaftServerConfigKeys.Write.setByteLimit(properties, SizeInBytes.valueOf("1000MB"));
-    ConfUtils.setFile(properties::setFile, FileStoreCommon.STATEMACHINE_DIR_KEY,
+    ConfUtils.setFiles(properties::setFiles, FileStoreCommon.STATEMACHINE_DIR_KEY,
         storageDir);
     StateMachine stateMachine = new FileStoreStateMachine(properties);
 

@@ -44,6 +44,8 @@ import org.apache.ratis.util.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -53,9 +55,10 @@ public class FileStoreStateMachine extends BaseStateMachine {
   private final FileStore files;
 
   public FileStoreStateMachine(RaftProperties properties) {
-    final File dir = ConfUtils.getFile(properties::getFile, FileStoreCommon.STATEMACHINE_DIR_KEY, null, LOG::info);
-    Objects.requireNonNull(dir, FileStoreCommon.STATEMACHINE_DIR_KEY + " is not set.");
-    this.files = new FileStore(this::getId, dir.toPath());
+    final List<File> dirs = ConfUtils.getFiles(properties::getFiles, FileStoreCommon.STATEMACHINE_DIR_KEY,
+        null, LOG::info);
+    Objects.requireNonNull(dirs, FileStoreCommon.STATEMACHINE_DIR_KEY + " is not set.");
+    this.files = new FileStore(this::getId, dirs);
   }
 
   @Override
@@ -63,7 +66,9 @@ public class FileStoreStateMachine extends BaseStateMachine {
       throws IOException {
     super.initialize(server, groupId, raftStorage);
     this.storage.init(raftStorage);
-    FileUtils.createDirectories(files.getRoot());
+    for (Path path : files.getRoots()) {
+      FileUtils.createDirectories(path);
+    }
   }
 
   @Override

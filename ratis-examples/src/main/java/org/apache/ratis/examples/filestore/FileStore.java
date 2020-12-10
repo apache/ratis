@@ -36,12 +36,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -95,7 +98,7 @@ public class FileStore implements Closeable {
   }
 
   private final Supplier<RaftPeerId> idSupplier;
-  private final Supplier<Path> rootSupplier;
+  private final List<Supplier<Path>> rootSuppliers;
   private final FileMap files;
 
   private final ExecutorService writer = Executors.newFixedThreadPool(10);
@@ -103,10 +106,13 @@ public class FileStore implements Closeable {
   private final ExecutorService reader = Executors.newFixedThreadPool(10);
   private final ExecutorService deleter = Executors.newFixedThreadPool(3);
 
-  public FileStore(Supplier<RaftPeerId> idSupplier, Path dir) {
+  public FileStore(Supplier<RaftPeerId> idSupplier, List<File> dirs) {
     this.idSupplier = idSupplier;
-    this.rootSupplier = JavaUtils.memoize(
-        () -> dir.resolve(getId().toString()).normalize().toAbsolutePath());
+    this.rootSuppliers = new ArrayList<>();
+    for (File dir : dirs) {
+      this.rootSuppliers.add(
+          JavaUtils.memoize(() -> dir.toPath().resolve(getId().toString()).normalize().toAbsolutePath()));
+    }
     this.files = new FileMap(JavaUtils.memoize(() -> idSupplier.get() + ":files"));
   }
 
@@ -115,8 +121,17 @@ public class FileStore implements Closeable {
         () -> JavaUtils.getClassSimpleName(getClass()) + " is not initialized.");
   }
 
-  public Path getRoot() {
-    return rootSupplier.get();
+  private Path getRoot(Path relative) {
+    int hash = relative.toAbsolutePath().toString().hashCode() % rootSuppliers.size();
+    return rootSuppliers.get(Math.abs(hash)).get();
+  }
+
+  public List<Path> getRoots() {
+    List<Path> roots = new ArrayList<>();
+    for (Supplier<Path> s : rootSuppliers) {
+      roots.add(s.get());
+    }
+    return roots;
   }
 
   static Path normalize(String path) {
@@ -125,7 +140,7 @@ public class FileStore implements Closeable {
   }
 
   Path resolve(Path relative) throws IOException {
-    final Path root = getRoot();
+    final Path root = getRoot(relative);
     final Path full = root.resolve(relative).normalize().toAbsolutePath();
     if (full.equals(root)) {
       throw new IOException("The file path " + relative + " resolved to " + full
