@@ -33,8 +33,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -215,7 +214,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     Assert.assertEquals(6 * numMsgs * numClients, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());
 
     final LogEntryProto last = RaftTestUtil.getLastEntry(LogEntryBodyCase.STATEMACHINELOGENTRY, leaderLog);
-    LOG.info("last = " + ServerProtoUtils.toLogEntryString(last));
+    LOG.info("last = {}", LogProtoUtils.toLogEntryString(last));
     Assert.assertNotNull(last);
     Assert.assertTrue(last.getIndex() <= leader.getInfo().getLastAppliedIndex());
   }

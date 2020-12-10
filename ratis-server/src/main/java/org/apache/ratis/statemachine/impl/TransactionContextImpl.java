@@ -22,6 +22,7 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
@@ -135,7 +136,7 @@ public class TransactionContextImpl implements TransactionContext {
     Preconditions.assertTrue(serverRole == RaftPeerRole.LEADER);
     Preconditions.assertNull(logEntry, "logEntry");
     Objects.requireNonNull(smLogEntryProto, "smLogEntryProto == null");
-    return logEntry = ServerProtoUtils.toLogEntryProto(smLogEntryProto, term, index);
+    return logEntry = LogProtoUtils.toLogEntryProto(smLogEntryProto, term, index);
   }
 
   @Override

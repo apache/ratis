@@ -30,8 +30,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogInputStream;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogOutputStream;
@@ -202,7 +202,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     dataMap.put(s, entry);
     LOG.info("{}: put {}, {} -> {}", getId(), entry.getIndex(),
         s.length() <= 10? s: s.substring(0, 10) + "...",
-        ServerProtoUtils.toLogEntryString(entry));
+        LogProtoUtils.toLogEntryString(entry));
   }
 
   @Override

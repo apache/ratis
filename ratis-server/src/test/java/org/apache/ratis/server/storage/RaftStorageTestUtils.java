@@ -20,10 +20,9 @@ package org.apache.ratis.server.storage;
 import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_FLUSH_TIME;
 import static org.apache.ratis.server.metrics.RaftLogMetrics.RATIS_LOG_WORKER_METRICS;
 
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.AutoCloseableLock;
@@ -66,7 +65,7 @@ public interface RaftStorageTestUtils {
       b.append(i == committed? 'c': ' ');
       b.append(String.format("%3d: ", i));
       try {
-        b.append(ServerProtoUtils.toLogEntryString(log.get(i)));
+        b.append(LogProtoUtils.toLogEntryString(log.get(i)));
       } catch (RaftLogIOException e) {
         b.append(e);
       }

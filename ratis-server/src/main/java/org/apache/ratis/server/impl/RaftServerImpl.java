@@ -48,6 +48,7 @@ import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
@@ -1121,7 +1122,7 @@ class RaftServerImpl implements RaftServer.Division,
         () -> getMemberId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
             + previous + ", " + leaderCommit + ", " + initializing
             + ", commits" + ProtoUtils.toString(commitInfos)
-            + ", entries: " + ServerProtoUtils.toString(entries));
+            + ", entries: " + LogProtoUtils.toLogEntryStrings(entries));
 
     final long currentTerm;
     final long followerCommit = state.getLog().getLastCommittedIndex();
@@ -1557,7 +1558,7 @@ class RaftServerImpl implements RaftServer.Division,
         return replyPendingRequest(next, stateMachineFuture);
       } catch (Exception e) {
         LOG.error("{}: applyTransaction failed for index:{} proto:{}",
-            getMemberId(), next.getIndex(), ServerProtoUtils.toString(next), e);
+            getMemberId(), next.getIndex(), LogProtoUtils.toLogEntryString(next), e);
         throw e;
       }
     }

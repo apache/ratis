@@ -33,6 +33,7 @@ import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.thirdparty.com.google.common.base.Preconditions;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -255,7 +256,7 @@ public interface RaftTestUtil {
   static List<LogEntryProto> getStateMachineLogEntries(RaftLog log) {
     final List<LogEntryProto> entries = new ArrayList<>();
     for (LogEntryProto e : getLogEntryProtos(log)) {
-      final String s = ServerProtoUtils.toString(e);
+      final String s = LogProtoUtils.toLogEntryString(e);
       if (e.hasStateMachineLogEntry()) {
         LOG.info(s + ", " + e.getStateMachineLogEntry().toString().trim().replace("\n", ", "));
         entries.add(e);

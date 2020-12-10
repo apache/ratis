@@ -28,7 +28,7 @@ import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.LogSegmentList;
@@ -195,7 +195,7 @@ public class TestCacheEviction extends BaseTest {
     for (SegmentRange range : slist) {
       for (long index = range.start; index <= range.end; index++) {
         SimpleOperation m = new SimpleOperation(new String(new byte[1024]));
-        eList.add(ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, index));
+        eList.add(LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, index));
       }
     }
     return eList.toArray(new LogEntryProto[eList.size()]);

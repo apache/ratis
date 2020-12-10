@@ -22,6 +22,7 @@ import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -223,7 +224,7 @@ class StateMachineUpdater implements Runnable {
       final LogEntryProto next = raftLog.get(nextIndex);
       if (next != null) {
         if (LOG.isTraceEnabled()) {
-          LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, ServerProtoUtils.toString(next));
+          LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(next));
         } else {
           LOG.debug("{}: applying nextIndex={}", this, nextIndex);
         }

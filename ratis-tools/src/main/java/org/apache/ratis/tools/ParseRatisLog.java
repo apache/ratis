@@ -21,7 +21,7 @@ package org.apache.ratis.tools;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.segmented.LogSegment;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 
@@ -78,7 +78,7 @@ public final class ParseRatisLog {
       numInvalidEntries++;
     }
 
-    String str = ServerProtoUtils.toLogEntryString(proto, smLogToString);
+    String str = LogProtoUtils.toLogEntryString(proto, smLogToString);
     System.out.println(str);
   }
 

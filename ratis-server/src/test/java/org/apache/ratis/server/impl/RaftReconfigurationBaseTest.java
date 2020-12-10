@@ -38,6 +38,7 @@ import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster.PeerChanges;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -419,7 +420,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       {
         final RaftLog leaderLog = cluster.getLeader().getRaftLog();
         for(LogEntryProto e : RaftTestUtil.getLogEntryProtos(leaderLog)) {
-          LOG.info("{}", ServerProtoUtils.toLogEntryString(e));
+          LOG.info("{}", LogProtoUtils.toLogEntryString(e));
         }
         final long commitIndex = leaderLog.getLastCommittedIndex();
         Assert.assertTrue("commitIndex = " + commitIndex + " > 2", commitIndex <= 2);

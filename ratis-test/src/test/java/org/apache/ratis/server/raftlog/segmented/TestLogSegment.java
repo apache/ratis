@@ -21,9 +21,9 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -98,7 +98,7 @@ public class TestLogSegment extends BaseTest {
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (int i = 0; i < entries.length; i++) {
         SimpleOperation op = new SimpleOperation("m" + i);
-        entries[i] = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i + startIndex);
+        entries[i] = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i + startIndex);
         out.write(entries[i]);
       }
     }
@@ -200,7 +200,7 @@ public class TestLogSegment extends BaseTest {
     int i = 0;
     while (size < max) {
       SimpleOperation op = new SimpleOperation("m" + i);
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i++ + start);
+      LogEntryProto entry = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i++ + start);
       size += getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
     }
@@ -233,18 +233,18 @@ public class TestLogSegment extends BaseTest {
     SimpleOperation op = new SimpleOperation("m");
     final StateMachineLogEntryProto m = op.getLogEntryContent();
     try {
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m, 0, 1001);
+      LogEntryProto entry = LogProtoUtils.toLogEntryProto(m, 0, 1001);
       segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       Assert.fail("should fail since the entry's index needs to be 1000");
     } catch (IllegalStateException e) {
       // the exception is expected.
     }
 
-    LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m, 0, 1000);
+    LogEntryProto entry = LogProtoUtils.toLogEntryProto(m, 0, 1000);
     segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
 
     try {
-      entry = ServerProtoUtils.toLogEntryProto(m, 0, 1002);
+      entry = LogProtoUtils.toLogEntryProto(m, 0, 1002);
       segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       Assert.fail("should fail since the entry's index needs to be 1001");
     } catch (IllegalStateException e) {
@@ -258,7 +258,7 @@ public class TestLogSegment extends BaseTest {
     final long start = 1000;
     LogSegment segment = LogSegment.newOpenSegment(null, start, null);
     for (int i = 0; i < 100; i++) {
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(
+      LogEntryProto entry = LogProtoUtils.toLogEntryProto(
           new SimpleOperation("m" + i).getLogEntryContent(), term, i + start);
       segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
     }
@@ -312,7 +312,7 @@ public class TestLogSegment extends BaseTest {
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
         1024, 1024, ByteBuffer.allocateDirect(bufferSize))) {
       SimpleOperation op = new SimpleOperation(new String(content));
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
+      LogEntryProto entry = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
       size = LogSegment.getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       out.write(entry);
     }
@@ -339,7 +339,7 @@ public class TestLogSegment extends BaseTest {
     final byte[] content = new byte[1024];
     Arrays.fill(content, (byte) 1);
     SimpleOperation op = new SimpleOperation(new String(content));
-    LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
+    LogEntryProto entry = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
     final long entrySize = LogSegment.getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
 
     long totalSize = SegmentedRaftLogFormat.getHeaderLength();

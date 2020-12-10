@@ -30,9 +30,8 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogFormat;
@@ -264,11 +263,11 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
     LOG.info("{}: leader lastIndex={}", leaderId, lastIndex);
     final LogEntryProto lastEntry = leaderLog.get(lastIndex);
-    LOG.info("{}: leader lastEntry entry[{}] = {}", leaderId, lastIndex, ServerProtoUtils.toLogEntryString(lastEntry));
+    LOG.info("{}: leader lastEntry entry[{}] = {}", leaderId, lastIndex, LogProtoUtils.toLogEntryString(lastEntry));
     final long loggedCommitIndex = lastEntry.getMetadataEntry().getCommitIndex();
     final LogEntryProto lastCommittedEntry = leaderLog.get(loggedCommitIndex);
     LOG.info("{}: leader lastCommittedEntry = entry[{}] = {}",
-        leaderId, loggedCommitIndex, ServerProtoUtils.toLogEntryString(lastCommittedEntry));
+        leaderId, loggedCommitIndex, LogProtoUtils.toLogEntryString(lastCommittedEntry));
 
     final SimpleStateMachine4Testing leaderStateMachine = SimpleStateMachine4Testing.get(leader);
     final TermIndex lastAppliedTermIndex = leaderStateMachine.getLastAppliedTermIndex();
