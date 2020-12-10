@@ -58,14 +58,7 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
     @Override
     public TransactionContext preAppendTransaction(TransactionContext trx)
         throws IOException {
-      StateMachineException ex = new StateMachineException(
-          "Fake Exception in preAppend");
-      if (!leaderShouldStepDown) {
-        ex.setLeaderShouldStepDown(false);
-        // If leader should step down, do not change the exception state to
-        // ensure that step down being true is the default behavior.
-      }
-      throw ex;
+      throw new StateMachineException("Fake Exception in preAppend", leaderShouldStepDown);
     }
   }
 

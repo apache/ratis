@@ -20,7 +20,7 @@ package org.apache.ratis.protocol.exceptions;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 
 public class StateMachineException extends RaftException {
-  private boolean leaderShouldStepDown;
+  private final boolean leaderShouldStepDown;
 
   public StateMachineException(RaftGroupMemberId serverId, Throwable cause) {
     // cause.getMessage is added to this exception message as the exception received through
@@ -40,11 +40,25 @@ public class StateMachineException extends RaftException {
     this.leaderShouldStepDown = true;
   }
 
-  public boolean leaderShouldStepDown() {
-    return leaderShouldStepDown;
+  public StateMachineException(RaftGroupMemberId serverId, Throwable cause, boolean leaderShouldStepDown) {
+    // cause.getMessage is added to this exception message as the exception received through
+    // RPC call contains similar message but Simulated RPC doesn't. Adding the message
+    // from cause to this exception makes it consistent across simulated and other RPC implementations.
+    super(cause.getClass().getName() + " from Server " + serverId + ": " + cause.getMessage(), cause);
+    this.leaderShouldStepDown = leaderShouldStepDown;
   }
 
-  public void setLeaderShouldStepDown(boolean shouldStepDown) {
-    leaderShouldStepDown = shouldStepDown;
+  public StateMachineException(String msg, boolean leaderShouldStepDown) {
+    super(msg);
+    this.leaderShouldStepDown = leaderShouldStepDown;
+  }
+
+  public StateMachineException(String message, Throwable cause, boolean leaderShouldStepDown) {
+    super(message, cause);
+    this.leaderShouldStepDown = leaderShouldStepDown;
+  }
+
+  public boolean leaderShouldStepDown() {
+    return leaderShouldStepDown;
   }
 }
