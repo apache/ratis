@@ -161,12 +161,12 @@ public final class LogProtoUtils {
         .orElseGet(entry::getSerializedSize);
   }
 
-  private static StateMachineLogEntryProto.Type toStateMachineLogEntryProtoType(RaftClientRequestProto.TypeCase typeCase) {
-    switch (typeCase) {
+  private static StateMachineLogEntryProto.Type toStateMachineLogEntryProtoType(RaftClientRequestProto.TypeCase type) {
+    switch (type) {
       case WRITE: return StateMachineLogEntryProto.Type.WRITE;
       case DATASTREAM: return StateMachineLogEntryProto.Type.DATASTREAM;
       default:
-        throw new IllegalStateException("Unexpected type case " + typeCase);
+        throw new IllegalStateException("Unexpected request type " + type);
     }
   }
 
