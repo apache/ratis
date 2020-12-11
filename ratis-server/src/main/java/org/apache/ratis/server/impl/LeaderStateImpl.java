@@ -39,6 +39,7 @@ import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.LogAppenderMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -279,7 +280,7 @@ class LeaderStateImpl implements LeaderState {
     // In the beginning of the new term, replicate a conf entry in order
     // to finally commit entries in the previous term.
     // Also this message can help identify the last committed index and the conf.
-    final LogEntryProto placeHolder = ServerProtoUtils.toLogEntryProto(
+    final LogEntryProto placeHolder = LogProtoUtils.toLogEntryProto(
         server.getRaftConf(), server.getState().getCurrentTerm(), raftLog.getNextIndex());
     CodeInjectionForTesting.execute(APPEND_PLACEHOLDER,
         server.getId().toString(), null);
@@ -369,7 +370,7 @@ class LeaderStateImpl implements LeaderState {
   PendingRequest addPendingRequest(PendingRequests.Permit permit, RaftClientRequest request, TransactionContext entry) {
     if (LOG.isDebugEnabled()) {
       LOG.debug("{}: addPendingRequest at {}, entry={}", this, request,
-          ServerProtoUtils.toLogEntryString(entry.getLogEntry()));
+          LogProtoUtils.toLogEntryString(entry.getLogEntry()));
     }
     return pendingRequests.add(permit, request, entry);
   }

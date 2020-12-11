@@ -24,6 +24,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -297,7 +298,7 @@ public class SegmentedRaftLog extends RaftLog {
       return new EntryWithData(entry, future);
     } catch (Exception e) {
       final String err = getName() + ": Failed readStateMachineData for " +
-          ServerProtoUtils.toLogEntryString(entry);
+          LogProtoUtils.toLogEntryString(entry);
       LOG.error(err, e);
       throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
     }
@@ -371,7 +372,7 @@ public class SegmentedRaftLog extends RaftLog {
     final Timer.Context context = getRaftLogMetrics().getRaftLogAppendEntryTimer().time();
     checkLogState();
     if (LOG.isTraceEnabled()) {
-      LOG.trace("{}: appendEntry {}", getName(), ServerProtoUtils.toLogEntryString(entry));
+      LOG.trace("{}: appendEntry {}", getName(), LogProtoUtils.toLogEntryString(entry));
     }
     try(AutoCloseableLock writeLock = writeLock()) {
       validateLogEntry(entry);
@@ -410,7 +411,7 @@ public class SegmentedRaftLog extends RaftLog {
       }
       return writeFuture;
     } catch (Exception e) {
-      LOG.error("{}: Failed to append {}", getName(), ServerProtoUtils.toLogEntryString(entry), e);
+      LOG.error("{}: Failed to append {}", getName(), LogProtoUtils.toLogEntryString(entry), e);
       throw e;
     } finally {
       context.stop();
@@ -531,6 +532,6 @@ public class SegmentedRaftLog extends RaftLog {
 
   @Override
   public String toLogEntryString(LogEntryProto logEntry) {
-    return ServerProtoUtils.toLogEntryString(logEntry, stateMachine::toStateMachineLogEntryString);
+    return LogProtoUtils.toLogEntryString(logEntry, stateMachine::toStateMachineLogEntryString);
   }
 }

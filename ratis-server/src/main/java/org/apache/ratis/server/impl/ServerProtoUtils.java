@@ -27,16 +27,15 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /** Server proto utilities for internal use. */
 public interface ServerProtoUtils {
@@ -64,10 +63,6 @@ public interface ServerProtoUtils {
     return TermIndex.toString(proto.getTerm(), proto.getIndex());
   }
 
-  static String toLogEntryString(LogEntryProto entry) {
-    return toLogEntryString(entry, null);
-  }
-
   static String toStateMachineLogEntryString(StateMachineLogEntryProto smLog,
                                              Function<StateMachineLogEntryProto, String> function) {
     final ByteString clientId = smLog.getClientId();
@@ -81,34 +76,9 @@ public interface ServerProtoUtils {
     return callIdString + smString;
   }
 
-
-  static String toLogEntryString(LogEntryProto entry,
-                                 Function<StateMachineLogEntryProto, String> function) {
-    if (entry == null) {
-      return null;
-    }
-    final String s;
-    if (entry.hasStateMachineLogEntry()) {
-      s = ", " + toStateMachineLogEntryString(entry.getStateMachineLogEntry(), function);
-    } else if (entry.hasMetadataEntry()) {
-      final MetadataProto metadata = entry.getMetadataEntry();
-      s = "(c:" + metadata.getCommitIndex() + ")";
-    } else {
-      s = "";
-    }
-    return toTermIndexString(entry) + ", " + entry.getLogEntryBodyCase() + s;
-  }
-
-  static String toString(LogEntryProto... entries) {
-    return entries == null? "null"
-        : entries.length == 0 ? "[]"
-        : entries.length == 1? toLogEntryString(entries[0])
-        : "" + Arrays.stream(entries).map(ServerProtoUtils::toLogEntryString)
-            .collect(Collectors.toList());
-  }
   static String toShortString(List<LogEntryProto> entries) {
     return entries.size() == 0? "<empty>"
-        : "size=" + entries.size() + ", first=" + toLogEntryString(entries.get(0));
+        : "size=" + entries.size() + ", first=" + LogProtoUtils.toLogEntryString(entries.get(0));
   }
   static String toString(AppendEntriesRequestProto proto) {
     if (proto == null) {
@@ -174,12 +144,6 @@ public interface ServerProtoUtils {
     return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm() + "," + proto.getResult() + s;
   }
 
-  static RaftConfigurationProto.Builder toRaftConfigurationProto(RaftConfiguration conf) {
-    return RaftConfigurationProto.newBuilder()
-        .addAllPeers(ProtoUtils.toRaftPeerProtos(conf.getCurrentPeers()))
-        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers()));
-  }
-
   static RaftConfigurationImpl toRaftConfiguration(LogEntryProto entry) {
     Preconditions.assertTrue(entry.hasConfigurationEntry());
     final RaftConfigurationProto proto = entry.getConfigurationEntry();
@@ -190,34 +154,6 @@ public interface ServerProtoUtils {
       b.setOldConf(ProtoUtils.toRaftPeers(proto.getOldPeersList()));
     }
     return b.build();
-  }
-
-  static LogEntryProto toLogEntryProto(RaftConfiguration conf, Long term, long index) {
-    final LogEntryProto.Builder b = LogEntryProto.newBuilder();
-    Optional.ofNullable(term).ifPresent(b::setTerm);
-    return b.setIndex(index)
-        .setConfigurationEntry(toRaftConfigurationProto(conf))
-        .build();
-  }
-
-  static LogEntryProto toLogEntryProto(StateMachineLogEntryProto smLog, long term, long index) {
-    return LogEntryProto.newBuilder()
-        .setTerm(term)
-        .setIndex(index)
-        .setStateMachineLogEntry(smLog)
-        .build();
-  }
-
-  static LogEntryProto toLogEntryProto(long commitIndex, long term, long index) {
-    return LogEntryProto.newBuilder()
-        .setTerm(term)
-        .setIndex(index)
-        .setMetadataEntry(toMetadataEntryBuilder(commitIndex))
-        .build();
-  }
-
-  static MetadataProto.Builder toMetadataEntryBuilder(long commitIndex) {
-    return MetadataProto.newBuilder().setCommitIndex(commitIndex);
   }
 
   static StateMachineEntryProto.Builder toStateMachineEntryProtoBuilder(ByteString stateMachineData) {
@@ -395,7 +331,7 @@ public interface ServerProtoUtils {
             .setTotalSize(totalSize)
             .setDone(done);
     // term is not going to used by installSnapshot to update the RaftConfiguration
-    final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, null,
+    final LogEntryProto confLogEntryProto = LogProtoUtils.toLogEntryProto(raftConfiguration, null,
         ((RaftConfigurationImpl)raftConfiguration).getLogEntryIndex());
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
@@ -412,7 +348,7 @@ public interface ServerProtoUtils {
         InstallSnapshotRequestProto.NotificationProto.newBuilder()
             .setFirstAvailableTermIndex(toTermIndexProto(firstAvailable));
     // term is not going to used by installSnapshot to update the RaftConfiguration
-    final LogEntryProto confLogEntryProto = toLogEntryProto(raftConfiguration, null,
+    final LogEntryProto confLogEntryProto = LogProtoUtils.toLogEntryProto(raftConfiguration, null,
         ((RaftConfigurationImpl)raftConfiguration).getLogEntryIndex());
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))

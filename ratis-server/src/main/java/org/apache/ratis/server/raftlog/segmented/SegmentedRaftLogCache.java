@@ -23,6 +23,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
@@ -597,7 +598,7 @@ public class SegmentedRaftLogCache {
             LOG.trace("{}: truncate to {}, arrayIndex={}, ti={}, storedEntry={}, entries={}",
                 name, truncateIndex, arrayIndex,
                 ServerProtoUtils.toTermIndex(entries[arrayIndex]), storedEntry,
-                ServerProtoUtils.toString(entries));
+                LogProtoUtils.toLogEntryStrings(entries));
           }
 
           // fail all requests starting at truncateIndex

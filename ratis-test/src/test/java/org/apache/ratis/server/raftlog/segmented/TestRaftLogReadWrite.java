@@ -22,7 +22,7 @@ import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.exceptions.ChecksumException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
@@ -89,7 +89,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     long size = 0;
     for (int i = 0; i < entries.length; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
-      entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
+      entries[i] = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
       final int s = entries[i].getSerializedSize();
       size += CodedOutputStream.computeUInt32SizeNoTag(s) + s + 4;
       out.write(entries[i]);
@@ -129,7 +129,7 @@ public class TestRaftLogReadWrite extends BaseTest {
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (int i = 0; i < 100; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
-        entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
+        entries[i] = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
         out.write(entries[i]);
       }
     }
@@ -138,7 +138,7 @@ public class TestRaftLogReadWrite extends BaseTest {
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (int i = 100; i < 200; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
-        entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
+        entries[i] = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
         out.write(entries[i]);
       }
     }
@@ -192,7 +192,7 @@ public class TestRaftLogReadWrite extends BaseTest {
         16 * 1024 * 1024, 4 * 1024 * 1024, ByteBuffer.allocateDirect(bufferSize));
     for (int i = 0; i < 10; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
-      entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
+      entries[i] = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
       out.write(entries[i]);
     }
     out.flush();
@@ -238,7 +238,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (int i = 0; i < 100; i++) {
-        LogEntryProto entry = ServerProtoUtils.toLogEntryProto(
+        LogEntryProto entry = LogProtoUtils.toLogEntryProto(
             new SimpleOperation("m" + i).getLogEntryContent(), 0, i);
         out.write(entry);
       }

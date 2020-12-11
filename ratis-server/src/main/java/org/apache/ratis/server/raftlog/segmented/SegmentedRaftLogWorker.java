@@ -28,6 +28,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
@@ -470,7 +471,7 @@ class SegmentedRaftLogWorker {
           this.stateMachineFuture = stateMachine.data().write(entry);
         } catch (Exception e) {
           LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
-              + ", entry=" + ServerProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
+              + ", entry=" + LogProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
           throw e;
         }
       }
@@ -525,7 +526,7 @@ class SegmentedRaftLogWorker {
 
     @Override
     public String toString() {
-      return super.toString() + ": " + ServerProtoUtils.toLogEntryString(
+      return super.toString() + ": " + LogProtoUtils.toLogEntryString(
           entry, stateMachine == null? null: stateMachine::toStateMachineLogEntryString);
     }
   }

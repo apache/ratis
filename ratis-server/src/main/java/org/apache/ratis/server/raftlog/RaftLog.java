@@ -246,7 +246,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     final long nextIndex;
     try(AutoCloseableLock writeLock = writeLock()) {
       nextIndex = getNextIndex();
-      entry = ServerProtoUtils.toLogEntryProto(newCommitIndex, term, nextIndex);
+      entry = LogProtoUtils.toLogEntryProto(newCommitIndex, term, nextIndex);
       appendEntry(entry);
     }
     lastMetadataEntry = entry;
@@ -282,9 +282,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
-      final LogEntryProto e = ServerProtoUtils.toLogEntryProto(newConf, term,
-          nextIndex);
-      appendEntry(e);
+      appendEntry(LogProtoUtils.toLogEntryProto(newConf, term, nextIndex));
       return nextIndex;
     }
   }
@@ -552,6 +550,6 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   }
 
   public String toLogEntryString(LogEntryProto logEntry) {
-    return ServerProtoUtils.toLogEntryString(logEntry);
+    return LogProtoUtils.toLogEntryString(logEntry);
   }
 }

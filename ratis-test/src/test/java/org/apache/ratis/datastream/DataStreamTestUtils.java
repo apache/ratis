@@ -36,8 +36,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
@@ -202,7 +202,7 @@ public interface DataStreamTestUtils {
     @Override
     public String toString() {
       return JavaUtils.getClassSimpleName(getClass()) + ": writeRequest=" + writeRequest
-          + ", logEntry=" + ServerProtoUtils.toString(logEntry);
+          + ", logEntry=" + LogProtoUtils.toLogEntryString(logEntry);
     }
   }
 
