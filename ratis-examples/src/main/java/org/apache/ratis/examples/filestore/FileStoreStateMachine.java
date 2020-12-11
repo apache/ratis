@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.examples.filestore;
 
-import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.ExamplesProtos;
 import org.apache.ratis.proto.ExamplesProtos.DeleteReplyProto;
@@ -42,11 +41,8 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.FileUtils;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public class FileStoreStateMachine extends BaseStateMachine {
@@ -55,10 +51,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
   private final FileStore files;
 
   public FileStoreStateMachine(RaftProperties properties) {
-    final List<File> dirs = ConfUtils.getFiles(properties::getFiles, FileStoreCommon.STATEMACHINE_DIR_KEY,
-        null, LOG::info);
-    Objects.requireNonNull(dirs, FileStoreCommon.STATEMACHINE_DIR_KEY + " is not set.");
-    this.files = new FileStore(this::getId, dirs);
+    this.files = new FileStore(this::getId, properties);
   }
 
   @Override

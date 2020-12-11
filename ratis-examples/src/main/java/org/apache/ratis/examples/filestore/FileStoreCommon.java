@@ -25,7 +25,17 @@ import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
 public interface FileStoreCommon {
-  String STATEMACHINE_DIR_KEY = "example.filestore.statemachine.dir";
+  String STATEMACHINE_PREFIX = "example.filestore.statemachine";
+
+  String STATEMACHINE_DIR_KEY = STATEMACHINE_PREFIX + ".dir";
+
+  String STATEMACHINE_WRITE_THREAD_NUM = STATEMACHINE_PREFIX + ".write.thread.num";
+
+  String STATEMACHINE_READ_THREAD_NUM = STATEMACHINE_PREFIX + ".read.thread.num";
+
+  String STATEMACHINE_COMMIT_THREAD_NUM = STATEMACHINE_PREFIX + ".commit.thread.num";
+
+  String STATEMACHINE_DELETE_THREAD_NUM = STATEMACHINE_PREFIX + ".delete.thread.num";
 
   SizeInBytes MAX_CHUNK_SIZE = SizeInBytes.valueOf(64, TraditionalBinaryPrefix.MEGA);
 

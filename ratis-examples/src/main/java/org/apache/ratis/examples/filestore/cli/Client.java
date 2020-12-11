@@ -33,16 +33,22 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -51,7 +57,7 @@ import java.util.concurrent.TimeUnit;
 public abstract class Client extends SubCommandBase {
 
   @Parameter(names = {"--size"}, description = "Size of each file in bytes", required = true)
-  private int fileSizeInBytes;
+  private long fileSizeInBytes;
 
   @Parameter(names = {"--bufferSize"}, description = "Size of buffer in bytes, should less than 4MB, " +
       "i.e BUFFER_BYTE_LIMIT_DEFAULT", required = true)
@@ -60,13 +66,17 @@ public abstract class Client extends SubCommandBase {
   @Parameter(names = {"--numFiles"}, description = "Number of files to be written", required = true)
   private int numFiles;
 
+  @Parameter(names = {"--storage", "-s"}, description = "Storage dir, eg. --storage dir1 --storage dir2",
+      required = true)
+  private List<File> storageDir = new ArrayList<>();
+
   private static final int MAX_THREADS_NUM = 100;
 
   public int getNumThread() {
     return numFiles < MAX_THREADS_NUM ? numFiles : MAX_THREADS_NUM;
   }
 
-  public int getFileSizeInBytes() {
+  public long getFileSizeInBytes() {
     return fileSizeInBytes;
   }
 
@@ -112,6 +122,10 @@ public abstract class Client extends SubCommandBase {
     builder.setPrimaryDataStreamServer(getPrimary());
     RaftClient client = builder.build();
 
+    for (File dir : storageDir) {
+      FileUtils.createDirectories(dir);
+    }
+
     operation(client);
   }
 
@@ -121,38 +135,69 @@ public abstract class Client extends SubCommandBase {
     System.exit(0);
   }
 
-  protected List<String> generateFiles() throws IOException {
+  public String getPath(String fileName) {
+    int hash = fileName.hashCode() % storageDir.size();
+    return new File(storageDir.get(Math.abs(hash)), fileName).getAbsolutePath();
+  }
+
+  protected void dropCache() throws InterruptedException, IOException {
+    String[] cmds = {"/bin/sh","-c","echo 3 > /proc/sys/vm/drop_caches"};
+    try {
+      Process pro = Runtime.getRuntime().exec(cmds);
+      pro.waitFor();
+    } catch (Throwable t) {
+      System.err.println("Failed to run command:" + Arrays.toString(cmds) + ":" + t.getMessage());
+    }
+  }
+
+  private CompletableFuture<Long> writeFileAsync(String path, ExecutorService executor) {
+    final CompletableFuture<Long> future = new CompletableFuture<>();
+    CompletableFuture.supplyAsync(() -> {
+      try {
+        future.complete(
+            writeFile(path, fileSizeInBytes, bufferSizeInBytes, new Random().nextInt(127) + 1));
+      } catch (IOException e) {
+        future.completeExceptionally(e);
+      }
+      return future;
+    }, executor);
+    return future;
+  }
+
+  protected List<String> generateFiles(ExecutorService executor) {
     UUID uuid = UUID.randomUUID();
     List<String> paths = new ArrayList<>();
+    List<CompletableFuture<Long>> futures = new ArrayList<>();
     for (int i = 0; i < numFiles; i ++) {
-      String path = "file-" + uuid + "-" + i;
+      String path = getPath("file-" + uuid + "-" + i);
       paths.add(path);
-      writeFile(path, fileSizeInBytes, bufferSizeInBytes, new Random().nextInt(127) + 1);
+      futures.add(writeFileAsync(path, executor));
+    }
+
+    for (int i = 0; i < futures.size(); i ++) {
+      long size = futures.get(i).join();
+      if (size != fileSizeInBytes) {
+        System.err.println("Error: path:" + paths.get(i) + " write:" + size +
+            " mismatch expected size:" + fileSizeInBytes);
+      }
     }
 
     return paths;
   }
 
-  protected void writeFile(String path, int fileSize, int bufferSize, int random) throws IOException {
-    RandomAccessFile raf = null;
-    try {
-      raf = new RandomAccessFile(path, "rw");
-      int offset = 0;
+  protected long writeFile(String path, long fileSize, long bufferSize, int random) throws IOException {
+    final byte[] buffer = new byte[Math.toIntExact(bufferSize)];
+    long offset = 0;
+    try(RandomAccessFile raf = new RandomAccessFile(path, "rw")) {
       while (offset < fileSize) {
-        final int remaining = fileSize - offset;
-        final int chunkSize = Math.min(remaining, bufferSize);
-        byte[] buffer = new byte[chunkSize];
-        for (int i = 0; i < chunkSize; i ++) {
-          buffer[i]= (byte) (i % random);
-        }
-        raf.write(buffer);
+        final long remaining = fileSize - offset;
+        final long chunkSize = Math.min(remaining, bufferSize);
+        ThreadLocalRandom.current().nextBytes(buffer);
+        raf.write(buffer, 0, Math.toIntExact(chunkSize));
         offset += chunkSize;
       }
-    } finally {
-      if (raf != null) {
-        raf.close();
-      }
     }
+    return offset;
   }
 
   protected abstract void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException;

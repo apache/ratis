@@ -48,11 +48,11 @@ public class LoadGen extends Client {
 
   @Override
   protected void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException {
-    List<String> paths = generateFiles();
+    final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
+    List<String> paths = generateFiles(executor);
+    dropCache();
     FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting Async write now ");
-
-    final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
 
     long startTime = System.currentTimeMillis();
 
@@ -99,7 +99,7 @@ public class LoadGen extends Client {
         try (FileInputStream fis = new FileInputStream(file)) {
           final FileChannel in = fis.getChannel();
           for (long offset = 0L; offset < getFileSizeInBytes(); ) {
-            offset += write(in, offset, fileStoreClient, path, futures);
+            offset += write(in, offset, fileStoreClient, file.getName(), futures);
           }
         } catch (Throwable e) {
           future.completeExceptionally(e);

@@ -117,11 +117,11 @@ public class DataStream extends Client {
       stop(client);
     }
 
-    List<String> paths = generateFiles();
+    final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
+    List<String> paths = generateFiles(executor);
+    dropCache();
     FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting DataStream write now ");
-
-    final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
 
     long startTime = System.currentTimeMillis();
 
@@ -230,7 +230,7 @@ public class DataStream extends Client {
       }
 
       final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-      final DataStreamOutput out = client.getStreamOutput(path, fileSize);
+      final DataStreamOutput out = client.getStreamOutput(file.getName(), fileSize);
       try (FileInputStream fis = new FileInputStream(file)) {
         final FileChannel in = fis.getChannel();
         for (long offset = 0L; offset < fileSize; ) {

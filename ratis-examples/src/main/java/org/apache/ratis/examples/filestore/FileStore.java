@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.examples.filestore;
 
+import org.apache.ratis.conf.ConfUtils;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.filestore.FileInfo.ReadOnly;
 import org.apache.ratis.examples.filestore.FileInfo.UnderConstruction;
 import org.apache.ratis.proto.ExamplesProtos.ReadReplyProto;
@@ -101,14 +103,31 @@ public class FileStore implements Closeable {
   private final List<Supplier<Path>> rootSuppliers;
   private final FileMap files;
 
-  private final ExecutorService writer = Executors.newFixedThreadPool(10);
-  private final ExecutorService committer = Executors.newFixedThreadPool(3);
-  private final ExecutorService reader = Executors.newFixedThreadPool(10);
-  private final ExecutorService deleter = Executors.newFixedThreadPool(3);
+  private final ExecutorService writer;
+  private final ExecutorService committer;
+  private final ExecutorService reader;
+  private final ExecutorService deleter;
 
-  public FileStore(Supplier<RaftPeerId> idSupplier, List<File> dirs) {
+  public FileStore(Supplier<RaftPeerId> idSupplier, RaftProperties properties) {
     this.idSupplier = idSupplier;
     this.rootSuppliers = new ArrayList<>();
+
+    int writeThreadNum = ConfUtils.getInt(properties::getInt, FileStoreCommon.STATEMACHINE_WRITE_THREAD_NUM,
+        1, LOG::info);
+    int readThreadNum = ConfUtils.getInt(properties::getInt, FileStoreCommon.STATEMACHINE_READ_THREAD_NUM,
+        1, LOG::info);
+    int commitThreadNum = ConfUtils.getInt(properties::getInt, FileStoreCommon.STATEMACHINE_COMMIT_THREAD_NUM,
+        1, LOG::info);
+    int deleteThreadNum = ConfUtils.getInt(properties::getInt, FileStoreCommon.STATEMACHINE_DELETE_THREAD_NUM,
+        1, LOG::info);
+    writer = Executors.newFixedThreadPool(writeThreadNum);
+    reader = Executors.newFixedThreadPool(readThreadNum);
+    committer = Executors.newFixedThreadPool(commitThreadNum);
+    deleter = Executors.newFixedThreadPool(deleteThreadNum);
+
+    final List<File> dirs = ConfUtils.getFiles(properties::getFiles, FileStoreCommon.STATEMACHINE_DIR_KEY,
+        null, LOG::info);
+    Objects.requireNonNull(dirs, FileStoreCommon.STATEMACHINE_DIR_KEY + " is not set.");
     for (File dir : dirs) {
       this.rootSuppliers.add(
           JavaUtils.memoize(() -> dir.toPath().resolve(getId().toString()).normalize().toAbsolutePath()));

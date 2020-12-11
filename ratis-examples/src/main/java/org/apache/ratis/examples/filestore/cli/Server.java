@@ -31,7 +31,6 @@ import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -44,10 +43,8 @@ import org.apache.ratis.util.TimeDuration;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * Class to start a ratis arithmetic example server.
@@ -61,6 +58,18 @@ public class Server extends SubCommandBase {
   @Parameter(names = {"--storage", "-s"}, description = "Storage dir, eg. --storage dir1 --storage dir2",
       required = true)
   private List<File> storageDir = new ArrayList<>();
+
+  @Parameter(names = {"--writeThreadNum"}, description = "Number of write thread")
+  private int writeThreadNum = 20;
+
+  @Parameter(names = {"--readThreadNum"}, description = "Number of read thread")
+  private int readThreadNum = 20;
+
+  @Parameter(names = {"--commitThreadNum"}, description = "Number of commit thread")
+  private int commitThreadNum = 3;
+
+  @Parameter(names = {"--deleteThreadNum"}, description = "Number of delete thread")
+  private int deleteThreadNum = 3;
 
   @Override
   public void run() throws Exception {
@@ -82,8 +91,11 @@ public class Server extends SubCommandBase {
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
     RaftServerConfigKeys.Write.setElementLimit(properties, 40960);
     RaftServerConfigKeys.Write.setByteLimit(properties, SizeInBytes.valueOf("1000MB"));
-    ConfUtils.setFiles(properties::setFiles, FileStoreCommon.STATEMACHINE_DIR_KEY,
-        storageDir);
+    ConfUtils.setFiles(properties::setFiles, FileStoreCommon.STATEMACHINE_DIR_KEY, storageDir);
+    ConfUtils.setInt(properties::setInt, FileStoreCommon.STATEMACHINE_WRITE_THREAD_NUM, writeThreadNum);
+    ConfUtils.setInt(properties::setInt, FileStoreCommon.STATEMACHINE_READ_THREAD_NUM, readThreadNum);
+    ConfUtils.setInt(properties::setInt, FileStoreCommon.STATEMACHINE_COMMIT_THREAD_NUM, commitThreadNum);
+    ConfUtils.setInt(properties::setInt, FileStoreCommon.STATEMACHINE_DELETE_THREAD_NUM, deleteThreadNum);
     StateMachine stateMachine = new FileStoreStateMachine(properties);
 
     final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),
@@ -99,9 +111,5 @@ public class Server extends SubCommandBase {
     for (; raftServer.getLifeCycleState() != LifeCycle.State.CLOSED; ) {
       TimeUnit.SECONDS.sleep(1);
     }
-  }
-
-  private Collection<RaftPeer> getOtherRaftPeers(Collection<RaftPeer> peers) {
-    return peers.stream().filter(r -> !r.getId().toString().equals(id)).collect(Collectors.toList());
   }
 }
