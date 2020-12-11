@@ -41,12 +41,14 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -140,8 +142,12 @@ public abstract class Client extends SubCommandBase {
 
   protected void dropCache() throws InterruptedException, IOException {
     String[] cmds = {"/bin/sh","-c","echo 3 > /proc/sys/vm/drop_caches"};
-    Process pro = Runtime.getRuntime().exec(cmds);
-    pro.waitFor();
+    try {
+      Process pro = Runtime.getRuntime().exec(cmds);
+      pro.waitFor();
+    } catch (Throwable t) {
+      System.err.println("Failed to run command:" + Arrays.toString(cmds) + ":" + t.getMessage());
+    }
   }
 
   private CompletableFuture<Long> writeFileAsync(String path, ExecutorService executor) {
@@ -180,23 +186,15 @@ public abstract class Client extends SubCommandBase {
   }
 
   protected long writeFile(String path, long fileSize, long bufferSize, int random) throws IOException {
-    RandomAccessFile raf = null;
+    final byte[] buffer = new byte[Math.toIntExact(bufferSize)];
     long offset = 0;
-    try {
-      raf = new RandomAccessFile(path, "rw");
+    try(RandomAccessFile raf = new RandomAccessFile(path, "rw")) {
       while (offset < fileSize) {
         final long remaining = fileSize - offset;
         final long chunkSize = Math.min(remaining, bufferSize);
-        byte[] buffer = new byte[(int)chunkSize];
-        for (int i = 0; i < chunkSize; i ++) {
-          buffer[i]= (byte) (i % random);
-        }
-        raf.write(buffer);
+        ThreadLocalRandom.current().nextBytes(buffer);
+        raf.write(buffer, 0, Math.toIntExact(chunkSize));
         offset += chunkSize;
-      }
-    } finally {
-      if (raf != null) {
-        raf.close();
       }
     }
     return offset;

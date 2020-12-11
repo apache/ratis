@@ -60,10 +60,10 @@ public class Server extends SubCommandBase {
   private List<File> storageDir = new ArrayList<>();
 
   @Parameter(names = {"--writeThreadNum"}, description = "Number of write thread")
-  private int writeThreadNum = 10;
+  private int writeThreadNum = 20;
 
   @Parameter(names = {"--readThreadNum"}, description = "Number of read thread")
-  private int readThreadNum = 10;
+  private int readThreadNum = 20;
 
   @Parameter(names = {"--commitThreadNum"}, description = "Number of commit thread")
   private int commitThreadNum = 3;
