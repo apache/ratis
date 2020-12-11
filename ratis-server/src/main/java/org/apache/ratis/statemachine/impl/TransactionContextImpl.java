@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,7 +21,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -85,7 +84,7 @@ public class TransactionContextImpl implements TransactionContext {
     this(RaftPeerRole.LEADER, stateMachine);
     this.clientRequest = clientRequest;
     this.smLogEntryProto = smLogEntryProto != null? smLogEntryProto
-        : ServerProtoUtils.toStateMachineLogEntryProto(clientRequest, null, null);
+        : LogProtoUtils.toStateMachineLogEntryProto(clientRequest, null, null);
     this.stateMachineContext = stateMachineContext;
   }
 

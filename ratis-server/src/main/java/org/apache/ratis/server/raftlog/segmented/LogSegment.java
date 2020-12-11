@@ -22,6 +22,7 @@ import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -73,9 +74,9 @@ public class LogSegment implements Comparable<Long> {
   static long getEntrySize(LogEntryProto entry, Op op) {
     LogEntryProto e = entry;
     if (op == Op.CHECK_SEGMENT_FILE_FULL) {
-      e = ServerProtoUtils.removeStateMachineData(entry);
+      e = LogProtoUtils.removeStateMachineData(entry);
     } else if (op == Op.LOAD_SEGMENT_FILE || op == Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE) {
-      Preconditions.assertTrue(entry == ServerProtoUtils.removeStateMachineData(entry),
+      Preconditions.assertTrue(entry == LogProtoUtils.removeStateMachineData(entry),
           () -> "Unexpected LogEntryProto with StateMachine data: op=" + op + ", entry=" + entry);
     } else {
       Preconditions.assertTrue(op == Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE || op == Op.REMOVE_CACHE,

@@ -20,22 +20,17 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
-import java.util.function.Function;
 
 /** Server proto utilities for internal use. */
 public interface ServerProtoUtils {
@@ -55,25 +50,8 @@ public interface ServerProtoUtils {
         TermIndex.newTermIndex(entry.getTerm(), entry.getIndex());
   }
 
-  static String toTermIndexString(LogEntryProto entry) {
-    return TermIndex.toString(entry.getTerm(), entry.getIndex());
-  }
-
   static String toTermIndexString(TermIndexProto proto) {
     return TermIndex.toString(proto.getTerm(), proto.getIndex());
-  }
-
-  static String toStateMachineLogEntryString(StateMachineLogEntryProto smLog,
-                                             Function<StateMachineLogEntryProto, String> function) {
-    final ByteString clientId = smLog.getClientId();
-    String callIdString = (clientId.isEmpty() ? "<empty clientId>" : ClientId.valueOf(clientId))
-        + ", cid=" + smLog.getCallId();
-
-    String smString = "";
-    if (function != null) {
-      smString = "\n\t State Machine: " + function.apply(smLog);
-    }
-    return callIdString + smString;
   }
 
   static String toShortString(List<LogEntryProto> entries) {
@@ -154,101 +132,6 @@ public interface ServerProtoUtils {
       b.setOldConf(ProtoUtils.toRaftPeers(proto.getOldPeersList()));
     }
     return b.build();
-  }
-
-  static StateMachineEntryProto.Builder toStateMachineEntryProtoBuilder(ByteString stateMachineData) {
-    return StateMachineEntryProto.newBuilder().setStateMachineData(stateMachineData);
-  }
-
-  static StateMachineEntryProto.Builder toStateMachineEntryProtoBuilder(int logEntryProtoSerializedSize) {
-    return StateMachineEntryProto.newBuilder().setLogEntryProtoSerializedSize(logEntryProtoSerializedSize);
-  }
-
-  static StateMachineLogEntryProto toStateMachineLogEntryProto(
-      RaftClientRequest request, ByteString logData, ByteString stateMachineData) {
-    if (logData == null) {
-      logData = request.getMessage().getContent();
-    }
-    return toStateMachineLogEntryProto(request.getClientId(), request.getCallId(),
-        toStateMachineLogEntryProtoType(request.getType().getTypeCase()), logData, stateMachineData);
-  }
-
-  static StateMachineLogEntryProto.Type toStateMachineLogEntryProtoType(RaftClientRequestProto.TypeCase typeCase) {
-    switch (typeCase) {
-      case WRITE: return StateMachineLogEntryProto.Type.WRITE;
-      case DATASTREAM: return StateMachineLogEntryProto.Type.DATASTREAM;
-      default:
-        throw new IllegalStateException("Unexpected type case " + typeCase);
-    }
-  }
-
-  static StateMachineLogEntryProto toStateMachineLogEntryProto(ClientId clientId, long callId,
-      StateMachineLogEntryProto.Type type, ByteString logData, ByteString stateMachineData) {
-    final StateMachineLogEntryProto.Builder b = StateMachineLogEntryProto.newBuilder()
-        .setClientId(clientId.toByteString())
-        .setCallId(callId)
-        .setType(type)
-        .setLogData(logData);
-    if (stateMachineData != null) {
-      b.setStateMachineEntry(toStateMachineEntryProtoBuilder(stateMachineData));
-    }
-    return b.build();
-  }
-
-  static Optional<StateMachineEntryProto> getStateMachineEntry(LogEntryProto entry) {
-    return Optional.of(entry)
-        .filter(LogEntryProto::hasStateMachineLogEntry)
-        .map(LogEntryProto::getStateMachineLogEntry)
-        .filter(StateMachineLogEntryProto::hasStateMachineEntry)
-        .map(StateMachineLogEntryProto::getStateMachineEntry);
-  }
-
-  static Optional<ByteString> getStateMachineData(LogEntryProto entry) {
-    return getStateMachineEntry(entry)
-        .map(StateMachineEntryProto::getStateMachineData);
-  }
-
-  static boolean shouldReadStateMachineData(LogEntryProto entry) {
-    return getStateMachineData(entry).map(ByteString::isEmpty).orElse(false);
-  }
-
-  /**
-   * If the given entry has state machine log entry and it has state machine data,
-   * build a new entry without the state machine data.
-   *
-   * @return a new entry without the state machine data if the given has state machine data;
-   *         otherwise, return the given entry.
-   */
-  static LogEntryProto removeStateMachineData(LogEntryProto entry) {
-    return getStateMachineData(entry)
-        .filter(stateMachineData -> !stateMachineData.isEmpty())
-        .map(_dummy -> rebuildLogEntryProto(entry, toStateMachineEntryProtoBuilder(entry.getSerializedSize())))
-        .orElse(entry);
-  }
-
-  static LogEntryProto rebuildLogEntryProto(LogEntryProto entry, StateMachineEntryProto.Builder smEntry) {
-    return LogEntryProto.newBuilder(entry).setStateMachineLogEntry(
-        StateMachineLogEntryProto.newBuilder(entry.getStateMachineLogEntry()).setStateMachineEntry(smEntry)
-    ).build();
-  }
-
-  /**
-   * Return a new log entry based on the input log entry with stateMachineData added.
-   * @param stateMachineData - state machine data to be added
-   * @param entry - log entry to which stateMachineData needs to be added
-   * @return LogEntryProto with stateMachineData added
-   */
-  static LogEntryProto addStateMachineData(ByteString stateMachineData, LogEntryProto entry) {
-    Preconditions.assertTrue(shouldReadStateMachineData(entry),
-        () -> "Failed to addStateMachineData to " + entry + " since shouldReadStateMachineData is false.");
-    return rebuildLogEntryProto(entry, toStateMachineEntryProtoBuilder(stateMachineData));
-  }
-
-  static int getSerializedSize(LogEntryProto entry) {
-    return getStateMachineEntry(entry)
-        .filter(smEnty -> smEnty.getStateMachineData().isEmpty())
-        .map(StateMachineEntryProto::getLogEntryProtoSerializedSize)
-        .orElseGet(entry::getSerializedSize);
   }
 
   static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
