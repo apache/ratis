@@ -23,26 +23,18 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 /** Server proto utilities for internal use. */
 public interface ServerProtoUtils {
   static TermIndex toTermIndex(TermIndexProto p) {
     return p == null? null: TermIndex.newTermIndex(p.getTerm(), p.getIndex());
-  }
-
-  static TermIndexProto toTermIndexProto(TermIndex ti) {
-    return ti == null? null: TermIndexProto.newBuilder()
-        .setTerm(ti.getTerm())
-        .setIndex(ti.getIndex())
-        .build();
   }
 
   static TermIndex toTermIndex(LogEntryProto entry) {
@@ -122,18 +114,6 @@ public interface ServerProtoUtils {
     return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm() + "," + proto.getResult() + s;
   }
 
-  static RaftConfigurationImpl toRaftConfiguration(LogEntryProto entry) {
-    Preconditions.assertTrue(entry.hasConfigurationEntry());
-    final RaftConfigurationProto proto = entry.getConfigurationEntry();
-    final RaftConfigurationImpl.Builder b = RaftConfigurationImpl.newBuilder()
-        .setConf(ProtoUtils.toRaftPeers(proto.getPeersList()))
-        .setLogEntryIndex(entry.getIndex());
-    if (proto.getOldPeersCount() > 0) {
-      b.setOldConf(ProtoUtils.toRaftPeers(proto.getOldPeersList()));
-    }
-    return b.build();
-  }
-
   static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
       RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success) {
     return ClientProtoUtils.toRaftRpcReplyProtoBuilder(
@@ -160,9 +140,7 @@ public interface ServerProtoUtils {
     final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
         .setCandidateTerm(term);
-    if (lastEntry != null) {
-      b.setCandidateLastEntry(toTermIndexProto(lastEntry));
-    }
+    Optional.ofNullable(lastEntry).map(TermIndex::toProto).ifPresent(b::setCandidateLastEntry);
     return b.build();
   }
 
@@ -198,47 +176,6 @@ public interface ServerProtoUtils {
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setResult(result);
     return builder.build();
-  }
-
-  @SuppressWarnings("checkstyle:parameternumber")
-  static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
-      RaftGroupMemberId requestorId, RaftPeerId replyId, String requestId, int requestIndex,
-      long term, TermIndex lastTermIndex, List<FileChunkProto> chunks,
-      long totalSize, boolean done, RaftConfiguration raftConfiguration) {
-    final InstallSnapshotRequestProto.SnapshotChunkProto.Builder snapshotChunkProto =
-        InstallSnapshotRequestProto.SnapshotChunkProto.newBuilder()
-            .setRequestId(requestId)
-            .setRequestIndex(requestIndex)
-            .setTermIndex(toTermIndexProto(lastTermIndex))
-            .addAllFileChunks(chunks)
-            .setTotalSize(totalSize)
-            .setDone(done);
-    // term is not going to used by installSnapshot to update the RaftConfiguration
-    final LogEntryProto confLogEntryProto = LogProtoUtils.toLogEntryProto(raftConfiguration, null,
-        ((RaftConfigurationImpl)raftConfiguration).getLogEntryIndex());
-    return InstallSnapshotRequestProto.newBuilder()
-        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
-        .setLastRaftConfigurationLogEntryProto(confLogEntryProto)
-        .setLeaderTerm(term)
-        .setSnapshotChunk(snapshotChunkProto)
-        .build();
-  }
-
-  static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
-      RaftGroupMemberId requestorId, RaftPeerId replyId, long leaderTerm,
-      TermIndex firstAvailable, RaftConfiguration raftConfiguration) {
-    final InstallSnapshotRequestProto.NotificationProto.Builder notificationProto =
-        InstallSnapshotRequestProto.NotificationProto.newBuilder()
-            .setFirstAvailableTermIndex(toTermIndexProto(firstAvailable));
-    // term is not going to used by installSnapshot to update the RaftConfiguration
-    final LogEntryProto confLogEntryProto = LogProtoUtils.toLogEntryProto(raftConfiguration, null,
-        ((RaftConfigurationImpl)raftConfiguration).getLogEntryIndex());
-    return InstallSnapshotRequestProto.newBuilder()
-        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
-        .setLastRaftConfigurationLogEntryProto(confLogEntryProto)
-        .setLeaderTerm(leaderTerm)
-        .setNotification(notificationProto)
-        .build();
   }
 
   @SuppressWarnings("parameternumber")
@@ -277,9 +214,7 @@ public interface ServerProtoUtils {
       b.addAllEntries(entries);
     }
 
-    if (previous != null) {
-      b.setPreviousLog(toTermIndexProto(previous));
-    }
+    Optional.ofNullable(previous).map(TermIndex::toProto).ifPresent(b::setPreviousLog);
     ProtoUtils.addCommitInfos(commitInfos, b::addCommitInfos);
     return b.build();
   }

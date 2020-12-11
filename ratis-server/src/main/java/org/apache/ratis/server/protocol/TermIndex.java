@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.protocol;
 
+import org.apache.ratis.proto.RaftProtos.TermIndexProto;
 import org.apache.ratis.server.impl.ServerImplUtils;
 
 import java.util.function.LongFunction;
@@ -30,6 +31,14 @@ public interface TermIndex extends Comparable<TermIndex> {
 
   /** @return the index. */
   long getIndex();
+
+  /** @return the {@link TermIndexProto}. */
+  default TermIndexProto toProto() {
+    return TermIndexProto.newBuilder()
+        .setTerm(getTerm())
+        .setIndex(getIndex())
+        .build();
+  }
 
   /** A term number is valid iff it is greater than zero. */
   static boolean isValidTerm(int term) {

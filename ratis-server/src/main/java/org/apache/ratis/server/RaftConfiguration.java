@@ -44,4 +44,7 @@ public interface RaftConfiguration {
 
   /** @return all the peers in the previous configuration. */
   Collection<RaftPeer> getPreviousPeers();
+
+  /** @return the index of the corresponding log entry for the current configuration. */
+  long getLogEntryIndex();
 }

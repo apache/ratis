@@ -226,7 +226,8 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return true;
   }
 
-  long getLogEntryIndex() {
+  @Override
+  public long getLogEntryIndex() {
     return logEntryIndex;
   }
 

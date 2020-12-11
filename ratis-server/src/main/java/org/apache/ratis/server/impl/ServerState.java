@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.memory.MemoryRaftLog;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
@@ -166,9 +167,7 @@ class ServerState implements Closeable {
     sm.initialize(server.getRaftServer(), gid, storage);
     // get the raft configuration from raft metafile
     RaftConfiguration raftConf = storage.readRaftConfiguration();
-    if (raftConf instanceof RaftConfigurationImpl) {
-      setRaftConf(((RaftConfigurationImpl)raftConf).getLogEntryIndex(), raftConf);
-    }
+    setRaftConf(raftConf.getLogEntryIndex(), raftConf);
   }
 
   void writeRaftConfiguration(LogEntryProto conf) {
@@ -360,13 +359,12 @@ class ServerState implements Closeable {
   }
 
   boolean isConfCommitted() {
-    return getLog().getLastCommittedIndex() >=
-        getRaftConf().getLogEntryIndex();
+    return getLog().getLastCommittedIndex() >= getRaftConf().getLogEntryIndex();
   }
 
   void setRaftConf(LogEntryProto entry) {
     if (entry.hasConfigurationEntry()) {
-      setRaftConf(entry.getIndex(), ServerProtoUtils.toRaftConfiguration(entry));
+      setRaftConf(entry.getIndex(), LogProtoUtils.toRaftConfiguration(entry));
     }
   }
 

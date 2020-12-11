@@ -20,7 +20,7 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.RaftConfiguration;
-import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -147,7 +147,7 @@ public class RaftStorage implements Closeable {
     File confFile = storageDir.getMetaConfFile();
     try (FileInputStream fio = new FileInputStream(confFile)) {
       LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
-      return ServerProtoUtils.toRaftConfiguration(confProto);
+      return LogProtoUtils.toRaftConfiguration(confProto);
     } catch (Exception e) {
       LOG.error("Failed reading configuration from file:" + confFile, e);
       return null;

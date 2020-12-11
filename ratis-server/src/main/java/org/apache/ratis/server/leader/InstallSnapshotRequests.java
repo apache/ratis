@@ -19,16 +19,15 @@ package org.apache.ratis.server.leader;
 
 import org.apache.ratis.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto.SnapshotChunkProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.storage.FileChunkReader;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.JavaUtils;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -119,9 +118,9 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
     final long totalSize = snapshot.getFiles().stream().mapToLong(FileInfo::getFileSize).reduce(Long::sum).orElseThrow(
         () -> new IllegalStateException("Failed to compute total size for snapshot " + snapshot));
     synchronized (server) {
-      return ServerProtoUtils.toInstallSnapshotRequestProto(server.getMemberId(), followerId,
-          requestId, requestIndex++, server.getInfo().getCurrentTerm(), snapshot.getTermIndex(),
-          Collections.singletonList(chunk), totalSize, done, server.getRaftConf());
+      final SnapshotChunkProto.Builder b = LeaderProtoUtils.toSnapshotChunkProtoBuilder(
+          requestId, requestIndex++, snapshot.getTermIndex(), chunk, totalSize, done);
+      return LeaderProtoUtils.toInstallSnapshotRequestProto(server, followerId, b);
     }
   }
 

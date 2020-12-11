@@ -20,7 +20,9 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -30,6 +32,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -64,6 +67,14 @@ public final class ServerImplUtils {
           "Interrupted when creating RaftServer " + id, e);
     }
     return proxy;
+  }
+
+  public static RaftConfiguration newRaftConfiguration(List<RaftPeer> conf, long index, List<RaftPeer> oldConf) {
+    final RaftConfigurationImpl.Builder b = RaftConfigurationImpl.newBuilder()
+        .setConf(conf)
+        .setLogEntryIndex(index);
+    Optional.ofNullable(oldConf).filter(p -> p.size() > 0).ifPresent(b::setOldConf);
+    return b.build();
   }
 
   static long effectiveCommitIndex(long leaderCommitIndex, TermIndex followerPrevious, int numAppendEntries) {
