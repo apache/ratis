@@ -236,10 +236,8 @@ class RaftServerProxy implements RaftServer {
                   addGroup(RaftGroup.valueOf(groupId));
                 }
               } catch (Exception e) {
-                if (LOG.isDebugEnabled()) {
-                  LOG.debug(getId() + ": Failed to initialize the group directory "
-                      + sub.getAbsolutePath() + ".  Ignoring it", e);
-                }
+                LOG.info("{}: The directory {} is not a group directory;" +
+                    " ignoring it. ", getId(), sub.getAbsolutePath());
               }
             }));
     raftGroup.ifPresent(this::addGroup);
