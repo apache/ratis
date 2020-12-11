@@ -671,7 +671,7 @@ class RaftServerImpl implements RaftServer.Division,
         RaftClientReply exceptionReply = newExceptionReply(request, e);
         cacheEntry.failWithReply(exceptionReply);
         // leader will step down here
-        if (getInfo().isLeader()) {
+        if (e.leaderShouldStepDown() && getInfo().isLeader()) {
           leaderState.submitStepDownEvent(LeaderState.StepDownReason.STATE_MACHINE_EXCEPTION);
         }
         return CompletableFuture.completedFuture(exceptionReply);
