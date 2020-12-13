@@ -167,7 +167,9 @@ class ServerState implements Closeable {
     sm.initialize(server.getRaftServer(), gid, storage);
     // get the raft configuration from raft metafile
     RaftConfiguration raftConf = storage.readRaftConfiguration();
-    setRaftConf(raftConf.getLogEntryIndex(), raftConf);
+    if (raftConf != null) {
+      setRaftConf(raftConf.getLogEntryIndex(), raftConf);
+    }
   }
 
   void writeRaftConfiguration(LogEntryProto conf) {
