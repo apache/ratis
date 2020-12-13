@@ -20,13 +20,16 @@ package org.apache.ratis.server.raftlog;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftConfiguration;
+import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -190,5 +193,14 @@ public final class LogProtoUtils {
         .map(StateMachineEntryProto.newBuilder()::setStateMachineData)
         .ifPresent(b::setStateMachineEntry);
     return b.build();
+  }
+
+  public static RaftConfiguration toRaftConfiguration(LogEntryProto entry) {
+    Preconditions.assertTrue(entry.hasConfigurationEntry());
+    final RaftConfigurationProto proto = entry.getConfigurationEntry();
+    final List<RaftPeer> conf = ProtoUtils.toRaftPeers(proto.getPeersList());
+    final List<RaftPeer> oldConf = proto.getOldPeersCount() == 0? null
+        : ProtoUtils.toRaftPeers(proto.getOldPeersList());
+    return ServerImplUtils.newRaftConfiguration(conf, entry.getIndex(), oldConf);
   }
 }

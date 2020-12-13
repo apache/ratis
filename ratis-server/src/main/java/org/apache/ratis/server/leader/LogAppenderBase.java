@@ -23,7 +23,6 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLog.EntryWithData;
@@ -179,8 +178,7 @@ public abstract class LogAppenderBase implements LogAppender {
   public InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex) {
     Preconditions.assertTrue(firstAvailableLogTermIndex.getIndex() > 0);
     synchronized (server) {
-      return ServerProtoUtils.toInstallSnapshotRequestProto(server.getMemberId(), getFollowerId(),
-          server.getInfo().getCurrentTerm(), firstAvailableLogTermIndex, server.getRaftConf());
+      return LeaderProtoUtils.toInstallSnapshotRequestProto(server, getFollowerId(), firstAvailableLogTermIndex);
     }
   }
 
