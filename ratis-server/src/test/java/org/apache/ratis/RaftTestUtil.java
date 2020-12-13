@@ -31,7 +31,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -363,7 +362,7 @@ public interface RaftTestUtil {
     private SimpleOperation(ClientId clientId, long callId, String op, boolean hasStateMachineData) {
       this.op = Objects.requireNonNull(op);
       final ByteString bytes = ProtoUtils.toByteString(op);
-      this.smLogEntryProto = ServerProtoUtils.toStateMachineLogEntryProto(
+      this.smLogEntryProto = LogProtoUtils.toStateMachineLogEntryProto(
           clientId, callId, StateMachineLogEntryProto.Type.WRITE, bytes, hasStateMachineData? bytes: null);
     }
 

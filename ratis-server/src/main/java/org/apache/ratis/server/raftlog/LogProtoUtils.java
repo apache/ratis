@@ -18,9 +18,12 @@
 package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.proto.RaftProtos.*;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftConfiguration;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Arrays;
@@ -32,13 +35,21 @@ import java.util.stream.Collectors;
 public final class LogProtoUtils {
   private LogProtoUtils() {}
 
+  public static String toStateMachineLogEntryString(StateMachineLogEntryProto proto,
+      Function<StateMachineLogEntryProto, String> function) {
+    final ByteString clientId = proto.getClientId();
+    return (clientId.isEmpty() ? "<empty ClientId>" : ClientId.valueOf(clientId))
+        + ",cid=" + proto.getCallId()
+        + Optional.ofNullable(function).map(f -> f.apply(proto)).map(s -> "," + s).orElse("");
+  }
+
   public static String toLogEntryString(LogEntryProto entry, Function<StateMachineLogEntryProto, String> function) {
     if (entry == null) {
       return null;
     }
     final String s;
     if (entry.hasStateMachineLogEntry()) {
-      s = ", " + ServerProtoUtils.toStateMachineLogEntryString(entry.getStateMachineLogEntry(), function);
+      s = ", " + toStateMachineLogEntryString(entry.getStateMachineLogEntry(), function);
     } else if (entry.hasMetadataEntry()) {
       final MetadataProto metadata = entry.getMetadataEntry();
       s = "(c:" + metadata.getCommitIndex() + ")";
@@ -87,5 +98,97 @@ public final class LogProtoUtils {
         .setIndex(index)
         .setMetadataEntry(MetadataProto.newBuilder().setCommitIndex(commitIndex))
         .build();
+  }
+
+  /**
+   * If the given entry has state machine log entry and it has state machine data,
+   * build a new entry without the state machine data.
+   *
+   * @return a new entry without the state machine data if the given has state machine data;
+   *         otherwise, return the given entry.
+   */
+  public static LogEntryProto removeStateMachineData(LogEntryProto entry) {
+    return getStateMachineEntry(entry)
+        .map(StateMachineEntryProto::getStateMachineData)
+        .filter(stateMachineData -> !stateMachineData.isEmpty())
+        .map(_dummy -> replaceStateMachineDataWithSerializedSize(entry))
+        .orElse(entry);
+  }
+
+  private static LogEntryProto replaceStateMachineDataWithSerializedSize(LogEntryProto entry) {
+    return replaceStateMachineEntry(entry,
+        StateMachineEntryProto.newBuilder().setLogEntryProtoSerializedSize(entry.getSerializedSize()));
+  }
+
+  private static LogEntryProto replaceStateMachineEntry(LogEntryProto proto, StateMachineEntryProto.Builder newEntry) {
+    Preconditions.assertTrue(proto.hasStateMachineLogEntry(), () -> "Unexpected proto " + proto);
+    return LogEntryProto.newBuilder(proto).setStateMachineLogEntry(
+        StateMachineLogEntryProto.newBuilder(proto.getStateMachineLogEntry()).setStateMachineEntry(newEntry)
+    ).build();
+  }
+
+  /**
+   * Return a new log entry based on the input log entry with stateMachineData added.
+   * @param stateMachineData - state machine data to be added
+   * @param entry - log entry to which stateMachineData needs to be added
+   * @return LogEntryProto with stateMachineData added
+   */
+  static LogEntryProto addStateMachineData(ByteString stateMachineData, LogEntryProto entry) {
+    Preconditions.assertTrue(isStateMachineDataEmpty(entry),
+        () -> "Failed to addStateMachineData to " + entry + " since shouldReadStateMachineData is false.");
+    return replaceStateMachineEntry(entry, StateMachineEntryProto.newBuilder().setStateMachineData(stateMachineData));
+  }
+
+  public static boolean isStateMachineDataEmpty(LogEntryProto entry) {
+    return getStateMachineEntry(entry)
+        .map(StateMachineEntryProto::getStateMachineData)
+        .map(ByteString::isEmpty)
+        .orElse(false);
+  }
+
+  private static Optional<StateMachineEntryProto> getStateMachineEntry(LogEntryProto entry) {
+    return Optional.of(entry)
+        .filter(LogEntryProto::hasStateMachineLogEntry)
+        .map(LogEntryProto::getStateMachineLogEntry)
+        .filter(StateMachineLogEntryProto::hasStateMachineEntry)
+        .map(StateMachineLogEntryProto::getStateMachineEntry);
+  }
+
+  public static int getSerializedSize(LogEntryProto entry) {
+    return getStateMachineEntry(entry)
+        .filter(stateMachineEntry -> stateMachineEntry.getStateMachineData().isEmpty())
+        .map(StateMachineEntryProto::getLogEntryProtoSerializedSize)
+        .orElseGet(entry::getSerializedSize);
+  }
+
+  private static StateMachineLogEntryProto.Type toStateMachineLogEntryProtoType(RaftClientRequestProto.TypeCase type) {
+    switch (type) {
+      case WRITE: return StateMachineLogEntryProto.Type.WRITE;
+      case DATASTREAM: return StateMachineLogEntryProto.Type.DATASTREAM;
+      default:
+        throw new IllegalStateException("Unexpected request type " + type);
+    }
+  }
+
+  public static StateMachineLogEntryProto toStateMachineLogEntryProto(
+      RaftClientRequest request, ByteString logData, ByteString stateMachineData) {
+    if (logData == null) {
+      logData = request.getMessage().getContent();
+    }
+    final StateMachineLogEntryProto.Type type = toStateMachineLogEntryProtoType(request.getType().getTypeCase());
+    return toStateMachineLogEntryProto(request.getClientId(), request.getCallId(), type, logData, stateMachineData);
+  }
+
+  public static StateMachineLogEntryProto toStateMachineLogEntryProto(ClientId clientId, long callId,
+      StateMachineLogEntryProto.Type type, ByteString logData, ByteString stateMachineData) {
+    final StateMachineLogEntryProto.Builder b = StateMachineLogEntryProto.newBuilder()
+        .setClientId(clientId.toByteString())
+        .setCallId(callId)
+        .setType(type)
+        .setLogData(logData);
+    Optional.ofNullable(stateMachineData)
+        .map(StateMachineEntryProto.newBuilder()::setStateMachineData)
+        .ifPresent(b::setStateMachineEntry);
+    return b.build();
   }
 }

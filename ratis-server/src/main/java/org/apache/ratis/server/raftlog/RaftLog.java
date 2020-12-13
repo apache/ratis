@@ -24,7 +24,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftConfiguration;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -512,7 +511,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     }
 
     public int getSerializedSize() {
-      return ServerProtoUtils.getSerializedSize(logEntry);
+      return LogProtoUtils.getSerializedSize(logEntry);
     }
 
     public LogEntryProto getEntry(TimeDuration timeout) throws RaftLogIOException, TimeoutException {
@@ -522,7 +521,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       }
 
       try {
-        entryProto = future.thenApply(data -> ServerProtoUtils.addStateMachineData(data, logEntry))
+        entryProto = future.thenApply(data -> LogProtoUtils.addStateMachineData(data, logEntry))
             .get(timeout.getDuration(), timeout.getUnit());
       } catch (TimeoutException t) {
         final String err = getName() + ": Timeout readStateMachineData for " + toLogEntryString(logEntry);
@@ -535,7 +534,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       }
       // by this time we have already read the state machine data,
       // so the log entry data should be set now
-      if (ServerProtoUtils.shouldReadStateMachineData(entryProto)) {
+      if (LogProtoUtils.isStateMachineDataEmpty(entryProto)) {
         final String err = getName() + ": State machine data not set for " + toLogEntryString(logEntry);
         LOG.error(err);
         throw new RaftLogIOException(err);

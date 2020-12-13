@@ -26,7 +26,6 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -454,7 +453,7 @@ class SegmentedRaftLogWorker {
     private final CompletableFuture<Long> combined;
 
     WriteLog(LogEntryProto entry) {
-      this.entry = ServerProtoUtils.removeStateMachineData(entry);
+      this.entry = LogProtoUtils.removeStateMachineData(entry);
       if (this.entry == entry) {
         final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
         if (stateMachine != null && proto != null && proto.getType() == StateMachineLogEntryProto.Type.DATASTREAM) {
@@ -487,7 +486,7 @@ class SegmentedRaftLogWorker {
 
     @Override
     int getSerializedSize() {
-      return ServerProtoUtils.getSerializedSize(entry);
+      return LogProtoUtils.getSerializedSize(entry);
     }
 
     @Override

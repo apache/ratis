@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,7 +21,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
@@ -200,7 +200,7 @@ public interface TransactionContext {
             () -> "serverRole MUST be LEADER since clientRequest != null, serverRole is " + serverRole);
         Preconditions.assertNull(logEntry, () -> "logEntry MUST be null since clientRequest != null");
         if (stateMachineLogEntry == null) {
-          stateMachineLogEntry = ServerProtoUtils.toStateMachineLogEntryProto(clientRequest, logData, stateMachineData);
+          stateMachineLogEntry = LogProtoUtils.toStateMachineLogEntryProto(clientRequest, logData, stateMachineData);
         }
         return new TransactionContextImpl(stateMachine, clientRequest, stateMachineLogEntry, stateMachineContext);
       } else {

@@ -22,7 +22,6 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -283,7 +282,7 @@ public class SegmentedRaftLog extends RaftLog {
     if (entry == null) {
       throw new RaftLogIOException("Log entry not found: index = " + index);
     }
-    if (!ServerProtoUtils.shouldReadStateMachineData(entry)) {
+    if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
       return new EntryWithData(entry, null);
     }
 
@@ -404,7 +403,7 @@ public class SegmentedRaftLog extends RaftLog {
           fileLogWorker.writeLogEntry(entry).getFuture();
       if (stateMachineCachingEnabled) {
         // The stateMachineData will be cached inside the StateMachine itself.
-        cache.appendEntry(ServerProtoUtils.removeStateMachineData(entry),
+        cache.appendEntry(LogProtoUtils.removeStateMachineData(entry),
             LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE);
       } else {
         cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);

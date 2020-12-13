@@ -27,8 +27,8 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.LifeCycle;
@@ -456,6 +456,6 @@ public interface StateMachine extends Closeable {
    * @return the string representation of the proto.
    */
   default String toStateMachineLogEntryString(RaftProtos.StateMachineLogEntryProto proto) {
-    return ServerProtoUtils.toStateMachineLogEntryString(proto, null);
+    return LogProtoUtils.toStateMachineLogEntryString(proto, null);
   }
 }
