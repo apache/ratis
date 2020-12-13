@@ -66,11 +66,17 @@ public final class LogProtoUtils {
     return toLogEntryString(entry, null);
   }
 
-  public static String toLogEntryStrings(LogEntryProto... entries) {
+  public static String toLogEntriesString(LogEntryProto... entries) {
     return entries == null ? null
         : entries.length == 0 ? "[]"
         : entries.length == 1 ? toLogEntryString(entries[0])
         : "" + Arrays.stream(entries).map(LogProtoUtils::toLogEntryString).collect(Collectors.toList());
+  }
+
+  public static String toLogEntriesShortString(List<LogEntryProto> entries) {
+    return entries == null ? null
+        : entries.size() == 0 ? "<empty>"
+        : "size=" + entries.size() + ", first=" + LogProtoUtils.toLogEntryString(entries.get(0));
   }
 
   public static LogEntryProto toLogEntryProto(RaftConfiguration conf, Long term, long index) {

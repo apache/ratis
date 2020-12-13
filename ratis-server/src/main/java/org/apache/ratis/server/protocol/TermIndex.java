@@ -17,13 +17,23 @@
  */
 package org.apache.ratis.server.protocol;
 
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.TermIndexProto;
 import org.apache.ratis.server.impl.ServerImplUtils;
 
+import java.util.Optional;
 import java.util.function.LongFunction;
 
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
+  static TermIndex valueOf(TermIndexProto proto) {
+    return Optional.ofNullable(proto).map(p -> newTermIndex(p.getTerm(), p.getIndex())).orElse(null);
+  }
+
+  static TermIndex valueOf(LogEntryProto proto) {
+    return Optional.ofNullable(proto).map(p -> newTermIndex(p.getTerm(), p.getIndex())).orElse(null);
+  }
+
   TermIndex[] EMPTY_TERMINDEX_ARRAY = {};
 
   /** @return the term. */

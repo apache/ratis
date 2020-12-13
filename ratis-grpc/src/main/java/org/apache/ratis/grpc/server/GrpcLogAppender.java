@@ -29,6 +29,7 @@ import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.leader.LogAppenderBase;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
@@ -280,14 +281,14 @@ public class GrpcLogAppender extends LogAppenderBase {
       if (LOG.isDebugEnabled()) {
         LOG.debug("{}: received {} reply {}, request={}",
             this, firstResponseReceived? "a": "the first",
-            ServerProtoUtils.toString(reply), request);
+            ServerStringUtils.toAppendEntriesReplyString(reply), request);
       }
 
       try {
         onNextImpl(reply);
       } catch(Exception t) {
         LOG.error("Failed onNext request=" + request
-            + ", reply=" + ServerProtoUtils.toString(reply), t);
+            + ", reply=" + ServerStringUtils.toAppendEntriesReplyString(reply), t);
       }
     }
 
@@ -397,7 +398,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     public void onNext(InstallSnapshotReplyProto reply) {
       if (LOG.isInfoEnabled()) {
         LOG.info("{}: received {} reply {}", this, firstResponseReceived ? "a" : "the first",
-            ServerProtoUtils.toString(reply));
+            ServerStringUtils.toInstallSnapshotReplyString(reply));
       }
 
       // update the last rpc time
@@ -528,7 +529,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     // prepare and enqueue the notify install snapshot request.
     final InstallSnapshotRequestProto request = newInstallSnapshotNotificationRequest(firstAvailableLogTermIndex);
     if (LOG.isInfoEnabled()) {
-      LOG.info("{}: send {}", this, ServerProtoUtils.toString(request));
+      LOG.info("{}: send {}", this, ServerStringUtils.toInstallSnapshotRequestString(request));
     }
     try {
       snapshotRequestObserver = getClient().installSnapshot(responseHandler);

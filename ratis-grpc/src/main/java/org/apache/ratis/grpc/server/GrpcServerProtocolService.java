@@ -20,8 +20,8 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -193,12 +193,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
       @Override
       String requestToString(AppendEntriesRequestProto request) {
-        return ServerProtoUtils.toString(request);
+        return ServerStringUtils.toAppendEntriesRequestString(request);
       }
 
       @Override
       String replyToString(AppendEntriesReplyProto reply) {
-        return ServerProtoUtils.toString(reply);
+        return ServerStringUtils.toAppendEntriesReplyString(reply);
       }
 
       @Override
@@ -230,12 +230,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
       @Override
       String requestToString(InstallSnapshotRequestProto request) {
-        return ServerProtoUtils.toString(request);
+        return ServerStringUtils.toInstallSnapshotRequestString(request);
       }
 
       @Override
       String replyToString(InstallSnapshotReplyProto reply) {
-        return ServerProtoUtils.toString(reply);
+        return ServerStringUtils.toInstallSnapshotReplyString(reply);
       }
 
       @Override
