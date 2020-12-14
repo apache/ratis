@@ -52,6 +52,7 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
@@ -1002,7 +1003,7 @@ class RaftServerImpl implements RaftServer.Division,
           voteGranted, state.getCurrentTerm(), shouldShutdown);
       if (LOG.isDebugEnabled()) {
         LOG.debug("{} replies to vote request: {}. Peer's state: {}",
-            getMemberId(), ServerProtoUtils.toString(reply), state);
+            getMemberId(), ServerStringUtils.toRequestVoteReplyString(reply), state);
       }
     }
     return reply;
@@ -1122,7 +1123,7 @@ class RaftServerImpl implements RaftServer.Division,
         () -> getMemberId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
             + previous + ", " + leaderCommit + ", " + initializing
             + ", commits" + ProtoUtils.toString(commitInfos)
-            + ", entries: " + LogProtoUtils.toLogEntryStrings(entries));
+            + ", entries: " + LogProtoUtils.toLogEntriesString(entries));
 
     final long currentTerm;
     final long followerCommit = state.getLog().getLastCommittedIndex();
@@ -1139,7 +1140,7 @@ class RaftServerImpl implements RaftServer.Division,
             RaftLog.INVALID_LOG_INDEX, isHeartbeat);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
-              getMemberId(), leaderId, leaderTerm, state, ServerProtoUtils.toString(reply));
+              getMemberId(), leaderId, leaderTerm, state, ServerStringUtils.toAppendEntriesReplyString(reply));
         }
         return CompletableFuture.completedFuture(reply);
       }
@@ -1195,8 +1196,8 @@ class RaftServerImpl implements RaftServer.Division,
             state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex,
             isHeartbeat);
       }
-      logAppendEntries(isHeartbeat, () ->
-          getMemberId() + ": succeeded to handle AppendEntries. Reply: " + ServerProtoUtils.toString(reply));
+      logAppendEntries(isHeartbeat, () -> getMemberId() + ": succeeded to handle AppendEntries. Reply: "
+          + ServerStringUtils.toAppendEntriesReplyString(reply));
       timer.stop();  // TODO: future never completes exceptionally?
       return reply;
     });
@@ -1212,7 +1213,7 @@ class RaftServerImpl implements RaftServer.Division,
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
         leaderId, getMemberId(), currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId,
         RaftLog.INVALID_LOG_INDEX, isHeartbeat);
-    LOG.info("{}: inconsistency entries. Reply:{}", getMemberId(), ServerProtoUtils.toString(reply));
+    LOG.info("{}: inconsistency entries. Reply:{}", getMemberId(), ServerStringUtils.toAppendEntriesReplyString(reply));
     return reply;
   }
 
@@ -1256,7 +1257,8 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {
     if (LOG.isInfoEnabled()) {
-      LOG.info("{}: receive installSnapshot: {}", getMemberId(), ServerProtoUtils.toString(request));
+      LOG.info("{}: receive installSnapshot: {}", getMemberId(),
+          ServerStringUtils.toInstallSnapshotRequestString(request));
     }
     final InstallSnapshotReplyProto reply;
     try {
@@ -1266,7 +1268,8 @@ class RaftServerImpl implements RaftServer.Division,
       throw e;
     }
     if (LOG.isInfoEnabled()) {
-      LOG.info("{}: reply installSnapshot: {}", getMemberId(), ServerProtoUtils.toString(reply));
+      LOG.info("{}: reply installSnapshot: {}", getMemberId(),
+          ServerStringUtils.toInstallSnapshotReplyString(reply));
     }
     return reply;
   }

@@ -24,8 +24,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.SnapshotInfo;
 
 import java.io.IOException;
@@ -154,7 +154,7 @@ class LogAppenderDefault extends LogAppenderBase {
           if (nextIndex < oldNextIndex) {
             throw new IllegalStateException("nextIndex=" + nextIndex
                 + " < oldNextIndex=" + oldNextIndex
-                + ", reply=" + ServerProtoUtils.toString(reply));
+                + ", reply=" + ServerStringUtils.toAppendEntriesReplyString(reply));
           }
 
           if (nextIndex > oldNextIndex) {

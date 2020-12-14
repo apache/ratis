@@ -598,7 +598,7 @@ public class SegmentedRaftLogCache {
             LOG.trace("{}: truncate to {}, arrayIndex={}, ti={}, storedEntry={}, entries={}",
                 name, truncateIndex, arrayIndex,
                 ServerProtoUtils.toTermIndex(entries[arrayIndex]), storedEntry,
-                LogProtoUtils.toLogEntryStrings(entries));
+                LogProtoUtils.toLogEntriesString(entries));
           }
 
           // fail all requests starting at truncateIndex

@@ -24,7 +24,6 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Collection;
@@ -40,78 +39,6 @@ public interface ServerProtoUtils {
   static TermIndex toTermIndex(LogEntryProto entry) {
     return entry == null ? null :
         TermIndex.newTermIndex(entry.getTerm(), entry.getIndex());
-  }
-
-  static String toTermIndexString(TermIndexProto proto) {
-    return TermIndex.toString(proto.getTerm(), proto.getIndex());
-  }
-
-  static String toShortString(List<LogEntryProto> entries) {
-    return entries.size() == 0? "<empty>"
-        : "size=" + entries.size() + ", first=" + LogProtoUtils.toLogEntryString(entries.get(0));
-  }
-  static String toString(AppendEntriesRequestProto proto) {
-    if (proto == null) {
-      return null;
-    }
-    return ProtoUtils.toString(proto.getServerRequest()) + "-t" + proto.getLeaderTerm()
-        + ", previous=" + toTermIndexString(proto.getPreviousLog())
-        + ", leaderCommit=" + proto.getLeaderCommit()
-        + ", initializing? " + proto.getInitializing()
-        + ", entries: " + toShortString(proto.getEntriesList());
-  }
-  static String toString(AppendEntriesReplyProto reply) {
-    if (reply == null) {
-      return null;
-    }
-    return ProtoUtils.toString(reply.getServerReply()) + "," + reply.getResult()
-        + ",nextIndex:" + reply.getNextIndex() + ",term:" + reply.getTerm()
-        + ",followerCommit:" + reply.getFollowerCommit();
-  }
-
-  static String toString(RequestVoteReplyProto proto) {
-    if (proto == null) {
-      return null;
-    }
-    return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm();
-  }
-
-  static String toString(InstallSnapshotRequestProto proto) {
-    if (proto == null) {
-      return null;
-    }
-    final String s;
-    switch (proto.getInstallSnapshotRequestBodyCase()) {
-      case SNAPSHOTCHUNK:
-        final InstallSnapshotRequestProto.SnapshotChunkProto chunk = proto.getSnapshotChunk();
-        s = "chunk:" + chunk.getRequestId() + "," + chunk.getRequestIndex();
-        break;
-      case NOTIFICATION:
-        final InstallSnapshotRequestProto.NotificationProto notification = proto.getNotification();
-        s = "notify:" + toTermIndexString(notification.getFirstAvailableTermIndex());
-        break;
-      default:
-        throw new IllegalStateException("Unexpected body case in " + proto);
-    }
-    return ProtoUtils.toString(proto.getServerRequest()) + "-t" + proto.getLeaderTerm() + "," + s;
-  }
-
-  static String toString(InstallSnapshotReplyProto proto) {
-    if (proto == null) {
-      return null;
-    }
-    final String s;
-    switch (proto.getInstallSnapshotReplyBodyCase()) {
-      case REQUESTINDEX:
-        s = ",requestIndex=" + proto.getRequestIndex();
-        break;
-      case SNAPSHOTINDEX:
-        s = ",snapshotIndex=" + proto.getSnapshotIndex();
-        break;
-      default:
-        s = ""; // result is not SUCCESS
-    }
-    return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm() + "," + proto.getResult() + s;
   }
 
   static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(

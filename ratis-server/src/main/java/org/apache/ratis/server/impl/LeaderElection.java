@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
@@ -65,7 +66,7 @@ class LeaderElection implements Runnable {
       Map<RaftPeerId, RequestVoteReplyProto> responses,
       List<Exception> exceptions, long newTerm) {
     LOG.info(this + ": Election " + result + "; received " + responses.size() + " response(s) "
-        + responses.values().stream().map(ServerProtoUtils::toString).collect(Collectors.toList())
+        + responses.values().stream().map(ServerStringUtils::toRequestVoteReplyString).collect(Collectors.toList())
         + " and " + exceptions.size() + " exception(s); " + server.getState());
     int i = 0;
     for(Exception e : exceptions) {
@@ -320,7 +321,9 @@ class LeaderElection implements Runnable {
         if (previous != null) {
           if (LOG.isWarnEnabled()) {
             LOG.warn("{} received duplicated replies from {}, the 2nd reply is ignored: 1st={}, 2nd={}",
-                this, replierId, ServerProtoUtils.toString(previous), ServerProtoUtils.toString(r));
+                this, replierId,
+                ServerStringUtils.toRequestVoteReplyString(previous),
+                ServerStringUtils.toRequestVoteReplyString(r));
           }
           continue;
         }
