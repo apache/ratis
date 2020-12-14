@@ -19,22 +19,13 @@ package org.apache.ratis.server.protocol;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.TermIndexProto;
-import org.apache.ratis.server.impl.ServerImplUtils;
 
+import java.util.Comparator;
 import java.util.Optional;
-import java.util.function.LongFunction;
 
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
-  static TermIndex valueOf(TermIndexProto proto) {
-    return Optional.ofNullable(proto).map(p -> newTermIndex(p.getTerm(), p.getIndex())).orElse(null);
-  }
-
-  static TermIndex valueOf(LogEntryProto proto) {
-    return Optional.ofNullable(proto).map(p -> newTermIndex(p.getTerm(), p.getIndex())).orElse(null);
-  }
-
-  TermIndex[] EMPTY_TERMINDEX_ARRAY = {};
+  TermIndex[] EMPTY_ARRAY = {};
 
   /** @return the term. */
   long getTerm();
@@ -50,23 +41,60 @@ public interface TermIndex extends Comparable<TermIndex> {
         .build();
   }
 
-  /** A term number is valid iff it is greater than zero. */
-  static boolean isValidTerm(int term) {
-    return term > 0;
+  /** @return a {@link TermIndex} object from the given proto. */
+  static TermIndex valueOf(TermIndexProto proto) {
+    return Optional.ofNullable(proto).map(p -> valueOf(p.getTerm(), p.getIndex())).orElse(null);
   }
 
-  /** Create a new {@link TermIndex} instance. */
-  static TermIndex newTermIndex(long term, long index) {
-    return ServerImplUtils.newTermIndex(term, index);
+  /** @return a {@link TermIndex} object from the given proto. */
+  static TermIndex valueOf(LogEntryProto proto) {
+    return Optional.ofNullable(proto).map(p -> valueOf(p.getTerm(), p.getIndex())).orElse(null);
   }
 
-  LongFunction<String> LONG_TO_STRING = n -> n >= 0L? String.valueOf(n): "~";
+  /** @return a {@link TermIndex} object. */
+  static TermIndex valueOf(long term, long index) {
+    return new TermIndex() {
+      @Override
+      public long getTerm() {
+        return term;
+      }
 
-  /** @return a string representing the given term and index. */
-  static String toString(long term, long index) {
-    return String.format("(t:%s, i:%s)",
-        LONG_TO_STRING.apply(term), LONG_TO_STRING.apply(index));
+      @Override
+      public long getIndex() {
+        return index;
+      }
+
+      @Override
+      public int compareTo(TermIndex that) {
+        return Comparator.comparingLong(TermIndex::getTerm).thenComparingLong(TermIndex::getIndex).compare(this, that);
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (obj == this) {
+          return true;
+        } else if (!(obj instanceof TermIndex)) {
+          return false;
+        }
+
+        final TermIndex that = (TermIndex) obj;
+        return this.getTerm() == that.getTerm()
+            && this.getIndex() == that.getIndex();
+      }
+
+      @Override
+      public int hashCode() {
+        return Long.hashCode(term) ^ Long.hashCode(index);
+      }
+
+      private String longToString(long n) {
+        return n >= 0L? String.valueOf(n) : "~";
+      }
+
+      @Override
+      public String toString() {
+        return String.format("(t:%s, i:%s)", longToString(term), longToString(index));
+      }
+    };
   }
 }
-
-

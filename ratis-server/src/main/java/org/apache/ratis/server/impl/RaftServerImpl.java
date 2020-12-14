@@ -949,7 +949,7 @@ class RaftServerImpl implements RaftServer.Division,
     return requestVote(RaftPeerId.valueOf(request.getRequestorId()),
         ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
         r.getCandidateTerm(),
-        ServerProtoUtils.toTermIndex(r.getCandidateLastEntry()));
+        TermIndex.valueOf(r.getCandidateLastEntry()));
   }
 
   private RequestVoteReplyProto requestVote(
@@ -1055,8 +1055,7 @@ class RaftServerImpl implements RaftServer.Division,
     final RaftRpcRequestProto request = r.getServerRequest();
     final LogEntryProto[] entries = r.getEntriesList()
         .toArray(new LogEntryProto[r.getEntriesCount()]);
-    final TermIndex previous = r.hasPreviousLog() ?
-        ServerProtoUtils.toTermIndex(r.getPreviousLog()) : null;
+    final TermIndex previous = r.hasPreviousLog()? TermIndex.valueOf(r.getPreviousLog()) : null;
     final RaftPeerId requestorId = RaftPeerId.valueOf(request.getRequestorId());
 
     preAppendEntriesAsync(requestorId, ProtoUtils.toRaftGroupId(request.getRaftGroupId()), r.getLeaderTerm(),
@@ -1363,8 +1362,7 @@ class RaftServerImpl implements RaftServer.Division,
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();
     InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
-    final TermIndex lastTermIndex = ServerProtoUtils.toTermIndex(snapshotChunkRequest.getTermIndex());
-    final long lastIncludedIndex = lastTermIndex.getIndex();
+    final long lastIncludedIndex = snapshotChunkRequest.getTermIndex().getIndex();
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
@@ -1410,7 +1408,7 @@ class RaftServerImpl implements RaftServer.Division,
       InstallSnapshotRequestProto request, RaftPeerId leaderId) throws IOException {
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();
-    final TermIndex firstAvailableLogTermIndex = ServerProtoUtils.toTermIndex(
+    final TermIndex firstAvailableLogTermIndex = TermIndex.valueOf(
         request.getNotification().getFirstAvailableTermIndex());
     final long firstAvailableLogIndex = firstAvailableLogTermIndex.getIndex();
 

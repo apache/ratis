@@ -20,7 +20,6 @@ package org.apache.ratis.server.raftlog.memory;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -46,7 +45,7 @@ public class MemoryRaftLog extends RaftLog {
     }
 
     TermIndex getTermIndex(int i) {
-      return ServerProtoUtils.toTermIndex(get(i));
+      return TermIndex.valueOf(get(i));
     }
 
     int size() {

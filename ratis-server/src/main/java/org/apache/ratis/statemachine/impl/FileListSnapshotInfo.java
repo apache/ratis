@@ -36,7 +36,7 @@ public class FileListSnapshotInfo implements SnapshotInfo {
   private final List<FileInfo> files;
 
   public FileListSnapshotInfo(List<FileInfo> files, long term, long index) {
-    this.termIndex = TermIndex.newTermIndex(term, index);
+    this.termIndex = TermIndex.valueOf(term, index);
     this.files = Collections.unmodifiableList(new ArrayList<>(files));
   }
 
