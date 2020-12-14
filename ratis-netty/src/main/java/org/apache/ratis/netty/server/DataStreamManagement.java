@@ -202,15 +202,18 @@ public class DataStreamManagement {
   private final String name;
 
   private final StreamMap streams = new StreamMap();
-  private final Executor executor;
+  private final Executor requestExecutor;
+  private final Executor writeExecutor;
 
   DataStreamManagement(RaftServer server) {
     this.server = server;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
     final RaftProperties properties = server.getProperties();
-    this.executor = Executors.newFixedThreadPool(
-        RaftServerConfigKeys.DataStream.asyncThreadPoolSize(properties));
+    this.requestExecutor = Executors.newFixedThreadPool(
+        RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties));
+    this.writeExecutor = Executors.newFixedThreadPool(
+        RaftServerConfigKeys.DataStream.asyncWriteThreadPoolSize(properties));
   }
 
   private CompletableFuture<DataStream> computeDataStreamIfAbsent(RaftClientRequest request) throws IOException {
@@ -316,7 +319,7 @@ public class DataStreamManagement {
           .getRaftClient()
           .async());
       return asyncRpcApi.sendForward(info.request)
-          .thenAcceptAsync(reply -> ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply)), executor);
+          .thenAcceptAsync(reply -> ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply)), requestExecutor);
     } catch (IOException e) {
       throw new CompletionException(e);
     }
@@ -378,16 +381,16 @@ public class DataStreamManagement {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA || request.getType() == Type.STREAM_DATA_SYNC) {
-      localWrite = info.getLocal().write(buf, request.getType() == Type.STREAM_DATA_SYNC, executor);
+      localWrite = info.getLocal().write(buf, request.getType() == Type.STREAM_DATA_SYNC, writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request));
     } else if (request.getType() == Type.STREAM_CLOSE) {
-      localWrite = info.getLocal().close(executor);
+      localWrite = info.getLocal().close(writeExecutor);
       remoteWrites = info.isPrimary()? info.applyToRemotes(RemoteStream::close): Collections.emptyList();
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
     }
 
-    composeAsync(info.getPrevious(), executor, n -> JavaUtils.allOf(remoteWrites)
+    composeAsync(info.getPrevious(), requestExecutor, n -> JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           if (request.getType() == Type.STREAM_HEADER
               || request.getType() == Type.STREAM_DATA || request.getType() == Type.STREAM_DATA_SYNC) {
@@ -403,7 +406,7 @@ public class DataStreamManagement {
             throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
           }
           return null;
-        }, executor)).whenComplete((v, exception) -> {
+        }, requestExecutor)).whenComplete((v, exception) -> {
       try {
         if (exception != null) {
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);

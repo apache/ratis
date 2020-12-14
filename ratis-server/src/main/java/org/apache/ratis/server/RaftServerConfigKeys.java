@@ -420,16 +420,30 @@ public interface RaftServerConfigKeys {
   interface DataStream {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".data-stream";
 
-    String ASYNC_THREAD_POOL_SIZE_KEY = PREFIX + ".async.thread.pool.size";
-    int ASYNC_THREAD_POOL_SIZE_DEFAULT = 16;
+    String ASYNC_REQUEST_THREAD_POOL_SIZE_KEY = PREFIX + ".async.request.thread.pool.size";
+    int ASYNC_REQUEST_THREAD_POOL_SIZE_DEFAULT = 16;
 
-    static int asyncThreadPoolSize(RaftProperties properties) {
-      return getInt(properties::getInt, ASYNC_THREAD_POOL_SIZE_KEY, ASYNC_THREAD_POOL_SIZE_DEFAULT, getDefaultLog(),
+    static int asyncRequestThreadPoolSize(RaftProperties properties) {
+      return getInt(properties::getInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY,
+          ASYNC_REQUEST_THREAD_POOL_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
 
-    static void setAsyncThreadPoolSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, ASYNC_THREAD_POOL_SIZE_KEY, port);
+    static void setAsyncRequestThreadPoolSize(RaftProperties properties, int port) {
+      setInt(properties::setInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY, port);
+    }
+
+    String ASYNC_WRITE_THREAD_POOL_SIZE_KEY = PREFIX + ".async.write.thread.pool.size";
+    int ASYNC_WRITE_THREAD_POOL_SIZE_DEFAULT = 16;
+
+    static int asyncWriteThreadPoolSize(RaftProperties properties) {
+      return getInt(properties::getInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY,
+          ASYNC_WRITE_THREAD_POOL_SIZE_DEFAULT, getDefaultLog(),
+          requireMin(0), requireMax(65536));
+    }
+
+    static void setAsyncWriteThreadPoolSize(RaftProperties properties, int port) {
+      setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, port);
     }
   }
 
