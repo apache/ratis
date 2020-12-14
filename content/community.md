@@ -45,5 +45,4 @@ To post to the list, it is necessary to subscribe to it.
 
 ### Slack
 
-There is also a slack instance for discussion at https://apacheratisdev.slack.com.
-Please write to the mailing list if you need an invite.
+You can join the #ratis channel in Apache slack workspace [http://s.apache.org/slack-invite](http://s.apache.org/slack-invite) for any discussions.
