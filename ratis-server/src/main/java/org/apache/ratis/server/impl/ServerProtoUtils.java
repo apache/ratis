@@ -31,17 +31,10 @@ import java.util.List;
 import java.util.Optional;
 
 /** Server proto utilities for internal use. */
-public interface ServerProtoUtils {
-  static TermIndex toTermIndex(TermIndexProto p) {
-    return p == null? null: TermIndex.newTermIndex(p.getTerm(), p.getIndex());
-  }
+final class ServerProtoUtils {
+  private ServerProtoUtils() {}
 
-  static TermIndex toTermIndex(LogEntryProto entry) {
-    return entry == null ? null :
-        TermIndex.newTermIndex(entry.getTerm(), entry.getIndex());
-  }
-
-  static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
+  private static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
       RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success) {
     return ClientProtoUtils.toRaftRpcReplyProtoBuilder(
         requestorId.toByteString(), replyId.getPeerId().toByteString(), replyId.getGroupId(), null, success);
@@ -56,16 +49,10 @@ public interface ServerProtoUtils {
         .build();
   }
 
-  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      RaftGroupMemberId requestorId, RaftPeerId replyId) {
-    return ClientProtoUtils.toRaftRpcRequestProtoBuilder(
-        requestorId.getPeerId().toByteString(), replyId.toByteString(), requestorId.getGroupId(), null, null);
-  }
-
   static RequestVoteRequestProto toRequestVoteRequestProto(
       RaftGroupMemberId requestorId, RaftPeerId replyId, long term, TermIndex lastEntry) {
     final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
-        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
+        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId))
         .setCandidateTerm(term);
     Optional.ofNullable(lastEntry).map(TermIndex::toProto).ifPresent(b::setCandidateLastEntry);
     return b.build();
@@ -129,7 +116,7 @@ public interface ServerProtoUtils {
       RaftGroupMemberId requestorId, RaftPeerId replyId, long leaderTerm,
       List<LogEntryProto> entries, long leaderCommit, boolean initializing,
       TermIndex previous, Collection<CommitInfoProto> commitInfos, long callId) {
-    RaftRpcRequestProto.Builder rpcRequest = toRaftRpcRequestProtoBuilder(requestorId, replyId)
+    final RaftRpcRequestProto.Builder rpcRequest = ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId)
         .setCallId(callId);
     final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto
         .newBuilder()

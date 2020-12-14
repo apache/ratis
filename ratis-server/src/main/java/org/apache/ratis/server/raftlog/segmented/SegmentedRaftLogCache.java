@@ -20,7 +20,6 @@ package org.apache.ratis.server.raftlog.segmented;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
@@ -491,7 +490,7 @@ public class SegmentedRaftLogCache {
     }
     final long realEnd = Math.min(getEndIndex() + 1, endIndex);
     if (startIndex >= realEnd) {
-      return TermIndex.EMPTY_TERMINDEX_ARRAY;
+      return TermIndex.EMPTY_ARRAY;
     }
     return closedSegments.getTermIndex(startIndex, realEnd, openSegment);
   }
@@ -597,7 +596,7 @@ public class SegmentedRaftLogCache {
           if (LOG.isTraceEnabled()) {
             LOG.trace("{}: truncate to {}, arrayIndex={}, ti={}, storedEntry={}, entries={}",
                 name, truncateIndex, arrayIndex,
-                ServerProtoUtils.toTermIndex(entries[arrayIndex]), storedEntry,
+                TermIndex.valueOf(entries[arrayIndex]), storedEntry,
                 LogProtoUtils.toLogEntriesString(entries));
           }
 

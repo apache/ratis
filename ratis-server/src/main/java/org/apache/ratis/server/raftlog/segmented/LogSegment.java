@@ -19,7 +19,6 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
@@ -93,7 +92,7 @@ public class LogSegment implements Comparable<Long> {
 
     LogRecord(long offset, LogEntryProto entry) {
       this.offset = offset;
-      this.termIndex = ServerProtoUtils.toTermIndex(entry);
+      this.termIndex = TermIndex.valueOf(entry);
     }
 
     TermIndex getTermIndex() {
@@ -233,7 +232,7 @@ public class LogSegment implements Comparable<Long> {
       // the on-disk log file should be truncated but has not been done yet.
       final AtomicReference<LogEntryProto> toReturn = new AtomicReference<>();
       readSegmentFile(file, startIndex, endIndex, isOpen, getLogCorruptionPolicy(), raftLogMetrics, entry -> {
-        final TermIndex ti = ServerProtoUtils.toTermIndex(entry);
+        final TermIndex ti = TermIndex.valueOf(entry);
         putEntryCache(ti, entry, Op.LOAD_SEGMENT_FILE);
         if (ti.equals(key.getTermIndex())) {
           toReturn.set(entry);

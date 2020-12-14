@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.leader;
 
+import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto.NotificationProto;
@@ -25,7 +26,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 
@@ -66,7 +66,7 @@ final class LeaderProtoUtils {
     final RaftConfiguration conf = server.getRaftConf();
     final LogEntryProto confLogEntryProto = LogProtoUtils.toLogEntryProto(conf, null, conf.getLogEntryIndex());
     return InstallSnapshotRequestProto.newBuilder()
-        .setServerRequest(ServerProtoUtils.toRaftRpcRequestProtoBuilder(server.getMemberId(), replyId))
+        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(server.getMemberId(), replyId))
         .setLeaderTerm(server.getInfo().getCurrentTerm())
         .setLastRaftConfigurationLogEntryProto(confLogEntryProto);
   }

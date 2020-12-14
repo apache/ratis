@@ -57,7 +57,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   private final SortedMap<Long, CompletableFuture<Void>> transactionFutures = new TreeMap<>();
 
   public BaseStateMachine() {
-    setLastAppliedTermIndex(TermIndex.newTermIndex(0, -1));
+    setLastAppliedTermIndex(TermIndex.valueOf(0, -1));
   }
 
   public RaftPeerId getId() {
@@ -130,7 +130,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   }
 
   protected boolean updateLastAppliedTermIndex(long term, long index) {
-    final TermIndex newTI = TermIndex.newTermIndex(term, index);
+    final TermIndex newTI = TermIndex.valueOf(term, index);
     final TermIndex oldTI = lastAppliedTermIndex.getAndSet(newTI);
     if (!newTI.equals(oldTI)) {
       LOG.trace("{}: update lastAppliedTermIndex from {} to {}", getId(), oldTI, newTI);

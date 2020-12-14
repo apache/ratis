@@ -75,8 +75,6 @@ class ServerState implements Closeable {
   /**
    * Latest term server has seen.
    * Initialized to 0 on first boot, increases monotonically.
-   *
-   * @see TermIndex#isValidTerm(int)
    */
   private final AtomicLong currentTerm = new AtomicLong();
   /**
@@ -420,7 +418,7 @@ class ServerState implements Closeable {
     StateMachine sm = server.getStateMachine();
     sm.pause(); // pause the SM to prepare for install snapshot
     snapshotManager.installSnapshot(sm, request);
-    updateInstalledSnapshotIndex(ServerProtoUtils.toTermIndex(request.getSnapshotChunk().getTermIndex()));
+    updateInstalledSnapshotIndex(TermIndex.valueOf(request.getSnapshotChunk().getTermIndex()));
   }
 
   void updateInstalledSnapshotIndex(TermIndex lastTermIndexInSnapshot) {

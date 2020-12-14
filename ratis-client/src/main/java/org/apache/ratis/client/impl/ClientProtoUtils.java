@@ -57,6 +57,11 @@ public interface ClientProtoUtils {
         .setSuccess(success);
   }
 
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(RaftGroupMemberId requestorId, RaftPeerId replyId) {
+    return toRaftRpcRequestProtoBuilder(requestorId.getPeerId().toByteString(),
+        replyId.toByteString(), requestorId.getGroupId(), null, null);
+  }
+
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       ByteString requesterId, ByteString replyId, RaftGroupId groupId, Long callId,
       SlidingWindowEntry slidingWindowEntry) {

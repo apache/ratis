@@ -59,7 +59,7 @@ public final class LogProtoUtils {
     } else {
       s = "";
     }
-    return TermIndex.toString(entry.getTerm(), entry.getIndex()) + ", " + entry.getLogEntryBodyCase() + s;
+    return TermIndex.valueOf(entry) + ", " + entry.getLogEntryBodyCase() + s;
   }
 
   public static String toLogEntryString(LogEntryProto entry) {
