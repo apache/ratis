@@ -43,7 +43,6 @@ import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -140,7 +139,7 @@ public abstract class Client extends SubCommandBase {
     return new File(storageDir.get(Math.abs(hash)), fileName).getAbsolutePath();
   }
 
-  protected void dropCache() throws InterruptedException, IOException {
+  protected void dropCache() {
     String[] cmds = {"/bin/sh","-c","echo 3 > /proc/sys/vm/drop_caches"};
     try {
       Process pro = Runtime.getRuntime().exec(cmds);
@@ -154,8 +153,7 @@ public abstract class Client extends SubCommandBase {
     final CompletableFuture<Long> future = new CompletableFuture<>();
     CompletableFuture.supplyAsync(() -> {
       try {
-        future.complete(
-            writeFile(path, fileSizeInBytes, bufferSizeInBytes, new Random().nextInt(127) + 1));
+        future.complete(writeFile(path, fileSizeInBytes, bufferSizeInBytes));
       } catch (IOException e) {
         future.completeExceptionally(e);
       }
@@ -185,7 +183,7 @@ public abstract class Client extends SubCommandBase {
     return paths;
   }
 
-  protected long writeFile(String path, long fileSize, long bufferSize, int random) throws IOException {
+  protected long writeFile(String path, long fileSize, long bufferSize) throws IOException {
     final byte[] buffer = new byte[Math.toIntExact(bufferSize)];
     long offset = 0;
     try(RandomAccessFile raf = new RandomAccessFile(path, "rw")) {

@@ -54,9 +54,6 @@ public abstract class SubCommandBase {
     return parsePeers(peers)[0];
   }
 
-  public boolean isPrimary(String id) {
-    return getPrimary().getId().toString().equals(id);
-  }
   public abstract void run() throws Exception;
 
   public String getRaftGroupId() {
