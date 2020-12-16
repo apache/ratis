@@ -26,7 +26,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
@@ -47,26 +46,26 @@ import java.util.function.Supplier;
 
 import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
 
-/** A grpc implementation of {@link RaftServerRpc}. */
+/** A grpc implementation of {@link org.apache.ratis.server.RaftServerRpc}. */
 public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient,
     PeerProxyMap<GrpcServerProtocolClient>> {
   static final Logger LOG = LoggerFactory.getLogger(GrpcService.class);
   public static final String GRPC_SEND_SERVER_REQUEST =
       JavaUtils.getClassSimpleName(GrpcService.class) + ".sendRequest";
 
-  public static final class Builder extends RaftServerRpc.Builder<Builder, GrpcService> {
+  public static final class Builder {
+    private RaftServer server;
     private GrpcTlsConfig tlsConfig;
 
     private Builder() {}
 
-    @Override
-    public Builder getThis() {
+    public Builder setServer(RaftServer raftServer) {
+      this.server = raftServer;
       return this;
     }
 
-    @Override
     public GrpcService build() {
-      return new GrpcService(getServer(), getTlsConfig());
+      return new GrpcService(server, getTlsConfig());
     }
 
     public Builder setTlsConfig(GrpcTlsConfig tlsConfig) {

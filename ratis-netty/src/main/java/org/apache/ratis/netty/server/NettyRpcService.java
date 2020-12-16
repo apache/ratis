@@ -26,7 +26,6 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
@@ -62,17 +61,18 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   static final String CLASS_NAME = JavaUtils.getClassSimpleName(NettyRpcService.class);
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
-  public static final class Builder extends RaftServerRpc.Builder<Builder, NettyRpcService> {
+  public static final class Builder {
+    private RaftServer server;
+
     private Builder() {}
 
-    @Override
-    public Builder getThis() {
+    public Builder setServer(RaftServer raftServer) {
+      this.server = raftServer;
       return this;
     }
 
-    @Override
     public NettyRpcService build() {
-      return new NettyRpcService(getServer());
+      return new NettyRpcService(server);
     }
   }
 

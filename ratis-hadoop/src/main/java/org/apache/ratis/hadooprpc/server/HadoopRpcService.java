@@ -37,7 +37,6 @@ import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ServerRequestProt
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import com.google.protobuf.BlockingService;
@@ -61,7 +60,8 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
   static final String CLASS_NAME = JavaUtils.getClassSimpleName(HadoopRpcService.class);
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
-  public static final class Builder extends RaftServerRpc.Builder<Builder, HadoopRpcService> {
+  public static final class Builder {
+    private RaftServer server;
     private Configuration conf;
 
     private Builder() {}
@@ -78,14 +78,13 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
       return this;
     }
 
-    @Override
-    public Builder getThis() {
+    public Builder setServer(RaftServer raftServer) {
+      this.server = raftServer;
       return this;
     }
 
-    @Override
     public HadoopRpcService build() {
-      return new HadoopRpcService(getServer(), getConf());
+      return new HadoopRpcService(server, getConf());
     }
   }
 

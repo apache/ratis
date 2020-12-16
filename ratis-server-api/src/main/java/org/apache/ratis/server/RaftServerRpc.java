@@ -18,40 +18,20 @@
 package org.apache.ratis.server;
 
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.Objects;
 
 /**
  * An server-side interface for supporting different RPC implementations
  * such as Netty, gRPC and Hadoop.
  */
 public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, RaftPeer.Add, Closeable {
-  /** To build {@link RaftServerRpc} objects. */
-  abstract class Builder<B extends Builder, RPC extends RaftServerRpc> {
-    private RaftServer server;
-
-    public RaftServer getServer() {
-      return Objects.requireNonNull(server,
-          "The 'server' field is not initialized.");
-    }
-
-    public B setServer(RaftServer raftServer) {
-      this.server = raftServer;
-      return getThis();
-    }
-
-    protected abstract B getThis();
-
-    public abstract RPC build();
-  }
-
   /** Start the RPC service. */
   void start() throws IOException;
 
