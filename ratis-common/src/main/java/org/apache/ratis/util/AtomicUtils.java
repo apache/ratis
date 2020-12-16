@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,7 +17,10 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedFunction;
+
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Utilities related to atomic operations.
@@ -58,4 +61,28 @@ public interface AtomicUtils {
     }
   }
 
+  /**
+   * Similar to {@link AtomicReference#updateAndGet(java.util.function.UnaryOperator)}
+   * except that the update function is checked.
+   */
+  static <E, THROWABLE extends Throwable> E updateAndGet(AtomicReference<E> reference,
+      CheckedFunction<E, E, THROWABLE> update) throws THROWABLE {
+    final AtomicReference<Throwable> throwableRef = new AtomicReference<>();
+    final E updated = reference.updateAndGet(value -> {
+      try {
+        return update.apply(value);
+      } catch (Error | RuntimeException e) {
+        throw e;
+      } catch (Throwable t) {
+        throwableRef.set(t);
+        return value;
+      }
+    });
+    @SuppressWarnings("unchecked")
+    final THROWABLE t = (THROWABLE) throwableRef.get();
+    if (t != null) {
+      throw t;
+    }
+    return updated;
+  }
 }

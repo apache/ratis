@@ -19,13 +19,13 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
+import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncateIndices;
@@ -462,15 +462,13 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public void writeMetadata(long term, RaftPeerId votedFor) throws IOException {
-    storage.getMetaFile().set(term, votedFor != null ? votedFor.toString() : null);
+  public void writeMetadata(RaftStorageMetadata metadata) throws IOException {
+    storage.getMetaFile().persist(metadata);
   }
 
   @Override
-  public Metadata loadMetadata() throws IOException {
-    return new Metadata(
-        RaftPeerId.getRaftPeerId(storage.getMetaFile().getVotedFor()),
-        storage.getMetaFile().getTerm());
+  public RaftStorageMetadata loadMetadata() throws IOException {
+    return storage.getMetaFile().getMetadata();
   }
 
   @Override

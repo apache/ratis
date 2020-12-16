@@ -125,7 +125,7 @@ class ServerState implements Closeable {
     // do not know whether the local log entries have been committed.
     this.log = initRaftLog(getMemberId(), server, storage, this::setRaftConf, getSnapshotIndexFromStateMachine, prop);
 
-    RaftLog.Metadata metadata = log.loadMetadata();
+    final RaftStorageMetadata metadata = log.loadMetadata();
     currentTerm.set(metadata.getTerm());
     votedFor = metadata.getVotedFor();
 
@@ -231,7 +231,7 @@ class ServerState implements Closeable {
   }
 
   void persistMetadata() throws IOException {
-    this.log.writeMetadata(currentTerm.get(), votedFor);
+    log.writeMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
   }
 
   /**

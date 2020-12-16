@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -41,14 +42,14 @@ public class RaftStorage implements Closeable {
 
   public enum StartupOption {
     /** Format the storage. */
-    FORMAT;
+    FORMAT
   }
 
   // TODO support multiple storage directories
   private final RaftStorageDirectory storageDir;
   private final StorageState state;
   private final CorruptionPolicy logCorruptionPolicy;
-  private volatile MetaFile metaFile;
+  private volatile RaftStorageMetadataFileImpl metaFile;
 
   public RaftStorage(File dir, CorruptionPolicy logCorruptionPolicy) throws IOException {
     this(dir, logCorruptionPolicy, null);
@@ -85,29 +86,25 @@ public class RaftStorage implements Closeable {
 
   private void format() throws IOException {
     storageDir.clearDirectory();
-    metaFile = writeMetaFile(MetaFile.DEFAULT_TERM, MetaFile.EMPTY_VOTEFOR);
-    LOG.info("Storage directory " + storageDir.getRoot()
-        + " has been successfully formatted.");
-  }
-
-  private MetaFile writeMetaFile(long term, String votedFor) throws IOException {
-    MetaFile mFile = new MetaFile(storageDir.getMetaFile());
-    mFile.set(term, votedFor);
-    return mFile;
+    metaFile = new RaftStorageMetadataFileImpl(storageDir.getMetaFile());
+    metaFile.persist(RaftStorageMetadata.getDefault());
+    LOG.info("Storage directory " + storageDir.getRoot() + " has been successfully formatted.");
   }
 
   private void cleanMetaTmpFile() throws IOException {
     Files.deleteIfExists(storageDir.getMetaTmpFile().toPath());
   }
 
-  private StorageState analyzeAndRecoverStorage(boolean toLock)
-      throws IOException {
+  private StorageState analyzeAndRecoverStorage(boolean toLock) throws IOException {
     StorageState storageState = storageDir.analyzeStorage(toLock);
     if (storageState == StorageState.NORMAL) {
-      metaFile = new MetaFile(storageDir.getMetaFile());
-      Preconditions.assertTrue(metaFile.exists(),
-          () -> "Meta file " + metaFile + " does not exists.");
-      metaFile.readFile();
+      final File f = storageDir.getMetaFile();
+      if (!f.exists()) {
+        throw new FileNotFoundException("Metadata file " + f + " does not exists.");
+      }
+      metaFile = new RaftStorageMetadataFileImpl(f);
+      final RaftStorageMetadata metadata = metaFile.getMetadata();
+      LOG.info("Read {} from {}", metadata, f);
       // Existence of raft-meta.tmp means the change of votedFor/term has not
       // been committed. Thus we should delete the tmp file.
       cleanMetaTmpFile();
@@ -130,7 +127,7 @@ public class RaftStorage implements Closeable {
     storageDir.unlock();
   }
 
-  public MetaFile getMetaFile() {
+  public RaftStorageMetadataFile getMetaFile() {
     return metaFile;
   }
 
