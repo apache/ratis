@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 import java.util.function.LongUnaryOperator;
 
 /**
- * Indices of {@link RaftLog} such as commit index, match index, etc.
+ * Indices of a raft log such as commit index, match index, etc.
  *
  * This class is thread safe.
  */

@@ -73,6 +73,7 @@
     <module>ratis-proto</module>
     <module>ratis-common</module>
     <module>ratis-client</module>
+    <module>ratis-server-api</module>
     <module>ratis-server</module>
     <module>ratis-resource-bundle</module>
     <module>ratis-grpc</module>
@@ -380,6 +381,12 @@
         <version>${project.version}</version>
         <type>test-jar</type>
         <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <artifactId>ratis-server-api</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
       </dependency>
 
       <dependency>

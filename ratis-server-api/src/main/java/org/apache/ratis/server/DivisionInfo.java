@@ -23,7 +23,7 @@ import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.util.LifeCycle;
 
 /**
- * Information of a {@link RaftServer.Division}.
+ * Information of a raft server division.
  */
 public interface DivisionInfo {
   /** @return the current role of this server division. */
