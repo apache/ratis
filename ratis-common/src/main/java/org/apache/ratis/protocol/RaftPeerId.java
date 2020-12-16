@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -27,6 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Id of Raft Peer which is globally unique.
+ *
+ * This is a value-based class.
  */
 public final class RaftPeerId {
   private static final Map<ByteString, RaftPeerId> BYTE_STRING_MAP = new ConcurrentHashMap<>();
@@ -51,7 +53,6 @@ public final class RaftPeerId {
 
   private RaftPeerId(String id) {
     this.idString = Objects.requireNonNull(id, "id == null");
-    Preconditions.assertTrue(!id.isEmpty(), "id is an empty string.");
     this.id = ByteString.copyFrom(idString, StandardCharsets.UTF_8);
   }
 

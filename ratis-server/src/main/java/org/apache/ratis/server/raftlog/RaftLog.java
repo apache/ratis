@@ -20,12 +20,12 @@ package org.apache.ratis.server.raftlog;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
@@ -437,10 +437,9 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
    * in the RaftPeer's lock. Later we can use an IO task queue to enforce the
    * order.
    */
-  public abstract void writeMetadata(long term, RaftPeerId votedFor)
-      throws IOException;
+  public abstract void writeMetadata(RaftStorageMetadata metadata) throws IOException;
 
-  public abstract Metadata loadMetadata() throws IOException;
+  public abstract RaftStorageMetadata loadMetadata() throws IOException;
 
   public abstract CompletableFuture<Long> syncWithSnapshot(long lastSnapshotIndex);
 
@@ -449,24 +448,6 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   @Override
   public String toString() {
     return getName() + ":" + state + ":c" + getLastCommittedIndex();
-  }
-
-  public static class Metadata {
-    private final RaftPeerId votedFor;
-    private final long term;
-
-    public Metadata(RaftPeerId votedFor, long term) {
-      this.votedFor = votedFor;
-      this.term = term;
-    }
-
-    public RaftPeerId getVotedFor() {
-      return votedFor;
-    }
-
-    public long getTerm() {
-      return term;
-    }
   }
 
   public AutoCloseableLock readLock() {

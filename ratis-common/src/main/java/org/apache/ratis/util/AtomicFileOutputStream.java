@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -25,60 +25,72 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilterOutputStream;
-
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * A FileOutputStream that has the property that it will only show
- * up at its destination once it has been entirely written and flushed
- * to disk. While being written, it will use a .tmp suffix.
+ * A {@link FilterOutputStream} that writes to a file atomically.
+ * The output file will not show up until it has been entirely written and sync'ed to disk.
+ * It uses a temporary file when it is being written.
+ * The default temporary file has a .tmp suffix.
  *
- * When the output stream is closed, it is flushed, fsynced, and
- * will be moved into place, overwriting any file that already
- * exists at that location.
+ * When the output stream is closed, it is
+ * (1) flushed
+ * (2) sync'ed, and
+ * (3) renamed/moved from the temporary file to the output file.
+ * If the output file already exists, it will be overwritten.
  *
- * <b>NOTE</b>: on Windows platforms, it will not atomically
- * replace the target file - instead the target file is deleted
- * before this one is moved into place.
+ * NOTE that on Windows platforms, the output file, if it exists, is deleted
+ * before the temporary file is moved.
  */
 public class AtomicFileOutputStream extends FilterOutputStream {
-
   public static final String TMP_EXTENSION = ".tmp";
 
   public static final Logger LOG = LoggerFactory.getLogger(AtomicFileOutputStream.class);
 
-  private final File origFile;
+  private final File outFile;
   private final File tmpFile;
+  private final AtomicBoolean isClosed = new AtomicBoolean();
 
-  public AtomicFileOutputStream(File f) throws FileNotFoundException {
-    // Code unfortunately must be duplicated below since we can't assign anything
-    // before calling super
-    super(new FileOutputStream(new File(f.getParentFile(), f.getName() + TMP_EXTENSION)));
-    origFile = f.getAbsoluteFile();
-    tmpFile = new File(f.getParentFile(), f.getName() + TMP_EXTENSION).getAbsoluteFile();
+  public AtomicFileOutputStream(File outFile) throws FileNotFoundException {
+    this(outFile, new File(outFile.getParentFile(), outFile.getName() + TMP_EXTENSION));
+  }
+
+  public AtomicFileOutputStream(File outFile, File tmpFile) throws FileNotFoundException {
+    super(new FileOutputStream(tmpFile));
+    this.outFile = outFile.getAbsoluteFile();
+    this.tmpFile = tmpFile.getAbsoluteFile();
+  }
+
+  public boolean isClosed() {
+    return isClosed.get();
   }
 
   @Override
   public void close() throws IOException {
-    boolean triedToClose = false, success = false;
+    if (!isClosed.compareAndSet(false, true)) {
+      return;
+    }
+    boolean forced = false;
+    boolean closed = false;
     try {
       flush();
       ((FileOutputStream)out).getChannel().force(true);
+      forced = true;
 
-      triedToClose = true;
       super.close();
-      success = true;
-    } finally {
-      if (success) {
-        boolean renamed = tmpFile.renameTo(origFile);
-        if (!renamed) {
-          // On windows, renameTo does not replace.
-          if (origFile.exists() && !origFile.delete()) {
-            throw new IOException("Could not delete original file " + origFile);
-          }
-          FileUtils.move(tmpFile, origFile);
+      closed = true;
+
+      final boolean renamed = tmpFile.renameTo(outFile);
+      if (!renamed) {
+        // On windows, renameTo does not replace.
+        if (outFile.exists() && !outFile.delete()) {
+          throw new IOException("Could not delete original file " + outFile);
         }
-      } else {
-        if (!triedToClose) {
+        FileUtils.move(tmpFile, outFile);
+      }
+    } finally {
+      if (!closed) {
+        if (!forced) {
           // If we failed when flushing, try to close it to not leak an FD
           IOUtils.cleanup(LOG, out);
         }
@@ -96,14 +108,17 @@ public class AtomicFileOutputStream extends FilterOutputStream {
    * in writing.
    */
   public void abort() {
+    if (isClosed.get()) {
+      return;
+    }
     try {
       super.close();
     } catch (IOException ioe) {
       LOG.warn("Unable to abort file " + tmpFile, ioe);
-    }
-    if (!tmpFile.delete()) {
-      LOG.warn("Unable to delete tmp file during abort " + tmpFile);
+    } finally {
+      if (!tmpFile.delete()) {
+        LOG.warn("Unable to delete tmp file during abort " + tmpFile);
+      }
     }
   }
-
 }

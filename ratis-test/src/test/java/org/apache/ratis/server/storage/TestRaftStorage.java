@@ -20,6 +20,7 @@ package org.apache.ratis.server.storage;
 import static org.apache.ratis.statemachine.impl.SimpleStateMachineStorage.SNAPSHOT_REGEX;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
@@ -37,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 
 /**
@@ -107,50 +109,37 @@ public class TestRaftStorage extends BaseTest {
     storage.close();
 
     Assert.assertEquals(StorageState.NORMAL, sd.analyzeStorage(false));
-    File m = sd.getMetaFile();
-    Assert.assertTrue(m.exists());
-    MetaFile metaFile = new MetaFile(m);
-    Assert.assertEquals(MetaFile.DEFAULT_TERM, metaFile.getTerm());
-    Assert.assertEquals(MetaFile.EMPTY_VOTEFOR, metaFile.getVotedFor());
-
-    metaFile.set(123, "peer1");
-    metaFile.readFile();
-    Assert.assertEquals(123, metaFile.getTerm());
-    Assert.assertEquals("peer1", metaFile.getVotedFor());
-
-    MetaFile metaFile2 = new MetaFile(m);
-    Assert.assertFalse((Boolean) Whitebox.getInternalState(metaFile2, "loaded"));
-    Assert.assertEquals(123, metaFile.getTerm());
-    Assert.assertEquals("peer1", metaFile.getVotedFor());
+    assertMetadataFile(sd.getMetaFile());
 
     // test format
     storage = formatRaftStorage(storageDir);
     Assert.assertEquals(StorageState.NORMAL, storage.getState());
-    metaFile = new MetaFile(sd.getMetaFile());
-    Assert.assertEquals(MetaFile.DEFAULT_TERM, metaFile.getTerm());
-    Assert.assertEquals(MetaFile.EMPTY_VOTEFOR, metaFile.getVotedFor());
+    final RaftStorageMetadataFile metaFile = new RaftStorageMetadataFileImpl(sd.getMetaFile());
+    Assert.assertEquals(RaftStorageMetadata.getDefault(), metaFile.getMetadata());
     storage.close();
+  }
+
+  static void assertMetadataFile(File m) throws Exception {
+    Assert.assertTrue(m.exists());
+    final RaftStorageMetadataFile metaFile = new RaftStorageMetadataFileImpl(m);
+    Assert.assertEquals(RaftStorageMetadata.getDefault(), metaFile.getMetadata());
+
+    final RaftPeerId peer1 = RaftPeerId.valueOf("peer1");
+    final RaftStorageMetadata metadata = RaftStorageMetadata.valueOf(123, peer1);
+    metaFile.persist(metadata);
+    Assert.assertEquals(metadata.getTerm(), 123);
+    Assert.assertEquals(metadata.getVotedFor(), peer1);
+    Assert.assertEquals(metadata, metaFile.getMetadata());
+
+    final RaftStorageMetadataFile metaFile2 = new RaftStorageMetadataFileImpl(m);
+    Assert.assertNull(((AtomicReference<?>) Whitebox.getInternalState(metaFile2, "metadata")).get());
+    Assert.assertEquals(metadata, metaFile2.getMetadata());
   }
 
   @Test
   public void testMetaFile() throws Exception {
     RaftStorage storage = formatRaftStorage(storageDir);
-    File m = storage.getStorageDir().getMetaFile();
-    Assert.assertTrue(m.exists());
-    MetaFile metaFile = new MetaFile(m);
-    Assert.assertEquals(MetaFile.DEFAULT_TERM, metaFile.getTerm());
-    Assert.assertEquals(MetaFile.EMPTY_VOTEFOR, metaFile.getVotedFor());
-
-    metaFile.set(123, "peer1");
-    metaFile.readFile();
-    Assert.assertEquals(123, metaFile.getTerm());
-    Assert.assertEquals("peer1", metaFile.getVotedFor());
-
-    MetaFile metaFile2 = new MetaFile(m);
-    Assert.assertFalse((Boolean) Whitebox.getInternalState(metaFile2, "loaded"));
-    Assert.assertEquals(123, metaFile.getTerm());
-    Assert.assertEquals("peer1", metaFile.getVotedFor());
-
+    assertMetadataFile(storage.getStorageDir().getMetaFile());
     storage.close();
   }
 

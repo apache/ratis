@@ -19,10 +19,10 @@ package org.apache.ratis.server.raftlog.memory;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
 
@@ -70,7 +70,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   private final EntryList entries = new EntryList();
-  private final AtomicReference<Metadata> metadata = new AtomicReference<>(new Metadata(null, 0));
+  private final AtomicReference<RaftStorageMetadata> metadata = new AtomicReference<>(RaftStorageMetadata.getDefault());
 
   public MemoryRaftLog(RaftGroupMemberId memberId,
                        LongSupplier commitIndexSupplier,
@@ -209,12 +209,12 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public void writeMetadata(long term, RaftPeerId votedFor) {
-    metadata.set(new Metadata(votedFor, term));
+  public void writeMetadata(RaftStorageMetadata newMetadata) {
+    metadata.set(newMetadata);
   }
 
   @Override
-  public Metadata loadMetadata() {
+  public RaftStorageMetadata loadMetadata() {
     return metadata.get();
   }
 
