@@ -19,10 +19,14 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.ConfUtils;
+import org.apache.ratis.proto.RaftProtos.DataStreamRouteTableProto;
+import org.apache.ratis.proto.RaftProtos.DataStreamInitProto;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.After;
@@ -35,6 +39,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -63,6 +70,30 @@ public abstract class BaseTest {
     if (firstException.compareAndSet(null, e)) {
       LOG.error("Set firstException", e);
     }
+  }
+
+
+  public DataStreamInitProto getDataStreamInitProto(Collection<RaftPeer> peers, RaftPeer primary) {
+    IdentityHashMap<RaftPeer, RaftPeer> routeTable = getRouteTable(peers, primary);
+    DataStreamRouteTableProto routeTableProto = DataStreamRouteTableProto.newBuilder()
+        .addAllRouteTable(ProtoUtils.toRoutePairProtos(routeTable)).build();
+    return DataStreamInitProto.newBuilder()
+        .setRouteTable(routeTableProto.toByteString()).build();
+  }
+
+  public IdentityHashMap<RaftPeer, RaftPeer> getRouteTable(Collection<RaftPeer> peers, RaftPeer primary) {
+    RaftPeer previous = primary;
+    IdentityHashMap<RaftPeer, RaftPeer> routeTable = new IdentityHashMap<>();
+    for (RaftPeer peer : peers) {
+      if (peer.equals(primary)) {
+        continue;
+      }
+
+      routeTable.put(previous, peer);
+      previous = peer;
+    }
+
+    return routeTable;
   }
 
   @After

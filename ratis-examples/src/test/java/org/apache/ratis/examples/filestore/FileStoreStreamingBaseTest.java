@@ -37,6 +37,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -67,14 +68,16 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
     final RaftGroup raftGroup = cluster.getGroup();
     final Collection<RaftPeer> peers = raftGroup.getPeers();
     Assert.assertEquals(NUM_PEERS, peers.size());
-    RaftPeer raftPeer = peers.iterator().next();
+    RaftPeer primary = peers.iterator().next();
+
+    IdentityHashMap<RaftPeer, RaftPeer> routeTable = getRouteTable(peers, primary);
 
     final CheckedSupplier<FileStoreClient, IOException> newClient =
-        () -> new FileStoreClient(cluster.getGroup(), getProperties(), raftPeer);
+        () -> new FileStoreClient(cluster.getGroup(), getProperties(), primary);
 
-    testSingleFile("foo", SizeInBytes.valueOf("2M"), 10_000, newClient);
-    testSingleFile("bar", SizeInBytes.valueOf("2M"), 1000, newClient);
-    testSingleFile("sar", SizeInBytes.valueOf("20M"), 100_000, newClient);
+    testSingleFile("foo", SizeInBytes.valueOf("2M"), 10_000, newClient, routeTable);
+    testSingleFile("bar", SizeInBytes.valueOf("2M"), 1000, newClient, routeTable);
+    testSingleFile("sar", SizeInBytes.valueOf("20M"), 100_000, newClient, routeTable);
 
     cluster.shutdown();
   }
@@ -88,20 +91,22 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
     final RaftGroup raftGroup = cluster.getGroup();
     final Collection<RaftPeer> peers = raftGroup.getPeers();
     Assert.assertEquals(NUM_PEERS, peers.size());
-    RaftPeer raftPeer = peers.iterator().next();
+    RaftPeer primary = peers.iterator().next();
+
+    IdentityHashMap<RaftPeer, RaftPeer> routeTable = getRouteTable(peers, primary);
 
     final CheckedSupplier<FileStoreClient, IOException> newClient =
-        () -> new FileStoreClient(cluster.getGroup(), getProperties(), raftPeer);
+        () -> new FileStoreClient(cluster.getGroup(), getProperties(), primary);
 
-    testMultipleFiles("foo", 5, SizeInBytes.valueOf("2M"), 10_000, newClient);
-    testMultipleFiles("bar", 10, SizeInBytes.valueOf("2M"), 1000, newClient);
+    testMultipleFiles("foo", 5, SizeInBytes.valueOf("2M"), 10_000, newClient, routeTable);
+    testMultipleFiles("bar", 10, SizeInBytes.valueOf("2M"), 1000, newClient, routeTable);
 
     cluster.shutdown();
   }
 
   private void testSingleFile(
       String path, SizeInBytes fileLength, int bufferSize, CheckedSupplier<FileStoreClient,
-      IOException> newClient)
+      IOException> newClient, IdentityHashMap<RaftPeer, RaftPeer> routeTable)
       throws Exception {
     LOG.info("runTestSingleFile with path={}, fileLength={}", path, fileLength);
     FileStoreWriter.newBuilder()
@@ -109,11 +114,12 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
         .setFileSize(fileLength)
         .setBufferSize(bufferSize)
         .setFileStoreClientSupplier(newClient)
-        .build().streamWriteAndVerify();
+        .build().streamWriteAndVerify(routeTable);
   }
 
   private void testMultipleFiles(String pathBase, int numFile, SizeInBytes fileLength,
-      int bufferSize, CheckedSupplier<FileStoreClient, IOException> newClient) throws Exception {
+      int bufferSize, CheckedSupplier<FileStoreClient, IOException> newClient,
+      IdentityHashMap<RaftPeer, RaftPeer> routeTable) throws Exception {
     final ExecutorService executor = Executors.newFixedThreadPool(numFile);
 
     final List<Future<FileStoreWriter>> writerFutures = new ArrayList<>();
@@ -125,16 +131,12 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
               .setFileSize(fileLength)
               .setBufferSize(bufferSize)
               .setFileStoreClientSupplier(newClient)
-              .build().streamWriteAndVerify(),
+              .build().streamWriteAndVerify(routeTable),
           () -> path);
       writerFutures.add(executor.submit(callable));
     }
     for (Future<FileStoreWriter> future : writerFutures) {
       future.get();
     }
-  }
-
-  static class StreamWriter {
-
   }
 }

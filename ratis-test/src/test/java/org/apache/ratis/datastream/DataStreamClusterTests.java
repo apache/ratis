@@ -18,6 +18,8 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.proto.RaftProtos.DataStreamInitProto;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
@@ -29,6 +31,8 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.util.CollectionUtils;
+import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedConsumer;
 import org.junit.Assert;
@@ -36,6 +40,9 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -72,8 +79,11 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
   void runTestDataStreamOutput(CLUSTER cluster) throws Exception {
     final RaftClientRequest request;
     final CompletableFuture<RaftClientReply> reply;
-    try (RaftClient client = cluster.createClient()) {
-      try(final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream()) {
+    final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
+    DataStreamInitProto initProto = getDataStreamInitProto(cluster.getGroup().getPeers(), primaryServer);
+    try (RaftClient client = cluster.createClient(primaryServer)) {
+      try(final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
+          .stream(initProto.toByteString().asReadOnlyByteBuffer())) {
         request = out.getHeader();
         reply = out.getRaftClientReplyFuture();
 
@@ -90,8 +100,11 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
       CheckedConsumer<DataStreamOutputImpl, Exception> testCase) throws Exception {
     final RaftClientRequest request;
     final CompletableFuture<RaftClientReply> reply;
-    try (RaftClient client = cluster.createClient()) {
-      try(final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream()) {
+    final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
+    DataStreamInitProto initProto = getDataStreamInitProto(cluster.getGroup().getPeers(), primaryServer);
+    try (RaftClient client = cluster.createClient(primaryServer)) {
+      try(final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
+          .stream(initProto.toByteString().asReadOnlyByteBuffer())) {
         request = out.getHeader();
         reply = out.getRaftClientReplyFuture();
 

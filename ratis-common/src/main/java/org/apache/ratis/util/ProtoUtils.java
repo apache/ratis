@@ -18,6 +18,7 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.RoutePairProto;
 import org.apache.ratis.proto.RaftProtos.ThrowableProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupIdProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupMemberIdProto;
@@ -37,8 +38,10 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -134,6 +137,27 @@ public interface ProtoUtils {
       @Override
       public RaftPeerProto next() {
         return i.next().getRaftPeerProto();
+      }
+    };
+  }
+
+  static Iterable<RoutePairProto> toRoutePairProtos(
+      final IdentityHashMap<RaftPeer, RaftPeer> routeMap) {
+    return () -> new Iterator<RoutePairProto>() {
+      private final Iterator<Map.Entry<RaftPeer, RaftPeer>> i = routeMap.entrySet().iterator();
+
+      @Override
+      public boolean hasNext() {
+        return i.hasNext();
+      }
+
+      @Override
+      public RoutePairProto next() {
+        Map.Entry<RaftPeer, RaftPeer> entry = i.next();
+        return RoutePairProto.newBuilder()
+            .setFrom(entry.getKey().getRaftPeerProto())
+            .setTo(entry.getValue().getRaftPeerProto())
+            .build();
       }
     };
   }

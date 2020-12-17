@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.proto.RaftProtos.DataStreamInitProto;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DivisionInfo;
@@ -67,12 +68,15 @@ import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.ProtoUtils;
 import org.junit.Assert;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -195,6 +199,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   protected RaftProperties properties;
 
   private List<Server> servers;
+  private List<RaftPeer> peers;
   private RaftGroup raftGroup;
 
   Server getPrimaryServer() {
@@ -373,6 +378,7 @@ abstract class DataStreamBaseTest extends BaseTest {
 
   void setup(RaftGroupId groupId, List<RaftPeer> peers, List<RaftServer> raftServers) {
     raftGroup = RaftGroup.valueOf(groupId, peers);
+    this.peers = peers;
     servers = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
@@ -420,7 +426,10 @@ abstract class DataStreamBaseTest extends BaseTest {
       Exception expectedException, Exception headerException)
       throws IOException {
     try (final RaftClient client = newRaftClientForDataStream(clientId)) {
-      final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
+      DataStreamInitProto initProto = getDataStreamInitProto(peers, getPrimaryServer().getPeer());
+
+      final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
+          .stream(initProto.toByteString().asReadOnlyByteBuffer());
       if (headerException != null) {
         final DataStreamReply headerReply = out.getHeaderFuture().join();
         Assert.assertFalse(headerReply.isSuccess());

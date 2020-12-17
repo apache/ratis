@@ -21,6 +21,8 @@ import com.beust.jcommander.Parameter;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -52,6 +54,21 @@ public abstract class SubCommandBase {
 
   public RaftPeer getPrimary() {
     return parsePeers(peers)[0];
+  }
+
+  public IdentityHashMap<RaftPeer, RaftPeer> getRouteTable() {
+    RaftPeer previous = getPrimary();
+    IdentityHashMap<RaftPeer, RaftPeer> map = new IdentityHashMap<>();
+    for (RaftPeer peer : getPeers()) {
+      if (peer.equals(previous)) {
+        continue;
+      }
+
+      map.put(previous, peer);
+      previous = peer;
+    }
+
+    return map;
   }
 
   public abstract void run() throws Exception;

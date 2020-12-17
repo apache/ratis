@@ -280,6 +280,19 @@ message WatchRequestTypeProto {
   ReplicationLevel replication = 2;
 }
 
+message RoutePairProto {
+  RaftPeerProto from = 1;
+  RaftPeerProto to = 2;
+}
+
+message DataStreamRouteTableProto {
+  repeated RoutePairProto routeTable = 1;
+}
+
+message DataStreamInitProto {
+  bytes routeTable = 1;
+}
+
 // normal client request
 message RaftClientRequestProto {
   RaftRpcRequestProto rpcRequest = 1;

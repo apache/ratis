@@ -690,9 +690,6 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public RaftClient createClient(RaftPeerId leaderId, RaftGroup group, RetryPolicy retryPolicy, RaftPeer primaryServer) {
-    if (primaryServer == null) {
-      primaryServer = CollectionUtils.random(group.getPeers());
-    }
     RaftClient.Builder builder = RaftClient.newBuilder()
         .setRaftGroup(group)
         .setLeaderId(leaderId)

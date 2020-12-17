@@ -29,6 +29,7 @@ import org.apache.ratis.proto.ExamplesProtos.StreamWriteRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
@@ -45,6 +46,8 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -153,7 +156,9 @@ public class FileStoreClient implements Closeable {
     return WriteReplyProto.parseFrom(reply).getLength();
   }
 
-  public DataStreamOutput getStreamOutput(String path, long dataSize) {
+  public DataStreamOutput getStreamOutput(String path, long dataSize, IdentityHashMap<RaftPeer, RaftPeer> routeMap) {
+    final RaftProtos.DataStreamRouteTableProto routeProto = RaftProtos.DataStreamRouteTableProto.newBuilder()
+        .addAllRouteTable(ProtoUtils.toRoutePairProtos(routeMap)).build();
     final StreamWriteRequestProto header = StreamWriteRequestProto.newBuilder()
         .setPath(ProtoUtils.toByteString(path))
         .setLength(dataSize)
