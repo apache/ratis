@@ -219,7 +219,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
       return false;
     }
     for (RaftPeer peer : newMembers) {
-      if (!conf.contains(peer.getId())) {
+      if (!conf.contains(peer.getId()) || conf.getPeer(peer.getId()).getPriority() != peer.getPriority()) {
         return false;
       }
     }
