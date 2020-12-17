@@ -95,6 +95,10 @@ public class TestSegmentedRaftLog extends BaseTest {
       this.term = term;
       this.isOpen = isOpen;
     }
+
+    File getFile(RaftStorage storage) {
+      return LogSegmentStartEnd.valueOf(start, end, isOpen).getFile(storage);
+    }
   }
 
   private File storageDir;
@@ -147,10 +151,7 @@ public class TestSegmentedRaftLog extends BaseTest {
   private LogEntryProto[] prepareLog(List<SegmentRange> list) throws IOException {
     List<LogEntryProto> entryList = new ArrayList<>();
     for (SegmentRange range : list) {
-      File file = range.isOpen ?
-          storage.getStorageDir().getOpenLogFile(range.start) :
-          storage.getStorageDir().getClosedLogFile(range.start, range.end);
-
+      final File file = range.getFile(storage);
       final int size = (int) (range.end - range.start + 1);
       LogEntryProto[] entries = new LogEntryProto[size];
       try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,

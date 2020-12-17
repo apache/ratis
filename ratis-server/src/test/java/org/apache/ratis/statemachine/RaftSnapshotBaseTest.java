@@ -39,8 +39,8 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.server.storage.RaftStorageDirectory;
-import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
+import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
@@ -184,7 +184,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
    */
   @Test
   public void testBasicInstallSnapshot() throws Exception {
-    final List<LogPathAndIndex> logs;
+    final List<LogSegmentPath> logs;
     int i = 0;
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -198,8 +198,6 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       }
 
       // wait for the snapshot to be done
-      final RaftStorageDirectory storageDirectory = cluster.getLeader().getRaftStorage().getStorageDir();
-
       final long nextIndex = cluster.getLeader().getRaftLog().getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
@@ -208,13 +206,13 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
       verifyTakeSnapshotMetric(cluster.getLeader());
-      logs = storageDirectory.getLogSegmentFiles();
+      logs = LogSegmentPath.getLogSegmentPaths(cluster.getLeader().getRaftStorage());
     } finally {
       cluster.shutdown();
     }
 
     // delete the log segments from the leader
-    for (LogPathAndIndex path : logs) {
+    for (LogSegmentPath path : logs) {
       FileUtils.delete(path.getPath());
     }
 
