@@ -19,6 +19,7 @@
 package org.apache.ratis.netty.server;
 
 import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
@@ -32,14 +33,16 @@ import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
  */
 public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements DataStreamRequest {
   private final ByteBuf buf;
+  private final WriteOption[] options;
 
-  public DataStreamRequestByteBuf(Type type, long streamId, long streamOffset, ByteBuf buf) {
+  public DataStreamRequestByteBuf(Type type, long streamId, long streamOffset, WriteOption[] options, ByteBuf buf) {
     super(type, streamId, streamOffset);
     this.buf = buf != null? buf.asReadOnly(): Unpooled.EMPTY_BUFFER;
+    this.options = options;
   }
 
   public DataStreamRequestByteBuf(DataStreamRequestHeader header, ByteBuf buf) {
-    this(header.getType(), header.getStreamId(), header.getStreamOffset(), buf);
+    this(header.getType(), header.getStreamId(), header.getStreamOffset(), header.getWriteOptions(), buf);
   }
 
   @Override
@@ -49,5 +52,10 @@ public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements Da
 
   public ByteBuf slice() {
     return buf.slice();
+  }
+
+  @Override
+  public WriteOption[] getWriteOptions() {
+    return options;
   }
 }

@@ -19,6 +19,7 @@ package org.apache.ratis.client.api;
 
 import org.apache.ratis.io.CloseAsync;
 import org.apache.ratis.io.FilePositionCount;
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 
@@ -30,21 +31,13 @@ import java.util.concurrent.CompletableFuture;
 /** An asynchronous output stream supporting zero buffer copying. */
 public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
   /**
-   * This method is the same as writeAsync(src, sync_default),
-   * where sync_default depends on the underlying implementation.
-   */
-  default CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src) {
-    return writeAsync(src, false);
-  }
-
-  /**
    * Send out the data in the source buffer asynchronously.
    *
    * @param src the source buffer to be sent.
-   * @param sync Should the data be sync'ed to the underlying storage?
+   * @param options - options specifying how the data was written
    * @return a future of the reply.
    */
-  CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, boolean sync);
+  CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, WriteOption... options);
 
 
   /**
@@ -52,24 +45,24 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
    * where sync_default depends on the underlying implementation.
    */
   default CompletableFuture<DataStreamReply> writeAsync(File src) {
-    return writeAsync(src, 0, src.length(), false);
+    return writeAsync(src, 0, src.length());
   }
 
   /**
-   * The same as writeAsync(FilePositionCount.valueOf(src, position, count), sync).
+   * The same as writeAsync(FilePositionCount.valueOf(src, position, count), options).
    */
-  default CompletableFuture<DataStreamReply> writeAsync(File src, long position, long count, boolean sync) {
-    return writeAsync(FilePositionCount.valueOf(src, position, count), sync);
+  default CompletableFuture<DataStreamReply> writeAsync(File src, long position, long count, WriteOption... options) {
+    return writeAsync(FilePositionCount.valueOf(src, position, count), options);
   }
 
   /**
    * Send out the data in the source file asynchronously.
    *
    * @param src the source file with the starting position and the number of bytes.
-   * @param sync Should the data be sync'ed to the underlying storage?
+   * @param options options specifying how the data was written
    * @return a future of the reply.
    */
-  CompletableFuture<DataStreamReply> writeAsync(FilePositionCount src, boolean sync);
+  CompletableFuture<DataStreamReply> writeAsync(FilePositionCount src, WriteOption... options);
 
   /**
    * Return the future of the {@link RaftClientReply}

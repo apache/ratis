@@ -21,7 +21,10 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.io.FilePositionCount;
+import org.apache.ratis.io.StandardWriteOption;
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
@@ -70,11 +73,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     private final RaftClientRequest header;
     private final CompletableFuture<DataStreamReply> headerFuture;
     private final CompletableFuture<RaftClientReply> raftClientReplyFuture = new CompletableFuture<>();
-    private final MemoizedSupplier<CompletableFuture<DataStreamReply>> closeSupplier = JavaUtils.memoize(() -> {
-      final CompletableFuture<DataStreamReply> f = send(Type.STREAM_CLOSE);
-      f.thenApply(ClientProtoUtils::getRaftClientReply).whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
-      return f;
-    });
+    private CompletableFuture<DataStreamReply> closeFuture;
     private final MemoizedSupplier<WritableByteChannel> writableByteChannelSupplier
         = JavaUtils.memoize(() -> new WritableByteChannel() {
       @Override
@@ -92,7 +91,11 @@ public class DataStreamClientImpl implements DataStreamClient {
 
       @Override
       public void close() throws IOException {
-        IOUtils.getFromFuture(closeAsync(), () -> "close(" + ClientInvocationId.valueOf(header) + ")");
+        if (isClosed()) {
+          return;
+        }
+        IOUtils.getFromFuture(writeAsync(DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER, StandardWriteOption.CLOSE),
+            () -> "close(" + ClientInvocationId.valueOf(header) + ")");
       }
     });
 
@@ -104,46 +107,48 @@ public class DataStreamClientImpl implements DataStreamClient {
       this.headerFuture = send(Type.STREAM_HEADER, buffer, buffer.remaining());
     }
 
-    private CompletableFuture<DataStreamReply> send(Type type, Object data, long length) {
-      final DataStreamRequestHeader h = new DataStreamRequestHeader(type, header.getCallId(), streamOffset, length);
+    private CompletableFuture<DataStreamReply> send(Type type, Object data, long length, WriteOption... options) {
+      final DataStreamRequestHeader h =
+          new DataStreamRequestHeader(type, header.getCallId(), streamOffset, length, options);
       return orderedStreamAsync.sendRequest(h, data);
-    }
-
-    private CompletableFuture<DataStreamReply> send(Type type) {
-      return combineHeader(send(type, null, 0));
     }
 
     private CompletableFuture<DataStreamReply> combineHeader(CompletableFuture<DataStreamReply> future) {
       return future.thenCombine(headerFuture, (reply, headerReply) -> headerReply.isSuccess()? reply : headerReply);
     }
 
-    private CompletableFuture<DataStreamReply> writeAsyncImpl(Object data, long length, boolean sync) {
+    private CompletableFuture<DataStreamReply> writeAsyncImpl(Object data, long length, WriteOption... options) {
       if (isClosed()) {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(
             clientId + ": stream already closed, request=" + header));
       }
-      final CompletableFuture<DataStreamReply> f = send(sync ? Type.STREAM_DATA_SYNC : Type.STREAM_DATA, data, length);
+      final CompletableFuture<DataStreamReply> f = combineHeader(send(Type.STREAM_DATA, data, length, options));
+      if (WriteOption.containsOption(options, StandardWriteOption.CLOSE)) {
+        closeFuture = f;
+        f.thenApply(ClientProtoUtils::getRaftClientReply).whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
+      }
       streamOffset += length;
-      return combineHeader(f);
+      return f;
     }
 
     @Override
-    public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, boolean sync) {
-      return writeAsyncImpl(src, src.remaining(), sync);
+    public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, WriteOption... options) {
+      return writeAsyncImpl(src, src.remaining(), options);
     }
 
     @Override
-    public CompletableFuture<DataStreamReply> writeAsync(FilePositionCount src, boolean sync) {
-      return writeAsyncImpl(src, src.getCount(), sync);
+    public CompletableFuture<DataStreamReply> writeAsync(FilePositionCount src, WriteOption... options) {
+      return writeAsyncImpl(src, src.getCount(), options);
+    }
+
+    boolean isClosed() {
+      return closeFuture != null;
     }
 
     @Override
     public CompletableFuture<DataStreamReply> closeAsync() {
-      return closeSupplier.get();
-    }
-
-    boolean isClosed() {
-      return closeSupplier.isInitialized();
+      return isClosed() ? closeFuture :
+          writeAsync(DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER, StandardWriteOption.CLOSE);
     }
 
     public RaftClientRequest getHeader() {

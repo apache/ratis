@@ -23,6 +23,8 @@ import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.io.StandardWriteOption;
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.ClientId;
@@ -76,9 +78,9 @@ public class DataStreamManagement {
       this.writeFuture = new AtomicReference<>(streamFuture.thenApply(s -> 0L));
     }
 
-    CompletableFuture<Long> write(ByteBuf buf, boolean sync, Executor executor) {
+    CompletableFuture<Long> write(ByteBuf buf, WriteOption[] options, Executor executor) {
       return composeAsync(writeFuture, executor,
-          n -> streamFuture.thenApplyAsync(stream -> writeTo(buf, sync, stream), executor));
+          n -> streamFuture.thenApplyAsync(stream -> writeTo(buf, options, stream), executor));
     }
 
     CompletableFuture<Long> close(Executor executor) {
@@ -95,7 +97,7 @@ public class DataStreamManagement {
     }
 
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request) {
-      return out.writeAsync(request.slice().nioBuffer(), request.getType() == Type.STREAM_DATA_SYNC);
+      return out.writeAsync(request.slice().nioBuffer(), request.getWriteOptions());
     }
 
     CompletableFuture<DataStreamReply> close() {
@@ -259,7 +261,7 @@ public class DataStreamManagement {
     return composed;
   }
 
-  static long writeTo(ByteBuf buf, boolean sync, DataStream stream) {
+  static long writeTo(ByteBuf buf, WriteOption[] options, DataStream stream) {
     final DataChannel channel = stream.getDataChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
@@ -270,12 +272,16 @@ public class DataStreamManagement {
       }
     }
 
-    if (sync) {
+    if (WriteOption.containsOption(options, StandardWriteOption.SYNC)) {
       try {
         channel.force(false);
       } catch (IOException e) {
         throw new CompletionException(e);
       }
+    }
+
+    if (WriteOption.containsOption(options, StandardWriteOption.CLOSE)) {
+      close(stream);
     }
     return byteWritten;
   }
@@ -290,12 +296,13 @@ public class DataStreamManagement {
   }
 
   static DataStreamReplyByteBuffer newDataStreamReplyByteBuffer(
-      DataStreamRequestByteBuf request, RaftClientReply reply) {
+      DataStreamRequestByteBuf request, RaftClientReply reply, long bytesWritten) {
     final ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
     return DataStreamReplyByteBuffer.newBuilder()
         .setDataStreamPacket(request)
         .setBuffer(buffer)
         .setSuccess(reply.isSuccess())
+        .setBytesWritten(bytesWritten)
         .build();
   }
 
@@ -311,15 +318,15 @@ public class DataStreamManagement {
     ctx.writeAndFlush(builder.build());
   }
 
-  private CompletableFuture<Void> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
+  private CompletableFuture<Void> startTransaction(StreamInfo info, DataStreamRequestByteBuf request, long bytesWritten,
       ChannelHandlerContext ctx) {
     try {
       AsyncRpcApi asyncRpcApi = (AsyncRpcApi) (server.getDivision(info.getRequest()
           .getRaftGroupId())
           .getRaftClient()
           .async());
-      return asyncRpcApi.sendForward(info.request)
-          .thenAcceptAsync(reply -> ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply)), requestExecutor);
+      return asyncRpcApi.sendForward(info.request).thenAcceptAsync(
+          reply -> ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply, bytesWritten)), requestExecutor);
     } catch (IOException e) {
       throw new CompletionException(e);
     }
@@ -348,7 +355,7 @@ public class DataStreamManagement {
       ChannelHandlerContext ctx) {
     LOG.warn("Failed to process {}",  request, throwable);
     try {
-      ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
+      ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply, 0));
     } catch (Throwable t) {
       LOG.warn("Failed to sendDataStreamException {} for {}", throwable, request, t);
     }
@@ -358,6 +365,7 @@ public class DataStreamManagement {
       CheckedBiFunction<RaftClientRequest, List<RaftPeer>, List<DataStreamOutputRpc>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
+    boolean close = WriteOption.containsOption(request.getWriteOptions(), StandardWriteOption.CLOSE);
     final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
@@ -367,7 +375,7 @@ public class DataStreamManagement {
         throw new IllegalStateException("Failed to create a new stream for " + request
             + " since a stream already exists: " + info);
       }
-    } else if (request.getType() == Type.STREAM_CLOSE) {
+    } else if (close) {
       info = Optional.ofNullable(streams.remove(key)).orElseThrow(
           () -> new IllegalStateException("Failed to remove StreamInfo for " + request));
     } else {
@@ -380,12 +388,9 @@ public class DataStreamManagement {
     if (request.getType() == Type.STREAM_HEADER) {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
-    } else if (request.getType() == Type.STREAM_DATA || request.getType() == Type.STREAM_DATA_SYNC) {
-      localWrite = info.getLocal().write(buf, request.getType() == Type.STREAM_DATA_SYNC, writeExecutor);
+    } else if (request.getType() == Type.STREAM_DATA) {
+      localWrite = info.getLocal().write(buf, request.getWriteOptions(), writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request));
-    } else if (request.getType() == Type.STREAM_CLOSE) {
-      localWrite = info.getLocal().close(writeExecutor);
-      remoteWrites = info.isPrimary()? info.applyToRemotes(RemoteStream::close): Collections.emptyList();
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
     }
@@ -393,12 +398,12 @@ public class DataStreamManagement {
     composeAsync(info.getPrevious(), requestExecutor, n -> JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           if (request.getType() == Type.STREAM_HEADER
-              || request.getType() == Type.STREAM_DATA || request.getType() == Type.STREAM_DATA_SYNC) {
+              || (request.getType() == Type.STREAM_DATA && !close)) {
             sendReply(remoteWrites, request, bytesWritten, ctx);
-          } else if (request.getType() == Type.STREAM_CLOSE) {
+          } else if (close) {
             if (info.isPrimary()) {
               // after all server close stream, primary server start transaction
-              startTransaction(info, request, ctx);
+              startTransaction(info, request, bytesWritten, ctx);
             } else {
               sendReply(remoteWrites, request, bytesWritten, ctx);
             }

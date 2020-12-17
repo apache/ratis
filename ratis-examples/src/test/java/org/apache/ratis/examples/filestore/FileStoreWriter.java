@@ -19,6 +19,7 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.datastream.DataStreamTestUtils;
+import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -147,7 +148,8 @@ class FileStoreWriter implements Closeable {
       LOG.trace("write {}, offset={}, length={}, close? {}",
           fileName, offset, length, close);
       final ByteBuffer bf = DataStreamTestUtils.initBuffer(0, length);
-      futures.add(dataStreamOutput.writeAsync(bf, close));
+      futures.add(close ?
+          dataStreamOutput.writeAsync(bf, StandardWriteOption.CLOSE) : dataStreamOutput.writeAsync(bf));
       sizes.add(length);
       offset += length;
     }
@@ -161,7 +163,7 @@ class FileStoreWriter implements Closeable {
       reply = futures.get(i).join();
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), i == futures.size() - 1 ? RaftProtos.DataStreamPacketHeaderProto.Type.STREAM_DATA_SYNC : RaftProtos.DataStreamPacketHeaderProto.Type.STREAM_DATA);
+      Assert.assertEquals(reply.getType(), RaftProtos.DataStreamPacketHeaderProto.Type.STREAM_DATA);
     }
 
     return this;

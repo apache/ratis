@@ -15,11 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.io;
 
-package org.apache.ratis.protocol;
+public interface WriteOption {
+  static boolean containsOption(WriteOption[] options, WriteOption target) {
+    for (WriteOption option : options) {
+      if (option == target) {
+        return true;
+      }
+    }
 
-import org.apache.ratis.io.WriteOption;
-
-public interface DataStreamRequest extends DataStreamPacket {
-  WriteOption[] getWriteOptions();
+    return false;
+  }
 }

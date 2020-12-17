@@ -21,6 +21,8 @@ import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.FilePositionCount;
+import org.apache.ratis.io.StandardWriteOption;
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.netty.server.DataStreamRequestByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
@@ -47,6 +49,10 @@ public interface NettyDataStreamUtils {
         .setStreamOffset(request.getStreamOffset())
         .setType(request.getType())
         .setDataLength(request.getDataLength());
+    for (WriteOption option : request.getWriteOptions()) {
+      b.addOptions(DataStreamPacketHeaderProto.Option.forNumber(
+          ((StandardWriteOption) option).ordinal()));
+    }
     return DataStreamRequestHeaderProto
         .newBuilder()
         .setPacketHeader(b)

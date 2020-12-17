@@ -22,6 +22,7 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
+import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
@@ -260,7 +261,7 @@ public interface DataStreamTestUtils {
       sizes.add(size);
 
       final ByteBuffer bf = initBuffer(dataSize, size);
-      futures.add(out.writeAsync(bf, i == bufferNum - 1));
+      futures.add(i == bufferNum - 1 ? out.writeAsync(bf, StandardWriteOption.SYNC) : out.writeAsync(bf));
       dataSize += size;
     }
 
@@ -272,7 +273,7 @@ public interface DataStreamTestUtils {
     // check writeAsync requests
     for (int i = 0; i < futures.size(); i++) {
       final DataStreamReply reply = futures.get(i).join();
-      final Type expectedType = i == futures.size() - 1 ? Type.STREAM_DATA_SYNC : Type.STREAM_DATA;
+      final Type expectedType = Type.STREAM_DATA;
       assertSuccessReply(expectedType, sizes.get(i).longValue(), reply);
     }
     return dataSize;

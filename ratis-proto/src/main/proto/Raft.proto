@@ -300,14 +300,18 @@ message DataStreamPacketHeaderProto {
   enum Type {
     STREAM_HEADER = 0;
     STREAM_DATA = 1;
-    STREAM_DATA_SYNC = 2;
-    STREAM_CLOSE = 3;
+  }
+
+  enum Option {
+    SYNC = 0;
+    CLOSE = 1;
   }
 
   uint64 streamId = 1;
   uint64 streamOffset = 2;
   Type type = 3;
-  uint64 dataLength = 4;
+  repeated Option options = 4;
+  uint64 dataLength = 5;
 }
 
 message DataStreamRequestHeaderProto {

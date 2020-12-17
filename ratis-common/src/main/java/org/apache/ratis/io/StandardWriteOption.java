@@ -15,11 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.io;
 
-package org.apache.ratis.protocol;
-
-import org.apache.ratis.io.WriteOption;
-
-public interface DataStreamRequest extends DataStreamPacket {
-  WriteOption[] getWriteOptions();
+public enum StandardWriteOption implements WriteOption {
+  /** Sync the data to the underlying storage. */
+  SYNC,
+  /** Close the data to the underlying storage. */
+  CLOSE
 }

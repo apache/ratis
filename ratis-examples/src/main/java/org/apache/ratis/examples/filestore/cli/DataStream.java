@@ -22,6 +22,7 @@ import com.beust.jcommander.Parameters;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.examples.filestore.FileStoreClient;
+import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
@@ -268,7 +269,8 @@ public class DataStream extends Client {
         throw new IllegalStateException("Failed to read " + bufferSize + " byte(s) from " + this
             + ". The channel has reached end-of-stream at " + offset);
       } else if (bytesRead > 0) {
-        final CompletableFuture<DataStreamReply> f = out.writeAsync(buf.nioBuffer(), isSync(offset + bytesRead));
+        final CompletableFuture<DataStreamReply> f = isSync(offset + bytesRead) ?
+            out.writeAsync(buf.nioBuffer(), StandardWriteOption.SYNC) : out.writeAsync(buf.nioBuffer());
         f.thenRun(buf::release);
         futures.add(f);
       }
@@ -287,7 +289,8 @@ public class DataStream extends Client {
       final long packetSize = getPacketSize(offset);
       final MappedByteBuffer mappedByteBuffer = in.map(FileChannel.MapMode.READ_ONLY, offset, packetSize);
       final int remaining = mappedByteBuffer.remaining();
-      futures.add(out.writeAsync(mappedByteBuffer, isSync(offset + remaining)));
+      futures.add(isSync(offset + remaining) ?
+          out.writeAsync(mappedByteBuffer, StandardWriteOption.SYNC) : out.writeAsync(mappedByteBuffer));
       return remaining;
     }
   }
@@ -300,7 +303,9 @@ public class DataStream extends Client {
     @Override
     long write(FileChannel in, DataStreamOutput out, long offset, List<CompletableFuture<DataStreamReply>> futures) {
       final long packetSize = getPacketSize(offset);
-      futures.add(out.writeAsync(getFile(), offset, packetSize, isSync(offset + packetSize)));
+      futures.add(isSync(offset + packetSize) ?
+          out.writeAsync(getFile(), offset, packetSize, StandardWriteOption.SYNC) :
+          out.writeAsync(getFile(), offset, packetSize));
       return packetSize;
     }
   }
