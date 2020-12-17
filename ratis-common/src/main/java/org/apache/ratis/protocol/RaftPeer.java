@@ -164,7 +164,7 @@ public final class RaftPeer {
   public String toString() {
     final String rpc = address != null? "|rpc:" + address: "";
     final String data = dataStreamAddress != null? "|dataStream:" + dataStreamAddress: "";
-    final String p = priority > 0? "|p" +  priority: "";
+    final String p = "|priority:" +  priority;
     return id + rpc + data + p;
   }
 

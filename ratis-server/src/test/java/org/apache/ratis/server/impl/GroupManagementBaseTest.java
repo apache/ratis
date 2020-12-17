@@ -77,6 +77,17 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     return getClusterFactory().newCluster(peerNum, prop);
   }
 
+  private List<RaftPeer> getPeersWithPriority(List<RaftPeer> peers, int suggestedLeaderIndex) {
+    List<RaftPeer> peersWithPriority = new ArrayList<>();
+    for (int i = 0; i < peers.size(); i++) {
+      RaftPeer peer = peers.get(i);
+      final int priority = i == suggestedLeaderIndex? 2: 1;
+      peersWithPriority.add(
+          RaftPeer.newBuilder().setId(peer.getId()).setAddress(peer.getAddress()).setPriority(priority).build());
+    }
+    return peersWithPriority;
+  }
+
   @Test
   public void testGroupWithPriority() throws Exception {
     final MiniRaftCluster cluster = getCluster(0);
@@ -98,16 +109,8 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     // Add groups
     List<RaftPeer> peers = cluster.getPeers();
     Random r = new Random(1);
-    int suggestedLeaderIndex = r.nextInt(peers.size());
-
-    List<RaftPeer> peersWithPriority = new ArrayList<>();
-    for (int i = 0; i < peers.size(); i++) {
-      RaftPeer peer = peers.get(i);
-      final int priority = i == suggestedLeaderIndex? 2: 1;
-      peersWithPriority.add(
-          RaftPeer.newBuilder().setId(peer.getId()).setAddress(peer.getAddress()).setPriority(priority).build());
-    }
-
+    final int suggestedLeaderIndex = r.nextInt(peers.size());
+    List<RaftPeer> peersWithPriority = getPeersWithPriority(peers, suggestedLeaderIndex);
     final RaftGroup newGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peersWithPriority);
     LOG.info("add new group: " + newGroup);
     try (final RaftClient client = cluster.createClient(newGroup)) {
@@ -157,10 +160,23 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       Assert.assertTrue(leader.getId() == peers.get(suggestedLeaderIndex).getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
 
-    cluster.killServer(peers.get(suggestedLeaderIndex).getId());
+    // change the suggest leader
+    final int newSuggestedLeaderIndex = (suggestedLeaderIndex + 1) % peersWithPriority.size();
+    List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newSuggestedLeaderIndex);
+    try (final RaftClient client = cluster.createClient(newGroup)) {
+      RaftClientReply reply = client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+      Assert.assertTrue(reply.isSuccess());
+    }
+
     JavaUtils.attempt(() -> {
       final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
-      Assert.assertTrue(leader.getId() != peers.get(suggestedLeaderIndex).getId());
+      Assert.assertTrue(leader.getId() == peers.get(newSuggestedLeaderIndex).getId());
+    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
+
+    cluster.killServer(peers.get(newSuggestedLeaderIndex).getId());
+    JavaUtils.attempt(() -> {
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
+      Assert.assertTrue(leader.getId() != peers.get(newSuggestedLeaderIndex).getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
 
     cluster.shutdown();
