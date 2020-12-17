@@ -18,8 +18,6 @@
 package org.apache.ratis.io;
 
 public enum StandardWriteOption implements WriteOption {
-  /** Write the data to the underlying storage. */
-  WRITE,
   /** Sync the data to the underlying storage. */
   SYNC,
   /** Close the data to the underlying storage. */

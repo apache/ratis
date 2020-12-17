@@ -148,8 +148,8 @@ class FileStoreWriter implements Closeable {
       LOG.trace("write {}, offset={}, length={}, close? {}",
           fileName, offset, length, close);
       final ByteBuffer bf = DataStreamTestUtils.initBuffer(0, length);
-      futures.add(dataStreamOutput.writeAsync(bf,
-          close ? StandardWriteOption.CLOSE : StandardWriteOption.WRITE));
+      futures.add(close ?
+          dataStreamOutput.writeAsync(bf, StandardWriteOption.CLOSE) : dataStreamOutput.writeAsync(bf));
       sizes.add(length);
       offset += length;
     }

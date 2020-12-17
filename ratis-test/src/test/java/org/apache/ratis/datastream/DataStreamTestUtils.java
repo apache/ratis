@@ -261,7 +261,7 @@ public interface DataStreamTestUtils {
       sizes.add(size);
 
       final ByteBuffer bf = initBuffer(dataSize, size);
-      futures.add(out.writeAsync(bf, i == bufferNum -1 ? StandardWriteOption.SYNC : StandardWriteOption.WRITE));
+      futures.add(i == bufferNum - 1 ? out.writeAsync(bf, StandardWriteOption.SYNC) : out.writeAsync(bf));
       dataSize += size;
     }
 

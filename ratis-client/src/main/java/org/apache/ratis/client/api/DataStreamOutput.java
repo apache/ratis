@@ -19,7 +19,6 @@ package org.apache.ratis.client.api;
 
 import org.apache.ratis.io.CloseAsync;
 import org.apache.ratis.io.FilePositionCount;
-import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -31,14 +30,6 @@ import java.util.concurrent.CompletableFuture;
 
 /** An asynchronous output stream supporting zero buffer copying. */
 public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
-  /**
-   * This method is the same as writeAsync(src, sync_default),
-   * where sync_default depends on the underlying implementation.
-   */
-  default CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src) {
-    return writeAsync(src, StandardWriteOption.WRITE);
-  }
-
   /**
    * Send out the data in the source buffer asynchronously.
    *
@@ -54,7 +45,7 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
    * where sync_default depends on the underlying implementation.
    */
   default CompletableFuture<DataStreamReply> writeAsync(File src) {
-    return writeAsync(src, 0, src.length(), StandardWriteOption.WRITE);
+    return writeAsync(src, 0, src.length());
   }
 
   /**

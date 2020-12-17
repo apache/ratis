@@ -21,6 +21,7 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
@@ -35,7 +36,6 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.rpc.CallId;
-import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -47,8 +47,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Streaming client implementation
@@ -75,8 +73,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     private final RaftClientRequest header;
     private final CompletableFuture<DataStreamReply> headerFuture;
     private final CompletableFuture<RaftClientReply> raftClientReplyFuture = new CompletableFuture<>();
-    private AtomicBoolean closed = new AtomicBoolean(false);
-    private AtomicReference<CompletableFuture<DataStreamReply>> closeFuture = new AtomicReference();
+    private CompletableFuture<DataStreamReply> closeFuture;
     private final MemoizedSupplier<WritableByteChannel> writableByteChannelSupplier
         = JavaUtils.memoize(() -> new WritableByteChannel() {
       @Override
@@ -97,7 +94,7 @@ public class DataStreamClientImpl implements DataStreamClient {
         if (isClosed()) {
           return;
         }
-        IOUtils.getFromFuture(writeAsync(Unpooled.EMPTY_BUFFER.nioBuffer(), StandardWriteOption.CLOSE),
+        IOUtils.getFromFuture(writeAsync(DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER, StandardWriteOption.CLOSE),
             () -> "close(" + ClientInvocationId.valueOf(header) + ")");
       }
     });
@@ -127,8 +124,7 @@ public class DataStreamClientImpl implements DataStreamClient {
       }
       final CompletableFuture<DataStreamReply> f = combineHeader(send(Type.STREAM_DATA, data, length, options));
       if (WriteOption.containsOption(options, StandardWriteOption.CLOSE)) {
-        closeFuture.set(f);
-        closed.set(true);
+        closeFuture = f;
         f.thenApply(ClientProtoUtils::getRaftClientReply).whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
       }
       streamOffset += length;
@@ -146,16 +142,13 @@ public class DataStreamClientImpl implements DataStreamClient {
     }
 
     boolean isClosed() {
-      return closed.get();
+      return closeFuture != null;
     }
 
     @Override
     public CompletableFuture<DataStreamReply> closeAsync() {
-      if (isClosed()) {
-        return closeFuture.get();
-      }
-
-      return writeAsync(Unpooled.EMPTY_BUFFER.nioBuffer(), StandardWriteOption.CLOSE);
+      return isClosed() ? closeFuture :
+          writeAsync(DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER, StandardWriteOption.CLOSE);
     }
 
     public RaftClientRequest getHeader() {

@@ -303,9 +303,8 @@ message DataStreamPacketHeaderProto {
   }
 
   enum Option {
-    WRITE = 0;
-    SYNC = 1;
-    CLOSE = 2;
+    SYNC = 0;
+    CLOSE = 1;
   }
 
   uint64 streamId = 1;
