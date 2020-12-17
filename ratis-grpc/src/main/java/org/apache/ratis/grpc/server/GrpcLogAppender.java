@@ -28,7 +28,9 @@ import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppenderBase;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
@@ -64,6 +66,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
 
   private final GrpcServerMetrics grpcServerMetrics;
+  private final StateMachine stateMachine;
 
   public GrpcLogAppender(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     super(server, leaderState, f);
@@ -75,6 +78,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     this.requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(properties);
     this.installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
 
+    this.stateMachine = server.getStateMachine();
     grpcServerMetrics = new GrpcServerMetrics(server.getMemberId().toString());
     grpcServerMetrics.addPendingRequestsCount(getFollowerId().toString(), pendingRequests::logRequestsSize);
   }
@@ -568,6 +572,13 @@ public class GrpcLogAppender extends LogAppenderBase {
       // should be notified to install the latest snapshot through its
       // State Machine.
       return getRaftLog().getTermIndex(leaderStartIndex);
+    } else if (leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
+      // Leader has no logs to check from.
+      TermIndex snapshotTermIndex =
+          stateMachine.getLatestSnapshot().getTermIndex();
+      if (getFollower().getNextIndex() <= snapshotTermIndex.getIndex()) {
+        return snapshotTermIndex;
+      }
     }
     return null;
   }
