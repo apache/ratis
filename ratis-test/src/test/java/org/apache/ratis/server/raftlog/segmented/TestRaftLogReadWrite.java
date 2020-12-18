@@ -103,7 +103,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   @Test
   public void testReadWriteLog() throws IOException {
     final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
-    File openSegment = storage.getStorageDir().getOpenLogFile(0);
+    final File openSegment = LogSegmentStartEnd.valueOf(0).getFile(storage);
     long size = SegmentedRaftLogFormat.getHeaderLength();
 
     final LogEntryProto[] entries = new LogEntryProto[100];
@@ -123,7 +123,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   @Test
   public void testAppendLog() throws IOException {
     final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
-    File openSegment = storage.getStorageDir().getOpenLogFile(0);
+    final File openSegment = LogSegmentStartEnd.valueOf(0).getFile(storage);
     LogEntryProto[] entries = new LogEntryProto[200];
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
@@ -156,7 +156,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   @Test
   public void testReadWithPadding() throws IOException {
     final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
-    File openSegment = storage.getStorageDir().getOpenLogFile(0);
+    final File openSegment = LogSegmentStartEnd.valueOf(0).getFile(storage);
     long size = SegmentedRaftLogFormat.getHeaderLength();
 
     LogEntryProto[] entries = new LogEntryProto[100];
@@ -185,7 +185,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   @Test
   public void testReadWithCorruptPadding() throws IOException {
     final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
-    File openSegment = storage.getStorageDir().getOpenLogFile(0);
+    final File openSegment = LogSegmentStartEnd.valueOf(0).getFile(storage);
 
     LogEntryProto[] entries = new LogEntryProto[10];
     final SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
@@ -234,7 +234,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   @Test
   public void testReadWithEntryCorruption() throws IOException {
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
-    File openSegment = storage.getStorageDir().getOpenLogFile(0);
+    final File openSegment = LogSegmentStartEnd.valueOf(0).getFile(storage);
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (int i = 0; i < 100; i++) {

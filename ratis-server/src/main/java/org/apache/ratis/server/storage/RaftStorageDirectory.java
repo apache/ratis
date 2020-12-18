@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.slf4j.Logger;
@@ -34,8 +33,6 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static java.nio.file.Files.newDirectoryStream;
 
@@ -45,52 +42,14 @@ public class RaftStorageDirectory {
   static final String STORAGE_DIR_CURRENT = "current";
   static final String STORAGE_FILE_LOCK = "in_use.lock";
   static final String META_FILE_NAME = "raft-meta";
-  static final String LOG_FILE_INPROGRESS = "inprogress";
-  static final String LOG_FILE_PREFIX = "log";
   static final String STATE_MACHINE = "sm"; // directory containing state machine snapshots
   static final String TEMP = "tmp";
-  static final Pattern CLOSED_SEGMENT_REGEX = Pattern.compile("log_(\\d+)-(\\d+)");
-  static final Pattern OPEN_SEGMENT_REGEX = Pattern.compile("log_inprogress_(\\d+)(?:\\..*)?");
   private static final String CONF_EXTENSION = ".conf";
-
 
   enum StorageState {
     NON_EXISTENT,
     NOT_FORMATTED,
     NORMAL
-  }
-
-  public static class LogPathAndIndex {
-    private final Path path;
-    private final long startIndex;
-    private final long endIndex;
-
-    LogPathAndIndex(Path path, long startIndex, long endIndex) {
-      this.path = path;
-      this.startIndex = startIndex;
-      this.endIndex = endIndex;
-    }
-
-    public long getStartIndex() {
-      return startIndex;
-    }
-
-    public long getEndIndex() {
-      return endIndex;
-    }
-
-    public Path getPath() {
-      return path;
-    }
-
-    public boolean isOpen() {
-      return endIndex == RaftLog.INVALID_LOG_INDEX;
-    }
-
-    @Override
-    public String toString() {
-      return path + "-" + startIndex + "-" + endIndex;
-    }
   }
 
   private final File root; // root directory
@@ -143,7 +102,7 @@ public class RaftStorageDirectory {
    *
    * @return the directory path
    */
-  File getCurrentDir() {
+  public File getCurrentDir() {
     return new File(root, STORAGE_DIR_CURRENT);
   }
 
@@ -158,22 +117,6 @@ public class RaftStorageDirectory {
 
   File getMetaConfFile() {
     return new File(getCurrentDir(), META_FILE_NAME + CONF_EXTENSION);
-  }
-
-  public File getOpenLogFile(long startIndex) {
-    return new File(getCurrentDir(), getOpenLogFileName(startIndex));
-  }
-
-  static String getOpenLogFileName(long startIndex) {
-    return LOG_FILE_PREFIX + "_" + LOG_FILE_INPROGRESS + "_" + startIndex;
-  }
-
-  public File getClosedLogFile(long startIndex, long endIndex) {
-    return new File(getCurrentDir(), getClosedLogFileName(startIndex, endIndex));
-  }
-
-  static String getClosedLogFileName(long startIndex, long endIndex) {
-    return LOG_FILE_PREFIX + "_" + startIndex + "-" + endIndex;
   }
 
   public File getStateMachineDir() {
@@ -192,41 +135,6 @@ public class RaftStorageDirectory {
     return p;
   }
 
-  /**
-   * @return log segment files sorted based on their index.
-   */
-  public List<LogPathAndIndex> getLogSegmentFiles() throws IOException {
-    List<LogPathAndIndex> list = new ArrayList<>();
-    try (DirectoryStream<Path> stream =
-             Files.newDirectoryStream(getCurrentDir().toPath())) {
-      for (Path path : stream) {
-        LogPathAndIndex lpi = processOnePath(path);
-        if (lpi != null) {
-          list.add(lpi);
-        }
-      }
-    }
-    list.sort(Comparator.comparingLong(o -> o.startIndex));
-    return list;
-  }
-
-  public static LogPathAndIndex processOnePath(Path path) throws IOException {
-    for (Pattern pattern : Arrays.asList(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX)) {
-      Matcher matcher = pattern.matcher(path.getFileName().toString());
-      if (matcher.matches()) {
-        if (pattern == OPEN_SEGMENT_REGEX && Files.size(path) == 0L) {
-          Files.delete(path);
-          LOG.info("Delete zero size file " + path);
-          return null;
-        }
-        final long startIndex = Long.parseLong(matcher.group(1));
-        final long endIndex = matcher.groupCount() == 2 ?
-            Long.parseLong(matcher.group(2)) : RaftLog.INVALID_LOG_INDEX;
-        return new LogPathAndIndex(path, startIndex, endIndex);
-      }
-    }
-    return null;
-  }
 
   /**
    * Check to see if current/ directory is empty.

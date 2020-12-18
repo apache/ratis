@@ -416,16 +416,14 @@ class SegmentedRaftLogWorker {
   }
 
   Task purge(TruncationSegments ts) {
-    return addIOTask(new PurgeLog(ts, storage));
+    return addIOTask(new PurgeLog(ts));
   }
 
   private final class PurgeLog extends Task {
     private final TruncationSegments segments;
-    private final RaftStorage storage;
 
-    private PurgeLog(TruncationSegments segments, RaftStorage storage) {
+    private PurgeLog(TruncationSegments segments) {
       this.segments = segments;
-      this.storage = storage;
     }
 
     @Override
@@ -433,9 +431,7 @@ class SegmentedRaftLogWorker {
       if (segments.getToDelete() != null) {
         Timer.Context purgeLogContext = raftLogMetrics.getRaftLogPurgeTimer().time();
         for (SegmentFileInfo fileInfo : segments.getToDelete()) {
-          File delFile = storage.getStorageDir()
-                  .getClosedLogFile(fileInfo.getStartIndex(), fileInfo.getEndIndex());
-          FileUtils.deleteFile(delFile);
+          FileUtils.deleteFile(fileInfo.getFile(storage));
         }
         purgeLogContext.stop();
       }
@@ -530,6 +526,10 @@ class SegmentedRaftLogWorker {
     }
   }
 
+  File getFile(long startIndex, Long endIndex) {
+    return LogSegmentStartEnd.valueOf(startIndex, endIndex).getFile(storage);
+  }
+
   private class FinalizeLogSegment extends Task {
     private final long startIndex;
     private final long endIndex;
@@ -544,12 +544,12 @@ class SegmentedRaftLogWorker {
     public void execute() throws IOException {
       freeSegmentedRaftLogOutputStream();
 
-      File openFile = storage.getStorageDir().getOpenLogFile(startIndex);
+      final File openFile = getFile(startIndex, null);
       Preconditions.assertTrue(openFile.exists(),
           () -> name + ": File " + openFile + " to be rolled does not exist");
       if (endIndex - startIndex + 1 > 0) {
         // finalize the current open segment
-        File dstFile = storage.getStorageDir().getClosedLogFile(startIndex, endIndex);
+        final File dstFile = getFile(startIndex, endIndex);
         Preconditions.assertTrue(!dstFile.exists());
 
         FileUtils.move(openFile, dstFile);
@@ -589,7 +589,7 @@ class SegmentedRaftLogWorker {
 
     @Override
     void execute() throws IOException {
-      File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
+      final File openFile = getFile(newStartIndex, null);
       Preconditions.assertTrue(!openFile.exists(), "open file %s exists for %s",
           openFile, name);
       Preconditions.assertTrue(pendingFlushNum == 0);
@@ -626,19 +626,13 @@ class SegmentedRaftLogWorker {
       freeSegmentedRaftLogOutputStream();
 
       if (segments.getToTruncate() != null) {
-        File fileToTruncate = segments.getToTruncate().isOpen() ?
-            storage.getStorageDir().getOpenLogFile(
-                segments.getToTruncate().getStartIndex()) :
-            storage.getStorageDir().getClosedLogFile(
-                segments.getToTruncate().getStartIndex(),
-                segments.getToTruncate().getEndIndex());
+        final File fileToTruncate = segments.getToTruncate().getFile(storage);
         Preconditions.assertTrue(fileToTruncate.exists(),
             "File %s to be truncated does not exist", fileToTruncate);
         FileUtils.truncateFile(fileToTruncate, segments.getToTruncate().getTargetLength());
 
         // rename the file
-        File dstFile = storage.getStorageDir().getClosedLogFile(
-            segments.getToTruncate().getStartIndex(), segments.getToTruncate().getNewEndIndex());
+        final File dstFile = segments.getToTruncate().getNewFile(storage);
         Preconditions.assertTrue(!dstFile.exists(),
             "Truncated file %s already exists ", dstFile);
         FileUtils.move(fileToTruncate, dstFile);
@@ -651,13 +645,7 @@ class SegmentedRaftLogWorker {
       if (segments.getToDelete() != null && segments.getToDelete().length > 0) {
         long minStart = segments.getToDelete()[0].getStartIndex();
         for (SegmentFileInfo del : segments.getToDelete()) {
-          final File delFile;
-          if (del.isOpen()) {
-            delFile = storage.getStorageDir().getOpenLogFile(del.getStartIndex());
-          } else {
-            delFile = storage.getStorageDir()
-                .getClosedLogFile(del.getStartIndex(), del.getEndIndex());
-          }
+          final File delFile = del.getFile(storage);
           Preconditions.assertTrue(delFile.exists(),
               "File %s to be deleted does not exist", delFile);
           FileUtils.deleteFile(delFile);

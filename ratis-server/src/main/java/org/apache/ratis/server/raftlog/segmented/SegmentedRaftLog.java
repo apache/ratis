@@ -29,7 +29,6 @@ import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncateIndices;
-import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -202,12 +201,7 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   protected void openImpl(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer) throws IOException {
     loadLogSegments(lastIndexInSnapshot, consumer);
-    File openSegmentFile = null;
-    LogSegment openSegment = cache.getOpenSegment();
-    if (openSegment != null) {
-      openSegmentFile = storage.getStorageDir()
-          .getOpenLogFile(openSegment.getStartIndex());
-    }
+    final File openSegmentFile = Optional.ofNullable(cache.getOpenSegment()).map(LogSegment::getFile).orElse(null);
     fileLogWorker.start(Math.max(cache.getEndIndex(), lastIndexInSnapshot),
         Math.min(cache.getLastIndexInClosedSegments(), lastIndexInSnapshot),
         openSegmentFile);
@@ -221,9 +215,9 @@ public class SegmentedRaftLog extends RaftLog {
   private void loadLogSegments(long lastIndexInSnapshot,
       Consumer<LogEntryProto> logConsumer) throws IOException {
     try(AutoCloseableLock writeLock = writeLock()) {
-      List<LogPathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
+      final List<LogSegmentPath> paths = LogSegmentPath.getLogSegmentPaths(storage);
       int i = 0;
-      for (LogPathAndIndex pi : paths) {
+      for (LogSegmentPath pi : paths) {
         // During the initial loading, we can only confirm the committed
         // index based on the snapshot. This means if a log segment is not kept
         // in cache after the initial loading, later we have to load its content

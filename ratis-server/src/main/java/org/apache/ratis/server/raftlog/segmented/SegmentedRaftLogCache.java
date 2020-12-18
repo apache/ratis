@@ -27,7 +27,6 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
-import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AutoCloseableReadWriteLock;
 import org.apache.ratis.util.JavaUtils;
@@ -35,6 +34,7 @@ import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
@@ -86,6 +86,14 @@ public class SegmentedRaftLogCache {
       this.isOpen = isOpen;
       this.targetLength = targetLength;
       this.newEndIndex = newEndIndex;
+    }
+
+    File getFile(RaftStorage storage) {
+      return LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen).getFile(storage);
+    }
+
+    File getNewFile(RaftStorage storage) {
+      return LogSegmentStartEnd.valueOf(startIndex, newEndIndex, false).getFile(storage);
     }
 
     @Override
@@ -372,10 +380,10 @@ public class SegmentedRaftLogCache {
     return maxCachedSegments;
   }
 
-  void loadSegment(LogPathAndIndex pi, boolean keepEntryInCache,
+  void loadSegment(LogSegmentPath pi, boolean keepEntryInCache,
       Consumer<LogEntryProto> logConsumer) throws IOException {
-    LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(),
-        pi.getStartIndex(), pi.getEndIndex(), pi.isOpen(), keepEntryInCache, logConsumer, raftLogMetrics);
+    final LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(), pi.getStartEnd(),
+        keepEntryInCache, logConsumer, raftLogMetrics);
     if (logSegment != null) {
       addSegment(logSegment);
     }

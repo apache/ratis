@@ -116,10 +116,21 @@ public class LogSegment implements Comparable<Long> {
     return new LogSegment(storage, false, start, end, raftLogMetrics);
   }
 
-  public static int readSegmentFile(File file, long start, long end,
-      boolean isOpen, CorruptionPolicy corruptionPolicy,
-      RaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer) throws
-      IOException {
+  static LogSegment newLogSegment(RaftStorage storage, LogSegmentStartEnd startEnd, RaftLogMetrics metrics) {
+    return startEnd.isOpen()? newOpenSegment(storage, startEnd.getStartIndex(), metrics)
+        : newCloseSegment(storage, startEnd.getStartIndex(), startEnd.getEndIndex(), metrics);
+  }
+
+  public static int readSegmentFile(File file, LogSegmentStartEnd startEnd,
+      CorruptionPolicy corruptionPolicy, RaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer)
+      throws IOException {
+    return readSegmentFile(file, startEnd.getStartIndex(), startEnd.getEndIndex(), startEnd.isOpen(),
+        corruptionPolicy, raftLogMetrics, entryConsumer);
+  }
+
+  private static int readSegmentFile(File file, long start, long end, boolean isOpen,
+      CorruptionPolicy corruptionPolicy, RaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer)
+      throws IOException {
     int count = 0;
     try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, start, end, isOpen, raftLogMetrics)) {
       for(LogEntryProto prev = null, next; (next = in.nextEntry()) != null; prev = next) {
@@ -149,16 +160,13 @@ public class LogSegment implements Comparable<Long> {
     return count;
   }
 
-  @SuppressWarnings("parameternumber")
-  static LogSegment loadSegment(RaftStorage storage, File file, long start, long end, boolean isOpen,
+  static LogSegment loadSegment(RaftStorage storage, File file, LogSegmentStartEnd startEnd,
       boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer, RaftLogMetrics raftLogMetrics)
       throws IOException {
-    final LogSegment segment = isOpen ?
-        LogSegment.newOpenSegment(storage, start, raftLogMetrics) :
-        LogSegment.newCloseSegment(storage, start, end, raftLogMetrics);
-
+    final LogSegment segment = newLogSegment(storage, startEnd, raftLogMetrics);
     final CorruptionPolicy corruptionPolicy = CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
-    final int entryCount = readSegmentFile(file, start, end, isOpen, corruptionPolicy, raftLogMetrics, entry -> {
+    final boolean isOpen = startEnd.isOpen();
+    final int entryCount = readSegmentFile(file, startEnd, corruptionPolicy, raftLogMetrics, entry -> {
       segment.append(keepEntryInCache || isOpen, entry, Op.LOAD_SEGMENT_FILE);
       if (logConsumer != null) {
         logConsumer.accept(entry);
@@ -166,10 +174,8 @@ public class LogSegment implements Comparable<Long> {
     });
     LOG.info("Successfully read {} entries from segment file {}", entryCount, file);
 
-    if (isOpen) {
-      end = segment.getEndIndex();
-    }
-
+    final long start = startEnd.getStartIndex();
+    final long end = isOpen? segment.getEndIndex(): startEnd.getEndIndex();
     final int expectedEntryCount = Math.toIntExact(end - start + 1);
     final boolean corrupted = entryCount != expectedEntryCount;
     if (corrupted) {
@@ -227,7 +233,7 @@ public class LogSegment implements Comparable<Long> {
 
     @Override
     public LogEntryProto load(LogRecord key) throws IOException {
-      final File file = getSegmentFile();
+      final File file = getFile();
       // note the loading should not exceed the endIndex: it is possible that
       // the on-disk log file should be truncated but has not been done yet.
       final AtomicReference<LogEntryProto> toReturn = new AtomicReference<>();
@@ -243,10 +249,8 @@ public class LogSegment implements Comparable<Long> {
     }
   }
 
-  private File getSegmentFile() {
-    return isOpen ?
-        storage.getStorageDir().getOpenLogFile(startIndex) :
-        storage.getStorageDir().getClosedLogFile(startIndex, endIndex);
+  File getFile() {
+    return LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen).getFile(storage);
   }
 
   private volatile boolean isOpen;

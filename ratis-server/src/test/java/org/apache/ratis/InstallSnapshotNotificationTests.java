@@ -29,7 +29,8 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.server.storage.RaftStorageDirectory;
+import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -115,7 +116,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
   private void testAddNewFollowers(CLUSTER cluster) throws Exception {
     leaderSnapshotInfoRef.set(null);
-    final List<RaftStorageDirectory.LogPathAndIndex> logs;
+    final List<LogSegmentPath> logs;
     int i = 0;
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -131,8 +132,6 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // wait for the snapshot to be done
       final RaftServer.Division leader = cluster.getLeader();
-      final RaftStorageDirectory storageDirectory = leader.getRaftStorage().getStorageDir();
-
       final long nextIndex = leader.getRaftLog().getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
@@ -141,14 +140,14 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
-      logs = storageDirectory.getLogSegmentFiles();
+      logs = LogSegmentPath.getLogSegmentPaths(leader.getRaftStorage());
     } finally {
       cluster.shutdown();
     }
 
     // delete the log segments from the leader
     LOG.info("Delete logs {}", logs);
-    for (RaftStorageDirectory.LogPathAndIndex path : logs) {
+    for (LogSegmentPath path : logs) {
       FileUtils.deleteFully(path.getPath()); // the log may be already puged
     }
 

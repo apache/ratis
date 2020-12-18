@@ -37,7 +37,7 @@ import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogFormat;
 import org.apache.ratis.server.RaftServerConfigKeys.Log;
 import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog;
-import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
+import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.FileUtils;
@@ -169,9 +169,9 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   }
 
   static List<Path> getOpenLogFiles(RaftServer.Division server) throws Exception {
-    return server.getRaftStorage().getStorageDir().getLogSegmentFiles().stream()
-        .filter(LogPathAndIndex::isOpen)
-        .map(LogPathAndIndex::getPath)
+    return LogSegmentPath.getLogSegmentPaths(server.getRaftStorage()).stream()
+        .filter(p -> p.getStartEnd().isOpen())
+        .map(LogSegmentPath::getPath)
         .collect(Collectors.toList());
   }
 

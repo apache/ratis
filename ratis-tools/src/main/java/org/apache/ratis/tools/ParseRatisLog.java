@@ -22,8 +22,8 @@ import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
+import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.server.raftlog.segmented.LogSegment;
-import org.apache.ratis.server.storage.RaftStorageDirectory;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,14 +49,14 @@ public final class ParseRatisLog {
   }
 
   public void dumpSegmentFile() throws IOException {
-    RaftStorageDirectory.LogPathAndIndex pi = RaftStorageDirectory.processOnePath(file.toPath());
+    final LogSegmentPath pi = LogSegmentPath.matchLogSegment(file.toPath());
     if (pi == null) {
       System.out.println("Invalid segment file");
       return;
     }
 
     System.out.println("Processing Raft Log file: " + file.getAbsolutePath() + " size:" + file.length());
-    final int entryCount = LogSegment.readSegmentFile(file, pi.getStartIndex(), pi.getEndIndex(), pi.isOpen(),
+    final int entryCount = LogSegment.readSegmentFile(file, pi.getStartEnd(),
         RaftServerConfigKeys.Log.CorruptionPolicy.EXCEPTION, null, this::processLogEntry);
     System.out.println("Num Total Entries: " + entryCount);
     System.out.println("Num Conf Entries: " + numConfEntries);
