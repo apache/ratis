@@ -457,12 +457,12 @@ public class SegmentedRaftLog extends RaftLog {
 
   @Override
   public void writeMetadata(RaftStorageMetadata metadata) throws IOException {
-    storage.getMetaFile().persist(metadata);
+    storage.getMetadataFile().persist(metadata);
   }
 
   @Override
   public RaftStorageMetadata loadMetadata() throws IOException {
-    return storage.getMetaFile().getMetadata();
+    return storage.getMetadataFile().getMetadata();
   }
 
   @Override

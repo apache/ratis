@@ -18,16 +18,13 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.RaftConfiguration;
+import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
-import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
+import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -37,8 +34,7 @@ import java.nio.file.Files;
 import java.util.Optional;
 
 /** The storage of a {@link org.apache.ratis.server.RaftServer}. */
-public class RaftStorage implements Closeable {
-  private static final Logger LOG = LoggerFactory.getLogger(RaftStorage.class);
+public class RaftStorageImpl implements RaftStorage {
 
   public enum StartupOption {
     /** Format the storage. */
@@ -46,17 +42,17 @@ public class RaftStorage implements Closeable {
   }
 
   // TODO support multiple storage directories
-  private final RaftStorageDirectory storageDir;
+  private final RaftStorageDirectoryImpl storageDir;
   private final StorageState state;
   private final CorruptionPolicy logCorruptionPolicy;
   private volatile RaftStorageMetadataFileImpl metaFile;
 
-  public RaftStorage(File dir, CorruptionPolicy logCorruptionPolicy) throws IOException {
+  public RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy) throws IOException {
     this(dir, logCorruptionPolicy, null);
   }
 
-  public RaftStorage(File dir, CorruptionPolicy logCorruptionPolicy, StartupOption option) throws IOException {
-    this.storageDir = new RaftStorageDirectory(dir);
+  RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy, StartupOption option) throws IOException {
+    this.storageDir = new RaftStorageDirectoryImpl(dir);
     if (option == StartupOption.FORMAT) {
       if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
         throw new IOException("Cannot format " + storageDir);
@@ -118,7 +114,8 @@ public class RaftStorage implements Closeable {
     }
   }
 
-  public RaftStorageDirectory getStorageDir() {
+  @Override
+  public RaftStorageDirectoryImpl getStorageDir() {
     return storageDir;
   }
 
@@ -127,7 +124,8 @@ public class RaftStorage implements Closeable {
     storageDir.unlock();
   }
 
-  public RaftStorageMetadataFile getMetaFile() {
+  @Override
+  public RaftStorageMetadataFile getMetadataFile() {
     return metaFile;
   }
 

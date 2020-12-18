@@ -43,16 +43,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * before the temporary file is moved.
  */
 public class AtomicFileOutputStream extends FilterOutputStream {
+  static final Logger LOG = LoggerFactory.getLogger(AtomicFileOutputStream.class);
+
   public static final String TMP_EXTENSION = ".tmp";
 
-  public static final Logger LOG = LoggerFactory.getLogger(AtomicFileOutputStream.class);
+  public static File getTemporaryFile(File outFile) {
+    return new File(outFile.getParentFile(), outFile.getName() + TMP_EXTENSION);
+  }
 
   private final File outFile;
   private final File tmpFile;
   private final AtomicBoolean isClosed = new AtomicBoolean();
 
   public AtomicFileOutputStream(File outFile) throws FileNotFoundException {
-    this(outFile, new File(outFile.getParentFile(), outFile.getName() + TMP_EXTENSION));
+    this(outFile, getTemporaryFile(outFile));
   }
 
   public AtomicFileOutputStream(File outFile, File tmpFile) throws FileNotFoundException {

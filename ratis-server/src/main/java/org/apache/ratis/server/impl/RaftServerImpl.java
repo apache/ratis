@@ -500,7 +500,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   GroupInfoReply getGroupInfo(GroupInfoRequest request) {
     return new GroupInfoReply(request, getCommitInfos(),
-        getGroup(), getRoleInfoProto(), state.getStorage().getStorageDir().hasMetaFile());
+        getGroup(), getRoleInfoProto(), state.getStorage().getStorageDir().isHealthy());
   }
 
   RoleInfoProto getRoleInfoProto() {
