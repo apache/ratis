@@ -29,7 +29,7 @@ import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.statemachine.impl.SnapshotRetentionPolicy;
+import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -19,6 +19,7 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -37,7 +38,7 @@ public final class ClientId extends RaftId {
   }
 
   public static ClientId valueOf(ByteString data) {
-    return new ClientId(data);
+    return Optional.ofNullable(data).filter(d -> !d.isEmpty()).map(ClientId::new).orElse(EMPTY_CLIENT_ID);
   }
 
   public static ClientId valueOf(UUID uuid) {

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,26 +17,16 @@
  */
 package org.apache.ratis.statemachine;
 
-import java.io.IOException;
-
-import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.statemachine.impl.SnapshotRetentionPolicy;
-
-public interface StateMachineStorage {
-
-  void init(RaftStorage raftStorage) throws IOException;
+/**
+ * Retention policy of state machine snapshots.
+ */
+public interface SnapshotRetentionPolicy {
+  int DEFAULT_ALL_SNAPSHOTS_RETAINED = -1;
 
   /**
-   * Returns the information for the latest durable snapshot.
+   * @return -1 for retaining all the snapshots; otherwise, return the number of snapshots to be retained.
    */
-  SnapshotInfo getLatestSnapshot();
-
-  // TODO: StateMachine can decide to compact the files independently of concurrent install snapshot
-  // etc requests. We should have ref counting for the SnapshotInfo with a release mechanism
-  // so that raft server will release the files after the snapshot file copy in case a compaction
-  // is waiting for deleting these files.
-
-  void format() throws IOException;
-
-  void cleanupOldSnapshots(SnapshotRetentionPolicy snapshotRetentionPolicy) throws IOException;
+  default int getNumSnapshotsRetained() {
+    return DEFAULT_ALL_SNAPSHOTS_RETAINED;
+  }
 }

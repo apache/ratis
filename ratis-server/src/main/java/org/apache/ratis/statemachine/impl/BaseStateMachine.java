@@ -29,6 +29,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -82,6 +83,13 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   }
 
   @Override
+  public void initialize(Object parameter) throws IOException {
+    Preconditions.assertTrue(parameter instanceof RaftServer.Division,
+        () -> "Unexpected parameter " + parameter.getClass());
+    final RaftServer.Division division = (RaftServer.Division) parameter;
+    initialize(division.getRaftServer(), division.getMemberId().getGroupId(), division.getRaftStorage());
+  }
+
   public void initialize(RaftServer raftServer, RaftGroupId raftGroupId, RaftStorage storage) throws IOException {
     this.groupId = raftGroupId;
     this.server.complete(raftServer);

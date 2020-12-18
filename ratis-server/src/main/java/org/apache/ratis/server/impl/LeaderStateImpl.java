@@ -442,8 +442,9 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private void updateConfiguration(long logIndex, RaftConfigurationImpl newConf) {
+    Preconditions.assertTrue(logIndex == newConf.getLogEntryIndex());
     voterLists = divideFollowers(newConf);
-    server.getState().setRaftConf(logIndex, newConf);
+    server.getState().setRaftConf(newConf);
   }
 
   void updateFollowerCommitInfos(CommitInfoCache cache, List<CommitInfoProto> protos) {

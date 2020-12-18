@@ -24,7 +24,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
-import org.apache.ratis.statemachine.impl.SnapshotRetentionPolicy;
+import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
 import org.apache.ratis.util.FileUtils;
 import org.junit.After;
 import org.junit.Assert;

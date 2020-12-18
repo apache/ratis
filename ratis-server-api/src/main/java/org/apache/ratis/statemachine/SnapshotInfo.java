@@ -23,10 +23,9 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 
 /**
- * SnapshotInfo represents a durable state by the state machine. The state machine implementation is
- * responsible for the layout of the snapshot files as well as making the data durable. Latest term,
- * latest index, and the raft configuration must be saved together with any data files in the
- * snapshot.
+ * The information of a state machine snapshot,
+ * where a snapshot captures the states at a particular {@link TermIndex}.
+ * Each state machine implementation must define its snapshot format and persist snapshots in a durable storage.
  */
 public interface SnapshotInfo {
 
@@ -50,10 +49,7 @@ public interface SnapshotInfo {
   }
 
   /**
-   * Returns a list of files corresponding to this snapshot. This list should include all
-   * the files that the state machine keeps in its data directory. This list of files will be
-   * copied as to other replicas in install snapshot RPCs.
-   * @return a list of Files corresponding to the this snapshot.
+   * @return a list of underlying files of this snapshot.
    */
   List<FileInfo> getFiles();
 }
