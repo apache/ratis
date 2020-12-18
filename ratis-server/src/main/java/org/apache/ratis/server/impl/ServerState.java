@@ -67,7 +67,7 @@ class ServerState implements Closeable {
   /** The thread that applies committed log entries to the state machine */
   private final StateMachineUpdater stateMachineUpdater;
   /** local storage for log and snapshot */
-  private final RaftStorage storage;
+  private final RaftStorageImpl storage;
   private final SnapshotManager snapshotManager;
   private volatile Timestamp lastNoLeaderTime;
   private final TimeDuration noLeaderTimeout;
@@ -106,7 +106,7 @@ class ServerState implements Closeable {
     // use full uuid string to create a subdirectory
     final File dir = chooseStorageDir(RaftServerConfigKeys.storageDir(prop),
         group.getGroupId().getUuid().toString());
-    storage = new RaftStorage(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
+    storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
     snapshotManager = new SnapshotManager(storage, id);
 
     initStatemachine(stateMachine, group.getGroupId());

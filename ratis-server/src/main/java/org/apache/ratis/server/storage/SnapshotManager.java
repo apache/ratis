@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.util.UUID;
 
 import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.io.MD5Hash;
@@ -60,7 +61,8 @@ public class SnapshotManager {
     final long lastIncludedIndex = snapshotChunkRequest.getTermIndex().getIndex();
     final RaftStorageDirectory dir = storage.getStorageDir();
 
-    File tmpDir = dir.getNewTempDir();
+    // create a unique temporary directory
+    final File tmpDir =  new File(dir.getTmpDir(), UUID.randomUUID().toString());
     FileUtils.createDirectories(tmpDir);
     tmpDir.deleteOnExit();
 

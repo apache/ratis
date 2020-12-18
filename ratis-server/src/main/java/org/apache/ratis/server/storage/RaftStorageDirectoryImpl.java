@@ -19,8 +19,6 @@ package org.apache.ratis.server.storage;
 
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.FileUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,18 +30,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Objects;
 
 import static java.nio.file.Files.newDirectoryStream;
 
-public class RaftStorageDirectory {
-  static final Logger LOG = LoggerFactory.getLogger(RaftStorageDirectory.class);
+class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
-  static final String STORAGE_DIR_CURRENT = "current";
-  static final String STORAGE_FILE_LOCK = "in_use.lock";
-  static final String META_FILE_NAME = "raft-meta";
-  static final String STATE_MACHINE = "sm"; // directory containing state machine snapshots
-  static final String TEMP = "tmp";
+  private static final String IN_USE_LOCK_NAME = "in_use.lock";
+  private static final String META_FILE_NAME = "raft-meta";
   private static final String CONF_EXTENSION = ".conf";
 
   enum StorageState {
@@ -59,15 +53,12 @@ public class RaftStorageDirectory {
    * Constructor
    * @param dir directory corresponding to the storage
    */
-  RaftStorageDirectory(File dir) {
+  RaftStorageDirectoryImpl(File dir) {
     this.root = dir;
     this.lock = null;
   }
 
-  /**
-   * Get root directory of this storage
-   */
-  //TODO
+  @Override
   public File getRoot() {
     return root;
   }
@@ -96,45 +87,18 @@ public class RaftStorageDirectory {
     FileUtils.createDirectories(dir);
   }
 
-  /**
-   * Directory {@code current} contains latest files defining
-   * the file system meta-data.
-   *
-   * @return the directory path
-   */
-  public File getCurrentDir() {
-    return new File(root, STORAGE_DIR_CURRENT);
-  }
 
   File getMetaFile() {
     return new File(getCurrentDir(), META_FILE_NAME);
   }
 
   File getMetaTmpFile() {
-    return new File(getCurrentDir(), META_FILE_NAME
-        + AtomicFileOutputStream.TMP_EXTENSION);
+    return AtomicFileOutputStream.getTemporaryFile(getMetaFile());
   }
 
   File getMetaConfFile() {
     return new File(getCurrentDir(), META_FILE_NAME + CONF_EXTENSION);
   }
-
-  public File getStateMachineDir() {
-    return new File(getRoot(), STATE_MACHINE);
-  }
-
-  /** Returns a uniquely named temporary directory under $rootdir/tmp/ */
-  public File getNewTempDir() {
-    return new File(new File(getRoot(), TEMP), UUID.randomUUID().toString());
-  }
-
-  public Path relativizeToRoot(Path p) {
-    if (p.isAbsolute()) {
-      return getRoot().toPath().relativize(p);
-    }
-    return p;
-  }
-
 
   /**
    * Check to see if current/ directory is empty.
@@ -187,14 +151,15 @@ public class RaftStorageDirectory {
     }
 
     // check whether current directory is valid
-    if (hasMetaFile()) {
+    if (isHealthy()) {
       return StorageState.NORMAL;
     } else {
       return StorageState.NOT_FORMATTED;
     }
   }
 
-  public boolean hasMetaFile() {
+  @Override
+  public boolean isHealthy() {
     return getMetaFile().exists();
   }
 
@@ -209,8 +174,8 @@ public class RaftStorageDirectory {
    *
    * @throws IOException if locking fails
    */
-  public void lock() throws IOException {
-    final File lockF = new File(root, STORAGE_FILE_LOCK);
+  void lock() throws IOException {
+    final File lockF = new File(root, IN_USE_LOCK_NAME);
     final FileLock newLock = FileUtils.attempt(() -> tryLock(lockF), () -> "tryLock " + lockF);
     if (newLock == null) {
       String msg = "Cannot lock storage " + this.root
@@ -273,7 +238,7 @@ public class RaftStorageDirectory {
   /**
    * Unlock storage.
    */
-  public void unlock() throws IOException {
+  void unlock() throws IOException {
     if (this.lock == null) {
       return;
     }

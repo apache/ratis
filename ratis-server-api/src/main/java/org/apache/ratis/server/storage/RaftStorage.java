@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,43 +17,22 @@
  */
 package org.apache.ratis.server.storage;
 
-import java.nio.file.Path;
+import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import org.apache.ratis.io.MD5Hash;
+import java.io.Closeable;
 
-/**
- * Metadata about a file.
- *
- * The objects of this class are immutable.
- */
-public class FileInfo {
-  private final Path path;
-  private final MD5Hash fileDigest;
-  private final long fileSize;
+/** The storage of a raft server. */
+public interface RaftStorage extends Closeable {
+  Logger LOG = LoggerFactory.getLogger(RaftStorage.class);
 
-  public FileInfo(Path path, MD5Hash fileDigest) {
-    this.path = path;
-    this.fileDigest = fileDigest;
-    this.fileSize = path.toFile().length();
-  }
+  /** @return the storage directory. */
+  RaftStorageDirectory getStorageDir();
 
-  @Override
-  public String toString() {
-    return path.toString();
-  }
+  /** @return the metadata file. */
+  RaftStorageMetadataFile getMetadataFile();
 
-  /** @return the path of the file. */
-  public Path getPath() {
-    return path;
-  }
-
-  /** @return the MD5 file digest of the file. */
-  public MD5Hash getFileDigest() {
-    return fileDigest;
-  }
-
-  /** @return the size of the file. */
-  public long getFileSize() {
-    return fileSize;
-  }
+  /** @return the corruption policy for raft log. */
+  CorruptionPolicy getLogCorruptionPolicy();
 }

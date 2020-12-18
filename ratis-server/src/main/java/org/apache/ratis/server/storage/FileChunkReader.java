@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Optional;
 
 /** Read {@link FileChunkProto}s from a file. */
 public class FileChunkReader implements Closeable {
@@ -46,7 +47,10 @@ public class FileChunkReader implements Closeable {
    */
   public FileChunkReader(FileInfo info, RaftStorageDirectory directory) throws IOException {
     this.info = info;
-    this.relativePath = directory.relativizeToRoot(info.getPath());
+    this.relativePath = Optional.of(info.getPath())
+        .filter(Path::isAbsolute)
+        .map(p -> directory.getRoot().toPath().relativize(p))
+        .orElse(info.getPath());
     final File f = info.getPath().toFile();
     this.in = new FileInputStream(f);
   }
