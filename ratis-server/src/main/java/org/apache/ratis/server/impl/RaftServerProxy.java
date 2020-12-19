@@ -261,10 +261,7 @@ class RaftServerProxy implements RaftServer {
     return CompletableFuture.supplyAsync(() -> {
       try {
         addRaftPeers(group.getPeers());
-        final StateMachine stateMachine = stateMachineRegistry.apply(group.getGroupId());
-        final RaftServerImpl impl = new RaftServerImpl(group, stateMachine, this);
-        stateMachine.initialize(impl);
-        return impl;
+        return new RaftServerImpl(group, stateMachineRegistry.apply(group.getGroupId()), this);
       } catch(IOException e) {
         throw new CompletionException(getId() + ": Failed to initialize server for " + group, e);
       }

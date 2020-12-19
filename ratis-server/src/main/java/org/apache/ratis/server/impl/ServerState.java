@@ -108,6 +108,7 @@ class ServerState implements Closeable {
     storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
     snapshotManager = new SnapshotManager(storage, id);
 
+    stateMachine.initialize(server.getRaftServer(), group.getGroupId(), storage);
     // read configuration from the storage
     Optional.ofNullable(storage.readRaftConfiguration()).ifPresent(this::setRaftConf);
 

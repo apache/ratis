@@ -83,11 +83,10 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   }
 
   @Override
-  public void initialize(Object parameter) throws IOException {
-    Preconditions.assertTrue(parameter instanceof RaftServer.Division,
-        () -> "Unexpected parameter " + parameter.getClass());
-    final RaftServer.Division division = (RaftServer.Division) parameter;
-    initialize(division.getRaftServer(), division.getMemberId().getGroupId(), division.getRaftStorage());
+  public void initialize(Object raftServer, RaftGroupId raftGroupId, RaftStorage storage) throws IOException {
+    Preconditions.assertTrue(raftServer instanceof RaftServer,
+        () -> "Unexpected parameter " + raftServer.getClass());
+    initialize((RaftServer) raftServer, raftGroupId, storage);
   }
 
   public void initialize(RaftServer raftServer, RaftGroupId raftGroupId, RaftStorage storage) throws IOException {
