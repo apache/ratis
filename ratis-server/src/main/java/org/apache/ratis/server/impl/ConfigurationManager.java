@@ -44,7 +44,8 @@ public class ConfigurationManager {
     this.currentConf = initialConf;
   }
 
-  synchronized void addConfiguration(long logIndex, RaftConfiguration conf) {
+  synchronized void addConfiguration(RaftConfiguration conf) {
+    final long logIndex = conf.getLogEntryIndex();
     final RaftConfiguration found = configurations.get(logIndex);
     if (found != null) {
       Preconditions.assertTrue(found.equals(conf));

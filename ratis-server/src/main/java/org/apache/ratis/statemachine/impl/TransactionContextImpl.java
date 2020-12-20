@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 
 import java.io.IOException;
@@ -41,13 +42,13 @@ public class TransactionContextImpl implements TransactionContext {
   private final StateMachine stateMachine;
 
   /** Original request from the client */
-  private RaftClientRequest clientRequest;
+  private final RaftClientRequest clientRequest;
 
   /** Exception from the {@link StateMachine} or from the log */
   private Exception exception;
 
   /** Data from the {@link StateMachine} */
-  private StateMachineLogEntryProto smLogEntryProto;
+  private final StateMachineLogEntryProto stateMachineLogEntry;
 
   /**
    * Context specific to the state machine.
@@ -67,9 +68,12 @@ public class TransactionContextImpl implements TransactionContext {
   /** Committed LogEntry. */
   private LogEntryProto logEntry;
 
-  private TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine) {
+  private TransactionContextImpl(RaftPeerRole serverRole, RaftClientRequest clientRequest, StateMachine stateMachine,
+      StateMachineLogEntryProto stateMachineLogEntry) {
     this.serverRole = serverRole;
+    this.clientRequest = clientRequest;
     this.stateMachine = stateMachine;
+    this.stateMachineLogEntry = stateMachineLogEntry;
   }
 
   /**
@@ -78,14 +82,21 @@ public class TransactionContextImpl implements TransactionContext {
    * and send the Log entry representing the transaction data
    * to be applied to the raft log.
    */
-  public TransactionContextImpl(
-      StateMachine stateMachine, RaftClientRequest clientRequest,
-      StateMachineLogEntryProto smLogEntryProto, Object stateMachineContext) {
-    this(RaftPeerRole.LEADER, stateMachine);
-    this.clientRequest = clientRequest;
-    this.smLogEntryProto = smLogEntryProto != null? smLogEntryProto
-        : LogProtoUtils.toStateMachineLogEntryProto(clientRequest, null, null);
+  TransactionContextImpl(RaftClientRequest clientRequest, StateMachine stateMachine,
+      StateMachineLogEntryProto stateMachineLogEntry, ByteString logData, ByteString stateMachineData,
+      Object stateMachineContext) {
+    this(RaftPeerRole.LEADER, clientRequest, stateMachine,
+        get(stateMachineLogEntry, clientRequest, logData, stateMachineData));
     this.stateMachineContext = stateMachineContext;
+  }
+
+  private static StateMachineLogEntryProto get(StateMachineLogEntryProto stateMachineLogEntry,
+      RaftClientRequest clientRequest, ByteString logData, ByteString stateMachineData) {
+    if (stateMachineLogEntry != null) {
+      return stateMachineLogEntry;
+    } else {
+      return LogProtoUtils.toStateMachineLogEntryProto(clientRequest, logData, stateMachineData);
+    }
   }
 
   /**
@@ -93,10 +104,9 @@ public class TransactionContextImpl implements TransactionContext {
    * Used by followers for applying committed entries to the state machine.
    * @param logEntry the log entry to be applied
    */
-  public TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
-    this(serverRole, stateMachine);
+  TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
+    this(serverRole, null, stateMachine, logEntry.getStateMachineLogEntry());
     this.logEntry = logEntry;
-    this.smLogEntryProto = logEntry.getStateMachineLogEntry();
   }
 
   @Override
@@ -111,7 +121,7 @@ public class TransactionContextImpl implements TransactionContext {
 
   @Override
   public StateMachineLogEntryProto getStateMachineLogEntry() {
-    return smLogEntryProto;
+    return stateMachineLogEntry;
   }
 
   @Override
@@ -134,14 +144,8 @@ public class TransactionContextImpl implements TransactionContext {
   public LogEntryProto initLogEntry(long term, long index) {
     Preconditions.assertTrue(serverRole == RaftPeerRole.LEADER);
     Preconditions.assertNull(logEntry, "logEntry");
-    Objects.requireNonNull(smLogEntryProto, "smLogEntryProto == null");
-    return logEntry = LogProtoUtils.toLogEntryProto(smLogEntryProto, term, index);
-  }
-
-  @Override
-  public TransactionContext setStateMachineLogEntryProto(StateMachineLogEntryProto logEntryProto) {
-    this.smLogEntryProto = logEntryProto;
-    return this;
+    Objects.requireNonNull(stateMachineLogEntry, "stateMachineLogEntry == null");
+    return logEntry = LogProtoUtils.toLogEntryProto(stateMachineLogEntry, term, index);
   }
 
   @Override

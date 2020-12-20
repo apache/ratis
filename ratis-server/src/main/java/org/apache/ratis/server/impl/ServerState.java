@@ -41,7 +41,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -109,7 +108,9 @@ class ServerState implements Closeable {
     storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
     snapshotManager = new SnapshotManager(storage, id);
 
-    initStatemachine(stateMachine, group.getGroupId());
+    stateMachine.initialize(server.getRaftServer(), group.getGroupId(), storage);
+    // read configuration from the storage
+    Optional.ofNullable(storage.readRaftConfiguration()).ifPresent(this::setRaftConf);
 
     // On start the leader is null, start the clock now
     leaderId = null;
@@ -154,20 +155,10 @@ class ServerState implements Closeable {
       return resultList.get(0);
     }
     return numberOfStorageDirPerVolume.entrySet().stream()
-        .min(Comparator.comparing(Map.Entry::getValue))
+        .min(Map.Entry.comparingByValue())
         .map(Map.Entry::getKey)
         .map(v -> new File(v, targetSubDir))
         .orElseThrow(() -> new IOException("No storage directory found."));
-  }
-
-  private void initStatemachine(StateMachine sm, RaftGroupId gid)
-      throws IOException {
-    sm.initialize(server.getRaftServer(), gid, storage);
-    // get the raft configuration from raft metafile
-    RaftConfiguration raftConf = storage.readRaftConfiguration();
-    if (raftConf != null) {
-      setRaftConf(raftConf.getLogEntryIndex(), raftConf);
-    }
   }
 
   void writeRaftConfiguration(LogEntryProto conf) {
@@ -364,14 +355,14 @@ class ServerState implements Closeable {
 
   void setRaftConf(LogEntryProto entry) {
     if (entry.hasConfigurationEntry()) {
-      setRaftConf(entry.getIndex(), LogProtoUtils.toRaftConfiguration(entry));
+      setRaftConf(LogProtoUtils.toRaftConfiguration(entry));
     }
   }
 
-  void setRaftConf(long logIndex, RaftConfiguration conf) {
-    configurationManager.addConfiguration(logIndex, conf);
+  void setRaftConf(RaftConfiguration conf) {
+    configurationManager.addConfiguration(conf);
     server.getServerRpc().addRaftPeers(conf.getAllPeers());
-    LOG.info("{}: set configuration {} at {}", getMemberId(), conf, logIndex);
+    LOG.info("{}: set configuration {}", getMemberId(), conf);
     LOG.trace("{}: {}", getMemberId(), configurationManager);
   }
 

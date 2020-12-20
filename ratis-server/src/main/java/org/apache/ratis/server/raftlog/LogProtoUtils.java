@@ -19,6 +19,7 @@ package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftConfiguration;
@@ -38,21 +39,15 @@ import java.util.stream.Collectors;
 public final class LogProtoUtils {
   private LogProtoUtils() {}
 
-  public static String toStateMachineLogEntryString(StateMachineLogEntryProto proto,
-      Function<StateMachineLogEntryProto, String> function) {
-    final ByteString clientId = proto.getClientId();
-    return (clientId.isEmpty() ? "<empty ClientId>" : ClientId.valueOf(clientId))
-        + ",cid=" + proto.getCallId()
-        + Optional.ofNullable(function).map(f -> f.apply(proto)).map(s -> "," + s).orElse("");
-  }
-
   public static String toLogEntryString(LogEntryProto entry, Function<StateMachineLogEntryProto, String> function) {
     if (entry == null) {
       return null;
     }
     final String s;
     if (entry.hasStateMachineLogEntry()) {
-      s = ", " + toStateMachineLogEntryString(entry.getStateMachineLogEntry(), function);
+      s = ", " + Optional.ofNullable(function)
+          .orElseGet(() -> proto -> "" + ClientInvocationId.valueOf(proto))
+          .apply(entry.getStateMachineLogEntry());
     } else if (entry.hasMetadataEntry()) {
       final MetadataProto metadata = entry.getMetadataEntry();
       s = "(c:" + metadata.getCommitIndex() + ")";

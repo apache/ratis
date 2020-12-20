@@ -18,19 +18,19 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,9 +55,9 @@ public interface StateMachine extends Closeable {
   }
 
   /**
-   * An optional API for managing data outside the {@link org.apache.ratis.server.raftlog.RaftLog}.
+   * An optional API for managing data outside the raft log.
    * For data intensive applications, it can be more efficient to implement this API
-   * in order to support zero buffer coping and a light-weighted {@link org.apache.ratis.server.raftlog.RaftLog}.
+   * in order to support zero buffer coping and a light-weighted raft log.
    */
   interface DataApi {
     /** A noop implementation of {@link DataApi}. */
@@ -328,11 +328,11 @@ public interface StateMachine extends Closeable {
   }
 
   /**
-   * Initializes the State Machine with the given server, group and storage. The state machine is
-   * responsible reading the latest snapshot from the file system (if any) and initialize itself
-   * with the latest term and index there including all the edits.
+   * Initializes the State Machine with the given parameter.
+   * The state machine must, if there is any, read the latest snapshot.
    */
-  void initialize(RaftServer server, RaftGroupId groupId, RaftStorage storage) throws IOException;
+  //TODO change the raftServer parameter back to RaftServer once RaftServer has been moved to ratis-server-api
+  void initialize(Object raftServer, RaftGroupId raftGroupId, RaftStorage storage) throws IOException;
 
   /**
    * Returns the lifecycle state for this StateMachine.
@@ -451,11 +451,12 @@ public interface StateMachine extends Closeable {
   TermIndex getLastAppliedTermIndex();
 
   /**
-   * Converts the proto object into a useful log string to add information about state machine data.
+   * Converts the given proto to a string.
+   *
    * @param proto state machine proto
    * @return the string representation of the proto.
    */
   default String toStateMachineLogEntryString(RaftProtos.StateMachineLogEntryProto proto) {
-    return LogProtoUtils.toStateMachineLogEntryString(proto, null);
+    return JavaUtils.getClassSimpleName(proto.getClass()) +  ":" + ClientInvocationId.valueOf(proto);
   }
 }

@@ -200,8 +200,15 @@ public interface ReflectionUtils {
     return false;
   }
 
-  static <BASE> Class<? extends BASE> getClass(
-      String subClassName, Class<BASE> base) {
+  static String getImplClassName(Class<?> clazz) {
+    return clazz.getPackage().getName() + ".impl." + JavaUtils.getClassSimpleName(clazz) + "Impl";
+  }
+
+  static <BASE> Class<? extends BASE> getImplClass(Class<BASE> base) {
+    return getClass(getImplClassName(base), base);
+  }
+
+  static <BASE> Class<? extends BASE> getClass(String subClassName, Class<BASE> base) {
     try {
       return getClassByName(subClassName).asSubclass(base);
     } catch (ClassNotFoundException e) {

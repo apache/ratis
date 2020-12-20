@@ -21,10 +21,9 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.server.raftlog.LogProtoUtils;
-import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReflectionUtils;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -92,13 +91,6 @@ public interface TransactionContext {
    * @return the result {@link LogEntryProto}
    */
   LogEntryProto initLogEntry(long term, long index);
-
-  /**
-   * Sets the data from the {@link StateMachine}
-   * @param smLogEntryProto data from {@link StateMachine}
-   * @return the current {@link TransactionContext} itself
-   */
-  TransactionContext setStateMachineLogEntryProto(StateMachineLogEntryProto smLogEntryProto);
 
   /**
    * Returns the committed log entry
@@ -199,16 +191,36 @@ public interface TransactionContext {
         Preconditions.assertTrue(serverRole == RaftPeerRole.LEADER,
             () -> "serverRole MUST be LEADER since clientRequest != null, serverRole is " + serverRole);
         Preconditions.assertNull(logEntry, () -> "logEntry MUST be null since clientRequest != null");
-        if (stateMachineLogEntry == null) {
-          stateMachineLogEntry = LogProtoUtils.toStateMachineLogEntryProto(clientRequest, logData, stateMachineData);
-        }
-        return new TransactionContextImpl(stateMachine, clientRequest, stateMachineLogEntry, stateMachineContext);
+        return newTransactionContext(stateMachine, clientRequest,
+            stateMachineLogEntry, logData, stateMachineData, stateMachineContext);
       } else {
         Objects.requireNonNull(logEntry, "logEntry MUST NOT be null since clientRequest == null");
         Preconditions.assertTrue(logEntry.hasStateMachineLogEntry(),
             () -> "Unexpected logEntry: stateMachineLogEntry not found, logEntry=" + logEntry);
-        return new TransactionContextImpl(serverRole, stateMachine, logEntry);
+        return newTransactionContext(serverRole, stateMachine, logEntry);
       }
+    }
+
+    /** Get the impl class using reflection. */
+    private static final Class<? extends TransactionContext> IMPL_CLASS
+        = ReflectionUtils.getImplClass(TransactionContext.class);
+
+    /** @return a new {@link TransactionContext} using reflection. */
+    private static TransactionContext newTransactionContext(
+        StateMachine stateMachine, RaftClientRequest clientRequest,
+        StateMachineLogEntryProto stateMachineLogEntry, ByteString logData, ByteString stateMachineData,
+        Object stateMachineContext) {
+      final Class<?>[] argClasses = {RaftClientRequest.class, StateMachine.class,
+          StateMachineLogEntryProto.class, ByteString.class, ByteString.class, Object.class};
+      return ReflectionUtils.newInstance(IMPL_CLASS, argClasses,
+          clientRequest, stateMachine, stateMachineLogEntry, logData, stateMachineData, stateMachineContext);
+    }
+
+    /** @return a new {@link TransactionContext} using reflection. */
+    private static TransactionContext newTransactionContext(
+        RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
+      final Class<?>[] argClasses = {RaftPeerRole.class, StateMachine.class, LogEntryProto.class};
+      return ReflectionUtils.newInstance(IMPL_CLASS, argClasses, serverRole, stateMachine, logEntry);
     }
   }
 }
