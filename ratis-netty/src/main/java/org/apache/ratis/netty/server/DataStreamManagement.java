@@ -157,13 +157,13 @@ public class DataStreamManagement {
       if (routingTable.containsKey(peerId)) {
         return routingTable.get(peerId);
       } else if (isPrimary()) {
-        // TODO(runzhiwang): if filestore support route table, we can remove this branch
+        // Default start topology
         final RaftGroupId groupId = request.getRaftGroupId();
         return server.getDivision(groupId).getRaftConf().getCurrentPeers().stream()
             .filter(p -> !p.getId().equals(server.getId())).map(RaftPeer::getId)
             .collect(Collectors.toList());
       } else {
-        return new ArrayList<>();
+        return Collections.emptyList();
       }
     }
   }
