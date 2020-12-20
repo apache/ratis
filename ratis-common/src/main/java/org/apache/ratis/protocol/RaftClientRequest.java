@@ -21,6 +21,9 @@ import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.*;
@@ -235,17 +238,28 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private final SlidingWindowEntry slidingWindowEntry;
 
+  private final Map<RaftPeerId, List<RaftPeerId>> routingTable;
+
   public RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
-    this(clientId, serverId, groupId, callId, null, type, null);
+    this(clientId, serverId, groupId, callId, null, type, null, null);
   }
 
   public RaftClientRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry) {
+    this(clientId, serverId, groupId, callId, message, type, slidingWindowEntry, null);
+  }
+
+  @SuppressWarnings("parameternumber")
+  public RaftClientRequest(
+      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
+      long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry,
+      Map<RaftPeerId, List<RaftPeerId>> routingTable) {
     super(clientId, serverId, groupId, callId);
     this.message = message;
     this.type = type;
     this.slidingWindowEntry = slidingWindowEntry != null? slidingWindowEntry: SlidingWindowEntry.getDefaultInstance();
+    this.routingTable = routingTable != null? routingTable : new HashMap<>();
   }
 
   @Override
@@ -267,6 +281,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public boolean is(RaftClientRequestProto.TypeCase typeCase) {
     return getType().is(typeCase);
+  }
+
+  public Map<RaftPeerId, List<RaftPeerId>> getRoutingTable() {
+    return routingTable;
   }
 
   @Override

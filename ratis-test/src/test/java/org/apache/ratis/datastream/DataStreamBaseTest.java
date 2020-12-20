@@ -18,7 +18,6 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.proto.RaftProtos.DataStreamInitProto;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DivisionInfo;
@@ -68,15 +67,12 @@ import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
-import org.apache.ratis.util.ProtoUtils;
 import org.junit.Assert;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -426,10 +422,8 @@ abstract class DataStreamBaseTest extends BaseTest {
       Exception expectedException, Exception headerException)
       throws IOException {
     try (final RaftClient client = newRaftClientForDataStream(clientId)) {
-      DataStreamInitProto initProto = getDataStreamInitProto(peers, getPrimaryServer().getPeer());
-
       final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
-          .stream(initProto.toByteString().asReadOnlyByteBuffer());
+          .stream(null, getRoutingTable(peers, getPrimaryServer().getPeer()));
       if (headerException != null) {
         final DataStreamReply headerReply = out.getHeaderFuture().join();
         Assert.assertFalse(headerReply.isSuccess());

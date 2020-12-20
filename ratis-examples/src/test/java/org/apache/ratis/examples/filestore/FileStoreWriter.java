@@ -22,7 +22,6 @@ import org.apache.ratis.datastream.DataStreamTestUtils;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.io.netty.util.internal.ThreadLocalRandom;
 import org.apache.ratis.util.Preconditions;
@@ -37,7 +36,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
@@ -136,9 +134,9 @@ class FileStoreWriter implements Closeable {
     return this;
   }
 
-  public FileStoreWriter streamWriteAndVerify(IdentityHashMap<RaftPeer, RaftPeer> routeTable) {
+  public FileStoreWriter streamWriteAndVerify() {
     final int size = fileSize.getSizeInt();
-    final DataStreamOutput dataStreamOutput = client.getStreamOutput(fileName, size, routeTable);
+    final DataStreamOutput dataStreamOutput = client.getStreamOutput(fileName, size);
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
     final List<Integer> sizes = new ArrayList<>();
 

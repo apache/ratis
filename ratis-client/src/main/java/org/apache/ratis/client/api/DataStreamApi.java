@@ -17,7 +17,11 @@
  */
 package org.apache.ratis.client.api;
 
+import org.apache.ratis.protocol.RaftPeerId;
+
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Stream data asynchronously to all the servers in the {@link org.apache.ratis.protocol.RaftGroup}.
@@ -44,4 +48,7 @@ public interface DataStreamApi {
 
   /** Create a stream by providing a customized header message. */
   DataStreamOutput stream(ByteBuffer headerMessage);
+
+  /** Create a stream by providing a customized header message and route table. */
+  DataStreamOutput stream(ByteBuffer headerMessage, Map<RaftPeerId, List<RaftPeerId>> routingTable);
 }

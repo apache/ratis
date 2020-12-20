@@ -18,6 +18,8 @@
 package org.apache.ratis.client.impl;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -93,6 +95,12 @@ public interface ClientProtoUtils {
         request.getSlidingWindowEntry());
   }
 
+  static RoutingTableProto.Builder toRoutingTableProtoBuilder(
+      RaftClientRequest request) {
+    return RoutingTableProto.newBuilder()
+        .addAllRoutingTable(ProtoUtils.toRouteProtos(request.getRoutingTable()));
+  }
+
   static RaftClientRequest.Type toRaftClientRequestType(RaftClientRequestProto p) {
     switch (p.getTypeCase()) {
       case WRITE:
@@ -118,6 +126,14 @@ public interface ClientProtoUtils {
   static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
     final RaftClientRequest.Type type = toRaftClientRequestType(p);
     final RaftRpcRequestProto request = p.getRpcRequest();
+    Map<RaftPeerId, List<RaftPeerId>> routingTable = new HashMap<>();
+    for (RouteProto routeProto : p.getRoutingTable().getRoutingTableList()) {
+      RaftPeerId from = RaftPeerId.valueOf(routeProto.getFrom().getId());
+      List<RaftPeerId> to = routeProto.getToList().stream()
+          .map(v -> RaftPeerId.valueOf(v.getId())).collect(Collectors.toList());
+      routingTable.put(from, to);
+    }
+
     return new RaftClientRequest(
         ClientId.valueOf(request.getRequestorId()),
         RaftPeerId.valueOf(request.getReplyId()),
@@ -125,7 +141,8 @@ public interface ClientProtoUtils {
         request.getCallId(),
         toMessage(p.getMessage()),
         type,
-        request.getSlidingWindowEntry());
+        request.getSlidingWindowEntry(),
+        routingTable);
   }
 
   static ByteBuffer toRaftClientRequestProtoByteBuffer(RaftClientRequest request) {
@@ -138,6 +155,8 @@ public interface ClientProtoUtils {
     if (request.getMessage() != null) {
       b.setMessage(toClientMessageEntryProtoBuilder(request.getMessage()));
     }
+
+    b.setRoutingTable(toRoutingTableProtoBuilder(request));
 
     final RaftClientRequest.Type type = request.getType();
     switch (type.getTypeCase()) {

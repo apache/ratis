@@ -19,9 +19,9 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.ConfUtils;
-import org.apache.ratis.proto.RaftProtos.DataStreamRouteTableProto;
-import org.apache.ratis.proto.RaftProtos.DataStreamInitProto;
+import org.apache.ratis.proto.RaftProtos.RoutingTableProto;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -39,9 +39,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.IdentityHashMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -72,28 +74,18 @@ public abstract class BaseTest {
     }
   }
 
-
-  public DataStreamInitProto getDataStreamInitProto(Collection<RaftPeer> peers, RaftPeer primary) {
-    IdentityHashMap<RaftPeer, RaftPeer> routeTable = getRouteTable(peers, primary);
-    DataStreamRouteTableProto routeTableProto = DataStreamRouteTableProto.newBuilder()
-        .addAllRouteTable(ProtoUtils.toRoutePairProtos(routeTable)).build();
-    return DataStreamInitProto.newBuilder()
-        .setRouteTable(routeTableProto.toByteString()).build();
-  }
-
-  public IdentityHashMap<RaftPeer, RaftPeer> getRouteTable(Collection<RaftPeer> peers, RaftPeer primary) {
+  public Map<RaftPeerId, List<RaftPeerId>> getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
     RaftPeer previous = primary;
-    IdentityHashMap<RaftPeer, RaftPeer> routeTable = new IdentityHashMap<>();
+    Map<RaftPeerId, List<RaftPeerId>> routingTable = new HashMap<>();
     for (RaftPeer peer : peers) {
       if (peer.equals(primary)) {
         continue;
       }
-
-      routeTable.put(previous, peer);
+      routingTable.computeIfAbsent(previous.getId(), key -> new ArrayList<>()).add(peer.getId());
       previous = peer;
     }
 
-    return routeTable;
+    return routingTable;
   }
 
   @After

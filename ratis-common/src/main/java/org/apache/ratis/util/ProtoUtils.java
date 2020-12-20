@@ -17,8 +17,9 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.proto.RaftProtos.RaftPeerIdProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.RoutePairProto;
+import org.apache.ratis.proto.RaftProtos.RouteProto;
 import org.apache.ratis.proto.RaftProtos.ThrowableProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupIdProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupMemberIdProto;
@@ -38,7 +39,6 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.Collection;
-import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -124,6 +124,14 @@ public interface ProtoUtils {
     return protos.stream().map(ProtoUtils::toRaftPeer).collect(Collectors.toList());
   }
 
+  static RaftPeerId toRaftPeerId(RaftPeerIdProto p) {
+    return RaftPeerId.valueOf(p.getId());
+  }
+
+  static List<RaftPeerId> toRaftPeerIds(List<RaftPeerIdProto> protos) {
+    return protos.stream().map(ProtoUtils::toRaftPeerId).collect(Collectors.toList());
+  }
+
   static Iterable<RaftPeerProto> toRaftPeerProtos(
       final Collection<RaftPeer> peers) {
     return () -> new Iterator<RaftPeerProto>() {
@@ -141,10 +149,10 @@ public interface ProtoUtils {
     };
   }
 
-  static Iterable<RoutePairProto> toRoutePairProtos(
-      final IdentityHashMap<RaftPeer, RaftPeer> routeMap) {
-    return () -> new Iterator<RoutePairProto>() {
-      private final Iterator<Map.Entry<RaftPeer, RaftPeer>> i = routeMap.entrySet().iterator();
+  static Iterable<RaftPeerIdProto> toRaftPeerIdProtos(
+      final Collection<RaftPeerId> peers) {
+    return () -> new Iterator<RaftPeerIdProto>() {
+      private final Iterator<RaftPeerId> i = peers.iterator();
 
       @Override
       public boolean hasNext() {
@@ -152,11 +160,28 @@ public interface ProtoUtils {
       }
 
       @Override
-      public RoutePairProto next() {
-        Map.Entry<RaftPeer, RaftPeer> entry = i.next();
-        return RoutePairProto.newBuilder()
-            .setFrom(entry.getKey().getRaftPeerProto())
-            .setTo(entry.getValue().getRaftPeerProto())
+      public RaftPeerIdProto next() {
+        return i.next().getRaftPeerIdProto();
+      }
+    };
+  }
+
+  static Iterable<RouteProto> toRouteProtos(
+      final Map<RaftPeerId, List<RaftPeerId>> routingTable) {
+    return () -> new Iterator<RouteProto>() {
+      private final Iterator<Map.Entry<RaftPeerId, List<RaftPeerId>>> i = routingTable.entrySet().iterator();
+
+      @Override
+      public boolean hasNext() {
+        return i.hasNext();
+      }
+
+      @Override
+      public RouteProto next() {
+        Map.Entry<RaftPeerId, List<RaftPeerId>> entry = i.next();
+        return RouteProto.newBuilder()
+            .setFrom(entry.getKey().getRaftPeerIdProto())
+            .addAllTo(toRaftPeerIdProtos(entry.getValue()))
             .build();
       }
     };

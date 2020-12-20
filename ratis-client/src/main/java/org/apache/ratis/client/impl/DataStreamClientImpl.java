@@ -45,6 +45,8 @@ import org.apache.ratis.util.MemoizedSupplier;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -183,10 +185,16 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutputRpc stream(ByteBuffer headerMessage) {
+    return stream(headerMessage, null);
+  }
+
+  @Override
+  public DataStreamOutputRpc stream(ByteBuffer headerMessage, Map<RaftPeerId, List<RaftPeerId>> routingTable) {
     final Message message =
         Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
     RaftClientRequest request = new RaftClientRequest(clientId, dataStreamServer.getId(), groupId,
-        CallId.getAndIncrement(), message, RaftClientRequest.dataStreamRequestType(), null);
+        CallId.getAndIncrement(), message, RaftClientRequest.dataStreamRequestType(), null,
+        routingTable);
     return new DataStreamOutputImpl(request);
   }
 

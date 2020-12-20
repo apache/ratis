@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.datastream;
 
-import org.apache.ratis.proto.RaftProtos.DataStreamInitProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
@@ -32,17 +31,12 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.CollectionUtils;
-import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -149,12 +143,11 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     final RaftPeerId leader = cluster.getLeader().getId();
     final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
     final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
-    DataStreamInitProto initProto = getDataStreamInitProto(cluster.getGroup().getPeers(), primaryServer);
     try(RaftClient client = cluster.createClient(primaryServer)) {
       ClientId primaryClientId = getPrimaryClientId(cluster, primaryServer);
       for (int i = 0; i < numStreams; i++) {
         final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
-            .stream(initProto.toByteString().asReadOnlyByteBuffer());
+            .stream(null, getRoutingTable(cluster.getGroup().getPeers(), primaryServer));
         futures.add(CompletableFuture.supplyAsync(() -> DataStreamTestUtils.writeAndCloseAndAssertReplies(
             servers, leader, out, bufferSize, bufferNum, primaryClientId, cluster, stepDownLeader).join(), executor));
       }
