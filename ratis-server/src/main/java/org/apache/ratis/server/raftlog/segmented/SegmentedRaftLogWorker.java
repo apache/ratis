@@ -26,7 +26,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -149,7 +149,7 @@ class SegmentedRaftLogWorker {
   private final Timer raftLogSyncTimer;
   private final Timer raftLogQueueingTimer;
   private final Timer raftLogEnqueueingDelayTimer;
-  private final RaftLogMetrics raftLogMetrics;
+  private final SegmentedRaftLogMetrics raftLogMetrics;
   private final ByteBuffer writeBuffer;
 
   /**
@@ -176,7 +176,7 @@ class SegmentedRaftLogWorker {
 
   SegmentedRaftLogWorker(RaftGroupMemberId memberId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
                          RaftServer.Division server, RaftStorage storage, RaftProperties properties,
-                         RaftLogMetrics metricRegistry) {
+                         SegmentedRaftLogMetrics metricRegistry) {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     LOG.info("new {} for {}", name, storage);
 

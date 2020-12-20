@@ -21,7 +21,8 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -208,7 +209,7 @@ public class TestLogSegment extends BaseTest {
 
   @Test
   public void testAppendEntryMetric() throws Exception {
-    RaftLogMetrics raftLogMetrics = new RaftLogMetrics("test");
+    final SegmentedRaftLogMetrics raftLogMetrics = new SegmentedRaftLogMetrics(RaftServerTestUtil.TEST_MEMBER_ID);
 
     final File openSegmentFile = prepareLog(true, 0, 100, 0, true);
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);

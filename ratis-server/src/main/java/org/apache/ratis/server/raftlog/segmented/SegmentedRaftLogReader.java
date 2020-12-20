@@ -19,7 +19,7 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.protocol.exceptions.ChecksumException;
-import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedInputStream;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
@@ -140,9 +140,9 @@ class SegmentedRaftLogReader implements Closeable {
   private final DataInputStream in;
   private byte[] temp = new byte[4096];
   private final Checksum checksum;
-  private final RaftLogMetrics raftLogMetrics;
+  private final SegmentedRaftLogMetrics raftLogMetrics;
 
-  SegmentedRaftLogReader(File file, RaftLogMetrics raftLogMetrics) throws FileNotFoundException {
+  SegmentedRaftLogReader(File file, SegmentedRaftLogMetrics raftLogMetrics) throws FileNotFoundException {
     this.file = file;
     this.limiter = new LimitedInputStream(
         new BufferedInputStream(new FileInputStream(file)));

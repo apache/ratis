@@ -49,6 +49,9 @@ import java.util.stream.Stream;
 public class RaftServerTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerTestUtil.class);
 
+  public static final RaftGroupMemberId TEST_MEMBER_ID = RaftGroupMemberId.valueOf(
+      RaftPeerId.valueOf("test"), RaftGroupId.emptyGroupId());
+
   public static void setStateMachineUpdaterLogLevel(Level level) {
     Log4jUtils.setLogLevel(StateMachineUpdater.LOG, level);
   }

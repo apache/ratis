@@ -20,7 +20,7 @@ package org.apache.ratis.server.raftlog.segmented;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -357,14 +357,14 @@ public class SegmentedRaftLogCache {
   private volatile LogSegment openSegment;
   private final LogSegmentList closedSegments;
   private final RaftStorage storage;
-  private final RaftLogMetrics raftLogMetrics;
+  private final SegmentedRaftLogMetrics raftLogMetrics;
 
   private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
   private final long maxSegmentCacheSize;
 
   SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties,
-                                RaftLogMetrics raftLogMetrics) {
+      SegmentedRaftLogMetrics raftLogMetrics) {
     this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;

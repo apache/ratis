@@ -32,8 +32,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.UUID;
 
-import static org.apache.ratis.server.metrics.RaftLogMetrics.LOG_APPENDER_INSTALL_SNAPSHOT_METRIC;
-
 /**
  * The default implementation of {@link LogAppender}
  * using {@link org.apache.ratis.server.protocol.RaftServerProtocol}.
@@ -108,7 +106,7 @@ class LogAppenderDefault extends LogAppenderBase {
     if (reply != null) {
       getFollower().setSnapshotIndex(snapshot.getTermIndex().getIndex());
       LOG.info("{}: installSnapshot {} successfully", this, snapshot);
-      getServer().getRaftServerMetrics().getCounter(LOG_APPENDER_INSTALL_SNAPSHOT_METRIC).inc();
+      getServer().getRaftServerMetrics().onSnapshotInstalled();
     }
     return reply;
   }

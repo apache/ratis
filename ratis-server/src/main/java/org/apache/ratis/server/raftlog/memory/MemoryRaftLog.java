@@ -19,6 +19,7 @@ package org.apache.ratis.server.raftlog.memory;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.server.metrics.RaftLogMetricsBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -71,11 +72,18 @@ public class MemoryRaftLog extends RaftLog {
 
   private final EntryList entries = new EntryList();
   private final AtomicReference<RaftStorageMetadata> metadata = new AtomicReference<>(RaftStorageMetadata.getDefault());
+  private final RaftLogMetricsBase metrics;
 
   public MemoryRaftLog(RaftGroupMemberId memberId,
                        LongSupplier commitIndexSupplier,
                        RaftProperties properties) {
     super(memberId, commitIndexSupplier, properties);
+    this.metrics = new RaftLogMetricsBase(memberId);
+  }
+
+  @Override
+  public RaftLogMetricsBase getRaftLogMetrics() {
+    return metrics;
   }
 
   @Override

@@ -18,8 +18,6 @@
 
 package org.apache.ratis.server.metrics;
 
-import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_APPEND_ENTRIES_LATENCY;
-
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
@@ -52,8 +50,8 @@ public final class RaftServerMetrics extends RatisMetrics {
   public static final String RATIS_SERVER_METRICS = "server";
   public static final String RATIS_SERVER_METRICS_DESC = "Metrics for Raft server";
 
-  public static final String
-      FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC = "%s_lastHeartbeatElapsedTime";
+  public static final String FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC = "%s_lastHeartbeatElapsedTime";
+  public static final String FOLLOWER_APPEND_ENTRIES_LATENCY = "follower_append_entry_latency";
   public static final String LEADER_METRIC_PEER_COMMIT_INDEX = "%s_peerCommitIndex";
   public static final String RAFT_CLIENT_READ_REQUEST = "clientReadRequest";
   public static final String RAFT_CLIENT_STALE_READ_REQUEST = "clientStaleReadRequest";
@@ -79,6 +77,7 @@ public final class RaftServerMetrics extends RatisMetrics {
       "numFailedClientWatchOnServer";
   public static final String RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT =
       "numFailedClientStreamOnServer";
+  public static final String RATIS_SERVER_INSTALL_SNAPSHOT_COUNT = "numInstallSnapshot";
 
   /** Follower Id -> heartbeat elapsed */
   private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
@@ -270,6 +269,11 @@ public final class RaftServerMetrics extends RatisMetrics {
     } else if (type.is(TypeCase.MESSAGESTREAM)) {
       onFailedClientStream();
     }
+  }
+
+  /** A snapshot just has been installed. */
+  public void onSnapshotInstalled() {
+    registry.counter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT).inc();
   }
 
   public RatisMetricRegistry getRegistry() {
