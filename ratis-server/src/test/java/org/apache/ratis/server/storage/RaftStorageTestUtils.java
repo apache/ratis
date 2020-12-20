@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.server.storage;
 
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_FLUSH_TIME;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RATIS_LOG_WORKER_METRICS;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_FLUSH_TIME;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RATIS_LOG_WORKER_METRICS;
 
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;

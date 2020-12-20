@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_MATCH_INDEX;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_NEXT_INDEX;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_RPC_RESP_TIME;
+import static org.apache.ratis.server.metrics.LogAppenderMetrics.FOLLOWER_MATCH_INDEX;
+import static org.apache.ratis.server.metrics.LogAppenderMetrics.FOLLOWER_NEXT_INDEX;
+import static org.apache.ratis.server.metrics.LogAppenderMetrics.FOLLOWER_RPC_RESP_TIME;
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftGroupId;

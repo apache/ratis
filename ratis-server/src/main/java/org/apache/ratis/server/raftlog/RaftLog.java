@@ -83,7 +83,6 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
   private final Runner runner = new Runner(this::getName);
   private final OpenCloseState state;
-  private final RaftLogMetrics raftLogMetrics;
   private final LongSupplier getSnapshotIndexFromStateMachine;
 
   private volatile LogEntryProto lastMetadataEntry = null;
@@ -98,15 +97,12 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", index);
     this.purgeIndex = new RaftLogIndex("purgeIndex", LEAST_VALID_LOG_INDEX - 1);
     this.purgeGap = RaftServerConfigKeys.Log.purgeGap(properties);
-    this.raftLogMetrics = new RaftLogMetrics(memberId.toString());
     this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
     this.state = new OpenCloseState(getName());
     this.getSnapshotIndexFromStateMachine = getSnapshotIndexFromStateMachine;
   }
 
-  public RaftLogMetrics getRaftLogMetrics() {
-    return raftLogMetrics;
-  }
+  public abstract RaftLogMetrics getRaftLogMetrics();
 
   public long getLastCommittedIndex() {
     return commitIndex.get();

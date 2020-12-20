@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -182,12 +183,15 @@ public class SegmentedRaftLog extends RaftLog {
   private final SegmentedRaftLogWorker fileLogWorker;
   private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
+  private final SegmentedRaftLogMetrics metrics;
 
   @SuppressWarnings("parameternumber")
   public SegmentedRaftLog(RaftGroupMemberId memberId, RaftServer.Division server,
       StateMachine stateMachine, Consumer<LogEntryProto> notifyTruncatedLogEntry, Runnable submitUpdateCommitEvent,
       RaftStorage storage, LongSupplier snapshotIndexSupplier, RaftProperties properties) {
     super(memberId, snapshotIndexSupplier, properties);
+    this.metrics = new SegmentedRaftLogMetrics(memberId);
+
     this.server = newServerLogMethods(server, notifyTruncatedLogEntry);
     this.storage = storage;
     this.stateMachine = stateMachine;
@@ -196,6 +200,11 @@ public class SegmentedRaftLog extends RaftLog {
     this.fileLogWorker = new SegmentedRaftLogWorker(memberId, stateMachine,
         submitUpdateCommitEvent, server, storage, properties, getRaftLogMetrics());
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
+  }
+
+  @Override
+  public SegmentedRaftLogMetrics getRaftLogMetrics() {
+    return metrics;
   }
 
   @Override

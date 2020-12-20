@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,10 +17,6 @@
  */
 package org.apache.ratis.server.metrics;
 
-import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_MATCH_INDEX;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_NEXT_INDEX;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_RPC_RESP_TIME;
-
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
@@ -34,6 +30,10 @@ import java.util.function.Supplier;
 public final class LogAppenderMetrics extends RatisMetrics {
   public static final String RATIS_LOG_APPENDER_METRICS = "log_appender";
   public static final String RATIS_LOG_APPENDER_METRICS_DESC = "Metrics for log appender";
+
+  public static final String FOLLOWER_NEXT_INDEX = "follower_%s_next_index";
+  public static final String FOLLOWER_MATCH_INDEX = "follower_%s_match_index";
+  public static final String FOLLOWER_RPC_RESP_TIME = "follower_%s_rpc_response_time";
 
   public LogAppenderMetrics(RaftGroupMemberId groupMemberId) {
     registry = getMetricRegistryForLogAppender(groupMemberId.toString());

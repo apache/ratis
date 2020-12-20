@@ -23,9 +23,10 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.metrics.RaftLogMetricsBase;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.statemachine.StateMachine;
@@ -42,20 +43,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_APPEND_ENTRY_COUNT;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_APPEND_ENTRY_LATENCY;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_CACHE_HIT_COUNT;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_CACHE_MISS_COUNT;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_DATA_QUEUE_SIZE;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_FLUSH_COUNT;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_FLUSH_TIME;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_SYNC_BATCH_SIZE;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_SYNC_TIME;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_TASK_ENQUEUE_DELAY;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_TASK_EXECUTION_TIME;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_TASK_QUEUE_TIME;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_WORKER_QUEUE_SIZE;
-import static org.apache.ratis.server.metrics.RaftLogMetrics.STATE_MACHINE_LOG_ENTRY_COUNT;
+import static org.apache.ratis.server.metrics.RaftLogMetricsBase.*;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.*;
 
 public class TestRaftLogMetrics extends BaseTest
     implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
@@ -122,14 +111,14 @@ public class TestRaftLogMetrics extends BaseTest
   }
 
   static void assertCommitCount(RaftServer.Division server, int expectedMsgs) {
-    final RatisMetricRegistry rlm = server.getRaftLog().getRaftLogMetrics().getRegistry();
+    final RatisMetricRegistry rlm = ((RatisMetrics)server.getRaftLog().getRaftLogMetrics()).getRegistry();
     long stmCount = rlm.counter(STATE_MACHINE_LOG_ENTRY_COUNT).getCount();
     Assert.assertEquals(expectedMsgs, stmCount);
   }
 
   static void assertFlushCount(RaftServer.Division server) throws Exception {
     final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getMemberId().toString());
-    RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics(server.getMemberId().toString()).getRegistry();
+    final RatisMetricRegistry ratisMetricRegistry = RaftLogMetricsBase.getLogWorkerMetricRegistry(server.getMemberId());
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_FLUSH_TIME);
     Assert.assertNotNull(tm);
 
@@ -152,7 +141,7 @@ public class TestRaftLogMetrics extends BaseTest
 
   static void assertRaftLogWritePathMetrics(RaftServer.Division server) throws Exception {
     final String syncTimeMetric = RaftStorageTestUtils.getRaftLogFullMetric(server.getMemberId().toString(), RAFT_LOG_SYNC_TIME);
-    RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics(server.getMemberId().toString()).getRegistry();
+    final RatisMetricRegistry ratisMetricRegistry = RaftLogMetricsBase.getLogWorkerMetricRegistry(server.getMemberId());
 
     //Test sync count
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_SYNC_TIME);

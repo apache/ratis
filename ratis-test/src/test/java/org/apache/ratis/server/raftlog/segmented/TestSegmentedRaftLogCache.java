@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import static org.apache.ratis.server.metrics.RaftLogMetrics.*;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.*;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -26,7 +26,8 @@ import java.util.stream.IntStream;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
@@ -41,12 +42,12 @@ public class TestSegmentedRaftLogCache {
   private static final RaftProperties prop = new RaftProperties();
 
   private SegmentedRaftLogCache cache;
-  private RaftLogMetrics raftLogMetrics;
+  private SegmentedRaftLogMetrics raftLogMetrics;
   private RatisMetricRegistry ratisMetricRegistry;
 
   @Before
   public void setup() {
-    raftLogMetrics = new RaftLogMetrics("test");
+    raftLogMetrics = new SegmentedRaftLogMetrics(RaftServerTestUtil.TEST_MEMBER_ID);
     ratisMetricRegistry = raftLogMetrics.getRegistry();
     cache = new SegmentedRaftLogCache(null, null, prop, raftLogMetrics);
   }

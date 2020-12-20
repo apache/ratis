@@ -735,7 +735,7 @@ class LeaderStateImpl implements LeaderState {
 
       try {
         for (TermIndex entry : entriesToCommit) {
-          raftLog.getRaftLogMetrics().onLogEntryCommit(raftLog.get(entry.getIndex()));
+          raftLog.getRaftLogMetrics().onLogEntryCommitted(raftLog.get(entry.getIndex()));
         }
       } catch (RaftLogIOException e) {
         LOG.error("Caught exception reading from RaftLog", e);
