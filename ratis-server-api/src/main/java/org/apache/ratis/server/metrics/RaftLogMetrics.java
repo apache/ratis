@@ -23,7 +23,4 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 public interface RaftLogMetrics {
   /** A log entry just has been committed. */
   void onLogEntryCommitted(LogEntryProto proto);
-
-  /** A snapshot just has been installed. */
-  void onSnapshotInstalled();
 }

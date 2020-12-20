@@ -20,7 +20,7 @@ package org.apache.ratis.statemachine;
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS;
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_TAKE_SNAPSHOT_TIMER;
-import static org.apache.ratis.server.metrics.RaftLogMetricsBase.LOG_APPENDER_INSTALL_SNAPSHOT_METRIC;
+import static org.apache.ratis.server.metrics.RaftServerMetrics.RATIS_SERVER_INSTALL_SNAPSHOT_COUNT;
 import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
 
 import org.apache.log4j.Level;
@@ -259,7 +259,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
   protected void verifyInstallSnapshotMetric(RaftServer.Division leader) {
     final Counter installSnapshotCounter = leader.getRaftServerMetrics()
-        .getCounter(LOG_APPENDER_INSTALL_SNAPSHOT_METRIC);
+        .getCounter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT);
     Assert.assertNotNull(installSnapshotCounter);
     Assert.assertTrue(installSnapshotCounter.getCount() >= 1);
   }

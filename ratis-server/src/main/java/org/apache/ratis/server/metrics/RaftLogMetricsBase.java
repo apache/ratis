@@ -29,9 +29,6 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
   public static final String RATIS_LOG_WORKER_METRICS_DESC = "Metrics for Log Worker";
   public static final String RATIS_LOG_WORKER_METRICS = "log_worker";
 
-  // Number of entries appended to the raft log
-  public static final String LOG_APPENDER_INSTALL_SNAPSHOT_METRIC = "numInstallSnapshot";
-
   // Log Entry metrics
   public static final String METADATA_LOG_ENTRY_COUNT = "metadataLogEntryCount";
   public static final String CONFIG_LOG_ENTRY_COUNT = "configLogEntryCount";
@@ -67,10 +64,6 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
     } else if (proto.hasStateMachineLogEntry()) {
       registry.counter(STATE_MACHINE_LOG_ENTRY_COUNT).inc();
     }
-  }
-
-  public void onSnapshotInstalled() {
-    registry.counter(LOG_APPENDER_INSTALL_SNAPSHOT_METRIC).inc();
   }
 
   public Timer getRaftLogReadEntryTimer() {

@@ -77,6 +77,7 @@ public final class RaftServerMetrics extends RatisMetrics {
       "numFailedClientWatchOnServer";
   public static final String RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT =
       "numFailedClientStreamOnServer";
+  public static final String RATIS_SERVER_INSTALL_SNAPSHOT_COUNT = "numInstallSnapshot";
 
   /** Follower Id -> heartbeat elapsed */
   private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
@@ -268,6 +269,11 @@ public final class RaftServerMetrics extends RatisMetrics {
     } else if (type.is(TypeCase.MESSAGESTREAM)) {
       onFailedClientStream();
     }
+  }
+
+  /** A snapshot just has been installed. */
+  public void onSnapshotInstalled() {
+    registry.counter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT).inc();
   }
 
   public RatisMetricRegistry getRegistry() {

@@ -106,7 +106,7 @@ class LogAppenderDefault extends LogAppenderBase {
     if (reply != null) {
       getFollower().setSnapshotIndex(snapshot.getTermIndex().getIndex());
       LOG.info("{}: installSnapshot {} successfully", this, snapshot);
-      getServer().getRaftLog().getRaftLogMetrics().onSnapshotInstalled();
+      getServer().getRaftServerMetrics().onSnapshotInstalled();
     }
     return reply;
   }
