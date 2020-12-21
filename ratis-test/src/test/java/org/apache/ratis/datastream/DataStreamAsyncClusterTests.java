@@ -37,7 +37,6 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -147,7 +146,8 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     try(RaftClient client = cluster.createClient(primaryServer)) {
       ClientId primaryClientId = getPrimaryClientId(cluster, primaryServer);
       for (int i = 0; i < numStreams; i++) {
-        final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
+        final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
+            .stream(null, getRoutingTable(cluster.getGroup().getPeers(), primaryServer));
         futures.add(CompletableFuture.supplyAsync(() -> DataStreamTestUtils.writeAndCloseAndAssertReplies(
             servers, leader, out, bufferSize, bufferNum, primaryClientId, cluster, stepDownLeader).join(), executor));
       }

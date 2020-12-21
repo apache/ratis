@@ -19,10 +19,15 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.ConfUtils;
+import org.apache.ratis.proto.RaftProtos.RoutingTableProto;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.After;
@@ -35,7 +40,14 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
@@ -63,6 +75,20 @@ public abstract class BaseTest {
     if (firstException.compareAndSet(null, e)) {
       LOG.error("Set firstException", e);
     }
+  }
+
+  public RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
+    RoutingTable.Builder builder = RoutingTable.newBuilder();
+    RaftPeer previous = primary;
+    for (RaftPeer peer : peers) {
+      if (peer.equals(primary)) {
+        continue;
+      }
+      builder.addSuccessor(previous.getId(), peer.getId());
+      previous = peer;
+    }
+
+    return builder.build();
   }
 
   @After

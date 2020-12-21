@@ -92,6 +92,7 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
 
       when(raftServer.getProperties()).thenReturn(properties);
       when(raftServer.getId()).thenReturn(peerId);
+      when(raftServer.getPeer()).thenReturn(RaftPeer.newBuilder().setId(peerId).build());
       if (getStateMachineException == null) {
         MyDivision myDivision = new MyDivision(raftServer);
         when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenReturn(myDivision);

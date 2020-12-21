@@ -54,10 +54,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -77,8 +78,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       map.addRaftPeers(newPeers);
     }
 
-    List<DataStreamOutputRpc> getDataStreamOutput(RaftClientRequest request, List<RaftPeer> peers) throws IOException {
-      final List<DataStreamOutputRpc> outs = new ArrayList<>();
+    Set<DataStreamOutputRpc> getDataStreamOutput(RaftClientRequest request, Set<RaftPeer> peers) throws IOException {
+      final Set<DataStreamOutputRpc> outs = new HashSet<>();
       try {
         getDataStreamOutput(request, peers, outs);
       } catch (IOException e) {
@@ -88,7 +89,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return outs;
     }
 
-    private void getDataStreamOutput(RaftClientRequest request, List<RaftPeer> peers, List<DataStreamOutputRpc> outs)
+    private void getDataStreamOutput(RaftClientRequest request, Set<RaftPeer> peers, Set<DataStreamOutputRpc> outs)
         throws IOException {
       for (RaftPeer peer : peers) {
         try {

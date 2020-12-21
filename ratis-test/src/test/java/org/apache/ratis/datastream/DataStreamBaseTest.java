@@ -195,6 +195,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   protected RaftProperties properties;
 
   private List<Server> servers;
+  private List<RaftPeer> peers;
   private RaftGroup raftGroup;
 
   Server getPrimaryServer() {
@@ -373,6 +374,7 @@ abstract class DataStreamBaseTest extends BaseTest {
 
   void setup(RaftGroupId groupId, List<RaftPeer> peers, List<RaftServer> raftServers) {
     raftGroup = RaftGroup.valueOf(groupId, peers);
+    this.peers = peers;
     servers = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
@@ -420,7 +422,8 @@ abstract class DataStreamBaseTest extends BaseTest {
       Exception expectedException, Exception headerException)
       throws IOException {
     try (final RaftClient client = newRaftClientForDataStream(clientId)) {
-      final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi().stream();
+      final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
+          .stream(null, getRoutingTable(peers, getPrimaryServer().getPeer()));
       if (headerException != null) {
         final DataStreamReply headerReply = out.getHeaderFuture().join();
         Assert.assertFalse(headerReply.isSuccess());

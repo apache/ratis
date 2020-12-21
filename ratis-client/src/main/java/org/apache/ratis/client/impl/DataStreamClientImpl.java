@@ -183,10 +183,16 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutputRpc stream(ByteBuffer headerMessage) {
+    return stream(headerMessage, null);
+  }
+
+  @Override
+  public DataStreamOutputRpc stream(ByteBuffer headerMessage, RoutingTable routingTable) {
     final Message message =
         Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
     RaftClientRequest request = new RaftClientRequest(clientId, dataStreamServer.getId(), groupId,
-        CallId.getAndIncrement(), message, RaftClientRequest.dataStreamRequestType(), null);
+        CallId.getAndIncrement(), message, RaftClientRequest.dataStreamRequestType(), null,
+        routingTable);
     return new DataStreamOutputImpl(request);
   }
 

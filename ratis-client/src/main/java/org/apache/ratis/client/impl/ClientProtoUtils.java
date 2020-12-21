@@ -115,9 +115,26 @@ public interface ClientProtoUtils {
     }
   }
 
+  static RoutingTable getRoutingTable(RaftClientRequestProto p) {
+    if (!p.hasRoutingTable()) {
+      return null;
+    }
+
+    RoutingTable.Builder builder = RoutingTable.newBuilder();
+    for (RouteProto routeProto : p.getRoutingTable().getRoutesList()) {
+      RaftPeerId from = RaftPeerId.valueOf(routeProto.getPeerId().getId());
+      List<RaftPeerId> to = routeProto.getSuccessorsList().stream()
+          .map(v -> RaftPeerId.valueOf(v.getId())).collect(Collectors.toList());
+      builder.addSuccessors(from, to);
+    }
+
+    return builder.build();
+  }
+
   static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
     final RaftClientRequest.Type type = toRaftClientRequestType(p);
     final RaftRpcRequestProto request = p.getRpcRequest();
+
     return new RaftClientRequest(
         ClientId.valueOf(request.getRequestorId()),
         RaftPeerId.valueOf(request.getReplyId()),
@@ -125,7 +142,8 @@ public interface ClientProtoUtils {
         request.getCallId(),
         toMessage(p.getMessage()),
         type,
-        request.getSlidingWindowEntry());
+        request.getSlidingWindowEntry(),
+        getRoutingTable(p));
   }
 
   static ByteBuffer toRaftClientRequestProtoByteBuffer(RaftClientRequest request) {
@@ -137,6 +155,10 @@ public interface ClientProtoUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
     if (request.getMessage() != null) {
       b.setMessage(toClientMessageEntryProtoBuilder(request.getMessage()));
+    }
+
+    if (request.getRoutingTable() != null) {
+      b.setRoutingTable(request.getRoutingTable().toProto());
     }
 
     final RaftClientRequest.Type type = request.getType();

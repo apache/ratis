@@ -17,13 +17,16 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.proto.RaftProtos.RaftPeerIdProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /**
  * Id of Raft Peer which is globally unique.
@@ -51,15 +54,28 @@ public final class RaftPeerId {
   /** The corresponding bytes of {@link #idString}. */
   private final ByteString id;
 
+  private final Supplier<RaftPeerIdProto> raftPeerIdProto;
+
   private RaftPeerId(String id) {
     this.idString = Objects.requireNonNull(id, "id == null");
     this.id = ByteString.copyFrom(idString, StandardCharsets.UTF_8);
+    this.raftPeerIdProto = JavaUtils.memoize(this::buildRaftPeerIdProto);
   }
 
   private RaftPeerId(ByteString id) {
     this.id = Objects.requireNonNull(id, "id == null");
     Preconditions.assertTrue(id.size() > 0, "id is empty.");
     this.idString = id.toString(StandardCharsets.UTF_8);
+    this.raftPeerIdProto = JavaUtils.memoize(this::buildRaftPeerIdProto);
+  }
+
+  private RaftPeerIdProto buildRaftPeerIdProto() {
+    final RaftPeerIdProto.Builder builder = RaftPeerIdProto.newBuilder().setId(id);
+    return builder.build();
+  }
+
+  public RaftPeerIdProto getRaftPeerIdProto() {
+    return raftPeerIdProto.get();
   }
 
   /**

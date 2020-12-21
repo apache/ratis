@@ -134,7 +134,7 @@ class FileStoreWriter implements Closeable {
     return this;
   }
 
-  public FileStoreWriter streamWriteAndVerify() throws IOException {
+  public FileStoreWriter streamWriteAndVerify() {
     final int size = fileSize.getSizeInt();
     final DataStreamOutput dataStreamOutput = client.getStreamOutput(fileName, size);
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();

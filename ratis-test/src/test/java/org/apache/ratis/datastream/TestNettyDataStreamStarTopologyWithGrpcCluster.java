@@ -17,7 +17,25 @@
  */
 package org.apache.ratis.datastream;
 
-public class TestNettyDataStreamWithGrpcCluster
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RoutingTable;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class TestNettyDataStreamStarTopologyWithGrpcCluster
     extends DataStreamAsyncClusterTests<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty>
     implements MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty.FactoryGet {
+
+  @Override
+  public RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
+    RoutingTable.Builder builder = RoutingTable.newBuilder();
+    final List<RaftPeerId> others = peers.stream()
+        .filter(p -> !p.getId().equals(primary.getId())).map(v -> v.getId())
+        .collect(Collectors.toList());
+    builder.addSuccessors(primary.getId(), others);
+    return builder.build();
+  }
 }

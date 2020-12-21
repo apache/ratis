@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.client.api;
 
+import org.apache.ratis.protocol.RoutingTable;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -44,4 +46,7 @@ public interface DataStreamApi {
 
   /** Create a stream by providing a customized header message. */
   DataStreamOutput stream(ByteBuffer headerMessage);
+
+  /** Create a stream by providing a customized header message and route table. */
+  DataStreamOutput stream(ByteBuffer headerMessage, RoutingTable routingTable);
 }

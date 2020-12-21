@@ -28,6 +28,10 @@ message RaftPeerProto {
   string dataStreamAddress = 4; // address of the data stream server
 }
 
+message RaftPeerIdProto {
+  bytes id = 1;      // id of the peer
+}
+
 message RaftGroupIdProto {
   bytes id = 1;
 }
@@ -280,6 +284,15 @@ message WatchRequestTypeProto {
   ReplicationLevel replication = 2;
 }
 
+message RouteProto {
+  RaftPeerIdProto peerId = 1;
+  repeated RaftPeerIdProto successors = 2;
+}
+
+message RoutingTableProto {
+  repeated RouteProto routes = 1;
+}
+
 // normal client request
 message RaftClientRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
@@ -294,6 +307,8 @@ message RaftClientRequestProto {
     DataStreamRequestTypeProto dataStream = 8;
     ForwardRequestTypeProto forward = 9;
   }
+
+  RoutingTableProto routingTable = 10;
 }
 
 message DataStreamPacketHeaderProto {

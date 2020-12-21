@@ -67,10 +67,10 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
     final RaftGroup raftGroup = cluster.getGroup();
     final Collection<RaftPeer> peers = raftGroup.getPeers();
     Assert.assertEquals(NUM_PEERS, peers.size());
-    RaftPeer raftPeer = peers.iterator().next();
+    RaftPeer primary = peers.iterator().next();
 
     final CheckedSupplier<FileStoreClient, IOException> newClient =
-        () -> new FileStoreClient(cluster.getGroup(), getProperties(), raftPeer);
+        () -> new FileStoreClient(cluster.getGroup(), getProperties(), primary);
 
     testSingleFile("foo", SizeInBytes.valueOf("2M"), 10_000, newClient);
     testSingleFile("bar", SizeInBytes.valueOf("2M"), 1000, newClient);
@@ -88,10 +88,10 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
     final RaftGroup raftGroup = cluster.getGroup();
     final Collection<RaftPeer> peers = raftGroup.getPeers();
     Assert.assertEquals(NUM_PEERS, peers.size());
-    RaftPeer raftPeer = peers.iterator().next();
+    RaftPeer primary = peers.iterator().next();
 
     final CheckedSupplier<FileStoreClient, IOException> newClient =
-        () -> new FileStoreClient(cluster.getGroup(), getProperties(), raftPeer);
+        () -> new FileStoreClient(cluster.getGroup(), getProperties(), primary);
 
     testMultipleFiles("foo", 5, SizeInBytes.valueOf("2M"), 10_000, newClient);
     testMultipleFiles("bar", 10, SizeInBytes.valueOf("2M"), 1000, newClient);
@@ -132,9 +132,5 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
     for (Future<FileStoreWriter> future : writerFutures) {
       future.get();
     }
-  }
-
-  static class StreamWriter {
-
   }
 }

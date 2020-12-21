@@ -235,17 +235,28 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private final SlidingWindowEntry slidingWindowEntry;
 
+  private final RoutingTable routingTable;
+
   public RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
-    this(clientId, serverId, groupId, callId, null, type, null);
+    this(clientId, serverId, groupId, callId, null, type, null, null);
   }
 
   public RaftClientRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry) {
+    this(clientId, serverId, groupId, callId, message, type, slidingWindowEntry, null);
+  }
+
+  @SuppressWarnings("parameternumber")
+  public RaftClientRequest(
+      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
+      long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry,
+      RoutingTable routingTable) {
     super(clientId, serverId, groupId, callId);
     this.message = message;
     this.type = type;
     this.slidingWindowEntry = slidingWindowEntry != null? slidingWindowEntry: SlidingWindowEntry.getDefaultInstance();
+    this.routingTable = routingTable;
   }
 
   @Override
@@ -267,6 +278,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public boolean is(RaftClientRequestProto.TypeCase typeCase) {
     return getType().is(typeCase);
+  }
+
+  public RoutingTable getRoutingTable() {
+    return routingTable;
   }
 
   @Override
