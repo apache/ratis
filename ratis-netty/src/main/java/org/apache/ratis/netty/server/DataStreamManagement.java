@@ -55,12 +55,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -101,17 +100,17 @@ public class DataStreamManagement {
     }
   }
 
-  static class StreamInfo implements RoutingTable {
+  static class StreamInfo {
     private final RaftClientRequest request;
     private final boolean primary;
     private final LocalStream local;
-    private final List<RemoteStream> remotes;
+    private final Set<RemoteStream> remotes;
     private final RaftServer server;
     private final AtomicReference<CompletableFuture<Void>> previous
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     StreamInfo(RaftClientRequest request, boolean primary, CompletableFuture<DataStream> stream, RaftServer server,
-        CheckedBiFunction<RaftClientRequest, List<RaftPeer>, List<DataStreamOutputRpc>, IOException> getStreams)
+        CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams)
         throws IOException {
       this.request = request;
       this.primary = primary;
@@ -120,10 +119,9 @@ public class DataStreamManagement {
       // get the other peers from the current configuration
       final RaftGroupId groupId = request.getRaftGroupId();
       final RaftConfiguration conf = server.getDivision(groupId).getRaftConf();
-      final List<RaftPeer> successors = getSuccessors(server.getId()).stream()
-          .map(id -> conf.getPeer(id)).collect(Collectors.toList());
-      final List<DataStreamOutputRpc> outs = getStreams.apply(request, successors);
-      this.remotes = outs.stream().map(RemoteStream::new).collect(Collectors.toList());
+      final Set<RaftPeer> successors = getSuccessors(server.getId());
+      final Set<DataStreamOutputRpc> outs = getStreams.apply(request, successors);
+      this.remotes = outs.stream().map(RemoteStream::new).collect(Collectors.toSet());
     }
 
     AtomicReference<CompletableFuture<Void>> getPrevious() {
@@ -151,20 +149,24 @@ public class DataStreamManagement {
       return JavaUtils.getClassSimpleName(getClass()) + ":" + request;
     }
 
-    @Override
-    public List<RaftPeerId> getSuccessors(RaftPeerId peerId) throws IOException {
-      Map<RaftPeerId, List<RaftPeerId>> routingTable = request.getRoutingTable();
-      if (routingTable.containsKey(peerId)) {
-        return routingTable.get(peerId);
-      } else if (isPrimary()) {
-        // Default start topology
-        final RaftGroupId groupId = request.getRaftGroupId();
-        return server.getDivision(groupId).getRaftConf().getCurrentPeers().stream()
-            .filter(p -> !p.getId().equals(server.getId())).map(RaftPeer::getId)
-            .collect(Collectors.toList());
-      } else {
-        return Collections.emptyList();
+    private Set<RaftPeer> getSuccessors(RaftPeerId peerId) throws IOException {
+      final RoutingTable routingTable = request.getRoutingTable();
+      final RaftGroupId groupId = request.getRaftGroupId();
+      final RaftConfiguration conf = server.getDivision(groupId).getRaftConf();
+      Set<RaftPeer> successors = routingTable.getSuccessors(peerId).stream().map(conf::getPeer)
+          .collect(Collectors.toSet());
+      if (successors.size() > 0) {
+        return successors;
       }
+
+      if (isPrimary()) {
+        // Default start topology
+        return conf.getCurrentPeers().stream()
+            .filter(p -> !p.getId().equals(server.getId()))
+            .collect(Collectors.toSet());
+      }
+
+      return Collections.emptySet();
     }
   }
 
@@ -253,7 +255,7 @@ public class DataStreamManagement {
   }
 
   private StreamInfo newStreamInfo(ByteBuf buf,
-      CheckedBiFunction<RaftClientRequest, List<RaftPeer>, List<DataStreamOutputRpc>, IOException> getStreams) {
+      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
     try {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
@@ -372,7 +374,7 @@ public class DataStreamManagement {
   }
 
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
-      CheckedBiFunction<RaftClientRequest, List<RaftPeer>, List<DataStreamOutputRpc>, IOException> getStreams) {
+      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
     boolean close = WriteOption.containsOption(request.getWriteOptions(), StandardWriteOption.CLOSE);

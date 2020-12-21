@@ -22,6 +22,7 @@ import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.proto.RaftProtos.RoutingTableProto;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -42,9 +43,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
@@ -74,18 +77,18 @@ public abstract class BaseTest {
     }
   }
 
-  public Map<RaftPeerId, List<RaftPeerId>> getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
+  public RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
+    RoutingTable.Builder builder = new RoutingTable.Builder();
     RaftPeer previous = primary;
-    Map<RaftPeerId, List<RaftPeerId>> routingTable = new HashMap<>();
     for (RaftPeer peer : peers) {
       if (peer.equals(primary)) {
         continue;
       }
-      routingTable.computeIfAbsent(previous.getId(), key -> new ArrayList<>()).add(peer.getId());
+      builder.addSuccessor(previous.getId(), peer.getId());
       previous = peer;
     }
 
-    return routingTable;
+    return builder.build();
   }
 
   @After

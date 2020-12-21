@@ -43,6 +43,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -167,9 +168,9 @@ public interface ProtoUtils {
   }
 
   static Iterable<RouteProto> toRouteProtos(
-      final Map<RaftPeerId, List<RaftPeerId>> routingTable) {
+      final Map<RaftPeerId, Set<RaftPeerId>> routingTable) {
     return () -> new Iterator<RouteProto>() {
-      private final Iterator<Map.Entry<RaftPeerId, List<RaftPeerId>>> i = routingTable.entrySet().iterator();
+      private final Iterator<Map.Entry<RaftPeerId, Set<RaftPeerId>>> i = routingTable.entrySet().iterator();
 
       @Override
       public boolean hasNext() {
@@ -178,7 +179,7 @@ public interface ProtoUtils {
 
       @Override
       public RouteProto next() {
-        Map.Entry<RaftPeerId, List<RaftPeerId>> entry = i.next();
+        Map.Entry<RaftPeerId, Set<RaftPeerId>> entry = i.next();
         return RouteProto.newBuilder()
             .setFrom(entry.getKey().getRaftPeerIdProto())
             .addAllTo(toRaftPeerIdProtos(entry.getValue()))

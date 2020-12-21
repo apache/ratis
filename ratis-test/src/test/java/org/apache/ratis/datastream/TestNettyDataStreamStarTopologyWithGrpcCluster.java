@@ -19,11 +19,10 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RoutingTable;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 public class TestNettyDataStreamStarTopologyWithGrpcCluster
@@ -31,12 +30,12 @@ public class TestNettyDataStreamStarTopologyWithGrpcCluster
     implements MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty.FactoryGet {
 
   @Override
-  public Map<RaftPeerId, List<RaftPeerId>> getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
-    Map<RaftPeerId, List<RaftPeerId>> routingTable = new HashMap<>();
+  public RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
+    RoutingTable.Builder builder = new RoutingTable.Builder();
     final List<RaftPeerId> others = peers.stream()
         .filter(p -> !p.getId().equals(primary.getId())).map(v -> v.getId())
         .collect(Collectors.toList());
-    routingTable.put(primary.getId(), others);
-    return routingTable;
+    builder.addSuccessors(primary.getId(), others);
+    return builder.build();
   }
 }

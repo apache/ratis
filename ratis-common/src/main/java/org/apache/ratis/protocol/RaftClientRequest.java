@@ -21,9 +21,6 @@ import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.*;
@@ -238,7 +235,7 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private final SlidingWindowEntry slidingWindowEntry;
 
-  private final Map<RaftPeerId, List<RaftPeerId>> routingTable;
+  private final RoutingTable routingTable;
 
   public RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
     this(clientId, serverId, groupId, callId, null, type, null, null);
@@ -254,12 +251,12 @@ public class RaftClientRequest extends RaftClientMessage {
   public RaftClientRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry,
-      Map<RaftPeerId, List<RaftPeerId>> routingTable) {
+      RoutingTable routingTable) {
     super(clientId, serverId, groupId, callId);
     this.message = message;
     this.type = type;
     this.slidingWindowEntry = slidingWindowEntry != null? slidingWindowEntry: SlidingWindowEntry.getDefaultInstance();
-    this.routingTable = routingTable != null? routingTable : new HashMap<>();
+    this.routingTable = routingTable != null ? routingTable : new RoutingTable.Builder().build();
   }
 
   @Override
@@ -283,7 +280,7 @@ public class RaftClientRequest extends RaftClientMessage {
     return getType().is(typeCase);
   }
 
-  public Map<RaftPeerId, List<RaftPeerId>> getRoutingTable() {
+  public RoutingTable getRoutingTable() {
     return routingTable;
   }
 
