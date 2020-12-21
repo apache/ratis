@@ -24,7 +24,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
-import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -76,7 +76,7 @@ import com.codahale.metrics.Timer;
  * in segments should be no smaller than the last index of snapshot, otherwise
  * we may have hole when append further log.
  */
-public class SegmentedRaftLog extends RaftLog {
+public class SegmentedRaftLog extends RaftLogBase {
   /**
    * I/O task definitions.
    */
@@ -286,7 +286,7 @@ public class SegmentedRaftLog extends RaftLog {
       throw new RaftLogIOException("Log entry not found: index = " + index);
     }
     if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
-      return new EntryWithData(entry, null);
+      return newEntryWithData(entry, null);
     }
 
     try {
@@ -297,7 +297,7 @@ public class SegmentedRaftLog extends RaftLog {
           return null;
         });
       }
-      return new EntryWithData(entry, future);
+      return newEntryWithData(entry, future);
     } catch (Exception e) {
       final String err = getName() + ": Failed readStateMachineData for " +
           LogProtoUtils.toLogEntryString(entry);
@@ -465,7 +465,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public void writeMetadata(RaftStorageMetadata metadata) throws IOException {
+  public void persistMetadata(RaftStorageMetadata metadata) throws IOException {
     storage.getMetadataFile().persist(metadata);
   }
 
@@ -475,7 +475,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public CompletableFuture<Long> syncWithSnapshot(long lastSnapshotIndex) {
+  public CompletableFuture<Long> onSnapshotInstalled(long lastSnapshotIndex) {
     fileLogWorker.syncWithSnapshot(lastSnapshotIndex);
     // TODO purge normal/tmp/corrupt snapshot files
     // if the last index in snapshot is larger than the index of the last

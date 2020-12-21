@@ -23,7 +23,7 @@ import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RATIS_LOG_
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
-import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.AutoCloseableLock;
 
@@ -45,7 +45,7 @@ public interface RaftStorageTestUtils {
         + "." + memberId + "." + metricName;
   }
 
-  static void printLog(RaftLog log, Consumer<String> println) {
+  static void printLog(RaftLogBase log, Consumer<String> println) {
     if (log == null) {
       println.accept("log == null");
       return;

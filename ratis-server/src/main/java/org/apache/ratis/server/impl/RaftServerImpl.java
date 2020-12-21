@@ -93,6 +93,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
+  static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
 
   class Info implements DivisionInfo {
     @Override
@@ -1178,7 +1179,7 @@ class RaftServerImpl implements RaftServer.Division,
     commitInfos.forEach(commitInfoCache::update);
 
     if (!isHeartbeat) {
-      CodeInjectionForTesting.execute(RaftLog.LOG_SYNC, getId(), null);
+      CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);
     }
     return JavaUtils.allOf(futures).whenCompleteAsync(
         (r, t) -> followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE))

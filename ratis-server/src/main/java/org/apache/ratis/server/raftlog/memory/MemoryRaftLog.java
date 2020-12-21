@@ -22,7 +22,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.metrics.RaftLogMetricsBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
@@ -37,7 +37,7 @@ import java.util.function.LongSupplier;
 /**
  * A simple RaftLog implementation in memory. Used only for testing.
  */
-public class MemoryRaftLog extends RaftLog {
+public class MemoryRaftLog extends RaftLogBase {
   static class EntryList {
     private final List<LogEntryProto> entries = new ArrayList<>();
 
@@ -96,7 +96,7 @@ public class MemoryRaftLog extends RaftLog {
 
   @Override
   public EntryWithData getEntryWithData(long index) {
-    return new EntryWithData(get(index), null);
+    return newEntryWithData(get(index), null);
   }
 
   @Override
@@ -217,7 +217,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public void writeMetadata(RaftStorageMetadata newMetadata) {
+  public void persistMetadata(RaftStorageMetadata newMetadata) {
     metadata.set(newMetadata);
   }
 
@@ -227,7 +227,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public CompletableFuture<Long> syncWithSnapshot(long lastSnapshotIndex) {
+  public CompletableFuture<Long> onSnapshotInstalled(long lastSnapshotIndex) {
     return CompletableFuture.completedFuture(lastSnapshotIndex);
     // do nothing
   }
