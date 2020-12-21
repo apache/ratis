@@ -65,7 +65,7 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
       case METADATAENTRY:
         registry.counter(METADATA_LOG_ENTRY_COUNT).inc();
         return;
-      case LOGENTRYBODY_NOT_SET:
+      case STATEMACHINELOGENTRY:
         registry.counter(STATE_MACHINE_LOG_ENTRY_COUNT).inc();
         return;
       default:
