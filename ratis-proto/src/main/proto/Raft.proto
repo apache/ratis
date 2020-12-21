@@ -285,12 +285,12 @@ message WatchRequestTypeProto {
 }
 
 message RouteProto {
-  RaftPeerIdProto from = 1;
-  repeated RaftPeerIdProto to = 2;
+  RaftPeerIdProto peerId = 1;
+  repeated RaftPeerIdProto successors = 2;
 }
 
 message RoutingTableProto {
-  repeated RouteProto routingTable = 1;
+  repeated RouteProto routes = 1;
 }
 
 // normal client request

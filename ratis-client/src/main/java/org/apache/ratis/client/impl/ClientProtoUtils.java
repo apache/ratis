@@ -115,16 +115,25 @@ public interface ClientProtoUtils {
     }
   }
 
+  static RoutingTable getRoutingTable(RaftClientRequestProto p) {
+    if (!p.hasRoutingTable()) {
+      return null;
+    }
+
+    RoutingTable.Builder builder = RoutingTable.newBuilder();
+    for (RouteProto routeProto : p.getRoutingTable().getRoutesList()) {
+      RaftPeerId from = RaftPeerId.valueOf(routeProto.getPeerId().getId());
+      List<RaftPeerId> to = routeProto.getSuccessorsList().stream()
+          .map(v -> RaftPeerId.valueOf(v.getId())).collect(Collectors.toList());
+      builder.addSuccessors(from, to);
+    }
+
+    return builder.build();
+  }
+
   static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
     final RaftClientRequest.Type type = toRaftClientRequestType(p);
     final RaftRpcRequestProto request = p.getRpcRequest();
-    RoutingTable.Builder routingTablebuilder = new RoutingTable.Builder();
-    for (RouteProto routeProto : p.getRoutingTable().getRoutingTableList()) {
-      RaftPeerId from = RaftPeerId.valueOf(routeProto.getFrom().getId());
-      List<RaftPeerId> to = routeProto.getToList().stream()
-          .map(v -> RaftPeerId.valueOf(v.getId())).collect(Collectors.toList());
-      routingTablebuilder.addSuccessors(from, to);
-    }
 
     return new RaftClientRequest(
         ClientId.valueOf(request.getRequestorId()),
@@ -134,7 +143,7 @@ public interface ClientProtoUtils {
         toMessage(p.getMessage()),
         type,
         request.getSlidingWindowEntry(),
-        routingTablebuilder.build());
+        getRoutingTable(p));
   }
 
   static ByteBuffer toRaftClientRequestProtoByteBuffer(RaftClientRequest request) {
@@ -148,7 +157,9 @@ public interface ClientProtoUtils {
       b.setMessage(toClientMessageEntryProtoBuilder(request.getMessage()));
     }
 
-    b.setRoutingTable(request.getRoutingTable().toProto());
+    if (request.getRoutingTable() != null) {
+      b.setRoutingTable(request.getRoutingTable().toProto());
+    }
 
     final RaftClientRequest.Type type = request.getType();
     switch (type.getTypeCase()) {

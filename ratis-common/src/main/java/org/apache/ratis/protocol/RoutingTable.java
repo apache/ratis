@@ -35,8 +35,15 @@ public interface RoutingTable {
 
   RoutingTableProto toProto();
 
+  static Builder newBuilder() {
+    return new Builder();
+  }
+
+
   class Builder {
     private final AtomicReference<Map<RaftPeerId, Set<RaftPeerId>>> ref = new AtomicReference<>(new HashMap<>());
+
+    private Builder() {}
 
     private Set<RaftPeerId> computeIfAbsent(RaftPeerId peerId) {
       return Optional.ofNullable(ref.get())
@@ -74,7 +81,7 @@ public interface RoutingTable {
 
       @Override
       public RoutingTableProto toProto() {
-        return RoutingTableProto.newBuilder().addAllRoutingTable(ProtoUtils.toRouteProtos(map)).build();
+        return RoutingTableProto.newBuilder().addAllRoutes(ProtoUtils.toRouteProtos(map)).build();
       }
     };
   }

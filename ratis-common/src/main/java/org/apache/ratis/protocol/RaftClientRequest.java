@@ -256,7 +256,7 @@ public class RaftClientRequest extends RaftClientMessage {
     this.message = message;
     this.type = type;
     this.slidingWindowEntry = slidingWindowEntry != null? slidingWindowEntry: SlidingWindowEntry.getDefaultInstance();
-    this.routingTable = routingTable != null ? routingTable : new RoutingTable.Builder().build();
+    this.routingTable = routingTable;
   }
 
   @Override

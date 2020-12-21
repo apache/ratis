@@ -78,7 +78,7 @@ public abstract class BaseTest {
   }
 
   public RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
-    RoutingTable.Builder builder = new RoutingTable.Builder();
+    RoutingTable.Builder builder = RoutingTable.newBuilder();
     RaftPeer previous = primary;
     for (RaftPeer peer : peers) {
       if (peer.equals(primary)) {

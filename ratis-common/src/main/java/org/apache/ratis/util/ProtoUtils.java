@@ -181,8 +181,8 @@ public interface ProtoUtils {
       public RouteProto next() {
         Map.Entry<RaftPeerId, Set<RaftPeerId>> entry = i.next();
         return RouteProto.newBuilder()
-            .setFrom(entry.getKey().getRaftPeerIdProto())
-            .addAllTo(toRaftPeerIdProtos(entry.getValue()))
+            .setPeerId(entry.getKey().getRaftPeerIdProto())
+            .addAllSuccessors(toRaftPeerIdProtos(entry.getValue()))
             .build();
       }
     };

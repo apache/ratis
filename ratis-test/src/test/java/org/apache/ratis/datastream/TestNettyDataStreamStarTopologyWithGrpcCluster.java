@@ -31,7 +31,7 @@ public class TestNettyDataStreamStarTopologyWithGrpcCluster
 
   @Override
   public RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
-    RoutingTable.Builder builder = new RoutingTable.Builder();
+    RoutingTable.Builder builder = RoutingTable.newBuilder();
     final List<RaftPeerId> others = peers.stream()
         .filter(p -> !p.getId().equals(primary.getId())).map(v -> v.getId())
         .collect(Collectors.toList());

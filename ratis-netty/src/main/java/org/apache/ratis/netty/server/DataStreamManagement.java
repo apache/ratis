@@ -116,9 +116,6 @@ public class DataStreamManagement {
       this.primary = primary;
       this.local = new LocalStream(stream);
       this.server = server;
-      // get the other peers from the current configuration
-      final RaftGroupId groupId = request.getRaftGroupId();
-      final RaftConfiguration conf = server.getDivision(groupId).getRaftConf();
       final Set<RaftPeer> successors = getSuccessors(server.getId());
       final Set<DataStreamOutputRpc> outs = getStreams.apply(request, successors);
       this.remotes = outs.stream().map(RemoteStream::new).collect(Collectors.toSet());
@@ -150,17 +147,17 @@ public class DataStreamManagement {
     }
 
     private Set<RaftPeer> getSuccessors(RaftPeerId peerId) throws IOException {
-      final RoutingTable routingTable = request.getRoutingTable();
       final RaftGroupId groupId = request.getRaftGroupId();
       final RaftConfiguration conf = server.getDivision(groupId).getRaftConf();
-      Set<RaftPeer> successors = routingTable.getSuccessors(peerId).stream().map(conf::getPeer)
-          .collect(Collectors.toSet());
-      if (successors.size() > 0) {
-        return successors;
+      final RoutingTable routingTable = request.getRoutingTable();
+
+      if (routingTable != null) {
+        return routingTable.getSuccessors(peerId).stream().map(conf::getPeer).collect(Collectors.toSet());
       }
 
       if (isPrimary()) {
         // Default start topology
+        // get the other peers from the current configuration
         return conf.getCurrentPeers().stream()
             .filter(p -> !p.getId().equals(server.getId()))
             .collect(Collectors.toSet());
