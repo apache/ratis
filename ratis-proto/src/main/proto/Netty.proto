@@ -38,6 +38,7 @@ message RaftNettyServerRequestProto {
     ratis.common.GroupManagementRequestProto groupManagementRequest = 6;
     ratis.common.GroupListRequestProto groupListRequest = 7;
     ratis.common.GroupInfoRequestProto groupInfoRequest = 8;
+    ratis.common.TransferLeadershipRequestProto transferLeadershipRequest = 9;
   }
 }
 

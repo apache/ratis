@@ -52,6 +52,7 @@ enum ClientOps {
     groupManagement = 3;
     groupList = 4;
     groupInfo = 5;
+    transferLeadership = 6;
 }
 
 message ClientRequestProto {

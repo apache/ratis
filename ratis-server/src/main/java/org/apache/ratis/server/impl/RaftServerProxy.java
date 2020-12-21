@@ -426,6 +426,12 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
+  public RaftClientReply transferLeadership(TransferLeadershipRequest request)
+      throws IOException {
+    return getImpl(request.getRaftGroupId()).transferLeadership(request);
+  }
+
+  @Override
   public RaftClientReply groupManagement(GroupManagementRequest request) throws IOException {
     return RaftServerImpl.waitForReply(getId(), request, groupManagementAsync(request),
         e -> RaftClientReply.newBuilder()
@@ -526,6 +532,11 @@ class RaftServerProxy implements RaftServer {
   @Override
   public CompletableFuture<RaftClientReply> setConfigurationAsync(SetConfigurationRequest request) {
     return submitRequest(request.getRaftGroupId(), impl -> impl.setConfigurationAsync(request));
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request) {
+    return submitRequest(request.getRaftGroupId(), impl -> impl.transferLeadershipAsync(request));
   }
 
   @Override

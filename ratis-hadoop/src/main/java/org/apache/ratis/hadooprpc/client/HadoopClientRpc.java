@@ -52,6 +52,8 @@ public class HadoopClientRpc extends RaftClientRpcWithProxy<CombinedClientProtoc
         return proxy.getGroupList((GroupListRequest) request);
       } else if (request instanceof GroupInfoRequest) {
         return proxy.getGroupInfo((GroupInfoRequest) request);
+      } else if (request instanceof TransferLeadershipRequest) {
+        return proxy.transferLeadership((TransferLeadershipRequest) request);
       } else {
         return proxy.submitClientRequest(request);
       }
