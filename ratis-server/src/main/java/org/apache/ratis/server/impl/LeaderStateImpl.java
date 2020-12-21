@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -39,9 +40,9 @@ import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.LogAppenderMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
@@ -719,31 +720,34 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
+  private void updateCommit(LogEntryHeader[] entriesToCommit) {
+    final long newCommitIndex = raftLog.getLastCommittedIndex();
+    logMetadata(newCommitIndex);
+    commitIndexChanged();
+
+    boolean hasConfiguration = false;
+    for (LogEntryHeader entry : entriesToCommit) {
+      if (entry.getIndex() > newCommitIndex) {
+        break;
+      }
+      hasConfiguration |= entry.getLogEntryBodyCase() == LogEntryBodyCase.CONFIGURATIONENTRY;
+      raftLog.getRaftLogMetrics().onLogEntryCommitted(entry);
+    }
+    if (hasConfiguration) {
+      checkAndUpdateConfiguration();
+    }
+  }
+
   private void updateCommit(long majority, long min) {
     final long oldLastCommitted = raftLog.getLastCommittedIndex();
     if (majority > oldLastCommitted) {
-      // copy the entries out from the raftlog, in order to prevent that
-      // the log gets purged after the statemachine does a snapshot
-      final TermIndex[] entriesToCommit = raftLog.getEntries(
-          oldLastCommitted + 1, majority + 1);
+      // Get the headers before updating commit index since the log can be purged after a snapshot
+      final LogEntryHeader[] entriesToCommit = raftLog.getEntries(oldLastCommitted + 1, majority + 1);
 
       if (server.getState().updateCommitIndex(majority, currentTerm, true)) {
-        watchRequests.update(ReplicationLevel.MAJORITY, majority);
-        logMetadata(majority);
-        commitIndexChanged();
+        updateCommit(entriesToCommit);
       }
-
-      try {
-        for (TermIndex entry : entriesToCommit) {
-          raftLog.getRaftLogMetrics().onLogEntryCommitted(raftLog.get(entry.getIndex()));
-        }
-      } catch (RaftLogIOException e) {
-        LOG.error("Caught exception reading from RaftLog", e);
-      }
-
-      checkAndUpdateConfiguration(entriesToCommit);
     }
-
     watchRequests.update(ReplicationLevel.ALL, min);
   }
 
@@ -752,36 +756,24 @@ class LeaderStateImpl implements LeaderState {
     notifySenders();
   }
 
-  private boolean committedConf(TermIndex[] entries) {
-    final long currentCommitted = raftLog.getLastCommittedIndex();
-    for (TermIndex entry : entries) {
-      if (entry.getIndex() <= currentCommitted && raftLog.isConfigEntry(entry)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private void checkAndUpdateConfiguration(TermIndex[] entriesToCheck) {
+  private void checkAndUpdateConfiguration() {
     final RaftConfigurationImpl conf = server.getRaftConf();
-    if (committedConf(entriesToCheck)) {
-      if (conf.isTransitional()) {
-        replicateNewConf();
-      } else { // the (new) log entry has been committed
-        pendingRequests.replySetConfiguration(server::newSuccessReply);
-        // if the leader is not included in the current configuration, step down
-        if (!conf.containsInConf(server.getId())) {
-          LOG.info("{} is not included in the new configuration {}. Will shutdown server...", this, conf);
-          try {
-            // leave some time for all RPC senders to send out new conf entry
-            server.properties().minRpcTimeout().sleep();
-          } catch (InterruptedException ignored) {
-            Thread.currentThread().interrupt();
-          }
-          // the pending request handler will send NotLeaderException for
-          // pending client requests when it stops
-          server.close();
+    if (conf.isTransitional()) {
+      replicateNewConf();
+    } else { // the (new) log entry has been committed
+      pendingRequests.replySetConfiguration(server::newSuccessReply);
+      // if the leader is not included in the current configuration, step down
+      if (!conf.containsInConf(server.getId())) {
+        LOG.info("{} is not included in the new configuration {}. Will shutdown server...", this, conf);
+        try {
+          // leave some time for all RPC senders to send out new conf entry
+          server.properties().minRpcTimeout().sleep();
+        } catch (InterruptedException ignored) {
+          Thread.currentThread().interrupt();
         }
+        // the pending request handler will send NotLeaderException for
+        // pending client requests when it stops
+        server.close();
       }
     }
   }

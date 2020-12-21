@@ -23,6 +23,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -326,7 +327,7 @@ public class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  public TermIndex[] getEntries(long startIndex, long endIndex) {
+  public LogEntryHeader[] getEntries(long startIndex, long endIndex) {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {
       return cache.getTermIndices(startIndex, endIndex);
@@ -496,11 +497,6 @@ public class SegmentedRaftLog extends RaftLogBase {
       }
     }
     return purgeImpl(lastSnapshotIndex);
-  }
-
-  @Override
-  public boolean isConfigEntry(TermIndex ti) {
-    return cache.isConfigEntry(ti);
   }
 
   @Override

@@ -34,6 +34,7 @@ import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.server.metrics.RaftLogMetricsBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -198,7 +199,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         Assert.assertEquals(e, entry);
       }
 
-      TermIndex[] termIndices = raftLog.getEntries(0, 500);
+      final LogEntryHeader[] termIndices = raftLog.getEntries(0, 500);
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
           .map(ti -> {
             try {
@@ -406,7 +407,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         LogEntryProto entry = raftLog.get(expected.get(i).getIndex());
         Assert.assertEquals(expected.get(i), entry);
       }
-      TermIndex[] termIndices = raftLog.getEntries(
+      final LogEntryHeader[] termIndices = raftLog.getEntries(
           expected.get(offset).getIndex(),
           expected.get(offset + size - 1).getIndex() + 1);
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)

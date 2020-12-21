@@ -29,6 +29,7 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
@@ -93,7 +94,7 @@ public class TestSegmentedRaftLogCache {
   }
 
   private void checkCacheEntries(long offset, int size, long end) {
-    TermIndex[] entries = cache.getTermIndices(offset, offset + size);
+    final LogEntryHeader[] entries = cache.getTermIndices(offset, offset + size);
     long realEnd = offset + size > end + 1 ? end + 1 : offset + size;
     Assert.assertEquals(realEnd - offset, entries.length);
     for (long i = offset; i < realEnd; i++) {
