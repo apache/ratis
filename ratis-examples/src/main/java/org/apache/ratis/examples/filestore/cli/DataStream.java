@@ -24,6 +24,7 @@ import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.examples.filestore.FileStoreClient;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
 import org.apache.ratis.util.JavaUtils;
@@ -124,9 +125,10 @@ public class DataStream extends Client {
     FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting DataStream write now ");
 
+    RoutingTable routingTable = getRoutingTable(Arrays.asList(getPeers()), getPrimary());
     long startTime = System.currentTimeMillis();
 
-    long totalWrittenBytes = waitStreamFinish(streamWrite(paths, fileStoreClient, executor));
+    long totalWrittenBytes = waitStreamFinish(streamWrite(paths, fileStoreClient, routingTable, executor));
 
     long endTime = System.currentTimeMillis();
 
@@ -139,7 +141,8 @@ public class DataStream extends Client {
   }
 
   private Map<String, CompletableFuture<List<CompletableFuture<DataStreamReply>>>> streamWrite(
-      List<String> paths, FileStoreClient fileStoreClient, ExecutorService executor) {
+      List<String> paths, FileStoreClient fileStoreClient, RoutingTable routingTable,
+      ExecutorService executor) {
     Map<String, CompletableFuture<List<CompletableFuture<DataStreamReply>>>> fileMap = new HashMap<>();
 
     for(String path : paths) {
@@ -154,7 +157,7 @@ public class DataStream extends Client {
             .orElseThrow(IllegalStateException::new);
         final TransferType writer = type.getConstructor().apply(path, this);
         try {
-          future.complete(writer.transfer(fileStoreClient));
+          future.complete(writer.transfer(fileStoreClient, routingTable));
         } catch (IOException e) {
           future.completeExceptionally(e);
         }
@@ -225,13 +228,14 @@ public class DataStream extends Client {
       return false;
     }
 
-    List<CompletableFuture<DataStreamReply>> transfer(FileStoreClient client) throws IOException {
+    List<CompletableFuture<DataStreamReply>> transfer(
+        FileStoreClient client, RoutingTable routingTable) throws IOException {
       if (fileSize <= 0) {
         return Collections.emptyList();
       }
 
       final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-      final DataStreamOutput out = client.getStreamOutput(file.getName(), fileSize);
+      final DataStreamOutput out = client.getStreamOutput(file.getName(), fileSize, routingTable);
       try (FileInputStream fis = new FileInputStream(file)) {
         final FileChannel in = fis.getChannel();
         for (long offset = 0L; offset < fileSize; ) {

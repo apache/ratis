@@ -20,7 +20,9 @@ package org.apache.ratis.examples.common;
 import com.beust.jcommander.Parameter;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RoutingTable;
 
+import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -58,6 +60,20 @@ public abstract class SubCommandBase {
 
   public String getRaftGroupId() {
     return raftGroupId;
+  }
+
+  public RoutingTable getRoutingTable(Collection<RaftPeer> raftPeers, RaftPeer primary) {
+    RoutingTable.Builder builder = RoutingTable.newBuilder();
+    RaftPeer previous = primary;
+    for (RaftPeer peer : raftPeers) {
+      if (peer.equals(primary)) {
+        continue;
+      }
+      builder.addSuccessor(previous.getId(), peer.getId());
+      previous = peer;
+    }
+
+    return builder.build();
   }
 
   /**

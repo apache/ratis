@@ -33,6 +33,7 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
@@ -153,13 +154,13 @@ public class FileStoreClient implements Closeable {
     return WriteReplyProto.parseFrom(reply).getLength();
   }
 
-  public DataStreamOutput getStreamOutput(String path, long dataSize) {
+  public DataStreamOutput getStreamOutput(String path, long dataSize, RoutingTable routingTable) {
     final StreamWriteRequestProto header = StreamWriteRequestProto.newBuilder()
         .setPath(ProtoUtils.toByteString(path))
         .setLength(dataSize)
         .build();
     final FileStoreRequestProto request = FileStoreRequestProto.newBuilder().setStream(header).build();
-    return client.getDataStreamApi().stream(request.toByteString().asReadOnlyByteBuffer());
+    return client.getDataStreamApi().stream(request.toByteString().asReadOnlyByteBuffer(), routingTable);
   }
 
   public CompletableFuture<Long> writeAsync(String path, long offset, boolean close, ByteBuffer buffer, boolean sync) {
