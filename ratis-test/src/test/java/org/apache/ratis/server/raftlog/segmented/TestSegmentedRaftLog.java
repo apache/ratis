@@ -31,7 +31,6 @@ import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.RetryCache;
-import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.metrics.RaftLogMetricsBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -290,7 +289,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       assertTrue(ex.getMessage().contains("and RaftLog's last index " + lastTermIndex.getIndex()
           + " (or snapshot index " + raftLog.getSnapshotIndex() + ") is greater than 1"));
 
-      raftLog.syncWithSnapshot(raftLog.getLastEntryTermIndex().getIndex());
+      raftLog.onSnapshotInstalled(raftLog.getLastEntryTermIndex().getIndex());
       try {
         // append entry fails if there are no log entries && log's snapshotIndex + 1 < incoming log entry.
         raftLog.appendEntry(LogEntryProto.newBuilder(entries.get(0))
@@ -324,7 +323,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       entries.subList(0, entries.size() - 1).stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
 
-      raftLog.syncWithSnapshot(desiredSnapshotIndex);
+      raftLog.onSnapshotInstalled(desiredSnapshotIndex);
       // Try appending last entry after snapshot + purge.
       CompletableFuture<Long> appendEntryFuture =
           raftLog.appendEntry(entries.get(entries.size() - 1));

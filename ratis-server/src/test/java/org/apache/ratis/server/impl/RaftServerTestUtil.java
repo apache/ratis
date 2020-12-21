@@ -52,6 +52,10 @@ public class RaftServerTestUtil {
   public static final RaftGroupMemberId TEST_MEMBER_ID = RaftGroupMemberId.valueOf(
       RaftPeerId.valueOf("test"), RaftGroupId.emptyGroupId());
 
+  public static DelayLocalExecutionInjection getLogSyncDelay() {
+    return new DelayLocalExecutionInjection(RaftServerImpl.LOG_SYNC);
+  }
+
   public static void setStateMachineUpdaterLogLevel(Level level) {
     Log4jUtils.setLogLevel(StateMachineUpdater.LOG, level);
   }

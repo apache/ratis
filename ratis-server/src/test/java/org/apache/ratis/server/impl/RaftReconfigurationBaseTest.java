@@ -40,6 +40,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster.PeerChanges;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
@@ -69,8 +70,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
   }
 
-  private static final DelayLocalExecutionInjection logSyncDelay =
-      new DelayLocalExecutionInjection(RaftLog.LOG_SYNC);
+  private static final DelayLocalExecutionInjection logSyncDelay = RaftServerTestUtil.getLogSyncDelay();
   private static final DelayLocalExecutionInjection leaderPlaceHolderDelay =
       new DelayLocalExecutionInjection(LeaderStateImpl.APPEND_PLACEHOLDER);
 
@@ -573,7 +573,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   }
 
   void runTestRevertConfigurationChange(CLUSTER cluster) throws Exception {
-    RaftLog log2 = null;
+    RaftLogBase log2 = null;
     try {
       RaftTestUtil.waitForLeader(cluster);
 
@@ -581,7 +581,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       final RaftPeerId leaderId = leader.getId();
 
       final RaftLog log = leader.getRaftLog();
-      log2 = log;
+      log2 = (RaftLogBase) log;
       Thread.sleep(1000);
 
       // we block the incoming msg for the leader and block its requests to

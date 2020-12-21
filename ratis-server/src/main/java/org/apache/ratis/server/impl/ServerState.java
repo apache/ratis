@@ -222,7 +222,7 @@ class ServerState implements Closeable {
   }
 
   void persistMetadata() throws IOException {
-    log.writeMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
+    log.persistMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
   }
 
   /**
@@ -413,7 +413,7 @@ class ServerState implements Closeable {
   }
 
   void updateInstalledSnapshotIndex(TermIndex lastTermIndexInSnapshot) {
-    log.syncWithSnapshot(lastTermIndexInSnapshot.getIndex());
+    log.onSnapshotInstalled(lastTermIndexInSnapshot.getIndex());
     latestInstalledSnapshot.set(lastTermIndexInSnapshot);
   }
 

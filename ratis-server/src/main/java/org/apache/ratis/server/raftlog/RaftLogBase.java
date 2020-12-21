@@ -21,11 +21,9 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftConfiguration;
-import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
@@ -33,13 +31,9 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.OpenCloseState;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -55,10 +49,7 @@ import java.util.function.LongSupplier;
  * 2. Segmented RaftLog: the log entries are persisted on disk, and are stored
  *    in segments.
  */
-public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
-  public static final String LOG_SYNC = JavaUtils.getClassSimpleName(RaftLog.class) + ".logSync";
-
+public abstract class RaftLogBase implements RaftLog {
   private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", getName(), s);
   private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", getName(), s);
 
@@ -87,7 +78,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   private volatile LogEntryProto lastMetadataEntry = null;
 
-  protected RaftLog(RaftGroupMemberId memberId,
+  protected RaftLogBase(RaftGroupMemberId memberId,
                     LongSupplier getSnapshotIndexFromStateMachine,
                     RaftProperties properties) {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -102,12 +93,12 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     this.getSnapshotIndexFromStateMachine = getSnapshotIndexFromStateMachine;
   }
 
-  public abstract RaftLogMetrics getRaftLogMetrics();
-
+  @Override
   public long getLastCommittedIndex() {
     return commitIndex.get();
   }
 
+  @Override
   public long getSnapshotIndex() {
     return snapshotIndex.get();
   }
@@ -116,17 +107,12 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     state.assertOpen();
   }
 
+  /** Is this log already opened? */
   public boolean isOpened() {
     return state.isOpened();
   }
 
-  /**
-   * Update the last committed index.
-   * @param majorityIndex the index that has achieved majority.
-   * @param currentTerm the current term.
-   * @param isLeader Is this server the leader?
-   * @return true if update is applied; otherwise, return false, i.e. no update required.
-   */
+  @Override
   public boolean updateCommitIndex(long majorityIndex, long currentTerm, boolean isLeader) {
     try(AutoCloseableLock writeLock = writeLock()) {
       final long oldCommittedIndex = getLastCommittedIndex();
@@ -152,11 +138,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       updateSnapshotIndex(getSnapshotIndexFromStateMachine.getAsLong());
   }
 
-  /**
-   * Update the last committed index and snapshotIndex with the last index in
-   * the snapshot.
-   * @param newSnapshotIndex the last index in the snapshot
-   */
+  @Override
   public void updateSnapshotIndex(long newSnapshotIndex) {
     try(AutoCloseableLock writeLock = writeLock()) {
       final long oldSnapshotIndex = getSnapshotIndex();
@@ -168,29 +150,6 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
         commitIndex.updateIncreasingly(newSnapshotIndex, traceIndexChange);
       }
     }
-  }
-
-  /**
-   * Does the log contains the given term and index? Used to check the
-   * consistency between the local log of a follower and the log entries sent
-   * by the leader.
-   */
-  public boolean contains(TermIndex ti) {
-    Objects.requireNonNull(ti, "ti == null");
-    return ti.equals(getTermIndex(ti.getIndex()));
-  }
-
-  /**
-   * @return the index of the next log entry to append.
-   */
-  public long getNextIndex() {
-    final TermIndex last = getLastEntryTermIndex();
-    if (last == null) {
-      // if the log is empty, the last committed index should be consistent with
-      // the last index included in the latest snapshot.
-      return getLastCommittedIndex() + 1;
-    }
-    return last.getIndex() + 1;
   }
 
   @Override
@@ -268,6 +227,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     }
     return true;
   }
+
   @Override
   public final long append(long term, RaftConfiguration configuration) {
     return runner.runSequentially(() -> appendImpl(term, configuration));
@@ -282,6 +242,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     }
   }
 
+  @Override
   public final void open(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer) throws IOException {
     openImpl(lastIndexInSnapshot, e -> {
       if (e.hasMetadataEntry()) {
@@ -302,48 +263,6 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   protected void openImpl(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer) throws IOException {
   }
-
-  public abstract long getStartIndex();
-
-  /**
-   * Get the log entry of the given index.
-   *
-   * @param index The given index.
-   * @return The log entry associated with the given index.
-   *         Null if there is no log entry with the index.
-   */
-  public abstract LogEntryProto get(long index) throws RaftLogIOException;
-
-  /**
-   * Get the log entry of the given index along with the state machine data.
-   *
-   * @param index The given index.
-   * @return The log entry associated with the given index.
-   *         Null if there is no log entry with the index.
-   */
-  public abstract EntryWithData getEntryWithData(long index) throws RaftLogIOException;
-
-  /**
-   * Get the TermIndex information of the given index.
-   *
-   * @param index The given index.
-   * @return The TermIndex of the log entry associated with the given index.
-   *         Null if there is no log entry with the index.
-   */
-  public abstract TermIndex getTermIndex(long index);
-
-  /**
-   * @param startIndex the starting log index (inclusive)
-   * @param endIndex the ending log index (exclusive)
-   * @return TermIndex of all log entries within the given index range. Null if
-   *         startIndex is greater than the smallest available index.
-   */
-  public abstract TermIndex[] getEntries(long startIndex, long endIndex);
-
-  /**
-   * @return the last log entry's term and index.
-   */
-  public abstract TermIndex getLastEntryTermIndex();
 
   /**
    * Validate the term and index of entry w.r.t RaftLog
@@ -378,13 +297,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   protected abstract CompletableFuture<Long> truncateImpl(long index);
 
-  /**
-   * Purge asynchronously the log transactions.
-   * The implementation may choose to purge an index other than the suggested index.
-   *
-   * @param suggestedIndex the suggested index (inclusive) to be purged.
-   * @return the future of the actual purged log index.
-   */
+  @Override
   public final CompletableFuture<Long> purge(long suggestedIndex) {
     final long lastPurge = purgeIndex.get();
     if (suggestedIndex - lastPurge < purgeGap) {
@@ -417,30 +330,6 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   protected abstract List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries);
 
-  /**
-   * @return the index of the last entry that has been flushed to the local storage.
-   */
-  public abstract long getFlushIndex();
-
-  /**
-   * Write and flush the metadata (votedFor and term) into the meta file.
-   *
-   * We need to guarantee that the order of writeMetadata calls is the same with
-   * that when we change the in-memory term/votedFor. Otherwise we may persist
-   * stale term/votedFor in file.
-   *
-   * Since the leader change is not frequent, currently we simply put this call
-   * in the RaftPeer's lock. Later we can use an IO task queue to enforce the
-   * order.
-   */
-  public abstract void writeMetadata(RaftStorageMetadata metadata) throws IOException;
-
-  public abstract RaftStorageMetadata loadMetadata() throws IOException;
-
-  public abstract CompletableFuture<Long> syncWithSnapshot(long lastSnapshotIndex);
-
-  public abstract boolean isConfigEntry(TermIndex ti);
-
   @Override
   public String toString() {
     return getName() + ":" + state + ":c" + getLastCommittedIndex();
@@ -471,26 +360,28 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     return name;
   }
 
+  protected EntryWithData newEntryWithData(LogEntryProto logEntry, CompletableFuture<ByteString> future) {
+    return new EntryWithDataImpl(logEntry, future);
+  }
+
   /**
    * Holds proto entry along with future which contains read state machine data
    */
-  public class EntryWithData {
+  class EntryWithDataImpl implements EntryWithData {
     private final LogEntryProto logEntry;
     private final CompletableFuture<ByteString> future;
 
-    public EntryWithData(LogEntryProto logEntry, CompletableFuture<ByteString> future) {
+    EntryWithDataImpl(LogEntryProto logEntry, CompletableFuture<ByteString> future) {
       this.logEntry = logEntry;
       this.future = future;
     }
 
-    public long getIndex() {
-      return logEntry.getIndex();
-    }
-
+    @Override
     public int getSerializedSize() {
       return LogProtoUtils.getSerializedSize(logEntry);
     }
 
+    @Override
     public LogEntryProto getEntry(TimeDuration timeout) throws RaftLogIOException, TimeoutException {
       LogEntryProto entryProto;
       if (future == null) {
