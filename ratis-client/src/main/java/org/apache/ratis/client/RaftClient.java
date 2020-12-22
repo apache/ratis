@@ -68,6 +68,9 @@ public interface RaftClient extends Closeable {
   /** Send set configuration request to the raft service. */
   RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException;
 
+  /** Transfer leadership to the given server.*/
+  RaftClientReply transferLeadership(RaftGroupId group, RaftPeerId newLeader) throws IOException;
+
   /** @return a {@link Builder}. */
   static Builder newBuilder() {
     return new Builder();

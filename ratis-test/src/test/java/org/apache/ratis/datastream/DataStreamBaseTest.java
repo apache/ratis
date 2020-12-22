@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DivisionInfo;
@@ -277,6 +278,11 @@ abstract class DataStreamBaseTest extends BaseTest {
       }
 
       @Override
+      public RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException {
+        return null;
+      }
+
+      @Override
       public CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) {
         final MyDivision d = getDivision(request.getRaftGroupId());
         return d.getDataStreamMap()
@@ -297,6 +303,12 @@ abstract class DataStreamBaseTest extends BaseTest {
 
       @Override
       public CompletableFuture<RaftClientReply> setConfigurationAsync(SetConfigurationRequest request) {
+        return null;
+      }
+
+      @Override
+      public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
+          throws IOException {
         return null;
       }
 

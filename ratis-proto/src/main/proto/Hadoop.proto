@@ -39,6 +39,9 @@ service CombinedClientProtocolService {
 
   rpc groupInfo(ratis.common.GroupInfoRequestProto)
       returns(ratis.common.GroupInfoReplyProto);
+
+  rpc transferLeadership(ratis.common.TransferLeadershipRequestProto)
+      returns(ratis.common.RaftClientReplyProto);
 }
 
 service RaftServerProtocolService {

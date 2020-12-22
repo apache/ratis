@@ -175,6 +175,15 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
               .setRequestVoteReply(reply)
               .build();
 
+        case TRANSFERLEADERSHIPREQUEST:
+          final TransferLeadershipRequestProto transferLeadershipRequest = proto.getTransferLeadershipRequest();
+          rpcRequest = transferLeadershipRequest.getRpcRequest();
+          final RaftClientReply transferLeadershipReply = server.transferLeadership(
+              ClientProtoUtils.toTransferLeadershipRequest(transferLeadershipRequest));
+          return RaftNettyServerReplyProto.newBuilder()
+              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(transferLeadershipReply))
+              .build();
+
         case APPENDENTRIESREQUEST:
           final AppendEntriesRequestProto appendEntriesRequest = proto.getAppendEntriesRequest();
           rpcRequest = appendEntriesRequest.getServerRequest();

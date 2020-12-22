@@ -384,6 +384,12 @@ message SetConfigurationRequestProto {
   repeated RaftPeerProto peers = 2;
 }
 
+// transfer leadership request
+message TransferLeadershipRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+  RaftPeerProto newLeader = 2;
+}
+
 // A request to add a new group
 message GroupAddRequestProto {
   RaftGroupProto group = 1; // the group to be added.

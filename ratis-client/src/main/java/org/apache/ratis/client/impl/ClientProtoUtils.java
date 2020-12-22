@@ -411,6 +411,26 @@ public interface ClientProtoUtils {
         .build();
   }
 
+  static TransferLeadershipRequest toTransferLeadershipRequest(
+      TransferLeadershipRequestProto p) {
+    final RaftRpcRequestProto m = p.getRpcRequest();
+    final RaftPeer newLeader = ProtoUtils.toRaftPeer(p.getNewLeader());
+    return new TransferLeadershipRequest(
+        ClientId.valueOf(m.getRequestorId()),
+        RaftPeerId.valueOf(m.getReplyId()),
+        ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
+        p.getRpcRequest().getCallId(),
+        newLeader.getId());
+  }
+
+  static TransferLeadershipRequestProto toTransferLeadershipRequestProto(
+      TransferLeadershipRequest request) {
+    return TransferLeadershipRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+        .setNewLeader(RaftPeer.newBuilder().setId(request.getNewLeader()).build().getRaftPeerProto())
+        .build();
+  }
+
   static GroupManagementRequest toGroupManagementRequest(GroupManagementRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final ClientId clientId = ClientId.valueOf(m.getRequestorId());

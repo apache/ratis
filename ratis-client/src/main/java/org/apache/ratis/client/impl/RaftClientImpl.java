@@ -35,6 +35,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.RaftException;
@@ -212,6 +213,13 @@ public final class RaftClientImpl implements RaftClient {
         callId, message, type, slidingWindowEntry);
   }
 
+  @Override
+  public RaftClientReply transferLeadership(RaftGroupId raftGroupId, RaftPeerId newLeader) throws IOException {
+    Objects.requireNonNull(newLeader, "newLeader == null");
+    final long callId = CallId.getAndIncrement();
+    return io().sendRequestWithRetry(() -> new TransferLeadershipRequest(
+        clientId, leaderId, groupId, callId, newLeader));
+  }
 
   // TODO: change peersInNewConf to List<RaftPeer>
   @Override

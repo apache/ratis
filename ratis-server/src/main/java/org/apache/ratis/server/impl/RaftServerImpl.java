@@ -865,6 +865,19 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
+  public RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException {
+    //TODO(runzhiwang): implement transfer leadership in server
+    return null;
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
+      throws IOException {
+    //TODO(runzhiwang): implement transfer leadership in server
+    return null;
+  }
+
+    @Override
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
     return waitForReply(request, setConfigurationAsync(request));
   }

@@ -27,4 +27,7 @@ public interface RaftClientAsynchronousProtocol {
 
   CompletableFuture<RaftClientReply> setConfigurationAsync(
       SetConfigurationRequest request) throws IOException;
+
+  CompletableFuture<RaftClientReply> transferLeadershipAsync(
+      TransferLeadershipRequest request) throws IOException;
 }
