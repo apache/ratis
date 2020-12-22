@@ -28,6 +28,7 @@ import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppenderBase;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
@@ -568,6 +569,10 @@ public class GrpcLogAppender extends LogAppenderBase {
       // should be notified to install the latest snapshot through its
       // State Machine.
       return getRaftLog().getTermIndex(leaderStartIndex);
+    } else if (leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
+      // Leader has no logs to check from, hence return next index.
+      return TermIndex.valueOf(getServer().getInfo().getCurrentTerm(),
+          getRaftLog().getNextIndex());
     }
     return null;
   }
