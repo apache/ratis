@@ -18,7 +18,7 @@
 
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.metrics.RaftServerMetrics.*;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.*;
 import static org.junit.Assert.assertEquals;
 
 import com.codahale.metrics.Gauge;
@@ -29,7 +29,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.metrics.RaftServerMetrics;
+import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -51,7 +51,7 @@ public class TestRetryCacheMetrics {
           .valueOf(raftPeerId, raftGroupId);
       retryCache = new RetryCacheImpl(RaftServerConfigKeys.RetryCache.EXPIRY_TIME_DEFAULT, null);
 
-      final RaftServerMetrics raftServerMetrics = RaftServerMetrics.computeIfAbsentRaftServerMetrics(
+      final RaftServerMetricsImpl raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
           raftGroupMemberId, () -> null, retryCache::getStatistics);
       ratisMetricRegistry = raftServerMetrics.getRegistry();
     }

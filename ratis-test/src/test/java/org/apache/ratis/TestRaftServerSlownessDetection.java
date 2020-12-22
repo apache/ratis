@@ -25,6 +25,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
@@ -90,7 +91,8 @@ public class TestRaftServerSlownessDetection extends BaseTest {
         .slownessTimeout(cluster.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
     RaftServer.Division failedFollower = cluster.getFollowers().get(0);
 
-    final RatisMetricRegistry ratisMetricRegistry = leaderServer.getRaftServerMetrics().getRegistry();
+    final RatisMetricRegistry ratisMetricRegistry
+        = ((RaftServerMetricsImpl)leaderServer.getRaftServerMetrics()).getRegistry();
     SortedMap<String, Gauge> heartbeatElapsedTimeGauges =
         ratisMetricRegistry.getGauges((s, metric) ->
             s.contains("lastHeartbeatElapsedTime"));

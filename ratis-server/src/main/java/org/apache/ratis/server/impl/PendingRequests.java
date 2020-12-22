@@ -27,7 +27,7 @@ import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.metrics.RaftServerMetrics;
+import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -76,14 +76,14 @@ class PendingRequests {
   private static class RequestMap {
     private final Object name;
     private final ConcurrentMap<Long, PendingRequest> map = new ConcurrentHashMap<>();
-    private final RaftServerMetrics raftServerMetrics;
+    private final RaftServerMetricsImpl raftServerMetrics;
 
     /** Permits to put new requests, always synchronized. */
     private final Map<Permit, Permit> permits = new HashMap<>();
     /** Track and limit the number of requests and the total message size. */
     private final RequestLimits resource;
 
-    RequestMap(Object name, int elementLimit, SizeInBytes byteLimit, RaftServerMetrics raftServerMetrics) {
+    RequestMap(Object name, int elementLimit, SizeInBytes byteLimit, RaftServerMetricsImpl raftServerMetrics) {
       this.name = name;
       this.resource = new RequestLimits(elementLimit, byteLimit);
       this.raftServerMetrics = raftServerMetrics;
@@ -179,7 +179,7 @@ class PendingRequests {
   private final String name;
   private final RequestMap pendingRequests;
 
-  PendingRequests(RaftGroupMemberId id, RaftProperties properties, RaftServerMetrics raftServerMetrics) {
+  PendingRequests(RaftGroupMemberId id, RaftProperties properties, RaftServerMetricsImpl raftServerMetrics) {
     this.name = id + "-" + JavaUtils.getClassSimpleName(getClass());
     this.pendingRequests = new RequestMap(id,
         RaftServerConfigKeys.Write.elementLimit(properties),
