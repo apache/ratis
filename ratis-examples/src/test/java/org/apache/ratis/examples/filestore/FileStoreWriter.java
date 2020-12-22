@@ -22,6 +22,7 @@ import org.apache.ratis.datastream.DataStreamTestUtils;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.io.netty.util.internal.ThreadLocalRandom;
 import org.apache.ratis.util.Preconditions;
@@ -134,9 +135,9 @@ class FileStoreWriter implements Closeable {
     return this;
   }
 
-  public FileStoreWriter streamWriteAndVerify() {
+  public FileStoreWriter streamWriteAndVerify(RoutingTable routingTable) {
     final int size = fileSize.getSizeInt();
-    final DataStreamOutput dataStreamOutput = client.getStreamOutput(fileName, size);
+    final DataStreamOutput dataStreamOutput = client.getStreamOutput(fileName, size, routingTable);
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
     final List<Integer> sizes = new ArrayList<>();
 
