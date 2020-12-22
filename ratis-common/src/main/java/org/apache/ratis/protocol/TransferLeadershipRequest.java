@@ -18,15 +18,15 @@
 package org.apache.ratis.protocol;
 
 public class TransferLeadershipRequest extends RaftClientRequest {
-  private final RaftPeerId target;
+  private final RaftPeerId newLeader;
 
   public TransferLeadershipRequest(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, RaftPeerId target) {
+      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, RaftPeerId newLeader) {
     super(clientId, serverId, groupId, callId, readRequestType());
-    this.target = target;
+    this.newLeader = newLeader;
   }
 
-  public RaftPeerId getTarget() {
-    return target;
+  public RaftPeerId getNewLeader() {
+    return newLeader;
   }
 }

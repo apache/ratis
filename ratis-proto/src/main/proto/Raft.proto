@@ -372,7 +372,7 @@ message SetConfigurationRequestProto {
 // transfer leadership request
 message TransferLeadershipRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
-  RaftPeerProto targetPeer = 2;
+  RaftPeerProto newLeader = 2;
 }
 
 // A request to add a new group
