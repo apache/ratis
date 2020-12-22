@@ -22,6 +22,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -221,8 +222,8 @@ public class SegmentedRaftLogCache {
       }
     }
 
-    TermIndex[] getTermIndex(long startIndex, long realEnd, LogSegment openSegment) {
-      final TermIndex[] entries = new TermIndex[Math.toIntExact(realEnd - startIndex)];
+    LogEntryHeader[] getTermIndex(long startIndex, long realEnd, LogSegment openSegment) {
+      final LogEntryHeader[] entries = new LogEntryHeader[Math.toIntExact(realEnd - startIndex)];
       final int searchIndex;
       long index = startIndex;
 
@@ -487,7 +488,7 @@ public class SegmentedRaftLogCache {
    * @param startIndex inclusive
    * @param endIndex exclusive
    */
-  TermIndex[] getTermIndices(final long startIndex, final long endIndex) {
+  LogEntryHeader[] getTermIndices(final long startIndex, final long endIndex) {
     if (startIndex < 0 || startIndex < getStartIndex()) {
       throw new IndexOutOfBoundsException("startIndex = " + startIndex
           + ", log cache starts from index " + getStartIndex());
@@ -498,25 +499,19 @@ public class SegmentedRaftLogCache {
     }
     final long realEnd = Math.min(getEndIndex() + 1, endIndex);
     if (startIndex >= realEnd) {
-      return TermIndex.EMPTY_ARRAY;
+      return LogEntryHeader.EMPTY_ARRAY;
     }
     return closedSegments.getTermIndex(startIndex, realEnd, openSegment);
   }
 
   private static void getFromSegment(LogSegment segment, long startIndex,
-      TermIndex[] entries, int offset, int size) {
+      LogEntryHeader[] entries, int offset, int size) {
     long endIndex = segment.getEndIndex();
     endIndex = Math.min(endIndex, startIndex + size - 1);
     int index = offset;
     for (long i = startIndex; i <= endIndex; i++) {
-      LogRecord r = segment.getLogRecord(i);
-      entries[index++] = r == null ? null : r.getTermIndex();
+      entries[index++] = Optional.ofNullable(segment.getLogRecord(i)).map(LogRecord::getLogEntryHeader).orElse(null);
     }
-  }
-
-  boolean isConfigEntry(TermIndex ti) {
-    LogSegment segment = getSegment(ti.getIndex());
-    return segment != null && segment.isConfigEntry(ti);
   }
 
   long getStartIndex() {

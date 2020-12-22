@@ -17,10 +17,10 @@
  */
 package org.apache.ratis.server.metrics;
 
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 
 /** Metrics for a raft log. */
 public interface RaftLogMetrics {
   /** A log entry just has been committed. */
-  void onLogEntryCommitted(LogEntryProto proto);
+  void onLogEntryCommitted(LogEntryHeader header);
 }

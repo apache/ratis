@@ -41,6 +41,13 @@ public interface TermIndex extends Comparable<TermIndex> {
         .build();
   }
 
+  @Override
+  default int compareTo(TermIndex that) {
+    return Comparator.comparingLong(TermIndex::getTerm)
+        .thenComparingLong(TermIndex::getIndex)
+        .compare(this, that);
+  }
+
   /** @return a {@link TermIndex} object from the given proto. */
   static TermIndex valueOf(TermIndexProto proto) {
     return Optional.ofNullable(proto).map(p -> valueOf(p.getTerm(), p.getIndex())).orElse(null);
@@ -62,11 +69,6 @@ public interface TermIndex extends Comparable<TermIndex> {
       @Override
       public long getIndex() {
         return index;
-      }
-
-      @Override
-      public int compareTo(TermIndex that) {
-        return Comparator.comparingLong(TermIndex::getTerm).thenComparingLong(TermIndex::getIndex).compare(this, that);
       }
 
       @Override

@@ -38,6 +38,7 @@ import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
@@ -359,7 +360,7 @@ public interface DataStreamTestUtils {
   }
 
   static LogEntryProto searchLogEntry(ClientInvocationId invocationId, RaftLog log) throws Exception {
-    for (TermIndex termIndex : log.getEntries(0, Long.MAX_VALUE)) {
+    for (LogEntryHeader termIndex : log.getEntries(0, Long.MAX_VALUE)) {
       final LogEntryProto entry = log.get(termIndex.getIndex());
       if (entry.hasStateMachineLogEntry()) {
         if (invocationId.match(entry.getStateMachineLogEntry())) {

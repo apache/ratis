@@ -23,6 +23,7 @@ import org.apache.ratis.server.metrics.RaftLogMetricsBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLogBase;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
@@ -47,6 +48,10 @@ public class MemoryRaftLog extends RaftLogBase {
 
     TermIndex getTermIndex(int i) {
       return TermIndex.valueOf(get(i));
+    }
+
+    private LogEntryHeader getLogEntryHeader(int i) {
+      return LogEntryHeader.valueOf(get(i));
     }
 
     int size() {
@@ -108,7 +113,7 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public TermIndex[] getEntries(long startIndex, long endIndex) {
+  public LogEntryHeader[] getEntries(long startIndex, long endIndex) {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {
       if (startIndex >= entries.size()) {
@@ -116,11 +121,11 @@ public class MemoryRaftLog extends RaftLogBase {
       }
       final int from = Math.toIntExact(startIndex);
       final int to = Math.toIntExact(Math.min(entries.size(), endIndex));
-      TermIndex[] ti = new TermIndex[to - from];
-      for (int i = 0; i < ti.length; i++) {
-        ti[i] = entries.getTermIndex(i);
+      final LogEntryHeader[] headers = new LogEntryHeader[to - from];
+      for (int i = 0; i < headers.length; i++) {
+        headers[i] = entries.getLogEntryHeader(i);
       }
-      return ti;
+      return headers;
     }
   }
 
@@ -230,10 +235,5 @@ public class MemoryRaftLog extends RaftLogBase {
   public CompletableFuture<Long> onSnapshotInstalled(long lastSnapshotIndex) {
     return CompletableFuture.completedFuture(lastSnapshotIndex);
     // do nothing
-  }
-
-  @Override
-  public boolean isConfigEntry(TermIndex ti) {
-    return get(ti.getIndex()).hasConfigurationEntry();
   }
 }

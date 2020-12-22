@@ -23,6 +23,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
@@ -95,9 +96,9 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     long committedIndex = raftLog.getLastCommittedIndex();
     Assert.assertTrue(committedIndex >= expectedCommittedIndex);
     // check the log content
-    TermIndex[] entries = raftLog.getEntries(0, Long.MAX_VALUE);
+    final LogEntryHeader[] entries = raftLog.getEntries(0, Long.MAX_VALUE);
     int count = 0;
-    for (TermIndex entry : entries) {
+    for (LogEntryHeader entry : entries) {
       LogEntryProto log  = raftLog.get(entry.getIndex());
       if (!log.hasStateMachineLogEntry()) {
         continue;
@@ -244,10 +245,10 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     final int expectedEntries = 8;
     final RaftLog raftLog = assertRaftLog(expectedEntries, leader);
 
-    final TermIndex[] entries = raftLog.getEntries(1, Long.MAX_VALUE);
+    final LogEntryHeader[] entries = raftLog.getEntries(1, Long.MAX_VALUE);
     final byte[] actual = new byte[ByteValue.BUFFERSIZE * expectedEntries];
     totalSize = 0;
-    for (TermIndex ti : entries) {
+    for (LogEntryHeader ti : entries) {
       final LogEntryProto e = raftLog.get(ti.getIndex());
       if (e.hasStateMachineLogEntry()) {
         final byte[] eValue = e.getStateMachineLogEntry().getLogData().toByteArray();

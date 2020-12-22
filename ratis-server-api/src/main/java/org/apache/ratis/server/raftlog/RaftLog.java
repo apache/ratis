@@ -50,13 +50,6 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
   }
 
   /**
-   * Is the entry corresponding to the given {@link TermIndex} a configuration entry?
-   * In other words, the corresponding entry exists and
-   * {@link LogEntryProto#hasConfigurationEntry()} returns true.
-   */
-  boolean isConfigEntry(TermIndex ti);
-
-  /**
    * @return null if the log entry is not found in this log;
    *         otherwise, return the {@link TermIndex} of the log entry corresponding to the given index.
    */
@@ -77,10 +70,10 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
   /**
    * @param startIndex the starting log index (inclusive)
    * @param endIndex the ending log index (exclusive)
-   * @return an array of {@link TermIndex} of all log entries within the given index range. Null if
-   *         startIndex is greater than the smallest available index.
+   * @return null if entries are unavailable in this log;
+   *         otherwise, return the log entry headers within the given index range.
    */
-  TermIndex[] getEntries(long startIndex, long endIndex);
+  LogEntryHeader[] getEntries(long startIndex, long endIndex);
 
   /** @return the index of the starting entry of this log. */
   long getStartIndex();

@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -60,7 +61,7 @@ public class MemoryRaftLogTest extends BaseTest {
     entries2[0] = LogEntryProto.newBuilder().setIndex(0).setTerm(0).build();
     raftLog.append(entries2).forEach(CompletableFuture::join);
 
-    TermIndex[] termIndices = raftLog.getEntries(0, 10);
+    final LogEntryHeader[] termIndices = raftLog.getEntries(0, 10);
     assertEquals(2, termIndices.length);
     for (int i = 0; i < 2; i++) {
       assertEquals(entries1[i].getIndex(), termIndices[i].getIndex());
@@ -88,7 +89,7 @@ public class MemoryRaftLogTest extends BaseTest {
     entries2[0] = LogEntryProto.newBuilder().setIndex(0).setTerm(2).build();
     raftLog.append(entries2).forEach(CompletableFuture::join);
 
-    TermIndex[] termIndices = raftLog.getEntries(0, 10);
+    final LogEntryHeader[] termIndices = raftLog.getEntries(0, 10);
     assertEquals(1, termIndices.length);
     assertEquals(entries2[0].getIndex(), termIndices[0].getIndex());
     assertEquals(entries2[0].getTerm(), termIndices[0].getTerm());

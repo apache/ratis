@@ -22,8 +22,8 @@ import com.codahale.metrics.Timer;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 
 public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
   public static final String RATIS_LOG_WORKER_METRICS_DESC = "Metrics for Log Worker";
@@ -56,13 +56,19 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
     return registry.timer(timerName);
   }
 
-  public void onLogEntryCommitted(LogEntryProto proto) {
-    if (proto.hasConfigurationEntry()) {
-      registry.counter(CONFIG_LOG_ENTRY_COUNT).inc();
-    } else if (proto.hasMetadataEntry()) {
-      registry.counter(METADATA_LOG_ENTRY_COUNT).inc();
-    } else if (proto.hasStateMachineLogEntry()) {
-      registry.counter(STATE_MACHINE_LOG_ENTRY_COUNT).inc();
+  @Override
+  public void onLogEntryCommitted(LogEntryHeader header) {
+    switch (header.getLogEntryBodyCase()) {
+      case CONFIGURATIONENTRY:
+        registry.counter(CONFIG_LOG_ENTRY_COUNT).inc();
+        return;
+      case METADATAENTRY:
+        registry.counter(METADATA_LOG_ENTRY_COUNT).inc();
+        return;
+      case STATEMACHINELOGENTRY:
+        registry.counter(STATE_MACHINE_LOG_ENTRY_COUNT).inc();
+        return;
+      default:
     }
   }
 

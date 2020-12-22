@@ -24,7 +24,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -96,11 +96,11 @@ public class TestRaftWithGrpc
       cluster.getServerAliveStream().filter(impl -> !impl.getInfo().isLeader()).forEach(raftServer ->
           JavaUtils.runAsUnchecked(() -> JavaUtils.attempt(() -> {
         final long leaderNextIndex = leaderLog.getNextIndex();
-        final TermIndex[] leaderEntries = leaderLog.getEntries(0, Long.MAX_VALUE);
+        final LogEntryHeader[] leaderEntries = leaderLog.getEntries(0, Long.MAX_VALUE);
 
         final RaftLog followerLog = raftServer.getRaftLog();
         Assert.assertEquals(leaderNextIndex, followerLog.getNextIndex());
-        final TermIndex[] serverEntries = followerLog.getEntries(0, Long.MAX_VALUE);
+        final LogEntryHeader[] serverEntries = followerLog.getEntries(0, Long.MAX_VALUE);
         Assert.assertArrayEquals(serverEntries, leaderEntries);
       }, 10, HUNDRED_MILLIS, "assertRaftLog-" + raftServer.getId(), LOG)));
 

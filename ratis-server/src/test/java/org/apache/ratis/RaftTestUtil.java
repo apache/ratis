@@ -31,7 +31,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
@@ -156,7 +156,7 @@ public interface RaftTestUtil {
   static boolean logEntriesContains(RaftLog log, long startIndex, long endIndex, SimpleMessage... expectedMessages) {
     int idxEntries = 0;
     int idxExpected = 0;
-    TermIndex[] termIndices = log.getEntries(startIndex, endIndex);
+    final LogEntryHeader[] termIndices = log.getEntries(startIndex, endIndex);
     while (idxEntries < termIndices.length
         && idxExpected < expectedMessages.length) {
       try {
@@ -177,7 +177,7 @@ public interface RaftTestUtil {
   static boolean logEntriesNotContains(RaftLog log, long startIndex, long endIndex, SimpleMessage... expectedMessages) {
     int idxEntries = 0;
     int idxExpected = 0;
-    TermIndex[] termIndices = log.getEntries(startIndex, endIndex);
+    final LogEntryHeader[] termIndices = log.getEntries(startIndex, endIndex);
     while (idxEntries < termIndices.length
         && idxExpected < expectedMessages.length) {
       try {
@@ -197,7 +197,7 @@ public interface RaftTestUtil {
 
   static void checkLogEntries(RaftLog log, SimpleMessage[] expectedMessages,
       Predicate<LogEntryProto> predicate) {
-    TermIndex[] termIndices = log.getEntries(0, Long.MAX_VALUE);
+    final LogEntryHeader[] termIndices = log.getEntries(0, Long.MAX_VALUE);
     for (int i = 0; i < termIndices.length; i++) {
       for (int j = 0; j < expectedMessages.length; j++) {
         final LogEntryProto e;

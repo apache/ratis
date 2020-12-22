@@ -21,6 +21,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -35,11 +36,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -88,15 +87,19 @@ public class LogSegment implements Comparable<Long> {
   static class LogRecord {
     /** starting offset in the file */
     private final long offset;
-    private final TermIndex termIndex;
+    private final LogEntryHeader logEntryHeader;
 
     LogRecord(long offset, LogEntryProto entry) {
       this.offset = offset;
-      this.termIndex = TermIndex.valueOf(entry);
+      this.logEntryHeader = LogEntryHeader.valueOf(entry);
+    }
+
+    LogEntryHeader getLogEntryHeader() {
+      return logEntryHeader;
     }
 
     TermIndex getTermIndex() {
-      return termIndex;
+      return getLogEntryHeader().getTermIndex();
     }
 
     long getOffset() {
@@ -273,7 +276,6 @@ public class LogSegment implements Comparable<Long> {
    * the entryCache caches the content of log entries.
    */
   private final Map<TermIndex, LogEntryProto> entryCache = new ConcurrentHashMap<>();
-  private final Set<TermIndex> configEntries = new HashSet<>();
 
   private LogSegment(RaftStorage storage, boolean isOpen, long start, long end,
       SegmentedRaftLogMetrics raftLogMetrics) {
@@ -328,9 +330,6 @@ public class LogSegment implements Comparable<Long> {
     if (keepEntryInCache) {
       putEntryCache(record.getTermIndex(), entry, op);
     }
-    if (entry.hasConfigurationEntry()) {
-      configEntries.add(record.getTermIndex());
-    }
     totalFileSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
   }
@@ -370,10 +369,6 @@ public class LogSegment implements Comparable<Long> {
     return last == null ? null : last.getTermIndex();
   }
 
-  boolean isConfigEntry(TermIndex ti) {
-    return configEntries.contains(ti);
-  }
-
   long getTotalFileSize() {
     return totalFileSize;
   }
@@ -390,7 +385,6 @@ public class LogSegment implements Comparable<Long> {
     for (long index = endIndex; index >= fromIndex; index--) {
       LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
       removeEntryCache(removed.getTermIndex(), Op.REMOVE_CACHE);
-      configEntries.remove(removed.getTermIndex());
       totalFileSize = removed.offset;
     }
     isOpen = false;
@@ -417,7 +411,6 @@ public class LogSegment implements Comparable<Long> {
   synchronized void clear() {
     records.clear();
     evictCache();
-    configEntries.clear();
     endIndex = startIndex - 1;
   }
 
