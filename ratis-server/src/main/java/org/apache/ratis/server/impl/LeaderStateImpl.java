@@ -38,7 +38,7 @@ import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.LogAppenderMetrics;
-import org.apache.ratis.server.metrics.RaftServerMetrics;
+import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
@@ -246,7 +246,7 @@ class LeaderStateImpl implements LeaderState {
 
   private final int stagingCatchupGap;
   private final long placeHolderIndex;
-  private final RaftServerMetrics raftServerMetrics;
+  private final RaftServerMetricsImpl raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
 
   LeaderStateImpl(RaftServerImpl server) {

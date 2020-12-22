@@ -45,7 +45,7 @@ import org.apache.ratis.util.Preconditions;
 /**
  * Metric Registry for Raft Group Server. One instance per leader/follower.
  */
-public final class RaftServerMetrics extends RatisMetrics {
+public final class RaftServerMetricsImpl extends RatisMetrics implements RaftServerMetrics {
 
   public static final String RATIS_SERVER_METRICS = "server";
   public static final String RATIS_SERVER_METRICS_DESC = "Metrics for Raft server";
@@ -84,7 +84,7 @@ public final class RaftServerMetrics extends RatisMetrics {
   private final Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache;
 
   /** id -> metric */
-  private static final Map<RaftGroupMemberId, RaftServerMetrics> METRICS = new ConcurrentHashMap<>();
+  private static final Map<RaftGroupMemberId, RaftServerMetricsImpl> METRICS = new ConcurrentHashMap<>();
   /** id -> key */
   private static final Map<RaftPeerId, String> PEER_COMMIT_INDEX_GAUGE_KEYS = new ConcurrentHashMap<>();
 
@@ -93,18 +93,18 @@ public final class RaftServerMetrics extends RatisMetrics {
         key -> String.format(LEADER_METRIC_PEER_COMMIT_INDEX, key));
   }
 
-  public static RaftServerMetrics computeIfAbsentRaftServerMetrics(RaftGroupMemberId serverId,
+  public static RaftServerMetricsImpl computeIfAbsentRaftServerMetrics(RaftGroupMemberId serverId,
       Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
       Supplier<RetryCache.Statistics> retryCacheStatistics) {
     return METRICS.computeIfAbsent(serverId,
-        key -> new RaftServerMetrics(serverId, commitInfoCache, retryCacheStatistics));
+        key -> new RaftServerMetricsImpl(serverId, commitInfoCache, retryCacheStatistics));
   }
 
   public static void removeRaftServerMetrics(RaftGroupMemberId serverId) {
     METRICS.remove(serverId);
   }
 
-  public RaftServerMetrics(RaftGroupMemberId serverId,
+  public RaftServerMetricsImpl(RaftGroupMemberId serverId,
       Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
       Supplier<RetryCache.Statistics> retryCacheStatistics) {
     this.registry = getMetricRegistryForRaftServer(serverId.toString());
@@ -159,7 +159,7 @@ public final class RaftServerMetrics extends RatisMetrics {
   @VisibleForTesting
   public static Gauge getPeerCommitIndexGauge(RaftGroupMemberId serverId, RaftPeerId peerId) {
 
-    final RaftServerMetrics serverMetrics = METRICS.get(serverId);
+    final RaftServerMetricsImpl serverMetrics = METRICS.get(serverId);
     if (serverMetrics == null) {
       return null;
     }
@@ -271,7 +271,7 @@ public final class RaftServerMetrics extends RatisMetrics {
     }
   }
 
-  /** A snapshot just has been installed. */
+  @Override
   public void onSnapshotInstalled() {
     registry.counter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT).inc();
   }

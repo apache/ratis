@@ -44,7 +44,7 @@ import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
-import org.apache.ratis.server.metrics.RaftServerMetrics;
+import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -158,7 +158,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final RaftServerJmxAdapter jmxAdapter;
   private final LeaderElectionMetrics leaderElectionMetrics;
-  private final RaftServerMetrics raftServerMetrics;
+  private final RaftServerMetricsImpl raftServerMetrics;
 
   private final AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
 
@@ -192,7 +192,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
-    this.raftServerMetrics = RaftServerMetrics.computeIfAbsentRaftServerMetrics(
+    this.raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
         getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
@@ -424,7 +424,7 @@ class RaftServerImpl implements RaftServer.Division,
       try {
         leaderElectionMetrics.unregister();
         raftServerMetrics.unregister();
-        RaftServerMetrics.removeRaftServerMetrics(getMemberId());
+        RaftServerMetricsImpl.removeRaftServerMetrics(getMemberId());
       } catch (Exception ignored) {
         LOG.warn("{}: Failed to unregister metric", getMemberId(), ignored);
       }
@@ -1603,7 +1603,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
-  public RaftServerMetrics getRaftServerMetrics() {
+  public RaftServerMetricsImpl getRaftServerMetrics() {
     return raftServerMetrics;
   }
 
