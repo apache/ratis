@@ -25,6 +25,7 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
+import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
@@ -70,6 +71,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -168,6 +170,8 @@ class RaftServerImpl implements RaftServer.Division,
   // then thread1 execute lifeCycle.transition(RUNNING) in startAsFollower(),
   // So happens IllegalStateException: ILLEGAL TRANSITION: RUNNING -> RUNNING,
   private final AtomicBoolean startComplete;
+
+  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -589,7 +593,8 @@ class RaftServerImpl implements RaftServer.Division,
   /**
    * @return null if the server is in leader state.
    */
-  private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry) {
+  private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry,
+      boolean isRead) {
     try {
       assertGroup(request.getRequestorId(), request.getRaftGroupId());
     } catch (GroupMismatchException e) {
@@ -609,6 +614,14 @@ class RaftServerImpl implements RaftServer.Division,
       final LeaderNotReadyException lnre = new LeaderNotReadyException(getMemberId());
       final RaftClientReply reply = newExceptionReply(request, lnre);
       return RetryCacheImpl.failWithReply(reply, entry);
+    }
+
+    if (!isRead) {
+      if (isSteppingDown()) {
+        final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId());
+        final RaftClientReply reply = newExceptionReply(request, lsde);
+        return RetryCacheImpl.failWithReply(reply, entry);
+      }
     }
     return null;
   }
@@ -653,7 +666,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final PendingRequest pending;
     synchronized (this) {
-      reply = checkLeaderState(request, cacheEntry);
+      reply = checkLeaderState(request, cacheEntry, false);
       if (reply != null) {
         return reply;
       }
@@ -718,7 +731,8 @@ class RaftServerImpl implements RaftServer.Division,
       replyFuture = staleReadAsync(request);
     } else {
       // first check the server's leader state
-      CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
+      CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null,
+          request.is(TypeCase.READ) || request.is(TypeCase.WATCH));
       if (reply != null) {
         return reply;
       }
@@ -866,18 +880,112 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException {
-    //TODO(runzhiwang): implement transfer leadership in server
-    return null;
+    return waitForReply(request, transferLeadershipAsync(request));
+  }
+
+  private CompletableFuture<RaftClientReply> logAndReturnTransferLeadershipFail(
+      TransferLeadershipRequest request, String msg) {
+    LOG.warn(msg);
+    return CompletableFuture.completedFuture(newExceptionReply(request, new StateMachineException(msg)));
+  }
+
+  boolean isSteppingDown() {
+    return finishTransferLeader != null;
+  }
+
+  private Consumer<RaftPeerId> finishTransferLeader;
+
+  public Consumer<RaftPeerId> finishTransferLeader() {
+    return finishTransferLeader;
+  }
+
+  public Consumer<RaftPeerId> setFinishTransferLeader(Consumer<RaftPeerId> consumer) {
+    return finishTransferLeader = consumer;
+  }
+
+  private void timeoutTransferLeadership(
+      TransferLeadershipRequest request, CompletableFuture<RaftClientReply> replyFuture)
+      throws StateMachineException {
+    synchronized (replyFuture) {
+      if (replyFuture.isDone()) {
+        return;
+      }
+
+      setFinishTransferLeader(null);
+
+      if (state.getLeaderId().equals(request.getNewLeader())) {
+        replyFuture.complete(newSuccessReply(request));
+      } else {
+        StateMachineException sme = new StateMachineException("Failed to transfer leadership");
+        replyFuture.complete(newExceptionReply(request, sme));
+        throw sme;
+      }
+    }
   }
 
   @Override
   public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
       throws IOException {
-    //TODO(runzhiwang): implement transfer leadership in server
-    return null;
+    LOG.info("{}: receive transferLeadership {}", getMemberId(), request);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
+    synchronized (this) {
+      CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
+      if (reply != null) {
+        return reply;
+      }
+
+      if (getId().equals(request.getNewLeader())) {
+        return CompletableFuture.completedFuture(newSuccessReply(request));
+      }
+
+      final RaftConfigurationImpl conf = getRaftConf();
+      final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
+
+      // make sure there is no raft reconfiguration in progress
+      if (!conf.isStable() || leaderState.inStagingState() || !state.isConfCommitted()) {
+        String msg = getMemberId() + " refused to transfer leadership to peer " + request.getNewLeader() +
+            " when raft reconfiguration in progress.";
+        return logAndReturnTransferLeadershipFail(request, msg);
+      }
+
+      if (!conf.containsInConf(request.getNewLeader())) {
+        String msg = getMemberId() + " refused to transfer leadership to peer " + request.getNewLeader() +
+            " as it is not in " + conf;
+        return logAndReturnTransferLeadershipFail(request, msg);
+      }
+
+      if (!conf.isHighestPriority(request.getNewLeader())) {
+        String msg = getMemberId() + " refused to transfer leadership to peer " + request.getNewLeader() +
+            " as it does not has highest priority " + conf;
+        return logAndReturnTransferLeadershipFail(request, msg);
+      }
+
+      CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
+
+      setFinishTransferLeader(currLeader -> {
+        synchronized (replyFuture) {
+          if (currLeader == null || replyFuture.isDone()) {
+            return;
+          }
+
+          if (currLeader.equals(request.getNewLeader())) {
+            replyFuture.complete(newSuccessReply(request));
+            setFinishTransferLeader(null);
+          }
+        }
+      });
+
+      scheduler.onTimeout(TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS),
+          () -> timeoutTransferLeadership(request, replyFuture),
+          LOG, () -> "Timeout check failed for append entry request: " + request);
+
+      return replyFuture;
+    }
   }
 
-    @Override
+  @Override
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
     return waitForReply(request, setConfigurationAsync(request));
   }
@@ -891,7 +999,7 @@ class RaftServerImpl implements RaftServer.Division,
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
-    CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
+    CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
     if (reply != null) {
       return reply;
     }
@@ -899,7 +1007,7 @@ class RaftServerImpl implements RaftServer.Division,
     final List<RaftPeer> peersInNewConf = request.getPeersInNewConf();
     final PendingRequest pending;
     synchronized (this) {
-      reply = checkLeaderState(request, null);
+      reply = checkLeaderState(request, null, false);
       if (reply != null) {
         return reply;
       }

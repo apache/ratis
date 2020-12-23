@@ -249,6 +249,12 @@ class ServerState implements Closeable {
       LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
           getMemberId(), leaderId, newLeaderId, getCurrentTerm(), op, suffix);
       leaderId = newLeaderId;
+      if (newLeaderId != null) {
+        Consumer<RaftPeerId> finishTransferLeader = server.finishTransferLeader();
+        if (finishTransferLeader != null) {
+          finishTransferLeader.accept(newLeaderId);
+        }
+      }
     }
   }
 

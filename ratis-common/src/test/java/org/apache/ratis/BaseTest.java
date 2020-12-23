@@ -77,6 +77,17 @@ public abstract class BaseTest {
     }
   }
 
+  public List<RaftPeer> getPeersWithPriority(List<RaftPeer> peers, RaftPeer suggestedLeader) {
+    List<RaftPeer> peersWithPriority = new ArrayList<>();
+    for (int i = 0; i < peers.size(); i++) {
+      RaftPeer peer = peers.get(i);
+      final int priority = peer.equals(suggestedLeader)? 2: 1;
+      peersWithPriority.add(
+          RaftPeer.newBuilder().setId(peer.getId()).setAddress(peer.getAddress()).setPriority(priority).build());
+    }
+    return peersWithPriority;
+  }
+
   public RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
     RoutingTable.Builder builder = RoutingTable.newBuilder();
     RaftPeer previous = primary;
