@@ -26,6 +26,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.util.ReflectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,9 +38,13 @@ import java.io.IOException;
 public interface LogAppender {
   Logger LOG = LoggerFactory.getLogger(LogAppender.class);
 
+  Class<? extends LogAppender> DEFAULT_CLASS = ReflectionUtils.getClass(
+      LogAppender.class.getName() + "Default", LogAppender.class);
+
   /** Create the default {@link LogAppender}. */
   static LogAppender newLogAppenderDefault(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
-    return new LogAppenderDefault(server, leaderState, f);
+    final Class<?>[] argClasses = {RaftServer.Division.class, LeaderState.class, FollowerInfo.class};
+    return ReflectionUtils.newInstance(DEFAULT_CLASS, argClasses, server, leaderState, f);
   }
 
   /** @return the server. */
