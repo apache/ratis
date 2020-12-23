@@ -33,6 +33,7 @@ import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.StaleReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
+import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
@@ -171,7 +172,7 @@ class RaftServerImpl implements RaftServer.Division,
   // So happens IllegalStateException: ILLEGAL TRANSITION: RUNNING -> RUNNING,
   private final AtomicBoolean startComplete;
 
-  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final TransferLeadership transferLeadership;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -208,6 +209,8 @@ class RaftServerImpl implements RaftServer.Division,
           .build();
       return client;
     });
+
+    this.transferLeadership = new TransferLeadership(this);
   }
 
   @Override
@@ -886,41 +889,16 @@ class RaftServerImpl implements RaftServer.Division,
   private CompletableFuture<RaftClientReply> logAndReturnTransferLeadershipFail(
       TransferLeadershipRequest request, String msg) {
     LOG.warn(msg);
-    return CompletableFuture.completedFuture(newExceptionReply(request, new StateMachineException(msg)));
+    return CompletableFuture.completedFuture(
+        newExceptionReply(request, new TransferLeadershipException(getMemberId(), msg)));
   }
 
   boolean isSteppingDown() {
-    return finishTransferLeader != null;
+    return transferLeadership.isSteppingDown();
   }
 
-  private Consumer<RaftPeerId> finishTransferLeader;
-
-  public Consumer<RaftPeerId> finishTransferLeader() {
-    return finishTransferLeader;
-  }
-
-  public Consumer<RaftPeerId> setFinishTransferLeader(Consumer<RaftPeerId> consumer) {
-    return finishTransferLeader = consumer;
-  }
-
-  private void timeoutTransferLeadership(
-      TransferLeadershipRequest request, CompletableFuture<RaftClientReply> replyFuture)
-      throws StateMachineException {
-    synchronized (replyFuture) {
-      if (replyFuture.isDone()) {
-        return;
-      }
-
-      setFinishTransferLeader(null);
-
-      if (state.getLeaderId().equals(request.getNewLeader())) {
-        replyFuture.complete(newSuccessReply(request));
-      } else {
-        StateMachineException sme = new StateMachineException("Failed to transfer leadership");
-        replyFuture.complete(newExceptionReply(request, sme));
-        throw sme;
-      }
-    }
+  void finishTransferLeadership() {
+    transferLeadership.finish(state.getLeaderId(), false);
   }
 
   @Override
@@ -962,26 +940,7 @@ class RaftServerImpl implements RaftServer.Division,
         return logAndReturnTransferLeadershipFail(request, msg);
       }
 
-      CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
-
-      setFinishTransferLeader(currLeader -> {
-        synchronized (replyFuture) {
-          if (currLeader == null || replyFuture.isDone()) {
-            return;
-          }
-
-          if (currLeader.equals(request.getNewLeader())) {
-            replyFuture.complete(newSuccessReply(request));
-            setFinishTransferLeader(null);
-          }
-        }
-      });
-
-      scheduler.onTimeout(TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS),
-          () -> timeoutTransferLeadership(request, replyFuture),
-          LOG, () -> "Timeout check failed for append entry request: " + request);
-
-      return replyFuture;
+      return transferLeadership.start(request);
     }
   }
 

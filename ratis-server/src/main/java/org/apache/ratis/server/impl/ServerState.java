@@ -46,6 +46,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -249,11 +251,8 @@ class ServerState implements Closeable {
       LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
           getMemberId(), leaderId, newLeaderId, getCurrentTerm(), op, suffix);
       leaderId = newLeaderId;
-      if (newLeaderId != null) {
-        Consumer<RaftPeerId> finishTransferLeader = server.finishTransferLeader();
-        if (finishTransferLeader != null) {
-          finishTransferLeader.accept(newLeaderId);
-        }
+      if (leaderId != null) {
+        server.finishTransferLeadership();
       }
     }
   }
