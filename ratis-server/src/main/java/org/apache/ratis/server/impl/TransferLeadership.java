@@ -20,7 +20,6 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
-import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
@@ -32,7 +31,6 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 public class TransferLeadership {
   public static final Logger LOG = LoggerFactory.getLogger(TransferLeadership.class);
@@ -107,7 +105,7 @@ public class TransferLeadership {
       }
     }
 
-    scheduler.onTimeout(TimeDuration.ONE_SECOND,
+    scheduler.onTimeout(TimeDuration.ONE_MINUTE,
         () -> finish(server.getState().getLeaderId(), true),
         LOG, () -> "Timeout check failed for append entry request: " + request);
     return supplier.get().getReplyFuture();

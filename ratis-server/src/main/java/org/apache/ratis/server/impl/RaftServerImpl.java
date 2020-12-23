@@ -72,7 +72,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -597,7 +596,7 @@ class RaftServerImpl implements RaftServer.Division,
    * @return null if the server is in leader state.
    */
   private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry,
-      boolean isRead) {
+      boolean isWrite) {
     try {
       assertGroup(request.getRequestorId(), request.getRaftGroupId());
     } catch (GroupMismatchException e) {
@@ -619,13 +618,12 @@ class RaftServerImpl implements RaftServer.Division,
       return RetryCacheImpl.failWithReply(reply, entry);
     }
 
-    if (!isRead) {
-      if (isSteppingDown()) {
-        final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId());
-        final RaftClientReply reply = newExceptionReply(request, lsde);
-        return RetryCacheImpl.failWithReply(reply, entry);
-      }
+    if (isWrite && isSteppingDown()) {
+      final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId());
+      final RaftClientReply reply = newExceptionReply(request, lsde);
+      return RetryCacheImpl.failWithReply(reply, entry);
     }
+
     return null;
   }
 
@@ -669,7 +667,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final PendingRequest pending;
     synchronized (this) {
-      reply = checkLeaderState(request, cacheEntry, false);
+      reply = checkLeaderState(request, cacheEntry, true);
       if (reply != null) {
         return reply;
       }
@@ -735,7 +733,7 @@ class RaftServerImpl implements RaftServer.Division,
     } else {
       // first check the server's leader state
       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null,
-          request.is(TypeCase.READ) || request.is(TypeCase.WATCH));
+          !request.is(TypeCase.READ) && !request.is(TypeCase.WATCH));
       if (reply != null) {
         return reply;
       }
@@ -958,7 +956,7 @@ class RaftServerImpl implements RaftServer.Division,
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
-    CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
+    CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, true);
     if (reply != null) {
       return reply;
     }
