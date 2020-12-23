@@ -41,7 +41,8 @@ public final class ServerImplUtils {
   private ServerImplUtils() {
     //Never constructed
   }
-  /** For the case that all {@link RaftServerImpl} objects share the same {@link StateMachine}. */
+
+  /** Create a {@link RaftServerProxy}. */
   public static RaftServerProxy newRaftServer(
       RaftPeerId id, RaftGroup group, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters) throws IOException {
@@ -51,7 +52,7 @@ public final class ServerImplUtils {
     return proxy;
   }
 
-  public static RaftServerProxy newRaftServer(
+  private static RaftServerProxy newRaftServer(
       RaftPeerId id, StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
       throws IOException {
     final TimeDuration sleepTime = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);

@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -331,8 +332,7 @@ public interface StateMachine extends Closeable {
    * Initializes the State Machine with the given parameter.
    * The state machine must, if there is any, read the latest snapshot.
    */
-  //TODO change the raftServer parameter back to RaftServer once RaftServer has been moved to ratis-server-api
-  void initialize(Object raftServer, RaftGroupId raftGroupId, RaftStorage storage) throws IOException;
+  void initialize(RaftServer raftServer, RaftGroupId raftGroupId, RaftStorage storage) throws IOException;
 
   /**
    * Returns the lifecycle state for this StateMachine.

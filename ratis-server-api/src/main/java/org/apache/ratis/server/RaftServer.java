@@ -22,19 +22,22 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.ReflectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -149,6 +152,33 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
   /** To build {@link RaftServer} objects. */
   class Builder {
+    private static final Method NEW_RAFT_SERVER_METHOD = initNewRaftServerMethod();
+
+    private static Method initNewRaftServerMethod() {
+      final String className = RaftServer.class.getPackage().getName() + ".impl.ServerImplUtils";
+      final Class<?>[] argClasses = {RaftPeerId.class, RaftGroup.class, StateMachine.Registry.class,
+          RaftProperties.class, Parameters.class};
+      try {
+        final Class<?> clazz = ReflectionUtils.getClassByName(className);
+        return clazz.getMethod("newRaftServer", argClasses);
+      } catch (Exception e) {
+        throw new IllegalStateException("Failed to initNewRaftServerMethod", e);
+      }
+    }
+
+    private static RaftServer newRaftServer(RaftPeerId serverId, RaftGroup group,
+        StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
+        throws IOException {
+      try {
+        return (RaftServer) NEW_RAFT_SERVER_METHOD.invoke(null,
+            serverId, group, stateMachineRegistry, properties, parameters);
+      } catch (IllegalAccessException e) {
+        throw new IllegalStateException("Failed to build " + serverId, e);
+      } catch (InvocationTargetException e) {
+        throw IOUtils.asIOException(e.getCause());
+      }
+    }
+
     private RaftPeerId serverId;
     private StateMachine.Registry stateMachineRegistry ;
     private RaftGroup group = null;
@@ -157,7 +187,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return a {@link RaftServer} object. */
     public RaftServer build() throws IOException {
-      return ServerImplUtils.newRaftServer(
+      return newRaftServer(
           serverId,
           group,
           Objects.requireNonNull(stateMachineRegistry , "Neither 'stateMachine' nor 'setStateMachineRegistry' " +
