@@ -389,6 +389,7 @@ message SetConfigurationRequestProto {
 message TransferLeadershipRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
   RaftPeerProto newLeader = 2;
+  uint64 timeoutInMs = 3;
 }
 
 // A request to add a new group

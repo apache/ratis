@@ -441,7 +441,8 @@ public interface ClientProtoUtils {
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
         p.getRpcRequest().getCallId(),
-        newLeader.getId());
+        newLeader.getId(),
+        p.getTimeoutInMs());
   }
 
   static TransferLeadershipRequestProto toTransferLeadershipRequestProto(
@@ -449,6 +450,7 @@ public interface ClientProtoUtils {
     return TransferLeadershipRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .setNewLeader(RaftPeer.newBuilder().setId(request.getNewLeader()).build().getRaftPeerProto())
+        .setTimeoutInMs(request.getTimeoutInMs())
         .build();
   }
 

@@ -17,17 +17,13 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.protocol.RaftGroupMemberId;
-
 public class TransferLeadershipException extends RaftException {
-  private final RaftGroupMemberId serverId;
 
-  public TransferLeadershipException(RaftGroupMemberId id, String msg) {
-    super(msg);
-    this.serverId = id;
+  public TransferLeadershipException(String message) {
+    super(message);
   }
 
-  public RaftGroupMemberId getServerId() {
-    return serverId;
+  public TransferLeadershipException(String message, Throwable t) {
+    super(message, t);
   }
 }
