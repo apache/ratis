@@ -190,9 +190,15 @@ public class DataStreamClientImpl implements DataStreamClient {
   public DataStreamOutputRpc stream(ByteBuffer headerMessage, RoutingTable routingTable) {
     final Message message =
         Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
-    RaftClientRequest request = new RaftClientRequest(clientId, dataStreamServer.getId(), groupId,
-        CallId.getAndIncrement(), message, RaftClientRequest.dataStreamRequestType(), null,
-        routingTable);
+    RaftClientRequest request = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(dataStreamServer.getId())
+        .setGroupId(groupId)
+        .setCallId(CallId.getAndIncrement())
+        .setMessage(message)
+        .setType(RaftClientRequest.dataStreamRequestType())
+        .setRoutingTable(routingTable)
+        .build();
     return new DataStreamOutputImpl(request);
   }
 

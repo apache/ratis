@@ -209,8 +209,15 @@ public final class RaftClientImpl implements RaftClient {
   RaftClientRequest newRaftClientRequest(
       RaftPeerId server, long callId, Message message, RaftClientRequest.Type type,
       SlidingWindowEntry slidingWindowEntry) {
-    return new RaftClientRequest(clientId, server != null? server: leaderId, groupId,
-        callId, message, type, slidingWindowEntry);
+    return RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(server != null? server: leaderId)
+        .setGroupId(groupId)
+        .setCallId(callId)
+        .setMessage(message)
+        .setType(type)
+        .setSlidingWindowEntry(slidingWindowEntry)
+        .build();
   }
 
   @Override
