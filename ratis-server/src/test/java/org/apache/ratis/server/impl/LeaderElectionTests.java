@@ -123,19 +123,12 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testTransferLeader() throws Exception {
-    // Avoid changing leader by timeout
-    final TimeDuration min = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(2, TimeUnit.SECONDS));
-    final TimeDuration max = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(3, TimeUnit.SECONDS));
-
     try(final MiniRaftCluster cluster = newCluster(3)) {
       cluster.start();
 
       final RaftServer.Division leader = waitForLeader(cluster);
       try (RaftClient client = cluster.createClient(leader.getId())) {
         client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Thread.sleep(1000);
 
         List<RaftServer.Division> followers = cluster.getFollowers();
         Assert.assertEquals(followers.size(), 2);
@@ -146,9 +139,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         RaftClientReply reply = client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
         Assert.assertTrue(reply.isSuccess());
 
-        reply = client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId(), 10000);
+        reply = client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId(), 20000);
         assertTrue(reply.isSuccess());
-        Thread.sleep(1000);
 
         final RaftServer.Division currLeader = waitForLeader(cluster);
         assertTrue(newLeader.getId() == currLeader.getId());
@@ -160,83 +152,68 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
       cluster.shutdown();
     }
-
-    // Reset
-    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), min);
-    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), max);
   }
 
   @Test
   public void testTransferLeaderTimeout() throws Exception {
-    // Avoid changing leader by timeout
-    final TimeDuration min = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(2, TimeUnit.SECONDS));
-    final TimeDuration max = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(3, TimeUnit.SECONDS));
-
     try(final MiniRaftCluster cluster = newCluster(3)) {
       cluster.start();
 
       final RaftServer.Division leader = waitForLeader(cluster);
       try (RaftClient client = cluster.createClient(leader.getId())) {
-        client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Thread.sleep(1000);
-
         List<RaftServer.Division> followers = cluster.getFollowers();
         Assert.assertEquals(followers.size(), 2);
         RaftServer.Division newLeader = followers.get(0);
 
+        // isolate new leader, so that transfer leadership will timeout
         isolate(cluster, newLeader.getId());
 
         List<RaftPeer> peers = cluster.getPeers();
         List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
-        Assert.assertTrue(client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0])).isSuccess());
+        RaftClientReply reply = client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+        Assert.assertTrue(reply.isSuccess());
 
         CompletableFuture<Boolean> transferTimeoutFuture = CompletableFuture.supplyAsync(() -> {
           try {
-            RaftClientReply reply;
-            long timeoutInMs = 5000;
+            long timeoutMs = 5000;
             long start = System.currentTimeMillis();
             try {
-              client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId(), timeoutInMs);
+              client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId(), timeoutMs);
             } catch (TransferLeadershipException e) {
               long cost = System.currentTimeMillis() - start;
-              Assert.assertTrue(cost > timeoutInMs);
-              Assert.assertTrue(e.getMessage().contains("Timeout and Failed to transfer leadership to"));
+              Assert.assertTrue(cost > timeoutMs);
+              Assert.assertTrue(e.getMessage().contains("Failed to transfer leadership to"));
+              Assert.assertTrue(e.getMessage().contains("timed out"));
             }
 
-            reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
-            Assert.assertTrue(reply.getReplierId().equals(leader.getId().toString()));
-            Assert.assertTrue(reply.isSuccess());
             return true;
           } catch (IOException e) {
             return false;
           }
         });
 
-        CompletableFuture<Boolean> steppingDownFuture = CompletableFuture.supplyAsync(() -> {
+        // before transfer timeout, leader should in steppingDown
+        JavaUtils.attemptRepeatedly(() -> {
           try {
-            Thread.sleep(1000);
             client.io().send(new RaftTestUtil.SimpleMessage("message"));
-            return false;
           } catch (LeaderSteppingDownException e) {
-            Assert.assertTrue(e.getMessage().contains("is in steppingDown"));
-            return true;
-          } catch (Exception e) {
-            return false;
+            Assert.assertTrue(e.getMessage().contains("is in stepping down"));
           }
-        });
+          return null;
+        }, 5, TimeDuration.ONE_SECOND, "check leader steppingDown", RaftServer.LOG);
 
         Assert.assertTrue(transferTimeoutFuture.get());
-        Assert.assertTrue(steppingDownFuture.get());
+
+        // after transfer timeout, leader should accept request
+        reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        Assert.assertTrue(reply.getReplierId().equals(leader.getId().toString()));
+        Assert.assertTrue(reply.isSuccess());
+
+        deIsolate(cluster, newLeader.getId());
       }
 
       cluster.shutdown();
     }
-
-    // Reset
-    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), min);
-    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), max);
   }
 
   @Test

@@ -237,10 +237,11 @@ public class RaftClientRequest extends RaftClientMessage {
     private Type type;
     private SlidingWindowEntry slidingWindowEntry;
     private RoutingTable routingTable;
+    private long timeoutMs;
 
     public RaftClientRequest build() {
       return new RaftClientRequest(
-          clientId, serverId, groupId, callId, message, type, slidingWindowEntry, routingTable);
+          clientId, serverId, groupId, callId, message, type, slidingWindowEntry, routingTable, timeoutMs);
     }
 
     public Builder setClientId(ClientId clientId) {
@@ -282,6 +283,11 @@ public class RaftClientRequest extends RaftClientMessage {
       this.routingTable = routingTable;
       return this;
     }
+
+    public Builder setTimeoutMs(long timeoutMs) {
+      this.timeoutMs = timeoutMs;
+      return this;
+    }
   }
 
   public static Builder newBuilder() {
@@ -308,20 +314,28 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private final RoutingTable routingTable;
 
+  private final long timeoutMs;
+
   protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
-    this(clientId, serverId, groupId, callId, null, type, null, null);
+    this(clientId, serverId, groupId, callId, null, type, null, null, 0);
+  }
+
+  protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type,
+      long timeoutMs) {
+    this(clientId, serverId, groupId, callId, null, type, null, null, timeoutMs);
   }
 
   @SuppressWarnings("parameternumber")
   private RaftClientRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry,
-      RoutingTable routingTable) {
+      RoutingTable routingTable, long timeoutMs) {
     super(clientId, serverId, groupId, callId);
     this.message = message;
     this.type = type;
     this.slidingWindowEntry = slidingWindowEntry != null? slidingWindowEntry: SlidingWindowEntry.getDefaultInstance();
     this.routingTable = routingTable;
+    this.timeoutMs = timeoutMs;
   }
 
   @Override
@@ -347,6 +361,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public RoutingTable getRoutingTable() {
     return routingTable;
+  }
+
+  public long getTimeoutMs() {
+    return timeoutMs;
   }
 
   @Override

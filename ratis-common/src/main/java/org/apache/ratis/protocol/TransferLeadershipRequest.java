@@ -19,21 +19,14 @@ package org.apache.ratis.protocol;
 
 public class TransferLeadershipRequest extends RaftClientRequest {
   private final RaftPeerId newLeader;
-  private final long timeoutInMs;
 
   public TransferLeadershipRequest(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, RaftPeerId newLeader,
-      long timeoutInMs) {
-    super(clientId, serverId, groupId, callId, readRequestType());
+      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, RaftPeerId newLeader, long timeoutMs) {
+    super(clientId, serverId, groupId, callId, readRequestType(), timeoutMs);
     this.newLeader = newLeader;
-    this.timeoutInMs = timeoutInMs;
   }
 
   public RaftPeerId getNewLeader() {
     return newLeader;
-  }
-
-  public long getTimeoutInMs() {
-    return timeoutInMs;
   }
 }

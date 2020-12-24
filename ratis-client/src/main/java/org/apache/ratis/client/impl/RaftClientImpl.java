@@ -221,12 +221,12 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply transferLeadership(RaftGroupId raftGroupId, RaftPeerId newLeader, long timeoutInMs)
+  public RaftClientReply transferLeadership(RaftGroupId raftGroupId, RaftPeerId newLeader, long timeoutMs)
       throws IOException {
     Objects.requireNonNull(newLeader, "newLeader == null");
     final long callId = CallId.getAndIncrement();
     return io().sendRequestWithRetry(() -> new TransferLeadershipRequest(
-        clientId, leaderId, groupId, callId, newLeader, timeoutInMs));
+        clientId, leaderId, groupId, callId, newLeader, timeoutMs));
   }
 
   // TODO: change peersInNewConf to List<RaftPeer>

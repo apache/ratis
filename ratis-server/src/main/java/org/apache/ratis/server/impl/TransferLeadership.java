@@ -60,9 +60,9 @@ public class TransferLeadership {
       if (currentLeader != null && currentLeader.equals(request.getNewLeader())) {
         replyFuture.complete(server.newSuccessReply(request));
       } else if (timeout) {
-        final TransferLeadershipException tle = new TransferLeadershipException(server.getMemberId() +
-            " Timeout and Failed to transfer leadership to " + request.getNewLeader() + ": current leader is " +
-            currentLeader);
+        final TransferLeadershipException tle = new TransferLeadershipException(server.getMemberId()
+            + ": Failed to transfer leadership to " + request.getNewLeader()
+            + " (timed out " + request.getTimeoutMs() + "ms): current leader is " + currentLeader);
         replyFuture.complete(server.newExceptionReply(request, tle));
       }
     }
@@ -107,7 +107,7 @@ public class TransferLeadership {
       }
     }
 
-    scheduler.onTimeout(TimeDuration.valueOf(request.getTimeoutInMs(), TimeUnit.MILLISECONDS),
+    scheduler.onTimeout(TimeDuration.valueOf(request.getTimeoutMs(), TimeUnit.MILLISECONDS),
         () -> finish(server.getState().getLeaderId(), true),
         LOG, () -> "Timeout check failed for append entry request: " + request);
     return supplier.get().getReplyFuture();
