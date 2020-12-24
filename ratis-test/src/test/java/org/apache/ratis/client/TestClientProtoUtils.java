@@ -57,9 +57,14 @@ public class TestClientProtoUtils extends BaseTest {
 
     for(int i = 0; i < n; i++) {
       final ByteString bytes = newByteString(messageSize.getSizeInt(), i);
-      final RaftClientRequest request = new RaftClientRequest(clientId, leaderId, groupId,
-          1, () -> bytes, RaftClientRequest.writeRequestType(), null);
-
+      final RaftClientRequest request = RaftClientRequest.newBuilder()
+          .setClientId(clientId)
+          .setServerId(leaderId)
+          .setGroupId(groupId)
+          .setCallId(1)
+          .setMessage(() -> bytes)
+          .setType(RaftClientRequest.writeRequestType())
+          .build();
       final Timestamp startTime = Timestamp.currentTime();
       final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
       final TimeDuration p = startTime.elapsedTime();

@@ -58,8 +58,14 @@ public abstract class TestRatisServerMetricsBase<CLUSTER extends MiniRaftCluster
     final RaftServer.Division leaderImpl = RaftTestUtil.waitForLeader(cluster);
     ClientId clientId = ClientId.randomId();
     // StaleRead with Long.MAX_VALUE minIndex will fail.
-    RaftClientRequest r = new RaftClientRequest(clientId, leaderImpl.getId(), cluster.getGroupId(),
-        0, Message.EMPTY, RaftClientRequest.staleReadRequestType(Long.MAX_VALUE), null);
+    RaftClientRequest r = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(leaderImpl.getId())
+        .setGroupId(cluster.getGroupId())
+        .setCallId(0)
+        .setMessage(Message.EMPTY)
+        .setType(RaftClientRequest.staleReadRequestType(Long.MAX_VALUE))
+        .build();
     final CompletableFuture<RaftClientReply> f = leaderImpl.getRaftServer().submitClientRequestAsync(r);
     Assert.assertTrue(!f.get().isSuccess());
     assertEquals(1L, ((RaftServerMetricsImpl)leaderImpl.getRaftServerMetrics())

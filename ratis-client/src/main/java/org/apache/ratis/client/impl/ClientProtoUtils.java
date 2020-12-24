@@ -139,15 +139,16 @@ public interface ClientProtoUtils {
     final RaftClientRequest.Type type = toRaftClientRequestType(p);
     final RaftRpcRequestProto request = p.getRpcRequest();
 
-    return new RaftClientRequest(
-        ClientId.valueOf(request.getRequestorId()),
-        RaftPeerId.valueOf(request.getReplyId()),
-        ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
-        request.getCallId(),
-        toMessage(p.getMessage()),
-        type,
-        request.getSlidingWindowEntry(),
-        getRoutingTable(p));
+    return RaftClientRequest.newBuilder()
+        .setClientId(ClientId.valueOf(request.getRequestorId()))
+        .setServerId(RaftPeerId.valueOf(request.getReplyId()))
+        .setGroupId(ProtoUtils.toRaftGroupId(request.getRaftGroupId()))
+        .setCallId(request.getCallId())
+        .setMessage(toMessage(p.getMessage()))
+        .setType(type)
+        .setSlidingWindowEntry(request.getSlidingWindowEntry())
+        .setRoutingTable(getRoutingTable(p))
+        .build();
   }
 
   static ByteBuffer toRaftClientRequestProtoByteBuffer(RaftClientRequest request) {

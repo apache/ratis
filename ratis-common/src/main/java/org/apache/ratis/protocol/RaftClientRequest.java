@@ -224,10 +224,81 @@ public class RaftClientRequest extends RaftClientMessage {
     }
   }
 
+  /**
+   * To build {@link RaftClientRequest}
+   */
+  public static class Builder {
+    private ClientId clientId;
+    private RaftPeerId serverId;
+    private RaftGroupId groupId;
+    private long callId;
+
+    private Message message;
+    private Type type;
+    private SlidingWindowEntry slidingWindowEntry;
+    private RoutingTable routingTable;
+
+    public RaftClientRequest build() {
+      return new RaftClientRequest(
+          clientId, serverId, groupId, callId, message, type, slidingWindowEntry, routingTable);
+    }
+
+    public Builder setClientId(ClientId clientId) {
+      this.clientId = clientId;
+      return this;
+    }
+
+    public Builder setServerId(RaftPeerId serverId) {
+      this.serverId = serverId;
+      return this;
+    }
+
+    public Builder setGroupId(RaftGroupId groupId) {
+      this.groupId = groupId;
+      return this;
+    }
+
+    public Builder setCallId(long callId) {
+      this.callId = callId;
+      return this;
+    }
+
+    public Builder setMessage(Message message) {
+      this.message = message;
+      return this;
+    }
+
+    public Builder setType(Type type) {
+      this.type = type;
+      return this;
+    }
+
+    public Builder setSlidingWindowEntry(SlidingWindowEntry slidingWindowEntry) {
+      this.slidingWindowEntry = slidingWindowEntry;
+      return this;
+    }
+
+    public Builder setRoutingTable(RoutingTable routingTable) {
+      this.routingTable = routingTable;
+      return this;
+    }
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
   /** Convert the given request to a write request with the given message. */
   public static RaftClientRequest toWriteRequest(RaftClientRequest r, Message message) {
-    return new RaftClientRequest(r.getClientId(), r.getServerId(), r.getRaftGroupId(),
-        r.getCallId(), message, RaftClientRequest.writeRequestType(), r.getSlidingWindowEntry());
+    return RaftClientRequest.newBuilder()
+        .setClientId(r.getClientId())
+        .setServerId(r.getServerId())
+        .setGroupId(r.getRaftGroupId())
+        .setCallId(r.getCallId())
+        .setMessage(message)
+        .setType(RaftClientRequest.writeRequestType())
+        .setSlidingWindowEntry(r.getSlidingWindowEntry())
+        .build();
   }
 
   private final Message message;
@@ -237,18 +308,12 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private final RoutingTable routingTable;
 
-  public RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
+  protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
     this(clientId, serverId, groupId, callId, null, type, null, null);
   }
 
-  public RaftClientRequest(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-      long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry) {
-    this(clientId, serverId, groupId, callId, message, type, slidingWindowEntry, null);
-  }
-
   @SuppressWarnings("parameternumber")
-  public RaftClientRequest(
+  private RaftClientRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry,
       RoutingTable routingTable) {

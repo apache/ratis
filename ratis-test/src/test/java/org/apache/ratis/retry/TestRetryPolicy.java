@@ -277,7 +277,13 @@ public class TestRetryPolicy extends BaseTest {
 
 
   private static RaftClientRequest newRaftClientRequest(RaftClientRequest.Type type) {
-    return new RaftClientRequest(ClientId.randomId(), RaftPeerId.valueOf("s0"), RaftGroupId.randomId(), 1L, type);
+    return RaftClientRequest.newBuilder()
+        .setClientId(ClientId.randomId())
+        .setServerId(RaftPeerId.valueOf("s0"))
+        .setGroupId(RaftGroupId.randomId())
+        .setCallId(1L)
+        .setType(type)
+        .build();
   }
 
   /**
