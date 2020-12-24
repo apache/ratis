@@ -110,6 +110,7 @@ message RaftRpcRequestProto {
   bytes replyId = 2;
   RaftGroupIdProto raftGroupId = 3;
   uint64 callId = 4;
+  RoutingTableProto routingTable = 5;
 
   SlidingWindowEntry slidingWindowEntry = 15;
 }
@@ -307,8 +308,6 @@ message RaftClientRequestProto {
     DataStreamRequestTypeProto dataStream = 8;
     ForwardRequestTypeProto forward = 9;
   }
-
-  RoutingTableProto routingTable = 10;
 }
 
 message DataStreamPacketHeaderProto {
