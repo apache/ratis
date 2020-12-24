@@ -372,6 +372,8 @@ message RaftClientReplyProto {
     LeaderNotReadyExceptionProto leaderNotReadyException = 6;
     ThrowableProto alreadyClosedException = 7;
     ThrowableProto dataStreamException = 8;
+    ThrowableProto leaderSteppingDownException = 9;
+    ThrowableProto transferLeadershipException = 10;
   }
 
   uint64 logIndex = 14; // When the request is a write request and the reply is success, the log index of the transaction

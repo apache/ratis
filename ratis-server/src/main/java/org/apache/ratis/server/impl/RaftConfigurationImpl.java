@@ -145,6 +145,17 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return conf.contains(peerId);
   }
 
+  boolean isHighestPriority(RaftPeerId peerId) {
+    RaftPeer target = getPeer(peerId);
+    Collection<RaftPeer> peers = getCurrentPeers();
+    for (RaftPeer peer : peers) {
+      if (peer.getPriority() >= target.getPriority() && !peer.equals(target)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   boolean containsInOldConf(RaftPeerId peerId) {
     return oldConf != null && oldConf.contains(peerId);
   }

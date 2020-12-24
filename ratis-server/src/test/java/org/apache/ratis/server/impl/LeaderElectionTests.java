@@ -25,6 +25,7 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
@@ -43,6 +44,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -113,6 +115,41 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       RaftServerTestUtil.assertLostMajorityHeartbeatsRecently(leader);
     } finally {
       deIsolate(cluster, leader.getId());
+    }
+  }
+
+  @Test
+  public void testTransferLeader() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        Thread.sleep(1000);
+
+        List<RaftServer.Division> followers = cluster.getFollowers();
+        Assert.assertEquals(followers.size(), 2);
+        RaftServer.Division newLeader = followers.get(0);
+
+        List<RaftPeer> peers = cluster.getPeers();
+        List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
+        RaftClientReply reply = client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+        Assert.assertTrue(reply.isSuccess());
+
+        reply = client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId());
+        assertTrue(reply.isSuccess());
+        Thread.sleep(1000);
+
+        final RaftServer.Division currLeader = waitForLeader(cluster);
+        assertTrue(newLeader.getId() == currLeader.getId());
+
+        reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        Assert.assertNotEquals(reply.getReplierId(), leader.getId());
+        Assert.assertTrue(reply.isSuccess());
+      }
+
+      cluster.shutdown();
     }
   }
 

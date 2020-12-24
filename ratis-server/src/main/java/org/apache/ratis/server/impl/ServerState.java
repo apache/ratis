@@ -249,6 +249,9 @@ class ServerState implements Closeable {
       LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
           getMemberId(), leaderId, newLeaderId, getCurrentTerm(), op, suffix);
       leaderId = newLeaderId;
+      if (leaderId != null) {
+        server.finishTransferLeadership();
+      }
     }
   }
 
