@@ -79,6 +79,8 @@ public class NettyRpcProxy implements Closeable {
     switch (proto.getRaftNettyServerReplyCase()) {
       case REQUESTVOTEREPLY:
         return proto.getRequestVoteReply().getServerReply().getCallId();
+      case TIMEOUTNOWREPLY:
+        return proto.getTimeoutNowReply().getServerReply().getCallId();
       case APPENDENTRIESREPLY:
         return proto.getAppendEntriesReply().getServerReply().getCallId();
       case INSTALLSNAPSHOTREPLY:

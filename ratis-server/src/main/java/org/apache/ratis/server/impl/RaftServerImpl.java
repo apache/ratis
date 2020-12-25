@@ -96,6 +96,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
+  static final String TIMEOUT_NOW = CLASS_NAME + ".timeoutNow";
 
   class Info implements DivisionInfo {
     @Override
@@ -1385,6 +1386,41 @@ class RaftServerImpl implements RaftServer.Division,
       lifeCycle.compareAndTransition(STARTING, RUNNING);
     }
     return true;
+  }
+
+  @Override
+  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
+    final RaftRpcRequestProto r = request.getServerRequest();
+    final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
+    final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(r.getRaftGroupId());
+    final long leaderTerm = request.getLeaderTerm();
+    final TermIndex leaderLastEntry = TermIndex.valueOf(request.getLeaderLastEntry());
+
+    CodeInjectionForTesting.execute(TIMEOUT_NOW, getId(),
+        leaderId, leaderTerm, leaderLastEntry);
+
+    LOG.debug("{}: receive timeoutNow from:{}, leaderLastEntry:{},",
+        getMemberId(), leaderId, request.getLeaderLastEntry());
+
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(leaderId, leaderGroupId);
+
+    synchronized (this) {
+      if (!getInfo().isFollower()) {
+        LOG.warn("{} refused TimeoutNowRequest from {}, because role is:{}",
+            getMemberId(), leaderId, role.getCurrentRole());
+        return ServerProtoUtils.toTimeoutNowReplyProto(leaderId, getMemberId(), false);
+      }
+
+      if (ServerState.compareLog(state.getLastEntry(), leaderLastEntry) < 0) {
+        LOG.warn("{} refused TimeoutNowRequest from {}, because lastEntry:{} less than leaderEntry:{}",
+            getMemberId(), leaderId, leaderLastEntry, state.getLastEntry());
+        return ServerProtoUtils.toTimeoutNowReplyProto(leaderId, getMemberId(), false);
+      }
+
+      changeToCandidate();
+      return ServerProtoUtils.toTimeoutNowReplyProto(leaderId, getMemberId(), true);
+    }
   }
 
   private InstallSnapshotReplyProto installSnapshotImpl(InstallSnapshotRequestProto request) throws IOException {

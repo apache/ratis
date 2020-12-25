@@ -44,6 +44,9 @@ service RaftServerProtocolService {
   rpc requestVote(ratis.common.RequestVoteRequestProto)
       returns(ratis.common.RequestVoteReplyProto) {}
 
+  rpc timeoutNow(ratis.common.TimeoutNowRequestProto)
+      returns(ratis.common.TimeoutNowReplyProto) {}
+
   rpc appendEntries(stream ratis.common.AppendEntriesRequestProto)
       returns(stream ratis.common.AppendEntriesReplyProto) {}
 

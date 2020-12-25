@@ -23,6 +23,8 @@ import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -532,16 +534,28 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  private synchronized void yieldLeaderToHigherPriorityPeer(long term, TermIndex lastEntry) {
+  private synchronized void sendTimeoutNowToHigherPriorityPeer(RaftPeerId follower, TermIndex lastEntry) {
     ServerState state = server.getState();
     TermIndex currLastEntry = state.getLastEntry();
     if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
-      LOG.warn("{} can not stepDown because currLastEntry:{} did not match lastEntry:{}",
-          this, currLastEntry, lastEntry);
+      LOG.warn("{} can not send TimeoutNowRequest to follower:{} because currLastEntry:{} did not match lastEntry:{}",
+          this, follower, currLastEntry, lastEntry);
       return;
     }
 
-    stepDown(term, StepDownReason.HIGHER_PRIORITY);
+    final TimeoutNowRequestProto r = ServerProtoUtils.toTimeoutNowRequestProto(
+        server.getMemberId(), follower, state.getCurrentTerm(), lastEntry);
+    CompletableFuture.supplyAsync(() -> {
+      try {
+        TimeoutNowReplyProto replyProto = server.getServerRpc().timeoutNow(r);
+        if (replyProto.getServerReply().getSuccess()) {
+          LOG.warn("{} received failed reply of TimeoutNowRequest from follower:{}", this, follower);
+        }
+      } catch (IOException e) {
+        LOG.warn("{} send TimeoutNowRequest throw exception", this, e);
+      }
+      return null;
+    });
   }
 
   private void prepare() {
@@ -872,23 +886,21 @@ class LeaderStateImpl implements LeaderState {
 
       final TermIndex leaderLastEntry = server.getState().getLastEntry();
       if (leaderLastEntry == null) {
-        LOG.info("{} stepDown leadership on term:{} because follower {}'s priority:{} is higher than leader's:{} " +
-                "and leader's lastEntry is null",
-            this, currentTerm, followerID, followerPriority, leaderPriority);
+        LOG.info("{} send TimeoutNowRequest to follower:{} on term:{} because follower's priority:{} is higher than " +
+                "leader's:{} and leader's lastEntry is null",
+            this, followerID, currentTerm, followerPriority, leaderPriority);
 
-        // step down as follower
-        yieldLeaderToHigherPriorityPeer(currentTerm, leaderLastEntry);
+        sendTimeoutNowToHigherPriorityPeer(followerID, leaderLastEntry);
         return;
       }
 
       if (followerInfo.getMatchIndex() >= leaderLastEntry.getIndex()) {
-        LOG.info("{} stepDown leadership on term:{} because follower {}'s priority:{} is higher than leader's:{} " +
-                "and follower's lastEntry index:{} catch up with leader's:{}",
-            this, currentTerm, followerID, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
+        LOG.info("{} send TimeoutNowRequest to follower:{} on term:{} because follower's priority:{} is higher than " +
+                "leader's:{} and follower's lastEntry index:{} catch up with leader's:{}",
+            this, followerID, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
             leaderLastEntry.getIndex());
 
-        // step down as follower
-        yieldLeaderToHigherPriorityPeer(currentTerm, leaderLastEntry);
+        sendTimeoutNowToHigherPriorityPeer(followerID, leaderLastEntry);
         return;
       }
     }

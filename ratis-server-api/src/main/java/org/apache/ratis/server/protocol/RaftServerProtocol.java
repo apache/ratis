@@ -25,6 +25,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
 
 public interface RaftServerProtocol {
   enum Op {REQUEST_VOTE, APPEND_ENTRIES, INSTALL_SNAPSHOT}
@@ -34,4 +36,6 @@ public interface RaftServerProtocol {
   AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request) throws IOException;
 
   InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException;
+
+  TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException;
 }

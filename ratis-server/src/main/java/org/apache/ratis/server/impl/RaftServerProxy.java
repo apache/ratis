@@ -28,6 +28,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
@@ -542,6 +544,11 @@ class RaftServerProxy implements RaftServer {
   @Override
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) throws IOException {
     return getImpl(request.getServerRequest()).requestVote(request);
+  }
+
+  @Override
+  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
+    return getImpl(request.getServerRequest()).timeoutNow(request);
   }
 
   @Override

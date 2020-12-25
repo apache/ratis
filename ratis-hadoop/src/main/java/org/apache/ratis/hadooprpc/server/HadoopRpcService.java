@@ -30,6 +30,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.HadoopServerProtocolService;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.HadoopClientProtocolService;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ServerOps;
@@ -181,6 +183,13 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
       RequestVoteRequestProto request) throws IOException {
     return processRequest(request, request.getServerRequest().getReplyId(),
         ServerOps.requestVote, RequestVoteReplyProto::parseFrom);
+  }
+
+  @Override
+  public TimeoutNowReplyProto timeoutNow(
+      TimeoutNowRequestProto request) throws IOException {
+    return processRequest(request, request.getServerRequest().getReplyId(),
+        ServerOps.timeoutNow, TimeoutNowReplyProto::parseFrom);
   }
 
   private <REQUEST extends GeneratedMessageV3, REPLY> REPLY processRequest(

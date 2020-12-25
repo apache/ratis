@@ -177,6 +177,19 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   }
 
   @Override
+  public void timeoutNow(TimeoutNowRequestProto request,
+      StreamObserver<TimeoutNowReplyProto> responseObserver) {
+    try {
+      final TimeoutNowReplyProto reply = server.timeoutNow(request);
+      responseObserver.onNext(reply);
+      responseObserver.onCompleted();
+    } catch (Throwable e) {
+      GrpcUtil.warn(LOG, () -> getId() + ": Failed timeoutNow " + ProtoUtils.toString(request.getServerRequest()), e);
+      responseObserver.onError(GrpcUtil.wrapException(e));
+    }
+  }
+
+  @Override
   public StreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseObserver) {
     return new ServerRequestStreamObserver<AppendEntriesRequestProto, AppendEntriesReplyProto>(

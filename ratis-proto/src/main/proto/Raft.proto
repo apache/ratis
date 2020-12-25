@@ -392,6 +392,16 @@ message TransferLeadershipRequestProto {
   RaftPeerProto newLeader = 2;
 }
 
+message TimeoutNowRequestProto {
+  RaftRpcRequestProto serverRequest = 1;
+  uint64 leaderTerm = 2;
+  TermIndexProto leaderLastEntry = 3;
+}
+
+message TimeoutNowReplyProto {
+  RaftRpcReplyProto serverReply = 1;
+}
+
 // A request to add a new group
 message GroupAddRequestProto {
   RaftGroupProto group = 1; // the group to be added.

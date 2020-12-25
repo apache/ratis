@@ -58,6 +58,24 @@ final class ServerProtoUtils {
     return b.build();
   }
 
+  static TimeoutNowReplyProto toTimeoutNowReplyProto(
+      RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success) {
+    return TimeoutNowReplyProto.newBuilder()
+        .setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success))
+        .build();
+  }
+
+  static TimeoutNowRequestProto toTimeoutNowRequestProto(
+      RaftGroupMemberId requestorId, RaftPeerId replyId, long term, TermIndex lastEntry) {
+    final TimeoutNowRequestProto.Builder b = TimeoutNowRequestProto.newBuilder()
+        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId))
+        .setLeaderTerm(term);
+    if (lastEntry != null) {
+      b.setLeaderLastEntry(lastEntry.toProto());
+    }
+    return b.build();
+  }
+
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, int requestIndex, InstallSnapshotResult result) {
