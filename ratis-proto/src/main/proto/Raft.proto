@@ -110,8 +110,8 @@ message RaftRpcRequestProto {
   bytes replyId = 2;
   RaftGroupIdProto raftGroupId = 3;
   uint64 callId = 4;
-  RoutingTableProto routingTable = 5;
 
+  RoutingTableProto routingTable = 14;
   SlidingWindowEntry slidingWindowEntry = 15;
 }
 
