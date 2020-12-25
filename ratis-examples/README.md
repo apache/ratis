@@ -46,7 +46,7 @@ Note that when multiple servers running at the same host, they must use differen
 For example,
 
     BIN=ratis-examples/src/main/bin
-    PEERS=n0:127.0.0.1:6000,n1:127.0.0.1:6001,n2:127.0.0.1:6002
+    PEERS=n0:127.0.0.1:6000:7000,n1:127.0.0.1:6001:7001,n2:127.0.0.1:6002:7002
 
     ID=n0; ${BIN}/server.sh filestore server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
     ID=n1; ${BIN}/server.sh filestore server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
@@ -91,7 +91,7 @@ Note that when multiple servers running at the same host, they must use differen
 For example,
 
     BIN=ratis-examples/src/main/bin
-    PEERS=n0:127.0.0.1:6000,n1:127.0.0.1:6001,n2:127.0.0.1:6002
+    PEERS=n0:127.0.0.1:6000:7000,n1:127.0.0.1:6001:7001,n2:127.0.0.1:6002:7002
 
     ID=n0; ${BIN}/server.sh arithmetic server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
     ID=n1; ${BIN}/server.sh arithmetic server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
