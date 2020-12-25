@@ -619,7 +619,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     if (isWrite && isSteppingDown()) {
-      final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId());
+      final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId() + " is stepping down");
       final RaftClientReply reply = newExceptionReply(request, lsde);
       return RetryCacheImpl.failWithReply(reply, entry);
     }
@@ -888,7 +888,7 @@ class RaftServerImpl implements RaftServer.Division,
       TransferLeadershipRequest request, String msg) {
     LOG.warn(msg);
     return CompletableFuture.completedFuture(
-        newExceptionReply(request, new TransferLeadershipException(getMemberId(), msg)));
+        newExceptionReply(request, new TransferLeadershipException(msg)));
   }
 
   boolean isSteppingDown() {

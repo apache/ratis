@@ -17,17 +17,13 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.protocol.RaftGroupMemberId;
-
 public class LeaderSteppingDownException extends RaftException {
-  private final RaftGroupMemberId serverId;
 
-  public LeaderSteppingDownException(RaftGroupMemberId id) {
-    super(id + " is in steppingDown");
-    this.serverId = id;
+  public LeaderSteppingDownException(String message) {
+    super(message);
   }
 
-  public RaftGroupMemberId getServerId() {
-    return serverId;
+  public LeaderSteppingDownException(String message, Throwable t) {
+    super(message, t);
   }
 }

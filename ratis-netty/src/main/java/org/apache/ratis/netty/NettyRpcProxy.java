@@ -42,6 +42,7 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto.RaftNettyServerReplyCase.EXCEPTIONREPLY;
@@ -182,7 +183,8 @@ public class NettyRpcProxy implements Closeable {
 
     try {
       channelFuture.sync();
-      return reply.get(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit());
+      TimeDuration newDuration = requestTimeoutDuration.add(request.getTimeoutMs(), TimeUnit.MILLISECONDS);
+      return reply.get(newDuration.getDuration(), newDuration.getUnit());
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException(ProtoUtils.toString(request)

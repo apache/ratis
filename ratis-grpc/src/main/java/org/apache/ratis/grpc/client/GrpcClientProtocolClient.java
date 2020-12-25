@@ -68,6 +68,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -181,8 +182,10 @@ public class GrpcClientProtocolClient implements Closeable {
 
   RaftClientReplyProto transferLeadership(
       TransferLeadershipRequestProto request) throws IOException {
+    TimeDuration newDuration = requestTimeoutDuration.add(
+        request.getRpcRequest().getTimeoutMs(), TimeUnit.MILLISECONDS);
     return blockingCall(() -> blockingStub
-        .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+        .withDeadlineAfter(newDuration.getDuration(), newDuration.getUnit())
         .transferLeadership(request));
   }
 

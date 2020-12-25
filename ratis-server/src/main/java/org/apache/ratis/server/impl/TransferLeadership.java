@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TransferLeadership {
@@ -59,8 +60,9 @@ public class TransferLeadership {
       if (currentLeader != null && currentLeader.equals(request.getNewLeader())) {
         replyFuture.complete(server.newSuccessReply(request));
       } else if (timeout) {
-        final TransferLeadershipException tle = new TransferLeadershipException(server.getMemberId(),
-            "Failed to transfer leadership to " + request.getNewLeader() + ": current leader is " + currentLeader);
+        final TransferLeadershipException tle = new TransferLeadershipException(server.getMemberId()
+            + ": Failed to transfer leadership to " + request.getNewLeader()
+            + " (timed out " + request.getTimeoutMs() + "ms): current leader is " + currentLeader);
         replyFuture.complete(server.newExceptionReply(request, tle));
       }
     }
@@ -99,13 +101,13 @@ public class TransferLeadership {
         });
         return replyFuture;
       } else {
-        final TransferLeadershipException tle = new TransferLeadershipException(server.getMemberId(),
+        final TransferLeadershipException tle = new TransferLeadershipException(server.getMemberId() +
             "Failed to transfer leadership to " + request.getNewLeader() + ": a previous " + previous + " exists");
         return CompletableFuture.completedFuture(server.newExceptionReply(request, tle));
       }
     }
 
-    scheduler.onTimeout(TimeDuration.ONE_MINUTE,
+    scheduler.onTimeout(TimeDuration.valueOf(request.getTimeoutMs(), TimeUnit.MILLISECONDS),
         () -> finish(server.getState().getLeaderId(), true),
         LOG, () -> "Timeout check failed for append entry request: " + request);
     return supplier.get().getReplyFuture();

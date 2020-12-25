@@ -872,9 +872,9 @@ class LeaderStateImpl implements LeaderState {
 
       final TermIndex leaderLastEntry = server.getState().getLastEntry();
       if (leaderLastEntry == null) {
-        LOG.info("{} stepDown leadership on term:{} because follower's priority:{} is higher than leader's:{} " +
+        LOG.info("{} stepDown leadership on term:{} because follower {}'s priority:{} is higher than leader's:{} " +
                 "and leader's lastEntry is null",
-            this, currentTerm, followerPriority, leaderPriority);
+            this, currentTerm, followerID, followerPriority, leaderPriority);
 
         // step down as follower
         yieldLeaderToHigherPriorityPeer(currentTerm, leaderLastEntry);
@@ -882,9 +882,9 @@ class LeaderStateImpl implements LeaderState {
       }
 
       if (followerInfo.getMatchIndex() >= leaderLastEntry.getIndex()) {
-        LOG.info("{} stepDown leadership on term:{} because follower's priority:{} is higher than leader's:{} " +
+        LOG.info("{} stepDown leadership on term:{} because follower {}'s priority:{} is higher than leader's:{} " +
                 "and follower's lastEntry index:{} catch up with leader's:{}",
-            this, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
+            this, currentTerm, followerID, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
             leaderLastEntry.getIndex());
 
         // step down as follower

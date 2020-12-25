@@ -27,6 +27,8 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
+import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -46,6 +48,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -126,7 +129,6 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       final RaftServer.Division leader = waitForLeader(cluster);
       try (RaftClient client = cluster.createClient(leader.getId())) {
         client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Thread.sleep(1000);
 
         List<RaftServer.Division> followers = cluster.getFollowers();
         Assert.assertEquals(followers.size(), 2);
@@ -137,16 +139,77 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         RaftClientReply reply = client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
         Assert.assertTrue(reply.isSuccess());
 
-        reply = client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId());
+        reply = client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId(), 20000);
         assertTrue(reply.isSuccess());
-        Thread.sleep(1000);
 
         final RaftServer.Division currLeader = waitForLeader(cluster);
         assertTrue(newLeader.getId() == currLeader.getId());
 
         reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Assert.assertNotEquals(reply.getReplierId(), leader.getId());
+        Assert.assertTrue(reply.getReplierId().equals(newLeader.getId().toString()));
         Assert.assertTrue(reply.isSuccess());
+      }
+
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testTransferLeaderTimeout() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        List<RaftServer.Division> followers = cluster.getFollowers();
+        Assert.assertEquals(followers.size(), 2);
+        RaftServer.Division newLeader = followers.get(0);
+
+        // isolate new leader, so that transfer leadership will timeout
+        isolate(cluster, newLeader.getId());
+
+        List<RaftPeer> peers = cluster.getPeers();
+        List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
+        RaftClientReply reply = client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+        Assert.assertTrue(reply.isSuccess());
+
+        CompletableFuture<Boolean> transferTimeoutFuture = CompletableFuture.supplyAsync(() -> {
+          try {
+            long timeoutMs = 5000;
+            long start = System.currentTimeMillis();
+            try {
+              client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId(), timeoutMs);
+            } catch (TransferLeadershipException e) {
+              long cost = System.currentTimeMillis() - start;
+              Assert.assertTrue(cost > timeoutMs);
+              Assert.assertTrue(e.getMessage().contains("Failed to transfer leadership to"));
+              Assert.assertTrue(e.getMessage().contains("timed out"));
+            }
+
+            return true;
+          } catch (IOException e) {
+            return false;
+          }
+        });
+
+        // before transfer timeout, leader should in steppingDown
+        JavaUtils.attemptRepeatedly(() -> {
+          try {
+            client.io().send(new RaftTestUtil.SimpleMessage("message"));
+          } catch (LeaderSteppingDownException e) {
+            Assert.assertTrue(e.getMessage().contains("is stepping down"));
+          }
+          return null;
+        }, 5, TimeDuration.ONE_SECOND, "check leader steppingDown", RaftServer.LOG);
+
+        Assert.assertTrue(transferTimeoutFuture.get());
+
+        // after transfer timeout, leader should accept request
+        reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        Assert.assertTrue(reply.getReplierId().equals(leader.getId().toString()));
+        Assert.assertTrue(reply.isSuccess());
+
+        deIsolate(cluster, newLeader.getId());
       }
 
       cluster.shutdown();

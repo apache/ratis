@@ -63,12 +63,12 @@ public interface ClientProtoUtils {
 
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(RaftGroupMemberId requestorId, RaftPeerId replyId) {
     return toRaftRpcRequestProtoBuilder(requestorId.getPeerId().toByteString(),
-        replyId.toByteString(), requestorId.getGroupId(), null, null, null);
+        replyId.toByteString(), requestorId.getGroupId(), null, null, null, 0);
   }
 
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       ByteString requesterId, ByteString replyId, RaftGroupId groupId, Long callId,
-      SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable) {
+      SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable, long timeoutMs) {
     if (slidingWindowEntry == null) {
       slidingWindowEntry = SlidingWindowEntry.getDefaultInstance();
     }
@@ -78,7 +78,8 @@ public interface ClientProtoUtils {
         .setReplyId(replyId)
         .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId))
         .setCallId(Optional.ofNullable(callId).orElseGet(CallId::getDefault))
-        .setSlidingWindowEntry(slidingWindowEntry);
+        .setSlidingWindowEntry(slidingWindowEntry)
+        .setTimeoutMs(timeoutMs);
 
     if (routingTable != null) {
       b.setRoutingTable(routingTable.toProto());
@@ -89,9 +90,10 @@ public interface ClientProtoUtils {
 
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       ClientId requesterId, RaftPeerId replyId, RaftGroupId groupId, long callId,
-      SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable) {
+      SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable, long timeoutMs) {
     return toRaftRpcRequestProtoBuilder(
-        requesterId.toByteString(), replyId.toByteString(), groupId, callId, slidingWindowEntry, routingTable);
+        requesterId.toByteString(), replyId.toByteString(), groupId, callId, slidingWindowEntry, routingTable,
+        timeoutMs);
   }
 
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
@@ -102,7 +104,8 @@ public interface ClientProtoUtils {
         request.getRaftGroupId(),
         request.getCallId(),
         request.getSlidingWindowEntry(),
-        request.getRoutingTable());
+        request.getRoutingTable(),
+        request.getTimeoutMs());
   }
 
   static RaftClientRequest.Type toRaftClientRequestType(RaftClientRequestProto p) {
@@ -156,6 +159,7 @@ public interface ClientProtoUtils {
         .setType(type)
         .setSlidingWindowEntry(request.getSlidingWindowEntry())
         .setRoutingTable(getRoutingTable(request))
+        .setTimeoutMs(request.getTimeoutMs())
         .build();
   }
 
@@ -206,7 +210,7 @@ public interface ClientProtoUtils {
       long seqNum, ByteString content) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(
-            clientId, serverId, groupId, callId, ProtoUtils.toSlidingWindowEntry(seqNum, false), null))
+            clientId, serverId, groupId, callId, ProtoUtils.toSlidingWindowEntry(seqNum, false), null, 0))
         .setWrite(WriteRequestTypeProto.getDefaultInstance())
         .setMessage(toClientMessageEntryProtoBuilder(content))
         .build();
@@ -441,7 +445,8 @@ public interface ClientProtoUtils {
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
         p.getRpcRequest().getCallId(),
-        newLeader.getId());
+        newLeader.getId(),
+        m.getTimeoutMs());
   }
 
   static TransferLeadershipRequestProto toTransferLeadershipRequestProto(
