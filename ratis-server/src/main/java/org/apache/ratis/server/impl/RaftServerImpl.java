@@ -619,7 +619,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     if (isWrite && isSteppingDown()) {
-      final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId() + " is in stepping down");
+      final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId() + " is stepping down");
       final RaftClientReply reply = newExceptionReply(request, lsde);
       return RetryCacheImpl.failWithReply(reply, entry);
     }

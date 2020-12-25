@@ -197,7 +197,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
           try {
             client.io().send(new RaftTestUtil.SimpleMessage("message"));
           } catch (LeaderSteppingDownException e) {
-            Assert.assertTrue(e.getMessage().contains("is in stepping down"));
+            Assert.assertTrue(e.getMessage().contains("is stepping down"));
           }
           return null;
         }, 5, TimeDuration.ONE_SECOND, "check leader steppingDown", RaftServer.LOG);
