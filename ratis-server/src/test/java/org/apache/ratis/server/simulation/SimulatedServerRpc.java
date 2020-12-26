@@ -24,8 +24,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.GroupInfoRequest;
 import org.apache.ratis.protocol.GroupListRequest;
 import org.apache.ratis.protocol.GroupManagementRequest;
@@ -129,10 +129,10 @@ class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request)
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request)
       throws IOException {
     RaftServerReply reply = serverHandler.getRpc().sendRequest(new RaftServerRequest(request));
-    return reply.getTimeoutNow();
+    return reply.getStartLeaderElection();
   }
 
   @Override
@@ -161,8 +161,8 @@ class SimulatedServerRpc implements RaftServerRpc {
         return new RaftServerReply(server.requestVote(r.getRequestVote()));
       } else if (r.isInstallSnapshot()) {
         return new RaftServerReply(server.installSnapshot(r.getInstallSnapshot()));
-      } else if (r.isTimeoutNow()) {
-        return new RaftServerReply(server.timeoutNow(r.getTimeoutNow()));
+      } else if (r.isStartLeaderElection()) {
+        return new RaftServerReply(server.startLeaderElection(r.getStartLeaderElection()));
       } else {
         throw new IllegalStateException("unexpected state");
       }

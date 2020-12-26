@@ -177,14 +177,14 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   }
 
   @Override
-  public void timeoutNow(TimeoutNowRequestProto request,
-      StreamObserver<TimeoutNowReplyProto> responseObserver) {
+  public void startLeaderElection(StartLeaderElectionRequestProto request,
+      StreamObserver<StartLeaderElectionReplyProto> responseObserver) {
     try {
-      final TimeoutNowReplyProto reply = server.timeoutNow(request);
+      final StartLeaderElectionReplyProto reply = server.startLeaderElection(request);
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     } catch (Throwable e) {
-      GrpcUtil.warn(LOG, () -> getId() + ": Failed timeoutNow " + ProtoUtils.toString(request.getServerRequest()), e);
+      GrpcUtil.warn(LOG, () -> getId() + ": Failed startLeaderElection " + ProtoUtils.toString(request.getServerRequest()), e);
       responseObserver.onError(GrpcUtil.wrapException(e));
     }
   }

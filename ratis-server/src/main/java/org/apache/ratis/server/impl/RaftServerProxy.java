@@ -28,8 +28,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
@@ -547,8 +547,8 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
-    return getImpl(request.getServerRequest()).timeoutNow(request);
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) throws IOException {
+    return getImpl(request.getServerRequest()).startLeaderElection(request);
   }
 
   @Override

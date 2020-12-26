@@ -39,7 +39,7 @@ message RaftNettyServerRequestProto {
     ratis.common.GroupListRequestProto groupListRequest = 7;
     ratis.common.GroupInfoRequestProto groupInfoRequest = 8;
     ratis.common.TransferLeadershipRequestProto transferLeadershipRequest = 9;
-    ratis.common.TimeoutNowRequestProto timeoutNowRequest = 10;
+    ratis.common.StartLeaderElectionRequestProto startLeaderElectionRequest = 10;
   }
 }
 
@@ -52,6 +52,6 @@ message RaftNettyServerReplyProto {
     ratis.common.GroupListReplyProto groupListReply = 5;
     ratis.common.GroupInfoReplyProto groupInfoReply = 6;
     RaftNettyExceptionReplyProto exceptionReply = 7;
-    ratis.common.TimeoutNowReplyProto timeoutNowReply = 8;
+    ratis.common.StartLeaderElectionReplyProto startLeaderElectionReply = 8;
   }
 }

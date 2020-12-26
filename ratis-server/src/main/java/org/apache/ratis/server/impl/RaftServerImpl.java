@@ -96,7 +96,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
-  static final String TIMEOUT_NOW = CLASS_NAME + ".timeoutNow";
+  static final String TIMEOUT_NOW = CLASS_NAME + ".startLeaderElection";
 
   class Info implements DivisionInfo {
     @Override
@@ -1389,7 +1389,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
-  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) throws IOException {
     final RaftRpcRequestProto r = request.getServerRequest();
     final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
     final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(r.getRaftGroupId());
@@ -1399,7 +1399,7 @@ class RaftServerImpl implements RaftServer.Division,
     CodeInjectionForTesting.execute(TIMEOUT_NOW, getId(),
         leaderId, leaderTerm, leaderLastEntry);
 
-    LOG.debug("{}: receive timeoutNow from:{}, leaderLastEntry:{},",
+    LOG.debug("{}: receive startLeaderElection from:{}, leaderLastEntry:{},",
         getMemberId(), leaderId, request.getLeaderLastEntry());
 
     assertLifeCycleState(LifeCycle.States.RUNNING);
@@ -1407,19 +1407,19 @@ class RaftServerImpl implements RaftServer.Division,
 
     synchronized (this) {
       if (!getInfo().isFollower()) {
-        LOG.warn("{} refused TimeoutNowRequest from {}, because role is:{}",
+        LOG.warn("{} refused StartLeaderElectionRequest from {}, because role is:{}",
             getMemberId(), leaderId, role.getCurrentRole());
-        return ServerProtoUtils.toTimeoutNowReplyProto(leaderId, getMemberId(), false);
+        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
       }
 
       if (ServerState.compareLog(state.getLastEntry(), leaderLastEntry) < 0) {
-        LOG.warn("{} refused TimeoutNowRequest from {}, because lastEntry:{} less than leaderEntry:{}",
+        LOG.warn("{} refused StartLeaderElectionRequest from {}, because lastEntry:{} less than leaderEntry:{}",
             getMemberId(), leaderId, leaderLastEntry, state.getLastEntry());
-        return ServerProtoUtils.toTimeoutNowReplyProto(leaderId, getMemberId(), false);
+        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
       }
 
       changeToCandidate();
-      return ServerProtoUtils.toTimeoutNowReplyProto(leaderId, getMemberId(), true);
+      return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
     }
   }
 

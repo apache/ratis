@@ -23,7 +23,7 @@ import org.apache.ratis.protocol.RaftRpcMessage;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Objects;
@@ -32,34 +32,34 @@ public class RaftServerReply implements RaftRpcMessage {
   private final AppendEntriesReplyProto appendEntries;
   private final RequestVoteReplyProto requestVote;
   private final InstallSnapshotReplyProto installSnapshot;
-  private final TimeoutNowReplyProto timeoutNow;
+  private final StartLeaderElectionReplyProto startLeaderElection;
 
   RaftServerReply(AppendEntriesReplyProto a) {
     appendEntries = Objects.requireNonNull(a);
     requestVote = null;
     installSnapshot = null;
-    timeoutNow = null;
+    startLeaderElection = null;
   }
 
   RaftServerReply(RequestVoteReplyProto r) {
     appendEntries = null;
     requestVote = Objects.requireNonNull(r);
     installSnapshot = null;
-    timeoutNow = null;
+    startLeaderElection = null;
   }
 
   RaftServerReply(InstallSnapshotReplyProto i) {
     appendEntries = null;
     requestVote = null;
     installSnapshot = Objects.requireNonNull(i);
-    timeoutNow = null;
+    startLeaderElection = null;
   }
 
-  RaftServerReply(TimeoutNowReplyProto i) {
+  RaftServerReply(StartLeaderElectionReplyProto i) {
     appendEntries = null;
     requestVote = null;
     installSnapshot = null;
-    timeoutNow = Objects.requireNonNull(i);
+    startLeaderElection = Objects.requireNonNull(i);
   }
 
   boolean isAppendEntries() {
@@ -74,8 +74,8 @@ public class RaftServerReply implements RaftRpcMessage {
     return installSnapshot != null;
   }
 
-  boolean isTimeoutNow() {
-    return timeoutNow != null;
+  boolean isStartLeaderElection() {
+    return startLeaderElection != null;
   }
 
   AppendEntriesReplyProto getAppendEntries() {
@@ -90,8 +90,8 @@ public class RaftServerReply implements RaftRpcMessage {
     return installSnapshot;
   }
 
-  TimeoutNowReplyProto getTimeoutNow() {
-    return timeoutNow;
+  StartLeaderElectionReplyProto getStartLeaderElection() {
+    return startLeaderElection;
   }
 
   @Override
@@ -108,7 +108,7 @@ public class RaftServerReply implements RaftRpcMessage {
     } else if (isInstallSnapshot()) {
       return installSnapshot.getServerReply().getRequestorId().toStringUtf8();
     } else {
-      return timeoutNow.getServerReply().getRequestorId().toStringUtf8();
+      return startLeaderElection.getServerReply().getRequestorId().toStringUtf8();
     }
   }
 
@@ -121,7 +121,7 @@ public class RaftServerReply implements RaftRpcMessage {
     } else if (isInstallSnapshot()) {
       return installSnapshot.getServerReply().getReplyId().toStringUtf8();
     } else {
-      return timeoutNow.getServerReply().getReplyId().toStringUtf8();
+      return startLeaderElection.getServerReply().getReplyId().toStringUtf8();
     }
   }
 
@@ -134,7 +134,7 @@ public class RaftServerReply implements RaftRpcMessage {
     } else if (isInstallSnapshot()) {
       return ProtoUtils.toRaftGroupId(installSnapshot.getServerReply().getRaftGroupId());
     } else {
-      return ProtoUtils.toRaftGroupId(timeoutNow.getServerReply().getRaftGroupId());
+      return ProtoUtils.toRaftGroupId(startLeaderElection.getServerReply().getRaftGroupId());
     }
   }
 }

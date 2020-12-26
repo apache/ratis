@@ -33,8 +33,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.GeneratedMessageV3;
 
 @InterfaceAudience.Private
@@ -56,8 +56,8 @@ public class RaftServerProtocolServerSideTranslatorPB
         case requestVote:
           respone = requestVote(RequestVoteRequestProto.parseFrom(buffer));
           break;
-        case timeoutNow:
-          respone = timeoutNow(TimeoutNowRequestProto.parseFrom(buffer));
+        case startLeaderElection:
+          respone = startLeaderElection(StartLeaderElectionRequestProto.parseFrom(buffer));
           break;
         case installSnapshot:
           respone = installSnapshot(InstallSnapshotRequestProto.parseFrom(buffer));
@@ -82,8 +82,8 @@ public class RaftServerProtocolServerSideTranslatorPB
     return impl.requestVote(request);
   }
 
-  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
-    return impl.timeoutNow(request);
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) throws IOException {
+    return impl.startLeaderElection(request);
   }
 
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request)

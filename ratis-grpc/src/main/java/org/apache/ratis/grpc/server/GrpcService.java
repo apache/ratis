@@ -225,10 +225,10 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   }
 
   @Override
-  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) throws IOException {
     CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, getId(), null, request);
 
     final RaftPeerId target = RaftPeerId.valueOf(request.getServerRequest().getReplyId());
-    return getProxies().getProxy(target).timeoutNow(request);
+    return getProxies().getProxy(target).startLeaderElection(request);
   }
 }

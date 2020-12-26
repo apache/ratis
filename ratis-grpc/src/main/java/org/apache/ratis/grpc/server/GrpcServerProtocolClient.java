@@ -100,10 +100,10 @@ public class GrpcServerProtocolClient implements Closeable {
     return r;
   }
 
-  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) {
-    TimeoutNowReplyProto r =
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) {
+    StartLeaderElectionReplyProto r =
         blockingStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-            .timeoutNow(request);
+            .startLeaderElection(request);
     return r;
   }
 

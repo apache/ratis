@@ -22,41 +22,41 @@ import org.apache.ratis.protocol.RaftRpcMessage;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.util.ProtoUtils;
 
 class RaftServerRequest implements RaftRpcMessage {
   private final AppendEntriesRequestProto appendEntries;
   private final RequestVoteRequestProto requestVote;
   private final InstallSnapshotRequestProto installSnapshot;
-  private final TimeoutNowRequestProto timeoutNow;
+  private final StartLeaderElectionRequestProto startLeaderElection;
 
   RaftServerRequest(AppendEntriesRequestProto a) {
     appendEntries = a;
     requestVote = null;
     installSnapshot = null;
-    timeoutNow = null;
+    startLeaderElection = null;
   }
 
   RaftServerRequest(RequestVoteRequestProto r) {
     appendEntries = null;
     requestVote = r;
     installSnapshot = null;
-    timeoutNow = null;
+    startLeaderElection = null;
   }
 
   RaftServerRequest(InstallSnapshotRequestProto i) {
     appendEntries = null;
     requestVote = null;
     installSnapshot = i;
-    timeoutNow = null;
+    startLeaderElection = null;
   }
 
-  RaftServerRequest(TimeoutNowRequestProto i) {
+  RaftServerRequest(StartLeaderElectionRequestProto i) {
     appendEntries = null;
     requestVote = null;
     installSnapshot = null;
-    timeoutNow = i;
+    startLeaderElection = i;
   }
 
   boolean isAppendEntries() {
@@ -71,8 +71,8 @@ class RaftServerRequest implements RaftRpcMessage {
     return installSnapshot != null;
   }
 
-  boolean isTimeoutNow() {
-    return timeoutNow != null;
+  boolean isStartLeaderElection() {
+    return startLeaderElection != null;
   }
 
   AppendEntriesRequestProto getAppendEntries() {
@@ -87,8 +87,8 @@ class RaftServerRequest implements RaftRpcMessage {
     return installSnapshot;
   }
 
-  TimeoutNowRequestProto getTimeoutNow() {
-    return timeoutNow;
+  StartLeaderElectionRequestProto getStartLeaderElection() {
+    return startLeaderElection;
   }
 
   @Override
@@ -105,7 +105,7 @@ class RaftServerRequest implements RaftRpcMessage {
     } else if (isInstallSnapshot()) {
       return installSnapshot.getServerRequest().getRequestorId().toStringUtf8();
     } else {
-      return timeoutNow.getServerRequest().getRequestorId().toStringUtf8();
+      return startLeaderElection.getServerRequest().getRequestorId().toStringUtf8();
     }
   }
 
@@ -118,7 +118,7 @@ class RaftServerRequest implements RaftRpcMessage {
     } else if (isInstallSnapshot()) {
       return installSnapshot.getServerRequest().getReplyId().toStringUtf8();
     } else {
-      return timeoutNow.getServerRequest().getReplyId().toStringUtf8();
+      return startLeaderElection.getServerRequest().getReplyId().toStringUtf8();
     }
   }
 
@@ -131,7 +131,7 @@ class RaftServerRequest implements RaftRpcMessage {
     } else if (isInstallSnapshot()) {
       return ProtoUtils.toRaftGroupId(installSnapshot.getServerRequest().getRaftGroupId());
     } else {
-      return ProtoUtils.toRaftGroupId(timeoutNow.getServerRequest().getRaftGroupId());
+      return ProtoUtils.toRaftGroupId(startLeaderElection.getServerRequest().getRaftGroupId());
     }
   }
 }

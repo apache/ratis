@@ -58,16 +58,16 @@ final class ServerProtoUtils {
     return b.build();
   }
 
-  static TimeoutNowReplyProto toTimeoutNowReplyProto(
+  static StartLeaderElectionReplyProto toStartLeaderElectionReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success) {
-    return TimeoutNowReplyProto.newBuilder()
+    return StartLeaderElectionReplyProto.newBuilder()
         .setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success))
         .build();
   }
 
-  static TimeoutNowRequestProto toTimeoutNowRequestProto(
+  static StartLeaderElectionRequestProto toStartLeaderElectionRequestProto(
       RaftGroupMemberId requestorId, RaftPeerId replyId, long term, TermIndex lastEntry) {
-    final TimeoutNowRequestProto.Builder b = TimeoutNowRequestProto.newBuilder()
+    final StartLeaderElectionRequestProto.Builder b = StartLeaderElectionRequestProto.newBuilder()
         .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId))
         .setLeaderTerm(term);
     if (lastEntry != null) {

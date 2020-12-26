@@ -392,13 +392,13 @@ message TransferLeadershipRequestProto {
   RaftPeerProto newLeader = 2;
 }
 
-message TimeoutNowRequestProto {
+message StartLeaderElectionRequestProto {
   RaftRpcRequestProto serverRequest = 1;
   uint64 leaderTerm = 2;
   TermIndexProto leaderLastEntry = 3;
 }
 
-message TimeoutNowReplyProto {
+message StartLeaderElectionReplyProto {
   RaftRpcReplyProto serverReply = 1;
 }
 

@@ -23,8 +23,8 @@ import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
-import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -534,25 +534,25 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  private synchronized void sendTimeoutNowToHigherPriorityPeer(RaftPeerId follower, TermIndex lastEntry) {
+  private synchronized void sendStartLeaderElectionToHigherPriorityPeer(RaftPeerId follower, TermIndex lastEntry) {
     ServerState state = server.getState();
     TermIndex currLastEntry = state.getLastEntry();
     if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
-      LOG.warn("{} can not send TimeoutNowRequest to follower:{} because currLastEntry:{} did not match lastEntry:{}",
+      LOG.warn("{} can not send StartLeaderElectionRequest to follower:{} because currLastEntry:{} did not match lastEntry:{}",
           this, follower, currLastEntry, lastEntry);
       return;
     }
 
-    final TimeoutNowRequestProto r = ServerProtoUtils.toTimeoutNowRequestProto(
+    final StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
         server.getMemberId(), follower, state.getCurrentTerm(), lastEntry);
     CompletableFuture.supplyAsync(() -> {
       try {
-        TimeoutNowReplyProto replyProto = server.getServerRpc().timeoutNow(r);
+        StartLeaderElectionReplyProto replyProto = server.getServerRpc().startLeaderElection(r);
         if (replyProto.getServerReply().getSuccess()) {
-          LOG.warn("{} received failed reply of TimeoutNowRequest from follower:{}", this, follower);
+          LOG.warn("{} received failed reply of StartLeaderElectionRequest from follower:{}", this, follower);
         }
       } catch (IOException e) {
-        LOG.warn("{} send TimeoutNowRequest throw exception", this, e);
+        LOG.warn("{} send StartLeaderElectionRequest throw exception", this, e);
       }
       return null;
     });
@@ -886,21 +886,21 @@ class LeaderStateImpl implements LeaderState {
 
       final TermIndex leaderLastEntry = server.getState().getLastEntry();
       if (leaderLastEntry == null) {
-        LOG.info("{} send TimeoutNowRequest to follower:{} on term:{} because follower's priority:{} is higher than " +
+        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} is higher than " +
                 "leader's:{} and leader's lastEntry is null",
             this, followerID, currentTerm, followerPriority, leaderPriority);
 
-        sendTimeoutNowToHigherPriorityPeer(followerID, leaderLastEntry);
+        sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
         return;
       }
 
       if (followerInfo.getMatchIndex() >= leaderLastEntry.getIndex()) {
-        LOG.info("{} send TimeoutNowRequest to follower:{} on term:{} because follower's priority:{} is higher than " +
+        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} is higher than " +
                 "leader's:{} and follower's lastEntry index:{} catch up with leader's:{}",
             this, followerID, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
             leaderLastEntry.getIndex());
 
-        sendTimeoutNowToHigherPriorityPeer(followerID, leaderLastEntry);
+        sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
         return;
       }
     }
