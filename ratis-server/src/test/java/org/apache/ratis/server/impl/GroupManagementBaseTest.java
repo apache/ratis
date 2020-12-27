@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -153,7 +152,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     final int newSuggestedLeaderIndex = (suggestedLeaderIndex + 1) % peersWithPriority.size();
     List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, peers.get(newSuggestedLeaderIndex));
     try (final RaftClient client = cluster.createClient(newGroup)) {
-      RaftClientReply reply = client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+      RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
       Assert.assertTrue(reply.isSuccess());
     }
 
@@ -326,7 +325,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     }
     LOG.info(chosen + ") setConfiguration: " + cluster.printServers(groups[chosen].getGroupId()));
     try (final RaftClient client = cluster.createClient(groups[chosen])) {
-      client.setConfiguration(allPeers.toArray(RaftPeer.emptyArray()));
+      client.admin().setConfiguration(allPeers.toArray(RaftPeer.emptyArray()));
     }
 
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));

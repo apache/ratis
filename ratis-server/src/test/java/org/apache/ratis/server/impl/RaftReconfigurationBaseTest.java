@@ -219,7 +219,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
             LOG.info("Start changing the configuration: {}",
                     asList(c1.allPeersInNewConf));
 
-            RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
+            RaftClientReply reply = client.admin().setConfiguration(c1.allPeersInNewConf);
             reconf1.set(reply.isSuccess());
 
             PeerChanges c2 = cluster.removePeers(2, true, asList(c1.newPeers));
@@ -228,7 +228,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
             LOG.info("Start changing the configuration again: {}",
                     asList(c2.allPeersInNewConf));
-            reply = client.setConfiguration(c2.allPeersInNewConf);
+            reply = client.admin().setConfiguration(c2.allPeersInNewConf);
             reconf2.set(reply.isSuccess());
 
             latch.countDown();
@@ -301,7 +301,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       for (RaftPeer np : c1.newPeers) {
         cluster.restartServer(np.getId(), false);
       }
-      Assert.assertTrue(client.setConfiguration(c1.allPeersInNewConf).isSuccess());
+      Assert.assertTrue(client.admin().setConfiguration(c1.allPeersInNewConf).isSuccess());
     }
   }
 
@@ -343,7 +343,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
         Thread clientThread = new Thread(() -> {
           try {
-            RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
+            RaftClientReply reply = client.admin().setConfiguration(c1.allPeersInNewConf);
             success.set(reply.isSuccess());
           } catch (IOException ioe) {
             LOG.error("FAILED", ioe);
@@ -398,7 +398,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       clientThread = new Thread(() -> {
         try(final RaftClient client = cluster.createClient(leaderId)) {
           for(int i = 0; clientRunning.get() && !setConf.isDone(); i++) {
-            final RaftClientReply reply = client.setConfiguration(c2.allPeersInNewConf);
+            final RaftClientReply reply = client.admin().setConfiguration(c2.allPeersInNewConf);
             if (reply.isSuccess()) {
               setConf.complete(null);
             }
@@ -478,7 +478,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       final RaftConfiguration confBefore = cluster.getLeader().getRaftConf();
 
       // no real configuration change in the request
-      final RaftClientReply reply = client.setConfiguration(cluster.getPeers().toArray(RaftPeer.emptyArray()));
+      final RaftClientReply reply = client.admin().setConfiguration(cluster.getPeers().toArray(RaftPeer.emptyArray()));
       Assert.assertTrue(reply.isSuccess());
       final long newCommittedIndex = leaderLog.getLastCommittedIndex();
       for(long i = committedIndex + 1; i <= newCommittedIndex; i++) {
@@ -486,7 +486,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         Assert.assertTrue(e.hasMetadataEntry());
       }
       Assert.assertSame(confBefore, cluster.getLeader().getRaftConf());
-      client.close();
     }
   }
 
@@ -545,7 +544,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       new Thread(() -> {
         try(final RaftClient client1 = cluster.createClient(leaderId)) {
           LOG.info("client1 starts to change conf");
-          confChanged.set(client1.setConfiguration(newPeers).isSuccess());
+          confChanged.set(client1.admin().setConfiguration(newPeers).isSuccess());
         } catch (IOException e) {
           LOG.warn("Got unexpected exception when client1 changes conf", e);
         }

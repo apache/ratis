@@ -722,7 +722,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public void setConfiguration(RaftPeer... peers) throws IOException {
     try(RaftClient client = createClient()) {
       LOG.info("Start changing the configuration: {}", Arrays.asList(peers));
-      final RaftClientReply reply = client.setConfiguration(peers);
+      final RaftClientReply reply = client.admin().setConfiguration(peers);
       Preconditions.assertTrue(reply.isSuccess());
     }
   }

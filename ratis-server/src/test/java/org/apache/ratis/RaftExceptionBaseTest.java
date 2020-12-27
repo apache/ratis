@@ -113,7 +113,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       // trigger setConfiguration
       LOG.info("Start changing the configuration: {}", Arrays.asList(change.allPeersInNewConf));
       try (final RaftClient c2 = cluster.createClient(newLeader)) {
-        RaftClientReply reply = c2.setConfiguration(change.allPeersInNewConf);
+        RaftClientReply reply = c2.admin().setConfiguration(change.allPeersInNewConf);
         Assert.assertTrue(reply.isSuccess());
       }
       LOG.info(cluster.printServers());
@@ -158,7 +158,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
           GroupMismatchException.class);
 
       testFailureCase("setConfiguration(..) with client group being different from the server group",
-          () -> client.setConfiguration(RaftPeer.emptyArray()),
+          () -> client.admin().setConfiguration(RaftPeer.emptyArray()),
           GroupMismatchException.class);
 
       testFailureCase("groupRemove(..) with another group id",
