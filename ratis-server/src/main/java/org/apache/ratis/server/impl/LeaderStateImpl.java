@@ -544,13 +544,12 @@ class LeaderStateImpl implements LeaderState {
     }
 
     final StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
-        server.getMemberId(), follower, state.getCurrentTerm(), lastEntry);
+        server.getMemberId(), follower, lastEntry);
     CompletableFuture.supplyAsync(() -> {
       try {
         StartLeaderElectionReplyProto replyProto = server.getServerRpc().startLeaderElection(r);
-        if (replyProto.getServerReply().getSuccess()) {
-          LOG.warn("{} received failed reply of StartLeaderElectionRequest from follower:{}", this, follower);
-        }
+        LOG.info("{} received {} reply of StartLeaderElectionRequest from follower:{}",
+            this, replyProto.getServerReply().getSuccess() ? "success" : "fail", follower);
       } catch (IOException e) {
         LOG.warn("{} send StartLeaderElectionRequest throw exception", this, e);
       }

@@ -96,7 +96,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
-  static final String TIMEOUT_NOW = CLASS_NAME + ".startLeaderElection";
+  static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
 
   class Info implements DivisionInfo {
     @Override
@@ -1393,11 +1393,9 @@ class RaftServerImpl implements RaftServer.Division,
     final RaftRpcRequestProto r = request.getServerRequest();
     final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
     final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(r.getRaftGroupId());
-    final long leaderTerm = request.getLeaderTerm();
     final TermIndex leaderLastEntry = TermIndex.valueOf(request.getLeaderLastEntry());
 
-    CodeInjectionForTesting.execute(TIMEOUT_NOW, getId(),
-        leaderId, leaderTerm, leaderLastEntry);
+    CodeInjectionForTesting.execute(START_LEADER_ELECTION, getId(), leaderId, request);
 
     LOG.debug("{}: receive startLeaderElection from:{}, leaderLastEntry:{},",
         getMemberId(), leaderId, request.getLeaderLastEntry());
@@ -1406,6 +1404,15 @@ class RaftServerImpl implements RaftServer.Division,
     assertGroup(leaderId, leaderGroupId);
 
     synchronized (this) {
+      // Check life cycle state again to avoid the PAUSING/PAUSED state.
+      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
+      final boolean recognized = state.recognizeLeader(leaderId, leaderLastEntry.getTerm());
+      if (!recognized) {
+        LOG.warn("{}: Not recognize {} (term={}) as leader, state: {}",
+            getMemberId(), leaderId, leaderLastEntry.getTerm(), state);
+        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+      }
+
       if (!getInfo().isFollower()) {
         LOG.warn("{} refused StartLeaderElectionRequest from {}, because role is:{}",
             getMemberId(), leaderId, role.getCurrentRole());

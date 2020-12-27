@@ -394,8 +394,7 @@ message TransferLeadershipRequestProto {
 
 message StartLeaderElectionRequestProto {
   RaftRpcRequestProto serverRequest = 1;
-  uint64 leaderTerm = 2;
-  TermIndexProto leaderLastEntry = 3;
+  TermIndexProto leaderLastEntry = 2;
 }
 
 message StartLeaderElectionReplyProto {

@@ -33,6 +33,7 @@ public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Co
     CodeInjectionForTesting.put(RaftServerImpl.REQUEST_VOTE, INSTANCE);
     CodeInjectionForTesting.put(RaftServerImpl.APPEND_ENTRIES, INSTANCE);
     CodeInjectionForTesting.put(RaftServerImpl.INSTALL_SNAPSHOT, INSTANCE);
+    CodeInjectionForTesting.put(RaftServerImpl.START_LEADER_ELECTION, INSTANCE);
   }
 
   public static BlockRequestHandlingInjection getInstance() {

@@ -66,10 +66,9 @@ final class ServerProtoUtils {
   }
 
   static StartLeaderElectionRequestProto toStartLeaderElectionRequestProto(
-      RaftGroupMemberId requestorId, RaftPeerId replyId, long term, TermIndex lastEntry) {
+      RaftGroupMemberId requestorId, RaftPeerId replyId, TermIndex lastEntry) {
     final StartLeaderElectionRequestProto.Builder b = StartLeaderElectionRequestProto.newBuilder()
-        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId))
-        .setLeaderTerm(term);
+        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId));
     if (lastEntry != null) {
       b.setLeaderLastEntry(lastEntry.toProto());
     }
