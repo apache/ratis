@@ -52,13 +52,7 @@ import java.util.function.Consumer;
  *
  * This class will be protected by the {@link SegmentedRaftLog}'s read-write lock.
  */
-@SuppressWarnings("checkstyle:FinalClass")
-public class LogSegment implements Comparable<Long> {
-
-  //TODO: This class needs to be made final to address checkstyle issue. However, TestCacheEviction fails as Mockito
-  // cannot spy final class. This problem can be fixed when stable version of Mockito 2.x is available which provides
-  // a feature to mock final class/method.
-
+public final class LogSegment implements Comparable<Long> {
   static final Logger LOG = LoggerFactory.getLogger(LogSegment.class);
 
   enum Op {

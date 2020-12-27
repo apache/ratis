@@ -34,10 +34,10 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.ReflectionUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.mockito.Mockito;
-import org.mockito.internal.util.reflection.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,7 +119,7 @@ public class RaftServerTestUtil {
   }
 
   public static ConfigurationManager getConfigurationManager(RaftServer.Division server) {
-    return (ConfigurationManager) Whitebox.getInternalState(getState(server), "configurationManager");
+    return (ConfigurationManager) ReflectionUtils.getDeclaredField(getState(server), "configurationManager");
   }
 
   public static RaftConfiguration newRaftConfiguration(Collection<RaftPeer> peers) {
