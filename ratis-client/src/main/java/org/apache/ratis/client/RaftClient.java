@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.util.Collection;
 import java.util.Objects;
 
 /** A client who sends requests to a raft service. */
@@ -98,9 +99,14 @@ public interface RaftClient extends Closeable {
           clientRpc = factory.newRaftClientRpc(clientId, properties);
         }
       }
-      return ClientImplUtils.newRaftClient(clientId,
-          Objects.requireNonNull(group, "The 'group' field is not initialized."),
-          leaderId, primaryDataStreamServer,
+      Objects.requireNonNull(group, "The 'group' field is not initialized.");
+      if (primaryDataStreamServer == null) {
+        final Collection<RaftPeer> peers = group.getPeers();
+        if (!peers.isEmpty()) {
+          primaryDataStreamServer = peers.iterator().next();
+        }
+      }
+      return ClientImplUtils.newRaftClient(clientId, group, leaderId, primaryDataStreamServer,
           Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
           properties, retryPolicy);
     }
