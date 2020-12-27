@@ -22,6 +22,7 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.AsyncRpcApi;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -31,7 +32,9 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
+import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.NetUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -65,11 +68,19 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
     RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
   }
 
-  @Override
-  protected MyRaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
-    final RaftProperties p = new RaftProperties(properties);
-    NettyConfigKeys.DataStream.setPort(p, NetUtils.createSocketAddr(peer.getDataStreamAddress()).getPort());
-    return super.newRaftServer(peer, p);
+  RaftServer.Division mockDivision(RaftServer server, RaftClient client) {
+    final RaftServer.Division division = mock(RaftServer.Division.class);
+    when(division.getRaftServer()).thenReturn(server);
+    when(division.getRaftClient()).thenReturn(client);
+    when(division.getRaftConf()).thenAnswer(i -> getRaftConf());
+
+    final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
+    when(division.getStateMachine()).thenReturn(stateMachine);
+
+    final DataStreamMap streamMap = RaftServerTestUtil.newDataStreamMap(server.getId());
+    when(division.getDataStreamMap()).thenReturn(streamMap);
+
+    return division;
   }
 
   private void testMockCluster(int numServers, RaftException leaderException,
@@ -94,14 +105,13 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
       when(raftServer.getId()).thenReturn(peerId);
       when(raftServer.getPeer()).thenReturn(RaftPeer.newBuilder().setId(peerId).build());
       if (getStateMachineException == null) {
-        MyDivision myDivision = new MyDivision(raftServer);
-        when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenReturn(myDivision);
-
         RaftClient client = Mockito.mock(RaftClient.class);
         when(client.getId()).thenReturn(clientId);
-        myDivision.setRaftClient(client);
         AsyncRpcApi asyncRpcApi = Mockito.mock(AsyncRpcApi.class);
         when(client.async()).thenReturn(asyncRpcApi);
+
+        final RaftServer.Division myDivision = mockDivision(raftServer, client);
+        when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenReturn(myDivision);
 
         if (submitException != null) {
           when(asyncRpcApi.sendForward(Mockito.any(RaftClientRequest.class))).thenThrow(submitException);

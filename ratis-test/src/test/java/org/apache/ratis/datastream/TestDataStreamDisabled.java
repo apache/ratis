@@ -17,38 +17,39 @@
  */
 package org.apache.ratis.datastream;
 
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.DisabledDataStreamClientFactory;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.junit.Before;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
-public class TestDataStreamDisabled extends DataStreamBaseTest {
+public class TestDataStreamDisabled extends BaseTest {
   @Rule
   public final ExpectedException exception = ExpectedException.none();
 
-  @Before
-  public void setup() {
-    properties = new RaftProperties();
-    RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.DISABLED);
-  }
-
   @Test
-  public void testDataStreamDisabled() throws Exception {
-    try {
-      setup(1);
-      final RaftClient client = newRaftClientForDataStream();
+  public void testDataStreamDisabled() {
+      final RaftProperties properties = new RaftProperties();
+      Assert.assertEquals(SupportedDataStreamType.DISABLED, RaftConfigKeys.DataStream.type(properties, LOG::info));
+
+      final RaftPeer server = RaftPeer.newBuilder().setId("s0").build();
+      final RaftClient client = RaftClient.newBuilder()
+        .setRaftGroup(RaftGroup.valueOf(RaftGroupId.randomId(), server))
+        .setProperties(properties)
+        .build();
+
       exception.expect(UnsupportedOperationException.class);
       exception.expectMessage(DisabledDataStreamClientFactory.class.getName()
           + "$1 does not support streamAsync");
       // stream() will create a header request, thus it will hit UnsupportedOperationException due to
       // DisabledDataStreamFactory.
       client.getDataStreamApi().stream();
-    } finally {
-      shutdown();
-    }
   }
 }
