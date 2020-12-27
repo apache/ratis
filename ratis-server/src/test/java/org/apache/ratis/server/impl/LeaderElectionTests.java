@@ -136,10 +136,10 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
         List<RaftPeer> peers = cluster.getPeers();
         List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
-        RaftClientReply reply = client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+        RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
         Assert.assertTrue(reply.isSuccess());
 
-        reply = client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId(), 20000);
+        reply = client.admin().transferLeadership(newLeader.getId(), 20000);
         assertTrue(reply.isSuccess());
 
         final RaftServer.Division currLeader = waitForLeader(cluster);
@@ -170,7 +170,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
         List<RaftPeer> peers = cluster.getPeers();
         List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
-        RaftClientReply reply = client.setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+        RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
         Assert.assertTrue(reply.isSuccess());
 
         CompletableFuture<Boolean> transferTimeoutFuture = CompletableFuture.supplyAsync(() -> {
@@ -178,7 +178,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
             long timeoutMs = 5000;
             long start = System.currentTimeMillis();
             try {
-              client.transferLeadership(leader.getGroup().getGroupId(), newLeader.getId(), timeoutMs);
+              client.admin().transferLeadership(newLeader.getId(), timeoutMs);
             } catch (TransferLeadershipException e) {
               long cost = System.currentTimeMillis() - start;
               Assert.assertTrue(cost > timeoutMs);

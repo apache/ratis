@@ -21,8 +21,6 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.api.DataStreamApi;
-import org.apache.ratis.client.api.GroupManagementApi;
-import org.apache.ratis.client.api.MessageStreamApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
@@ -34,15 +32,12 @@ import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
-import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -50,7 +45,6 @@ import org.apache.ratis.util.TimeoutScheduler;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -60,6 +54,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -130,10 +125,13 @@ public final class RaftClientImpl implements RaftClient {
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
   private final Supplier<OrderedAsync> orderedAsync;
-  private final Supplier<MessageStreamApi> streamApi;
   private final Supplier<AsyncImpl> asyncApi;
   private final Supplier<BlockingImpl> blockingApi;
+  private final Supplier<MessageStreamImpl> messageStreamApi;
   private final Supplier<DataStreamApi> dataStreamApi;
+
+  private final Supplier<AdminImpl> adminApi;
+  private final ConcurrentMap<RaftPeerId, GroupManagementImpl> groupManagmenets = new ConcurrentHashMap<>();
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primaryDataStreamServer,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
@@ -147,7 +145,7 @@ public final class RaftClientImpl implements RaftClient {
     this.clientRpc = clientRpc;
 
     this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
-    this.streamApi = JavaUtils.memoize(() -> MessageStreamImpl.newInstance(this, properties));
+    this.messageStreamApi = JavaUtils.memoize(() -> MessageStreamImpl.newInstance(this, properties));
     this.asyncApi = JavaUtils.memoize(() -> new AsyncImpl(this));
     this.blockingApi = JavaUtils.memoize(() -> new BlockingImpl(this));
     this.dataStreamApi = JavaUtils.memoize(() -> DataStreamClient.newBuilder()
@@ -156,6 +154,7 @@ public final class RaftClientImpl implements RaftClient {
         .setDataStreamServer(primaryDataStreamServer)
         .setProperties(properties)
         .build());
+    this.adminApi = JavaUtils.memoize(() -> new AdminImpl(this));
   }
 
   public RaftPeerId getLeaderId() {
@@ -201,11 +200,6 @@ public final class RaftClientImpl implements RaftClient {
     return orderedAsync.get();
   }
 
-  @Override
-  public MessageStreamApi getMessageStreamApi() {
-    return streamApi.get();
-  }
-
   RaftClientRequest newRaftClientRequest(
       RaftPeerId server, long callId, Message message, RaftClientRequest.Type type,
       SlidingWindowEntry slidingWindowEntry) {
@@ -221,25 +215,18 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply transferLeadership(RaftGroupId raftGroupId, RaftPeerId newLeader, long timeoutMs)
-      throws IOException {
-    Objects.requireNonNull(newLeader, "newLeader == null");
-    final long callId = CallId.getAndIncrement();
-    return io().sendRequestWithRetry(() -> new TransferLeadershipRequest(
-        clientId, leaderId, groupId, callId, newLeader, timeoutMs));
+  public AdminImpl admin() {
+    return adminApi.get();
   }
 
-  // TODO: change peersInNewConf to List<RaftPeer>
   @Override
-  public RaftClientReply setConfiguration(RaftPeer[] peersInNewConf)
-      throws IOException {
-    Objects.requireNonNull(peersInNewConf, "peersInNewConf == null");
+  public GroupManagementImpl getGroupManagementApi(RaftPeerId server) {
+    return groupManagmenets.computeIfAbsent(server, id -> new GroupManagementImpl(id, this));
+  }
 
-    final long callId = CallId.getAndIncrement();
-    // also refresh the rpc proxies for these peers
-    clientRpc.addRaftPeers(peersInNewConf);
-    return io().sendRequestWithRetry(() -> new SetConfigurationRequest(
-        clientId, leaderId, groupId, callId, Arrays.asList(peersInNewConf)));
+  @Override
+  public BlockingImpl io() {
+    return blockingApi.get();
   }
 
   @Override
@@ -248,13 +235,8 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public GroupManagementApi getGroupManagementApi(RaftPeerId server) {
-    return new GroupManagementImpl(server, this);
-  }
-
-  @Override
-  public BlockingImpl io() {
-    return blockingApi.get();
+  public MessageStreamImpl getMessageStreamApi() {
+    return messageStreamApi.get();
   }
 
   @Override

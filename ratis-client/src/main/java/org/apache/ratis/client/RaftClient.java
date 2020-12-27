@@ -18,6 +18,7 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.client.api.AdminApi;
 import org.apache.ratis.client.api.AsyncApi;
 import org.apache.ratis.client.api.BlockingApi;
 import org.apache.ratis.client.api.DataStreamApi;
@@ -34,7 +35,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.Objects;
 
 /** A client who sends requests to a raft service. */
@@ -50,8 +50,14 @@ public interface RaftClient extends Closeable {
   /** @return the {@link RaftClientRpc}. */
   RaftClientRpc getClientRpc();
 
+  /** @return the {@link AdminApi}. */
+  AdminApi admin();
+
   /** Get the {@link GroupManagementApi} for the given server. */
   GroupManagementApi getGroupManagementApi(RaftPeerId server);
+
+  /** @return the {@link BlockingApi}. */
+  BlockingApi io();
 
   /** Get the {@link AsyncApi}. */
   AsyncApi async();
@@ -59,17 +65,8 @@ public interface RaftClient extends Closeable {
   /** @return the {@link MessageStreamApi}. */
   MessageStreamApi getMessageStreamApi();
 
-  /** @return the {@link BlockingApi}. */
-  BlockingApi io();
-
   /** @return the {@link DataStreamApi}. */
   DataStreamApi getDataStreamApi();
-
-  /** Send set configuration request to the raft service. */
-  RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException;
-
-  /** Transfer leadership to the given server.*/
-  RaftClientReply transferLeadership(RaftGroupId group, RaftPeerId newLeader, long timeoutMs) throws IOException;
 
   /** @return a {@link Builder}. */
   static Builder newBuilder() {
