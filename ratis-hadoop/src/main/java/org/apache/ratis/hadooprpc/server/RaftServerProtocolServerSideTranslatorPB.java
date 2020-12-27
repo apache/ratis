@@ -33,6 +33,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.GeneratedMessageV3;
 
 @InterfaceAudience.Private
@@ -53,6 +55,9 @@ public class RaftServerProtocolServerSideTranslatorPB
       switch (type) {
         case requestVote:
           respone = requestVote(RequestVoteRequestProto.parseFrom(buffer));
+          break;
+        case startLeaderElection:
+          respone = startLeaderElection(StartLeaderElectionRequestProto.parseFrom(buffer));
           break;
         case installSnapshot:
           respone = installSnapshot(InstallSnapshotRequestProto.parseFrom(buffer));
@@ -75,6 +80,10 @@ public class RaftServerProtocolServerSideTranslatorPB
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request)
       throws IOException {
     return impl.requestVote(request);
+  }
+
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) throws IOException {
+    return impl.startLeaderElection(request);
   }
 
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request)

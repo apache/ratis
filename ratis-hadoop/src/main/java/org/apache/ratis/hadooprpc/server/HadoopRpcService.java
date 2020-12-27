@@ -30,6 +30,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.HadoopServerProtocolService;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.HadoopClientProtocolService;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ServerOps;
@@ -181,6 +183,13 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
       RequestVoteRequestProto request) throws IOException {
     return processRequest(request, request.getServerRequest().getReplyId(),
         ServerOps.requestVote, RequestVoteReplyProto::parseFrom);
+  }
+
+  @Override
+  public StartLeaderElectionReplyProto startLeaderElection(
+      StartLeaderElectionRequestProto request) throws IOException {
+    return processRequest(request, request.getServerRequest().getReplyId(),
+        ServerOps.startLeaderElection, StartLeaderElectionReplyProto::parseFrom);
   }
 
   private <REQUEST extends GeneratedMessageV3, REPLY> REPLY processRequest(

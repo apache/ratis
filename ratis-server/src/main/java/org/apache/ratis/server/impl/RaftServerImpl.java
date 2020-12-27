@@ -96,6 +96,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
+  static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
 
   class Info implements DivisionInfo {
     @Override
@@ -1385,6 +1386,55 @@ class RaftServerImpl implements RaftServer.Division,
       lifeCycle.compareAndTransition(STARTING, RUNNING);
     }
     return true;
+  }
+
+  @Override
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) throws IOException {
+    final RaftRpcRequestProto r = request.getServerRequest();
+    final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
+    final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(r.getRaftGroupId());
+    final TermIndex leaderLastEntry = TermIndex.valueOf(request.getLeaderLastEntry());
+
+    CodeInjectionForTesting.execute(START_LEADER_ELECTION, getId(), leaderId, request);
+
+    LOG.debug("{}: receive startLeaderElection from:{}, leaderLastEntry:{},",
+        getMemberId(), leaderId, request.getLeaderLastEntry());
+
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(leaderId, leaderGroupId);
+
+    synchronized (this) {
+      // leaderLastEntry should not be null because LeaderStateImpl#start append a placeHolder entry
+      // so leader at each term should has at least one entry
+      if (leaderLastEntry == null) {
+        LOG.warn("{}: receive null leaderLastEntry which is unexpected", getMemberId());
+        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+      }
+
+      // Check life cycle state again to avoid the PAUSING/PAUSED state.
+      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
+      final boolean recognized = state.recognizeLeader(leaderId, leaderLastEntry.getTerm());
+      if (!recognized) {
+        LOG.warn("{}: Not recognize {} (term={}) as leader, state: {}",
+            getMemberId(), leaderId, leaderLastEntry.getTerm(), state);
+        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+      }
+
+      if (!getInfo().isFollower()) {
+        LOG.warn("{} refused StartLeaderElectionRequest from {}, because role is:{}",
+            getMemberId(), leaderId, role.getCurrentRole());
+        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+      }
+
+      if (ServerState.compareLog(state.getLastEntry(), leaderLastEntry) < 0) {
+        LOG.warn("{} refused StartLeaderElectionRequest from {}, because lastEntry:{} less than leaderEntry:{}",
+            getMemberId(), leaderId, leaderLastEntry, state.getLastEntry());
+        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+      }
+
+      changeToCandidate();
+      return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
+    }
   }
 
   private InstallSnapshotReplyProto installSnapshotImpl(InstallSnapshotRequestProto request) throws IOException {

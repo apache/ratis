@@ -58,6 +58,23 @@ final class ServerProtoUtils {
     return b.build();
   }
 
+  static StartLeaderElectionReplyProto toStartLeaderElectionReplyProto(
+      RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success) {
+    return StartLeaderElectionReplyProto.newBuilder()
+        .setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success))
+        .build();
+  }
+
+  static StartLeaderElectionRequestProto toStartLeaderElectionRequestProto(
+      RaftGroupMemberId requestorId, RaftPeerId replyId, TermIndex lastEntry) {
+    final StartLeaderElectionRequestProto.Builder b = StartLeaderElectionRequestProto.newBuilder()
+        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId));
+    if (lastEntry != null) {
+      b.setLeaderLastEntry(lastEntry.toProto());
+    }
+    return b.build();
+  }
+
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, int requestIndex, InstallSnapshotResult result) {

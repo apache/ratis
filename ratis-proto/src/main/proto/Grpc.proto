@@ -44,6 +44,9 @@ service RaftServerProtocolService {
   rpc requestVote(ratis.common.RequestVoteRequestProto)
       returns(ratis.common.RequestVoteReplyProto) {}
 
+  rpc startLeaderElection(ratis.common.StartLeaderElectionRequestProto)
+      returns(ratis.common.StartLeaderElectionReplyProto) {}
+
   rpc appendEntries(stream ratis.common.AppendEntriesRequestProto)
       returns(stream ratis.common.AppendEntriesReplyProto) {}
 

@@ -34,6 +34,7 @@ enum ServerOps {
   requestVote = 1;
   appendEntries = 2;
   installSnapshot = 3;
+  startLeaderElection = 4;
 }
 
 message ServerRequestProto {

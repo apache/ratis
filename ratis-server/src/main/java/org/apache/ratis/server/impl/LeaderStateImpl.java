@@ -23,6 +23,8 @@ import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -532,16 +534,27 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  private synchronized void yieldLeaderToHigherPriorityPeer(long term, TermIndex lastEntry) {
+  private synchronized void sendStartLeaderElectionToHigherPriorityPeer(RaftPeerId follower, TermIndex lastEntry) {
     ServerState state = server.getState();
     TermIndex currLastEntry = state.getLastEntry();
     if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
-      LOG.warn("{} can not stepDown because currLastEntry:{} did not match lastEntry:{}",
-          this, currLastEntry, lastEntry);
+      LOG.warn("{} can not send StartLeaderElectionRequest to follower:{} because currLastEntry:{} " +
+              "did not match lastEntry:{}", this, follower, currLastEntry, lastEntry);
       return;
     }
 
-    stepDown(term, StepDownReason.HIGHER_PRIORITY);
+    final StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
+        server.getMemberId(), follower, lastEntry);
+    CompletableFuture.supplyAsync(() -> {
+      try {
+        StartLeaderElectionReplyProto replyProto = server.getServerRpc().startLeaderElection(r);
+        LOG.info("{} received {} reply of StartLeaderElectionRequest from follower:{}",
+            this, replyProto.getServerReply().getSuccess() ? "success" : "fail", follower);
+      } catch (IOException e) {
+        LOG.warn("{} send StartLeaderElectionRequest throw exception", this, e);
+      }
+      return null;
+    });
   }
 
   private void prepare() {
@@ -872,23 +885,21 @@ class LeaderStateImpl implements LeaderState {
 
       final TermIndex leaderLastEntry = server.getState().getLastEntry();
       if (leaderLastEntry == null) {
-        LOG.info("{} stepDown leadership on term:{} because follower {}'s priority:{} is higher than leader's:{} " +
-                "and leader's lastEntry is null",
-            this, currentTerm, followerID, followerPriority, leaderPriority);
+        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} " +
+                "is higher than leader's:{} and leader's lastEntry is null",
+            this, followerID, currentTerm, followerPriority, leaderPriority);
 
-        // step down as follower
-        yieldLeaderToHigherPriorityPeer(currentTerm, leaderLastEntry);
+        sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
         return;
       }
 
       if (followerInfo.getMatchIndex() >= leaderLastEntry.getIndex()) {
-        LOG.info("{} stepDown leadership on term:{} because follower {}'s priority:{} is higher than leader's:{} " +
-                "and follower's lastEntry index:{} catch up with leader's:{}",
-            this, currentTerm, followerID, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
+        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} " +
+                "is higher than leader's:{} and follower's lastEntry index:{} catch up with leader's:{}",
+            this, followerID, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
             leaderLastEntry.getIndex());
 
-        // step down as follower
-        yieldLeaderToHigherPriorityPeer(currentTerm, leaderLastEntry);
+        sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
         return;
       }
     }

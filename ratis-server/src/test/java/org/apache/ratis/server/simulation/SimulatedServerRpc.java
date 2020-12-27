@@ -17,12 +17,15 @@
  */
 package org.apache.ratis.server.simulation;
 
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.GroupInfoRequest;
 import org.apache.ratis.protocol.GroupListRequest;
 import org.apache.ratis.protocol.GroupManagementRequest;
@@ -126,6 +129,13 @@ class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request)
+      throws IOException {
+    RaftServerReply reply = serverHandler.getRpc().sendRequest(new RaftServerRequest(request));
+    return reply.getStartLeaderElection();
+  }
+
+  @Override
   public void addRaftPeers(Collection<RaftPeer> peers) {
     // do nothing
   }
@@ -151,6 +161,8 @@ class SimulatedServerRpc implements RaftServerRpc {
         return new RaftServerReply(server.requestVote(r.getRequestVote()));
       } else if (r.isInstallSnapshot()) {
         return new RaftServerReply(server.installSnapshot(r.getInstallSnapshot()));
+      } else if (r.isStartLeaderElection()) {
+        return new RaftServerReply(server.startLeaderElection(r.getStartLeaderElection()));
       } else {
         throw new IllegalStateException("unexpected state");
       }

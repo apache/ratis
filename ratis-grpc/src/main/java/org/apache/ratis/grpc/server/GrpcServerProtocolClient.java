@@ -100,6 +100,13 @@ public class GrpcServerProtocolClient implements Closeable {
     return r;
   }
 
+  public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) {
+    StartLeaderElectionReplyProto r =
+        blockingStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+            .startLeaderElection(request);
+    return r;
+  }
+
   StreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseHandler) {
     return asyncStub.appendEntries(responseHandler);

@@ -392,6 +392,15 @@ message TransferLeadershipRequestProto {
   RaftPeerProto newLeader = 2;
 }
 
+message StartLeaderElectionRequestProto {
+  RaftRpcRequestProto serverRequest = 1;
+  TermIndexProto leaderLastEntry = 2;
+}
+
+message StartLeaderElectionReplyProto {
+  RaftRpcReplyProto serverReply = 1;
+}
+
 // A request to add a new group
 message GroupAddRequestProto {
   RaftGroupProto group = 1; // the group to be added.
