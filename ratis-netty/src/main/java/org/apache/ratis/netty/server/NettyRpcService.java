@@ -187,7 +187,8 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
         case STARTLEADERELECTIONREQUEST:
           final StartLeaderElectionRequestProto startLeaderElectionRequest = proto.getStartLeaderElectionRequest();
           rpcRequest = startLeaderElectionRequest.getServerRequest();
-          final StartLeaderElectionReplyProto startLeaderElectionReply = server.startLeaderElection(startLeaderElectionRequest);
+          final StartLeaderElectionReplyProto startLeaderElectionReply =
+              server.startLeaderElection(startLeaderElectionRequest);
           return RaftNettyServerReplyProto.newBuilder().setStartLeaderElectionReply(startLeaderElectionReply).build();
 
         case APPENDENTRIESREQUEST:

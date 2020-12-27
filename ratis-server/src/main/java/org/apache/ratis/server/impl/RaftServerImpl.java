@@ -1404,6 +1404,13 @@ class RaftServerImpl implements RaftServer.Division,
     assertGroup(leaderId, leaderGroupId);
 
     synchronized (this) {
+      // leaderLastEntry should not be null because LeaderStateImpl#start append a placeHolder entry
+      // so leader at each term should has at least one entry
+      if (leaderLastEntry == null) {
+        LOG.warn("{}: receive null leaderLastEntry which is unexpected", getMemberId());
+        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+      }
+
       // Check life cycle state again to avoid the PAUSING/PAUSED state.
       assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
       final boolean recognized = state.recognizeLeader(leaderId, leaderLastEntry.getTerm());

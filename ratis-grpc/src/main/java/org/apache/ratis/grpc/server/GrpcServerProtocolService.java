@@ -184,7 +184,8 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     } catch (Throwable e) {
-      GrpcUtil.warn(LOG, () -> getId() + ": Failed startLeaderElection " + ProtoUtils.toString(request.getServerRequest()), e);
+      GrpcUtil.warn(LOG,
+          () -> getId() + ": Failed startLeaderElection " + ProtoUtils.toString(request.getServerRequest()), e);
       responseObserver.onError(GrpcUtil.wrapException(e));
     }
   }

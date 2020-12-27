@@ -538,8 +538,8 @@ class LeaderStateImpl implements LeaderState {
     ServerState state = server.getState();
     TermIndex currLastEntry = state.getLastEntry();
     if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
-      LOG.warn("{} can not send StartLeaderElectionRequest to follower:{} because currLastEntry:{} did not match lastEntry:{}",
-          this, follower, currLastEntry, lastEntry);
+      LOG.warn("{} can not send StartLeaderElectionRequest to follower:{} because currLastEntry:{} " +
+              "did not match lastEntry:{}", this, follower, currLastEntry, lastEntry);
       return;
     }
 
@@ -885,8 +885,8 @@ class LeaderStateImpl implements LeaderState {
 
       final TermIndex leaderLastEntry = server.getState().getLastEntry();
       if (leaderLastEntry == null) {
-        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} is higher than " +
-                "leader's:{} and leader's lastEntry is null",
+        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} " +
+                "is higher than leader's:{} and leader's lastEntry is null",
             this, followerID, currentTerm, followerPriority, leaderPriority);
 
         sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
@@ -894,8 +894,8 @@ class LeaderStateImpl implements LeaderState {
       }
 
       if (followerInfo.getMatchIndex() >= leaderLastEntry.getIndex()) {
-        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} is higher than " +
-                "leader's:{} and follower's lastEntry index:{} catch up with leader's:{}",
+        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} " +
+                "is higher than leader's:{} and follower's lastEntry index:{} catch up with leader's:{}",
             this, followerID, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
             leaderLastEntry.getIndex());
 
