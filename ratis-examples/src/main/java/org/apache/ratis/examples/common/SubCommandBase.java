@@ -43,8 +43,12 @@ public abstract class SubCommandBase {
   public static RaftPeer[] parsePeers(String peers) {
     return Stream.of(peers.split(",")).map(address -> {
       String[] addressParts = address.split(":");
-      return RaftPeer.newBuilder().setId(addressParts[0]).setAddress(addressParts[1] + ":" + addressParts[2])
-          .setDataStreamAddress(addressParts[1] + ":" + addressParts[3]).build();
+      RaftPeer.Builder builder = RaftPeer.newBuilder();
+      builder.setId(addressParts[0]).setAddress(addressParts[1] + ":" + addressParts[2]);
+      if (addressParts.length == 4) {
+        builder.setDataStreamAddress(addressParts[1] + ":" + addressParts[3]).build();
+      }
+      return builder.build();
     }).toArray(RaftPeer[]::new);
   }
 

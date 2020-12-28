@@ -84,9 +84,12 @@ public class Server extends SubCommandBase {
 
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
-    final int dataStreamport = NetUtils.createSocketAddr(getPeer(peerId).getDataStreamAddress()).getPort();
-    NettyConfigKeys.DataStream.setPort(properties, dataStreamport);
-    RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
+    String dataStreamAddress = getPeer(peerId).getDataStreamAddress();
+    if (dataStreamAddress != null) {
+      final int dataStreamport = NetUtils.createSocketAddr(dataStreamAddress).getPort();
+      NettyConfigKeys.DataStream.setPort(properties, dataStreamport);
+      RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
+    }
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
     RaftServerConfigKeys.Write.setElementLimit(properties, 40960);
