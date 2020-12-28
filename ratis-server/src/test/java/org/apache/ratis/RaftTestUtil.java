@@ -48,6 +48,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -67,9 +68,19 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.StreamSupport;
 
-
 public interface RaftTestUtil {
   Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
+
+  static Object getDeclaredField(Object obj, String fieldName) {
+    final Class<?> clazz = obj.getClass();
+    try {
+      final Field f = clazz.getDeclaredField(fieldName);
+      f.setAccessible(true);
+      return f.get(obj);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to get '" + fieldName + "' from " + clazz, e);
+    }
+  }
 
   static RaftServer.Division waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {

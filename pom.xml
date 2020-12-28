@@ -199,7 +199,7 @@
     <!--
       ! Can be removed if changing to ASF parent version 19
     -->
-    <apache-rat-plugin.version>0.12</apache-rat-plugin.version>
+    <apache-rat-plugin.version>0.13</apache-rat-plugin.version>
     <build-helper-maven-plugin.version>1.9</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>1.6.0</exec-maven-plugin.version>
     <findbugs.version>3.0.0</findbugs.version>
@@ -483,8 +483,8 @@
       </dependency>
       <dependency>
         <groupId>org.mockito</groupId>
-        <artifactId>mockito-all</artifactId>
-        <version>1.8.5</version>
+        <artifactId>mockito-core</artifactId>
+        <version>3.5.15</version>
       </dependency>
 	    <dependency>
 	      <groupId>org.jline</groupId>

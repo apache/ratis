@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
@@ -37,7 +38,6 @@ import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.mockito.Mockito;
-import org.mockito.internal.util.reflection.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,7 +119,7 @@ public class RaftServerTestUtil {
   }
 
   public static ConfigurationManager getConfigurationManager(RaftServer.Division server) {
-    return (ConfigurationManager) Whitebox.getInternalState(getState(server), "configurationManager");
+    return (ConfigurationManager) RaftTestUtil.getDeclaredField(getState(server), "configurationManager");
   }
 
   public static RaftConfiguration newRaftConfiguration(Collection<RaftPeer> peers) {
