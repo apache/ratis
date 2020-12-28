@@ -78,7 +78,7 @@ public interface RaftTestUtil {
       f.setAccessible(true);
       return f.get(obj);
     } catch (Exception e) {
-      throw new RuntimeException("Failed to get '" + fieldName + "' from " + clazz, e);
+      throw new IllegalStateException("Failed to get '" + fieldName + "' from " + clazz, e);
     }
   }
 
