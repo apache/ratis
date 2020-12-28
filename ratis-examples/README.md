@@ -63,7 +63,7 @@ where
 
 Continue the server command example,
 
-    ${BIN}/client.sh filestore loadgen --size 1048576 --numFiles 1000 --peers ${PEERS}
+    ${BIN}/client.sh filestore loadgen --size 1048576 --numFiles 1000 --storage /tmp/ratis/loadgen --peers ${PEERS}
 
 ## Example 2: Arithmetic
 

@@ -43,7 +43,7 @@ import java.util.concurrent.Executors;
 @Parameters(commandDescription = "Load Generator for FileStore")
 public class LoadGen extends Client {
 
-  @Parameter(names = {"--sync"}, description = "Whether sync every bufferSize", required = true)
+  @Parameter(names = {"--sync"}, description = "Whether sync every bufferSize", required = false)
   private int sync = 0;
 
   @Override
