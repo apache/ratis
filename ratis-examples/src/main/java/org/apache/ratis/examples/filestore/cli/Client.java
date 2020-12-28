@@ -59,8 +59,8 @@ public abstract class Client extends SubCommandBase {
   private long fileSizeInBytes;
 
   @Parameter(names = {"--bufferSize"}, description = "Size of buffer in bytes, should less than 4MB, " +
-      "i.e BUFFER_BYTE_LIMIT_DEFAULT", required = true)
-  private int bufferSizeInBytes;
+      "i.e BUFFER_BYTE_LIMIT_DEFAULT", required = false)
+  private int bufferSizeInBytes = 1024;
 
   @Parameter(names = {"--numFiles"}, description = "Number of files to be written", required = true)
   private int numFiles;
