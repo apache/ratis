@@ -20,13 +20,13 @@ package org.apache.ratis.server.storage;
 import static org.apache.ratis.statemachine.impl.SimpleStateMachineStorage.SNAPSHOT_REGEX;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.ReflectionUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -136,7 +136,7 @@ public class TestRaftStorage extends BaseTest {
     Assert.assertEquals(metadata, metaFile.getMetadata());
 
     final RaftStorageMetadataFile metaFile2 = new RaftStorageMetadataFileImpl(m);
-    Assert.assertNull(((AtomicReference<?>) ReflectionUtils.getDeclaredField(metaFile2, "metadata")).get());
+    Assert.assertNull(((AtomicReference<?>) RaftTestUtil.getDeclaredField(metaFile2, "metadata")).get());
     Assert.assertEquals(metadata, metaFile2.getMetadata());
   }
 

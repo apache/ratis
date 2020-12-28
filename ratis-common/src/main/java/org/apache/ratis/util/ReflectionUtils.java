@@ -23,7 +23,6 @@ package org.apache.ratis.util;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -215,17 +214,6 @@ public interface ReflectionUtils {
     } catch (ClassNotFoundException e) {
       throw new IllegalArgumentException("Failed to get class "
           + subClassName + " as a subclass of " + base, e);
-    }
-  }
-
-  static Object getDeclaredField(Object obj, String fieldName) {
-    final Class<?> clazz = obj.getClass();
-    try {
-      final Field f = clazz.getDeclaredField(fieldName);
-      f.setAccessible(true);
-      return f.get(obj);
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to get '" + fieldName + "' from " + clazz, e);
     }
   }
 
