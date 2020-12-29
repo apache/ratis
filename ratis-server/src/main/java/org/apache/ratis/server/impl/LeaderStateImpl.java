@@ -71,6 +71,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
@@ -905,6 +906,47 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
+  boolean isLeaderLeaseValid() {
+    if (checkLeaderLease()) {
+      return true;
+    }
+
+    updateLeaderLease();
+    return checkLeaderLease();
+  }
+
+  private boolean checkLeaderLease() {
+    return lastLeaderTimestamp.get().elapsedTimeMs() < server.properties().leaderLeaseTimeoutMs();
+  }
+
+  private boolean updateLeaderLease() {
+    Timestamp startLease = Timestamp.currentTime();
+
+    List<RaftPeerId> activePeers = new ArrayList<>();
+    List<FollowerInfo> followerInfos = getFollowerInfos();
+    for (final FollowerInfo info : followerInfos) {
+      if (info.getLastRpcSendTimeWithResponse().elapsedTimeMs() <= server.properties().leaderLeaseTimeoutMs()) {
+        if (startLease.compareTo(info.getLastRpcSendTimeWithResponse()) > 0) {
+          startLease = info.getLastRpcSendTimeWithResponse();
+        }
+        activePeers.add(info.getPeer().getId());
+      }
+    }
+
+    final RaftConfigurationImpl conf = server.getRaftConf();
+    if (conf.hasMajority(activePeers, server.getId())) {
+      // leader lease check passed
+      lastLeaderTimestamp.set(startLease);
+      return true;
+    } else {
+      LOG.warn("{} Can not update leader lease on term: {} lease timeout: {}ms conf: {}",
+          this, currentTerm, server.properties().leaderLeaseTimeoutMs(), conf);
+      return false;
+    }
+  }
+
+  private AtomicReference<Timestamp> lastLeaderTimestamp = new AtomicReference<>();
+
   /**
    * See the thesis section 6.2: A leader in Raft steps down
    * if an election timeout elapses without a successful
@@ -938,10 +980,8 @@ class LeaderStateImpl implements LeaderState {
       return true;
     }
 
-    LOG.warn(this + ": Lost leadership on term: " + currentTerm
-        + ". Election timeout: " + server.getMaxTimeoutMs() + "ms"
-        + ". In charge for: " + server.getRole().getRoleElapsedTimeMs() + "ms"
-        + ". Conf: " + conf);
+    LOG.warn("{} Lost leadership on term: {} Election timeout: {}ms. In charge for: {}ms. Conf: {}",
+        this, currentTerm, server.getMaxTimeoutMs(), server.getRole().getRoleElapsedTimeMs(), conf);
     senders.stream().map(LogAppender::getFollower).forEach(f -> LOG.warn("Follower {}", f));
 
     // step down as follower
@@ -1014,6 +1054,12 @@ class LeaderStateImpl implements LeaderState {
   List<RaftPeer> getFollowers() {
     return Collections.unmodifiableList(senders.stream()
         .map(sender -> sender.getFollower().getPeer())
+        .collect(Collectors.toList()));
+  }
+
+  List<FollowerInfo> getFollowerInfos() {
+    return Collections.unmodifiableList(senders.stream()
+        .map(sender -> sender.getFollower())
         .collect(Collectors.toList()));
   }
 
