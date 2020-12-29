@@ -19,6 +19,7 @@ package org.apache.ratis.client.api;
 
 import org.apache.ratis.protocol.RoutingTable;
 
+import java.io.Closeable;
 import java.nio.ByteBuffer;
 
 /**
@@ -38,7 +39,7 @@ import java.nio.ByteBuffer;
  * this API streams data to all the servers in the {@link org.apache.ratis.protocol.RaftGroup}
  * but {@link MessageStreamApi} streams messages only to the leader.
  */
-public interface DataStreamApi {
+public interface DataStreamApi extends Closeable {
   /** Create a stream to write data. */
   default DataStreamOutput stream() {
     return stream(null);

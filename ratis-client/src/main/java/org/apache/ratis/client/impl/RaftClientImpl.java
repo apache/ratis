@@ -40,6 +40,7 @@ import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutScheduler;
 
@@ -128,7 +129,7 @@ public final class RaftClientImpl implements RaftClient {
   private final Supplier<AsyncImpl> asyncApi;
   private final Supplier<BlockingImpl> blockingApi;
   private final Supplier<MessageStreamImpl> messageStreamApi;
-  private final Supplier<DataStreamApi> dataStreamApi;
+  private final MemoizedSupplier<DataStreamApi> dataStreamApi;
 
   private final Supplier<AdminImpl> adminApi;
   private final ConcurrentMap<RaftPeerId, GroupManagementImpl> groupManagmenets = new ConcurrentHashMap<>();
@@ -345,5 +346,8 @@ public final class RaftClientImpl implements RaftClient {
   public void close() throws IOException {
     scheduler.close();
     clientRpc.close();
+    if (dataStreamApi.isInitialized()) {
+      dataStreamApi.get().close();
+    }
   }
 }
