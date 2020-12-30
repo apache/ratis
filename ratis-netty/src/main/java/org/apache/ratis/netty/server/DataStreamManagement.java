@@ -46,7 +46,6 @@ import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
-import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.function.CheckedBiFunction;
@@ -57,7 +56,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -168,56 +166,21 @@ public class DataStreamManagement {
   }
 
   static class StreamMap {
-    static class Key {
-      private final ChannelId channelId;
-      private final ClientId clientId;
-      private final long streamId;
+    private final ConcurrentMap<ClientInvocationId, StreamInfo> map = new ConcurrentHashMap<>();
 
-      Key(ChannelId channelId, ClientId clientId, long streamId) {
-        this.channelId = channelId;
-        this.clientId = clientId;
-        this.streamId = streamId;
-      }
-
-      @Override
-      public boolean equals(Object obj) {
-        if (this == obj) {
-          return true;
-        } else if (obj == null || getClass() != obj.getClass()) {
-          return false;
-        }
-        final Key that = (Key) obj;
-        return this.clientId.equals(that.clientId)
-            && this.streamId == that.streamId
-            && Objects.equals(this.channelId, that.channelId);
-      }
-
-      @Override
-      public int hashCode() {
-        return Objects.hash(channelId, clientId, streamId);
-      }
-
-      @Override
-      public String toString() {
-        return channelId + "-" + clientId + "-" + streamId;
-      }
-    }
-
-    private final ConcurrentMap<Key, StreamInfo> map = new ConcurrentHashMap<>();
-
-    StreamInfo computeIfAbsent(Key key, Function<Key, StreamInfo> function) {
+    StreamInfo computeIfAbsent(ClientInvocationId key, Function<ClientInvocationId, StreamInfo> function) {
       final StreamInfo info = map.computeIfAbsent(key, function);
       LOG.debug("computeIfAbsent({}) returns {}", key, info);
       return info;
     }
 
-    StreamInfo get(Key key) {
+    StreamInfo get(ClientInvocationId key) {
       final StreamInfo info = map.get(key);
       LOG.debug("get({}) returns {}", key, info);
       return info;
     }
 
-    StreamInfo remove(Key key) {
+    StreamInfo remove(ClientInvocationId key) {
       final StreamInfo info = map.remove(key);
       LOG.debug("remove({}) returns {}", key, info);
       return info;
@@ -379,7 +342,7 @@ public class DataStreamManagement {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
     boolean close = WriteOption.containsOption(request.getWriteOptions(), StandardWriteOption.CLOSE);
-    final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getClientId(), request.getStreamId());
+    ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
       final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getStreams));

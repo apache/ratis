@@ -322,12 +322,12 @@ message DataStreamPacketHeaderProto {
     CLOSE = 1;
   }
 
-  uint64 streamId = 1;
-  uint64 streamOffset = 2;
-  Type type = 3;
-  repeated Option options = 4;
+  bytes clientId = 1;
+  Type type = 2;
+  uint64 streamId = 3;
+  uint64 streamOffset = 4;
   uint64 dataLength = 5;
-  bytes clientId = 6;
+  repeated Option options = 6;
 }
 
 message DataStreamRequestHeaderProto {
