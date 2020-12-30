@@ -109,7 +109,7 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     private CompletableFuture<DataStreamReply> send(Type type, Object data, long length, WriteOption... options) {
       final DataStreamRequestHeader h =
-          new DataStreamRequestHeader(type, header.getCallId(), streamOffset, length, options);
+          new DataStreamRequestHeader(header.getClientId(), type, header.getCallId(), streamOffset, length, options);
       return orderedStreamAsync.sendRequest(h, data);
     }
 

@@ -327,6 +327,7 @@ message DataStreamPacketHeaderProto {
   Type type = 3;
   repeated Option options = 4;
   uint64 dataLength = 5;
+  bytes clientId = 6;
 }
 
 message DataStreamRequestHeaderProto {

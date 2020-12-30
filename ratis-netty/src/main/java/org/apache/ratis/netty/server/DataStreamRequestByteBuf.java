@@ -20,6 +20,7 @@ package org.apache.ratis.netty.server;
 
 import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
 import org.apache.ratis.io.WriteOption;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
@@ -35,14 +36,16 @@ public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements Da
   private final ByteBuf buf;
   private final WriteOption[] options;
 
-  public DataStreamRequestByteBuf(Type type, long streamId, long streamOffset, WriteOption[] options, ByteBuf buf) {
-    super(type, streamId, streamOffset);
+  public DataStreamRequestByteBuf(ClientId clientId, Type type, long streamId, long streamOffset, WriteOption[] options,
+      ByteBuf buf) {
+    super(clientId, type, streamId, streamOffset);
     this.buf = buf != null? buf.asReadOnly(): Unpooled.EMPTY_BUFFER;
     this.options = options;
   }
 
   public DataStreamRequestByteBuf(DataStreamRequestHeader header, ByteBuf buf) {
-    this(header.getType(), header.getStreamId(), header.getStreamOffset(), header.getWriteOptions(), buf);
+    this(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset(),
+        header.getWriteOptions(), buf);
   }
 
   @Override

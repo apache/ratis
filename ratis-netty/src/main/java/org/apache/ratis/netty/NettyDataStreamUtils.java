@@ -45,6 +45,7 @@ public interface NettyDataStreamUtils {
   static ByteBuffer getDataStreamRequestHeaderProtoByteBuffer(DataStreamRequest request) {
     DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
         .newBuilder()
+        .setClientId(request.getClientId().toByteString())
         .setStreamId(request.getStreamId())
         .setStreamOffset(request.getStreamOffset())
         .setType(request.getType())
@@ -64,6 +65,7 @@ public interface NettyDataStreamUtils {
   static ByteBuffer getDataStreamReplyHeaderProtoByteBuf(DataStreamReplyByteBuffer reply) {
     DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
         .newBuilder()
+        .setClientId(reply.getClientId().toByteString())
         .setStreamId(reply.getStreamId())
         .setStreamOffset(reply.getStreamOffset())
         .setType(reply.getType())

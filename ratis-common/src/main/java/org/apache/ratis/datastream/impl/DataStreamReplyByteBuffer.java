@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.datastream.impl;
 
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
@@ -31,6 +32,7 @@ import java.nio.ByteBuffer;
  */
 public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implements DataStreamReply {
   public static final class Builder {
+    private ClientId clientId;
     private Type type;
     private long streamId;
     private long streamOffset;
@@ -40,6 +42,11 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
     private long bytesWritten;
 
     private Builder() {}
+
+    public Builder setClientId(ClientId clientId) {
+      this.clientId = clientId;
+      return this;
+    }
 
     public Builder setType(Type type) {
       this.type = type;
@@ -78,13 +85,14 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
     }
 
     public Builder setDataStreamPacket(DataStreamPacket packet) {
-      return setType(packet.getType())
+      return setClientId(packet.getClientId())
+          .setType(packet.getType())
           .setStreamId(packet.getStreamId())
           .setStreamOffset(packet.getStreamOffset());
     }
 
     public DataStreamReplyByteBuffer build() {
-      return new DataStreamReplyByteBuffer(type, streamId, streamOffset, buffer, success, bytesWritten);
+      return new DataStreamReplyByteBuffer(clientId, type, streamId, streamOffset, buffer, success, bytesWritten);
     }
   }
 
@@ -95,9 +103,9 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
   private final boolean success;
   private final long bytesWritten;
 
-  private DataStreamReplyByteBuffer(Type type, long streamId, long streamOffset, ByteBuffer buffer,
+  private DataStreamReplyByteBuffer(ClientId clientId, Type type, long streamId, long streamOffset, ByteBuffer buffer,
       boolean success, long bytesWritten) {
-    super(type, streamId, streamOffset, buffer);
+    super(clientId, type, streamId, streamOffset, buffer);
 
     this.success = success;
     this.bytesWritten = bytesWritten;

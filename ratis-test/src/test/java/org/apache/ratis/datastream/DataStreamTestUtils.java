@@ -288,7 +288,7 @@ public interface DataStreamTestUtils {
 
   static CompletableFuture<RaftClientReply> writeAndCloseAndAssertReplies(
       Iterable<RaftServer> servers, RaftPeerId leader, DataStreamOutputImpl out, int bufferSize, int bufferNum,
-      ClientId primaryClientId, MiniRaftCluster cluster, boolean stepDownLeader) {
+      ClientId primaryClientId, ClientId clientId, boolean stepDownLeader) {
     LOG.info("start Stream{}", out.getHeader().getCallId());
     final int bytesWritten = writeAndAssertReplies(out, bufferSize, bufferNum);
     try {
@@ -301,7 +301,7 @@ public interface DataStreamTestUtils {
     LOG.info("Stream{}: bytesWritten={}", out.getHeader().getCallId(), bytesWritten);
 
     return out.closeAsync().thenCompose(
-        reply -> assertCloseReply(out, reply, bytesWritten, leader, primaryClientId, cluster, stepDownLeader));
+        reply -> assertCloseReply(out, reply, bytesWritten, leader, primaryClientId, clientId, stepDownLeader));
   }
 
   static void assertHeader(RaftServer server, RaftClientRequest header, int dataSize, boolean stepDownLeader)
@@ -323,9 +323,10 @@ public interface DataStreamTestUtils {
   }
 
   static CompletableFuture<RaftClientReply> assertCloseReply(DataStreamOutputImpl out, DataStreamReply dataStreamReply,
-      long bytesWritten, RaftPeerId leader, ClientId primaryClientId, MiniRaftCluster cluster, boolean stepDownLeader) {
+      long bytesWritten, RaftPeerId leader, ClientId primaryClientId, ClientId clientId, boolean stepDownLeader) {
     // Test close idempotent
     Assert.assertSame(dataStreamReply, out.closeAsync().join());
+    Assert.assertEquals(dataStreamReply.getClientId(), clientId);
     BaseTest.testFailureCase("writeAsync should fail",
         () -> out.writeAsync(DataStreamRequestByteBuffer.EMPTY_BYTE_BUFFER).join(),
         CompletionException.class, (Logger) null, AlreadyClosedException.class);
