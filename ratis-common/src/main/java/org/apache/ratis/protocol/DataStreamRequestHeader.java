@@ -58,8 +58,8 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
           options[i] = StandardWriteOption.values()[h.getOptions(i).ordinal()];
         }
 
-        return new DataStreamRequestHeader(h.getType(), h.getStreamId(), h.getStreamOffset(), h.getDataLength(),
-            options);
+        return new DataStreamRequestHeader(ClientId.valueOf(h.getClientId()), h.getType(), h.getStreamId(),
+            h.getStreamOffset(), h.getDataLength(), options);
       } else {
         buf.resetReaderIndex();
         return null;
@@ -73,8 +73,9 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
 
   private final WriteOption[] options;
 
-  public DataStreamRequestHeader(Type type, long streamId, long streamOffset, long dataLength, WriteOption... options) {
-    super(type, streamId, streamOffset, dataLength);
+  public DataStreamRequestHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
+      WriteOption... options) {
+    super(clientId, type, streamId, streamOffset, dataLength);
     this.options = options;
   }
 

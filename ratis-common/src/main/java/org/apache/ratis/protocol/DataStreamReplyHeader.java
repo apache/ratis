@@ -48,8 +48,8 @@ public class DataStreamReplyHeader extends DataStreamPacketHeader implements Dat
       final DataStreamPacketHeaderProto h = header.getPacketHeader();
       if (header.getPacketHeader().getDataLength() + headerBufLen <= buf.readableBytes()) {
         buf.readerIndex(buf.readerIndex() + headerBufLen);
-        return new DataStreamReplyHeader(h.getType(), h.getStreamId(), h.getStreamOffset(), h.getDataLength(),
-            header.getBytesWritten(), header.getSuccess());
+        return new DataStreamReplyHeader(ClientId.valueOf(h.getClientId()), h.getType(), h.getStreamId(),
+            h.getStreamOffset(), h.getDataLength(), header.getBytesWritten(), header.getSuccess());
       } else {
         buf.resetReaderIndex();
         return null;
@@ -64,9 +64,9 @@ public class DataStreamReplyHeader extends DataStreamPacketHeader implements Dat
   private final long bytesWritten;
   private final boolean success;
 
-  public DataStreamReplyHeader(Type type, long streamId, long streamOffset, long dataLength,
+  public DataStreamReplyHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
       long bytesWritten, boolean success) {
-    super(type, streamId, streamOffset, dataLength);
+    super(clientId, type, streamId, streamOffset, dataLength);
     this.bytesWritten = bytesWritten;
     this.success = success;
   }

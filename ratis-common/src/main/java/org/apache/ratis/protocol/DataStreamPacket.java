@@ -21,6 +21,8 @@ package org.apache.ratis.protocol;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 
 public interface DataStreamPacket {
+  ClientId getClientId();
+
   Type getType();
 
   long getStreamId();

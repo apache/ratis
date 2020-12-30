@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.datastream.impl;
 
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.util.JavaUtils;
@@ -27,14 +28,21 @@ import org.apache.ratis.util.JavaUtils;
  * This class is immutable.
  */
 public abstract class DataStreamPacketImpl implements DataStreamPacket {
+  private final ClientId clientId;
   private final Type type;
   private final long streamId;
   private final long streamOffset;
 
-  public DataStreamPacketImpl(Type type, long streamId, long streamOffset) {
+  public DataStreamPacketImpl(ClientId clientId, Type type, long streamId, long streamOffset) {
+    this.clientId = clientId;
     this.type = type;
     this.streamId = streamId;
     this.streamOffset = streamOffset;
+  }
+
+  @Override
+  public ClientId getClientId() {
+    return clientId;
   }
 
   @Override
@@ -54,8 +62,9 @@ public abstract class DataStreamPacketImpl implements DataStreamPacket {
 
   @Override
   public String toString() {
-    return JavaUtils.getClassSimpleName(getClass()) + ":"
-        + getType()
+    return JavaUtils.getClassSimpleName(getClass())
+        + ":clientId=" + getClientId()
+        + ",type=" + getType()
         + ",id=" + getStreamId()
         + ",offset=" + getStreamOffset()
         + ",length=" + getDataLength();

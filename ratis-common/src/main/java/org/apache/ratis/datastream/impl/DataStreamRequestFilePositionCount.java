@@ -32,7 +32,7 @@ public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl imp
   private WriteOption[] options;
 
   public DataStreamRequestFilePositionCount(DataStreamRequestHeader header, FilePositionCount file) {
-    super(header.getType(), header.getStreamId(), header.getStreamOffset());
+    super(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset());
     this.options = header.getWriteOptions();
     this.file = file;
   }

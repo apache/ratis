@@ -170,10 +170,12 @@ public class DataStreamManagement {
   static class StreamMap {
     static class Key {
       private final ChannelId channelId;
+      private final ClientId clientId;
       private final long streamId;
 
-      Key(ChannelId channelId, long streamId) {
+      Key(ChannelId channelId, ClientId clientId, long streamId) {
         this.channelId = channelId;
+        this.clientId = clientId;
         this.streamId = streamId;
       }
 
@@ -185,17 +187,19 @@ public class DataStreamManagement {
           return false;
         }
         final Key that = (Key) obj;
-        return this.streamId == that.streamId && Objects.equals(this.channelId, that.channelId);
+        return this.clientId.equals(that.clientId)
+            && this.streamId == that.streamId
+            && Objects.equals(this.channelId, that.channelId);
       }
 
       @Override
       public int hashCode() {
-        return Objects.hash(channelId, streamId);
+        return Objects.hash(channelId, clientId, streamId);
       }
 
       @Override
       public String toString() {
-        return channelId + "-" + streamId;
+        return channelId + "-" + clientId + "-" + streamId;
       }
     }
 
@@ -375,14 +379,14 @@ public class DataStreamManagement {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
     boolean close = WriteOption.containsOption(request.getWriteOptions(), StandardWriteOption.CLOSE);
-    final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
+    final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getClientId(), request.getStreamId());
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
       final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getStreams));
       info = streams.computeIfAbsent(key, id -> supplier.get());
       if (!supplier.isInitialized()) {
         throw new IllegalStateException("Failed to create a new stream for " + request
-            + " since a stream already exists: " + info);
+            + " since a stream already exists Key: " + key + " StreamInfo:" + info);
       }
     } else if (close) {
       info = Optional.ofNullable(streams.remove(key)).orElseThrow(

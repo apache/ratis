@@ -33,7 +33,7 @@ public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer impl
   private WriteOption[] options;
 
   public DataStreamRequestByteBuffer(DataStreamRequestHeader header, ByteBuffer buffer) {
-    super(header.getType(), header.getStreamId(), header.getStreamOffset(), buffer);
+    super(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset(), buffer);
     this.options = header.getWriteOptions();
     Preconditions.assertTrue(header.getDataLength() == buffer.remaining());
   }
