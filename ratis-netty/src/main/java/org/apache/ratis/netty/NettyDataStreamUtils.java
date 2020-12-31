@@ -119,12 +119,18 @@ public interface NettyDataStreamUtils {
         .orElse(null);
   }
 
+  static ByteBuffer copy(ByteBuf buf) {
+    final byte[] bytes = new byte[buf.readableBytes()];
+    buf.readBytes(bytes);
+    return ByteBuffer.wrap(bytes);
+  }
+
   static DataStreamReplyByteBuffer decodeDataStreamReplyByteBuffer(ByteBuf buf) {
     return Optional.ofNullable(DataStreamReplyHeader.read(buf))
         .map(header -> checkHeader(header, buf))
         .map(header -> DataStreamReplyByteBuffer.newBuilder()
             .setDataStreamReplyHeader(header)
-            .setBuffer(decodeData(buf, header, b -> b.copy().nioBuffer()))
+            .setBuffer(decodeData(buf, header, NettyDataStreamUtils::copy))
             .build())
         .orElse(null);
   }
