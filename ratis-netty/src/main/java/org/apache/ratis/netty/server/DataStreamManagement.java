@@ -48,6 +48,7 @@ import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -284,7 +285,7 @@ public class DataStreamManagement {
 
   static void sendReply(List<CompletableFuture<DataStreamReply>> remoteWrites,
       DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
-    final boolean success = checkSuccessRemoteWrite(remoteWrites, bytesWritten);
+    final boolean success = checkSuccessRemoteWrite(remoteWrites, bytesWritten, request);
     final DataStreamReplyByteBuffer.Builder builder = DataStreamReplyByteBuffer.newBuilder()
         .setDataStreamPacket(request)
         .setSuccess(success);
@@ -398,9 +399,19 @@ public class DataStreamManagement {
     });
   }
 
-  static boolean checkSuccessRemoteWrite(List<CompletableFuture<DataStreamReply>> replyFutures, long bytesWritten) {
+  static void assertReplyCorrespondingToRequest(
+      final DataStreamRequestByteBuf request, final DataStreamReply reply) {
+    Preconditions.assertTrue(request.getClientId().equals(reply.getClientId()));
+    Preconditions.assertTrue(request.getType() == reply.getType());
+    Preconditions.assertTrue(request.getStreamId() == reply.getStreamId());
+    Preconditions.assertTrue(request.getStreamOffset() == reply.getStreamOffset());
+  }
+
+  static boolean checkSuccessRemoteWrite(List<CompletableFuture<DataStreamReply>> replyFutures, long bytesWritten,
+      final DataStreamRequestByteBuf request) {
     for (CompletableFuture<DataStreamReply> replyFuture : replyFutures) {
       final DataStreamReply reply = replyFuture.join();
+      assertReplyCorrespondingToRequest(request, reply);
       if (!reply.isSuccess() || reply.getBytesWritten() != bytesWritten) {
         return false;
       }
