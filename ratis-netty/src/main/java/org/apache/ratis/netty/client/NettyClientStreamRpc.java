@@ -23,6 +23,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.netty.NettyDataStreamUtils;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftPeer;
@@ -54,7 +55,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   private final String name;
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final Supplier<Channel> channel;
-  private final ConcurrentMap<Long, Queue<CompletableFuture<DataStreamReply>>> replies = new ConcurrentHashMap<>();
+  private final ConcurrentMap<ClientInvocationId, Queue<CompletableFuture<DataStreamReply>>> replies =
+      new ConcurrentHashMap<>();
 
   public NettyClientStreamRpc(RaftPeer server, RaftProperties properties){
     this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
@@ -82,7 +84,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         }
         final DataStreamReply reply = (DataStreamReply) msg;
         LOG.debug("{}: read {}", this, reply);
-        Optional.ofNullable(replies.get(reply.getStreamId()))
+        ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(reply.getClientId(), reply.getStreamId());
+        Optional.ofNullable(replies.get(clientInvocationId))
             .map(Queue::poll)
             .ifPresent(f -> f.complete(reply));
       }
@@ -136,8 +139,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   @Override
   public CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
     final CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
+    ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
     final Queue<CompletableFuture<DataStreamReply>> q = replies.computeIfAbsent(
-        request.getStreamId(), key -> new ConcurrentLinkedQueue<>());
+       clientInvocationId, key -> new ConcurrentLinkedQueue<>());
     if (!q.offer(f)) {
       f.completeExceptionally(new IllegalStateException(this + ": Failed to offer a future for " + request));
       return f;
