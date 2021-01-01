@@ -20,7 +20,6 @@ package org.apache.ratis;
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -38,7 +37,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -79,20 +77,6 @@ public abstract class BaseTest {
           RaftPeer.newBuilder().setId(peer.getId()).setAddress(peer.getAddress()).setPriority(priority).build());
     }
     return peersWithPriority;
-  }
-
-  public RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
-    RoutingTable.Builder builder = RoutingTable.newBuilder();
-    RaftPeer previous = primary;
-    for (RaftPeer peer : peers) {
-      if (peer.equals(primary)) {
-        continue;
-      }
-      builder.addSuccessor(previous.getId(), peer.getId());
-      previous = peer;
-    }
-
-    return builder.build();
   }
 
   @After

@@ -82,10 +82,85 @@ public interface RoutingTable {
           .map(RoutingTable::newRoutingTable)
           .orElseThrow(() -> new IllegalStateException("RoutingTable Already built"));
     }
+
+    static void validate(Map<RaftPeerId, Set<RaftPeerId>> map) {
+      if (map != null && !map.isEmpty()) {
+        new Builder.Validation(map).run();
+      }
+    }
+
+    /** Validate if a map represents a valid routing table. */
+    private static final class Validation {
+      private final Map<RaftPeerId, Set<RaftPeerId>> map;
+      private final RaftPeerId primary;
+      private final Set<RaftPeerId> unreachablePeers;
+
+      private Validation(Map<RaftPeerId, Set<RaftPeerId>> map) {
+        this.map = Objects.requireNonNull(map, "map == null");
+
+        final Set<RaftPeerId> allPeers = new HashSet<>(map.keySet());
+        final Set<RaftPeerId> startingPeers = new HashSet<>(map.keySet());
+        int numEdges = 0;
+        for (Map.Entry<RaftPeerId, Set<RaftPeerId>> entry: map.entrySet()) {
+          final Set<RaftPeerId> successors = entry.getValue();
+          if (successors == null) {
+            continue;
+          }
+          for (RaftPeerId s : successors) {
+            Preconditions.assertTrue(!s.equals(entry.getKey()), () -> "Invalid routing table: the peer " + s
+                + " has a self-loop, " + this);
+
+            if (!startingPeers.remove(s)) { //the primary peer cannot be a successor
+              final boolean added = allPeers.add(s); //an ending peer may not be contained as a key in the map
+              Preconditions.assertTrue(added, () -> "Invalid routing table: the peer " + s
+                  + " has more than one predecessors, " + this);
+            }
+          }
+          numEdges += successors.size();
+        }
+
+        Preconditions.assertTrue(numEdges == allPeers.size() - 1,
+            "Invalid routing table: #edges = %d != #vertices - 1, #vertices=%d, %s",
+            numEdges, allPeers.size(), this);
+        Preconditions.assertTrue(!startingPeers.isEmpty(),
+            () -> "Invalid routing table: Starting peer not found, " + this);
+        Preconditions.assertTrue(startingPeers.size() == 1,
+            () -> "Invalid routing table: More than one starting peers: " + startingPeers + ", " + this);
+
+        this.primary = startingPeers.iterator().next();
+        this.unreachablePeers = allPeers;
+      }
+
+      private void run() {
+        depthFirstSearch(primary);
+        Preconditions.assertTrue(unreachablePeers.isEmpty() ,
+            () -> "Invalid routing table: peer(s) " + unreachablePeers +  " are unreachable, " + this);
+      }
+
+      private void depthFirstSearch(RaftPeerId current) {
+        final boolean removed = unreachablePeers.remove(current);
+        Preconditions.assertTrue(removed, () -> "Invalid routing table: the peer " + current
+            + " has more than one predecessors, " + this);
+        System.out.println("current=" + current + ", " + this);
+        for (RaftPeerId successor : get(current)) {
+          depthFirstSearch(successor);
+        }
+      }
+
+      private Set<RaftPeerId> get(RaftPeerId peerId) {
+        return Optional.ofNullable(map.get(peerId)).orElseGet(Collections::emptySet);
+      }
+
+      @Override
+      public String toString() {
+        return "primary=" + primary + ", map=" + map;
+      }
+    }
   }
 
+  /** @return a new {@link RoutingTable} represented by the given map. */
   static RoutingTable newRoutingTable(Map<RaftPeerId, Set<RaftPeerId>> map){
-    new Validation(map).run();
+    Builder.validate(map);
 
     final Supplier<RoutingTableProto> proto = JavaUtils.memoize(
         () -> RoutingTableProto.newBuilder().addAllRoutes(ProtoUtils.toRouteProtos(map)).build());
@@ -100,73 +175,5 @@ public interface RoutingTable {
         return proto.get();
       }
     };
-  }
-
-  /** Validate if a map represents a valid routing table. */
-  class Validation {
-    private final Map<RaftPeerId, Set<RaftPeerId>> map;
-    private final RaftPeerId primary;
-    private final Set<RaftPeerId> unreachablePeers;
-
-    private Validation(Map<RaftPeerId, Set<RaftPeerId>> map) {
-      this.map = Objects.requireNonNull(map, "map == null");
-
-      final Set<RaftPeerId> allPeers = new HashSet<>(map.keySet());
-      final Set<RaftPeerId> startingPeers = new HashSet<>(map.keySet());
-      int numEdges = 0;
-      for (Map.Entry<RaftPeerId, Set<RaftPeerId>> entry: map.entrySet()) {
-        final Set<RaftPeerId> successors = entry.getValue();
-        if (successors == null) {
-          continue;
-        }
-        for (RaftPeerId s : successors) {
-          Preconditions.assertTrue(!s.equals(entry.getKey()), () -> "Invalid routing table: the peer " + s
-              + " has a self-loop, " + this);
-
-          if (!startingPeers.remove(s)) { //the primary peer cannot be a successor
-            final boolean added = allPeers.add(s); //an ending peer may not be contained as a key in the map
-            Preconditions.assertTrue(added, () -> "Invalid routing table: the peer " + s
-                + " has more than one predecessors, " + this);
-          }
-        }
-        numEdges += successors.size();
-      }
-
-      Preconditions.assertTrue(numEdges == allPeers.size() - 1,
-          "Invalid routing table: #edges = %d != #vertices - 1, #vertices=%d, %s",
-          numEdges, allPeers.size(), this);
-      Preconditions.assertTrue(!startingPeers.isEmpty(),
-          () -> "Invalid routing table: Starting peer not found, " + this);
-      Preconditions.assertTrue(startingPeers.size() == 1,
-          () -> "Invalid routing table: More than one starting peers: " + startingPeers + ", " + this);
-
-      this.primary = startingPeers.iterator().next();
-      this.unreachablePeers = allPeers;
-    }
-
-    private void run() {
-      depthFirstSearch(primary);
-      Preconditions.assertTrue(unreachablePeers.isEmpty() ,
-          () -> "Invalid routing table: peer(s) " + unreachablePeers +  " are unreachable, " + this);
-    }
-
-    private void depthFirstSearch(RaftPeerId current) {
-      final boolean removed = unreachablePeers.remove(current);
-      Preconditions.assertTrue(removed, () -> "Invalid routing table: the peer " + current
-          + " has more than one predecessors, " + this);
-      System.out.println("current=" + current + ", " + this);
-      for (RaftPeerId successor : get(current)) {
-        depthFirstSearch(successor);
-      }
-    }
-
-    private Set<RaftPeerId> get(RaftPeerId peerId) {
-      return Optional.ofNullable(map.get(peerId)).orElseGet(Collections::emptySet);
-    }
-
-    @Override
-    public String toString() {
-      return "primary=" + primary + ", map=" + map;
-    }
   }
 }
