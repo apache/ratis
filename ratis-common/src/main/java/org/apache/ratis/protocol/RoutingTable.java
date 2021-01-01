@@ -141,7 +141,6 @@ public interface RoutingTable {
         final boolean removed = unreachablePeers.remove(current);
         Preconditions.assertTrue(removed, () -> "Invalid routing table: the peer " + current
             + " has more than one predecessors, " + this);
-        System.out.println("current=" + current + ", " + this);
         for (RaftPeerId successor : get(current)) {
           depthFirstSearch(successor);
         }

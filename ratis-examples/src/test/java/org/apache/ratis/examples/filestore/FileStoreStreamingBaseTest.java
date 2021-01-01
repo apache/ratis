@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,6 +21,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.DataStreamTestUtils;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
@@ -73,7 +74,7 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
     final CheckedSupplier<FileStoreClient, IOException> newClient =
         () -> new FileStoreClient(cluster.getGroup(), getProperties(), primary);
 
-    RoutingTable routingTable = getRoutingTable(peers, primary);
+    RoutingTable routingTable = DataStreamTestUtils.getRoutingTableChainTopology(peers, primary);
     testSingleFile("foo", SizeInBytes.valueOf("2M"), 10_000, newClient, routingTable);
     testSingleFile("bar", SizeInBytes.valueOf("2M"), 1000, newClient, routingTable);
     testSingleFile("sar", SizeInBytes.valueOf("20M"), 100_000, newClient, routingTable);
@@ -95,7 +96,7 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
     final CheckedSupplier<FileStoreClient, IOException> newClient =
         () -> new FileStoreClient(cluster.getGroup(), getProperties(), primary);
 
-    RoutingTable routingTable = getRoutingTable(peers, primary);
+    RoutingTable routingTable = DataStreamTestUtils.getRoutingTableChainTopology(peers, primary);
     testMultipleFiles("foo", 5, SizeInBytes.valueOf("2M"), 10_000, newClient, routingTable);
     testMultipleFiles("bar", 10, SizeInBytes.valueOf("2M"), 1000, newClient, routingTable);
 
