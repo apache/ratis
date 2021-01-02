@@ -37,21 +37,17 @@ public class TestRoutingTable extends BaseTest {
 
   @Test
   public void testRoutingTableValidation() {
+    { // empty table
+      newRoutingTable();
+    }
+
     { // 0 -> 1 -> 2
-      RoutingTable.newBuilder()
-          .addSuccessor(peers[0], peers[1])
-          .addSuccessor(peers[1], peers[2])
-          .build();
+      newRoutingTable(0, 1, 1, 2);
     }
 
     { // 0 -> 1, 0 -> 2
-      RoutingTable.newBuilder()
-          .addSuccessor(peers[0], peers[1])
-          .addSuccessor(peers[0], peers[2])
-          .build();
+      newRoutingTable(0, 1, 0, 2);
     }
-
-    testFailureCase("empty table");
 
     testFailureCase(" #edges < #vertices - 1", 0, 1, 1, 2, 3, 4);
 
@@ -64,16 +60,20 @@ public class TestRoutingTable extends BaseTest {
     testFailureCase("self-loop", 0, 1, 2, 3, 3, 3);
   }
 
+  RoutingTable newRoutingTable(int... peerIndices) {
+    final RoutingTable.Builder b = RoutingTable.newBuilder();
+    for (int i = 0; i < peerIndices.length; i += 2) {
+      b.addSuccessor(peers[peerIndices[i]], peers[peerIndices[i + 1]]);
+    }
+    return b.build();
+  }
+
   void testFailureCase(String name, int... peerIndices) {
     Assert.assertEquals(0, peerIndices.length % 2);
 
-    testFailureCase(name + ": " + toString(peerIndices), () -> {
-      final RoutingTable.Builder b = RoutingTable.newBuilder();
-      for (int i = 0; i < peerIndices.length; i += 2) {
-        b.addSuccessor(peers[peerIndices[i]], peers[peerIndices[i + 1]]);
-      }
-      b.build();
-    }, IllegalStateException.class, LOG);
+    testFailureCase(name + ": " + toString(peerIndices),
+        () -> newRoutingTable(peerIndices),
+        IllegalStateException.class, LOG);
   }
 
   String toString(int... peerIndices) {
