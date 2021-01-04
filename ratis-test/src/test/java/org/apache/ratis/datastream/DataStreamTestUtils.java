@@ -33,11 +33,11 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientMessage;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -46,6 +46,7 @@ import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.junit.Assert;
@@ -121,6 +122,24 @@ public interface DataStreamTestUtils {
 
   static ByteString bytesWritten2ByteString(long bytesWritten) {
     return ByteString.copyFromUtf8("bytesWritten=" + bytesWritten);
+  }
+
+  static RoutingTable getRoutingTableChainTopology(Iterable<RaftPeer> peers, RaftPeer primary) {
+    return getRoutingTableChainTopology(CollectionUtils.as(peers, RaftPeer::getId), primary.getId());
+  }
+
+  static RoutingTable getRoutingTableChainTopology(Iterable<RaftPeerId> peers, RaftPeerId primary) {
+    final RoutingTable.Builder builder = RoutingTable.newBuilder();
+    RaftPeerId previous = primary;
+    for (RaftPeerId peer : peers) {
+      if (peer.equals(primary)) {
+        continue;
+      }
+      builder.addSuccessor(previous, peer);
+      previous = peer;
+    }
+
+    return builder.build();
   }
 
   class MultiDataStreamStateMachine extends BaseStateMachine {

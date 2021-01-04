@@ -19,6 +19,7 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
@@ -38,6 +39,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -50,6 +52,10 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
   }
 
   public static final int NUM_SERVERS = 3;
+
+  RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
+    return DataStreamTestUtils.getRoutingTableChainTopology(peers, primary);
+  }
 
   @Test
   public void testStreamWrites() throws Exception {

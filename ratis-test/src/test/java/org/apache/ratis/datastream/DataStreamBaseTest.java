@@ -133,7 +133,7 @@ abstract class DataStreamBaseTest extends BaseTest {
       throws IOException {
     try (final RaftClient client = newRaftClientForDataStream(clientId)) {
       final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
-          .stream(null, getRoutingTable(peers, getPrimaryServer().getPeer()));
+          .stream(null, DataStreamTestUtils.getRoutingTableChainTopology(peers, getPrimaryServer().getPeer()));
       if (headerException != null) {
         final DataStreamReply headerReply = out.getHeaderFuture().join();
         Assert.assertFalse(headerReply.isSuccess());
