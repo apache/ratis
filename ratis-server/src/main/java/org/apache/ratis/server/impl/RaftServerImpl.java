@@ -1054,11 +1054,10 @@ class RaftServerImpl implements RaftServer.Division,
             fs != null? fs.getLastRpcTime().elapsedTimeMs() + "ms": null);
       } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
         final boolean termUpdated = changeToFollower(candidateTerm, true, "recognizeCandidate:" + candidateId);
-        if (fs == null) {
-          // if current server is leader, before changeToFollower FollowerState should be null,
-          // so after leader changeToFollower we should get FollowerState again.
-          fs = role.getFollowerState().orElse(null);
-        }
+        // if current server is leader, before changeToFollower FollowerState should be null,
+        // so after leader changeToFollower we should get FollowerState again.
+        fs = role.getFollowerState().orElse(null);
+
         // see Section 5.4.1 Election restriction
         RaftPeer candidate = getRaftConf().getPeer(candidateId);
         if (fs != null && candidate != null) {
