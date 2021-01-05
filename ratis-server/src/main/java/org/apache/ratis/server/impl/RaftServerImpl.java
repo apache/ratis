@@ -1048,13 +1048,17 @@ class RaftServerImpl implements RaftServer.Division,
     synchronized (this) {
       // Check life cycle state again to avoid the PAUSING/PAUSED state.
       assertLifeCycleState(LifeCycle.States.RUNNING);
-      final FollowerState fs = role.getFollowerState().orElse(null);
+      FollowerState fs = role.getFollowerState().orElse(null);
       if (shouldWithholdVotes(candidateTerm)) {
         LOG.info("{}-{}: Withhold vote from candidate {} with term {}. State: leader={}, term={}, lastRpcElapsed={}",
             getMemberId(), role, candidateId, candidateTerm, state.getLeaderId(), state.getCurrentTerm(),
             fs != null? fs.getLastRpcTime().elapsedTimeMs() + "ms": null);
       } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
         final boolean termUpdated = changeToFollower(candidateTerm, true, "recognizeCandidate:" + candidateId);
+        // if current server is leader, before changeToFollower FollowerState should be null,
+        // so after leader changeToFollower we should get FollowerState again.
+        fs = role.getFollowerState().orElse(null);
+
         // see Section 5.4.1 Election restriction
         RaftPeer candidate = getRaftConf().getPeer(candidateId);
         if (fs != null && candidate != null) {
