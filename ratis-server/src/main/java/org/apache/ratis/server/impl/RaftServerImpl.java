@@ -551,7 +551,7 @@ class RaftServerImpl implements RaftServer.Division,
     return roleInfo.build();
   }
 
-  synchronized void changeToCandidate() {
+  synchronized void changeToCandidate(boolean forceStartLeaderElection) {
     Preconditions.assertTrue(getInfo().isFollower());
     role.shutdownFollowerState();
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
@@ -559,7 +559,7 @@ class RaftServerImpl implements RaftServer.Division,
       stateMachine.followerEvent().notifyExtendedNoLeader(getRoleInfoProto());
     }
     // start election
-    role.startLeaderElection(this);
+    role.startLeaderElection(this, forceStartLeaderElection);
   }
 
   @Override
@@ -1069,22 +1069,18 @@ class RaftServerImpl implements RaftServer.Division,
       boolean isCurrentLeaderValid = isCurrentLeaderValid();
       RaftPeer candidate = getRaftConf().getPeer(candidateId);
 
-      if (candidate != null) {
+      // vote for candidate if:
+      // 1. current leader is not valid
+      // 2. log lags behind candidate or
+      //    log equals candidate's, and priority less or equal candidate's
+      if (!isCurrentLeaderValid && candidate != null) {
         int compare = ServerState.compareLog(state.getLastEntry(), candidateLastEntry);
         int priority = getRaftConf().getPeer(getId()).getPriority();
-        LOG.info("{} priority:{} candidate:{} candidatePriority:{} compare:{}",
-            this, priority, candidate, candidate.getPriority(), compare);
-
-        // vote for candidate if:
-        // 1. current leader is not valid
-        // 2. log lags behind candidate or
-        //    log equals candidate's, and priority less or equal candidate's
-        if (!isCurrentLeaderValid &&
-            (compare < 0 || (compare == 0 && priority <= candidate.getPriority()))) {
+        if (compare < 0 || (compare == 0 && priority <= candidate.getPriority())) {
           preVoteGranted = true;
-          LOG.info("{} role:{} allow pre vote from:{}", getMemberId(), getRole(), candidateId);
+          LOG.info("{} role:{} allow pre-vote from:{}", getMemberId(), getRole(), candidateId);
         } else {
-          LOG.info("{} role:{} reject pre vote from:{} because compare:{} isCurrentLeaderValid:{}",
+          LOG.info("{} role:{} reject pre-vote from:{} because compare:{} isCurrentLeaderValid:{}",
               getMemberId(), getRole(), candidateId, compare, isCurrentLeaderValid);
         }
       }
@@ -1100,7 +1096,7 @@ class RaftServerImpl implements RaftServer.Division,
 
       reply = ServerProtoUtils.toRequestVoteReplyProto(candidateId, getMemberId(),
           preVoteGranted, state.getCurrentTerm(), shouldShutdown);
-      LOG.info("{} replies to pre vote request: {}. Peer's state: {}",
+      LOG.info("{} replies to pre-vote request: {}. Peer's state: {}",
           getMemberId(), ServerStringUtils.toRequestVoteReplyString(reply), state);
     }
     return reply;
@@ -1510,7 +1506,7 @@ class RaftServerImpl implements RaftServer.Division,
         return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
       }
 
-      changeToCandidate();
+      changeToCandidate(true);
       return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
     }
   }

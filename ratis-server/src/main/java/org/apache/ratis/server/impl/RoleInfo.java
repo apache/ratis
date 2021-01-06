@@ -111,8 +111,8 @@ class RoleInfo {
     }
   }
 
-  void startLeaderElection(RaftServerImpl server) {
-    updateAndGet(leaderElection, new LeaderElection(server)).start();
+  void startLeaderElection(RaftServerImpl server, boolean force) {
+    updateAndGet(leaderElection, new LeaderElection(server, force)).start();
   }
 
   void shutdownLeaderElection() {

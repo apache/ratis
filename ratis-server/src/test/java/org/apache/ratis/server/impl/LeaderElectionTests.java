@@ -340,7 +340,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testImmediatelyRevertedToFollower() {
     RaftServerImpl server = createMockServer(true);
-    LeaderElection subject = new LeaderElection(server);
+    LeaderElection subject = new LeaderElection(server, false);
 
     try {
       subject.startInForeground();
@@ -354,7 +354,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testShutdownBeforeStart() {
     RaftServerImpl server = createMockServer(false);
-    LeaderElection subject = new LeaderElection(server);
+    LeaderElection subject = new LeaderElection(server, false);
 
     try {
       subject.shutdown();
@@ -383,20 +383,21 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         RaftServer.Division follower = followers.get(0);
         isolate(cluster, follower.getId());
         // send message so that the isolated follower's log lag the others
-        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        Assert.assertTrue(reply.isSuccess());
 
-        // wait follower timeout and trigger pre vote
+        // wait follower timeout and trigger pre-vote
         Thread.sleep(2000);
         deIsolate(cluster, follower.getId());
         Thread.sleep(2000);
-        // with pre vote leader will not step down
+        // with pre-vote leader will not step down
         RaftServer.Division newleader = waitForLeader(cluster);
         assertNotNull(newleader);
         assertEquals(newleader.getId(), leader.getId());
-        // with pre vote, term will not change
+        // with pre-vote, term will not change
         assertEquals(leader.getInfo().getCurrentTerm(), savedTerm);
 
-        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
         Assert.assertTrue(reply.isSuccess());
       }
 

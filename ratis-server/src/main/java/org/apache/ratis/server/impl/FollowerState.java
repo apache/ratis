@@ -134,7 +134,7 @@ class FollowerState extends Daemon {
                 this, lastRpcTime.elapsedTime(), electionTimeout);
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.
             // election timeout, should become a candidate
-            server.changeToCandidate();
+            server.changeToCandidate(false);
             break;
           }
         }

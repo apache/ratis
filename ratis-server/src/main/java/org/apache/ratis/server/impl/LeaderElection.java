@@ -67,7 +67,7 @@ class LeaderElection implements Runnable {
       List<Exception> exceptions, long newTerm, boolean preVote) {
     LOG.info("{}: {} {} received {} response(s):{}",
         this,
-        preVote ? "Pre vote " : "Election ",
+        preVote ? "Pre-vote " : "Election ",
         result,
         responses.size(),
         responses.values().stream().map(ServerStringUtils::toRequestVoteReplyString).collect(Collectors.toList()));
@@ -124,12 +124,14 @@ class LeaderElection implements Runnable {
   private final Daemon daemon;
 
   private final RaftServerImpl server;
+  private final boolean force;
 
-  LeaderElection(RaftServerImpl server) {
+  LeaderElection(RaftServerImpl server, boolean force) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
     this.daemon = new Daemon(this);
     this.server = server;
+    this.force = force;
   }
 
   void start() {
@@ -169,7 +171,6 @@ class LeaderElection implements Runnable {
 
     Timer.Context electionContext =
         server.getLeaderElectionMetrics().getLeaderElectionTimer().time();
-    boolean preVotePass = false;
     try {
       /**
        * See the thesis section 9.6: In the Pre-Vote algorithm, a candidate
@@ -179,7 +180,7 @@ class LeaderElection implements Runnable {
        * up-to-date, and the voters have not received heartbeats from a valid
        * leader for at least a baseline election timeout).
        */
-      preVotePass = askForPreVotes();
+      boolean preVotePass = force ? true : askForPreVotes();
 
       if (preVotePass) {
         askForVotes();
@@ -243,7 +244,7 @@ class LeaderElection implements Runnable {
   private boolean askForPreVotes() throws InterruptedException, IOException {
     final ServerState state = server.getState();
     if (shouldRun()) {
-      // one round of request pre votes
+      // one round of request pre-votes
       final long electionTerm;
       final RaftConfigurationImpl conf;
       synchronized (server) {
@@ -255,9 +256,9 @@ class LeaderElection implements Runnable {
         electionTerm = state.getCurrentTerm();
       }
 
-      LOG.info("{}: begin a pre vote at term {} for {}", this, electionTerm, conf);
+      LOG.info("{}: begin a pre-vote at term {} for {}", this, electionTerm, conf);
       final ResultAndTerm r = submitRequestAndWaitResult(state, conf, electionTerm, true);
-      LOG.info("{} pre votes result is {}.", this, r.result);
+      LOG.info("{} pre-vote result is {}.", this, r.result);
 
       synchronized (server) {
         if (!shouldRun(electionTerm)) {
@@ -272,11 +273,11 @@ class LeaderElection implements Runnable {
             server.changeToFollowerAndPersistMetadata(state.getCurrentTerm(), r.result);
             return false;
           case SHUTDOWN:
-            LOG.info("{} received shutdown response when requesting pre votes.", this);
+            LOG.info("{} received shutdown response when requesting pre-vote.", this);
             server.getRaftServer().close();
             return false;
           case DISCOVERED_A_NEW_TERM:
-            LOG.error("{} should not happen {} when requesting pre votes.", this, r.result);
+            LOG.error("{} should not happen {} when requesting pre-vote.", this, r.result);
             return false;
           default: throw new IllegalArgumentException("Unable to process result " + r.result);
         }
@@ -287,7 +288,7 @@ class LeaderElection implements Runnable {
   }
 
   /**
-   * After a peer changes its role to candidate and pass pre vote, it invokes this method to
+   * After a peer changes its role to candidate and pass pre-vote, it invokes this method to
    * send out requestVote rpc to all other peers.
    */
   private void askForVotes() throws InterruptedException, IOException {
