@@ -50,10 +50,11 @@ final class ServerProtoUtils {
   }
 
   static RequestVoteRequestProto toRequestVoteRequestProto(
-      RaftGroupMemberId requestorId, RaftPeerId replyId, long term, TermIndex lastEntry) {
+      RaftGroupMemberId requestorId, RaftPeerId replyId, long term, TermIndex lastEntry, boolean preVote) {
     final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
         .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId))
-        .setCandidateTerm(term);
+        .setCandidateTerm(term)
+        .setPreVote(preVote);
     Optional.ofNullable(lastEntry).map(TermIndex::toProto).ifPresent(b::setCandidateLastEntry);
     return b.build();
   }

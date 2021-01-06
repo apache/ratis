@@ -152,6 +152,7 @@ message RequestVoteRequestProto {
   RaftRpcRequestProto serverRequest = 1;
   uint64 candidateTerm = 2;
   TermIndexProto candidateLastEntry = 3;
+  bool preVote = 4;
 }
 
 message RequestVoteReplyProto {
