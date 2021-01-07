@@ -235,6 +235,10 @@ class ServerState implements Closeable {
     log.persistMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
   }
 
+  RaftPeerId getVotedFor() {
+    return votedFor;
+  }
+
   /**
    * Vote for a candidate and update the local state.
    */
@@ -318,23 +322,6 @@ class ServerState implements Closeable {
       return true;
     }
     return this.leaderId.equals(peerLeaderId);
-  }
-
-  /**
-   * Check if the candidate's term is acceptable
-   */
-  boolean recognizeCandidate(RaftPeerId candidateId, long candidateTerm) {
-    if (!getRaftConf().containsInConf(candidateId)) {
-      return false;
-    }
-    final long current = currentTerm.get();
-    if (candidateTerm > current) {
-      return true;
-    } else if (candidateTerm == current) {
-      // has not voted yet or this is a retry
-      return votedFor == null || votedFor.equals(candidateId);
-    }
-    return false;
   }
 
   static int compareLog(TermIndex lastEntry, TermIndex candidateLastEntry) {
