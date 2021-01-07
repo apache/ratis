@@ -372,7 +372,6 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       cluster.start();
 
       RaftServer.Division leader = waitForLeader(cluster);
-      final long savedTerm = leader.getInfo().getCurrentTerm();
 
       try (RaftClient client = cluster.createClient(leader.getId())) {
         client.io().send(new RaftTestUtil.SimpleMessage("message"));
@@ -386,7 +385,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
         Assert.assertTrue(reply.isSuccess());
 
-        // wait follower timeout and trigger pre-vote
+        final long savedTerm = leader.getInfo().getCurrentTerm();
+        LOG.info("Wait follower {} timeout and trigger pre-vote", follower.getId());
         Thread.sleep(2000);
         deIsolate(cluster, follower.getId());
         Thread.sleep(2000);
@@ -395,7 +395,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertNotNull(newleader);
         assertEquals(newleader.getId(), leader.getId());
         // with pre-vote, term will not change
-        assertEquals(leader.getInfo().getCurrentTerm(), savedTerm);
+        assertEquals(savedTerm, leader.getInfo().getCurrentTerm());
 
         reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
         Assert.assertTrue(reply.isSuccess());

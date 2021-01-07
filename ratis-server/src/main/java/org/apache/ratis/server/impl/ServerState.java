@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -215,10 +216,19 @@ class ServerState implements Closeable {
   /**
    * Become a candidate and start leader election
    */
-  long initElection() {
-    votedFor = getMemberId().getPeerId();
-    setLeader(null, "initElection");
-    return currentTerm.incrementAndGet();
+  LeaderElection.ConfAndTerm initElection(Phase phase) throws IOException {
+    setLeader(null, phase);
+    final long term;
+    if (phase == Phase.PRE_VOTE) {
+      term = getCurrentTerm();
+    } else if (phase == Phase.ELECTION) {
+      term = currentTerm.incrementAndGet();
+      votedFor = getMemberId().getPeerId();
+      persistMetadata();
+    } else {
+      throw new IllegalArgumentException("Unexpected phase " + phase);
+    }
+    return new LeaderElection.ConfAndTerm(getRaftConf(), term);
   }
 
   void persistMetadata() throws IOException {
@@ -233,7 +243,7 @@ class ServerState implements Closeable {
     setLeader(null, "grantVote");
   }
 
-  void setLeader(RaftPeerId newLeaderId, String op) {
+  void setLeader(RaftPeerId newLeaderId, Object op) {
     if (!Objects.equals(leaderId, newLeaderId)) {
       String suffix;
       if (newLeaderId == null) {
