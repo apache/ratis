@@ -42,6 +42,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppender;
@@ -992,18 +993,6 @@ class RaftServerImpl implements RaftServer.Division,
     return pending.getFuture();
   }
 
-  private boolean shouldWithholdVotes(long candidateTerm) {
-    if (state.getCurrentTerm() < candidateTerm) {
-      return false;
-    } else if (getInfo().isLeader()) {
-      return true;
-    } else {
-      // following a leader and not yet timeout
-      return getInfo().isFollower() && state.hasLeader()
-          && role.getFollowerState().map(FollowerState::isCurrentLeaderValid).orElse(false);
-    }
-  }
-
   /**
    * check if the remote peer is not included in the current conf
    * and should shutdown. should shutdown if all the following stands:
@@ -1023,141 +1012,54 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
-  public RequestVoteReplyProto requestVote(RequestVoteRequestProto r)
-      throws IOException {
+  public RequestVoteReplyProto requestVote(RequestVoteRequestProto r) throws IOException {
     final RaftRpcRequestProto request = r.getServerRequest();
-    if (r.getPreVote()) {
-      return requestPreVote(RaftPeerId.valueOf(request.getRequestorId()),
-          ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
-          r.getCandidateTerm(),
-          TermIndex.valueOf(r.getCandidateLastEntry()));
-    } else {
-      return requestVote(RaftPeerId.valueOf(request.getRequestorId()),
-          ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
-          r.getCandidateTerm(),
-          TermIndex.valueOf(r.getCandidateLastEntry()));
-    }
+    return requestVote(r.getPreVote() ? Phase.PRE_VOTE : Phase.ELECTION,
+        RaftPeerId.valueOf(request.getRequestorId()),
+        ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
+        r.getCandidateTerm(),
+        TermIndex.valueOf(r.getCandidateLastEntry()));
   }
 
-  private boolean isCurrentLeaderValid() {
-    if (getInfo().isLeader()) {
-      return role.getLeaderState().map(LeaderStateImpl::checkLeadership).orElse(false);
-    } else if (getInfo().isFollower()) {
-      return state.hasLeader()
-          && role.getFollowerState().map(FollowerState::isCurrentLeaderValid).orElse(false);
-    } else if (getInfo().isCandidate()) {
-      return false;
-    }
-
-    return false;
-  }
-
-  private RequestVoteReplyProto requestPreVote(
+  private RequestVoteReplyProto requestVote(Phase phase,
       RaftPeerId candidateId, RaftGroupId candidateGroupId,
       long candidateTerm, TermIndex candidateLastEntry) throws IOException {
     CodeInjectionForTesting.execute(REQUEST_VOTE, getId(),
         candidateId, candidateTerm, candidateLastEntry);
-    LOG.info("{}: receive preVote({}, {}, {}, {})",
-        getMemberId(), candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
+    LOG.info("{}: receive requestVote({}, {}, {}, {}, {})",
+        getMemberId(), phase, candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(candidateId, candidateGroupId);
 
-    boolean preVoteGranted = false;
-    boolean shouldShutdown = false;
-    final RequestVoteReplyProto reply;
-    synchronized (this) {
-      boolean isCurrentLeaderValid = isCurrentLeaderValid();
-      RaftPeer candidate = getRaftConf().getPeer(candidateId);
-
-      // vote for candidate if:
-      // 1. current leader is not valid
-      // 2. log lags behind candidate or
-      //    log equals candidate's, and priority less or equal candidate's
-      if (!isCurrentLeaderValid && candidate != null) {
-        int compare = ServerState.compareLog(state.getLastEntry(), candidateLastEntry);
-        int priority = getRaftConf().getPeer(getId()).getPriority();
-        if (compare < 0 || (compare == 0 && priority <= candidate.getPriority())) {
-          preVoteGranted = true;
-          LOG.info("{} role:{} allow pre-vote from:{}", getMemberId(), getRole(), candidateId);
-        } else {
-          LOG.info("{} role:{} reject pre-vote from:{} because compare:{} isCurrentLeaderValid:{}",
-              getMemberId(), getRole(), candidateId, compare, isCurrentLeaderValid);
-        }
-      }
-
-      if (preVoteGranted) {
-        final FollowerState fs = role.getFollowerState().orElse(null);
-        if (fs != null) {
-          fs.updateLastRpcTime(FollowerState.UpdateType.REQUEST_VOTE);
-        }
-      } else if(shouldSendShutdown(candidateId, candidateLastEntry)) {
-        shouldShutdown = true;
-      }
-
-      reply = ServerProtoUtils.toRequestVoteReplyProto(candidateId, getMemberId(),
-          preVoteGranted, state.getCurrentTerm(), shouldShutdown);
-      LOG.info("{} replies to pre-vote request: {}. Peer's state: {}",
-          getMemberId(), ServerStringUtils.toRequestVoteReplyString(reply), state);
-    }
-    return reply;
-  }
-
-  private RequestVoteReplyProto requestVote(
-      RaftPeerId candidateId, RaftGroupId candidateGroupId,
-      long candidateTerm, TermIndex candidateLastEntry) throws IOException {
-    CodeInjectionForTesting.execute(REQUEST_VOTE, getId(),
-        candidateId, candidateTerm, candidateLastEntry);
-    LOG.debug("{}: receive requestVote({}, {}, {}, {})",
-        getMemberId(), candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    assertGroup(candidateId, candidateGroupId);
-
-    boolean voteGranted = false;
     boolean shouldShutdown = false;
     final RequestVoteReplyProto reply;
     synchronized (this) {
       // Check life cycle state again to avoid the PAUSING/PAUSED state.
       assertLifeCycleState(LifeCycle.States.RUNNING);
-      FollowerState fs = role.getFollowerState().orElse(null);
-      if (shouldWithholdVotes(candidateTerm)) {
-        LOG.info("{}-{}: Withhold vote from candidate {} with term {}. State: leader={}, term={}, lastRpcElapsed={}",
-            getMemberId(), role, candidateId, candidateTerm, state.getLeaderId(), state.getCurrentTerm(),
-            fs != null? fs.getLastRpcTime().elapsedTimeMs() + "ms": null);
-      } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
-        final boolean termUpdated = changeToFollower(candidateTerm, true, "recognizeCandidate:" + candidateId);
-        // if current server is leader, before changeToFollower FollowerState should be null,
-        // so after leader changeToFollower we should get FollowerState again.
-        fs = role.getFollowerState().orElse(null);
 
-        // see Section 5.4.1 Election restriction
-        RaftPeer candidate = getRaftConf().getPeer(candidateId);
-        if (fs != null && candidate != null) {
-          int compare = ServerState.compareLog(state.getLastEntry(), candidateLastEntry);
-          int priority = getRaftConf().getPeer(getId()).getPriority();
-          LOG.info("{} priority:{} candidate:{} candidatePriority:{} compare:{}",
-              this, priority, candidate, candidate.getPriority(), compare);
-          // vote for candidate if:
-          // 1. log lags behind candidate
-          // 2. log equals candidate's, and priority less or equal candidate's
-          if (compare < 0 || (compare == 0 && priority <= candidate.getPriority())) {
-            state.grantVote(candidateId);
-            voteGranted = true;
-          }
+      final VoteContext context = new VoteContext(this, phase, candidateId);
+      final RaftPeer candidate = context.recognizeCandidate(candidateTerm);
+      final boolean voteGranted = context.decideVote(candidate, candidateLastEntry);
+      if (candidate != null && phase == Phase.ELECTION) {
+        // change server state in the ELECTION phase
+        final boolean termUpdated = changeToFollower(candidateTerm, true, "candidate:" + candidateId);
+        if (voteGranted) {
+          state.grantVote(candidate.getId());
         }
         if (termUpdated || voteGranted) {
           state.persistMetadata(); // sync metafile
         }
       }
       if (voteGranted) {
-        fs.updateLastRpcTime(FollowerState.UpdateType.REQUEST_VOTE);
+        role.getFollowerState().ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.REQUEST_VOTE));
       } else if(shouldSendShutdown(candidateId, candidateLastEntry)) {
         shouldShutdown = true;
       }
       reply = ServerProtoUtils.toRequestVoteReplyProto(candidateId, getMemberId(),
           voteGranted, state.getCurrentTerm(), shouldShutdown);
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{} replies to vote request: {}. Peer's state: {}",
-            getMemberId(), ServerStringUtils.toRequestVoteReplyString(reply), state);
+      if (LOG.isInfoEnabled()) {
+        LOG.info("{} replies to {} vote request: {}. Peer's state: {}",
+            getMemberId(), phase, ServerStringUtils.toRequestVoteReplyString(reply), state);
       }
     }
     return reply;
