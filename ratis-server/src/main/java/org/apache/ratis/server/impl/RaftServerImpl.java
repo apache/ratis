@@ -1031,7 +1031,6 @@ class RaftServerImpl implements RaftServer.Division,
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(candidateId, candidateGroupId);
 
-    boolean voteGranted = false;
     boolean shouldShutdown = false;
     final RequestVoteReplyProto reply;
     synchronized (this) {
@@ -1040,19 +1039,15 @@ class RaftServerImpl implements RaftServer.Division,
 
       final VoteContext context = new VoteContext(this, phase, candidateId);
       final RaftPeer candidate = context.recognizeCandidate(candidateTerm);
-      LOG.info("{}: recognizeCandidate {}? {}", getMemberId(), candidateId, candidate != null);
-      if (candidate != null) {
-        if (phase == Phase.ELECTION) {
-          final boolean termUpdated = changeToFollower(candidateTerm, true, "candidate:" + candidateId);
-          voteGranted = context.shouldVote(candidate, candidateLastEntry);
-          if (voteGranted) {
-            state.grantVote(candidate.getId());
-          }
-          if (termUpdated || voteGranted) {
-            state.persistMetadata(); // sync metafile
-          }
-        } else {
-          voteGranted = context.shouldVote(candidate, candidateLastEntry);
+      final boolean voteGranted = context.decideVote(candidate, candidateLastEntry);
+      if (candidate != null && phase == Phase.ELECTION) {
+        // change server state in the ELECTION phase
+        final boolean termUpdated = changeToFollower(candidateTerm, true, "candidate:" + candidateId);
+        if (voteGranted) {
+          state.grantVote(candidate.getId());
+        }
+        if (termUpdated || voteGranted) {
+          state.persistMetadata(); // sync metafile
         }
       }
       if (voteGranted) {

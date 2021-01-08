@@ -130,7 +130,10 @@ class VoteContext {
    *
    * See Section 5.4.1 Election restriction
    */
-  boolean shouldVote(RaftPeer candidate, TermIndex candidateLastEntry) {
+  boolean decideVote(RaftPeer candidate, TermIndex candidateLastEntry) {
+    if (candidate == null) {
+      return false;
+    }
     // Check last log entry
     final TermIndex lastEntry = impl.getState().getLastEntry();
     final int compare = ServerState.compareLog(lastEntry, candidateLastEntry);
