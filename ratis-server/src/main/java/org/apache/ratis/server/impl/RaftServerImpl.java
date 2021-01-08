@@ -106,20 +106,6 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     @Override
-    public boolean isLeader() {
-      if (getCurrentRole() != RaftPeerRole.LEADER) {
-        return false;
-      }
-
-      Optional<LeaderStateImpl> l = getRole().getLeaderState();
-      if (l.isPresent()) {
-        return l.get().isLeaderLeaseValid();
-      }
-
-      return false;
-    }
-
-    @Override
     public boolean isLeaderReady() {
       return isLeader() && getRole().isLeaderReady();
     }

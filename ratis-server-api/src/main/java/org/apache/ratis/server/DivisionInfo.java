@@ -40,7 +40,9 @@ public interface DivisionInfo {
   }
 
   /** Is this server division currently the leader? */
-  boolean isLeader();
+  default boolean isLeader() {
+    return getCurrentRole() == RaftPeerRole.LEADER;
+  }
 
   /** Is this server division currently the leader and ready? */
   boolean isLeaderReady();

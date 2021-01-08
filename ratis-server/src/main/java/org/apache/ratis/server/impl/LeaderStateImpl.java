@@ -544,6 +544,9 @@ class LeaderStateImpl implements LeaderState {
       return;
     }
 
+    // leader must step down to support leader lease.
+    stepDown(currentTerm, StepDownReason.HIGHER_PRIORITY);
+
     final StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
         server.getMemberId(), follower, lastEntry);
     CompletableFuture.supplyAsync(() -> {
@@ -919,16 +922,14 @@ class LeaderStateImpl implements LeaderState {
     return lastLeaderTimestamp.get().elapsedTimeMs() < server.properties().leaderLeaseTimeoutMs();
   }
 
-  private boolean updateLeaderLease() {
-    Timestamp startLease = Timestamp.currentTime();
-
+  private void updateLeaderLease() {
     List<RaftPeerId> activePeers = new ArrayList<>();
     List<FollowerInfo> followerInfos = getFollowerInfos();
+    List<Timestamp> lastRpcSendTimeWithResponseList = new ArrayList<>();
     for (final FollowerInfo info : followerInfos) {
-      if (info.getLastRpcSendTimeWithResponse().elapsedTimeMs() <= server.properties().leaderLeaseTimeoutMs()) {
-        if (startLease.compareTo(info.getLastRpcSendTimeWithResponse()) > 0) {
-          startLease = info.getLastRpcSendTimeWithResponse();
-        }
+      Timestamp lastRpcSendTimeWithResponse = info.getLastRpcSendTimeWithResponse();
+      lastRpcSendTimeWithResponseList.add(lastRpcSendTimeWithResponse);
+      if (lastRpcSendTimeWithResponse.elapsedTimeMs() <= server.properties().leaderLeaseTimeoutMs()) {
         activePeers.add(info.getPeer().getId());
       }
     }
@@ -936,16 +937,20 @@ class LeaderStateImpl implements LeaderState {
     final RaftConfigurationImpl conf = server.getRaftConf();
     if (conf.hasMajority(activePeers, server.getId())) {
       // leader lease check passed
-      lastLeaderTimestamp.set(startLease);
-      return true;
+      if (lastRpcSendTimeWithResponseList.size() > 0) {
+        Collections.sort(lastRpcSendTimeWithResponseList);
+        Timestamp startLease = lastRpcSendTimeWithResponseList.get(lastRpcSendTimeWithResponseList.size() / 2);
+        lastLeaderTimestamp.set(startLease);
+      } else {
+        lastLeaderTimestamp.set(Timestamp.currentTime());
+      }
     } else {
       LOG.warn("{} Can not update leader lease on term: {} lease timeout: {}ms conf: {}",
           this, currentTerm, server.properties().leaderLeaseTimeoutMs(), conf);
-      return false;
     }
   }
 
-  private AtomicReference<Timestamp> lastLeaderTimestamp = new AtomicReference<>();
+  private AtomicReference<Timestamp> lastLeaderTimestamp = new AtomicReference<>(Timestamp.currentTime());
 
   /**
    * See the thesis section 6.2: A leader in Raft steps down
