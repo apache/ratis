@@ -26,4 +26,8 @@ public interface AdminProtocol {
   GroupInfoReply getGroupInfo(GroupInfoRequest request) throws IOException;
 
   RaftClientReply groupManagement(GroupManagementRequest request) throws IOException;
+
+  RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException;
+
+  RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException;
 }

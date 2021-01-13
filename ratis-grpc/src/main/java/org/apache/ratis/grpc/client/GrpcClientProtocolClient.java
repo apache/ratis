@@ -172,10 +172,9 @@ public class GrpcClientProtocolClient implements Closeable {
         .groupInfo(request);
   }
 
-
   RaftClientReplyProto setConfiguration(
       SetConfigurationRequestProto request) throws IOException {
-    return blockingCall(() -> blockingStub
+    return blockingCall(() -> adminBlockingStub
         .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
         .setConfiguration(request));
   }
@@ -184,7 +183,7 @@ public class GrpcClientProtocolClient implements Closeable {
       TransferLeadershipRequestProto request) throws IOException {
     TimeDuration newDuration = requestTimeoutDuration.add(
         request.getRpcRequest().getTimeoutMs(), TimeUnit.MILLISECONDS);
-    return blockingCall(() -> blockingStub
+    return blockingCall(() -> adminBlockingStub
         .withDeadlineAfter(newDuration.getDuration(), newDuration.getUnit())
         .transferLeadership(request));
   }

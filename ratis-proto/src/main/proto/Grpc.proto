@@ -24,13 +24,6 @@ package ratis.grpc;
 import "Raft.proto";
 
 service RaftClientProtocolService {
-  // A client-to-server RPC to set new raft configuration
-  rpc setConfiguration(ratis.common.SetConfigurationRequestProto)
-      returns(ratis.common.RaftClientReplyProto) {}
-
-  rpc transferLeadership(ratis.common.TransferLeadershipRequestProto)
-      returns(ratis.common.RaftClientReplyProto) {}
-      
   // A client-to-server stream RPC to ordered async requests
   rpc ordered(stream ratis.common.RaftClientRequestProto)
       returns (stream ratis.common.RaftClientReplyProto) {}
@@ -55,6 +48,13 @@ service RaftServerProtocolService {
 }
 
 service AdminProtocolService {
+  // A client-to-server RPC to set new raft configuration
+  rpc setConfiguration(ratis.common.SetConfigurationRequestProto)
+      returns(ratis.common.RaftClientReplyProto) {}
+
+  rpc transferLeadership(ratis.common.TransferLeadershipRequestProto)
+      returns(ratis.common.RaftClientReplyProto) {}
+
   // A client-to-server RPC to add a new group
   rpc groupManagement(ratis.common.GroupManagementRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}

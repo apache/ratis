@@ -91,7 +91,7 @@ import com.codahale.metrics.Timer;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
-    RaftClientProtocol, RaftClientAsynchronousProtocol {
+    RaftClientProtocol, RaftClientAsynchronousProtocol{
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
@@ -881,7 +881,6 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  @Override
   public RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException {
     return waitForReply(request, transferLeadershipAsync(request));
   }
@@ -901,7 +900,6 @@ class RaftServerImpl implements RaftServer.Division,
     transferLeadership.finish(state.getLeaderId(), false);
   }
 
-  @Override
   public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
       throws IOException {
     LOG.info("{}: receive transferLeadership {}", getMemberId(), request);
@@ -944,7 +942,6 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  @Override
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
     return waitForReply(request, setConfigurationAsync(request));
   }
@@ -952,7 +949,6 @@ class RaftServerImpl implements RaftServer.Division,
   /**
    * Handle a raft configuration change request from client.
    */
-  @Override
   public CompletableFuture<RaftClientReply> setConfigurationAsync(SetConfigurationRequest request) throws IOException {
     LOG.info("{}: receive setConfiguration {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);

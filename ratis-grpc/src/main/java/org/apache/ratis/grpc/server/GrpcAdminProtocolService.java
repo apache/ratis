@@ -24,6 +24,8 @@ import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.GroupInfoRequest;
 import org.apache.ratis.protocol.GroupListRequest;
 import org.apache.ratis.protocol.GroupManagementRequest;
+import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
@@ -57,5 +59,21 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
     final GroupInfoRequest request = ClientProtoUtils.toGroupInfoRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.getGroupInfoAsync(request),
         ClientProtoUtils::toGroupInfoReplyProto);
+  }
+
+  @Override
+  public void setConfiguration(SetConfigurationRequestProto proto,
+      StreamObserver<RaftClientReplyProto> responseObserver) {
+    final SetConfigurationRequest request = ClientProtoUtils.toSetConfigurationRequest(proto);
+    GrpcUtil.asyncCall(responseObserver, () -> protocol.setConfigurationAsync(request),
+        ClientProtoUtils::toRaftClientReplyProto);
+  }
+
+  @Override
+  public void transferLeadership(TransferLeadershipRequestProto proto,
+      StreamObserver<RaftClientReplyProto> responseObserver) {
+    final TransferLeadershipRequest request = ClientProtoUtils.toTransferLeadershipRequest(proto);
+    GrpcUtil.asyncCall(responseObserver, () -> protocol.transferLeadershipAsync(request),
+        ClientProtoUtils::toRaftClientReplyProto);
   }
 }
