@@ -37,7 +37,7 @@ public class GrpcClientProtocolProxy implements Closeable {
   public GrpcClientProtocolProxy(ClientId clientId, RaftPeer target,
       Function<RaftPeer, CloseableStreamObserver> responseHandlerCreation,
       RaftProperties properties, GrpcTlsConfig tlsConfig) {
-    proxy = new GrpcClientProtocolClient(clientId, target, properties, tlsConfig);
+    proxy = new GrpcClientProtocolClient(clientId, target, properties, tlsConfig, tlsConfig);
     this.responseHandlerCreation = responseHandlerCreation;
   }
 

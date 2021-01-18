@@ -96,6 +96,54 @@ public interface GrpcConfigKeys {
     }
   }
 
+  interface Admin {
+    String PREFIX = GrpcConfigKeys.PREFIX + ".admin";
+
+    String PORT_KEY = PREFIX + ".port";
+    int PORT_DEFAULT = -1;
+    static int port(RaftProperties properties) {
+      final int port = getInt(properties::getInt,
+          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(-1), requireMax(65536));
+      return port != PORT_DEFAULT ? port : Server.port(properties);
+    }
+    static void setPort(RaftProperties properties, int port) {
+      setInt(properties::setInt, PORT_KEY, port);
+    }
+
+    String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
+    Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
+    static GrpcTlsConfig tlsConf(Parameters parameters) {
+      return parameters != null ? parameters.get(TLS_CONF_PARAMETER, TLS_CONF_CLASS): null;
+    }
+    static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
+      parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
+    }
+  }
+
+  interface Client {
+    String PREFIX = GrpcConfigKeys.PREFIX + ".client";
+
+    String PORT_KEY = PREFIX + ".port";
+    int PORT_DEFAULT = -1;
+    static int port(RaftProperties properties) {
+      final int port = getInt(properties::getInt,
+          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(-1), requireMax(65536));
+      return port != PORT_DEFAULT ? port : Server.port(properties);
+    }
+    static void setPort(RaftProperties properties, int port) {
+      setInt(properties::setInt, PORT_KEY, port);
+    }
+
+    String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
+    Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
+    static GrpcTlsConfig tlsConf(Parameters parameters) {
+      return parameters != null ? parameters.get(TLS_CONF_PARAMETER, TLS_CONF_CLASS): null;
+    }
+    static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
+      parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
+    }
+  }
+
   interface Server {
     String PREFIX = GrpcConfigKeys.PREFIX + ".server";
 
@@ -107,6 +155,15 @@ public interface GrpcConfigKeys {
     }
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
+    }
+
+    String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
+    Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
+    static GrpcTlsConfig tlsConf(Parameters parameters) {
+      return parameters != null ? parameters.get(TLS_CONF_PARAMETER, TLS_CONF_CLASS): null;
+    }
+    static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
+      parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
     }
 
     String LEADER_OUTSTANDING_APPENDS_MAX_KEY = PREFIX + ".leader.outstanding.appends.max";

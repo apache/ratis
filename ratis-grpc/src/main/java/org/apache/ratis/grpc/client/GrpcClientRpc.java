@@ -50,14 +50,13 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
 
   private final ClientId clientId;
   private final int maxMessageSize;
-  private final GrpcTlsConfig tlsConfig;
 
-  public GrpcClientRpc(ClientId clientId, RaftProperties properties, GrpcTlsConfig tlsConfig) {
+  public GrpcClientRpc(ClientId clientId, RaftProperties properties,
+      GrpcTlsConfig adminTlsConfig, GrpcTlsConfig clientTlsConfig) {
     super(new PeerProxyMap<>(clientId.toString(),
-        p -> new GrpcClientProtocolClient(clientId, p, properties, tlsConfig)));
+        p -> new GrpcClientProtocolClient(clientId, p, properties, adminTlsConfig, clientTlsConfig)));
     this.clientId = clientId;
     this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug).getSizeInt();
-    this.tlsConfig = tlsConfig;
   }
 
   @Override

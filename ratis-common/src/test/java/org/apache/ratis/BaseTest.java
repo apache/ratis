@@ -74,7 +74,7 @@ public abstract class BaseTest {
       RaftPeer peer = peers.get(i);
       final int priority = peer.equals(suggestedLeader)? 2: 1;
       peersWithPriority.add(
-          RaftPeer.newBuilder().setId(peer.getId()).setAddress(peer.getAddress()).setPriority(priority).build());
+          RaftPeer.newBuilder(peer).setPriority(priority).build());
     }
     return peersWithPriority;
   }

@@ -35,6 +35,7 @@ import org.apache.ratis.util.NetUtils;
 
 import java.io.File;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -59,6 +60,12 @@ public class Server extends SubCommandBase {
 
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
+
+    Optional.ofNullable(getPeer(peerId).getClientAddress()).ifPresent(address ->
+        GrpcConfigKeys.Client.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
+    Optional.ofNullable(getPeer(peerId).getAdminAddress()).ifPresent(address ->
+        GrpcConfigKeys.Admin.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
+
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
     RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
     StateMachine stateMachine = new ArithmeticStateMachine();
