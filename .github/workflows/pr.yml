@@ -60,6 +60,9 @@ jobs:
     steps:
         - uses: actions/checkout@master
         - run: ./dev-support/checks/unit.sh
+        - name: Summary of failures
+          run: cat target/${{ github.job }}/summary.txt
+          if: always()
         - uses: actions/upload-artifact@master
           if: always()
           with:
