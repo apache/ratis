@@ -81,9 +81,12 @@ public class TestRetryCacheWithGrpc
     while (failure.get()) {
       try {
         // retry until the request failed with ResourceUnavailableException succeeds.
-        leaderProxy.submitClientRequestAsync(r).get();
+        RaftClientReply reply = leaderProxy.submitClientRequestAsync(r).get();
+        if (reply.isSuccess()) {
+          failure.set(false);
+        }
       } catch (Exception e) {
-        failure.set(false);
+        // Ignore the exception
       }
     }
     cluster.shutdown();
