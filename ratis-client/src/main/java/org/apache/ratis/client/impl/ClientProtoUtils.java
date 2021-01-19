@@ -36,6 +36,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.ReflectionUtils;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -216,6 +217,22 @@ public interface ClientProtoUtils {
         .build();
   }
 
+  static StateMachineExceptionProto.Builder toStateMachineExceptionProtoBuilder(StateMachineException e) {
+    final Throwable t = e.getCause() != null? e.getCause(): e;
+    return StateMachineExceptionProto.newBuilder()
+        .setExceptionClassName(t.getClass().getName())
+        .setErrorMsg(t.getMessage())
+        .setStacktrace(ProtoUtils.writeObject2ByteString(t.getStackTrace()));
+  }
+
+  static AlreadyClosedExceptionProto.Builder toAlreadyClosedExceptionProtoBuilder(AlreadyClosedException ace) {
+    final Throwable t = ace.getCause() != null ? ace.getCause() : ace;
+    return AlreadyClosedExceptionProto.newBuilder()
+        .setExceptionClassName(t.getClass().getName())
+        .setErrorMsg(ace.getMessage())
+        .setStacktrace(ProtoUtils.writeObject2ByteString(ace.getStackTrace()));
+  }
+
   static RaftClientReplyProto toRaftClientReplyProto(RaftClientReply reply) {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
@@ -257,7 +274,7 @@ public interface ClientProtoUtils {
       }
 
       Optional.ofNullable(reply.getStateMachineException())
-          .map(ProtoUtils::toThrowableProto)
+          .map(ClientProtoUtils::toStateMachineExceptionProtoBuilder)
           .ifPresent(b::setStateMachineException);
 
       Optional.ofNullable(reply.getDataStreamException())
@@ -265,7 +282,7 @@ public interface ClientProtoUtils {
           .ifPresent(b::setDataStreamException);
 
       Optional.ofNullable(reply.getAlreadyClosedException())
-          .map(ProtoUtils::toThrowableProto)
+          .map(ClientProtoUtils::toAlreadyClosedExceptionProtoBuilder)
           .ifPresent(b::setAlreadyClosedException);
 
       Optional.ofNullable(reply.getLeaderSteppingDownException())
@@ -353,14 +370,14 @@ public interface ClientProtoUtils {
       final NotReplicatedExceptionProto nre = replyProto.getNotReplicatedException();
       e = new NotReplicatedException(nre.getCallId(), nre.getReplication(), nre.getLogIndex());
     } else if (replyProto.getExceptionDetailsCase().equals(STATEMACHINEEXCEPTION)) {
-      e = ProtoUtils.toThrowable(replyProto.getStateMachineException(), StateMachineException.class);
+      e = toStateMachineException(serverMemberId, replyProto.getStateMachineException());
     } else if (replyProto.getExceptionDetailsCase().equals(DATASTREAMEXCEPTION)) {
       e = ProtoUtils.toThrowable(replyProto.getDataStreamException(), DataStreamException.class);
     } else if (replyProto.getExceptionDetailsCase().equals(LEADERNOTREADYEXCEPTION)) {
       LeaderNotReadyExceptionProto lnreProto = replyProto.getLeaderNotReadyException();
       e = new LeaderNotReadyException(ProtoUtils.toRaftGroupMemberId(lnreProto.getServerId()));
     } else if (replyProto.getExceptionDetailsCase().equals(ALREADYCLOSEDEXCEPTION)) {
-      e = ProtoUtils.toThrowable(replyProto.getAlreadyClosedException(), AlreadyClosedException.class);
+      e = toAlreadyClosedException(replyProto.getAlreadyClosedException());
     } else if (replyProto.getExceptionDetailsCase().equals(LEADERSTEPPINGDOWNEXCEPTION)) {
       e = ProtoUtils.toThrowable(replyProto.getLeaderSteppingDownException(), LeaderSteppingDownException.class);
     } else if (replyProto.getExceptionDetailsCase().equals(TRANSFERLEADERSHIPEXCEPTION)) {
@@ -379,6 +396,59 @@ public interface ClientProtoUtils {
         .setLogIndex(replyProto.getLogIndex())
         .setCommitInfos(replyProto.getCommitInfosList())
         .build();
+  }
+
+  static StateMachineException toStateMachineException(RaftGroupMemberId memberId, StateMachineExceptionProto proto) {
+    return toStateMachineException(memberId,
+        proto.getExceptionClassName(),
+        proto.getErrorMsg(),
+        proto.getStacktrace());
+  }
+
+  static StateMachineException toStateMachineException(RaftGroupMemberId memberId,
+      String className, String errorMsg, ByteString stackTraceBytes) {
+    StateMachineException sme;
+    if (className == null) {
+      sme = new StateMachineException(errorMsg);
+    } else {
+      try {
+        final Class<?> clazz = Class.forName(className);
+        final Exception e = ReflectionUtils.instantiateException(clazz.asSubclass(Exception.class), errorMsg);
+        sme = new StateMachineException(memberId, e);
+      } catch (Exception e) {
+        sme = new StateMachineException(className + ": " + errorMsg);
+      }
+    }
+    final StackTraceElement[] stacktrace = (StackTraceElement[]) ProtoUtils.toObject(stackTraceBytes);
+    sme.setStackTrace(stacktrace);
+    return sme;
+  }
+
+  static AlreadyClosedException toAlreadyClosedException(AlreadyClosedExceptionProto proto) {
+    return toAlreadyClosedException(
+        proto.getExceptionClassName(),
+        proto.getErrorMsg(),
+        proto.getStacktrace());
+  }
+
+  static AlreadyClosedException toAlreadyClosedException(
+      String className, String errorMsg, ByteString stackTraceBytes) {
+    AlreadyClosedException ace;
+    if (className == null) {
+      ace = new AlreadyClosedException(errorMsg);
+    } else {
+      try {
+        Class<?> clazz = Class.forName(className);
+        final Exception e = ReflectionUtils.instantiateException(clazz.asSubclass(Exception.class), errorMsg);
+        ace = new AlreadyClosedException(errorMsg, e);
+      } catch (Exception e) {
+        ace = new AlreadyClosedException(className + ": " + errorMsg);
+      }
+    }
+    StackTraceElement[] stacktrace =
+        (StackTraceElement[]) ProtoUtils.toObject(stackTraceBytes);
+    ace.setStackTrace(stacktrace);
+    return ace;
   }
 
   static GroupListReply toGroupListReply(GroupListReplyProto replyProto) {

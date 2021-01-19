@@ -356,6 +356,18 @@ message NotReplicatedExceptionProto {
   uint64 logIndex = 3;
 }
 
+message StateMachineExceptionProto {
+  string exceptionClassName = 1;
+  string errorMsg = 2;
+  bytes stacktrace = 3;
+}
+
+message AlreadyClosedExceptionProto {
+  string exceptionClassName = 1;
+  string errorMsg = 2;
+  bytes stacktrace = 3;
+}
+
 message ThrowableProto {
   string className = 1;
   string errorMessage = 2;
@@ -370,9 +382,9 @@ message RaftClientReplyProto {
   oneof ExceptionDetails {
     NotLeaderExceptionProto notLeaderException = 3;
     NotReplicatedExceptionProto notReplicatedException = 4;
-    ThrowableProto stateMachineException = 5;
+    StateMachineExceptionProto stateMachineException = 5;
     LeaderNotReadyExceptionProto leaderNotReadyException = 6;
-    ThrowableProto alreadyClosedException = 7;
+    AlreadyClosedExceptionProto alreadyClosedException = 7;
     ThrowableProto dataStreamException = 8;
     ThrowableProto leaderSteppingDownException = 9;
     ThrowableProto transferLeadershipException = 10;
