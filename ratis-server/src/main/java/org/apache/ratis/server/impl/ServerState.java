@@ -40,6 +40,7 @@ import org.apache.ratis.util.Timestamp;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -104,23 +105,14 @@ class ServerState implements Closeable {
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
     List<File> directories = RaftServerConfigKeys.storageDir(prop);
-    // the flag is true means the storagedir create successful or iterate all storagedir whill exit this loop
-    boolean Flag = false;
-    int FileCount = 0;
-    int FileSize = directories.size();
-    while (!Flag) {
+    while (!directories.isEmpty()) {
       // use full uuid string to create a subdirectory
       File dir = chooseStorageDir(directories, group.getGroupId().getUuid().toString());
       try {
         storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
-        Flag = true;
-      } catch (IOException e) {
+        break;
+      } catch (AccessDeniedException e) {
         directories.remove(dir);
-      } finally {
-        FileCount = FileCount + 1;
-        if (FileCount == FileSize) {
-          Flag = true;
-        }
       }
     }
     snapshotManager = new SnapshotManager(storage, id);
