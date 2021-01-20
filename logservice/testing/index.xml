@@ -5,11 +5,7 @@
     <link>https://ratis.incubator.apache.org/logservice/testing.html</link>
     <description>Recent content on Apache Ratis</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language>
-    
-	<atom:link href="https://ratis.incubator.apache.org/logservice/testing/index.xml" rel="self" type="application/rss+xml" />
-    
-    
+    <language>en-us</language><atom:link href="https://ratis.incubator.apache.org/logservice/testing/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Docker Testing</title>
       <link>https://ratis.incubator.apache.org/logservice/testing/docker.html</link>
