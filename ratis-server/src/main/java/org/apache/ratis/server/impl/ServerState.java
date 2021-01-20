@@ -104,15 +104,16 @@ class ServerState implements Closeable {
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
     List<File> directories = RaftServerConfigKeys.storageDir(prop);
-    // use full uuid string to create a subdirectory
-    File dir = chooseStorageDir(RaftServerConfigKeys.storageDir(prop),
-            group.getGroupId().getUuid().toString());
-    try {
-      storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
-    } catch (IOException e) {
-      directories.remove(dir);
-      dir = chooseStorageDir(directories, group.getGroupId().getUuid().toString());
-      storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
+    boolean flag = false;
+    while (!flag) {
+      // use full uuid string to create a subdirectory
+      File dir = chooseStorageDir(directories, group.getGroupId().getUuid().toString());
+      try {
+        storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
+        flag = true;
+      } catch (IOException e) {
+        directories.remove(dir);
+      }
     }
     snapshotManager = new SnapshotManager(storage, id);
 
