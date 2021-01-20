@@ -40,6 +40,7 @@ import org.apache.ratis.util.Timestamp;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -67,7 +68,7 @@ class ServerState implements Closeable {
   /** The thread that applies committed log entries to the state machine */
   private final StateMachineUpdater stateMachineUpdater;
   /** local storage for log and snapshot */
-  private final RaftStorageImpl storage;
+  private RaftStorageImpl storage;
   private final SnapshotManager snapshotManager;
   private volatile Timestamp lastNoLeaderTime;
   private final TimeDuration noLeaderTimeout;
@@ -103,10 +104,17 @@ class ServerState implements Closeable {
     configurationManager = new ConfigurationManager(initialConf);
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
-    // use full uuid string to create a subdirectory
-    final File dir = chooseStorageDir(RaftServerConfigKeys.storageDir(prop),
-        group.getGroupId().getUuid().toString());
-    storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
+    List<File> directories = RaftServerConfigKeys.storageDir(prop);
+    while (!directories.isEmpty()) {
+      // use full uuid string to create a subdirectory
+      File dir = chooseStorageDir(directories, group.getGroupId().getUuid().toString());
+      try {
+        storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
+        break;
+      } catch (AccessDeniedException e) {
+        directories.remove(dir);
+      }
+    }
     snapshotManager = new SnapshotManager(storage, id);
 
     stateMachine.initialize(server.getRaftServer(), group.getGroupId(), storage);
