@@ -104,15 +104,23 @@ class ServerState implements Closeable {
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
     List<File> directories = RaftServerConfigKeys.storageDir(prop);
-    boolean flag = false;
-    while (!flag) {
+    // the flag is true means the storagedir create successful or iterate all storagedir whill exit this loop
+    boolean Flag = false;
+    int FileCount = 0;
+    int FileSize = directories.size();
+    while (!Flag) {
       // use full uuid string to create a subdirectory
       File dir = chooseStorageDir(directories, group.getGroupId().getUuid().toString());
       try {
         storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
-        flag = true;
+        Flag = true;
       } catch (IOException e) {
         directories.remove(dir);
+      } finally {
+        FileCount = FileCount + 1;
+        if (FileCount == FileSize) {
+          Flag = true;
+        }
       }
     }
     snapshotManager = new SnapshotManager(storage, id);
