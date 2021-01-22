@@ -101,8 +101,8 @@ public class GrpcClientProtocolClient implements Closeable {
     final SizeInBytes maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     final MetricClientInterceptor monitoringInterceptor = new MetricClientInterceptor(getName());
 
-    final String clientAddress = target.getClientAddress();
-    final String adminAddress = target.getAdminAddress();
+    final String clientAddress = Optional.ofNullable(target.getClientAddress()).orElse(target.getAddress());
+    final String adminAddress = Optional.ofNullable(target.getAdminAddress()).orElse(target.getAddress());
     final boolean separateAdminChannel = !Objects.equals(clientAddress, adminAddress);
 
     clientChannel = buildChannel(clientAddress, clientTlsConfig,

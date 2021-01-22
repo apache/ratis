@@ -186,14 +186,16 @@ public final class RaftPeer {
     return address;
   }
 
-  /** @return The RPC address of the peer for admin operations. */
+  /** @return The RPC address of the peer for admin operations.
+   * May be {@code null}, in which case {@link #getAddress()} should be used. */
   public String getAdminAddress() {
-    return adminAddress != null ? adminAddress : address;
+    return adminAddress;
   }
 
-  /** @return The RPC address of the peer for client operations. */
+  /** @return The RPC address of the peer for client operations.
+   * May be {@code null}, in which case {@link #getAddress()} should be used. */
   public String getClientAddress() {
-    return clientAddress != null ? clientAddress : address;
+    return clientAddress;
   }
 
   /** @return The data stream address of the peer. */
