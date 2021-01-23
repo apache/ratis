@@ -42,6 +42,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
@@ -56,6 +58,9 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   public static final class Builder {
     private RaftServer server;
     private GrpcTlsConfig tlsConfig;
+    private GrpcTlsConfig adminTlsConfig;
+    private GrpcTlsConfig clientTlsConfig;
+    private GrpcTlsConfig serverTlsConfig;
 
     private Builder() {}
 
@@ -65,11 +70,26 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     }
 
     public GrpcService build() {
-      return new GrpcService(server, getTlsConfig());
+      return new GrpcService(server, adminTlsConfig, clientTlsConfig, serverTlsConfig);
     }
 
     public Builder setTlsConfig(GrpcTlsConfig tlsConfig) {
       this.tlsConfig = tlsConfig;
+      return this;
+    }
+
+    public Builder setAdminTlsConfig(GrpcTlsConfig config) {
+      this.adminTlsConfig = config;
+      return this;
+    }
+
+    public Builder setClientTlsConfig(GrpcTlsConfig config) {
+      this.clientTlsConfig = config;
+      return this;
+    }
+
+    public Builder setServerTlsConfig(GrpcTlsConfig config) {
+      this.serverTlsConfig = config;
       return this;
     }
 
@@ -82,8 +102,10 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     return new Builder();
   }
 
-  private final Server server;
+  private final List<Server> servers = new ArrayList<>(3);
   private final Supplier<InetSocketAddress> addressSupplier;
+  private final Supplier<InetSocketAddress> clientServerAddressSupplier;
+  private final Supplier<InetSocketAddress> adminServerAddressSupplier;
 
   private final GrpcClientProtocolService clientProtocolService;
 
@@ -93,23 +115,28 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     return serverInterceptor;
   }
 
-  private GrpcService(RaftServer server, GrpcTlsConfig tlsConfig) {
+  private GrpcService(RaftServer server,
+      GrpcTlsConfig adminTlsConfig, GrpcTlsConfig clientTlsConfig, GrpcTlsConfig serverTlsConfig) {
     this(server, server::getId,
-        GrpcConfigKeys.Server.port(server.getProperties()),
+        GrpcConfigKeys.Admin.port(server.getProperties()), adminTlsConfig,
+        GrpcConfigKeys.Client.port(server.getProperties()), clientTlsConfig,
+        GrpcConfigKeys.Server.port(server.getProperties()), serverTlsConfig,
         GrpcConfigKeys.messageSizeMax(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Log.Appender.bufferByteLimit(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
-        RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()),
-        tlsConfig);
+        RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()));
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber") // private constructor
-  private GrpcService(RaftServer raftServer, Supplier<RaftPeerId> idSupplier, int port,
+  private GrpcService(RaftServer raftServer, Supplier<RaftPeerId> idSupplier,
+      int adminPort, GrpcTlsConfig adminTlsConfig,
+      int clientPort, GrpcTlsConfig clientTlsConfig,
+      int serverPort, GrpcTlsConfig serverTlsConfig,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
-      SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration, GrpcTlsConfig tlsConfig) {
+      SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration) {
     super(idSupplier, id -> new PeerProxyMap<>(id.toString(),
         p -> new GrpcServerProtocolClient(p, flowControlWindow.getSizeInt(),
-            requestTimeoutDuration, tlsConfig)));
+            requestTimeoutDuration, serverTlsConfig)));
     if (appenderBufferSize.getSize() > grpcMessageSizeMax.getSize()) {
       throw new IllegalArgumentException("Illegal configuration: "
           + RaftServerConfigKeys.Log.Appender.BUFFER_BYTE_LIMIT_KEY + " = " + appenderBufferSize
@@ -120,20 +147,70 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
-        JavaUtils.getClassSimpleName(getClass()) + "_" + port
+        JavaUtils.getClassSimpleName(getClass()) + "_" + serverPort
     );
 
+    final boolean separateAdminServer = adminPort != serverPort && adminPort > 0;
+    final boolean separateClientServer = clientPort != serverPort && clientPort > 0;
+
+    final NettyServerBuilder serverBuilder =
+        startBuildingNettyServer(serverPort, serverTlsConfig, grpcMessageSizeMax, flowControlWindow);
+    serverBuilder.addService(ServerInterceptors.intercept(
+        new GrpcServerProtocolService(idSupplier, raftServer), serverInterceptor));
+    if (!separateAdminServer) {
+      addAdminService(raftServer, serverBuilder);
+    }
+    if (!separateClientServer) {
+      addClientService(serverBuilder);
+    }
+
+    final Server server = serverBuilder.build();
+    servers.add(server);
+    addressSupplier = newAddressSupplier(serverPort, server);
+
+    if (separateAdminServer) {
+      final NettyServerBuilder builder =
+          startBuildingNettyServer(adminPort, adminTlsConfig, grpcMessageSizeMax, flowControlWindow);
+      addAdminService(raftServer, builder);
+      final Server adminServer = builder.build();
+      servers.add(adminServer);
+      adminServerAddressSupplier = newAddressSupplier(adminPort, adminServer);
+    } else {
+      adminServerAddressSupplier = addressSupplier;
+    }
+
+    if (separateClientServer) {
+      final NettyServerBuilder builder =
+          startBuildingNettyServer(clientPort, clientTlsConfig, grpcMessageSizeMax, flowControlWindow);
+      addClientService(builder);
+      final Server clientServer = builder.build();
+      servers.add(clientServer);
+      clientServerAddressSupplier = newAddressSupplier(clientPort, clientServer);
+    } else {
+      clientServerAddressSupplier = addressSupplier;
+    }
+  }
+
+  private MemoizedSupplier<InetSocketAddress> newAddressSupplier(int port, Server server) {
+    return JavaUtils.memoize(() -> new InetSocketAddress(port != 0 ? port : server.getPort()));
+  }
+
+  private void addClientService(NettyServerBuilder builder) {
+    builder.addService(ServerInterceptors.intercept(clientProtocolService, serverInterceptor));
+  }
+
+  private void addAdminService(RaftServer raftServer, NettyServerBuilder nettyServerBuilder) {
+    nettyServerBuilder.addService(ServerInterceptors.intercept(
+          new GrpcAdminProtocolService(raftServer),
+          serverInterceptor));
+  }
+
+  private static NettyServerBuilder startBuildingNettyServer(int port, GrpcTlsConfig tlsConfig,
+      SizeInBytes grpcMessageSizeMax, SizeInBytes flowControlWindow) {
     NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
         .withChildOption(ChannelOption.SO_REUSEADDR, true)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
-        .flowControlWindow(flowControlWindow.getSizeInt())
-        .addService(ServerInterceptors.intercept(
-            new GrpcServerProtocolService(idSupplier, raftServer),
-            serverInterceptor))
-        .addService(ServerInterceptors.intercept(clientProtocolService, serverInterceptor))
-        .addService(ServerInterceptors.intercept(
-            new GrpcAdminProtocolService(raftServer),
-            serverInterceptor));
+        .flowControlWindow(flowControlWindow.getSizeInt());
 
     if (tlsConfig != null) {
       SslContextBuilder sslContextBuilder =
@@ -157,8 +234,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         throw new IllegalArgumentException("Failed to build SslContext, tlsConfig=" + tlsConfig, ex);
       }
     }
-    server = nettyServerBuilder.build();
-    addressSupplier = JavaUtils.memoize(() -> new InetSocketAddress(port != 0? port: server.getPort()));
+    return nettyServerBuilder;
   }
 
   @Override
@@ -168,28 +244,32 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   @Override
   public void startImpl() {
-    try {
-      server.start();
-    } catch (IOException e) {
-      ExitUtils.terminate(1, "Failed to start Grpc server", e, LOG);
+    for (Server server : servers) {
+      try {
+        server.start();
+      } catch (IOException e) {
+        ExitUtils.terminate(1, "Failed to start Grpc server", e, LOG);
+      }
+      LOG.info("{}: {} started, listening on {}",
+          getId(), JavaUtils.getClassSimpleName(getClass()), server.getPort());
     }
-    LOG.info("{}: {} started, listening on {}",
-        getId(), JavaUtils.getClassSimpleName(getClass()), getInetSocketAddress());
   }
 
   @Override
   public void closeImpl() throws IOException {
-    final String name = getId() + ": shutdown server with port " + server.getPort();
-    LOG.info("{} now", name);
-    final Server s = server.shutdownNow();
-    super.closeImpl();
-    try {
-      s.awaitTermination();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw IOUtils.toInterruptedIOException(name + " failed", e);
+    for (Server server : servers) {
+      final String name = getId() + ": shutdown server with port " + server.getPort();
+      LOG.info("{} now", name);
+      final Server s = server.shutdownNow();
+      super.closeImpl();
+      try {
+        s.awaitTermination();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw IOUtils.toInterruptedIOException(name + " failed", e);
+      }
+      LOG.info("{} successfully", name);
     }
-    LOG.info("{} successfully", name);
   }
 
   @Override
@@ -200,6 +280,16 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   @Override
   public InetSocketAddress getInetSocketAddress() {
     return addressSupplier.get();
+  }
+
+  @Override
+  public InetSocketAddress getClientServerAddress() {
+    return clientServerAddressSupplier.get();
+  }
+
+  @Override
+  public InetSocketAddress getAdminServerAddress() {
+    return adminServerAddressSupplier.get();
   }
 
   @Override
@@ -231,4 +321,5 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     final RaftPeerId target = RaftPeerId.valueOf(request.getServerRequest().getReplyId());
     return getProxies().getProxy(target).startLeaderElection(request);
   }
+
 }

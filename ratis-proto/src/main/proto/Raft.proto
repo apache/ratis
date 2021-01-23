@@ -26,6 +26,8 @@ message RaftPeerProto {
   string address = 2; // e.g. address of the RPC server
   uint32 priority = 3; // priority of the peer
   string dataStreamAddress = 4; // address of the data stream server
+  string clientAddress = 5; // address of the client RPC server
+  string adminAddress = 6; // address of the admin RPC server
 }
 
 message RaftPeerIdProto {

@@ -53,6 +53,9 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   private final GrpcTlsConfig tlsConfig;
+  private final GrpcTlsConfig adminTlsConfig;
+  private final GrpcTlsConfig clientTlsConfig;
+  private final GrpcTlsConfig serverTlsConfig;
 
   public static Parameters newRaftParameters(GrpcTlsConfig conf) {
     final Parameters p = new Parameters();
@@ -61,15 +64,40 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   public GrpcFactory(Parameters parameters) {
-    this(GrpcConfigKeys.TLS.conf(parameters));
+    this(
+        GrpcConfigKeys.TLS.conf(parameters),
+        GrpcConfigKeys.Admin.tlsConf(parameters),
+        GrpcConfigKeys.Client.tlsConf(parameters),
+        GrpcConfigKeys.Server.tlsConf(parameters)
+    );
   }
 
   public GrpcFactory(GrpcTlsConfig tlsConfig) {
+    this(tlsConfig, null, null, null);
+  }
+
+  private GrpcFactory(GrpcTlsConfig tlsConfig, GrpcTlsConfig adminTlsConfig,
+      GrpcTlsConfig clientTlsConfig, GrpcTlsConfig serverTlsConfig) {
     this.tlsConfig = tlsConfig;
+    this.adminTlsConfig = adminTlsConfig;
+    this.clientTlsConfig = clientTlsConfig;
+    this.serverTlsConfig = serverTlsConfig;
   }
 
   public GrpcTlsConfig getTlsConfig() {
     return tlsConfig;
+  }
+
+  public GrpcTlsConfig getAdminTlsConfig() {
+    return adminTlsConfig != null ? adminTlsConfig : tlsConfig;
+  }
+
+  public GrpcTlsConfig getClientTlsConfig() {
+    return clientTlsConfig != null ? clientTlsConfig : tlsConfig;
+  }
+
+  public GrpcTlsConfig getServerTlsConfig() {
+    return serverTlsConfig != null ? serverTlsConfig : tlsConfig;
   }
 
   @Override
@@ -87,13 +115,16 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
     checkPooledByteBufAllocatorUseCacheForAllThreads(LOG::info);
     return GrpcService.newBuilder()
         .setServer(server)
-        .setTlsConfig(tlsConfig)
+        .setAdminTlsConfig(getAdminTlsConfig())
+        .setServerTlsConfig(getServerTlsConfig())
+        .setClientTlsConfig(getClientTlsConfig())
         .build();
   }
 
   @Override
   public GrpcClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
     checkPooledByteBufAllocatorUseCacheForAllThreads(LOG::debug);
-    return new GrpcClientRpc(clientId, properties, getTlsConfig());
+    return new GrpcClientRpc(clientId, properties,
+        getAdminTlsConfig(), getClientTlsConfig());
   }
 }

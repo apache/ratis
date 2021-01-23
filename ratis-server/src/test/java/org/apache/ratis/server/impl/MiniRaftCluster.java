@@ -62,6 +62,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -73,6 +74,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -188,9 +190,12 @@ public abstract class MiniRaftCluster implements Closeable {
     }
 
     protected int getPort(RaftPeerId id, RaftGroup g) {
+      return getPort(getAddress(id, g, RaftPeer::getAddress));
+    }
+
+    protected String getAddress(RaftPeerId id, RaftGroup g, Function<RaftPeer, String> getAddress) {
       final RaftPeer p = g != null? g.getPeer(id): peers.get(id);
-      final String address = p == null? null : p.getAddress();
-      return getPort(address);
+      return p == null? null : getAddress.apply(p);
     }
 
     protected int getDataStreamPort(RaftPeerId id, RaftGroup g) {
@@ -219,12 +224,15 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public static RaftGroup initRaftGroup(Collection<String> ids) {
+    Iterator<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(4 * ids.size()).iterator();
     final RaftPeer[] peers = ids.stream()
         .map(RaftPeerId::valueOf)
         .map(id -> RaftPeer.newBuilder().setId(id)
-                .setAddress(NetUtils.createLocalServerAddress())
-                .setDataStreamAddress(NetUtils.createLocalServerAddress())
-                .build())
+            .setAddress(addresses.next())
+            .setAdminAddress(addresses.next())
+            .setClientAddress(addresses.next())
+            .setDataStreamAddress(addresses.next())
+            .build())
         .toArray(RaftPeer[]::new);
     return RaftGroup.valueOf(RaftGroupId.randomId(), peers);
   }

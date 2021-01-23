@@ -35,8 +35,17 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, RaftPeer
   /** Start the RPC service. */
   void start() throws IOException;
 
-  /** @return the address where this RPC server is listening to. */
+  /** @return the address where this RPC server is listening */
   InetSocketAddress getInetSocketAddress();
+
+  /** @return the address where this RPC server is listening for client requests */
+  default InetSocketAddress getClientServerAddress() {
+    return getInetSocketAddress();
+  }
+  /** @return the address where this RPC server is listening for admin requests */
+  default InetSocketAddress getAdminServerAddress() {
+    return getInetSocketAddress();
+  }
 
   /** Handle the given exception.  For example, try reconnecting. */
   void handleException(RaftPeerId serverId, Exception e, boolean reconnect);

@@ -117,6 +117,8 @@ public interface ProtoUtils {
         .setId(RaftPeerId.valueOf(p.getId()))
         .setAddress(p.getAddress())
         .setDataStreamAddress(p.getDataStreamAddress())
+        .setClientAddress(p.getClientAddress())
+        .setAdminAddress(p.getAdminAddress())
         .setPriority(p.getPriority())
         .build();
   }

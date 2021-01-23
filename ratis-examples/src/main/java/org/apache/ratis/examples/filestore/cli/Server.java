@@ -44,6 +44,7 @@ import org.apache.ratis.util.TimeDuration;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -84,6 +85,12 @@ public class Server extends SubCommandBase {
 
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
+
+    Optional.ofNullable(getPeer(peerId).getClientAddress()).ifPresent(address ->
+        GrpcConfigKeys.Client.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
+    Optional.ofNullable(getPeer(peerId).getAdminAddress()).ifPresent(address ->
+        GrpcConfigKeys.Admin.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
+
     String dataStreamAddress = getPeer(peerId).getDataStreamAddress();
     if (dataStreamAddress != null) {
       final int dataStreamport = NetUtils.createSocketAddr(dataStreamAddress).getPort();
