@@ -555,6 +555,16 @@ public interface RaftServerConfigKeys {
     static void setLeaderStepDownWaitTime(RaftProperties properties, TimeDuration noLeaderTimeout) {
       setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, noLeaderTimeout);
     }
+
+    String PRE_VOTE_KEY = PREFIX + ".pre-vote";
+    boolean PRE_VOTE_DEFAULT = true;
+    static boolean preVote(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, PRE_VOTE_KEY, PRE_VOTE_DEFAULT, getDefaultLog());
+    }
+
+    static void setPreVote(RaftProperties properties, boolean enablePreVote) {
+      setBoolean(properties::setBoolean, PRE_VOTE_KEY, enablePreVote);
+    }
   }
 
   static void main(String[] args) {

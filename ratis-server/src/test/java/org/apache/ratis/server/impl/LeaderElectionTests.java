@@ -21,6 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -417,6 +418,11 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     when(server.getMemberId()).thenReturn(memberId);
     LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(memberId, () -> 0);
     when(server.getLeaderElectionMetrics()).thenReturn(leaderElectionMetrics);
+    RaftServerProxy proxy = mock(RaftServerProxy.class);
+    RaftProperties properties = new RaftProperties();
+    RaftServerConfigKeys.LeaderElection.setPreVote(properties, true);
+    when(proxy.getProperties()).thenReturn(properties);
+    when(server.getRaftServer()).thenReturn(proxy);
     return server;
   }
 }

@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftConfiguration;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -190,7 +191,10 @@ class LeaderElection implements Runnable {
     this.lifeCycle = new LifeCycle(this);
     this.daemon = new Daemon(this);
     this.server = server;
-    this.skipPreVote = skipPreVote;
+    RaftServerProxy proxy = server.getRaftServer();
+    this.skipPreVote = skipPreVote ||
+        !RaftServerConfigKeys.LeaderElection.preVote(
+            server.getRaftServer().getProperties());
   }
 
   void start() {
