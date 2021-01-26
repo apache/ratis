@@ -191,8 +191,9 @@ class LeaderElection implements Runnable {
     this.lifeCycle = new LifeCycle(this);
     this.daemon = new Daemon(this);
     this.server = server;
+    RaftServerProxy proxy = server.getRaftServer();
     this.skipPreVote = skipPreVote ||
-        !RaftServerConfigKeys.LeaderElection.isEnablePreVote(
+        !RaftServerConfigKeys.LeaderElection.preVote(
             server.getRaftServer().getProperties());
   }
 

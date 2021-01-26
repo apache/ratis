@@ -556,14 +556,14 @@ public interface RaftServerConfigKeys {
       setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, noLeaderTimeout);
     }
 
-    String ENABLE_PRE_VOTE_KEY = PREFIX + ".enable.pre-vote";
-    boolean ENABLE_PRE_VOTE_DEFAULT = true;
-    static boolean isEnablePreVote(RaftProperties properties) {
-      return getBoolean(properties::getBoolean, ENABLE_PRE_VOTE_KEY, ENABLE_PRE_VOTE_DEFAULT, getDefaultLog());
+    String PRE_VOTE_KEY = PREFIX + ".pre-vote";
+    boolean PRE_VOTE_DEFAULT = true;
+    static boolean preVote(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, PRE_VOTE_KEY, PRE_VOTE_DEFAULT, getDefaultLog());
     }
 
-    static void setEnablePreVote(RaftProperties properties, boolean enablePreVote) {
-      setBoolean(properties::setBoolean, ENABLE_PRE_VOTE_KEY, enablePreVote);
+    static void setPreVote(RaftProperties properties, boolean enablePreVote) {
+      setBoolean(properties::setBoolean, PRE_VOTE_KEY, enablePreVote);
     }
   }
 
