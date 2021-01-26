@@ -121,7 +121,6 @@ class RetryCacheImpl implements RetryCache {
     StatisticsImpl(Cache<?, ?> cache) {
       this.size = cache.size();
       this.cacheStats = cache.stats();
-      System.out.println("new StatisticsImpl " + this);
     }
 
     boolean isExpired() {
