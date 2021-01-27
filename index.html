@@ -64,7 +64,7 @@
 
             <div id="ratis-menu" class="collapse navbar-collapse">
                 <ul class="nav navbar-nav navbar-right">
-                    <li><a href="#download">Download</a></li>
+                    <li><a href="downloads.html">Download</a></li>
                     <li><a href="#gettingstarted">Getting started</a></li>
                     <li><a href="#source">Source</a></li>
                     <li><a href="#community">Community</a></li>
@@ -73,25 +73,46 @@
             </div>
 
 
-            <div class="jumbotron">
-                <h1>
-                    Open source Java implementation for Raft consensus protocol.
-                </h1>
-                <p>
-                    <a class="btn btn-default download" role="button" href="#download">Download Apache Ratis</a>
-                </p>
-                <p>
-
-                    <a class="changelog"
-                       href="#gettingstarted">Getting started
-                    </a>
-                </p>
-            </div>
-        </div>
-
     </nav>
 </div>
 
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Open source Java implementation for RAFT consensus protocol.">
+    <meta name="keywords" content="raft, java, ratis, library"/>
+    <meta name="robots" content="index,follow"/>
+    <meta name="language" content="en"/>
+
+    <title>Apache Ratis</title>
+
+    <base href="https://ratis.incubator.apache.org/">
+
+    <link rel="canonical" href="http://ratis.incubator.apache.org/">
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+          integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+
+<div class="topnav" style="background:#F0F0F0">
+        <div class="container">
+            <div class="jumbotron">
+                <h1 style="color:#000">
+                    Open source Java implementation for Raft consensus protocol.
+                </h1>
+            </div>
+        </div>
+</div>
 <div class="main-section">
     <div class="container">
               <div class="row">
@@ -187,90 +208,6 @@
                 <small class="pull-right">2020 Jul 20 </small>
             </div>
             
-        </div>
-    </div>
-</div>
-
-<a name="download"></a>
-<div class="main-section">
-    <div class="container">
-        <div class="row header">
-            <h2>Download</h2>
-
-            <p>Apache Ratis is a Java <b>library</b> that can be used directly from your applications.</p>
-
-            <p>It is released as source code tarballs. The downloads are distributed via mirror sites and should be checked
-                for tampering using <a href="https://www.apache.org/info/verification.html">GPG or SHA-256</a></p>
-            <p>
-
-            <p>The source tarball contains detailed instruction about how can it be built.</p>
-
-            <p>The binaries are also uploaded to the maven central for convenience. (See the getting started guide for more details)</p>
-            <p>1.0.0 is GA release for Apache Ratis</p>
-            <table class="table table-striped">
-                <thead>
-                <tr>
-                    <th>Version</th>
-                    <th>Release date</th>
-                    <th>Link</th>
-                    <th>Announcement</th>
-                </tr>
-                </thead>
-                
-                <tr>
-                    <td>1.0.0</td>
-                    <td>2020 Jul 20 </td>
-                    <td><a href="https://www.apache.org/dist/incubator/ratis/1.0.0/">
-                        https://www.apache.org/dist/incubator/ratis/1.0.0/</a>
-                    </td>
-                    <td><a href="post/1.0.0.html">Announcement</a></td>
-                </tr>
-                
-                <tr>
-                    <td>0.5.0</td>
-                    <td>2020 Feb 4 </td>
-                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.5.0/">
-                        https://www.apache.org/dist/incubator/ratis/0.5.0/</a>
-                    </td>
-                    <td><a href="post/0.5.0.html">Announcement</a></td>
-                </tr>
-                
-                <tr>
-                    <td>0.4.0</td>
-                    <td>2019 Sep 12 </td>
-                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.4.0/">
-                        https://www.apache.org/dist/incubator/ratis/0.4.0/</a>
-                    </td>
-                    <td><a href="post/0.4.0.html">Announcement</a></td>
-                </tr>
-                
-                <tr>
-                    <td>0.3.0</td>
-                    <td>2019 Apr 21 </td>
-                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.3.0/">
-                        https://www.apache.org/dist/incubator/ratis/0.3.0/</a>
-                    </td>
-                    <td><a href="post/0.3.0.html">Announcement</a></td>
-                </tr>
-                
-                <tr>
-                    <td>0.2.0</td>
-                    <td>2018 Jul 15 </td>
-                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.2.0/">
-                        https://www.apache.org/dist/incubator/ratis/0.2.0/</a>
-                    </td>
-                    <td><a href="post/0.2.0.html">Announcement</a></td>
-                </tr>
-                
-            </table>
-            </p>
-
-            <p>Release artifacts are signed with one of the keys available at:
-                <a herf="https://www.apache.org/dist/incubator/ratis/KEYS">https://www.apache.org/dist/incubator/ratis/KEYS</a>
-            </p>
-
-            <p>Ratis is also <a href="https://search.maven.org/#search%7Cga%7C1%7Cratis">available</a> from the Maven central repository.</p>
-
         </div>
     </div>
 </div>
