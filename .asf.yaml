@@ -26,6 +26,6 @@ github:
     rebase:  false
 notifications:
   commits:      commits@ratis.apache.org
-  issues:       dev@ratis.apache.org
-  pullrequests: dev@ratis.apache.org
+  issues:       issues@ratis.apache.org
+  pullrequests: issues@ratis.apache.org
   jira_options: link label worklog
