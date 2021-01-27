@@ -12,6 +12,7 @@
  limitations under the License. See accompanying LICENSE file.
 -->
 {{ partial "header.html" . }}
+{{ partial "middle.html" . }}
 <div class="main-section">
     <div class="container">
               <div class="row">
@@ -107,54 +108,6 @@
                 <small class="pull-right">{{dateFormat "2006 Jan 2 " .Date}}</small>
             </div>
             {{end}}
-        </div>
-    </div>
-</div>
-
-<a name="download"></a>
-<div class="main-section">
-    <div class="container">
-        <div class="row header">
-            <h2>Download</h2>
-
-            <p>Apache Ratis is a Java <b>library</b> that can be used directly from your applications.</p>
-
-            <p>It is released as source code tarballs. The downloads are distributed via mirror sites and should be checked
-                for tampering using <a href="https://www.apache.org/info/verification.html">GPG or SHA-256</a></p>
-            <p>
-
-            <p>The source tarball contains detailed instruction about how can it be built.</p>
-
-            <p>The binaries are also uploaded to the maven central for convenience. (See the getting started guide for more details)</p>
-            <p>1.0.0 is GA release for Apache Ratis</p>
-            <table class="table table-striped">
-                <thead>
-                <tr>
-                    <th>Version</th>
-                    <th>Release date</th>
-                    <th>Link</th>
-                    <th>Announcement</th>
-                </tr>
-                </thead>
-                {{range first 5 (where .Site.Pages ".Params.type" "release")}}
-                <tr>
-                    <td>{{.File.BaseFileName }}</td>
-                    <td>{{dateFormat "2006 Jan 2 " .Date}}</td>
-                    <td><a href="https://www.apache.org/dist/incubator/ratis/{{.File.BaseFileName }}/">
-                        https://www.apache.org/dist/incubator/ratis/{{.File.BaseFileName }}/</a>
-                    </td>
-                    <td><a href="post/{{.File.BaseFileName }}.html">Announcement</a></td>
-                </tr>
-                {{end}}
-            </table>
-            </p>
-
-            <p>Release artifacts are signed with one of the keys available at:
-                <a herf="https://www.apache.org/dist/incubator/ratis/KEYS">https://www.apache.org/dist/incubator/ratis/KEYS</a>
-            </p>
-
-            <p>Ratis is also <a href="https://search.maven.org/#search%7Cga%7C1%7Cratis">available</a> from the Maven central repository.</p>
-
         </div>
     </div>
 </div>
