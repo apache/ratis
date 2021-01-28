@@ -1,8 +1,7 @@
 ---
-title: Release 0.5.0 is available
-date: 2020-02-04
-type: release
-linked: true
+title: "Apache Hadoop Ratis Downloads"
+layout: downloads
+type: custompage
 ---
 <!---
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,11 +16,4 @@ linked: true
   See the License for the specific language governing permissions and
   limitations under the License. See accompanying LICENSE file.
 -->
-
-[Download](https://ratis.incubator.apache.org/downloads.html)
-
-It contains more than 94 improvements and bug fixes based on various Apache Hadoop Ozone use cases.
-See the [changes between 0.4.0 and 0.5.0](https://github.com/apache/incubator-ratis/compare/0.4.0-rc4...ratis-0.5.0-rc0) releases. 
-
-It has been tested with [Apache Hadoop Ozone](https://hadoop.apache.org/ozone/) where Apache Ratis is used to replicate raw data. 
 
