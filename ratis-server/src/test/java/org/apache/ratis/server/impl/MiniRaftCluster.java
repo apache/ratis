@@ -109,11 +109,24 @@ public abstract class MiniRaftCluster implements Closeable {
         return getFactory().newCluster(numPeers, getProperties());
       }
 
+      default CLUSTER newCluster(int numPeers, int numLearners) {
+        return getFactory().newCluster(numPeers, numLearners, getProperties());
+      }
+
       default void runWithNewCluster(int numServers, CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
         runWithNewCluster(numServers, true, testCase);
       }
 
+      default void runWithNewCluster(int numServers, int numLearners, CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
+        runWithNewCluster(numServers, numLearners,true, testCase);
+      }
+
       default void runWithNewCluster(int numServers, boolean startCluster, CheckedConsumer<CLUSTER, Exception> testCase)
+          throws Exception {
+        runWithNewCluster(numServers, 0, startCluster, testCase);
+      }
+
+      default void runWithNewCluster(int numServers, int numLearners, boolean startCluster, CheckedConsumer<CLUSTER, Exception> testCase)
           throws Exception {
         final StackTraceElement caller = JavaUtils.getCallerStackTraceElement();
         LOG.info("Running " + caller.getMethodName());
@@ -168,16 +181,29 @@ public abstract class MiniRaftCluster implements Closeable {
     }
 
     public abstract CLUSTER newCluster(
-        String[] ids, RaftProperties prop);
+        String[] ids, String[] idOfLearners,RaftProperties prop);
+
+    public CLUSTER newCluster(
+        String[] ids, RaftProperties prop) {
+      return newCluster(ids, null, prop);
+    }
 
     public CLUSTER newCluster(int numServer, RaftProperties prop) {
-      return newCluster(generateIds(numServer, 0), prop);
+      return newCluster(generateIds(numServer, 0), new String[0], prop);
+    }
+
+    public CLUSTER newCluster(int numServer, int numLearner, RaftProperties prop) {
+      return newCluster(generateIds(numServer, 0), generateIds(numLearner, numServer), prop);
     }
   }
 
   public static abstract class RpcBase extends MiniRaftCluster {
+    public RpcBase(String[] ids, String[] idOfLearners, RaftProperties properties, Parameters parameters) {
+      super(ids, idOfLearners, properties, parameters);
+    }
+
     public RpcBase(String[] ids, RaftProperties properties, Parameters parameters) {
-      super(ids, properties, parameters);
+      super(ids, null, properties, parameters);
     }
 
     @Override
@@ -223,9 +249,10 @@ public abstract class MiniRaftCluster implements Closeable {
     }
   }
 
-  public static RaftGroup initRaftGroup(Collection<String> ids) {
-    Iterator<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(4 * ids.size()).iterator();
-    final RaftPeer[] peers = ids.stream()
+  public static RaftGroup initRaftGroup(Collection<String> ids, Collection<String> idOfLearners) {
+    int addressCount = 4 * ids.size() + (idOfLearners != null ? idOfLearners.size() * 4 : 0);
+    Iterator<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(addressCount).iterator();
+    final List<RaftPeer> peers = ids.stream()
         .map(RaftPeerId::valueOf)
         .map(id -> RaftPeer.newBuilder().setId(id)
             .setAddress(addresses.next())
@@ -233,8 +260,18 @@ public abstract class MiniRaftCluster implements Closeable {
             .setClientAddress(addresses.next())
             .setDataStreamAddress(addresses.next())
             .build())
-        .toArray(RaftPeer[]::new);
-    return RaftGroup.valueOf(RaftGroupId.randomId(), peers);
+        .collect(Collectors.toList());
+
+    final List<RaftPeer> learners = idOfLearners.stream()
+        .map(RaftPeerId::valueOf)
+        .map(id -> RaftPeer.newBuilder().setId(id)
+            .setAddress(addresses.next())
+            .setAdminAddress(addresses.next())
+            .setClientAddress(addresses.next())
+            .setDataStreamAddress(addresses.next())
+            .build())
+        .collect(Collectors.toList());
+    return RaftGroup.valueOf(RaftGroupId.randomId(), peers, learners);
   }
 
   private final Supplier<File> rootTestDir = JavaUtils.memoize(
@@ -262,13 +299,18 @@ public abstract class MiniRaftCluster implements Closeable {
   protected final Parameters parameters;
   protected final Map<RaftPeerId, RaftServerProxy> servers = new ConcurrentHashMap<>();
   protected final Map<RaftPeerId, RaftPeer> peers = new ConcurrentHashMap<>();
+  protected final Map<RaftPeerId, RaftPeer> learners = new ConcurrentHashMap<>();
 
   private volatile StateMachine.Registry stateMachineRegistry = null;
 
   private final AtomicReference<Timer> timer = new AtomicReference<>();
 
   protected MiniRaftCluster(String[] ids, RaftProperties properties, Parameters parameters) {
-    this.group = initRaftGroup(Arrays.asList(ids));
+    this(ids, new String[]{}, properties, parameters);
+  }
+
+  protected MiniRaftCluster(String[] ids, String[] idOfLearners, RaftProperties properties, Parameters parameters) {
+    this.group = initRaftGroup(Arrays.asList(ids), Arrays.asList(idOfLearners));
     LOG.info("new {} with {}", JavaUtils.getClassSimpleName(getClass()), group);
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
@@ -295,9 +337,23 @@ public abstract class MiniRaftCluster implements Closeable {
     return s;
   }
 
+  public RaftServerProxy putNewLearner(RaftPeerId id, RaftGroup group, boolean format) {
+    final RaftServerProxy s = newRaftServer(id, group, format);
+    Preconditions.assertTrue(servers.put(id, s) == null);
+    learners.put(id, s.getPeer());
+    return s;
+  }
+
   private Collection<RaftServer> putNewServers(
       Iterable<RaftPeerId> peers, boolean format) {
     return StreamSupport.stream(peers.spliterator(), false)
+        .map(id -> putNewServer(id, group, format))
+        .collect(Collectors.toList());
+  }
+
+  private Collection<RaftServer> putNewLearners(
+      Iterable<RaftPeerId> learners, boolean format) {
+    return StreamSupport.stream(learners.spliterator(), false)
         .map(id -> putNewServer(id, group, format))
         .collect(Collectors.toList());
   }

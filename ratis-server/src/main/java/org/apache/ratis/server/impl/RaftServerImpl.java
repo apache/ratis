@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
+import org.apache.ratis.protocol.exceptions.LearningOnlyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
@@ -180,7 +181,7 @@ class RaftServerImpl implements RaftServer.Division,
     LOG.info("{}: new RaftServerImpl for {} with {}", id, group, stateMachine);
     this.lifeCycle = new LifeCycle(id);
     this.stateMachine = stateMachine;
-    this.role = new RoleInfo(id);
+    this.role = new RoleInfo(id, group.isLearner(id));
 
     final RaftProperties properties = proxy.getProperties();
     this.divisionProperties = new DivisionPropertiesImpl(properties);
@@ -291,7 +292,10 @@ class RaftServerImpl implements RaftServer.Division,
       return false;
     }
     final RaftConfigurationImpl conf = getRaftConf();
-    if (conf != null && conf.containsInBothConfs(getId())) {
+    if (role.isLearner()) {
+      LOG.info("{}: start as a learner, conf={}", conf);
+      startAsLearner();
+    } else if (conf != null && conf.containsInBothConfs(getId())) {
       LOG.info("{}: start as a follower, conf={}", getMemberId(), conf);
       startAsFollower();
     } else {
@@ -320,6 +324,11 @@ class RaftServerImpl implements RaftServer.Division,
   private void startAsFollower() {
     setRole(RaftPeerRole.FOLLOWER, "startAsFollower");
     role.startFollowerState(this, "startAsFollower");
+    lifeCycle.transition(RUNNING);
+  }
+
+  private void startAsLearner() {
+    setRole(RaftPeerRole.LEARNER, "startAsLearner");
     lifeCycle.transition(RUNNING);
   }
 
@@ -650,6 +659,12 @@ class RaftServerImpl implements RaftServer.Division,
         expected);
   }
 
+  private void assertNonLearnerRole(RaftGroupMemberId id, RoleInfo currentRole) throws LearningOnlyException {
+    if (currentRole.isLearner()) {
+      throw new LearningOnlyException(id);
+    }
+  }
+
   void assertGroup(Object requestorId, RaftGroupId requestorGroupId) throws GroupMismatchException {
     final RaftGroupId groupId = getMemberId().getGroupId();
     if (!groupId.equals(requestorGroupId)) {
@@ -725,6 +740,7 @@ class RaftServerImpl implements RaftServer.Division,
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
     assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertNonLearnerRole(getMemberId(), getRole());
     LOG.debug("{}: receive client request({})", getMemberId(), request);
     final Optional<Timer> timer = Optional.ofNullable(raftServerMetrics.getClientRequestTimer(request.getType()));
 
@@ -905,6 +921,7 @@ class RaftServerImpl implements RaftServer.Division,
     LOG.info("{}: receive transferLeadership {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
+    assertNonLearnerRole(getMemberId(), getRole());
 
     synchronized (this) {
       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
@@ -953,6 +970,7 @@ class RaftServerImpl implements RaftServer.Division,
     LOG.info("{}: receive setConfiguration {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
+    assertNonLearnerRole(getMemberId(), getRole());
 
     CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, true);
     if (reply != null) {
@@ -1009,6 +1027,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto r) throws IOException {
+    assertNonLearnerRole(getMemberId(), getRole());
     final RaftRpcRequestProto request = r.getServerRequest();
     return requestVote(r.getPreVote() ? Phase.PRE_VOTE : Phase.ELECTION,
         RaftPeerId.valueOf(request.getRequestorId()),
@@ -1362,6 +1381,8 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) throws IOException {
+    assertNonLearnerRole(getMemberId(), getRole());
+
     final RaftRpcRequestProto r = request.getServerRequest();
     final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
     final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(r.getRaftGroupId());

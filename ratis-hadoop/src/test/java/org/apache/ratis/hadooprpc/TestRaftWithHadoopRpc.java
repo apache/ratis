@@ -43,8 +43,8 @@ public class TestRaftWithHadoopRpc
   static final MiniRaftCluster.Factory<MiniRaftClusterWithHadoopRpc> FACTORY
       = new MiniRaftClusterWithHadoopRpc.Factory() {
     @Override
-    public MiniRaftClusterWithHadoopRpc newCluster(String[] ids, RaftProperties prop) {
-      return newCluster(ids, prop, CONF);
+    public MiniRaftClusterWithHadoopRpc newCluster(String[] ids, String[] idsOfLearners, RaftProperties prop) {
+      return newCluster(ids, idsOfLearners, prop, CONF);
     }
   };
 

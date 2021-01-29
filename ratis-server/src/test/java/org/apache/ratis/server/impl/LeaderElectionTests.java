@@ -58,10 +58,7 @@ import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIME_TAKEN;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -402,6 +399,21 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         Assert.assertTrue(reply.isSuccess());
       }
 
+      cluster.shutdown();
+    } catch (Exception e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testLearnerInLeaderElection() {
+    try (final MiniRaftCluster cluster = newCluster(3, 1)) {
+      cluster.start();
+      RaftServer.Division leader = waitForLeader(cluster);
+      assertNotNull(leader);
+      for (RaftPeer learner : cluster.learners.values()) {
+        assertNotEquals(learner.getId(), learner.getId());
+      }
       cluster.shutdown();
     } catch (Exception e) {
       fail(e.getMessage());

@@ -28,6 +28,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * The peer configuration of a raft cluster.
@@ -36,21 +38,44 @@ import java.util.Objects;
  */
 class PeerConfiguration {
   private final Map<RaftPeerId, RaftPeer> peers;
+  private final Map<RaftPeerId, RaftPeer> learners;
 
   PeerConfiguration(Iterable<RaftPeer> peers) {
+    this(peers, Collections.emptyList());
+  }
+
+  PeerConfiguration(Iterable<RaftPeer> peers, Iterable<RaftPeer> learners) {
     Objects.requireNonNull(peers);
-    Map<RaftPeerId, RaftPeer> map = new HashMap<>();
+    Objects.requireNonNull(learners);
+    Map<RaftPeerId, RaftPeer> peerMap = new HashMap<>();
     for(RaftPeer p : peers) {
-      final RaftPeer previous = map.putIfAbsent(p.getId(), p);
+      final RaftPeer previous = peerMap.putIfAbsent(p.getId(), p);
       if (previous != null) {
         throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in peers " + peers);
       }
     }
-    this.peers = Collections.unmodifiableMap(map);
+    this.peers = Collections.unmodifiableMap(peerMap);
+
+    Map<RaftPeerId, RaftPeer> learnerMap = new HashMap<>();
+    for(RaftPeer p : learners) {
+      final RaftPeer previous = learnerMap.putIfAbsent(p.getId(), p);
+      if (previous != null) {
+        throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in learners " + learners);
+      }
+    }
+    this.learners = Collections.unmodifiableMap(learnerMap);
   }
 
   Collection<RaftPeer> getPeers() {
     return Collections.unmodifiableCollection(peers.values());
+  }
+
+  Collection<RaftPeer> getAllPeers() {
+    Stream<RaftPeer> combinedStream = Stream.of(peers.values(), learners.values())
+        .flatMap(Collection::stream);
+    Collection<RaftPeer> peersCombined =
+        combinedStream.collect(Collectors.toList());
+    return Collections.unmodifiableCollection(peersCombined);
   }
 
   int size() {
