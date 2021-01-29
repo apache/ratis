@@ -310,7 +310,8 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   protected MiniRaftCluster(String[] ids, String[] idOfLearners, RaftProperties properties, Parameters parameters) {
-    this.group = initRaftGroup(Arrays.asList(ids), Arrays.asList(idOfLearners));
+    this.group = initRaftGroup(Arrays.asList(ids),
+        idOfLearners != null ? Arrays.asList(idOfLearners) : Collections.emptyList());
     LOG.info("new {} with {}", JavaUtils.getClassSimpleName(getClass()), group);
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
