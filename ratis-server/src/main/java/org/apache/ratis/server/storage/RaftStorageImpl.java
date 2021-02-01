@@ -143,8 +143,10 @@ public class RaftStorageImpl implements RaftStorage {
     try (FileInputStream fio = new FileInputStream(confFile)) {
       LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
       return LogProtoUtils.toRaftConfiguration(confProto);
+    } catch (FileNotFoundException e) {
+
+      return null;
     } catch (Exception e) {
-      LOG.error("Failed reading configuration from file:" + confFile, e);
       return null;
     }
   }
