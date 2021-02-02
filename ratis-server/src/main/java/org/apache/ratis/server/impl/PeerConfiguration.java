@@ -38,32 +38,36 @@ import java.util.stream.Stream;
  */
 class PeerConfiguration {
   private final Map<RaftPeerId, RaftPeer> peers;
-  private final Map<RaftPeerId, RaftPeer> learners;
+  private final Map<RaftPeerId, RaftPeer> listeners;
 
   PeerConfiguration(Iterable<RaftPeer> peers) {
     this(peers, Collections.emptyList());
   }
 
-  PeerConfiguration(Iterable<RaftPeer> peers, Iterable<RaftPeer> learners) {
+  PeerConfiguration(Iterable<RaftPeer> peers, Iterable<RaftPeer> listeners) {
     Objects.requireNonNull(peers);
-    Objects.requireNonNull(learners);
+    Objects.requireNonNull(listeners);
     Map<RaftPeerId, RaftPeer> peerMap = new HashMap<>();
     for(RaftPeer p : peers) {
-      final RaftPeer previous = peerMap.putIfAbsent(p.getId(), p);
-      if (previous != null) {
+      if (isDuplicatedInConf(p.getId())) {
         throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in peers " + peers);
       }
+      peerMap.put(p.getId(), p);
     }
     this.peers = Collections.unmodifiableMap(peerMap);
 
-    Map<RaftPeerId, RaftPeer> learnerMap = new HashMap<>();
-    for(RaftPeer p : learners) {
-      final RaftPeer previous = learnerMap.putIfAbsent(p.getId(), p);
-      if (previous != null) {
-        throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in learners " + learners);
+    Map<RaftPeerId, RaftPeer> listenerMap = new HashMap<>();
+    for(RaftPeer p : listeners) {
+      if (isDuplicatedInConf(p.getId())) {
+        throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in listeners " + listeners);
       }
+      listenerMap.put(p.getId(), p);
     }
-    this.learners = Collections.unmodifiableMap(learnerMap);
+    this.listeners = Collections.unmodifiableMap(listenerMap);
+  }
+
+  private boolean isDuplicatedInConf(RaftPeerId id) {
+    return peers.containsKey(id) || listeners.containsKey(id);
   }
 
   Collection<RaftPeer> getPeers() {
@@ -71,7 +75,7 @@ class PeerConfiguration {
   }
 
   Collection<RaftPeer> getAllPeers() {
-    Stream<RaftPeer> combinedStream = Stream.of(peers.values(), learners.values())
+    Stream<RaftPeer> combinedStream = Stream.of(peers.values(), listeners.values())
         .flatMap(Collection::stream);
     Collection<RaftPeer> peersCombined =
         combinedStream.collect(Collectors.toList());

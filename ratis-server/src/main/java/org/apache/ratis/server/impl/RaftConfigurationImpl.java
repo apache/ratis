@@ -65,8 +65,8 @@ final class RaftConfigurationImpl implements RaftConfiguration {
       return setConf(new PeerConfiguration(peers));
     }
 
-    Builder setConf(Iterable<RaftPeer> peers, Iterable<RaftPeer> learners) {
-      return setConf(new PeerConfiguration(peers, learners));
+    Builder setConf(Iterable<RaftPeer> peers, Iterable<RaftPeer> listeners) {
+      return setConf(new PeerConfiguration(peers, listeners));
     }
 
     Builder setConf(RaftConfigurationImpl transitionalConf) {

@@ -39,9 +39,9 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithGrpc> FACTORY
       = new Factory<MiniRaftClusterWithGrpc>() {
     @Override
-    public MiniRaftClusterWithGrpc newCluster(String[] ids, String[] idOfLearners, RaftProperties prop) {
+    public MiniRaftClusterWithGrpc newCluster(String[] ids, String[] idOfListeners, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.GRPC);
-      return new MiniRaftClusterWithGrpc(ids, idOfLearners, prop);
+      return new MiniRaftClusterWithGrpc(ids, idOfListeners, prop);
     }
   };
 

@@ -35,9 +35,9 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithNetty> FACTORY
       = new Factory<MiniRaftClusterWithNetty>() {
     @Override
-    public MiniRaftClusterWithNetty newCluster(String[] ids, String[] idOfLearners, RaftProperties prop) {
+    public MiniRaftClusterWithNetty newCluster(String[] ids, String[] idOfListeners, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.NETTY);
-      return new MiniRaftClusterWithNetty(ids, idOfLearners, prop);
+      return new MiniRaftClusterWithNetty(ids, idOfListeners, prop);
     }
   };
 

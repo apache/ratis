@@ -36,7 +36,7 @@ public interface DivisionInfo {
 
   /** Is this server division currently a learner? */
   default boolean isLearner() {
-    return getCurrentRole() == RaftPeerRole.LEARNER;
+    return getCurrentRole() == RaftPeerRole.LISTENER;
   }
 
   /** Is this server division currently a candidate? */

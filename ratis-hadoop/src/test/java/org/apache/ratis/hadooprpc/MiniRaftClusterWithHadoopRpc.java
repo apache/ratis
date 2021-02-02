@@ -44,7 +44,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
     }
 
     @Override
-    public MiniRaftClusterWithHadoopRpc newCluster(String[] ids, String[] idOfLearners, RaftProperties prop) {
+    public MiniRaftClusterWithHadoopRpc newCluster(String[] ids, String[] idOfListeners, RaftProperties prop) {
       final Configuration conf = new Configuration();
       return newCluster(ids, prop, conf);
     }

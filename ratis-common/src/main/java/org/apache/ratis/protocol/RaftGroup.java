@@ -51,19 +51,19 @@ public final class RaftGroup {
   private final RaftGroupId groupId;
   /** The group of raft peers */
   private final Map<RaftPeerId, RaftPeer> peers;
-  private final Map<RaftPeerId, RaftPeer> learners;
+  private final Map<RaftPeerId, RaftPeer> listeners;
 
   private RaftGroup() {
     this.groupId = RaftGroupId.emptyGroupId();
     this.peers = Collections.emptyMap();
-    this.learners = Collections.emptyMap();
+    this.listeners = Collections.emptyMap();
   }
 
   private RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers) {
     this(groupId, peers, Collections.emptyList());
   }
 
-  private RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers, Collection<RaftPeer> learners) {
+  private RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers, Collection<RaftPeer> listeners) {
     this.groupId = Objects.requireNonNull(groupId, "groupId == null");
     Preconditions.assertTrue(!groupId.equals(EMPTY_GROUP.getGroupId()),
         () -> "Group Id " + groupId + " is reserved for the empty group.");
@@ -76,12 +76,12 @@ public final class RaftGroup {
       this.peers = Collections.unmodifiableMap(map);
     }
 
-    if (learners == null || learners.isEmpty()) {
-      this.learners = Collections.emptyMap();
+    if (listeners == null || listeners.isEmpty()) {
+      this.listeners = Collections.emptyMap();
     } else {
       final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
-      learners.forEach(p -> map.put(p.getId(), p));
-      this.learners = Collections.unmodifiableMap(map);
+      listeners.forEach(p -> map.put(p.getId(), p));
+      this.listeners = Collections.unmodifiableMap(map);
     }
   }
 
@@ -93,8 +93,8 @@ public final class RaftGroup {
     return peers.values();
   }
 
-  public Collection<RaftPeer> getLearners() {
-    return learners.values();
+  public Collection<RaftPeer> getListeners() {
+    return listeners.values();
   }
 
   /** @return the peer with the given id if it is in this group; otherwise, return null. */
@@ -102,12 +102,12 @@ public final class RaftGroup {
     return peers.get(Objects.requireNonNull(id, "id == null"));
   }
 
-  public RaftPeer getLearner(RaftPeerId id) {
-    return learners.get(Objects.requireNonNull(id, "id == null"));
+  public RaftPeer getListener(RaftPeerId id) {
+    return listeners.get(Objects.requireNonNull(id, "id == null"));
   }
 
-  public boolean isLearner(RaftPeerId id) {
-    return learners.containsKey(id);
+  public boolean isListener(RaftPeerId id) {
+    return listeners.containsKey(id);
   }
 
   @Override
