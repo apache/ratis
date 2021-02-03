@@ -49,25 +49,21 @@ class PeerConfiguration {
     Objects.requireNonNull(listeners);
     Map<RaftPeerId, RaftPeer> peerMap = new HashMap<>();
     for(RaftPeer p : peers) {
-      if (isDuplicatedInConf(p.getId())) {
+      final RaftPeer previous = peerMap.putIfAbsent(p.getId(), p);
+      if (previous != null) {
         throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in peers " + peers);
       }
-      peerMap.put(p.getId(), p);
     }
     this.peers = Collections.unmodifiableMap(peerMap);
 
     Map<RaftPeerId, RaftPeer> listenerMap = new HashMap<>();
     for(RaftPeer p : listeners) {
-      if (isDuplicatedInConf(p.getId())) {
+      if (peerMap.containsKey(p.getId())
+          || listenerMap.putIfAbsent(p.getId(), p) != null) {
         throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in listeners " + listeners);
       }
-      listenerMap.put(p.getId(), p);
     }
     this.listeners = Collections.unmodifiableMap(listenerMap);
-  }
-
-  private boolean isDuplicatedInConf(RaftPeerId id) {
-    return peers.containsKey(id) || listeners.containsKey(id);
   }
 
   Collection<RaftPeer> getPeers() {
