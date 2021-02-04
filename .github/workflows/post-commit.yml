@@ -15,6 +15,7 @@
 name: build-branch
 on:
   - push
+  - pull_request
 jobs:
   build:
     name: compile
@@ -60,11 +61,14 @@ jobs:
     steps:
         - uses: actions/checkout@master
         - run: ./dev-support/checks/sonar.sh
-          if: github.repository == 'apache/incubator-ratis'
+          if: github.repository == 'apache/incubator-ratis' && github.event_name != 'pull_request'
           env:
             SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         - run: ./dev-support/checks/unit.sh
+        - name: Summary of failures
+          run: cat target/${{ github.job }}/summary.txt
+          if: always()
         - uses: actions/upload-artifact@master
           if: always()
           with:
