@@ -31,8 +31,10 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.m2/repository
-          key: maven-repo-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-repo-
+          key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+          restore-keys: |
+            maven-repo-${{ hashFiles('**/pom.xml') }}
+            maven-repo-
       - name: Setup java
         uses: actions/setup-java@v1
         with:
@@ -47,12 +49,23 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
+        - name: Cache for maven dependencies
+          uses: actions/cache@v2
+          with:
+            path: ~/.m2/repository
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            restore-keys: |
+              maven-repo-${{ hashFiles('**/pom.xml') }}
+              maven-repo-
         - run: ./dev-support/checks/rat.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
             name: rat
             path: target/rat
+        - name: Delete temporary build artifacts
+          run: rm -rf ~/.m2/repository/org/apache/ratis
+          if: always()
   author:
     name: author
     runs-on: ubuntu-18.04
@@ -73,8 +86,10 @@ jobs:
           uses: actions/cache@v2
           with:
             path: ~/.m2/repository
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}
-            restore-keys: maven-repo-
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            restore-keys: |
+              maven-repo-${{ hashFiles('**/pom.xml') }}
+              maven-repo-
         - run: ./dev-support/checks/sonar.sh
           if: github.repository == 'apache/incubator-ratis' && github.event_name != 'pull_request'
           env:
@@ -101,8 +116,10 @@ jobs:
           uses: actions/cache@v2
           with:
             path: ~/.m2/repository
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}
-            restore-keys: maven-repo-
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            restore-keys: |
+              maven-repo-${{ hashFiles('**/pom.xml') }}
+              maven-repo-
         - run: ./dev-support/checks/checkstyle.sh
         - uses: actions/upload-artifact@master
           if: always()
@@ -121,8 +138,10 @@ jobs:
           uses: actions/cache@v2
           with:
             path: ~/.m2/repository
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}
-            restore-keys: maven-repo-
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            restore-keys: |
+              maven-repo-${{ hashFiles('**/pom.xml') }}
+              maven-repo-
         - run: ./dev-support/checks/findbugs.sh
         - uses: actions/upload-artifact@master
           if: always()
