@@ -440,9 +440,10 @@ public interface StateMachine extends Closeable {
 
   /**
    * Apply a committed log entry to the state machine. This method is called sequentially in
-   * strict serial order that the transactions have been committed in the log. However,
-   * due to this call returning a future, depending on implementations, the order of applying
-   * entries to state machine is not guaranteed to be the same as the log commit order.
+   * strict serial order that the transactions have been committed in the log. Note that this
+   * method, which returns a future, is asynchronous. The state machine implementation may
+   * choose to apply the log entries in parallel. In that case, the order of applying entries to
+   * state machine could possibly be different from the log commit order.
    * @param trx the transaction state including the log entry that has been committed to a quorum
    *            of the raft peers
    */
