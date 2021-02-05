@@ -79,7 +79,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   private static final int PURGE_GAP = 8;
   private static final AtomicReference<SnapshotInfo> leaderSnapshotInfoRef = new AtomicReference<>();
 
-  private static AtomicInteger numSnapshotRequests = new AtomicInteger();
+  private static final AtomicInteger numSnapshotRequests = new AtomicInteger();
 
   private static class StateMachine4InstallSnapshotNotificationTests extends SimpleStateMachine4Testing {
     @Override
@@ -255,7 +255,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
 
   private void testInstallSnapshotNotificationCount(CLUSTER cluster) throws Exception {
+    leaderSnapshotInfoRef.set(null);
     final List<LogSegmentPath> logs;
+    int i = 0;
     try {
       RaftTestUtil.waitForLeader(cluster);
       final RaftPeerId leaderId = cluster.getLeader().getId();
@@ -264,21 +266,27 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       ONE_SECOND.sleep();
       Assert.assertEquals(0, numSnapshotRequests.get());
 
-      // Generate enough data to trigger snapshot.
+      // Generate data.
       try(final RaftClient client = cluster.createClient(leaderId)) {
-        for (int i = 0; i < SNAPSHOT_TRIGGER_THRESHOLD; i++) {
+        for (; i < 10; i++) {
           RaftClientReply
               reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
           Assert.assertTrue(reply.isSuccess());
         }
       }
 
-      // wait for the snapshot to be done
+      // Take snapshot.
+      cluster.getLeader().getStateMachine().takeSnapshot();
+      final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
+      final boolean set = leaderSnapshotInfoRef.compareAndSet(null, leaderSnapshotInfo);
+      Assert.assertTrue(set);
+
+      // Wait for the snapshot to be done.
       final RaftServer.Division leader = cluster.getLeader();
       final long nextIndex = leader.getRaftLog().getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
-          nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
+          0, nextIndex);
       JavaUtils.attemptRepeatedly(() -> {
         Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
         return null;
@@ -298,6 +306,16 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       ONE_SECOND.sleep();
       Assert.assertEquals(0, numSnapshotRequests.get());
 
+      // Make sure leader and followers are still up to date.
+      for (RaftServer.Division follower : cluster.getFollowers()) {
+        Assert.assertEquals(
+            leader.getRaftLog().getNextIndex(),
+            follower.getRaftLog().getNextIndex());
+      }
+
+      // TODO: Determine why configuration check never passes.
+      //  s1 continues to believe it is the leader even though all others
+      //  vote for a different leader.
       // add two more peers
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true);
       // trigger setConfiguration
@@ -305,11 +323,20 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       RaftServerTestUtil
           .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
 
-      // Make sure they each get a snapshot notification.
-      JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertEquals(2, numSnapshotRequests.get());
-        return null;
-      }, 10, ONE_SECOND, "peers received snapshots", LOG);
+      // Generate more data.
+      try (final RaftClient client = cluster.createClient(leader.getId())) {
+        Assert.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
+      }
+
+      // Make sure leader and followers are still up to date.
+      for (RaftServer.Division follower : cluster.getFollowers()) {
+        Assert.assertEquals(
+            leader.getRaftLog().getNextIndex(),
+            follower.getRaftLog().getNextIndex());
+      }
+
+      // Make sure each new peer got one snapshot notification.
+      Assert.assertEquals(2, numSnapshotRequests.get());
 
     } finally {
       cluster.shutdown();
