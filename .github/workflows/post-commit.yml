@@ -147,7 +147,7 @@ jobs:
           run: rm -rf ~/.m2/repository/org/apache/ratis
           if: always()
   sonar:
-    name: unit
+    name: sonar
     runs-on: ubuntu-18.04
     if: github.event_name != 'pull_request'
     steps:
