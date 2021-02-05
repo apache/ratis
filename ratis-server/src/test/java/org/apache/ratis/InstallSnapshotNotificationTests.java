@@ -30,7 +30,6 @@ import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
-import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -51,6 +50,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftCluster>
@@ -79,11 +79,16 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   private static final int PURGE_GAP = 8;
   private static final AtomicReference<SnapshotInfo> leaderSnapshotInfoRef = new AtomicReference<>();
 
+  private static AtomicInteger numSnapshotRequests = new AtomicInteger();
+
   private static class StateMachine4InstallSnapshotNotificationTests extends SimpleStateMachine4Testing {
     @Override
     public CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
         RaftProtos.RoleInfoProto roleInfoProto,
         TermIndex termIndex) {
+
+      numSnapshotRequests.incrementAndGet();
+
       final SingleFileSnapshotInfo leaderSnapshotInfo = (SingleFileSnapshotInfo) leaderSnapshotInfoRef.get();
       LOG.info("{}: leaderSnapshotInfo = {}", getId(), leaderSnapshotInfo);
       if (leaderSnapshotInfo == null) {
@@ -236,6 +241,78 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       Assert.assertTrue(newLeaderNextIndex > oldLeaderNextIndex);
       Assert.assertEquals(newLeaderNextIndex, follower.getRaftLog().getNextIndex());
     }, 10, ONE_SECOND, "followerNextIndex", LOG);
+  }
 
+
+
+
+
+  @Test
+  public void testInstallSnapshotNotificationCount() throws Exception {
+    runWithNewCluster(3, this::testInstallSnapshotNotificationCount);
+  }
+
+
+
+  private void testInstallSnapshotNotificationCount(CLUSTER cluster) throws Exception {
+    final List<LogSegmentPath> logs;
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+
+      // Let a few heartbeats pass.
+      ONE_SECOND.sleep();
+      Assert.assertEquals(0, numSnapshotRequests.get());
+
+      // Generate enough data to trigger snapshot.
+      try(final RaftClient client = cluster.createClient(leaderId)) {
+        for (int i = 0; i < SNAPSHOT_TRIGGER_THRESHOLD; i++) {
+          RaftClientReply
+              reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+          Assert.assertTrue(reply.isSuccess());
+        }
+      }
+
+      // wait for the snapshot to be done
+      final RaftServer.Division leader = cluster.getLeader();
+      final long nextIndex = leader.getRaftLog().getNextIndex();
+      LOG.info("nextIndex = {}", nextIndex);
+      final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
+          nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
+      JavaUtils.attemptRepeatedly(() -> {
+        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        return null;
+      }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
+
+      // Clear logs and cached log start index.
+      leader.getRaftLog().truncate(leader.getRaftLog().getLastCommittedIndex()).get();
+      leader.getRaftLog().purge(leader.getRaftLog().getLastCommittedIndex()).get();
+
+      // Check that logs are gone.
+      Assert.assertEquals(0,
+          LogSegmentPath.getLogSegmentPaths(leader.getRaftStorage()).size());
+      Assert.assertEquals(RaftLog.INVALID_LOG_INDEX, leader.getRaftLog().getStartIndex());
+
+      // Allow some heartbeats to go through, then make sure none of them had
+      // snapshot requests.
+      ONE_SECOND.sleep();
+      Assert.assertEquals(0, numSnapshotRequests.get());
+
+      // add two more peers
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true);
+      // trigger setConfiguration
+      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil
+          .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+
+      // Make sure they each get a snapshot notification.
+      JavaUtils.attemptRepeatedly(() -> {
+        Assert.assertEquals(2, numSnapshotRequests.get());
+        return null;
+      }, 10, ONE_SECOND, "peers received snapshots", LOG);
+
+    } finally {
+      cluster.shutdown();
+    }
   }
 }
