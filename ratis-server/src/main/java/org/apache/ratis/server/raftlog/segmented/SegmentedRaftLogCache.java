@@ -399,7 +399,7 @@ public class SegmentedRaftLogCache {
   }
 
   public long getOpenSegmentSizeInBytes() {
-    return openSegment.getTotalFileSize();
+    return openSegment == null ? 0 : openSegment.getTotalFileSize();
   }
 
   public long getTotalCacheSize() {
