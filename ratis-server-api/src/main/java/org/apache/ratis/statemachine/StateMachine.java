@@ -439,9 +439,11 @@ public interface StateMachine extends Closeable {
   TransactionContext applyTransactionSerial(TransactionContext trx);
 
   /**
-   * Apply a committed log entry to the state machine. This method can be called concurrently with
-   * the other calls, and there is no guarantee that the calls will be ordered according to the
-   * log commit order.
+   * Apply a committed log entry to the state machine. This method is called sequentially in
+   * strict serial order that the transactions have been committed in the log. Note that this
+   * method, which returns a future, is asynchronous. The state machine implementation may
+   * choose to apply the log entries in parallel. In that case, the order of applying entries to
+   * state machine could possibly be different from the log commit order.
    * @param trx the transaction state including the log entry that has been committed to a quorum
    *            of the raft peers
    */
