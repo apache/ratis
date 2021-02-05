@@ -149,7 +149,7 @@ jobs:
   sonar:
     name: unit
     runs-on: ubuntu-18.04
-    if: github.repository == 'apache/incubator-ratis' && github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request'
     steps:
         - uses: actions/checkout@master
         - name: Cache for maven dependencies
@@ -166,7 +166,7 @@ jobs:
             java-version: 11
         - run: ./dev-support/checks/sonar.sh
           env:
-            SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+            SONAR_TOKEN: no-token-just-testing
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         - name: Delete temporary build artifacts
           run: rm -rf ~/.m2/repository/org/apache/ratis
