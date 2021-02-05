@@ -243,15 +243,10 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     }, 10, ONE_SECOND, "followerNextIndex", LOG);
   }
 
-
-
-
-
   @Test
   public void testInstallSnapshotNotificationCount() throws Exception {
     runWithNewCluster(3, this::testInstallSnapshotNotificationCount);
   }
-
 
 
   private void testInstallSnapshotNotificationCount(CLUSTER cluster) throws Exception {
