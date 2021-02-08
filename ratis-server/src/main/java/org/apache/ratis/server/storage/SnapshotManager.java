@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.UUID;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -54,6 +55,7 @@ public class SnapshotManager {
     this.selfId = selfId;
   }
 
+  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
   public void installSnapshot(StateMachine stateMachine,
       InstallSnapshotRequestProto request) throws IOException {
     final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest =

@@ -18,10 +18,12 @@
 
 package org.apache.ratis.grpc.metrics.intercept.server;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.thirdparty.io.grpc.ForwardingServerCallListener;
 import org.apache.ratis.thirdparty.io.grpc.ServerCall;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
 
+@SuppressFBWarnings("URF_UNREAD_FIELD")
 public class MetricServerCallListener<R> extends ForwardingServerCallListener<R> {
   private final ServerCall.Listener<R> delegate;
   private final String metricNamePrefix;

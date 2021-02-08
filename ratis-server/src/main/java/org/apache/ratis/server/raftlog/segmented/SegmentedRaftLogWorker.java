@@ -19,6 +19,7 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Timer;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientInvocationId;
@@ -344,6 +345,7 @@ class SegmentedRaftLogWorker {
         (pendingFlushNum > 0 && queue.isEmpty());
   }
 
+  @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
   private void flushWrites() throws IOException {
     if (out != null) {
       LOG.debug("{}: flush {}", name, out);

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.WatchRequestTypeProto;
@@ -135,6 +136,7 @@ class WatchRequests {
       return true;
     }
 
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     synchronized void updateIndex(final long newIndex) {
       if (newIndex <= getIndex()) { // compare again synchronized
         return;
@@ -185,6 +187,7 @@ class WatchRequests {
     Arrays.stream(ReplicationLevel.values()).forEach(r -> queues.put(r, new WatchQueue(r, elementLimit)));
   }
 
+  @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
   CompletableFuture<Void> add(RaftClientRequest request) {
     final WatchRequestTypeProto watch = request.getType().getWatch();
     final WatchQueue queue = queues.get(watch.getReplication());

@@ -273,7 +273,7 @@ abstract class FileInfo {
         committedSize += size;
 
         if (close) {
-          closeFunction.apply(this);
+          ReadOnly ignored = closeFunction.apply(this);
           writeInfos.remove(index);
         }
         info.getCommitFuture().complete(size);

@@ -29,6 +29,7 @@ import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 import com.codahale.metrics.Timer;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.logservice.api.LogInfo;
@@ -127,6 +128,7 @@ public class MetaStateMachine extends BaseStateMachine {
     }
 
     @Override
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
     public TransactionContext applyTransactionSerial(TransactionContext trx) {
         RaftProtos.LogEntryProto x = trx.getLogEntry();
         MetaSMRequestProto req = null;
@@ -201,6 +203,7 @@ public class MetaStateMachine extends BaseStateMachine {
     }
 
     @Override
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
     public CompletableFuture<Message> query(Message request) {
         Timer.Context timerContext = null;
         MetaServiceProtos.MetaServiceRequestProto.TypeCase type = null;
@@ -403,7 +406,7 @@ public class MetaStateMachine extends BaseStateMachine {
     }
 
 
-    class PeerGroups implements Comparable{
+    static class PeerGroups implements Comparable{
         private RaftPeer peer;
         private Set<RaftGroup> groups = new HashSet<>();
 
@@ -420,6 +423,7 @@ public class MetaStateMachine extends BaseStateMachine {
         }
 
         @Override
+        @SuppressFBWarnings("EQ_COMPARETO_USE_OBJECT_EQUALS")
         public int compareTo(Object o) {
             return groups.size() - ((PeerGroups) o).groups.size();
         }

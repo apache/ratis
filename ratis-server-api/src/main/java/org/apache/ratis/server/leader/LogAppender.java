@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.leader;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -127,6 +128,7 @@ public interface LogAppender {
    * (2) log indices changed, or
    * (3) a snapshot installation completed.
    */
+  @SuppressFBWarnings("NN_NAKED_NOTIFY")
   default void notifyLogAppender() {
     synchronized (this) {
       notify();

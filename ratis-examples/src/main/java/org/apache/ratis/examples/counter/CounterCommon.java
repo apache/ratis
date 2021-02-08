@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,12 +31,14 @@ import java.util.UUID;
  * Common Constant across servers and client
  */
 public final class CounterCommon {
-  public static final List<RaftPeer> PEERS = new ArrayList<>(3);
+  public static final List<RaftPeer> PEERS;
 
   static {
-    PEERS.add(RaftPeer.newBuilder().setId("n1").setAddress("127.0.0.1:6000").build());
-    PEERS.add(RaftPeer.newBuilder().setId("n2").setAddress("127.0.0.1:6001").build());
-    PEERS.add(RaftPeer.newBuilder().setId("n3").setAddress("127.0.0.1:6002").build());
+    List<RaftPeer> peers = new ArrayList<>(3);
+    peers.add(RaftPeer.newBuilder().setId("n1").setAddress("127.0.0.1:6000").build());
+    peers.add(RaftPeer.newBuilder().setId("n2").setAddress("127.0.0.1:6001").build());
+    peers.add(RaftPeer.newBuilder().setId("n3").setAddress("127.0.0.1:6002").build());
+    PEERS = Collections.unmodifiableList(peers);
   }
 
   private CounterCommon() {

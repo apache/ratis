@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
@@ -101,6 +102,7 @@ public class PendingRequest implements Comparable<PendingRequest> {
   }
 
   @Override
+  @SuppressFBWarnings("EQ_COMPARETO_USE_OBJECT_EQUALS")
   public int compareTo(PendingRequest that) {
     return Long.compare(this.index, that.index);
   }

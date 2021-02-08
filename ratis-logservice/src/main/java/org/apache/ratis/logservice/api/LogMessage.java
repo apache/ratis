@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.logservice.api;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.protocol.Message;
 
 public abstract class LogMessage implements Message {
@@ -24,6 +25,7 @@ public abstract class LogMessage implements Message {
   /*
    * Log name
    */
+  @SuppressFBWarnings("UWF_UNWRITTEN_FIELD")
   private LogName logName;
 
   /**

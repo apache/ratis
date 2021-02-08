@@ -59,9 +59,7 @@ public class ArchivedLogStreamImpl implements LogStream {
 
   public ArchivedLogStreamImpl(LogName name, LogServiceConfiguration config) {
     this(name, config.get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY));
-    if(config!=null) {
-      this.config = config;
-    }
+    this.config = config;
     init();
   }
 

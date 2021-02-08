@@ -546,7 +546,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
 
     synchronized (this) {
-      if (isRunning() && !responseHandler.isDone()) {
+      while (isRunning() && !responseHandler.isDone()) {
         try {
           wait();
         } catch (InterruptedException ignored) {

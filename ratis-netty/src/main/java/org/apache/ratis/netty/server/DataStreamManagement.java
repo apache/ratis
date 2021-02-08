@@ -18,6 +18,7 @@
 
 package org.apache.ratis.netty.server;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.client.AsyncRpcApi;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
@@ -105,6 +106,7 @@ public class DataStreamManagement {
     private final LocalStream local;
     private final Set<RemoteStream> remotes;
     private final RaftServer server;
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     private final AtomicReference<CompletableFuture<Void>> previous
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
 

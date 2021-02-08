@@ -20,19 +20,19 @@ MAVEN_OPTIONS='-B -fae'
 
 if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
   #shellcheck disable=SC2086
-  mvn ${MAVEN_OPTIONS} compile findbugs:check
+  mvn ${MAVEN_OPTIONS} compile spotbugs:check
   exit $?
 fi
 
 #shellcheck disable=SC2086
-mvn ${MAVEN_OPTIONS} compile findbugs:findbugs
+mvn ${MAVEN_OPTIONS} compile spotbugs:spotbugs
 rc=$?
 
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/findbugs"}
 mkdir -p "$REPORT_DIR"
 REPORT_FILE="$REPORT_DIR/summary.txt"
 
-find ratis* -name findbugsXml.xml -print0 | xargs -0 unionBugs -output "${REPORT_DIR}"/summary.xml
+find ratis* -name spotbugsXml.xml -print0 | xargs -0 unionBugs -output "${REPORT_DIR}"/summary.xml
 convertXmlToText "${REPORT_DIR}"/summary.xml | tee "${REPORT_FILE}"
 convertXmlToText -html:fancy-hist.xsl "${REPORT_DIR}"/summary.xml "${REPORT_DIR}"/summary.html
 
