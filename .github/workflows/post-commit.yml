@@ -27,23 +27,45 @@ jobs:
     steps:
       - name: Checkout project
         uses: actions/checkout@v2
+      - name: Cache for maven dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+          restore-keys: |
+            maven-repo-${{ hashFiles('**/pom.xml') }}
+            maven-repo-
       - name: Setup java
         uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
       - name: Run a full build
         run: ./dev-support/checks/build.sh
+      - name: Delete temporary build artifacts
+        run: rm -rf ~/.m2/repository/org/apache/ratis
+        if: always()
   rat:
     name: rat
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
+        - name: Cache for maven dependencies
+          uses: actions/cache@v2
+          with:
+            path: ~/.m2/repository
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            restore-keys: |
+              maven-repo-${{ hashFiles('**/pom.xml') }}
+              maven-repo-
         - run: ./dev-support/checks/rat.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
             name: rat
             path: target/rat
+        - name: Delete temporary build artifacts
+          run: rm -rf ~/.m2/repository/org/apache/ratis
+          if: always()
   author:
     name: author
     runs-on: ubuntu-18.04
@@ -60,6 +82,14 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
+        - name: Cache for maven dependencies
+          uses: actions/cache@v2
+          with:
+            path: ~/.m2/repository
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            restore-keys: |
+              maven-repo-${{ hashFiles('**/pom.xml') }}
+              maven-repo-
         - run: ./dev-support/checks/sonar.sh
           if: github.repository == 'apache/incubator-ratis' && github.event_name != 'pull_request'
           env:
@@ -74,25 +104,50 @@ jobs:
           with:
             name: unit
             path: target/unit
+        - name: Delete temporary build artifacts
+          run: rm -rf ~/.m2/repository/org/apache/ratis
+          if: always()
   checkstyle:
     name: checkstyle
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
+        - name: Cache for maven dependencies
+          uses: actions/cache@v2
+          with:
+            path: ~/.m2/repository
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            restore-keys: |
+              maven-repo-${{ hashFiles('**/pom.xml') }}
+              maven-repo-
         - run: ./dev-support/checks/checkstyle.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
             name: checkstyle
             path: target/checkstyle
+        - name: Delete temporary build artifacts
+          run: rm -rf ~/.m2/repository/org/apache/ratis
+          if: always()
   findbugs:
     name: findbugs
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
+        - name: Cache for maven dependencies
+          uses: actions/cache@v2
+          with:
+            path: ~/.m2/repository
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            restore-keys: |
+              maven-repo-${{ hashFiles('**/pom.xml') }}
+              maven-repo-
         - run: ./dev-support/checks/findbugs.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
             name: findbugs
             path: target/findbugs
+        - name: Delete temporary build artifacts
+          run: rm -rf ~/.m2/repository/org/apache/ratis
+          if: always()
