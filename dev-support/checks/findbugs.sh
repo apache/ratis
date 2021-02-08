@@ -20,12 +20,12 @@ MAVEN_OPTIONS='-B -fae'
 
 if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
   #shellcheck disable=SC2086
-  mvn ${MAVEN_OPTIONS} compile spotbugs:check
+  mvn ${MAVEN_OPTIONS} test-compile spotbugs:check
   exit $?
 fi
 
 #shellcheck disable=SC2086
-mvn ${MAVEN_OPTIONS} compile spotbugs:spotbugs
+mvn ${MAVEN_OPTIONS} test-compile spotbugs:spotbugs
 rc=$?
 
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/findbugs"}
