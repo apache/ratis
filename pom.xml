@@ -202,7 +202,7 @@
     <apache-rat-plugin.version>0.13</apache-rat-plugin.version>
     <build-helper-maven-plugin.version>1.9</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>1.6.0</exec-maven-plugin.version>
-    <findbugs.version>3.0.0</findbugs.version>
+    <findbugs.version>3.0.5</findbugs.version>
     <wagon-ssh.version>1.0</wagon-ssh.version>
 
     <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
