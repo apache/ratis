@@ -20,6 +20,8 @@
  */
 package org.apache.ratis.util;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import java.util.zip.Checksum;
 
 /**
@@ -49,6 +51,7 @@ public class PureJavaCrc32C implements Checksum {
   }
 
   @Override
+  @SuppressFBWarnings("SF_SWITCH_NO_DEFAULT")
   public void update(byte[] b, int off, int len) {
     int localCrc = crc;
 

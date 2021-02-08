@@ -278,7 +278,7 @@ public class FileStore implements Closeable {
   CompletableFuture<?> streamLink(DataStream dataStream) {
     return CompletableFuture.supplyAsync(() -> {
       if (dataStream == null) {
-        return JavaUtils.completeExceptionally(new IllegalStateException("Null stream: entry=" + dataStream));
+        return JavaUtils.completeExceptionally(new IllegalStateException("Null stream"));
       }
       if (dataStream.getDataChannel().isOpen()) {
         return JavaUtils.completeExceptionally(

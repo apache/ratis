@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.Message;
@@ -155,6 +156,7 @@ class StateMachineUpdater implements Runnable {
     notifyUpdater();
   }
 
+  @SuppressFBWarnings("NN_NAKED_NOTIFY")
   synchronized void notifyUpdater() {
     notifyAll();
   }

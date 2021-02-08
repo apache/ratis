@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.grpc.server;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
@@ -41,7 +42,7 @@ import java.util.function.Supplier;
 class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
 
-  class PendingServerRequest<REQUEST> {
+  static class PendingServerRequest<REQUEST> {
     private final REQUEST request;
     private final CompletableFuture<Void> future = new CompletableFuture<>();
 
@@ -105,6 +106,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     }
 
     @Override
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     public void onNext(REQUEST request) {
       if (!replyInOrder(request)) {
         try {

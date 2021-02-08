@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
@@ -397,6 +398,7 @@ public final class LogSegment implements Comparable<Long> {
   }
 
   @Override
+  @SuppressFBWarnings("EQ_COMPARETO_USE_OBJECT_EQUALS")
   public int compareTo(Long l) {
     return (l >= getStartIndex() && l <= getEndIndex()) ? 0 :
         (this.getEndIndex() < l ? -1 : 1);

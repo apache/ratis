@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ServiceException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ClientReplyProto;
@@ -52,6 +53,7 @@ public class CombinedClientProtocolServerSideTranslatorPB
   }
 
   @Override
+  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
   public ClientReplyProto sendClient(RpcController unused, ClientRequestProto req) throws ServiceException {
     ByteBuffer buf = req.getRequest().asReadOnlyByteBuffer();
     GeneratedMessageV3 response = null;

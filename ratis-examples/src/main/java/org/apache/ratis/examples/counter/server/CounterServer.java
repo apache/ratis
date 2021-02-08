@@ -31,6 +31,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Scanner;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
  * Simplest Ratis server, use a simple state machine {@link CounterStateMachine}
  * which maintain a counter across multi server.
@@ -45,7 +47,7 @@ public final class CounterServer {
   private CounterServer(){
   }
 
-  public static void main(String[] args) throws IOException, InterruptedException {
+  public static void main(String[] args) throws IOException {
     if (args.length < 1) {
       System.err.println("Usage: java -cp *.jar org.apache.ratis.examples.counter.server.CounterServer {serverIndex}");
       System.err.println("{serverIndex} could be 1, 2 or 3");
@@ -81,7 +83,7 @@ public final class CounterServer {
     server.start();
 
     //exit when any input entered
-    Scanner scanner = new Scanner(System.in);
+    Scanner scanner = new Scanner(System.in, UTF_8.name());
     scanner.nextLine();
     server.close();
   }

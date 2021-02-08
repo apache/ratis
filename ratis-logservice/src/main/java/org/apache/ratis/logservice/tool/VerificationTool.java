@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.logservice.api.LogInfo;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogReader;
@@ -185,7 +186,8 @@ public class VerificationTool {
       return LogName.of(LOG_NAME_PREFIX + id);
     }
 
-    private static void waitForCompletion(List<Future<?>> futures) {
+  @SuppressFBWarnings("DM_EXIT")
+  private static void waitForCompletion(List<Future<?>> futures) {
         for (Future<?> future : futures) {
             try {
                 Object object = future.get();
@@ -385,6 +387,7 @@ public class VerificationTool {
           super(logName, client, numRecords, logFreq, valueSize);
       }
 
+        @SuppressFBWarnings("DM_EXIT")
         public void run() {
             try {
                 LogStream logStream = getClient().getLog(getLogName());

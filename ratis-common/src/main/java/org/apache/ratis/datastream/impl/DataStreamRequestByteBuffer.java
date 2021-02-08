@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.datastream.impl;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
@@ -39,6 +40,7 @@ public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer impl
   }
 
   @Override
+  @SuppressFBWarnings("EI_EXPOSE_REP")
   public WriteOption[] getWriteOptions() {
     return options;
   }

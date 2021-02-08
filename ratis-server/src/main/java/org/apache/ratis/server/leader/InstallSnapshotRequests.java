@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.leader;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto.SnapshotChunkProto;
@@ -77,6 +78,7 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
       }
 
       @Override
+      @SuppressFBWarnings("IT_NO_SUCH_ELEMENT")
       public InstallSnapshotRequestProto next() {
         return nextInstallSnapshotRequestProto();
       }

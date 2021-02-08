@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
@@ -50,7 +49,6 @@ import java.util.function.Supplier;
 public interface JavaUtils {
   Logger LOG = LoggerFactory.getLogger(JavaUtils.class);
 
-  DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss,SSS");
   CompletableFuture[] EMPTY_COMPLETABLE_FUTURE_ARRAY = {};
 
   ConcurrentMap<Class<?>, String> CLASS_SIMPLE_NAMES = new ConcurrentHashMap<>();
@@ -59,7 +57,7 @@ public interface JavaUtils {
   }
 
   static String date() {
-    return DATE_FORMAT.format(new Date());
+    return new SimpleDateFormat("yyyy-MM-dd hh:mm:ss,SSS").format(new Date());
   }
 
   /**

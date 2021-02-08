@@ -337,8 +337,7 @@ public class GrpcClientStreamer implements Closeable {
     refreshLeader(nle.getSuggestedLeader().getId(), oldLeader);
   }
 
-  private void handleError(Throwable t, ResponseHandler handler) {
-    Preconditions.assertTrue(Thread.holdsLock(GrpcClientStreamer.this));
+  private synchronized void handleError(Throwable t, ResponseHandler handler) {
     final IOException e = GrpcUtil.unwrapIOException(t);
 
     exceptionAndRetry.addException(handler.targetId, e);

@@ -18,6 +18,7 @@
 
 package org.apache.ratis.netty.server;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.ClientId;
@@ -36,6 +37,7 @@ public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements Da
   private final ByteBuf buf;
   private final WriteOption[] options;
 
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DataStreamRequestByteBuf(ClientId clientId, Type type, long streamId, long streamOffset, WriteOption[] options,
       ByteBuf buf) {
     super(clientId, type, streamId, streamOffset);
@@ -58,6 +60,7 @@ public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements Da
   }
 
   @Override
+  @SuppressFBWarnings("EI_EXPOSE_REP")
   public WriteOption[] getWriteOptions() {
     return options;
   }

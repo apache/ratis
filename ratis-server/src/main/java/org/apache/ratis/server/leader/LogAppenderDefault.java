@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.leader;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
@@ -42,6 +43,7 @@ class LogAppenderDefault extends LogAppenderBase {
   }
 
   /** Send an appendEntries RPC; retry indefinitely. */
+  @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
   private AppendEntriesReplyProto sendAppendEntriesWithRetries()
       throws InterruptedException, InterruptedIOException, RaftLogIOException {
     int retry = 0;

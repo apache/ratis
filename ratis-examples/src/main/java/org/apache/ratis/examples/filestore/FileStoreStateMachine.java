@@ -153,7 +153,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
     return reply.thenApply(ExamplesProtos.ReadReplyProto::getData);
   }
 
-  class LocalStream implements DataStream {
+  static class LocalStream implements DataStream {
     private final DataChannel dataChannel;
 
     LocalStream(DataChannel dataChannel) {

@@ -34,7 +34,7 @@ public final class NullValue implements Expression {
   @Override
   public int toBytes(byte[] buf, int offset) {
     Preconditions.assertTrue(offset + length() <= buf.length);
-    buf[offset++] = Type.NULL.byteValue();
+    buf[offset] = Type.NULL.byteValue();
     return length();
   }
 

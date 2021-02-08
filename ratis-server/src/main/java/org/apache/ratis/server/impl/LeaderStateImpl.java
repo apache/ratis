@@ -889,7 +889,7 @@ class LeaderStateImpl implements LeaderState {
                 "is higher than leader's:{} and leader's lastEntry is null",
             this, followerID, currentTerm, followerPriority, leaderPriority);
 
-        sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
+        sendStartLeaderElectionToHigherPriorityPeer(followerID, null);
         return;
       }
 

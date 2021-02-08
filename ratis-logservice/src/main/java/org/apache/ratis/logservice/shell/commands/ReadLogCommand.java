@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogReader;
 import org.apache.ratis.logservice.api.LogStream;
@@ -36,6 +37,7 @@ public class ReadLogCommand implements Command {
   }
 
   @Override
+  @SuppressFBWarnings("REC_CATCH_EXCEPTION")
   public void run(Terminal terminal, LineReader lineReader, LogServiceClient client, String[] args) {
     if (args.length != 1) {
       terminal.writer().println("ERROR - Usage: read <name>");
