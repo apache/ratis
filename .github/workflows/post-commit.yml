@@ -80,6 +80,12 @@ jobs:
   unit:
     name: unit
     runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        profile:
+          - grpc
+          - server
+          - misc
     steps:
         - uses: actions/checkout@master
         - name: Cache for maven dependencies
@@ -90,14 +96,14 @@ jobs:
             restore-keys: |
               maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
-        - run: ./dev-support/checks/unit.sh
+        - run: ./dev-support/checks/unit.sh -P${{ matrix.profile }}-tests
         - name: Summary of failures
           run: cat target/${{ github.job }}/summary.txt
-          if: always()
+          if: ${{ !cancelled() }}
         - uses: actions/upload-artifact@master
-          if: always()
+          if: ${{ !cancelled() }}
           with:
-            name: unit
+            name: unit-${{ matrix.profile }}
             path: target/unit
         - name: Delete temporary build artifacts
           run: rm -rf ~/.m2/repository/org/apache/ratis
