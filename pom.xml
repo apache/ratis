@@ -1108,6 +1108,7 @@
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
               <includes>
+                <include>org.apache.ratis.datastream.**</include>
                 <include>org.apache.ratis.server.**</include>
               </includes>
             </configuration>
@@ -1124,6 +1125,7 @@
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
               <excludes>
+                <exclude>org.apache.ratis.datastream.**</exclude>
                 <exclude>org.apache.ratis.grpc.**</exclude>
                 <exclude>org.apache.ratis.server.**</exclude>
               </excludes>
