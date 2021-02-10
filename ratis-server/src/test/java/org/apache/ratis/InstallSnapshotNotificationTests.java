@@ -251,7 +251,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
   private void testInstallSnapshotNotificationCount(CLUSTER cluster) throws Exception {
     leaderSnapshotInfoRef.set(null);
-    final List<LogSegmentPath> logs;
+    numSnapshotRequests.set(0);
+
     int i = 0;
     try {
       RaftTestUtil.waitForLeader(cluster);
