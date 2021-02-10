@@ -270,16 +270,19 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         }
       }
 
-      // Take snapshot.
-      cluster.getLeader().getStateMachine().takeSnapshot();
+      // Take snapshot and check result.
+      long snapshotIndex = cluster.getLeader().getStateMachine().takeSnapshot();
+      Assert.assertEquals(20, snapshotIndex);
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
+      Assert.assertEquals(20, leaderSnapshotInfo.getIndex());
       final boolean set = leaderSnapshotInfoRef.compareAndSet(null, leaderSnapshotInfo);
       Assert.assertTrue(set);
 
       // Wait for the snapshot to be done.
       final RaftServer.Division leader = cluster.getLeader();
       final long nextIndex = leader.getRaftLog().getNextIndex();
-      LOG.info("nextIndex = {}", nextIndex);
+      Assert.assertEquals(21, nextIndex);
+      // End index is exclusive.
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
           0, nextIndex);
       JavaUtils.attemptRepeatedly(() -> {
@@ -287,9 +290,10 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
 
-      // Clear logs and cached log start index.
-      leader.getRaftLog().truncate(leader.getRaftLog().getLastCommittedIndex()).get();
-      leader.getRaftLog().purge(leader.getRaftLog().getLastCommittedIndex()).get();
+      // Clear all log files and reset cached log start index.
+      long snapshotInstallIndex =
+          leader.getRaftLog().onSnapshotInstalled(leader.getRaftLog().getLastCommittedIndex()).get();
+      Assert.assertEquals(20, snapshotInstallIndex);
 
       // Check that logs are gone.
       Assert.assertEquals(0,
@@ -308,10 +312,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
             follower.getRaftLog().getNextIndex());
       }
 
-      // TODO: Determine why configuration check never passes.
-      //  s1 continues to believe it is the leader even though all others
-      //  vote for a different leader.
-      // add two more peers
+      // Add two more peers who will need snapshots from the leader.
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true);
       // trigger setConfiguration
       cluster.setConfiguration(change.allPeersInNewConf);
