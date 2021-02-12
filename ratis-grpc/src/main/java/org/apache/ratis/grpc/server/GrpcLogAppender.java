@@ -562,8 +562,16 @@ public class GrpcLogAppender extends LogAppenderBase {
    * @return the first available log's start term index
    */
   private TermIndex shouldNotifyToInstallSnapshot() {
+    final long followerNextIndex = getFollower().getNextIndex();
+    final long leaderNextIndex = getRaftLog().getNextIndex();
+
+    if (followerNextIndex >= leaderNextIndex) {
+      return null;
+    }
+
     final long leaderStartIndex = getRaftLog().getStartIndex();
-    if (getFollower().getNextIndex() < leaderStartIndex) {
+
+    if (followerNextIndex < leaderStartIndex) {
       // The Leader does not have the logs from the Follower's last log
       // index onwards. And install snapshot is disabled. So the Follower
       // should be notified to install the latest snapshot through its
@@ -572,8 +580,9 @@ public class GrpcLogAppender extends LogAppenderBase {
     } else if (leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
       // Leader has no logs to check from, hence return next index.
       return TermIndex.valueOf(getServer().getInfo().getCurrentTerm(),
-          getRaftLog().getNextIndex());
+          leaderNextIndex);
     }
+
     return null;
   }
 
