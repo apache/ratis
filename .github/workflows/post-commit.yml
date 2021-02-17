@@ -90,11 +90,6 @@ jobs:
             restore-keys: |
               maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
-        - run: ./dev-support/checks/sonar.sh
-          if: github.repository == 'apache/incubator-ratis' && github.event_name != 'pull_request'
-          env:
-            SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         - run: ./dev-support/checks/unit.sh
         - name: Summary of failures
           run: cat target/${{ github.job }}/summary.txt
@@ -148,6 +143,31 @@ jobs:
           with:
             name: findbugs
             path: target/findbugs
+        - name: Delete temporary build artifacts
+          run: rm -rf ~/.m2/repository/org/apache/ratis
+          if: always()
+  sonar:
+    name: sonar
+    runs-on: ubuntu-18.04
+    if: github.repository == 'apache/incubator-ratis' && github.event_name != 'pull_request'
+    steps:
+        - uses: actions/checkout@master
+        - name: Cache for maven dependencies
+          uses: actions/cache@v2
+          with:
+            path: ~/.m2/repository
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            restore-keys: |
+              maven-repo-${{ hashFiles('**/pom.xml') }}
+              maven-repo-
+        - name: Setup java 11
+          uses: actions/setup-java@v1
+          with:
+            java-version: 11
+        - run: ./dev-support/checks/sonar.sh
+          env:
+            SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         - name: Delete temporary build artifacts
           run: rm -rf ~/.m2/repository/org/apache/ratis
           if: always()
