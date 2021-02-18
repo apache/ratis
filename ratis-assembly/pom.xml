@@ -205,6 +205,10 @@
       <type>test-jar</type>
     </dependency>
     <dependency>
+      <artifactId>ratis-server-api</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
       <artifactId>ratis-server</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>

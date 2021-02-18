@@ -40,6 +40,7 @@
         <include>org.apache.ratis:ratis-proto</include>
         <include>org.apache.ratis:ratis-docs</include>
         <include>org.apache.ratis:ratis-replicated-map</include>
+        <include>org.apache.ratis:ratis-server-api</include>
         <include>org.apache.ratis:ratis-server</include>
         <include>org.apache.ratis:ratis-test</include>
         <include>org.apache.ratis:ratis-metrics</include>
