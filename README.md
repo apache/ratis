@@ -37,4 +37,4 @@ _[In Search of an Understandable Consensus Algorithm][Ongaro2014]_,
 
 [Ongaro2014]: https://www.usenix.org/conference/atc14/technical-sessions/presentation/ongaro
 
-[Apache Ratis]: http://ratis.incubator.apache.org/
+[Apache Ratis]: https://ratis.apache.org/
