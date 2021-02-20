@@ -79,7 +79,7 @@ echo "Repo dir: ${repodir}"
 
 SVNDISTDIR=${SVNDISTDIR:-$projectdir/../svndistratis}
 if [ ! -d "$SVNDISTDIR" ]; then
-  svn co https://dist.apache.org/repos/dist/dev/incubator/ratis "$SVNDISTDIR"
+  svn co https://dist.apache.org/repos/dist/dev/ratis "$SVNDISTDIR"
 fi
 
 
@@ -116,8 +116,8 @@ prepare-bin() {
   rm -rf "$WORKINGDIR"
   mkdir -p "$WORKINGDIR"
   cd "$WORKINGDIR"
-  tar zvxf "$projectdir/ratis-assembly/target/apache-ratis-incubating-${RATISVERSION}-src.tar.gz"
-  cd "apache-ratis-incubating-${RATISVERSION}"
+  tar zvxf "$projectdir/ratis-assembly/target/apache-ratis-${RATISVERSION}-src.tar.gz"
+  cd "apache-ratis-${RATISVERSION}"
 
   mvnFun clean install assembly:single -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
 }
@@ -127,8 +127,8 @@ assembly() {
   RCDIR="$SVNDISTDIR/${RATISVERSION}/${RC#-}"
   mkdir -p "$RCDIR"
   cd "$RCDIR"
-  cp "$WORKINGDIR/apache-ratis-incubating-${RATISVERSION}/ratis-assembly/target/apache-ratis-incubating-${RATISVERSION}-bin.tar.gz" "apache-ratis-incubating-${RATISVERSION}-bin.tar.gz"
-  cp "$projectdir/ratis-assembly/target/apache-ratis-incubating-${RATISVERSION}-src.tar.gz" "apache-ratis-incubating-${RATISVERSION}-src.tar.gz"
+  cp "$WORKINGDIR/apache-ratis-${RATISVERSION}/ratis-assembly/target/apache-ratis-${RATISVERSION}-bin.tar.gz" "apache-ratis-${RATISVERSION}-bin.tar.gz"
+  cp "$projectdir/ratis-assembly/target/apache-ratis-${RATISVERSION}-src.tar.gz" "apache-ratis-${RATISVERSION}-src.tar.gz"
   for i in *.tar.gz; do gpg  -u "${CODESIGNINGKEY}" --armor --output "${i}.asc" --detach-sig "${i}"; done
   for i in *.tar.gz; do gpg --print-md SHA512 "${i}" > "${i}.sha512"; done
   for i in *.tar.gz; do gpg --print-mds "${i}" > "${i}.mds"; done

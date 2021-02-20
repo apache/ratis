@@ -27,4 +27,4 @@ implementation of the key raft elements: raftlog and state machine. The are for 
 
 For more deails see:
 
-https://ratis.incubator.apache.org
+https://ratis.apache.org
