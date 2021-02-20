@@ -79,7 +79,7 @@ echo "Repo dir: ${repodir}"
 
 SVNDISTDIR=${SVNDISTDIR:-$projectdir/../svndistratis}
 if [ ! -d "$SVNDISTDIR" ]; then
-  svn co https://dist.apache.org/repos/dist/dev/incubator/ratis "$SVNDISTDIR"
+  svn co https://dist.apache.org/repos/dist/dev/ratis "$SVNDISTDIR"
 fi
 
 
