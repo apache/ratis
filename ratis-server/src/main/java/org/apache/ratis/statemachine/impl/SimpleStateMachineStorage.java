@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.statemachine.impl;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
@@ -73,6 +74,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   }
 
   @Override
+  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
   public void cleanupOldSnapshots(SnapshotRetentionPolicy snapshotRetentionPolicy) throws IOException {
     if (snapshotRetentionPolicy != null && snapshotRetentionPolicy.getNumSnapshotsRetained() > 0) {
 
@@ -137,6 +139,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     return new File(smDir, getCorruptSnapshotFileName(term, endIndex));
   }
 
+  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
   public SingleFileSnapshotInfo findLatestSnapshot() throws IOException {
     SingleFileSnapshotInfo latest = null;
     try (DirectoryStream<Path> stream =
@@ -179,6 +182,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
 /**
  * Compare snapshot files based on transaction indexes.
  */
+@SuppressFBWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
 class SnapshotFileComparator implements Comparator<SingleFileSnapshotInfo> {
   @Override
   public int compare(SingleFileSnapshotInfo file1, SingleFileSnapshotInfo file2) {

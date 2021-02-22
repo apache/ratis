@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.apache.ratis.logservice.util.LogServiceProtoUtil.toChangeStateRequestProto;
 import static org.apache.ratis.logservice.util.LogServiceUtils.getPeersFromQuorum;
 
 
@@ -256,12 +257,8 @@ public class LogServiceClient implements AutoCloseable {
      */
     // TODO this name sucks, confusion WRT the Java Closeable interface.
     public void closeLog(LogName name) throws IOException {
-        try (RaftClient client = getRaftClient(getLogInfo(name))) {
-            RaftClientReply reply = client.io().send(
-                () -> LogServiceProtoUtil.toChangeStateRequestProto(name, State.CLOSED)
-                    .toByteString());
-            LogServiceProtos.ChangeStateReplyProto message =
-                LogServiceProtos.ChangeStateReplyProto.parseFrom(reply.getMessage().getContent());
+        try (RaftClient logClient = getRaftClient(getLogInfo(name))) {
+            logClient.io().send(() -> toChangeStateRequestProto(name, State.CLOSED).toByteString());
         }
     }
 

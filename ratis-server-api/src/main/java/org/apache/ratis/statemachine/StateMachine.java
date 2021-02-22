@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.statemachine;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
@@ -69,6 +70,7 @@ public interface StateMachine extends Closeable {
      *
      * @return a future for the read task.
      */
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<ByteString> read(LogEntryProto entry) {
       return CompletableFuture.completedFuture(null);
     }
@@ -78,6 +80,7 @@ public interface StateMachine extends Closeable {
      *
      * @return a future for the write task
      */
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<?> write(LogEntryProto entry) {
       return CompletableFuture.completedFuture(null);
     }
@@ -88,6 +91,7 @@ public interface StateMachine extends Closeable {
      *
      * @return a future of the stream.
      */
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<DataStream> stream(RaftClientRequest request) {
       return CompletableFuture.completedFuture(null);
     }
@@ -102,6 +106,7 @@ public interface StateMachine extends Closeable {
      * @param entry the log entry to be linked.
      * @return a future for the link task.
      */
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<?> link(DataStream stream, LogEntryProto entry) {
       return CompletableFuture.completedFuture(null);
     }
@@ -112,6 +117,7 @@ public interface StateMachine extends Closeable {
      * @param logIndex The log index to flush.
      * @return a future for the flush task.
      */
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<Void> flush(long logIndex) {
       return CompletableFuture.completedFuture(null);
     }
@@ -123,6 +129,7 @@ public interface StateMachine extends Closeable {
      * @param logIndex The last log index after truncation.
      * @return a future for truncate task.
      */
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<Void> truncate(long logIndex) {
       return CompletableFuture.completedFuture(null);
     }
@@ -230,6 +237,7 @@ public interface StateMachine extends Closeable {
      * @param firstTermIndexInLog The term-index of the first append entry available in the leader's log.
      * @return return the last term-index in the snapshot after the snapshot installation.
      */
+    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
         RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog) {
       return CompletableFuture.completedFuture(null);

@@ -93,7 +93,6 @@ public class LogReaderImpl implements LogReader {
       currentRecordId++;
 
       if (proto.getLogRecordCount() > 0) {
-        proto.getLogRecord(0);
         return ByteBuffer.wrap(proto.getLogRecord(0).toByteArray());
       } else {
         return null;

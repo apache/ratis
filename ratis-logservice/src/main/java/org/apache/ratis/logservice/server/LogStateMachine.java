@@ -55,7 +55,6 @@ import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.LogServiceProtos.AppendLogEntryRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLengthRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogSizeRequestProto;
-import org.apache.ratis.logservice.proto.LogServiceProtos.GetStateRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.ReadLogRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
@@ -285,7 +284,7 @@ public class LogStateMachine extends BaseStateMachine {
         case GETSTATE:
           return recordTime(getStateTimer, new Task(){
             @Override public CompletableFuture<Message> run() {
-              return processGetStateRequest(logServiceRequestProto);
+              return processGetStateRequest();
             }
           });
         case LASTINDEXQUERY:
@@ -306,7 +305,7 @@ public class LogStateMachine extends BaseStateMachine {
             return processArchiveLog(logServiceRequestProto);
           }});
       case EXPORTINFO:
-        return processExportInfo(logServiceRequestProto);
+        return processExportInfo();
       default:
           // TODO
           throw new RuntimeException(
@@ -320,15 +319,11 @@ public class LogStateMachine extends BaseStateMachine {
 
   }
 
-  private CompletableFuture<Message> processExportInfo(
-      LogServiceRequestProto logServiceRequestProto) {
-    LogServiceProtos.GetExportInfoRequestProto exportInfoRequestProto =
-        logServiceRequestProto.getExportInfo();
+  private CompletableFuture<Message> processExportInfo() {
     LogServiceProtos.GetExportInfoReplyProto.Builder exportBuilder =
         LogServiceProtos.GetExportInfoReplyProto.newBuilder();
-    exportMap.values().stream().map(
-        archInfo -> exportBuilder.addInfo(LogServiceProtoUtil.toExportInfoProto(archInfo)))
-            .collect(Collectors.toList());
+    exportMap.values().forEach(
+        archInfo -> exportBuilder.addInfo(LogServiceProtoUtil.toExportInfoProto(archInfo)));
 
     return CompletableFuture.completedFuture(Message.valueOf(exportBuilder.build().toByteString()));
   }
@@ -568,9 +563,7 @@ public class LogStateMachine extends BaseStateMachine {
         .valueOf(LogServiceProtos.ChangeStateReplyProto.newBuilder().build().toByteString()));
   }
 
-  private CompletableFuture<Message> processGetStateRequest(
-      LogServiceRequestProto logServiceRequestProto) {
-    GetStateRequestProto getState = logServiceRequestProto.getGetState();
+  private CompletableFuture<Message> processGetStateRequest() {
     return CompletableFuture.completedFuture(Message
         .valueOf(LogServiceProtoUtil.toGetStateReplyProto(state).toByteString()));
   }

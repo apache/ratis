@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -213,6 +214,7 @@ public interface SlidingWindow {
     public Client(Object name) {
       this.requests = new RequestMap<REQUEST, REPLY>(getName(getClass(), name)) {
         @Override
+        @SuppressFBWarnings("IA_AMBIGUOUS_INVOCATION_OF_INHERITED_OR_OUTER_METHOD")
         synchronized void log() {
           LOG.debug(toString());
           for (REQUEST r : requests) {
@@ -376,7 +378,7 @@ public interface SlidingWindow {
       request.fail(new AlreadyClosedException(requests.getName() + " is closed.", e));
     }
 
-    public boolean isFirst(long seqNum) {
+    public synchronized boolean isFirst(long seqNum) {
       return seqNum == (firstSeqNum != -1 ? firstSeqNum : requests.firstSeqNum());
     }
   }

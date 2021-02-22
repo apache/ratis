@@ -16,25 +16,24 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../.." || exit 1
 
-REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/findbugs"}
-mkdir -p "$REPORT_DIR"
-REPORT_FILE="$REPORT_DIR/summary.txt"
-
-touch "$REPORT_FILE"
-
 MAVEN_OPTIONS='-B -fae'
 
 if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
   #shellcheck disable=SC2086
-  mvn ${MAVEN_OPTIONS} compile findbugs:check | tee "$REPORT_FILE"
+  mvn ${MAVEN_OPTIONS} test-compile spotbugs:check
   exit $?
 fi
 
 #shellcheck disable=SC2086
-mvn ${MAVEN_OPTIONS} compile findbugs:check
+mvn ${MAVEN_OPTIONS} test-compile spotbugs:spotbugs
+rc=$?
 
-find $DIR -name spotbugsXml.xml -print0 | xargs -0 unionBugs -output "${REPORT_DIR}"/summary.xml
-convertXmlToText "${REPORT_DIR}"/summary.xml | tee -a "${REPORT_FILE}"
+REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/findbugs"}
+mkdir -p "$REPORT_DIR"
+REPORT_FILE="$REPORT_DIR/summary.txt"
+
+find ratis* -name spotbugsXml.xml -print0 | xargs -0 unionBugs -output "${REPORT_DIR}"/summary.xml
+convertXmlToText "${REPORT_DIR}"/summary.xml | tee "${REPORT_FILE}"
 convertXmlToText -html:fancy-hist.xsl "${REPORT_DIR}"/summary.xml "${REPORT_DIR}"/summary.html
 
 wc -l "$REPORT_FILE" | awk '{print $1}'> "$REPORT_DIR/failures"
@@ -42,3 +41,5 @@ wc -l "$REPORT_FILE" | awk '{print $1}'> "$REPORT_DIR/failures"
 if [[ -s "${REPORT_FILE}" ]]; then
    exit 1
 fi
+
+exit ${rc}

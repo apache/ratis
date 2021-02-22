@@ -18,6 +18,7 @@
 
 package org.apache.ratis.examples.counter.client;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -46,6 +47,7 @@ public final class CounterClient {
   private CounterClient(){
   }
 
+  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
   public static void main(String[] args)
       throws IOException, InterruptedException {
     //indicate the number of INCREMENT command, set 10 if no parameter passed
@@ -59,7 +61,7 @@ public final class CounterClient {
     ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     //send INCREMENT commands concurrently
-    System.out.printf("Sending %d increment command...\n", increment);
+    System.out.printf("Sending %d increment command...%n", increment);
     for (int i = 0; i < increment; i++) {
       executorService.submit(() ->
           raftClient.io().send(Message.valueOf("INCREMENT")));

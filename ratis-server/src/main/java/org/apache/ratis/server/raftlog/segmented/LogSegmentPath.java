@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
@@ -57,6 +58,7 @@ public final class LogSegmentPath implements Comparable<LogSegmentPath> {
   }
 
   @Override
+  @SuppressFBWarnings("EQ_COMPARETO_USE_OBJECT_EQUALS")
   public int compareTo(LogSegmentPath that) {
     return Comparator.comparing(LogSegmentPath::getStartEnd).compare(this, that);
   }
@@ -98,6 +100,7 @@ public final class LogSegmentPath implements Comparable<LogSegmentPath> {
     return Optional.ofNullable(matchCloseSegment(path)).orElseGet(() -> matchOpenSegment(path));
   }
 
+  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
   private static LogSegmentPath matchCloseSegment(Path path) {
     final Matcher matcher = LogSegmentStartEnd.getClosedSegmentPattern().matcher(path.getFileName().toString());
     if (matcher.matches()) {
@@ -107,6 +110,7 @@ public final class LogSegmentPath implements Comparable<LogSegmentPath> {
     return null;
   }
 
+  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
   private static LogSegmentPath matchOpenSegment(Path path) {
     final Matcher matcher = LogSegmentStartEnd.getOpenSegmentPattern().matcher(path.getFileName().toString());
     if (matcher.matches()) {

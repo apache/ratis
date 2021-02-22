@@ -18,6 +18,7 @@
 
 package org.apache.ratis.protocol;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
@@ -73,6 +74,7 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
 
   private final WriteOption[] options;
 
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DataStreamRequestHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
       WriteOption... options) {
     super(clientId, type, streamId, streamOffset, dataLength);
@@ -80,6 +82,7 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
   }
 
   @Override
+  @SuppressFBWarnings("EI_EXPOSE_REP")
   public WriteOption[] getWriteOptions() {
     return options;
   }

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.datastream.impl;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
@@ -48,6 +49,7 @@ public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl imp
   }
 
   @Override
+  @SuppressFBWarnings("EI_EXPOSE_REP")
   public WriteOption[] getWriteOptions() {
     return options;
   }
