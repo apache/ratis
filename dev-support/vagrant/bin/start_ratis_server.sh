@@ -22,6 +22,6 @@ storage=$1
 id=$2
 peers=$3
 
-cd ${HOME}/incubator-ratis/
+cd ${HOME}/ratis/
 ./ratis-examples/src/main/bin/server.sh filestore server --storage $storage --id $id --peers $peers 2>&1 | \
   tee ${HOME}/server_${id}.log

@@ -19,7 +19,7 @@
 HOME=/home/vagrant
 peers=$1
 
-cd ${HOME}/incubator-ratis
+cd ${HOME}/ratis
 
 export QUORUM_OPTS="--peers $peers"
 # run the load generator
