@@ -13,7 +13,7 @@
 -->
 # What is this?
 
-This is a series of scripts for [Vagrant](https://vagrantup.com) to stand-up and test [Apache (Incubating) Ratis](https://ratis.incubator.apache.org/) servers and clients. One needs to have Vagrant and [VirtualBox](https://virtualbox.org) installed to stand-up these tests environments.
+This is a series of scripts for [Vagrant](https://vagrantup.com) to stand-up and test [Apache Ratis](https://ratis.apache.org/) servers and clients. One needs to have Vagrant and [VirtualBox](https://virtualbox.org) installed to stand-up these tests environments.
 
 # What is provided?
 

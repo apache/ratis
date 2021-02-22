@@ -21,7 +21,7 @@
 
 VAGRANT_HOME = '/home/vagrant/'
 TEST_DATA = ::File.join(VAGRANT_HOME, 'test_data')
-RATIS_PATH = ::File.join(VAGRANT_HOME, 'incubator-ratis')
+RATIS_PATH = ::File.join(VAGRANT_HOME, 'ratis')
 SCREEN_RC_PATH = ::File.join(RATIS_PATH, 'dev-support/vagrant/screenrcs')
 
 # Settings common to all VMs

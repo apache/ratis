@@ -20,9 +20,9 @@ defscrollback 50000
 startup_message off
 
 # default windows
-screen -t Disk0 0 /home/vagrant/namazu/bin/nmz inspectors fs -original-dir /home/vagrant/test_data/data0 -mount-point /home/vagrant/test_data/data0_slowed/ -autopilot /home/vagrant/incubator-ratis/dev-support/vagrant/namazu_configs/hdd_config.toml
-screen -t Disk1 0 /home/vagrant/namazu/bin/nmz inspectors fs -original-dir /home/vagrant/test_data/data1 -mount-point /home/vagrant/test_data/data1_slowed/ -autopilot /home/vagrant/incubator-ratis/dev-support/vagrant/namazu_configs/hdd_config.toml
-screen -t Disk2 0 /home/vagrant/namazu/bin/nmz inspectors fs -original-dir /home/vagrant/test_data/data2 -mount-point /home/vagrant/test_data/data2_slowed/ -autopilot /home/vagrant/incubator-ratis/dev-support/vagrant/namazu_configs/hdd_config.toml
+screen -t Disk0 0 /home/vagrant/namazu/bin/nmz inspectors fs -original-dir /home/vagrant/test_data/data0 -mount-point /home/vagrant/test_data/data0_slowed/ -autopilot /home/vagrant/ratis/dev-support/vagrant/namazu_configs/hdd_config.toml
+screen -t Disk1 0 /home/vagrant/namazu/bin/nmz inspectors fs -original-dir /home/vagrant/test_data/data1 -mount-point /home/vagrant/test_data/data1_slowed/ -autopilot /home/vagrant/ratis/dev-support/vagrant/namazu_configs/hdd_config.toml
+screen -t Disk2 0 /home/vagrant/namazu/bin/nmz inspectors fs -original-dir /home/vagrant/test_data/data2 -mount-point /home/vagrant/test_data/data2_slowed/ -autopilot /home/vagrant/ratis/dev-support/vagrant/namazu_configs/hdd_config.toml
 
 autodetach on
 detach

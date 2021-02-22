@@ -14,7 +14,7 @@
 # limitations under the License.
 github:
   description: "Open source Java implementation for Raft consensus protocol."
-  homepage: http://ratis.incubator.apache.org/
+  homepage: http://ratis.apache.org/
   labels:
     - raft
     - consensus-protocol
