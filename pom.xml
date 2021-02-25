@@ -884,6 +884,7 @@
             <configuration>
               <outputDirectory>target/classes</outputDirectory>
               <outputName>ratis-version.properties</outputName>
+              <revisionOnScmFailure>Unknown</revisionOnScmFailure>
             </configuration>
           </execution>
         </executions>
