@@ -53,6 +53,7 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.server.util.ServerStringUtils;
@@ -827,10 +828,15 @@ class RaftServerImpl implements RaftServer.Division,
             newExceptionReply(request, generateNotLeaderException())));
   }
 
-  private CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
+  CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
     return role.getLeaderState()
         .map(ls -> ls.streamEndOfRequestAsync(request))
-        .orElse(null);
+        .orElseGet(() -> {
+          final CompletableFuture<RaftClientRequest> errorF = new CompletableFuture<>();
+          errorF.completeExceptionally(
+                  new Exception("Unexpected null encountered, while receiving end of stream request."));
+          return errorF;
+        });
   }
 
   CompletableFuture<RaftClientReply> processQueryFuture(
@@ -1604,7 +1610,7 @@ class RaftServerImpl implements RaftServer.Division,
     // update the retry cache
     final CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
     if (getInfo().isLeader()) {
-      Preconditions.assertTrue(cacheEntry != null && !cacheEntry.isCompletedNormally(),
+      Preconditions.assertTrue(!cacheEntry.isCompletedNormally(),
               "retry cache entry should be pending: %s", cacheEntry);
     }
     if (cacheEntry.isFailed()) {
@@ -1634,7 +1640,7 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
 
-  CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) {
+  CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) throws RaftLogIOException {
     if (!next.hasStateMachineLogEntry()) {
       stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
     }
@@ -1654,16 +1660,14 @@ class RaftServerImpl implements RaftServer.Division,
                   .setLogEntry(next)
                   .build());
 
-      // Let the StateMachine inject logic for committed transactions in sequential order.
-      trx = stateMachine.applyTransactionSerial(trx);
-
       try {
+        // Let the StateMachine inject logic for committed transactions in sequential order.
+        trx = stateMachine.applyTransactionSerial(trx);
+
         final CompletableFuture<Message> stateMachineFuture = stateMachine.applyTransaction(trx);
         return replyPendingRequest(next, stateMachineFuture);
       } catch (Exception e) {
-        LOG.error("{}: applyTransaction failed for index:{} proto:{}",
-            getMemberId(), next.getIndex(), LogProtoUtils.toLogEntryString(next), e);
-        throw e;
+        throw new RaftLogIOException(e);
       }
     }
     return null;

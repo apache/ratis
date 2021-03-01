@@ -25,6 +25,7 @@ import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheStats;
+import org.apache.ratis.thirdparty.org.checkerframework.checker.nullness.Opt;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
@@ -181,13 +182,11 @@ class RetryCacheImpl implements RetryCache {
   }
 
   CacheEntry getOrCreateEntry(ClientInvocationId key) {
-    final CacheEntry entry;
     try {
-      entry = cache.get(key, () -> new CacheEntry(key));
+      return cache.get(key, () -> new CacheEntry(key));
     } catch (ExecutionException e) {
       throw new IllegalStateException(e);
     }
-    return entry;
   }
 
   CacheEntry refreshEntry(CacheEntry newEntry) {

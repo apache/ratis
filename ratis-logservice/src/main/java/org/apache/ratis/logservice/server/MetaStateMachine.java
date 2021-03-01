@@ -128,14 +128,14 @@ public class MetaStateMachine extends BaseStateMachine {
     }
 
     @Override
-    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
-    public TransactionContext applyTransactionSerial(TransactionContext trx) {
+    public TransactionContext applyTransactionSerial(TransactionContext trx) throws InvalidProtocolBufferException {
         RaftProtos.LogEntryProto x = trx.getLogEntry();
         MetaSMRequestProto req = null;
         try {
             req = MetaSMRequestProto.parseFrom(x.getStateMachineLogEntry().getLogData());
         } catch (InvalidProtocolBufferException e) {
             e.printStackTrace();
+            throw e;
         }
         switch (req.getTypeCase()) {
             case REGISTERREQUEST:
@@ -203,51 +203,46 @@ public class MetaStateMachine extends BaseStateMachine {
     }
 
     @Override
-    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
     public CompletableFuture<Message> query(Message request) {
         Timer.Context timerContext = null;
         MetaServiceProtos.MetaServiceRequestProto.TypeCase type = null;
-        try {
-            if (currentGroup == null) {
-                try {
-                    List<RaftGroup> x =
-                        StreamSupport.stream(raftServer.getGroups().spliterator(), false)
-                            .filter(group -> group.getGroupId().equals(metadataGroupId)).collect(Collectors.toList());
-                    if (x.size() == 1) {
-                        currentGroup = x.get(0);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            MetaServiceProtos.MetaServiceRequestProto req = null;
+        if (currentGroup == null) {
             try {
-                req = MetaServiceProtos.MetaServiceRequestProto.parseFrom(request.getContent());
-            } catch (InvalidProtocolBufferException e) {
+                List<RaftGroup> x =
+                    StreamSupport.stream(raftServer.getGroups().spliterator(), false)
+                        .filter(group -> group.getGroupId().equals(metadataGroupId)).collect(Collectors.toList());
+                if (x.size() == 1) {
+                    currentGroup = x.get(0);
+                }
+            } catch (IOException e) {
                 e.printStackTrace();
             }
-            type = req.getTypeCase();
-            timerContext = logServiceMetaDataMetrics.getTimer(type.name()).time();
-            switch (type) {
-
-            case CREATELOG:
-                return processCreateLogRequest(req);
-            case LISTLOGS:
-                return processListLogsRequest();
-            case GETLOG:
-                return processGetLogRequest(req);
-            case DELETELOG:
-                return processDeleteLog(req);
-            default:
-            }
-            CompletableFuture<Message> reply = super.query(request);
-            return reply;
-        }finally{
-            if (timerContext != null) {
-                timerContext.stop();
-            }
         }
+
+        MetaServiceProtos.MetaServiceRequestProto req = null;
+        try {
+            req = MetaServiceProtos.MetaServiceRequestProto.parseFrom(request.getContent());
+        } catch (InvalidProtocolBufferException e) {
+            e.printStackTrace();
+            return null;
+        }
+        type = req.getTypeCase();
+        timerContext = logServiceMetaDataMetrics.getTimer(type.name()).time();
+        switch (type) {
+
+        case CREATELOG:
+            return processCreateLogRequest(req);
+        case LISTLOGS:
+            return processListLogsRequest();
+        case GETLOG:
+            return processGetLogRequest(req);
+        case DELETELOG:
+            return processDeleteLog(req);
+        default:
+        }
+        CompletableFuture<Message> reply = super.query(request);
+        timerContext.stop();
+        return reply;
     }
 
 

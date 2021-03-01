@@ -33,6 +33,7 @@ import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -51,9 +52,8 @@ public interface IOUtils {
   }
 
   static IOException asIOException(Throwable t) {
-    return t == null? null
-        : t instanceof IOException? (IOException)t
-        : new IOException(t);
+    Objects.requireNonNull(t, "t == null");
+    return t instanceof IOException? (IOException)t : new IOException(t);
   }
 
   static IOException toIOException(ExecutionException e) {
@@ -115,7 +115,8 @@ public interface IOUtils {
    */
   static void readFully(InputStream in, byte[] buf, int off, int len)
       throws IOException {
-    for(int toRead = len; toRead > 0; ) {
+    int toRead = len;
+    while (toRead > 0) {
       final int ret = in.read(buf, off, toRead);
       if (ret < 0) {
         final int read = len - toRead;
@@ -148,7 +149,7 @@ public interface IOUtils {
     final int remaining = fill.remaining();
 
     long allocated = 0;
-    for(; allocated < size; ) {
+    while (allocated < size) {
       final long required = size - allocated;
       final int n = remaining < required? remaining: Math.toIntExact(required);
       final ByteBuffer buffer = fill.slice();
@@ -215,14 +216,13 @@ public interface IOUtils {
   }
 
   static <T> T readObject(InputStream in, Class<T> clazz) {
+    Object obj = null;
     try(ObjectInputStream oin = new ObjectInputStream(in)) {
-      final Object obj = oin.readObject();
-      try {
-        return clazz.cast(obj);
-      } catch (ClassCastException e) {
-        throw new IllegalStateException("Failed to cast to " + clazz + ", object="
-            + (obj instanceof Throwable? StringUtils.stringifyException((Throwable) obj): obj), e);
-      }
+      obj = oin.readObject();
+      return clazz.cast(obj);
+    } catch (ClassCastException e) {
+      throw new IllegalStateException("Failed to cast to " + clazz + ", object="
+              + (obj instanceof Throwable? StringUtils.stringifyException((Throwable) obj): obj), e);
     } catch (IOException | ClassNotFoundException e) {
       throw new IllegalStateException("Failed to read an object.", e);
     }
