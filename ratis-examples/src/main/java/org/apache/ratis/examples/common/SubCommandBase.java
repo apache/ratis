@@ -101,8 +101,7 @@ public abstract class SubCommandBase {
         return p;
       }
     }
-    throw new IllegalArgumentException(
-        "Raft peer id " + raftPeerId + " is not part of the raft group definitions " +
+    throw new IllegalArgumentException("Raft peer id " + raftPeerId + " is not part of the raft group definitions " +
             this.peers);
   }
 }
