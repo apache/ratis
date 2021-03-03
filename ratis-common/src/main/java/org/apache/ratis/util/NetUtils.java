@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -116,8 +116,13 @@ public interface NetUtils {
     return addr;
   }
 
-  /** Creates {@code count} unique local addresses.  They may conflict with
-   * addresses created later, but not with one another. */
+  /**
+   * Creates {@code count} unique local addresses.  They may conflict with
+   * addresses created later, but not with one another.  Addresses are
+   * guaranteed to be bound to the loopback interface.
+   * @param count number of unique local addresses to create
+   * @return {@code count} number of unique local addresses
+   */
   static List<InetSocketAddress> createLocalServerAddress(int count) {
     List<InetSocketAddress> list = new ArrayList<>(count);
     List<ServerSocket> sockets = new ArrayList<>(count);
@@ -126,7 +131,7 @@ public interface NetUtils {
         ServerSocket s = new ServerSocket();
         sockets.add(s);
         s.setReuseAddress(true);
-        s.bind(null);
+        s.bind(new InetSocketAddress(InetAddress.getByName(null), 0), 1);
         list.add((InetSocketAddress) s.getLocalSocketAddress());
       }
     } catch (IOException e) {
@@ -137,10 +142,15 @@ public interface NetUtils {
     return list;
   }
 
+  /**
+   * Creates a unique local address.  Addresses are guaranteed to be bound to
+   * the loopback interface.
+   * @return unique local address
+   */
   static InetSocketAddress createLocalServerAddress() {
     try(ServerSocket s = new ServerSocket()) {
       s.setReuseAddress(true);
-      s.bind(null);
+      s.bind(new InetSocketAddress(InetAddress.getByName(null), 0), 1);
       return (InetSocketAddress) s.getLocalSocketAddress();
     } catch (IOException e) {
       throw new RuntimeException(e);
