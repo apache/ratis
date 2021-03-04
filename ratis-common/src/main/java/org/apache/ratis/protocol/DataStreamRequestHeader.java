@@ -37,7 +37,13 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
   private static final Logger LOG = LoggerFactory.getLogger(DataStreamRequestHeader.class);
 
   public static DataStreamRequestHeader read(ByteBuf buf) {
-    if (getSizeOfHeaderLen() > buf.readableBytes()) {
+    if (getSizeOfHeaderBodyLen() > buf.readableBytes()) {
+      return null;
+    }
+
+    long headerBodyBufLen = buf.readLong();
+    if (headerBodyBufLen > buf.readableBytes()) {
+      buf.resetReaderIndex();
       return null;
     }
 
