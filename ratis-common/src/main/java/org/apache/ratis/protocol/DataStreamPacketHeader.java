@@ -25,6 +25,7 @@ import org.apache.ratis.util.SizeInBytes;
 /** The header format is streamId, streamOffset, dataLength. */
 public class DataStreamPacketHeader extends DataStreamPacketImpl {
   private static final SizeInBytes SIZE_OF_HEADER_LEN = SizeInBytes.valueOf(4);
+  private static final SizeInBytes SIZE_OF_HEADER_BODY_LEN = SizeInBytes.valueOf(8);
 
   private final long dataLength;
 
@@ -40,5 +41,9 @@ public class DataStreamPacketHeader extends DataStreamPacketImpl {
 
   public static int getSizeOfHeaderLen() {
     return SIZE_OF_HEADER_LEN.getSizeInt();
+  }
+
+  public static int getSizeOfHeaderBodyLen() {
+    return SIZE_OF_HEADER_BODY_LEN.getSizeInt();
   }
 }

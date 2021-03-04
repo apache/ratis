@@ -83,9 +83,15 @@ public interface NettyDataStreamUtils {
   static void encodeDataStreamRequestHeader(DataStreamRequest request, Consumer<Object> out,
       ByteBufAllocator allocator) {
     final ByteBuffer headerBuf = getDataStreamRequestHeaderProtoByteBuffer(request);
+
+    final ByteBuf headerBodyLenBuf = allocator.directBuffer(DataStreamPacketHeader.getSizeOfHeaderBodyLen());
+    headerBodyLenBuf.writeLong(headerBuf.remaining() + request.getDataLength());
+    out.accept(headerBodyLenBuf);
+
     final ByteBuf headerLenBuf = allocator.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
     headerLenBuf.writeInt(headerBuf.remaining());
     out.accept(headerLenBuf);
+
     out.accept(Unpooled.wrappedBuffer(headerBuf));
   }
 
