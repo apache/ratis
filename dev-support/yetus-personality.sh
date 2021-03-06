@@ -28,7 +28,7 @@ function personality_globals
   #shellcheck disable=SC2034
   JIRA_ISSUE_RE='^RATIS-[0-9]+$'
   #shellcheck disable=SC2034
-  GITHUB_REPO="apache/incubator-ratis"
+  GITHUB_REPO="apache/ratis"
 }
 
 

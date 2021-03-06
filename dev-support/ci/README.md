@@ -30,7 +30,7 @@ IT'S NOT RECOMMENDED to run it locally unless you know what could be expected. T
 To test the jenkins build locally:
 
  1. create a new directory
- 2. Clone the ratis repository to a subdirectory: `git clone git://github.com/apache/incubator-ratis.git sourcedir`
+ 2. Clone the ratis repository to a subdirectory: `git clone git://github.com/apache/ratis.git sourcedir`
  3. Run the script fro the parent directory ./sourcedir/dev-support/ci/nightly-build.sh
 
 For nightly-build.sh you can set the BRANCH environment variable to define which branch should be tested.

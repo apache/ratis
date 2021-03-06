@@ -98,9 +98,9 @@
   </pluginRepositories>
 
   <scm>
-    <connection>scm:git:git://git.apache.org/incubator-ratis.git</connection>
-    <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/incubator-ratis.git</developerConnection>
-    <url>https://git-wip-us.apache.org/repos/asf?p=incubator-ratis.git</url>
+    <connection>scm:git:git://git.apache.org/ratis.git</connection>
+    <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/ratis.git</developerConnection>
+    <url>https://git-wip-us.apache.org/repos/asf?p=ratis.git</url>
     <tag>HEAD</tag>
   </scm>
 
@@ -118,9 +118,9 @@
     <mailingList>
       <name>User List</name>
       <subscribe>user-subscribe@ratis.apache.org</subscribe>
-      <unsubscribe>user-unsubscribe@ratis.incubator.apache.org</unsubscribe>
-      <post>user@ratis.incubator.apache.org</post>
-      <archive>https://lists.apache.org/list.html?dev@ratis.apache.org</archive>
+      <unsubscribe>user-unsubscribe@ratis.apache.org</unsubscribe>
+      <post>user@ratis.apache.org</post>
+      <archive>https://lists.apache.org/list.html?user@ratis.apache.org</archive>
       <otherArchives>
         <otherArchive>http://mail-archives.apache.org/mod_mbox/ratis-user/</otherArchive>
       </otherArchives>
@@ -130,7 +130,7 @@
       <subscribe>dev-subscribe@ratis.apache.org</subscribe>
       <unsubscribe>dev-unsubscribe@ratis.apache.org</unsubscribe>
       <post>dev@ratis.apache.org</post>
-      <archive>https://lists.apache.org/list.html?user@ratis.apache.org</archive>
+      <archive>https://lists.apache.org/list.html?dev@ratis.apache.org</archive>
       <otherArchives>
         <otherArchive>http://mail-archives.apache.org/mod_mbox/ratis-dev/</otherArchive>
       </otherArchives>
