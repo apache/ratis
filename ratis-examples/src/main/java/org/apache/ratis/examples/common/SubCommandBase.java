@@ -43,6 +43,11 @@ public abstract class SubCommandBase {
   public static RaftPeer[] parsePeers(String peers) {
     return Stream.of(peers.split(",")).map(address -> {
       String[] addressParts = address.split(":");
+      if (addressParts.length < 3) {
+        throw new IllegalArgumentException(
+            "Raft peer " + address + " is not a legitimate format. "
+                + "(format: name:host:port:dataStreamPort:clientPort:adminPort)");
+      }
       RaftPeer.Builder builder = RaftPeer.newBuilder();
       builder.setId(addressParts[0]).setAddress(addressParts[1] + ":" + addressParts[2]);
       if (addressParts.length >= 4) {
