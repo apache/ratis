@@ -25,8 +25,10 @@ import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.server.LogServer;
 import org.apache.ratis.logservice.server.MetadataServer;
+import org.apache.ratis.util.NetUtils;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -50,7 +52,6 @@ public class LogServiceCluster implements AutoCloseable {
         List<LogServer> newWorkers = IntStream.range(0, numWorkers).parallel().mapToObj(i ->
                 LogServer.newBuilder()
                         .setHostName("localhost")
-                        .setPort(10000 + i)
                         .setMetaQuorum(meta)
                         .setWorkingDir(baseTestDir + "/workers/" + i)
                         .build()).collect(Collectors.toList());
@@ -82,19 +83,14 @@ public class LogServiceCluster implements AutoCloseable {
     public LogServiceCluster(int numServers) {
         // Have to construct the meta quorum by hand -- `getMetaIdentity()` requires
         // uses the masters to build the quorum (chicken and egg problem).
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < numServers; i++) {
-          if (sb.length() > 0) {
-            sb.append(",");
-          }
-          sb.append("localhost:").append(9000 + i);
-        }
-        String metaQuorum = sb.toString();
-        this.masters = IntStream.range(0, numServers).parallel().mapToObj(i ->
+        List<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(numServers);
+        String metaQuorum = addresses.stream().map(address -> address.getHostString() + ':' + address.getPort())
+            .collect(Collectors.joining(","));
+        this.masters = addresses.stream().map(address ->
                 MetadataServer.newBuilder()
-                        .setHostName("localhost")
-                        .setPort(9000 + i)
-                        .setWorkingDir(baseTestDir + "/masters/" + i)
+                        .setHostName(address.getHostName())
+                        .setPort(address.getPort())
+                        .setWorkingDir(baseTestDir + "/masters/" + address.getPort())
                         .setMetaQuorum(metaQuorum)
                         .build())
                 .collect(Collectors.toList());
