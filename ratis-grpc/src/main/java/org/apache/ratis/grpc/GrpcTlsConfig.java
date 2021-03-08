@@ -20,6 +20,7 @@ package org.apache.ratis.grpc;
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -80,6 +81,15 @@ public class GrpcTlsConfig {
     this.privateKey = privateKey;
     this.certChain = certChain;
     this.trustStore = trustStore;
+    this.mTlsEnabled = mTlsEnabled;
+    this.fileBasedConfig = false;
+  }
+
+  public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
+      X509Certificate trustStore, boolean mTlsEnabled) {
+    this.privateKey = privateKey;
+    this.certChain = certChain;
+    this.trustStore = Arrays.asList(trustStore);
     this.mTlsEnabled = mTlsEnabled;
     this.fileBasedConfig = false;
   }
