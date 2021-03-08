@@ -20,7 +20,6 @@ package org.apache.ratis.grpc;
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
