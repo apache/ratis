@@ -21,6 +21,7 @@ import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -89,7 +90,7 @@ public class GrpcTlsConfig {
       X509Certificate trustStore, boolean mTlsEnabled) {
     this.privateKey = privateKey;
     this.certChain = certChain;
-    this.trustStore = Arrays.asList(trustStore);
+    this.trustStore = Collections.singletonList(trustStore);
     this.mTlsEnabled = mTlsEnabled;
     this.fileBasedConfig = false;
   }
