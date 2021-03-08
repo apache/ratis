@@ -20,6 +20,7 @@ package org.apache.ratis.grpc;
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.List;
 
 /**
  * Ratis GRPC TLS configurations.
@@ -34,7 +35,7 @@ public class GrpcTlsConfig {
   private File certChainFile;
 
   // ca certificate
-  private X509Certificate trustStore;
+  private List<X509Certificate> trustStore;
   private File trustStoreFile;
 
   // mutual TLS enabled
@@ -62,7 +63,7 @@ public class GrpcTlsConfig {
     return certChainFile;
   }
 
-  public X509Certificate getTrustStore() {
+  public List<X509Certificate> getTrustStore() {
     return trustStore;
   }
 
@@ -75,7 +76,7 @@ public class GrpcTlsConfig {
   }
 
   public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
-      X509Certificate trustStore, boolean mTlsEnabled) {
+      List<X509Certificate> trustStore, boolean mTlsEnabled) {
     this.privateKey = privateKey;
     this.certChain = certChain;
     this.trustStore = trustStore;
