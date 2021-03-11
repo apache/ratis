@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License. See accompanying LICENSE file.
 #
-baseURL = "https://ratis.incubator.apache.org/"
+baseURL = "https://ratis.apache.org/"
 title = "Apache Ratis"
 enableEmoji = true
 footnotereturnlinkcontents = "<sup>^</sup>"
