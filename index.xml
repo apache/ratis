@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Apache Ratis</title>
-    <link>https://ratis.incubator.apache.org/</link>
+    <link>https://ratis.apache.org/</link>
     <description>Recent content on Apache Ratis</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 20 Jul 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.incubator.apache.org/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Mon, 20 Jul 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.apache.org/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>GA Release 1.0.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/1.0.0.html</link>
+      <link>https://ratis.apache.org/post/1.0.0.html</link>
       <pubDate>Mon, 20 Jul 2020 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/1.0.0.html</guid>
+      <guid>https://ratis.apache.org/post/1.0.0.html</guid>
       <description>Download
 It contains around 119 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.5.0 and 1.0.0 releases.
 It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data and to provide high availability.</description>
@@ -20,10 +20,10 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
     
     <item>
       <title>Release 0.5.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.5.0.html</link>
+      <link>https://ratis.apache.org/post/0.5.0.html</link>
       <pubDate>Tue, 04 Feb 2020 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.5.0.html</guid>
+      <guid>https://ratis.apache.org/post/0.5.0.html</guid>
       <description>Download
 It contains more than 94 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.4.0 and 0.5.0 releases.
 It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data.</description>
@@ -31,10 +31,10 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
     
     <item>
       <title>Release 0.4.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.4.0.html</link>
+      <link>https://ratis.apache.org/post/0.4.0.html</link>
       <pubDate>Thu, 12 Sep 2019 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.4.0.html</guid>
+      <guid>https://ratis.apache.org/post/0.4.0.html</guid>
       <description>Download
 It contains more than 89 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.3.0 and 0.4.0 releases.
 It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data.</description>
@@ -42,10 +42,10 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
     
     <item>
       <title>Release 0.3.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.3.0.html</link>
+      <link>https://ratis.apache.org/post/0.3.0.html</link>
       <pubDate>Sun, 21 Apr 2019 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.3.0.html</guid>
+      <guid>https://ratis.apache.org/post/0.3.0.html</guid>
       <description>Download
 It contains new features such as multi-raft and watch request, as well contains 73 improvements and 72 bug fixes. See the changes between 0.2.0 and 0.3.0 releases.
 It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data.</description>
@@ -53,10 +53,10 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
     
     <item>
       <title>Release 0.2.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.2.0.html</link>
+      <link>https://ratis.apache.org/post/0.2.0.html</link>
       <pubDate>Sun, 15 Jul 2018 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.2.0.html</guid>
+      <guid>https://ratis.apache.org/post/0.2.0.html</guid>
       <description>0.2.0 is the second Apache release and the first release which provides binary release with example Raft applications.
 It contains more than 130 bug fixes and features since the previous release.
 This version also heavily tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw Hadoop data.
@@ -65,10 +65,10 @@ The release is available from the downloaded section or (as Ratis is a java libr
     
     <item>
       <title>Release 0.1.0-alpha is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.1.0-alpha.html</link>
+      <link>https://ratis.apache.org/post/0.1.0-alpha.html</link>
       <pubDate>Tue, 02 May 2017 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.1.0-alpha.html</guid>
+      <guid>https://ratis.apache.org/post/0.1.0-alpha.html</guid>
       <description>This is the first incubator release of Apache Ratis.
 Key features:
  Pluggable transports (Hadoop Rpc, GRpc, Netty) Pluggable statemachine Pluggable raft log implementation.  </description>
@@ -76,19 +76,19 @@ Key features:
     
     <item>
       <title>Apache Hadoop Ratis Downloads</title>
-      <link>https://ratis.incubator.apache.org/downloads.html</link>
+      <link>https://ratis.apache.org/downloads.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/downloads.html</guid>
+      <guid>https://ratis.apache.org/downloads.html</guid>
       <description></description>
     </item>
     
     <item>
       <title>Community</title>
-      <link>https://ratis.incubator.apache.org/community.html</link>
+      <link>https://ratis.apache.org/community.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/community.html</guid>
+      <guid>https://ratis.apache.org/community.html</guid>
       <description>Mailing list Developers If you&amp;rsquo;d like to contribute to Apache Ratis, please subscribe to the Ratis developer mailing list.
 The Ratis developer mailing list is: dev@ratis.incubator.apache.org.
  [Subscribe to List](mailto: dev-subscribe@ratis.incubator.apache.org) [Unsubscribe from List](mailto: dev-unsubscribe@ratis.incubator.apache.org) Archives  User The user@ mailing list is the preferred mailing list for end-user questions and discussion.
@@ -98,20 +98,20 @@ The Ratis user mailing list is: user@ratis.</description>
     
     <item>
       <title>Docker Testing</title>
-      <link>https://ratis.incubator.apache.org/logservice/testing/docker.html</link>
+      <link>https://ratis.apache.org/logservice/testing/docker.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/logservice/testing/docker.html</guid>
+      <guid>https://ratis.apache.org/logservice/testing/docker.html</guid>
       <description>The Docker orchestration is comprised of the following:
  A Docker image which has the necessary software to run the LogService A docker-compose.yml file which can launch the necessary containers for a full-fledged LogService &amp;ldquo;cluster&amp;rdquo; Scripts to build the Docker image and launch a client environment to interact with a running cluster via Compose.  Building the Docker image $ mvn clean package assembly:single -DskipTests $ cd ratis-logservice &amp;amp;&amp;amp; ./build-docker.sh The above will create a Docker image tagged as ratis-logservice:latest.</description>
     </item>
     
     <item>
       <title>Getting started</title>
-      <link>https://ratis.incubator.apache.org/getting_started.html</link>
+      <link>https://ratis.apache.org/getting_started.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/getting_started.html</guid>
+      <guid>https://ratis.apache.org/getting_started.html</guid>
       <description>Ratis is a Raft protocol library in Java. It&amp;rsquo;s not a standalone server application like Zookeeper or Consul.
 Examples To demonstrate how to use Ratis from the code, Please look at the following examples.
   Arithmetic example: This is a simple distributed calculator that replicates the values defined and allows user to perform arithmetic operations on these replicated values.
@@ -120,30 +120,30 @@ Examples To demonstrate how to use Ratis from the code, Please look at the follo
     
     <item>
       <title>Lifecycle</title>
-      <link>https://ratis.incubator.apache.org/logservice/lifecycle.html</link>
+      <link>https://ratis.apache.org/logservice/lifecycle.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/logservice/lifecycle.html</guid>
+      <guid>https://ratis.apache.org/logservice/lifecycle.html</guid>
       <description>The LogService is a system which manages a collection of logs. Each of these logs has a defined state which allows certain operations on that log or corresponds to actions that the system is taking on that log.
 OPEN This is the first state for a Log which is created in the LogService. A Log which is OPEN can be read from or written to. This Log has a corresponding Raft Group (a quorum of servers) who are participating in the hosting of this Log.</description>
     </item>
     
     <item>
       <title>LogService</title>
-      <link>https://ratis.incubator.apache.org/logservice/</link>
+      <link>https://ratis.apache.org/logservice/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/logservice/</guid>
+      <guid>https://ratis.apache.org/logservice/</guid>
       <description>The Ratis LogService is an distributed, log implementation built on top of Apache Ratis. The LogService is a &amp;ldquo;recipe&amp;rdquo; on top of Apache Ratis, providing a higher-level API as compared to Ratis itself. The LogService provides the ability to create named, durable, append-only data structures with the ability to perform linear reads.
 Like Ratis, the LogService is designed to be embedded into another application as a library, as opposed to a standalone daemon.</description>
     </item>
     
     <item>
       <title>LogService Security</title>
-      <link>https://ratis.incubator.apache.org/logservice/security.html</link>
+      <link>https://ratis.apache.org/logservice/security.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/logservice/security.html</guid>
+      <guid>https://ratis.apache.org/logservice/security.html</guid>
       <description>This document aims to describe what the intended security deployment model of the Ratis LogService.
 We will use integration into Apache HBase as an exemplar.
 Background TLS is technology capable of giving us &amp;ldquo;strong authentication&amp;rdquo; over network communication. One-way TLS can provide encrypted communication while two-way or &amp;ldquo;mutual&amp;rdquo; TLS can provide encrypted communication and authentication.
@@ -152,10 +152,10 @@ One feature of Ratis is that it is decoupled from the RPC transport in use. gRPC
     
     <item>
       <title>LogService Testing</title>
-      <link>https://ratis.incubator.apache.org/logservice/testing/</link>
+      <link>https://ratis.apache.org/logservice/testing/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/logservice/testing/</guid>
+      <guid>https://ratis.apache.org/logservice/testing/</guid>
       <description>The LogService presently has two means for testing itself: Docker with Compose orchestration and VirtualBox with Vagrant orchestration.
 Docker is suitable for a quick and lightweight orchestration of a full LogService installation. Vagrant, while heavier-weight that the Docker automation, has the added benefit of being able to leverage Namazu for failure scenarios. Please find more on each using the below references.
  Docker Vagrant  </description>
@@ -163,20 +163,20 @@ Docker is suitable for a quick and lightweight orchestration of a full LogServic
     
     <item>
       <title>Source</title>
-      <link>https://ratis.incubator.apache.org/source.html</link>
+      <link>https://ratis.apache.org/source.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/source.html</guid>
+      <guid>https://ratis.apache.org/source.html</guid>
       <description>Source code is part of every release, you can download the source bundles from download section and build the project according to the included instructions.
 The versioned source code history is available from the Apache git repository or from the github mirror. It is only for development and not intended for use by the general public. Only the source code from the released artifacts are checked by the Project Management Committee.</description>
     </item>
     
     <item>
       <title>Vagrant Testing</title>
-      <link>https://ratis.incubator.apache.org/logservice/testing/vagrant.html</link>
+      <link>https://ratis.apache.org/logservice/testing/vagrant.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/logservice/testing/vagrant.html</guid>
+      <guid>https://ratis.apache.org/logservice/testing/vagrant.html</guid>
       <description>Please refer to the documentation for instructions to use the Vagrant automation.
 Starting from the directory dev-support/vagrant/:
  To build all Vagrant boxes, invoke ./run_all_tests.sh build To remove any generated data, invoke ./run_all_tests.sh clean To run the tests, invoke vagrant resume ratis-servers &amp;amp;&amp;amp; vagrant ssh ratis-servers  </description>
