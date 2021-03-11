@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Posts on Apache Ratis</title>
-    <link>https://ratis.incubator.apache.org/post.html</link>
+    <link>https://ratis.apache.org/post.html</link>
     <description>Recent content in Posts on Apache Ratis</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 20 Jul 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.incubator.apache.org/post/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Mon, 20 Jul 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.apache.org/post/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>GA Release 1.0.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/1.0.0.html</link>
+      <link>https://ratis.apache.org/post/1.0.0.html</link>
       <pubDate>Mon, 20 Jul 2020 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/1.0.0.html</guid>
+      <guid>https://ratis.apache.org/post/1.0.0.html</guid>
       <description>Download
 It contains around 119 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.5.0 and 1.0.0 releases.
 It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data and to provide high availability.</description>
@@ -20,10 +20,10 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
     
     <item>
       <title>Release 0.5.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.5.0.html</link>
+      <link>https://ratis.apache.org/post/0.5.0.html</link>
       <pubDate>Tue, 04 Feb 2020 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.5.0.html</guid>
+      <guid>https://ratis.apache.org/post/0.5.0.html</guid>
       <description>Download
 It contains more than 94 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.4.0 and 0.5.0 releases.
 It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data.</description>
@@ -31,10 +31,10 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
     
     <item>
       <title>Release 0.4.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.4.0.html</link>
+      <link>https://ratis.apache.org/post/0.4.0.html</link>
       <pubDate>Thu, 12 Sep 2019 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.4.0.html</guid>
+      <guid>https://ratis.apache.org/post/0.4.0.html</guid>
       <description>Download
 It contains more than 89 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.3.0 and 0.4.0 releases.
 It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data.</description>
@@ -42,10 +42,10 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
     
     <item>
       <title>Release 0.3.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.3.0.html</link>
+      <link>https://ratis.apache.org/post/0.3.0.html</link>
       <pubDate>Sun, 21 Apr 2019 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.3.0.html</guid>
+      <guid>https://ratis.apache.org/post/0.3.0.html</guid>
       <description>Download
 It contains new features such as multi-raft and watch request, as well contains 73 improvements and 72 bug fixes. See the changes between 0.2.0 and 0.3.0 releases.
 It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data.</description>
@@ -53,10 +53,10 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
     
     <item>
       <title>Release 0.2.0 is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.2.0.html</link>
+      <link>https://ratis.apache.org/post/0.2.0.html</link>
       <pubDate>Sun, 15 Jul 2018 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.2.0.html</guid>
+      <guid>https://ratis.apache.org/post/0.2.0.html</guid>
       <description>0.2.0 is the second Apache release and the first release which provides binary release with example Raft applications.
 It contains more than 130 bug fixes and features since the previous release.
 This version also heavily tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw Hadoop data.
@@ -65,10 +65,10 @@ The release is available from the downloaded section or (as Ratis is a java libr
     
     <item>
       <title>Release 0.1.0-alpha is available</title>
-      <link>https://ratis.incubator.apache.org/post/0.1.0-alpha.html</link>
+      <link>https://ratis.apache.org/post/0.1.0-alpha.html</link>
       <pubDate>Tue, 02 May 2017 00:00:00 +0000</pubDate>
       
-      <guid>https://ratis.incubator.apache.org/post/0.1.0-alpha.html</guid>
+      <guid>https://ratis.apache.org/post/0.1.0-alpha.html</guid>
       <description>This is the first incubator release of Apache Ratis.
 Key features:
  Pluggable transports (Hadoop Rpc, GRpc, Netty) Pluggable statemachine Pluggable raft log implementation.  </description>
