@@ -45,7 +45,7 @@ Committers must ensure that the state of the `asf-site-source` and `asf-site` br
 Committers must never manually edit content in the `asf-site` branch.
 
 Content pushed to the `asf-site` branch is automatically published to the public website:
-https://ratis.incubator.apache.org
+https://ratis.apache.org
 
 There is (presently) no automation to automatically keep these branches in sync, but a general guide is to do the following.
 These steps use two checkouts of the Git repo, one for `asf-site` and another for `asf-site-source`. Beware that these steps
@@ -53,7 +53,7 @@ are destructive to any local modifications:
 
 First time only!
 ```bash
-$ git clone https://github.com/apache/incubator-ratis ratis-site.git
+$ git clone https://github.com/apache/ratis ratis-site.git
 $ cp -r ratis-site.git ratis-site-source.git
 $ pushd ratis-site.git && git checkout -t origin/asf-site && popd
 $ pushd ratis-site-source.git && git checkout -t origin/asf-site-source && popd
