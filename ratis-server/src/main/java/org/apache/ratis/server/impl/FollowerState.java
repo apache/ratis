@@ -154,6 +154,4 @@ class FollowerState extends Daemon {
   public String toString() {
     return name;
   }
-
-
 }
