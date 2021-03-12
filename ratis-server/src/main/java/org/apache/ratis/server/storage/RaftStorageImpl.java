@@ -93,6 +93,11 @@ public class RaftStorageImpl implements RaftStorage {
 
   private StorageState analyzeAndRecoverStorage(boolean toLock) throws IOException {
     StorageState storageState = storageDir.analyzeStorage(toLock);
+    // Existence of raft-meta.tmp means the change of votedFor/term has not
+    // been committed. Thus we should delete the tmp file.
+    if (storageState != StorageState.NON_EXISTENT) {
+      cleanMetaTmpFile();
+    }
     if (storageState == StorageState.NORMAL) {
       final File f = storageDir.getMetaFile();
       if (!f.exists()) {
@@ -101,9 +106,6 @@ public class RaftStorageImpl implements RaftStorage {
       metaFile = new RaftStorageMetadataFileImpl(f);
       final RaftStorageMetadata metadata = metaFile.getMetadata();
       LOG.info("Read {} from {}", metadata, f);
-      // Existence of raft-meta.tmp means the change of votedFor/term has not
-      // been committed. Thus we should delete the tmp file.
-      cleanMetaTmpFile();
       return StorageState.NORMAL;
     } else if (storageState == StorageState.NOT_FORMATTED &&
         storageDir.isCurrentEmpty()) {
