@@ -26,7 +26,7 @@ export MAVEN_OPTS="-Xmx4096m"
 mvn -B -fae test "$@" | tee "${REPORT_DIR}/output.log"
 rc=$?
 
-# shellcheck source=hadoop-ozone/dev-support/checks/_mvn_unit_report.sh
+# shellcheck source=dev-support/checks/_mvn_unit_report.sh
 source "$DIR/_mvn_unit_report.sh"
 
 if [[ -s "$REPORT_DIR/summary.txt" ]] ; then
