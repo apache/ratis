@@ -21,10 +21,10 @@ title: Community
 
 If you'd like to contribute to Apache Ratis, please subscribe to the Ratis developer mailing list.
 
-The Ratis developer mailing list is: <dev@ratis.incubator.apache.org>.
+The Ratis developer mailing list is: <dev@ratis.apache.org>.
 
--   [Subscribe to List](mailto: dev-subscribe@ratis.incubator.apache.org)
--   [Unsubscribe from List](mailto: dev-unsubscribe@ratis.incubator.apache.org)
+-   [Subscribe to List](mailto:dev-subscribe@ratis.apache.org)
+-   [Unsubscribe from List](mailto:dev-unsubscribe@ratis.apache.org)
 -   [Archives](http://mail-archives.apache.org/mod_mbox/ratis-dev/)
 
 
@@ -35,13 +35,35 @@ questions and discussion.
 
 Please use  dev mailing list to address developers on a specific technical question.
 
-The Ratis user mailing list is: <user@ratis.incubator.apache.org>.
+The Ratis user mailing list is: <user@ratis.apache.org>.
 
--   [Subscribe to List](mailto: user-subscribe@ratis.incubator.apache.org)
--   [Unsubscribe from List](mailto: user-unsubscribe@ratis.incubator.apache.org)
+-   [Subscribe to List](mailto:user-subscribe@ratis.apache.org)
+-   [Unsubscribe from List](mailto:user-unsubscribe@ratis.apache.org)
 -   [Archives](http://mail-archives.apache.org/mod_mbox/ratis-user/)
 
 To post to the list, it is necessary to subscribe to it.
+
+#### Commits
+
+If you'd like to see changes made in the Ratis version control system, please subscribe to the Ratis
+commits mailing list.
+
+The Ratis commits mailing list is: <commits@ratis.apache.org>.
+
+-   [Subscribe to List](mailto:commits-subscribe@ratis.apache.org)
+-   [Unsubscribe from List](mailto:commits-unsubscribe@ratis.apache.org)
+-   [Archives](http://mail-archives.apache.org/mod_mbox/ratis-commits/)
+
+#### Issues
+
+If you'd like to see changes made in the Ratis issue tracking system, please subscribe to the Ratis
+issues mailing list.
+
+The Ratis issues mailing list is: <issues@ratis.apache.org>.
+
+-   [Subscribe to List](mailto:issues-subscribe@ratis.apache.org)
+-   [Unsubscribe from List](mailto:issues-unsubscribe@ratis.apache.org)
+-   [Archives](http://mail-archives.apache.org/mod_mbox/ratis-issues/)
 
 ### Slack
 
