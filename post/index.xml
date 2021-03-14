@@ -15,7 +15,7 @@
       <guid>https://ratis.apache.org/post/1.0.0.html</guid>
       <description>Download
 It contains around 119 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.5.0 and 1.0.0 releases.
-It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data and to provide high availability.</description>
+It has been tested with Apache Ozone where Apache Ratis is used to replicate raw data and to provide high availability.</description>
     </item>
     
     <item>
@@ -26,7 +26,7 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
       <guid>https://ratis.apache.org/post/0.5.0.html</guid>
       <description>Download
 It contains more than 94 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.4.0 and 0.5.0 releases.
-It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data.</description>
+It has been tested with Apache Ozone where Apache Ratis is used to replicate raw data.</description>
     </item>
     
     <item>
@@ -37,7 +37,7 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
       <guid>https://ratis.apache.org/post/0.4.0.html</guid>
       <description>Download
 It contains more than 89 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.3.0 and 0.4.0 releases.
-It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data.</description>
+It has been tested with Apache Ozone where Apache Ratis is used to replicate raw data.</description>
     </item>
     
     <item>
@@ -48,7 +48,7 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
       <guid>https://ratis.apache.org/post/0.3.0.html</guid>
       <description>Download
 It contains new features such as multi-raft and watch request, as well contains 73 improvements and 72 bug fixes. See the changes between 0.2.0 and 0.3.0 releases.
-It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw data.</description>
+It has been tested with Apache Ozone where Apache Ratis is used to replicate raw data.</description>
     </item>
     
     <item>
@@ -59,7 +59,7 @@ It has been tested with Apache Hadoop Ozone where Apache Ratis is used to replic
       <guid>https://ratis.apache.org/post/0.2.0.html</guid>
       <description>0.2.0 is the second Apache release and the first release which provides binary release with example Raft applications.
 It contains more than 130 bug fixes and features since the previous release.
-This version also heavily tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw Hadoop data.
+This version also heavily tested with Apache Ozone where Apache Ratis is used to replicate raw Hadoop data.
 The release is available from the downloaded section or (as Ratis is a java library) from the Apache and Maven central maven repositories.</description>
     </item>
     
