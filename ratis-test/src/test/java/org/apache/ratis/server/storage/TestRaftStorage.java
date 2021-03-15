@@ -162,16 +162,10 @@ public class TestRaftStorage extends BaseTest {
 
     Assert.assertEquals(StorageState.NOT_FORMATTED, sd.analyzeStorage(false));
 
-    try {
-      newRaftStorage(storageDir);
-      Assert.fail("should throw IOException since storage dir is not formatted");
-    } catch (IOException e) {
-      Assert.assertTrue(
-          e.getMessage().contains(StorageState.NOT_FORMATTED.name()));
-    }
+    // RaftStorage initialization should succeed as the raft-meta.tmp is
+    // always cleaned.
+    newRaftStorage(storageDir).close();
 
-    // let the storage dir contain both raft-meta and raft-meta.tmp
-    formatRaftStorage(storageDir).close();
     Assert.assertTrue(sd.getMetaFile().exists());
     Assert.assertTrue(sd.getMetaTmpFile().createNewFile());
     Assert.assertTrue(sd.getMetaTmpFile().exists());
