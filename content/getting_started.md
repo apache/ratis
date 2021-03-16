@@ -21,14 +21,14 @@ Ratis is a [Raft](https://raft.github.io/) protocol *library* in Java. It's not 
 
 To demonstrate how to use Ratis from the code, Please look at the following examples.
 
- * [Arithmetic example](https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/arithmetic): This is a simple distributed calculator that replicates the values defined and allows user to perform arithmetic operations on these replicated values.
+ * [Arithmetic example](https://github.com/apache/ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/arithmetic): This is a simple distributed calculator that replicates the values defined and allows user to perform arithmetic operations on these replicated values.
 
- * [FileStore example](https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/filestore): This is an example of using Ratis for reading and writing files.
+ * [FileStore example](https://github.com/apache/ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/filestore): This is an example of using Ratis for reading and writing files.
 
 <!-- TODO: We should have the following as documentation in the github.  -->
 
 The source code of the examples could be found in the
-[ratis-examples](https://github.com/apache/incubator-ratis/blob/master/ratis-examples/) sub-project.
+[ratis-examples](https://github.com/apache/ratis/blob/master/ratis-examples/) sub-project.
 
 ### Maven usage
 

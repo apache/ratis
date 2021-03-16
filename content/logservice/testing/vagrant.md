@@ -15,7 +15,7 @@ title: Vagrant Testing
   limitations under the License. See accompanying LICENSE file.
 -->
 
-Please refer to the [documentation](https://github.com/apache/incubator-ratis/blob/master/dev-support/vagrant/README.md) for instructions to use the Vagrant automation.
+Please refer to the [documentation](https://github.com/apache/ratis/blob/master/dev-support/vagrant/README.md) for instructions to use the Vagrant automation.
 
 Starting from the directory `dev-support/vagrant/`:
 
