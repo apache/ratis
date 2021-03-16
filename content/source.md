@@ -17,6 +17,6 @@ title: Source
 
 Source code is part of every release, you can download the source bundles from download section and build the project according to the included instructions.
 
-The versioned source code history is available from the [Apache git](https://gitbox.apache.org/repos/asf?p=incubator-ratis.git) repository or 
-from the [github mirror](https://github.com/apache/incubator-ratis). It is only for development and not intended for use by the general public. 
+The versioned source code history is available from the [Apache git](https://gitbox.apache.org/repos/asf?p=ratis.git) repository or
+from the [github mirror](https://github.com/apache/ratis). It is only for development and not intended for use by the general public.
 Only the source code from the released artifacts are checked by the Project Management Committee.
