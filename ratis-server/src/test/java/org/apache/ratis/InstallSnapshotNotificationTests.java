@@ -86,7 +86,10 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     public CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
         RaftProtos.RoleInfoProto roleInfoProto,
         TermIndex termIndex) {
-
+      if (!roleInfoProto.getFollowerInfo().hasLeaderInfo()) {
+        return JavaUtils.completeExceptionally(new IOException("Failed " +
+          "notifyInstallSnapshotFromLeader due to missing leader info"));
+      }
       numSnapshotRequests.incrementAndGet();
 
       final SingleFileSnapshotInfo leaderSnapshotInfo = (SingleFileSnapshotInfo) leaderSnapshotInfoRef.get();

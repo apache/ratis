@@ -526,13 +526,21 @@ class RaftServerImpl implements RaftServer.Division,
       break;
 
     case FOLLOWER:
-      role.getFollowerState().ifPresent(fs -> {
-        final ServerRpcProto leaderInfo = ServerProtoUtils.toServerRpcProto(
-            getRaftConf().getPeer(state.getLeaderId()), fs.getLastRpcTime().elapsedTimeMs());
+      if (role.getFollowerState().isPresent()) {
+        final FollowerState fs = role.getFollowerState().get();
+        final ServerRpcProto leaderInfo =
+          ServerProtoUtils.toServerRpcProto(getRaftConf().
+            getPeer(state.getLeaderId()), fs.getLastRpcTime().elapsedTimeMs());
         roleInfo.setFollowerInfo(FollowerInfoProto.newBuilder()
-            .setLeaderInfo(leaderInfo)
-            .setOutstandingOp(fs.getOutstandingOp()));
-      });
+          .setLeaderInfo(leaderInfo).setOutstandingOp(fs.getOutstandingOp()));
+      } else {
+        // FollowerState can be null while adding a new peer as it is not
+        // a voting member yet
+        final ServerRpcProto leaderInfo = ServerProtoUtils.
+          toServerRpcProto(getRaftConf().getPeer(state.getLeaderId()), 0);
+        roleInfo.setFollowerInfo(FollowerInfoProto.newBuilder().
+          setLeaderInfo(leaderInfo).setOutstandingOp(0));
+      }
       break;
 
     case LEADER:
