@@ -86,6 +86,7 @@ jobs:
           - grpc
           - server
           - misc
+      fail-fast: ${{ github.event_name == 'pull_request' }}
     steps:
         - uses: actions/checkout@master
         - name: Cache for maven dependencies
