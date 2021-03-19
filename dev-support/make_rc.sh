@@ -179,11 +179,9 @@ The next steps of the release process are not scripted:
 
    9. Summarize the vote after the given period.
 
-   10. (If the vote passed): Send out the next voting mail to the incubator mailing list.
+   10. (If the vote passed): Move the staged artifacts in svn from the dev area to the dist area.
 
-   11. (If the vote passed): Move the staged artifacts in svn from the dev area to the dist area.
-
-   12. Publish maven repository at https://repository.apache.org/
+   11. Publish maven repository at https://repository.apache.org/
 
 
 
