@@ -349,7 +349,17 @@ class RaftServerProxy implements RaftServer {
   List<RaftServerImpl> getImpls() throws IOException {
     final List<RaftServerImpl> list = new ArrayList<>();
     for(CompletableFuture<RaftServerImpl> f : impls.getAll()) {
-      list.add(IOUtils.getFromFuture(f, this::getId));
+      try {
+        RaftServerImpl result = f.exceptionally(e->{
+          LOG.warn("raft groupid " + this.getId() +" initlog is error");
+          return null;
+        }).get();
+        if (result != null) {
+          list.add(IOUtils.getFromFuture(f, this::getId));
+        }
+      } catch (InterruptedException | ExecutionException e) {
+        e.printStackTrace();
+      }
     }
     return list;
   }
