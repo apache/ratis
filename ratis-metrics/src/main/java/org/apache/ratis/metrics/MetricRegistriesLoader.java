@@ -85,7 +85,9 @@ public final class MetricRegistriesLoader {
   }
 
   private static List<MetricRegistries> getDefinedImplemantations() {
-    ServiceLoader<MetricRegistries> loader = ServiceLoader.load(MetricRegistries.class);
+    ServiceLoader<MetricRegistries> loader = ServiceLoader.load(
+        MetricRegistries.class,
+        MetricRegistries.class.getClassLoader());
     List<MetricRegistries> availableFactories = new ArrayList<>();
     for (MetricRegistries impl : loader) {
       availableFactories.add(impl);

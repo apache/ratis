@@ -104,6 +104,19 @@ public interface ReflectionUtils {
    * @return the class object, or null if it could not be found.
    */
   static Class<?> getClassByNameOrNull(String name) {
+    return getClassByNameOrNull(name, null);
+  }
+
+  /**
+   * Load a class by name through a specific classloader, returning null rather
+   * than throwing an exception if it couldn't be loaded. This is to avoid the
+   * overhead of creating an exception.
+   *
+   * @param name the class name
+   * @param classLoader the classloader
+   * @return the class object, or null if it could not be found.
+   */
+  static Class<?> getClassByNameOrNull(String name, ClassLoader classLoader) {
     final Map<String, WeakReference<Class<?>>> map = Classes.getClassMap();
 
     Class<?> clazz = null;
@@ -114,7 +127,8 @@ public interface ReflectionUtils {
 
     if (clazz == null) {
       try {
-        clazz = Class.forName(name, true, Classes.CLASS_LOADER);
+        clazz = Class.forName(name, true,
+            classLoader != null ? classLoader : Classes.CLASS_LOADER);
       } catch (ClassNotFoundException e) {
         // Leave a marker that the class isn't found
         map.put(name, new WeakReference<>(Classes.NEGATIVE_CACHE_SENTINEL));
@@ -139,7 +153,20 @@ public interface ReflectionUtils {
    * @throws ClassNotFoundException if the class is not found.
    */
   static Class<?> getClassByName(String name) throws ClassNotFoundException {
-    Class<?> ret = getClassByNameOrNull(name);
+    return getClassByName(name, null);
+  }
+
+  /**
+   * Load a class by name through a specific classloader.
+   *
+   * @param name the class name.
+   * @param classLoader the classloader.
+   * @return the class object.
+   * @throws ClassNotFoundException if the class is not found.
+   */
+  static Class<?> getClassByName(String name, ClassLoader classLoader)
+      throws ClassNotFoundException {
+    Class<?> ret = getClassByNameOrNull(name, classLoader);
     if (ret == null) {
       throw new ClassNotFoundException("Class " + name + " not found");
     }
@@ -210,7 +237,7 @@ public interface ReflectionUtils {
 
   static <BASE> Class<? extends BASE> getClass(String subClassName, Class<BASE> base) {
     try {
-      return getClassByName(subClassName).asSubclass(base);
+      return getClassByName(subClassName, base.getClassLoader()).asSubclass(base);
     } catch (ClassNotFoundException e) {
       throw new IllegalArgumentException("Failed to get class "
           + subClassName + " as a subclass of " + base, e);
