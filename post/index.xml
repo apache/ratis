@@ -6,7 +6,18 @@
     <description>Recent content in Posts on Apache Ratis</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 20 Jul 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.apache.org/post/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 24 Mar 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.apache.org/post/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Release 2.0.0 is available</title>
+      <link>https://ratis.apache.org/post/2.0.0.html</link>
+      <pubDate>Wed, 24 Mar 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.apache.org/post/2.0.0.html</guid>
+      <description>Download
+It contains around 260 improvements and bug fixes based on various Apache Ozone use cases. See the changes between 1.0.0 and 2.0.0 releases.
+It has been tested with Apache Ozone where Apache Ratis is used to replicate raw data and to provide high availability.</description>
+    </item>
+    
     <item>
       <title>GA Release 1.0.0 is available</title>
       <link>https://ratis.apache.org/post/1.0.0.html</link>
@@ -14,7 +25,7 @@
       
       <guid>https://ratis.apache.org/post/1.0.0.html</guid>
       <description>Download
-It contains around 119 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.5.0 and 1.0.0 releases.
+It contains around 119 improvements and bug fixes based on various Apache Ozone use cases. See the changes between 0.5.0 and 1.0.0 releases.
 It has been tested with Apache Ozone where Apache Ratis is used to replicate raw data and to provide high availability.</description>
     </item>
     
@@ -25,7 +36,7 @@ It has been tested with Apache Ozone where Apache Ratis is used to replicate raw
       
       <guid>https://ratis.apache.org/post/0.5.0.html</guid>
       <description>Download
-It contains more than 94 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.4.0 and 0.5.0 releases.
+It contains more than 94 improvements and bug fixes based on various Apache Ozone use cases. See the changes between 0.4.0 and 0.5.0 releases.
 It has been tested with Apache Ozone where Apache Ratis is used to replicate raw data.</description>
     </item>
     
@@ -36,7 +47,7 @@ It has been tested with Apache Ozone where Apache Ratis is used to replicate raw
       
       <guid>https://ratis.apache.org/post/0.4.0.html</guid>
       <description>Download
-It contains more than 89 improvements and bug fixes based on various Apache Hadoop Ozone use cases. See the changes between 0.3.0 and 0.4.0 releases.
+It contains more than 89 improvements and bug fixes based on various Apache Ozone use cases. See the changes between 0.3.0 and 0.4.0 releases.
 It has been tested with Apache Ozone where Apache Ratis is used to replicate raw data.</description>
     </item>
     
