@@ -175,7 +175,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       Assert.assertTrue(set);
 
       // add two more peers
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true);
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
+          true);
       // trigger setConfiguration
       cluster.setConfiguration(change.allPeersInNewConf);
 
@@ -317,7 +318,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       // Add two more peers who will need snapshots from the leader.
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true);
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
+          true);
       // trigger setConfiguration
       cluster.setConfiguration(change.allPeersInNewConf);
       RaftServerTestUtil
