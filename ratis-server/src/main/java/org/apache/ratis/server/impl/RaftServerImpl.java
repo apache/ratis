@@ -1434,8 +1434,6 @@ class RaftServerImpl implements RaftServer.Division,
     CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(),
         leaderId, request);
 
-
-
     assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
     assertGroup(leaderId, leaderGroupId);
 
@@ -1617,8 +1615,6 @@ class RaftServerImpl implements RaftServer.Division,
           currentTerm, InstallSnapshotResult.IN_PROGRESS, -1);
     }
   }
-
-
 
   void submitUpdateCommitEvent() {
     role.getLeaderState().ifPresent(LeaderStateImpl::submitUpdateCommitEvent);
