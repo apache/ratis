@@ -53,6 +53,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.awaitility.Awaitility.*;
+
 public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
@@ -274,6 +276,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         }
       }
 
+      // Wait until index has been updated
+      await().until(() -> cluster.getLeader().getStateMachine().getLastAppliedTermIndex().getIndex() == 20);
+
       // Take snapshot and check result.
       long snapshotIndex = cluster.getLeader().getStateMachine().takeSnapshot();
       Assert.assertEquals(20, snapshotIndex);
@@ -330,6 +335,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Make sure leader and followers are still up to date.
       for (RaftServer.Division follower : cluster.getFollowers()) {
+        long leaderIndex = leader.getRaftLog().getNextIndex();
+        // Give follower slightly time to catch up
+        await().until(() -> leaderIndex == follower.getRaftLog().getNextIndex());
         Assert.assertEquals(
             leader.getRaftLog().getNextIndex(),
             follower.getRaftLog().getNextIndex());
