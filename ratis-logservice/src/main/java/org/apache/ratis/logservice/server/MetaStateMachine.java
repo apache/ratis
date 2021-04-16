@@ -227,22 +227,31 @@ public class MetaStateMachine extends BaseStateMachine {
             return null;
         }
         type = req.getTypeCase();
-        timerContext = logServiceMetaDataMetrics.getTimer(type.name()).time();
-        switch (type) {
+        // Main purpose of this try catch block is to make sure that
+        // timerContext.stop() is run after return.
+        try {
+            timerContext = logServiceMetaDataMetrics.getTimer(type.name()).time();
+            switch (type) {
 
-        case CREATELOG:
-            return processCreateLogRequest(req);
-        case LISTLOGS:
-            return processListLogsRequest();
-        case GETLOG:
-            return processGetLogRequest(req);
-        case DELETELOG:
-            return processDeleteLog(req);
-        default:
+                case CREATELOG:
+                    return processCreateLogRequest(req);
+                case LISTLOGS:
+                    return processListLogsRequest();
+                case GETLOG:
+                    return processGetLogRequest(req);
+                case DELETELOG:
+                    return processDeleteLog(req);
+                default:
+                    CompletableFuture<Message> reply = super.query(request);
+                    return reply;
+            }
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            if (timerContext != null) {
+                timerContext.stop();
+            }
         }
-        CompletableFuture<Message> reply = super.query(request);
-        timerContext.stop();
-        return reply;
     }
 
 
