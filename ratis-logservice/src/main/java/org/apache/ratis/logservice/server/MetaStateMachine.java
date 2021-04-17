@@ -246,6 +246,7 @@ public class MetaStateMachine extends BaseStateMachine {
                     return reply;
             }
         } catch (Exception e) {
+            LOG.error("Exception during Meta State Machine query");
             throw e;
         } finally {
             if (timerContext != null) {

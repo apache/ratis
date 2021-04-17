@@ -331,7 +331,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     Assert.assertNotNull(fRequest);
     Assert.assertTrue(fRequest.isCompletedExceptionally());
     fRequest.exceptionally(e -> {
-      Assert.assertTrue(e.getCause().getClass() == StreamException.class);
+      Assert.assertSame(e.getCause().getClass(), StreamException.class);
       return clientRequest;
     });
 
@@ -341,7 +341,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     Assert.assertNotNull(fRequest);
     Assert.assertTrue(fRequest.isCompletedExceptionally());
     fRequest.exceptionally(e -> {
-      Assert.assertTrue(e.getCause().getClass() == Exception.class);
+      Assert.assertSame(e.getCause().getClass(), Exception.class);
       return clientRequest;
     });
   }
