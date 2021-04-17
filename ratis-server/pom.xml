@@ -96,11 +96,5 @@
       <artifactId>spotbugs-annotations</artifactId>
       <optional>true</optional>
     </dependency>
-
-    <dependency>
-      <groupId>org.awaitility</groupId>
-      <artifactId>awaitility</artifactId>
-      <version>4.0.3</version>
-    </dependency>
   </dependencies>
 </project>

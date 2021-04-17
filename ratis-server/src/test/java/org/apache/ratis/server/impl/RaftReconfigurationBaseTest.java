@@ -49,11 +49,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -63,7 +59,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
-import static org.awaitility.Awaitility.await;
 
 public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -350,18 +345,25 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
             cluster.restartServer(p.getId(), true);
           }
         }
-        await().atMost(Duration.ofSeconds(10)).until(() -> {
-          RaftClientReply reply = client.admin().setConfiguration(c1.allPeersInNewConf);
-          return reply.isSuccess();
-        });
+        JavaUtils.attemptUntilTrue(
+          () -> {
+            try {
+              return client.admin().setConfiguration(c1.allPeersInNewConf).isSuccess();
+            } catch (IOException e) {
+              Assert.assertNotNull(e);
+              return false;
+            }
+          },
+          10, ONE_SECOND, "setConfigurationSuccess", LOG);
         LOG.info(cluster.printServers());
 
         final RaftLog leaderLog = cluster.getLeader().getRaftLog();
         for (RaftPeer newPeer : c1.newPeers) {
           final RaftServer.Division d = cluster.getDivision(newPeer.getId());
-          await().atMost(Duration.ofSeconds(1)).until(() ->
-            leaderLog.getEntries(0, Long.MAX_VALUE).length == d.getRaftLog().getEntries(0, Long.MAX_VALUE).length
-          );
+          JavaUtils.attemptUntilTrue(
+                  () -> leaderLog.getEntries(0, Long.MAX_VALUE).length
+                          == d.getRaftLog().getEntries(0, Long.MAX_VALUE).length,
+          10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "entriesLength", LOG);
           Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
               d.getRaftLog().getEntries(0, Long.MAX_VALUE));
         }
