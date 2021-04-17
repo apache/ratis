@@ -49,6 +49,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -62,6 +63,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
+import static org.awaitility.Awaitility.await;
 
 public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -339,17 +341,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         final PeerChanges c1 = cluster.addNewPeers(numNewPeer, startNewPeer);
         LOG.info("Start changing the configuration: {}",
                 asList(c1.allPeersInNewConf));
-        final AtomicReference<Boolean> success = new AtomicReference<>();
-
-        Thread clientThread = new Thread(() -> {
-          try {
-            RaftClientReply reply = client.admin().setConfiguration(c1.allPeersInNewConf);
-            success.set(reply.isSuccess());
-          } catch (IOException ioe) {
-            LOG.error("FAILED", ioe);
-          }
-        });
-        clientThread.start();
 
         if (!startNewPeer) {
           final TimeDuration delay = FIVE_SECONDS;
@@ -359,13 +350,18 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
             cluster.restartServer(p.getId(), true);
           }
         }
-        FIVE_SECONDS.sleep();
+        await().atMost(Duration.ofSeconds(10)).until(() -> {
+          RaftClientReply reply = client.admin().setConfiguration(c1.allPeersInNewConf);
+          return reply.isSuccess();
+        });
         LOG.info(cluster.printServers());
-        assertSuccess(success);
 
         final RaftLog leaderLog = cluster.getLeader().getRaftLog();
         for (RaftPeer newPeer : c1.newPeers) {
           final RaftServer.Division d = cluster.getDivision(newPeer.getId());
+          await().atMost(Duration.ofSeconds(1)).until(() ->
+            leaderLog.getEntries(0, Long.MAX_VALUE).length == d.getRaftLog().getEntries(0, Long.MAX_VALUE).length
+          );
           Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
               d.getRaftLog().getEntries(0, Long.MAX_VALUE));
         }
@@ -450,12 +446,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         clientThread.interrupt();
       }
     }
-  }
-
-  static void assertSuccess(final AtomicReference<Boolean> success) {
-    final String s = "success=" + success;
-    Assert.assertNotNull(s, success.get());
-    Assert.assertTrue(s, success.get());
   }
 
   /**
