@@ -557,7 +557,7 @@ public interface RaftServerConfigKeys {
     }
 
     String PRE_VOTE_KEY = PREFIX + ".pre-vote";
-    boolean PRE_VOTE_DEFAULT = true;
+    boolean PRE_VOTE_DEFAULT = false;
     static boolean preVote(RaftProperties properties) {
       return getBoolean(properties::getBoolean, PRE_VOTE_KEY, PRE_VOTE_DEFAULT, getDefaultLog());
     }
