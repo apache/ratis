@@ -361,7 +361,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         }
         FIVE_SECONDS.sleep();
         LOG.info(cluster.printServers());
-        assertSuccess(success);
+
+        RaftTestUtil.waitFor(() -> success.get(), 300, 15000);
 
         final RaftLog leaderLog = cluster.getLeader().getRaftLog();
         for (RaftPeer newPeer : c1.newPeers) {
@@ -450,12 +451,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         clientThread.interrupt();
       }
     }
-  }
-
-  static void assertSuccess(final AtomicReference<Boolean> success) {
-    final String s = "success=" + success;
-    Assert.assertNotNull(s, success.get());
-    Assert.assertTrue(s, success.get());
   }
 
   /**

@@ -283,7 +283,8 @@ public abstract class MiniRaftCluster implements Closeable {
   public MiniRaftCluster initServers() {
     LOG.info("servers = " + servers);
     if (servers.isEmpty()) {
-      putNewServers(CollectionUtils.as(group.getPeers(), RaftPeer::getId), true);
+      putNewServers(CollectionUtils.as(group.getPeers(), RaftPeer::getId),
+          true, false);
     }
     return this;
   }
@@ -296,10 +297,18 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   private Collection<RaftServer> putNewServers(
-      Iterable<RaftPeerId> peers, boolean format) {
-    return StreamSupport.stream(peers.spliterator(), false)
-        .map(id -> putNewServer(id, group, format))
-        .collect(Collectors.toList());
+      Iterable<RaftPeerId> peers, boolean format, boolean emptyPeer) {
+    if (emptyPeer) {
+      RaftGroup raftGroup = RaftGroup.valueOf(group.getGroupId(),
+          Collections.EMPTY_LIST);
+      return StreamSupport.stream(peers.spliterator(), false)
+          .map(id -> putNewServer(id, raftGroup, format))
+          .collect(Collectors.toList());
+    } else {
+      return StreamSupport.stream(peers.spliterator(), false)
+          .map(id -> putNewServer(id, group, format))
+          .collect(Collectors.toList());
+    }
   }
 
   public void start() throws IOException {
@@ -337,7 +346,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
     List<RaftPeerId> idList = new ArrayList<>(servers.keySet());
     servers.clear();
-    putNewServers(idList, format);
+    putNewServers(idList, format, false);
     start();
   }
 
@@ -406,15 +415,21 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer)
       throws IOException {
-    return addNewPeers(generateIds(number, servers.size()), startNewPeer);
+    return addNewPeers(generateIds(number, servers.size()), startNewPeer, false);
   }
 
-  public PeerChanges addNewPeers(String[] ids, boolean startNewPeer) throws IOException {
+  public PeerChanges addNewPeers(int number, boolean startNewPeer,
+      boolean emptyPeer) throws IOException {
+    return addNewPeers(generateIds(number, servers.size()), startNewPeer, emptyPeer);
+  }
+
+  public PeerChanges addNewPeers(String[] ids, boolean startNewPeer,
+      boolean emptyPeer) throws IOException {
     LOG.info("Add new peers {}", Arrays.asList(ids));
 
     // create and add new RaftServers
     final Collection<RaftServer> newServers = putNewServers(
-        CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf), true);
+        CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf), true, emptyPeer);
 
     startServers(newServers);
     if (!startNewPeer) {

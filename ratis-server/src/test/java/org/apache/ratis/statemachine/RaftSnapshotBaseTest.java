@@ -230,7 +230,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       // add two more peers
       String[] newPeers = new String[]{"s3", "s4"};
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
-          newPeers, true);
+          newPeers, true, false);
       // trigger setConfiguration
       cluster.setConfiguration(change.allPeersInNewConf);
 

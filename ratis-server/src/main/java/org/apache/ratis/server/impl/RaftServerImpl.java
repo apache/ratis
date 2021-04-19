@@ -512,6 +512,21 @@ class RaftServerImpl implements RaftServer.Division,
         getGroup(), getRoleInfoProto(), state.getStorage().getStorageDir().isHealthy());
   }
 
+  private RoleInfoProto getRoleInfoProto(RaftPeer leaderPeerInfo) {
+    RaftPeerRole currentRole = role.getCurrentRole();
+    RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
+        .setSelf(getPeer().getRaftPeerProto())
+        .setRole(currentRole)
+        .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs());
+    final Optional<FollowerState> fs = role.getFollowerState();
+    final ServerRpcProto leaderInfo =
+        ServerProtoUtils.toServerRpcProto(leaderPeerInfo,
+            fs.map(FollowerState::getLastRpcTime).map(Timestamp::elapsedTimeMs).orElse(0L));
+    roleInfo.setFollowerInfo(FollowerInfoProto.newBuilder().setLeaderInfo(leaderInfo)
+        .setOutstandingOp(fs.map(FollowerState::getOutstandingOp).orElse(0)));
+    return roleInfo.build();
+  }
+
   RoleInfoProto getRoleInfoProto() {
     RaftPeerRole currentRole = role.getCurrentRole();
     RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
@@ -1545,13 +1560,27 @@ class RaftServerImpl implements RaftServer.Division,
           return reply;
         }
 
+        Optional<RaftPeerProto> leaderPeerInfo = null;
+        if (request.hasLastRaftConfigurationLogEntryProto()) {
+          List<RaftPeerProto> peerList = request.getLastRaftConfigurationLogEntryProto().getConfigurationEntry()
+              .getPeersList();
+          leaderPeerInfo = peerList.stream().filter(p -> RaftPeerId.valueOf(p.getId()).equals(leaderId)).findFirst();
+          Preconditions.assertTrue(leaderPeerInfo.isPresent());
+        }
+
+        // For the cases where RaftConf is empty on newly started peer with
+        // empty peer list, we retrieve leader info from
+        // installSnapShotRequestProto.
+        RoleInfoProto roleInfoProto =
+            getRaftConf().getPeer(state.getLeaderId()) == null ?
+                getRoleInfoProto(ProtoUtils.toRaftPeer(leaderPeerInfo.get())) :
+                getRoleInfoProto();
         // This is the first installSnapshot notify request for this term and
         // index. Notify the state machine to install the snapshot.
         LOG.info("{}: notifyInstallSnapshot: nextIndex is {} but the leader's first available index is {}.",
             getMemberId(), state.getLog().getNextIndex(), firstAvailableLogIndex);
-
         try {
-          stateMachine.followerEvent().notifyInstallSnapshotFromLeader(getRoleInfoProto(), firstAvailableLogTermIndex)
+          stateMachine.followerEvent().notifyInstallSnapshotFromLeader(roleInfoProto, firstAvailableLogTermIndex)
               .whenComplete((reply, exception) -> {
                 if (exception != null) {
                   LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
