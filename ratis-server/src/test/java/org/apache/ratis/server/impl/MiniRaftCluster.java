@@ -89,6 +89,10 @@ public abstract class MiniRaftCluster implements Closeable {
   private static final TimeDuration RETRY_INTERVAL_DEFAULT =
       TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
 
+  static {
+    NetUtils.StaticResolution.put("0.0.0.0", "127.0.0.1");
+  }
+
   public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
     public interface Get<CLUSTER extends MiniRaftCluster> {
       Supplier<RaftProperties> properties = JavaUtils.memoize(RaftProperties::new);
