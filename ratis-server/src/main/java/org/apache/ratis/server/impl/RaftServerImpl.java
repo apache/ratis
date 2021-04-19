@@ -513,19 +513,18 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private RoleInfoProto getRoleInfoProto(RaftPeer leaderPeerInfo) {
-	  RaftPeerRole currentRole = role.getCurrentRole();
-	  RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
-		  .setSelf(getPeer().getRaftPeerProto())
-		  .setRole(currentRole)
-		  .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs());
-	  final Optional<FollowerState> fs = role.getFollowerState();
-	  final ServerRpcProto leaderInfo =
-		  ServerProtoUtils.toServerRpcProto(leaderPeerInfo,
-			  fs.map(FollowerState::getLastRpcTime).map(Timestamp::elapsedTimeMs).orElse(0L));
-	  roleInfo.setFollowerInfo(FollowerInfoProto.newBuilder()
-		  .setLeaderInfo(leaderInfo)
-		  .setOutstandingOp(fs.map(FollowerState::getOutstandingOp).orElse(0)));
-	  return roleInfo.build();
+    RaftPeerRole currentRole = role.getCurrentRole();
+    RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
+        .setSelf(getPeer().getRaftPeerProto())
+        .setRole(currentRole)
+        .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs());
+    final Optional<FollowerState> fs = role.getFollowerState();
+    final ServerRpcProto leaderInfo =
+        ServerProtoUtils.toServerRpcProto(leaderPeerInfo,
+            fs.map(FollowerState::getLastRpcTime).map(Timestamp::elapsedTimeMs).orElse(0L));
+    roleInfo.setFollowerInfo(FollowerInfoProto.newBuilder().setLeaderInfo(leaderInfo)
+        .setOutstandingOp(fs.map(FollowerState::getOutstandingOp).orElse(0)));
+    return roleInfo.build();
   }
 
   RoleInfoProto getRoleInfoProto() {
