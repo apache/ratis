@@ -842,10 +842,15 @@ class RaftServerImpl implements RaftServer.Division,
             newExceptionReply(request, generateNotLeaderException())));
   }
 
-  private CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
+  CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
     return role.getLeaderState()
-        .map(ls -> ls.streamEndOfRequestAsync(request))
-        .orElse(null);
+            .map(ls -> ls.streamEndOfRequestAsync(request))
+            .orElseGet(() -> {
+              final CompletableFuture<RaftClientRequest> errorF = new CompletableFuture<>();
+              errorF.completeExceptionally(
+                      new Exception("Unexpected null encountered, while receiving end of stream request."));
+              return errorF;
+            });
   }
 
   CompletableFuture<RaftClientReply> processQueryFuture(
@@ -1560,21 +1565,28 @@ class RaftServerImpl implements RaftServer.Division,
           return reply;
         }
 
-        Optional<RaftPeerProto> leaderPeerInfo = null;
+        RaftPeerProto leaderPeerInfo = null;
         if (request.hasLastRaftConfigurationLogEntryProto()) {
           List<RaftPeerProto> peerList = request.getLastRaftConfigurationLogEntryProto().getConfigurationEntry()
               .getPeersList();
-          leaderPeerInfo = peerList.stream().filter(p -> RaftPeerId.valueOf(p.getId()).equals(leaderId)).findFirst();
-          Preconditions.assertTrue(leaderPeerInfo.isPresent());
+          Optional<RaftPeerProto> optionalLeaderPeerInfo = peerList.stream()
+                  .filter(p -> RaftPeerId.valueOf(p.getId()).equals(leaderId)).findFirst();
+          leaderPeerInfo = (optionalLeaderPeerInfo.isPresent()) ? optionalLeaderPeerInfo.get() : null;
         }
 
         // For the cases where RaftConf is empty on newly started peer with
         // empty peer list, we retrieve leader info from
         // installSnapShotRequestProto.
-        RoleInfoProto roleInfoProto =
-            getRaftConf().getPeer(state.getLeaderId()) == null ?
-                getRoleInfoProto(ProtoUtils.toRaftPeer(leaderPeerInfo.get())) :
-                getRoleInfoProto();
+        RoleInfoProto roleInfoProto;
+        RaftPeer raftPeer = getRaftConf().getPeer(state.getLeaderId());
+        if (raftPeer == null && leaderPeerInfo != null) {
+          roleInfoProto = getRoleInfoProto(ProtoUtils.toRaftPeer(leaderPeerInfo));
+        } else if (raftPeer == null) {
+          throw new IOException("Leader peer info is unknown.");
+        } else {
+          roleInfoProto = getRoleInfoProto();
+        }
+
         // This is the first installSnapshot notify request for this term and
         // index. Notify the state machine to install the snapshot.
         LOG.info("{}: notifyInstallSnapshot: nextIndex is {} but the leader's first available index is {}.",
@@ -1633,7 +1645,7 @@ class RaftServerImpl implements RaftServer.Division,
     // update the retry cache
     final CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
     if (getInfo().isLeader()) {
-      Preconditions.assertTrue(cacheEntry != null && !cacheEntry.isCompletedNormally(),
+      Preconditions.assertTrue(!cacheEntry.isCompletedNormally(),
               "retry cache entry should be pending: %s", cacheEntry);
     }
     if (cacheEntry.isFailed()) {
