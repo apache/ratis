@@ -337,14 +337,10 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Make sure leader and followers are still up to date.
       for (RaftServer.Division follower : cluster.getFollowers()) {
-        long leaderIndex = leader.getRaftLog().getNextIndex();
         // Give follower slightly time to catch up
         RaftTestUtil.waitFor(
-                () -> leaderIndex == follower.getRaftLog().getNextIndex(),
+                () -> leader.getRaftLog().getNextIndex() == follower.getRaftLog().getNextIndex(),
                 300, 15000);
-        Assert.assertEquals(
-            leader.getRaftLog().getNextIndex(),
-            follower.getRaftLog().getNextIndex());
       }
 
       // Make sure each new peer got one snapshot notification.
