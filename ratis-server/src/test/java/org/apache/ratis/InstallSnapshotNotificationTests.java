@@ -275,11 +275,6 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         }
       }
 
-      // Wait until index has been updated
-      RaftTestUtil.waitFor(
-              () -> cluster.getLeader().getStateMachine().getLastAppliedTermIndex().getIndex() == 20,
-               300, 15000);
-
       // Take snapshot and check result.
       long snapshotIndex = cluster.getLeader().getStateMachine().takeSnapshot();
       Assert.assertEquals(20, snapshotIndex);
@@ -337,10 +332,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Make sure leader and followers are still up to date.
       for (RaftServer.Division follower : cluster.getFollowers()) {
-        // Give follower slightly time to catch up
-        RaftTestUtil.waitFor(
-                () -> leader.getRaftLog().getNextIndex() == follower.getRaftLog().getNextIndex(),
-                300, 15000);
+        Assert.assertEquals(
+            leader.getRaftLog().getNextIndex(),
+            follower.getRaftLog().getNextIndex());
       }
 
       // Make sure each new peer got one snapshot notification.
