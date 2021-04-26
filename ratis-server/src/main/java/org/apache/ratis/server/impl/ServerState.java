@@ -440,7 +440,7 @@ class ServerState implements Closeable {
    */
   long getSnapshotIndex() {
     final SnapshotInfo s = getLatestSnapshot();
-    final long latestSnapshotIndex = s != null ? s.getIndex() : -1;
+    final long latestSnapshotIndex = s != null ? s.getIndex() : RaftLog.INVALID_LOG_INDEX;
     return Math.max(latestSnapshotIndex, getLatestInstalledSnapshotIndex());
   }
 
