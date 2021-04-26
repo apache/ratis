@@ -431,7 +431,7 @@ class ServerState implements Closeable {
 
   long getLatestInstalledSnapshotIndex() {
     final TermIndex ti = latestInstalledSnapshot.get();
-    return ti != null? ti.getIndex(): 0L;
+    return ti != null? ti.getIndex(): RaftLog.INVALID_LOG_INDEX;
   }
 
   /**
@@ -440,7 +440,7 @@ class ServerState implements Closeable {
    */
   long getSnapshotIndex() {
     final SnapshotInfo s = getLatestSnapshot();
-    final long latestSnapshotIndex = s != null ? s.getIndex() : 0;
+    final long latestSnapshotIndex = s != null ? s.getIndex() : RaftLog.INVALID_LOG_INDEX;
     return Math.max(latestSnapshotIndex, getLatestInstalledSnapshotIndex());
   }
 
