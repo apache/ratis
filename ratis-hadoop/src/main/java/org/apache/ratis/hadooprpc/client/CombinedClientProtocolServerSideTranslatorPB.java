@@ -41,11 +41,14 @@ import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
 import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.GeneratedMessageV3;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 @InterfaceAudience.Private
 public class CombinedClientProtocolServerSideTranslatorPB
     implements CombinedClientProtocolPB {
+  private Logger log = LoggerFactory.getLogger(CombinedClientProtocolServerSideTranslatorPB.class);
   private final RaftServer impl;
 
   public CombinedClientProtocolServerSideTranslatorPB(RaftServer impl) {
@@ -79,6 +82,10 @@ public class CombinedClientProtocolServerSideTranslatorPB
         response = transferLeadership(TransferLeadershipRequestProto.parseFrom(buf));
         break;
       default:
+        String message = "Internal error, all response types are not being handled as expected. " +
+                         "Developer: check that all response types have appropriate handlers.";
+        log.error(message);
+        throw new ServiceException(message);
       }
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
