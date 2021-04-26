@@ -49,10 +49,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -340,7 +337,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         LOG.info("Start changing the configuration: {}",
                 asList(c1.allPeersInNewConf));
         final AtomicReference<Boolean> success = new AtomicReference<>();
-
         Thread clientThread = new Thread(() -> {
           try {
             RaftClientReply reply = client.admin().setConfiguration(c1.allPeersInNewConf);
@@ -352,21 +348,23 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         clientThread.start();
 
         if (!startNewPeer) {
-          final TimeDuration delay = FIVE_SECONDS;
-          LOG.info("delay {} and start new peer(s): {}", delay, c1.newPeers);
-          delay.sleep();
+          // Make sure that set configuration is run inside the thread
+          RaftTestUtil.waitFor(() -> clientThread.isAlive(), 300, 5000);
+          ONE_SECOND.sleep();
+          LOG.info("start new peer(s): {}", c1.newPeers);
           for(RaftPeer p : c1.newPeers) {
             cluster.restartServer(p.getId(), true);
           }
         }
-        FIVE_SECONDS.sleep();
-        LOG.info(cluster.printServers());
 
-        RaftTestUtil.waitFor(() -> success.get(), 300, 15000);
+        RaftTestUtil.waitFor(() -> success.get() != null && success.get(), 300, 15000);
+        LOG.info(cluster.printServers());
 
         final RaftLog leaderLog = cluster.getLeader().getRaftLog();
         for (RaftPeer newPeer : c1.newPeers) {
           final RaftServer.Division d = cluster.getDivision(newPeer.getId());
+          RaftTestUtil.waitFor(() -> leaderLog.getEntries(0, Long.MAX_VALUE).length
+                  == d.getRaftLog().getEntries(0, Long.MAX_VALUE).length, 300, 15000);
           Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
               d.getRaftLog().getEntries(0, Long.MAX_VALUE));
         }
