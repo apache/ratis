@@ -337,7 +337,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         LOG.info("Start changing the configuration: {}",
                 asList(c1.allPeersInNewConf));
         final AtomicReference<Boolean> success = new AtomicReference<>();
-        
         Thread clientThread = new Thread(() -> {
           try {
             RaftClientReply reply = client.admin().setConfiguration(c1.allPeersInNewConf);
@@ -699,4 +698,3 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     }
   }
 }
-
