@@ -431,7 +431,7 @@ class ServerState implements Closeable {
 
   long getLatestInstalledSnapshotIndex() {
     final TermIndex ti = latestInstalledSnapshot.get();
-    return ti != null? ti.getIndex(): -1L;
+    return ti != null? ti.getIndex(): RaftLog.INVALID_LOG_INDEX;
   }
 
   /**
