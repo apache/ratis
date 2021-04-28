@@ -184,7 +184,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
         final DataStreamRequestByteBuf request = requestRef.set((DataStreamRequestByteBuf)msg);
 
-        int index = (int)request.getStreamId() % proxies.size();
+        int index = Math.toIntExact(
+            ((0xFFFFFFFFL & request.getClientId().hashCode()) + request.getStreamId()) % proxies.size());
         requests.read(request, ctx, proxies.get(index)::getDataStreamOutput);
 
         requestRef.reset(request);
