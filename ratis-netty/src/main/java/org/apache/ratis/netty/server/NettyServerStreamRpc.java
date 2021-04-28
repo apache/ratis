@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
@@ -54,6 +55,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -109,17 +111,22 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final ChannelFuture channelFuture;
+  private final int clientNum;
 
   private final DataStreamManagement requests;
-  private final Proxies proxies;
+  private final List<Proxies> proxies = new ArrayList<>();
 
   public NettyServerStreamRpc(RaftServer server) {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.requests = new DataStreamManagement(server);
-
     final RaftProperties properties = server.getProperties();
+
+    this.clientNum = RaftServerConfigKeys.DataStream.clientNum(properties);
+    for (int i = 0; i < clientNum; i ++) {
+      this.proxies.add(new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties))));
+    }
+
     final int port = NettyConfigKeys.DataStream.port(properties);
-    this.proxies = new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties)));
     this.channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)
@@ -139,7 +146,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   @Override
   public void addRaftPeers(Collection<RaftPeer> newPeers) {
-    proxies.addPeers(newPeers);
+    for (int i = 0; i < clientNum; i ++) {
+      proxies.get(i).addPeers(newPeers);
+    }
   }
 
   static class RequestRef {
@@ -174,7 +183,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         }
 
         final DataStreamRequestByteBuf request = requestRef.set((DataStreamRequestByteBuf)msg);
-        requests.read(request, ctx, proxies::getDataStreamOutput);
+
+        int index = (int)request.getStreamId() % clientNum;
+        requests.read(request, ctx, proxies.get(index)::getDataStreamOutput);
         requestRef.reset(request);
       }
 
@@ -243,7 +254,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       LOG.error(this + ": Interrupted close()", e);
     }
 
-    proxies.close();
+    for (int i = 0; i < clientNum; i ++) {
+      proxies.get(i).close();
+    }
   }
 
   @Override
