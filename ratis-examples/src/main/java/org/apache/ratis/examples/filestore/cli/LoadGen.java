@@ -19,7 +19,6 @@ package org.apache.ratis.examples.filestore.cli;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.filestore.FileStoreClient;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
@@ -47,16 +46,15 @@ public class LoadGen extends Client {
   private int sync = 0;
 
   @Override
-  protected void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException {
+  protected void operation(List<FileStoreClient> clients) throws IOException, ExecutionException, InterruptedException {
     final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
     List<String> paths = generateFiles(executor);
     dropCache();
-    FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting Async write now ");
 
     long startTime = System.currentTimeMillis();
 
-    long totalWrittenBytes = waitWriteFinish(writeByHeapByteBuffer(paths, fileStoreClient, executor));
+    long totalWrittenBytes = waitWriteFinish(writeByHeapByteBuffer(paths, clients, executor));
 
     long endTime = System.currentTimeMillis();
 
@@ -65,7 +63,7 @@ public class LoadGen extends Client {
     System.out.println("Total data written: " + totalWrittenBytes + " bytes");
     System.out.println("Total time taken: " + (endTime - startTime) + " millis");
 
-    stop(client);
+    stop(clients);
   }
 
   long write(FileChannel in, long offset, FileStoreClient fileStoreClient, String path,
@@ -88,18 +86,21 @@ public class LoadGen extends Client {
   }
 
   private Map<String, CompletableFuture<List<CompletableFuture<Long>>>> writeByHeapByteBuffer(
-      List<String> paths, FileStoreClient fileStoreClient, ExecutorService executor) {
+      List<String> paths, List<FileStoreClient> clients, ExecutorService executor) {
     Map<String, CompletableFuture<List<CompletableFuture<Long>>>> fileMap = new HashMap<>();
 
+    int clientIndex = 0;
     for(String path : paths) {
       final CompletableFuture<List<CompletableFuture<Long>>> future = new CompletableFuture<>();
+      final FileStoreClient client = clients.get(clientIndex % clients.size());
+      clientIndex ++;
       CompletableFuture.supplyAsync(() -> {
         List<CompletableFuture<Long>> futures = new ArrayList<>();
         File file = new File(path);
         try (FileInputStream fis = new FileInputStream(file)) {
           final FileChannel in = fis.getChannel();
           for (long offset = 0L; offset < getFileSizeInBytes(); ) {
-            offset += write(in, offset, fileStoreClient, file.getName(), futures);
+            offset += write(in, offset, client, file.getName(), futures);
           }
         } catch (Throwable e) {
           future.completeExceptionally(e);

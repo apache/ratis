@@ -22,15 +22,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
-import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.examples.common.SubCommandBase;
+import org.apache.ratis.examples.filestore.FileStoreClient;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcFactory;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -66,11 +67,14 @@ public abstract class Client extends SubCommandBase {
   @Parameter(names = {"--numFiles"}, description = "Number of files to be written", required = true)
   private int numFiles;
 
+  @Parameter(names = {"--numClients"}, description = "Number of clients to write", required = true)
+  private int numClients;
+
   @Parameter(names = {"--storage", "-s"}, description = "Storage dir, eg. --storage dir1 --storage dir2",
       required = true)
   private List<File> storageDir = new ArrayList<>();
 
-  private static final int MAX_THREADS_NUM = 100;
+  private static final int MAX_THREADS_NUM = 1000;
 
   public int getNumThread() {
     return numFiles < MAX_THREADS_NUM ? numFiles : MAX_THREADS_NUM;
@@ -111,27 +115,39 @@ public abstract class Client extends SubCommandBase {
         TimeDuration.valueOf(50000, TimeUnit.MILLISECONDS));
     RaftClientConfigKeys.Async.setOutstandingRequestsMax(raftProperties, 1000);
 
-
-    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),
-            getPeers());
-
-    RaftClient.Builder builder =
-        RaftClient.newBuilder().setProperties(raftProperties);
-    builder.setRaftGroup(raftGroup);
-    builder.setClientRpc(new GrpcFactory(new Parameters()).newRaftClientRpc(ClientId.randomId(), raftProperties));
-    builder.setPrimaryDataStreamServer(getPrimary());
-    RaftClient client = builder.build();
-
     for (File dir : storageDir) {
       FileUtils.createDirectories(dir);
     }
 
-    operation(client);
+    operation(getClients(raftProperties));
   }
 
+  public List<FileStoreClient> getClients(RaftProperties raftProperties) {
+    List<FileStoreClient> fileStoreClients = new ArrayList<>();
+    for (int i = 0; i < numClients; i ++) {
+      final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),
+          getPeers());
+
+      RaftClient.Builder builder =
+          RaftClient.newBuilder().setProperties(raftProperties);
+      builder.setRaftGroup(raftGroup);
+      builder.setClientRpc(
+          new GrpcFactory(new org.apache.ratis.conf.Parameters())
+              .newRaftClientRpc(ClientId.randomId(), raftProperties));
+      RaftPeer[] peers = getPeers();
+      builder.setPrimaryDataStreamServer(peers[i % peers.length]);
+      RaftClient client = builder.build();
+      fileStoreClients.add(new FileStoreClient(client));
+    }
+    return fileStoreClients;
+  }
+
+
   @SuppressFBWarnings("DM_EXIT")
-  protected void stop(RaftClient client) throws IOException {
-    client.close();
+  protected void stop(List<FileStoreClient> clients) throws IOException {
+    for (FileStoreClient client : clients) {
+      client.close();
+    }
     System.exit(0);
   }
 
@@ -199,5 +215,6 @@ public abstract class Client extends SubCommandBase {
     return offset;
   }
 
-  protected abstract void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException;
+  protected abstract void operation(List<FileStoreClient> clients)
+      throws IOException, ExecutionException, InterruptedException;
 }

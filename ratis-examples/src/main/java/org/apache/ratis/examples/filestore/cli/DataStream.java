@@ -19,7 +19,6 @@ package org.apache.ratis.examples.filestore.cli;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.examples.filestore.FileStoreClient;
 import org.apache.ratis.io.StandardWriteOption;
@@ -114,21 +113,20 @@ public class DataStream extends Client {
   }
 
   @Override
-  protected void operation(RaftClient client) throws IOException, ExecutionException, InterruptedException {
+  protected void operation(List<FileStoreClient> clients) throws IOException, ExecutionException, InterruptedException {
     if (!checkParam()) {
-      stop(client);
+      stop(clients);
     }
 
     final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
     List<String> paths = generateFiles(executor);
     dropCache();
-    FileStoreClient fileStoreClient = new FileStoreClient(client);
     System.out.println("Starting DataStream write now ");
 
     RoutingTable routingTable = getRoutingTable(Arrays.asList(getPeers()), getPrimary());
     long startTime = System.currentTimeMillis();
 
-    long totalWrittenBytes = waitStreamFinish(streamWrite(paths, fileStoreClient, routingTable, executor));
+    long totalWrittenBytes = waitStreamFinish(streamWrite(paths, clients, routingTable, executor));
 
     long endTime = System.currentTimeMillis();
 
@@ -137,16 +135,19 @@ public class DataStream extends Client {
     System.out.println("Total data written: " + totalWrittenBytes + " bytes");
     System.out.println("Total time taken: " + (endTime - startTime) + " millis");
 
-    stop(client);
+    stop(clients);
   }
 
   private Map<String, CompletableFuture<List<CompletableFuture<DataStreamReply>>>> streamWrite(
-      List<String> paths, FileStoreClient fileStoreClient, RoutingTable routingTable,
+      List<String> paths, List<FileStoreClient> clients, RoutingTable routingTable,
       ExecutorService executor) {
     Map<String, CompletableFuture<List<CompletableFuture<DataStreamReply>>>> fileMap = new HashMap<>();
 
+    int clientIndex = 0;
     for(String path : paths) {
       final CompletableFuture<List<CompletableFuture<DataStreamReply>>> future = new CompletableFuture<>();
+      final FileStoreClient client = clients.get(clientIndex % clients.size());
+      clientIndex ++;
       CompletableFuture.supplyAsync(() -> {
         File file = new File(path);
         final long fileLength = file.length();
@@ -156,8 +157,9 @@ public class DataStream extends Client {
         final Type type = Optional.ofNullable(Type.valueOfIgnoreCase(dataStreamType))
             .orElseThrow(IllegalStateException::new);
         final TransferType writer = type.getConstructor().apply(path, this);
+
         try {
-          future.complete(writer.transfer(fileStoreClient, routingTable));
+          future.complete(writer.transfer(client, routingTable));
         } catch (IOException e) {
           future.completeExceptionally(e);
         }
