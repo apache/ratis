@@ -445,6 +445,19 @@ public interface RaftServerConfigKeys {
     static void setAsyncWriteThreadPoolSize(RaftProperties properties, int port) {
       setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, port);
     }
+
+    String CLIENT_POOL_SIZE_KEY = PREFIX + ".client.pool.size";
+    int CLIENT_POOL_SIZE_DEFAULT = 10;
+
+    static int clientPoolSize(RaftProperties properties) {
+      return getInt(properties::getInt, CLIENT_POOL_SIZE_KEY,
+          CLIENT_POOL_SIZE_DEFAULT, getDefaultLog(),
+          requireMin(0), requireMax(65536));
+    }
+
+    static void setClientPoolSize(RaftProperties properties, int num) {
+      setInt(properties::setInt, CLIENT_POOL_SIZE_KEY, num);
+    }
   }
 
   /** server rpc timeout related */
