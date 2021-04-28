@@ -111,7 +111,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final ChannelFuture channelFuture;
-  private final int clientNum;
 
   private final DataStreamManagement requests;
   private final List<Proxies> proxies = new ArrayList<>();
@@ -119,10 +118,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   public NettyServerStreamRpc(RaftServer server) {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.requests = new DataStreamManagement(server);
+
     final RaftProperties properties = server.getProperties();
 
-    this.clientNum = RaftServerConfigKeys.DataStream.clientNum(properties);
-    for (int i = 0; i < clientNum; i ++) {
+    int clientPoolSize = RaftServerConfigKeys.DataStream.clientPoolSize(properties);
+    for (int i = 0; i < clientPoolSize; i ++) {
       this.proxies.add(new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties))));
     }
 
@@ -146,7 +146,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   @Override
   public void addRaftPeers(Collection<RaftPeer> newPeers) {
-    for (int i = 0; i < clientNum; i ++) {
+    for (int i = 0; i < proxies.size(); i ++) {
       proxies.get(i).addPeers(newPeers);
     }
   }
@@ -184,8 +184,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
         final DataStreamRequestByteBuf request = requestRef.set((DataStreamRequestByteBuf)msg);
 
-        int index = (int)request.getStreamId() % clientNum;
+        int index = (int)request.getStreamId() % proxies.size();
         requests.read(request, ctx, proxies.get(index)::getDataStreamOutput);
+
         requestRef.reset(request);
       }
 
@@ -254,7 +255,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       LOG.error(this + ": Interrupted close()", e);
     }
 
-    for (int i = 0; i < clientNum; i ++) {
+    for (int i = 0; i < proxies.size(); i ++) {
       proxies.get(i).close();
     }
   }
