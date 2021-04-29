@@ -421,7 +421,7 @@ public interface RaftServerConfigKeys {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".data-stream";
 
     String ASYNC_REQUEST_THREAD_POOL_SIZE_KEY = PREFIX + ".async.request.thread.pool.size";
-    int ASYNC_REQUEST_THREAD_POOL_SIZE_DEFAULT = 16;
+    int ASYNC_REQUEST_THREAD_POOL_SIZE_DEFAULT = 32;
 
     static int asyncRequestThreadPoolSize(RaftProperties properties) {
       return getInt(properties::getInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY,
