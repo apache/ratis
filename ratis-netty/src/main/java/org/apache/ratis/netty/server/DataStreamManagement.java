@@ -90,13 +90,16 @@ public class DataStreamManagement {
 
   static class RemoteStream {
     private final DataStreamOutputRpc out;
+    private final AtomicReference<CompletableFuture<DataStreamReply>> sendFuture
+        = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     RemoteStream(DataStreamOutputRpc out) {
       this.out = out;
     }
 
-    CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request) {
-      return out.writeAsync(request.slice().nioBuffer(), request.getWriteOptions());
+    CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
+      return composeAsync(sendFuture, executor,
+          n -> out.writeAsync(request.slice().nioBuffer(), request.getWriteOptions()));
     }
   }
 
@@ -369,7 +372,7 @@ public class DataStreamManagement {
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
       localWrite = info.getLocal().write(buf, request.getWriteOptions(), writeExecutor);
-      remoteWrites = info.applyToRemotes(out -> out.write(request));
+      remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
     }
