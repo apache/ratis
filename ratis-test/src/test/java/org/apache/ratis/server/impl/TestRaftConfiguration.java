@@ -40,15 +40,15 @@ public class TestRaftConfiguration extends BaseTest {
         RaftPeer[] allRaftPeers = peerConfig.getPeers().toArray(new RaftPeer[peerConfig.getPeers().size()]);
 
         // First member should not have highest priority
-        Assert.assertFalse(RaftConfigurationTestUtil.isHighestPriority(config,
+        Assert.assertFalse(RaftServerTestUtil.isHighestPriority(config,
                 allRaftPeers[0].getId()));
 
         // Last member should have highest priority
-        Assert.assertTrue(RaftConfigurationTestUtil.isHighestPriority(config,
+        Assert.assertTrue(RaftServerTestUtil.isHighestPriority(config,
                 allRaftPeers[allRaftPeers.length -1].getId()));
 
         // Should return false for non existent peer id
-        Assert.assertFalse(RaftConfigurationTestUtil.isHighestPriority(config, RaftPeerId.valueOf("123456789")));
+        Assert.assertFalse(RaftServerTestUtil.isHighestPriority(config, RaftPeerId.valueOf("123456789")));
     }
 
     private Collection<RaftPeer> raftPeersWithPriority(Integer... voters) {
