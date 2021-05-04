@@ -98,10 +98,9 @@ public interface IOUtils {
 
   static void readFully(InputStream in, int buffSize) throws IOException {
     final byte [] buf = new byte[buffSize];
-    int read;
-    do {
-      read = in.read(buf);
-    } while(read >= 0);
+    for(int bytesRead = in.read(buf); bytesRead >= 0; ) {
+      bytesRead = in.read(buf);
+    }
   }
 
   /**
@@ -116,8 +115,7 @@ public interface IOUtils {
    */
   static void readFully(InputStream in, byte[] buf, int off, int len)
       throws IOException {
-    int toRead = len;
-    while (toRead > 0) {
+    for(int toRead = len; toRead > 0; ) {
       final int ret = in.read(buf, off, toRead);
       if (ret < 0) {
         final int read = len - toRead;
@@ -150,7 +148,7 @@ public interface IOUtils {
     final int remaining = fill.remaining();
 
     long allocated = 0;
-    while (allocated < size) {
+    for(; allocated < size; ) {
       final long required = size - allocated;
       final int n = remaining < required? remaining: Math.toIntExact(required);
       final ByteBuffer buffer = fill.slice();
