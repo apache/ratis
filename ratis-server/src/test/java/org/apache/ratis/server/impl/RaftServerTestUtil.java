@@ -172,4 +172,8 @@ public class RaftServerTestUtil {
         server::submitUpdateCommitEvent,
         storage, () -> -1, properties);
   }
+
+  public static boolean isHighestPriority(RaftConfiguration config, RaftPeerId peerId) {
+    return ((RaftConfigurationImpl)config).isHighestPriority(peerId);
+  }
 }
