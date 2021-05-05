@@ -33,6 +33,7 @@ import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -51,9 +52,8 @@ public interface IOUtils {
   }
 
   static IOException asIOException(Throwable t) {
-    return t == null? null
-        : t instanceof IOException? (IOException)t
-        : new IOException(t);
+    Objects.requireNonNull(t, "t == null");
+    return t instanceof IOException? (IOException)t : new IOException(t);
   }
 
   static IOException toIOException(ExecutionException e) {
@@ -215,16 +215,13 @@ public interface IOUtils {
   }
 
   static <T> T readObject(InputStream in, Class<T> clazz) {
+    Object obj = null;
     try(ObjectInputStream oin = new ObjectInputStream(in)) {
-      final Object obj = oin.readObject();
-      try {
-        return clazz.cast(obj);
-      } catch (ClassCastException e) {
-        throw new IllegalStateException("Failed to cast to " + clazz + ", object="
-            + (obj instanceof Throwable? StringUtils.stringifyException((Throwable) obj): obj), e);
-      }
+      obj = oin.readObject();
+      return clazz.cast(obj);
     } catch (IOException | ClassNotFoundException e) {
-      throw new IllegalStateException("Failed to read an object.", e);
+      throw new IllegalStateException("Failed to cast to " + clazz + ", object="
+              + (obj instanceof Throwable? StringUtils.stringifyException((Throwable) obj): obj), e);
     }
   }
 }
