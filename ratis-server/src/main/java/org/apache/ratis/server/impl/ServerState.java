@@ -40,7 +40,7 @@ import org.apache.ratis.util.Timestamp;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.AccessDeniedException;
+import java.nio.channels.OverlappingFileLockException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -104,17 +104,30 @@ class ServerState implements Closeable {
     configurationManager = new ConfigurationManager(initialConf);
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
+    boolean storageFound = false;
     List<File> directories = RaftServerConfigKeys.storageDir(prop);
     while (!directories.isEmpty()) {
       // use full uuid string to create a subdirectory
       File dir = chooseStorageDir(directories, group.getGroupId().getUuid().toString());
       try {
         storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop));
+        storageFound = true;
         break;
-      } catch (AccessDeniedException e) {
-        directories.remove(dir);
+      } catch (IOException e) {
+        if (e.getCause() instanceof OverlappingFileLockException) {
+          throw e;
+        }
+        LOG.warn("Failed to init RaftStorage under {} for {}: {}",
+            dir.getParent(), group.getGroupId().getUuid().toString(), e);
+        directories.removeIf(d -> d.getAbsolutePath().equals(dir.getParent()));
       }
     }
+
+    if (!storageFound) {
+      throw new IOException("No healthy directories found for RaftStorage among: " +
+          RaftServerConfigKeys.storageDir(prop));
+    }
+
     snapshotManager = new SnapshotManager(storage, id);
 
     stateMachine.initialize(server.getRaftServer(), group.getGroupId(), storage);
