@@ -95,7 +95,7 @@ public interface RaftClientConfigKeys {
     String PREFIX = RaftClientConfigKeys.PREFIX + ".data-stream";
 
     String OUTSTANDING_REQUESTS_MAX_KEY = PREFIX + ".outstanding-requests.max";
-    int OUTSTANDING_REQUESTS_MAX_DEFAULT = 100;
+    int OUTSTANDING_REQUESTS_MAX_DEFAULT = 10;
     static int outstandingRequestsMax(RaftProperties properties) {
       return getInt(properties::getInt, OUTSTANDING_REQUESTS_MAX_KEY,
           OUTSTANDING_REQUESTS_MAX_DEFAULT, getDefaultLog(), requireMin(2));

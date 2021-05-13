@@ -127,9 +127,10 @@ public class OrderedStreamAsync {
     }
     final CompletableFuture<DataStreamReply> requestFuture = dataStreamClientRpc.streamAsync(
         request.getDataStreamRequest());
+    long seqNum = request.getSeqNum();
     requestFuture.thenApply(reply -> {
       slidingWindow.receiveReply(
-          request.getSeqNum(), reply, this::sendRequestToNetwork);
+          seqNum, reply, this::sendRequestToNetwork);
       return reply;
     }).thenAccept(reply -> {
       if (f.isDone()) {
