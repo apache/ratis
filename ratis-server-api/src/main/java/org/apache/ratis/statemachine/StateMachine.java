@@ -32,6 +32,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
@@ -444,7 +445,7 @@ public interface StateMachine extends Closeable {
    *            of the raft peers
    * @return The Transaction context.
    */
-  TransactionContext applyTransactionSerial(TransactionContext trx);
+  TransactionContext applyTransactionSerial(TransactionContext trx) throws InvalidProtocolBufferException;
 
   /**
    * Apply a committed log entry to the state machine. This method is called sequentially in
