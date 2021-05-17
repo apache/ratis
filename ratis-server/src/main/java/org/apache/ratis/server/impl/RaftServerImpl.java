@@ -1579,10 +1579,12 @@ class RaftServerImpl implements RaftServer.Division,
         // installSnapShotRequestProto.
         RoleInfoProto roleInfoProto;
         RaftPeer raftPeer = getRaftConf().getPeer(state.getLeaderId());
-        if (raftPeer == null && leaderPeerInfo != null) {
-          roleInfoProto = getRoleInfoProto(ProtoUtils.toRaftPeer(leaderPeerInfo));
-        } else if (raftPeer == null) {
-          throw new IOException("Leader peer info is unknown.");
+        if (raftPeer == null) {
+          if (leaderPeerInfo != null) {
+            roleInfoProto = getRoleInfoProto(ProtoUtils.toRaftPeer(leaderPeerInfo));
+          } else {
+            throw new IOException("Leader peer info is unknown.");
+          }
         } else {
           roleInfoProto = getRoleInfoProto();
         }
