@@ -43,19 +43,22 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   enum StorageState {
     NON_EXISTENT,
     NOT_FORMATTED,
+    NO_SPACE,
     NORMAL
   }
 
   private final File root; // root directory
   private FileLock lock;   // storage lock
+  private long freeSpaceMin;
 
   /**
    * Constructor
    * @param dir directory corresponding to the storage
    */
-  RaftStorageDirectoryImpl(File dir) {
+  RaftStorageDirectoryImpl(File dir, long freeSpaceMin) {
     this.root = dir;
     this.lock = null;
+    this.freeSpaceMin = freeSpaceMin;
   }
 
   @Override
@@ -150,6 +153,14 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
       this.lock(); // lock storage if it exists
     }
 
+    // check enough space
+    if (!hasEnoughSpace()) {
+      LOG.warn("There are not enough space left for directory " + rootPath
+          + " free space min required: " + freeSpaceMin
+          + " free space actual: " + root.getFreeSpace());
+      return StorageState.NO_SPACE;
+    }
+
     // check whether current directory is valid
     if (isHealthy()) {
       return StorageState.NORMAL;
@@ -161,6 +172,10 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   @Override
   public boolean isHealthy() {
     return getMetaFile().exists();
+  }
+
+  private boolean hasEnoughSpace() {
+    return root.getFreeSpace() > freeSpaceMin;
   }
 
   /**
