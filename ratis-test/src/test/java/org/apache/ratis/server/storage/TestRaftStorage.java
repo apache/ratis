@@ -31,6 +31,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,7 +47,7 @@ import java.util.regex.Matcher;
  */
 public class TestRaftStorage extends BaseTest {
   static RaftStorageImpl newRaftStorage(File dir) throws IOException {
-    return new RaftStorageImpl(dir, null);
+    return new RaftStorageImpl(dir, null, 0);
   }
 
   private File storageDir;
@@ -64,7 +65,7 @@ public class TestRaftStorage extends BaseTest {
   }
 
   static RaftStorageImpl formatRaftStorage(File dir) throws IOException {
-    return new RaftStorageImpl(dir, null, RaftStorageImpl.StartupOption.FORMAT);
+    return new RaftStorageImpl(dir, null, RaftStorageImpl.StartupOption.FORMAT, 0);
   }
 
   @Test
@@ -99,7 +100,7 @@ public class TestRaftStorage extends BaseTest {
    */
   @Test
   public void testStorage() throws Exception {
-    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir);
+    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, 0);
     try {
       StorageState state = sd.analyzeStorage(true);
       Assert.assertEquals(StorageState.NOT_FORMATTED, state);
@@ -156,7 +157,7 @@ public class TestRaftStorage extends BaseTest {
     Assert.assertEquals(StorageState.NORMAL, storage.getState());
     storage.close();
 
-    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir);
+    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, 0);
     File metaFile = sd.getMetaFile();
     FileUtils.move(metaFile, sd.getMetaTmpFile());
 
@@ -264,5 +265,15 @@ public class TestRaftStorage extends BaseTest {
     });
     Assert.assertTrue(stateMachineDir.listFiles().length == 5);
 
+  }
+
+  @Test
+  public void testNotEnoughSpace() throws IOException {
+    File mockStorageDir = Mockito.spy(storageDir);
+    Mockito.when(mockStorageDir.getFreeSpace()).thenReturn(100L);  // 100B
+
+    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(mockStorageDir, 104857600); // 100MB
+    StorageState state = sd.analyzeStorage(false);
+    Assert.assertEquals(StorageState.NO_SPACE, state);
   }
 }

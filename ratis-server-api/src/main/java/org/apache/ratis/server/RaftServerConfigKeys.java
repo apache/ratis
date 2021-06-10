@@ -51,6 +51,16 @@ public interface RaftServerConfigKeys {
     setFiles(properties::setFiles, STORAGE_DIR_KEY, storageDir);
   }
 
+  String STORAGE_FREE_SPACE_MIN_KEY = PREFIX + ".storage.free-space.min";
+  SizeInBytes STORAGE_FREE_SPACE_MIN_DEFAULT = SizeInBytes.valueOf("0MB");
+  static SizeInBytes storageFreeSpaceMin(RaftProperties properties) {
+    return getSizeInBytes(properties::getSizeInBytes,
+        STORAGE_FREE_SPACE_MIN_KEY, STORAGE_FREE_SPACE_MIN_DEFAULT, getDefaultLog());
+  }
+  static void setStorageFreeSpaceMin(RaftProperties properties, SizeInBytes storageFreeSpaceMin) {
+    setSizeInBytes(properties::set, STORAGE_FREE_SPACE_MIN_KEY, storageFreeSpaceMin);
+  }
+
   String REMOVED_GROUPS_DIR_KEY = PREFIX + ".removed.groups.dir";
   File REMOVED_GROUPS_DIR_DEFAULT = new File("/tmp/raft-server/removed-groups/");
   static File removedGroupsDir(RaftProperties properties) {

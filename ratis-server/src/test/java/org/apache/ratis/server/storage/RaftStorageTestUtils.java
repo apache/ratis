@@ -33,7 +33,7 @@ import java.util.function.Consumer;
 
 public interface RaftStorageTestUtils {
   static RaftStorage newRaftStorage(File dir) throws IOException {
-    return new RaftStorageImpl(dir, null);
+    return new RaftStorageImpl(dir, null, 0L);
   }
 
   static String getLogFlushTimeMetric(String memberId) {
