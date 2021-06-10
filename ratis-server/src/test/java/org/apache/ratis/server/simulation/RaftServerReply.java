@@ -100,7 +100,7 @@ public class RaftServerReply implements RaftRpcMessage {
   }
 
   @Override
-  public String getRequestorId() {
+  public String getRequesterId() {
     if (isAppendEntries()) {
       return appendEntries.getServerReply().getRequestorId().toStringUtf8();
     } else if (isRequestVote()) {

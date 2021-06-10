@@ -21,7 +21,7 @@ public interface RaftRpcMessage {
 
   boolean isRequest();
 
-  String getRequestorId();
+  String getRequesterId();
 
   String getReplierId();
 

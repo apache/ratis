@@ -34,7 +34,7 @@ public abstract class RaftClientMessage implements RaftRpcMessage {
   }
 
   @Override
-  public String getRequestorId() {
+  public String getRequesterId() {
     return clientId.toString();
   }
 

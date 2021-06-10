@@ -618,7 +618,7 @@ class RaftServerImpl implements RaftServer.Division,
   private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry,
       boolean isWrite) {
     try {
-      assertGroup(request.getRequestorId(), request.getRaftGroupId());
+      assertGroup(request.getRequesterId(), request.getRaftGroupId());
     } catch (GroupMismatchException e) {
       return RetryCacheImpl.failWithException(e, entry);
     }
@@ -922,7 +922,7 @@ class RaftServerImpl implements RaftServer.Division,
       throws IOException {
     LOG.info("{}: receive transferLeadership {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
-    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+    assertGroup(request.getRequesterId(), request.getRaftGroupId());
 
     synchronized (this) {
       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
@@ -970,7 +970,7 @@ class RaftServerImpl implements RaftServer.Division,
   public CompletableFuture<RaftClientReply> setConfigurationAsync(SetConfigurationRequest request) throws IOException {
     LOG.info("{}: receive setConfiguration {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
-    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+    assertGroup(request.getRequesterId(), request.getRaftGroupId());
 
     CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, true);
     if (reply != null) {

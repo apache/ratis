@@ -138,7 +138,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage, REPLY extends RaftRp
         request = q.takeRequest();
         Preconditions.assertTrue(qid.equals(request.getReplierId()));
 
-        final EventQueue<REQUEST, REPLY> reqQ = queues.get(request.getRequestorId());
+        final EventQueue<REQUEST, REPLY> reqQ = queues.get(request.getRequesterId());
         if (reqQ != null) {
           // Doing a busy wait here until got request from requestor which was not blocked.
           if (reqQ.blockTakeRequestFrom.get()) {
@@ -160,7 +160,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage, REPLY extends RaftRp
       throws IOException {
     if (reply != null) {
       Preconditions.assertTrue(
-          request.getRequestorId().equals(reply.getRequestorId()));
+          request.getRequesterId().equals(reply.getRequesterId()));
       Preconditions.assertTrue(
           request.getReplierId().equals(reply.getReplierId()));
     }
