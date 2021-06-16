@@ -62,9 +62,11 @@ public class MetricRegistriesImpl extends MetricRegistries {
   public RatisMetricRegistry create(MetricRegistryInfo info) {
     return registries.put(info, () -> {
       if (reporterRegistrations.isEmpty()) {
-        LOG.warn(
-            "First MetricRegistry has been created without registering reporters. You may need to call" +
-                " MetricRegistries.global().addReporterRegistration(...) before.");
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("First MetricRegistry has been created without registering reporters. " +
+              "Hence registering JMX reporter by default.");
+        }
+        enableJmxReporter();
       }
       RatisMetricRegistry registry = factory.create(info);
       reporterRegistrations.forEach(reg -> reg.accept(registry));
@@ -105,6 +107,10 @@ public class MetricRegistriesImpl extends MetricRegistries {
   @Override
   public void addReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration,
       Consumer<RatisMetricRegistry> stopReporter) {
+    if (registries.size() > 0) {
+      LOG.warn("New reporters are added after registries were created. Some metrics will be missing from the reporter. "
+          + "Please add reporter before adding any new registry.");
+    }
     this.reporterRegistrations.add(reporterRegistration);
     this.stopReporters.add(stopReporter);
   }
