@@ -33,14 +33,18 @@ public class RatisMetrics {
   protected static RatisMetricRegistry create(MetricRegistryInfo info) {
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
     return metricRegistry.orElseGet(() -> {
-      LOG.info("Creating Metrics Registry : {}", info.getName());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Creating Metrics Registry : {}", info.getName());
+      }
       return MetricRegistries.global().create(info);
     });
   }
 
   public void unregister() {
     MetricRegistryInfo info = registry.getMetricRegistryInfo();
-    LOG.info("Unregistering Metrics Registry : {}", info.getName());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Unregistering Metrics Registry : {}", info.getName());
+    }
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
     if (metricRegistry.isPresent()) {
       MetricRegistries.global().remove(info);
