@@ -36,6 +36,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.apache.ratis.conf.ConfUtils.setInt;
+
 /**
  * Test cases to verify RaftServerConfigKeys.
  */
@@ -95,4 +97,19 @@ public class TestRaftServerConfigKeys {
     Assert.assertEquals(directories.size(), storageDirs.size());
     Assert.assertEquals(0, actualDirs.size());
   }
+
+
+  /**
+   * Sets the value to <code>raft.server.write.megabyte-limit</code> via
+   * RaftServerConfigKeys and also verifies the same via RaftServerConfigKeys.
+   */
+  @Test
+  public void testPendingRequestSize() {
+    RaftProperties properties = new RaftProperties();
+    // setting to 4GB
+    setInt(properties::setInt,"raft.server.write.megabyte-limit", 4096);
+    final int pendingRequestMegabyteLimit = RaftServerConfigKeys.Write.megabyteLimit(properties);
+    Assert.assertEquals(4096, pendingRequestMegabyteLimit);
+  }
+
 }

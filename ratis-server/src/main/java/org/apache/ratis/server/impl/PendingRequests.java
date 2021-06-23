@@ -32,7 +32,6 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ResourceSemaphore;
-import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,15 +51,15 @@ class PendingRequests {
   static class Permit {}
 
   static class RequestLimits extends ResourceSemaphore.Group {
-    RequestLimits(int elementLimit, SizeInBytes byteLimit) {
-      super(elementLimit, byteLimit.getSizeInt());
+    RequestLimits(int elementLimit, int megabyteLimit) {
+      super(elementLimit, megabyteLimit);
     }
 
     int getElementCount() {
       return get(0).used();
     }
 
-    int getByteSize() {
+    int getMegabyteSize() {
       return get(1).used();
     }
 
@@ -83,13 +82,13 @@ class PendingRequests {
     /** Track and limit the number of requests and the total message size. */
     private final RequestLimits resource;
 
-    RequestMap(Object name, int elementLimit, SizeInBytes byteLimit, RaftServerMetricsImpl raftServerMetrics) {
+    RequestMap(Object name, int elementLimit, int megabyteLimit, RaftServerMetricsImpl raftServerMetrics) {
       this.name = name;
-      this.resource = new RequestLimits(elementLimit, byteLimit);
+      this.resource = new RequestLimits(elementLimit, megabyteLimit);
       this.raftServerMetrics = raftServerMetrics;
 
       raftServerMetrics.addNumPendingRequestsGauge(resource::getElementCount);
-      raftServerMetrics.addNumPendingRequestsByteSize(resource::getByteSize);
+      raftServerMetrics.addNumPendingRequestsMegabyteSize(resource::getMegabyteSize);
     }
 
     Permit tryAcquire(Message message) {
@@ -183,7 +182,7 @@ class PendingRequests {
     this.name = id + "-" + JavaUtils.getClassSimpleName(getClass());
     this.pendingRequests = new RequestMap(id,
         RaftServerConfigKeys.Write.elementLimit(properties),
-        RaftServerConfigKeys.Write.byteLimit(properties),
+        RaftServerConfigKeys.Write.megabyteLimit(properties),
         raftServerMetrics);
   }
 
