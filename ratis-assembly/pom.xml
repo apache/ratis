@@ -330,10 +330,7 @@
                   <arguments>
                     <argument>bash</argument>
                     <argument>-c</argument>
-                    <argument>cat maven-shared-archive-resources/META-INF/NOTICE \
-                      `find ${project.build.directory}/dependency -iname NOTICE -or -iname
-                      NOTICE.txt` \
-                    </argument>
+                    <argument>cat maven-shared-archive-resources/META-INF/NOTICE `find ${project.build.directory}/dependency -iname NOTICE -or -iname NOTICE.txt`</argument>
                   </arguments>
                   <outputFile>${project.build.directory}/NOTICE.aggregate</outputFile>
                   <workingDirectory>${project.build.directory}</workingDirectory>
