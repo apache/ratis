@@ -28,6 +28,7 @@ import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -84,6 +85,12 @@ public class MemoryRaftLog extends RaftLogBase {
                        RaftProperties properties) {
     super(memberId, commitIndexSupplier, properties);
     this.metrics = new RaftLogMetricsBase(memberId);
+  }
+
+  @Override
+  public void close() throws IOException {
+    super.close();
+    metrics.unregister();
   }
 
   @Override
