@@ -92,6 +92,7 @@ public class GrpcClientProtocolClient implements Closeable {
   private final AtomicReference<AsyncStreamObservers> orderedStreamObservers = new AtomicReference<>();
 
   private final AtomicReference<AsyncStreamObservers> unorderedStreamObservers = new AtomicReference<>();
+  private final MetricClientInterceptor metricClientInterceptor;
 
   GrpcClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties,
       GrpcTlsConfig adminTlsConfig, GrpcTlsConfig clientTlsConfig) {
@@ -99,7 +100,7 @@ public class GrpcClientProtocolClient implements Closeable {
     this.target = target;
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
     final SizeInBytes maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
-    final MetricClientInterceptor monitoringInterceptor = new MetricClientInterceptor(getName());
+    metricClientInterceptor = new MetricClientInterceptor(getName());
 
     final String clientAddress = Optional.ofNullable(target.getClientAddress())
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
@@ -108,10 +109,10 @@ public class GrpcClientProtocolClient implements Closeable {
     final boolean separateAdminChannel = !Objects.equals(clientAddress, adminAddress);
 
     clientChannel = buildChannel(clientAddress, clientTlsConfig,
-        flowControlWindow, maxMessageSize, monitoringInterceptor);
+        flowControlWindow, maxMessageSize);
     adminChannel = separateAdminChannel
         ? buildChannel(adminAddress, adminTlsConfig,
-            flowControlWindow, maxMessageSize, monitoringInterceptor)
+            flowControlWindow, maxMessageSize)
         : clientChannel;
 
     asyncStub = RaftClientProtocolServiceGrpc.newStub(clientChannel);
@@ -122,8 +123,7 @@ public class GrpcClientProtocolClient implements Closeable {
   }
 
   private ManagedChannel buildChannel(String address, GrpcTlsConfig tlsConf,
-      SizeInBytes flowControlWindow, SizeInBytes maxMessageSize,
-      MetricClientInterceptor monitoringInterceptor) {
+      SizeInBytes flowControlWindow, SizeInBytes maxMessageSize) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(address);
 
@@ -155,7 +155,7 @@ public class GrpcClientProtocolClient implements Closeable {
 
     return channelBuilder.flowControlWindow(flowControlWindow.getSizeInt())
         .maxInboundMessageSize(maxMessageSize.getSizeInt())
-        .intercept(monitoringInterceptor)
+        .intercept(metricClientInterceptor)
         .build();
   }
 
@@ -172,6 +172,7 @@ public class GrpcClientProtocolClient implements Closeable {
       GrpcUtil.shutdownManagedChannel(adminChannel);
     }
     scheduler.close();
+    metricClientInterceptor.close();
   }
 
   RaftClientReplyProto groupAdd(GroupManagementRequestProto request) throws IOException {

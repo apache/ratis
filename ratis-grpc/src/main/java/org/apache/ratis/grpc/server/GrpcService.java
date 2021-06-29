@@ -270,6 +270,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
       }
       LOG.info("{} successfully", name);
     }
+
+    serverInterceptor.close();
   }
 
   @Override

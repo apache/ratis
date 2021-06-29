@@ -26,6 +26,7 @@ import org.apache.ratis.thirdparty.io.grpc.ServerCallHandler;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptor;
 
+import java.io.Closeable;
 import java.util.function.Supplier;
 
 /**
@@ -34,7 +35,7 @@ import java.util.function.Supplier;
  * before handling them.
  */
 
-public class MetricServerInterceptor implements ServerInterceptor {
+public class MetricServerInterceptor implements ServerInterceptor, Closeable {
   private String identifier;
   private MessageMetrics metrics;
   private final Supplier<RaftPeerId> peerIdSupplier;
@@ -76,5 +77,13 @@ public class MetricServerInterceptor implements ServerInterceptor {
     ServerCall<R,S> monitoringCall = new MetricServerCall<>(call, metricNamePrefix, metrics);
     return new MetricServerCallListener<>(
         next.startCall(monitoringCall, requestHeaders), metricNamePrefix, metrics);
+  }
+
+  @Override
+  public void close() {
+    final MessageMetrics m = metrics;
+    if (m != null) {
+      m.unregister();
+    }
   }
 }

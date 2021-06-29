@@ -21,13 +21,15 @@ package org.apache.ratis.grpc.metrics.intercept.client;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.thirdparty.io.grpc.*;
 
+import java.io.Closeable;
+
 /**
  * An implementation of a client interceptor.
  * Intercepts the messages and increments metrics accordingly
  * before sending them.
  */
 
-public class MetricClientInterceptor implements ClientInterceptor {
+public class MetricClientInterceptor implements ClientInterceptor, Closeable {
   private final String identifier;
   private final MessageMetrics metrics;
 
@@ -52,5 +54,10 @@ public class MetricClientInterceptor implements ClientInterceptor {
         metrics,
         getMethodMetricPrefix(methodDescriptor)
     );
+  }
+
+  @Override
+  public void close() {
+    metrics.unregister();
   }
 }
