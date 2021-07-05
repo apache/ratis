@@ -24,6 +24,7 @@ import java.util.Objects;
  */
 public final class SizeInBytes {
   public static final SizeInBytes ONE_KB = valueOf("1k");
+  public static final SizeInBytes ONE_MB = valueOf("1m");
 
   public static SizeInBytes valueOf(long size) {
     final String s = String.valueOf(size);

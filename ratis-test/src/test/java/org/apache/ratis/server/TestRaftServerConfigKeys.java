@@ -22,6 +22,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
@@ -36,7 +37,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.apache.ratis.conf.ConfUtils.requireMin;
 import static org.apache.ratis.conf.ConfUtils.setInt;
+import static org.apache.ratis.conf.ConfUtils.setSizeInBytes;
+import static org.apache.ratis.server.RaftServerConfigKeys.Write.MEGA_BYTE_LIMIT_KEY;
 
 /**
  * Test cases to verify RaftServerConfigKeys.
@@ -98,7 +102,6 @@ public class TestRaftServerConfigKeys {
     Assert.assertEquals(0, actualDirs.size());
   }
 
-
   /**
    * Sets the value to <code>raft.server.write.megabyte-limit</code> via
    * RaftServerConfigKeys and also verifies the same via RaftServerConfigKeys.
@@ -111,5 +114,4 @@ public class TestRaftServerConfigKeys {
     final int pendingRequestMegabyteLimit = RaftServerConfigKeys.Write.megabyteLimit(properties);
     Assert.assertEquals(4096, pendingRequestMegabyteLimit);
   }
-
 }

@@ -22,7 +22,7 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WATCH_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WRITE_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_QUEUE_LIMIT_HIT_COUNTER;
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_BYTE_SIZE;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_MEGA_BYTE_SIZE;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RESOURCE_LIMIT_HIT_COUNTER;
 
@@ -206,16 +206,17 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     runWithNewCluster(3, this::testRaftClientRequestMetrics);
   }
 
+
   @Test
   public void testRaftServerMetrics() throws Exception {
     final RaftProperties p = getProperties();
     RaftServerConfigKeys.Write.setElementLimit(p, 10);
-    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf(110));
+    RaftServerConfigKeys.Write.setMegaByteLimit(p, 20);
     try {
       runWithNewCluster(3, this::testRequestMetrics);
     } finally {
       RaftServerConfigKeys.Write.setElementLimit(p, RaftServerConfigKeys.Write.ELEMENT_LIMIT_DEFAULT);
-      RaftServerConfigKeys.Write.setByteLimit(p, RaftServerConfigKeys.Write.BYTE_LIMIT_DEFAULT);
+      RaftServerConfigKeys.Write.setMegaByteLimit(p, RaftServerConfigKeys.Write.MEGA_BYTE_LIMIT_DEFAULT);
     }
   }
 
@@ -230,7 +231,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     SimpleStateMachine4Testing stateMachine = SimpleStateMachine4Testing.get(cluster.getLeader());
     stateMachine.blockFlushStateMachineData();
 
-    String message = "2nd Message";
+    String message = "2nd message";
     // Block stateMachine flush data, so that 2nd request will not be
     // completed, and so it will not be removed from pending request map.
     List<RaftClient> clients = new ArrayList<>();
@@ -242,10 +243,9 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
 
       final SortedMap<String, Gauge> gaugeMap = getRaftServerMetrics(cluster.getLeader())
-          .getRegistry().getGauges((s, metric) -> s.contains(REQUEST_BYTE_SIZE));
+          .getRegistry().getGauges((s, metric) -> s.contains(
+              REQUEST_MEGA_BYTE_SIZE));
 
-      RaftTestUtil.waitFor(() -> (int) gaugeMap.get(gaugeMap.firstKey()).getValue() == message.length(),
-              300, 5000);
 
       for (int i = 0; i < 10; i++) {
         client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
@@ -263,7 +263,8 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       // and byte size counter limit will be hit.
 
       client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
-      client.async().send(new SimpleMessage(RandomStringUtils.random(120, true, false)));
+      client.async().send(new SimpleMessage(RandomStringUtils
+          .random(SizeInBytes.valueOf("21MB").getSizeInt(), true, false)));
       clients.add(client);
 
       RaftTestUtil.waitFor(() -> getRaftServerMetrics(cluster.getLeader())
