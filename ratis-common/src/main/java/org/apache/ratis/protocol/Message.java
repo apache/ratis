@@ -20,9 +20,9 @@ package org.apache.ratis.protocol;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.StringUtils;
+
 import java.util.Optional;
 import java.util.function.Supplier;
-
 
 /**
  * The information clients append to the raft ring.

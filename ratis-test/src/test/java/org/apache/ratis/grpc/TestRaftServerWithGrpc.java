@@ -231,7 +231,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     SimpleStateMachine4Testing stateMachine = SimpleStateMachine4Testing.get(cluster.getLeader());
     stateMachine.blockFlushStateMachineData();
 
-    String message = "2nd message";
+    String message = "2nd Message";
     // Block stateMachine flush data, so that 2nd request will not be
     // completed, and so it will not be removed from pending request map.
     List<RaftClient> clients = new ArrayList<>();
