@@ -32,6 +32,7 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ResourceSemaphore;
+import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,11 +65,11 @@ class PendingRequests {
     }
 
     ResourceSemaphore.ResourceAcquireStatus tryAcquire(Message message) {
-      return tryAcquire(1, Message.getSize(message));
+      return tryAcquire(1, SizeInBytes.byteToMb(Message.getSize(message)));
     }
 
     void release(Message message) {
-      release(1, Message.getSize(message));
+      release(1, SizeInBytes.byteToMb(Message.getSize(message)));
     }
   }
 

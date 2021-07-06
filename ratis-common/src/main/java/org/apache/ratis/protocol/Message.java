@@ -19,13 +19,10 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.MemoizedSupplier;
-import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
-
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static org.apache.ratis.util.SizeInBytes.ONE_MB;
 
 /**
  * The information clients append to the raft ring.
@@ -68,10 +65,6 @@ public interface Message {
   ByteString getContent();
 
   default int size() {
-    int size = Optional.ofNullable(getContent()).map(ByteString::size).orElse(0);
-    if (size > 0 && size < (double) (ONE_MB.getSizeInt())) {
-      return 1;
-    }
-    return size/ SizeInBytes.valueOf("1mb").getSizeInt();
+    return Optional.ofNullable(getContent()).map(ByteString::size).orElse(0);
   }
 }
