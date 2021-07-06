@@ -52,8 +52,8 @@ class PendingRequests {
   static class Permit {}
 
   static class RequestLimits extends ResourceSemaphore.Group {
-    RequestLimits(int elementLimit, int byteLimit) {
-      super(elementLimit, byteLimit);
+    RequestLimits(int elementLimit, int megabyteLimit) {
+      super(elementLimit, megabyteLimit);
     }
 
     int getElementCount() {
@@ -83,9 +83,9 @@ class PendingRequests {
     /** Track and limit the number of requests and the total message size. */
     private final RequestLimits resource;
 
-    RequestMap(Object name, int elementLimit, int byteLimit, RaftServerMetricsImpl raftServerMetrics) {
+    RequestMap(Object name, int elementLimit, int megabyteLimit, RaftServerMetricsImpl raftServerMetrics) {
       this.name = name;
-      this.resource = new RequestLimits(elementLimit, byteLimit);
+      this.resource = new RequestLimits(elementLimit, megabyteLimit);
       this.raftServerMetrics = raftServerMetrics;
 
       raftServerMetrics.addNumPendingRequestsGauge(resource::getElementCount);

@@ -211,12 +211,12 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   public void testRaftServerMetrics() throws Exception {
     final RaftProperties p = getProperties();
     RaftServerConfigKeys.Write.setElementLimit(p, 10);
-    RaftServerConfigKeys.Write.setMegaByteLimit(p, 20);
+    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf("20MB"));
     try {
       runWithNewCluster(3, this::testRequestMetrics);
     } finally {
       RaftServerConfigKeys.Write.setElementLimit(p, RaftServerConfigKeys.Write.ELEMENT_LIMIT_DEFAULT);
-      RaftServerConfigKeys.Write.setMegaByteLimit(p, RaftServerConfigKeys.Write.MEGA_BYTE_LIMIT_DEFAULT);
+      RaftServerConfigKeys.Write.setByteLimit(p, RaftServerConfigKeys.Write.BYTE_LIMIT_DEFAULT);
     }
   }
 

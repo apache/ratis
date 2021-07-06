@@ -100,15 +100,22 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, ELEMENT_LIMIT_KEY, limit, requireMin(1));
     }
 
-    String MEGA_BYTE_LIMIT_KEY = PREFIX + ".megabyte-limit";
-    int MEGA_BYTE_LIMIT_DEFAULT = 64;
+    String BYTE_LIMIT_KEY = PREFIX + ".byte-limit";
+    SizeInBytes BYTE_LIMIT_DEFAULT = SizeInBytes.valueOf("64mb");
+
+    static SizeInBytes byteLimit(RaftProperties properties) {
+      return getSizeInBytes(properties::getSizeInBytes,
+          BYTE_LIMIT_KEY, BYTE_LIMIT_DEFAULT, getDefaultLog());
+    }
+
     static int megabyteLimit(RaftProperties properties) {
-      int megabyteLimit = get(properties::getInt, MEGA_BYTE_LIMIT_KEY,
-          64, getDefaultLog(), requireMin(1));
+      int megabyteLimit = SizeInBytes.byteToMb(getSizeInBytes(properties::getSizeInBytes,
+          BYTE_LIMIT_KEY, BYTE_LIMIT_DEFAULT, getDefaultLog()).getSize());
       return megabyteLimit;
     }
-    static void setMegaByteLimit(RaftProperties properties, int megabyteLimit) {
-      setInt(properties::setInt, MEGA_BYTE_LIMIT_KEY,megabyteLimit, requireMin(1));
+
+    static void setByteLimit(RaftProperties properties, SizeInBytes byteLimit) {
+      setSizeInBytes(properties::set, BYTE_LIMIT_KEY, byteLimit, requireMin(1L));
     }
 
   }

@@ -38,9 +38,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.apache.ratis.conf.ConfUtils.requireMin;
-import static org.apache.ratis.conf.ConfUtils.setInt;
 import static org.apache.ratis.conf.ConfUtils.setSizeInBytes;
-import static org.apache.ratis.server.RaftServerConfigKeys.Write.MEGA_BYTE_LIMIT_KEY;
+import static org.apache.ratis.server.RaftServerConfigKeys.Write.BYTE_LIMIT_KEY;
 
 /**
  * Test cases to verify RaftServerConfigKeys.
@@ -110,7 +109,7 @@ public class TestRaftServerConfigKeys {
   public void testPendingRequestSize() {
     RaftProperties properties = new RaftProperties();
     // setting to 4GB
-    setInt(properties::setInt,"raft.server.write.megabyte-limit", 4096);
+    setSizeInBytes(properties::set, BYTE_LIMIT_KEY, SizeInBytes.valueOf("4gb"), requireMin(1L));
     final int pendingRequestMegabyteLimit = RaftServerConfigKeys.Write.megabyteLimit(properties);
     Assert.assertEquals(4096, pendingRequestMegabyteLimit);
   }
