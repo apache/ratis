@@ -211,7 +211,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   public void testRaftServerMetrics() throws Exception {
     final RaftProperties p = getProperties();
     RaftServerConfigKeys.Write.setElementLimit(p, 10);
-    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf("20MB"));
+    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf("1MB"));
     try {
       runWithNewCluster(3, this::testRequestMetrics);
     } finally {
@@ -259,12 +259,12 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
       stateMachine.unblockFlushStateMachineData();
 
-      // Send a message with 120, our byte size limit is 110, so it should fail
+      // Send a message with 1025kb , our byte size limit is 1024kb (1mb) , so it should fail
       // and byte size counter limit will be hit.
 
       client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
       client.async().send(new SimpleMessage(RandomStringUtils
-          .random(SizeInBytes.valueOf("21MB").getSizeInt(), true, false)));
+          .random(SizeInBytes.valueOf("1025kb").getSizeInt(), true, false)));
       clients.add(client);
 
       RaftTestUtil.waitFor(() -> getRaftServerMetrics(cluster.getLeader())

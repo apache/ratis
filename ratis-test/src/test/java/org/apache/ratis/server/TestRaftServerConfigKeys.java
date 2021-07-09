@@ -105,12 +105,14 @@ public class TestRaftServerConfigKeys {
    * Sets the value to <code>raft.server.write.megabyte-limit</code> via
    * RaftServerConfigKeys and also verifies the same via RaftServerConfigKeys.
    */
-  @Test
-  public void testPendingRequestSize() {
+  @Test public void testPendingRequestSize() {
     RaftProperties properties = new RaftProperties();
     // setting to 4GB
-    setSizeInBytes(properties::set, BYTE_LIMIT_KEY, SizeInBytes.valueOf("4gb"), requireMin(1L));
-    final int pendingRequestMegabyteLimit = RaftServerConfigKeys.Write.megabyteLimit(properties);
+    setSizeInBytes(properties::set, BYTE_LIMIT_KEY, SizeInBytes.valueOf("4gb"),
+        requireMin(1L));
+    int pendingRequestMegabyteLimit = Math.toIntExact(
+        RaftServerConfigKeys.Write.byteLimit(properties).getSize()
+            / SizeInBytes.ONE_MB.getSize());
     Assert.assertEquals(4096, pendingRequestMegabyteLimit);
   }
 }

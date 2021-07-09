@@ -81,6 +81,15 @@ public interface ConfUtils {
     };
   }
 
+  static BiConsumer<String, SizeInBytes> requireMinSizeInByte(SizeInBytes min) {
+    return (key, value) -> {
+      if (value.getSize() < min.getSize()) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " < min = " + min);
+      }
+    };
+  }
+
   static BiConsumer<String, Long> requireMax(long max) {
     return (key, value) -> {
       if (value > max) {
