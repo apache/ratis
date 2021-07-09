@@ -102,7 +102,7 @@ public class TestRaftServerConfigKeys {
   }
 
   /**
-   * Sets the value to <code>raft.server.write.megabyte-limit</code> via
+   * Sets the value to <code>raft.server.write.byte-limit</code> via
    * RaftServerConfigKeys and also verifies the same via RaftServerConfigKeys.
    */
   @Test public void testPendingRequestSize() {

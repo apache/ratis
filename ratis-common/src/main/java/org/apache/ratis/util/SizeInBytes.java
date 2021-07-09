@@ -55,14 +55,6 @@ public final class SizeInBytes {
 
     return new SizeInBytes(size, input, description);
   }
-
-  public static int byteToMb (long size){
-    if (size > 0 && size <  (ONE_MB.getSizeInt())) {
-      return 1;
-    }
-    return (int) (size/ ONE_MB.getSizeInt());
-  }
-
   private final long size;
   private final String input;
   private final String description;
