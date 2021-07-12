@@ -22,7 +22,7 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WATCH_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WRITE_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_QUEUE_LIMIT_HIT_COUNTER;
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_BYTE_SIZE;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_MEGA_BYTE_SIZE;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RESOURCE_LIMIT_HIT_COUNTER;
 
@@ -210,7 +210,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   public void testRaftServerMetrics() throws Exception {
     final RaftProperties p = getProperties();
     RaftServerConfigKeys.Write.setElementLimit(p, 10);
-    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf(110));
+    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf("1MB"));
     try {
       runWithNewCluster(3, this::testRequestMetrics);
     } finally {
@@ -242,10 +242,9 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
 
       final SortedMap<String, Gauge> gaugeMap = getRaftServerMetrics(cluster.getLeader())
-          .getRegistry().getGauges((s, metric) -> s.contains(REQUEST_BYTE_SIZE));
+          .getRegistry().getGauges((s, metric) -> s.contains(
+              REQUEST_MEGA_BYTE_SIZE));
 
-      RaftTestUtil.waitFor(() -> (int) gaugeMap.get(gaugeMap.firstKey()).getValue() == message.length(),
-              300, 5000);
 
       for (int i = 0; i < 10; i++) {
         client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
@@ -259,11 +258,12 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
       stateMachine.unblockFlushStateMachineData();
 
-      // Send a message with 120, our byte size limit is 110, so it should fail
+      // Send a message with 1025kb , our byte size limit is 1024kb (1mb) , so it should fail
       // and byte size counter limit will be hit.
 
       client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
-      client.async().send(new SimpleMessage(RandomStringUtils.random(120, true, false)));
+      client.async().send(new SimpleMessage(RandomStringUtils
+          .random(SizeInBytes.valueOf("1025kb").getSizeInt(), true, false)));
       clients.add(client);
 
       RaftTestUtil.waitFor(() -> getRaftServerMetrics(cluster.getLeader())

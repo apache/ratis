@@ -61,7 +61,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   public static final String RESOURCE_LIMIT_HIT_COUNTER = "leaderNumResourceLimitHits";
   public static final String REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER = "numRequestsByteSizeLimitHits";
   public static final String REQUEST_QUEUE_SIZE = "numPendingRequestInQueue";
-  public static final String REQUEST_BYTE_SIZE = "numPendingRequestByteSize";
+  public static final String REQUEST_MEGA_BYTE_SIZE = "numPendingRequestMegaByteSize";
   public static final String RETRY_CACHE_ENTRY_COUNT_METRIC = "retryCacheEntryCount";
   public static final String RETRY_CACHE_HIT_COUNT_METRIC = "retryCacheHitCount";
   public static final String RETRY_CACHE_HIT_RATE_METRIC = "retryCacheHitRate";
@@ -221,12 +221,12 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
     return registry.remove(REQUEST_QUEUE_SIZE);
   }
 
-  public void addNumPendingRequestsByteSize(Gauge byteSize) {
-    registry.gauge(REQUEST_BYTE_SIZE, () -> byteSize);
+  public void addNumPendingRequestsMegaByteSize(Gauge megabyteSize) {
+    registry.gauge(REQUEST_MEGA_BYTE_SIZE, () -> megabyteSize);
   }
 
   public boolean removeNumPendingRequestsByteSize() {
-    return registry.remove(REQUEST_BYTE_SIZE);
+    return registry.remove(REQUEST_MEGA_BYTE_SIZE);
   }
 
   public void onRequestByteSizeLimitHit() {

@@ -44,32 +44,46 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 class PendingRequests {
   public static final Logger LOG = LoggerFactory.getLogger(PendingRequests.class);
 
+  private static final int ONE_MB = SizeInBytes.ONE_MB.getSizeInt();
+
+  /**
+   * Round up to the nearest MB.
+   */
+  static int roundUpMb(long bytes) {
+    return Math.toIntExact((bytes - 1) / ONE_MB + 1);
+  }
+
   static class Permit {}
 
   static class RequestLimits extends ResourceSemaphore.Group {
-    RequestLimits(int elementLimit, SizeInBytes byteLimit) {
-      super(elementLimit, byteLimit.getSizeInt());
+    RequestLimits(int elementLimit, int megabyteLimit) {
+      super(elementLimit, megabyteLimit);
     }
 
     int getElementCount() {
       return get(0).used();
     }
 
-    int getByteSize() {
+    int getMegaByteSize() {
       return get(1).used();
     }
 
-    ResourceSemaphore.ResourceAcquireStatus tryAcquire(Message message) {
-      return tryAcquire(1, Message.getSize(message));
+    ResourceSemaphore.ResourceAcquireStatus tryAcquire(int messageSizeMb) {
+      return tryAcquire(1, messageSizeMb);
     }
 
-    void release(Message message) {
-      release(1, Message.getSize(message));
+    void releaseExtraMb(int extraMb) {
+      release(0, extraMb);
+    }
+
+    void release(int diffMb) {
+      release(1, diffMb);
     }
   }
 
@@ -82,19 +96,24 @@ class PendingRequests {
     private final Map<Permit, Permit> permits = new HashMap<>();
     /** Track and limit the number of requests and the total message size. */
     private final RequestLimits resource;
+    /** The size (in byte) of all the requests in this map. */
+    private final AtomicLong requestSize = new AtomicLong();
 
-    RequestMap(Object name, int elementLimit, SizeInBytes byteLimit, RaftServerMetricsImpl raftServerMetrics) {
+
+    RequestMap(Object name, int elementLimit, int megabyteLimit, RaftServerMetricsImpl raftServerMetrics) {
       this.name = name;
-      this.resource = new RequestLimits(elementLimit, byteLimit);
+      this.resource = new RequestLimits(elementLimit, megabyteLimit);
       this.raftServerMetrics = raftServerMetrics;
 
       raftServerMetrics.addNumPendingRequestsGauge(resource::getElementCount);
-      raftServerMetrics.addNumPendingRequestsByteSize(resource::getByteSize);
+      raftServerMetrics.addNumPendingRequestsMegaByteSize(resource::getMegaByteSize);
     }
 
     Permit tryAcquire(Message message) {
-      final ResourceSemaphore.ResourceAcquireStatus acquired = resource.tryAcquire(message);
-      LOG.trace("tryAcquire? {}", acquired);
+      final int messageSize = Message.getSize(message);
+      final int messageSizeMb = roundUpMb(messageSize );
+      final ResourceSemaphore.ResourceAcquireStatus acquired = resource.tryAcquire(messageSizeMb);
+      LOG.trace("tryAcquire {} MB? {}", messageSizeMb, acquired);
       if (acquired == ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_ELEMENT_LIMIT) {
         raftServerMetrics.onRequestQueueLimitHit();
         raftServerMetrics.onResourceLimitHit();
@@ -103,6 +122,14 @@ class PendingRequests {
         raftServerMetrics.onRequestByteSizeLimitHit();
         raftServerMetrics.onResourceLimitHit();
         return null;
+      }
+
+      // release extra MB
+      final long oldSize = requestSize.getAndAdd(messageSize);
+      final long newSize = oldSize + messageSize;
+      final int diffMb = roundUpMb(newSize) - roundUpMb(oldSize);
+      if (messageSizeMb > diffMb) {
+        resource.releaseExtraMb(messageSizeMb - diffMb);
       }
       return putPermit();
     }
@@ -140,8 +167,12 @@ class PendingRequests {
       if (r == null) {
         return null;
       }
-      resource.release(r.getRequest().getMessage());
-      LOG.trace("release");
+      final int messageSize = Message.getSize(r.getRequest().getMessage());
+      final long oldSize = requestSize.getAndAdd(-messageSize);
+      final long newSize = oldSize - messageSize;
+      final int diffMb = roundUpMb(oldSize) - roundUpMb(newSize);
+      resource.release(diffMb);
+      LOG.trace("release {} MB", diffMb);
       return r;
     }
 
@@ -183,7 +214,9 @@ class PendingRequests {
     this.name = id + "-" + JavaUtils.getClassSimpleName(getClass());
     this.pendingRequests = new RequestMap(id,
         RaftServerConfigKeys.Write.elementLimit(properties),
-        RaftServerConfigKeys.Write.byteLimit(properties),
+        Math.toIntExact(
+            RaftServerConfigKeys.Write.byteLimit(properties).getSize()
+                / SizeInBytes.ONE_MB.getSize()), //round down
         raftServerMetrics);
   }
 

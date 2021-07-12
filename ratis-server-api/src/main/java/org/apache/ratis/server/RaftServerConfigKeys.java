@@ -114,7 +114,7 @@ public interface RaftServerConfigKeys {
     SizeInBytes BYTE_LIMIT_DEFAULT = SizeInBytes.valueOf("64MB");
     static SizeInBytes byteLimit(RaftProperties properties) {
       return getSizeInBytes(properties::getSizeInBytes,
-          BYTE_LIMIT_KEY, BYTE_LIMIT_DEFAULT, getDefaultLog());
+          BYTE_LIMIT_KEY, BYTE_LIMIT_DEFAULT, getDefaultLog(), requireMinSizeInByte(SizeInBytes.ONE_MB));
     }
     static void setByteLimit(RaftProperties properties, SizeInBytes byteLimit) {
       setSizeInBytes(properties::set, BYTE_LIMIT_KEY, byteLimit, requireMin(1L));

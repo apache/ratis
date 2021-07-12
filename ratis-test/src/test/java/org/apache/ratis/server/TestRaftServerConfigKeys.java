@@ -22,6 +22,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
@@ -35,6 +36,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static org.apache.ratis.conf.ConfUtils.requireMin;
+import static org.apache.ratis.conf.ConfUtils.setSizeInBytes;
+import static org.apache.ratis.server.RaftServerConfigKeys.Write.BYTE_LIMIT_KEY;
 
 /**
  * Test cases to verify RaftServerConfigKeys.
@@ -94,5 +99,20 @@ public class TestRaftServerConfigKeys {
     actualDirs.removeAll(expectedDirs);
     Assert.assertEquals(directories.size(), storageDirs.size());
     Assert.assertEquals(0, actualDirs.size());
+  }
+
+  /**
+   * Sets the value to <code>raft.server.write.byte-limit</code> via
+   * RaftServerConfigKeys and also verifies the same via RaftServerConfigKeys.
+   */
+  @Test public void testPendingRequestSize() {
+    RaftProperties properties = new RaftProperties();
+    // setting to 4GB
+    setSizeInBytes(properties::set, BYTE_LIMIT_KEY, SizeInBytes.valueOf("4gb"),
+        requireMin(1L));
+    int pendingRequestMegabyteLimit = Math.toIntExact(
+        RaftServerConfigKeys.Write.byteLimit(properties).getSize()
+            / SizeInBytes.ONE_MB.getSize());
+    Assert.assertEquals(4096, pendingRequestMegabyteLimit);
   }
 }
