@@ -113,7 +113,7 @@ class PendingRequests {
       final int messageSize = Message.getSize(message);
       final int messageSizeMb = roundUpMb(messageSize );
       final ResourceSemaphore.ResourceAcquireStatus acquired = resource.tryAcquire(messageSizeMb);
-       LOG.trace("tryAcquire {} MB? {}", messageSizeMb, acquired);
+      LOG.trace("tryAcquire {} MB? {}", messageSizeMb, acquired);
       if (acquired == ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_ELEMENT_LIMIT) {
         raftServerMetrics.onRequestQueueLimitHit();
         raftServerMetrics.onResourceLimitHit();

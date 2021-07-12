@@ -205,7 +205,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   public void testRaftClientMetrics() throws Exception {
     runWithNewCluster(3, this::testRaftClientRequestMetrics);
   }
-  
+
   @Test
   public void testRaftServerMetrics() throws Exception {
     final RaftProperties p = getProperties();

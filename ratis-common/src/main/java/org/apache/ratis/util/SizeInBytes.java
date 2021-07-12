@@ -55,6 +55,7 @@ public final class SizeInBytes {
 
     return new SizeInBytes(size, input, description);
   }
+
   private final long size;
   private final String input;
   private final String description;
