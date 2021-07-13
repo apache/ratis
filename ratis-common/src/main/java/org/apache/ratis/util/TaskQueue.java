@@ -57,6 +57,13 @@ public class TaskQueue {
   }
 
   /**
+   * Is this queue empty?
+   */
+  public boolean isEmpty() {
+    return q.isEmpty();
+  }
+
+  /**
    * Poll the current head from this queue
    * and then submit the next head, if there is any.
    */
