@@ -40,114 +40,27 @@ The binaries are also uploaded to the maven central for convenience. (See the ge
     </tr>
   </thead>
 
+    {{range first 5 (where .Site.Pages ".Params.type" "release")}}
+    {{ if .Params.linked }}
      <tr>
-       <td>2.0.0</td>
+       <td>{{.File.BaseFileName }}</td>
        <td>2021 Mar 24 </td>
        <td>
-         <a href="https://www.apache.org/dyn/closer.cgi/ratis/2.0.0/apache-ratis-2.0.0-src.tar.gz">source</a>
-         (<a href="https://downloads.apache.org/ratis/2.0.0/apache-ratis-2.0.0-src.tar.gz.mds">checksum</a>
-         <a href="https://downloads.apache.org/ratis/2.0.0/apache-ratis-2.0.0-src.tar.gz.asc">signature</a>)
+         <a href="https://www.apache.org/dyn/closer.cgi/ratis/{{.File.BaseFileName }}/apache-ratis-{{.File.BaseFileName }}-src.tar.gz">source</a>
+         (<a href="https://downloads.apache.org/ratis/{{.File.BaseFileName }}/apache-ratis-{{.File.BaseFileName }}-src.tar.gz.mds">checksum</a>
+         <a href="https://downloads.apache.org/ratis/{{.File.BaseFileName }}/apache-ratis-{{.File.BaseFileName }}-src.tar.gz.asc">signature</a>)
         </td>
         <td>
-          <a href="https://www.apache.org/dyn/closer.cgi/ratis/2.0.0/apache-ratis-2.0.0-bin.tar.gz">binary</a>
-          (<a href="https://downloads.apache.org/ratis/2.0.0/apache-ratis-2.0.0-bin.tar.gz.mds">checksum</a>
-          <a href="https://downloads.apache.org/ratis/2.0.0/apache-ratis-2.0.0-bin.tar.gz.asc">signature</a>)
+          <a href="https://www.apache.org/dyn/closer.cgi/ratis/{{.File.BaseFileName }}/apache-ratis-{{.File.BaseFileName }}-bin.tar.gz">binary</a>
+          (<a href="https://downloads.apache.org/ratis/{{.File.BaseFileName }}/apache-ratis-{{.File.BaseFileName }}-bin.tar.gz.mds">checksum</a>
+          <a href="https://downloads.apache.org/ratis/{{.File.BaseFileName }}/apache-ratis-{{.File.BaseFileName }}-bin.tar.gz.asc">signature</a>)
          </td>
          <td>
-           <a href="post/2.0.0.html">Announcement</a>
+           <a href="post/{{.File.BaseFileName }}.html">Announcement</a>
          </td>
      </tr>
-   
-     <tr>
-       <td>1.0.0</td>
-       <td>2020 Jul 20 </td>
-       <td>
-         <a href="https://www.apache.org/dyn/closer.cgi/ratis/1.0.0/apache-ratis-incubating-1.0.0-src.tar.gz">source</a>
-         (<a href="https://downloads.apache.org/ratis/1.0.0/apache-ratis-incubating-1.0.0-src.tar.gz.mds">checksum</a>
-         <a href="https://downloads.apache.org/ratis/1.0.0/apache-ratis-incubating-1.0.0-src.tar.gz.asc">signature</a>)
-        </td>
-        <td>
-          <a href="https://www.apache.org/dyn/closer.cgi/ratis/1.0.0/apache-ratis-incubating-1.0.0-bin.tar.gz">binary</a>
-          (<a href="https://downloads.apache.org/ratis/1.0.0/apache-ratis-incubating-1.0.0-bin.tar.gz.mds">checksum</a>
-          <a href="https://downloads.apache.org/ratis/1.0.0/apache-ratis-incubating-1.0.0-bin.tar.gz.asc">signature</a>)
-         </td>
-         <td>
-           <a href="post/1.0.0.html">Announcement</a>
-         </td>
-     </tr>
-  
-     <tr>
-       <td>0.5.0</td>
-       <td>2020 Feb 4 </td>
-       <td>
-         <a href="https://www.apache.org/dyn/closer.cgi/ratis/0.5.0/apache-ratis-incubating-0.5.0-src.tar.gz">source</a>
-         (<a href="https://downloads.apache.org/ratis/0.5.0/apache-ratis-incubating-0.5.0-src.tar.gz.mds">checksum</a>
-         <a href="https://downloads.apache.org/ratis/0.5.0/apache-ratis-incubating-0.5.0-src.tar.gz.asc">signature</a>)
-        </td>
-        <td>
-          <a href="https://www.apache.org/dyn/closer.cgi/ratis/0.5.0/apache-ratis-incubating-0.5.0-bin.tar.gz">binary</a>
-          (<a href="https://downloads.apache.org/ratis/0.5.0/apache-ratis-incubating-0.5.0-bin.tar.gz.mds">checksum</a>
-          <a href="https://downloads.apache.org/ratis/0.5.0/apache-ratis-incubating-0.5.0-bin.tar.gz.asc">signature</a>)
-         </td>
-         <td>
-           <a href="post/0.5.0.html">Announcement</a>
-         </td>
-     </tr>
-  
-     <tr>
-       <td>0.4.0</td>
-       <td>2019 Sep 12 </td>
-       <td>
-         <a href="https://www.apache.org/dyn/closer.cgi/ratis/0.4.0/apache-ratis-incubating-0.4.0-rc4-src.tar.gz">source</a>
-         (<a href="https://downloads.apache.org/ratis/0.4.0/apache-ratis-incubating-0.4.0-rc4-src.tar.gz.mds">checksum</a>
-         <a href="https://downloads.apache.org/ratis/0.4.0/apache-ratis-incubating-0.4.0-rc4-src.tar.gz.asc">signature</a>)
-        </td>
-        <td>
-          <a href="https://www.apache.org/dyn/closer.cgi/ratis/0.4.0/apache-ratis-incubating-0.4.0-rc4-bin.tar.gz">binary</a>
-          (<a href="https://downloads.apache.org/ratis/0.4.0/apache-ratis-incubating-0.4.0-rc4-bin.tar.gz.mds">checksum</a>
-          <a href="https://downloads.apache.org/ratis/0.4.0/apache-ratis-incubating-0.4.0-rc4-bin.tar.gz.asc">signature</a>)
-         </td>
-         <td>
-           <a href="post/0.4.0.html">Announcement</a>
-         </td>
-     </tr>
-  
-     <tr>
-       <td>0.3.0</td>
-       <td>2019 Apr 21 </td>
-       <td>
-         <a href="https://www.apache.org/dyn/closer.cgi/ratis/0.3.0/apache-ratis-incubating-0.3.0-src.tar.gz">source</a>
-         (<a href="https://downloads.apache.org/ratis/0.3.0/apache-ratis-incubating-0.3.0-src.tar.gz.mds">checksum</a>
-         <a href="https://downloads.apache.org/ratis/0.3.0/apache-ratis-incubating-0.3.0-src.tar.gz.asc">signature</a>)
-        </td>
-        <td>
-          <a href="https://www.apache.org/dyn/closer.cgi/ratis/0.3.0/apache-ratis-incubating-0.3.0-bin.tar.gz">binary</a>
-          (<a href="https://downloads.apache.org/ratis/0.3.0/apache-ratis-incubating-0.3.0-bin.tar.gz.mds">checksum</a>
-          <a href="https://downloads.apache.org/ratis/0.3.0/apache-ratis-incubating-0.3.0-bin.tar.gz.asc">signature</a>)
-         </td>
-         <td>
-           <a href="post/0.3.0.html">Announcement</a>
-         </td>
-     </tr>
-  
-     <tr>
-       <td>0.2.0</td>
-       <td>2018 Jul 15 </td>
-       <td>
-         <a href="https://www.apache.org/dyn/closer.cgi/ratis/0.2.0/apache-ratis-incubating-0.2.0-src.tar.gz">source</a>
-         (<a href="https://downloads.apache.org/ratis/0.2.0/apache-ratis-incubating-0.2.0-src.tar.gz.mds">checksum</a>
-         <a href="https://downloads.apache.org/ratis/0.2.0/apache-ratis-incubating-0.2.0-src.tar.gz.asc">signature</a>)
-        </td>
-        <td>
-          <a href="https://www.apache.org/dyn/closer.cgi/ratis/0.2.0/apache-ratis-incubating-0.2.0-bin.tar.gz">binary</a>
-          (<a href="https://downloads.apache.org/ratis/0.2.0/apache-ratis-incubating-0.2.0-bin.tar.gz.mds">checksum</a>
-          <a href="https://downloads.apache.org/ratis/0.2.0/apache-ratis-incubating-0.2.0-bin.tar.gz.asc">signature</a>)
-         </td>
-         <td>
-           <a href="post/0.2.0.html">Announcement</a>
-         </td>
-     </tr>
-  
+    {{end}}
+    {{end}}
   </table>
 </p>
 
