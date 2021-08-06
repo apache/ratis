@@ -166,6 +166,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final RaftServerMetricsImpl raftServerMetrics;
 
   private final AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
+  private final AtomicBoolean isSnapshotNull;
 
   // To avoid append entry before complete start() method
   // For example, if thread1 start(), but before thread1 startAsFollower(), thread2 receive append entry
@@ -194,6 +195,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.state = new ServerState(id, group, properties, this, stateMachine);
     this.retryCache = new RetryCacheImpl(properties);
     this.inProgressInstallSnapshotRequest = new AtomicReference<>(null);
+    this.isSnapshotNull = new AtomicBoolean(false);
     this.dataStreamMap = new DataStreamMapImpl(id);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
@@ -1530,7 +1532,6 @@ class RaftServerImpl implements RaftServer.Division,
     final TermIndex firstAvailableLogTermIndex = TermIndex.valueOf(
         request.getNotification().getFirstAvailableTermIndex());
     final long firstAvailableLogIndex = firstAvailableLogTermIndex.getIndex();
-
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
@@ -1544,13 +1545,11 @@ class RaftServerImpl implements RaftServer.Division,
       state.setLeader(leaderId, "installSnapshot");
 
       updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
-
       if (inProgressInstallSnapshotRequest.compareAndSet(null, firstAvailableLogTermIndex)) {
-
         // Check if snapshot index is already at par or ahead of the first
         // available log index of the Leader.
         long snapshotIndex = state.getSnapshotIndex();
-        if (snapshotIndex + 1 >= firstAvailableLogIndex) {
+        if (snapshotIndex + 1 >= firstAvailableLogIndex && firstAvailableLogIndex > 0) {
           // State Machine has already installed the snapshot. Return the
           // latest snapshot index to the Leader.
 
@@ -1596,6 +1595,11 @@ class RaftServerImpl implements RaftServer.Division,
                   stateMachine.pause();
                   state.updateInstalledSnapshotIndex(reply);
                   state.reloadStateMachine(reply.getIndex());
+                } else {
+                  isSnapshotNull.set(true);
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("{}: StateMachine could not install snapshot as it is not available", this);
+                  }
                 }
                 inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
               });
@@ -1609,6 +1613,11 @@ class RaftServerImpl implements RaftServer.Division,
         }
       } else {
         LOG.info("{}: Snapshot Installation by StateMachine is in progress.", getMemberId());
+      }
+
+      if (isSnapshotNull.compareAndSet(true, false)) {
+        return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, InstallSnapshotResult.NULL_SNAPSHOT, -1);
       }
 
       return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),

@@ -619,7 +619,8 @@ class LeaderStateImpl implements LeaderState {
       LOG.debug("{} detects a follower {} timeout ({}) for bootstrapping", this, follower, timeoutTime);
       return BootStrapProgress.NOPROGRESS;
     } else if (follower.getMatchIndex() + stagingCatchupGap > committed
-        && follower.getLastRpcResponseTime().compareTo(progressTime) > 0) {
+        && follower.getLastRpcResponseTime().compareTo(progressTime) > 0
+        && follower.hasAttemptedToInstallSnapshot()) {
       return BootStrapProgress.CAUGHTUP;
     } else {
       return BootStrapProgress.PROGRESSING;
@@ -641,6 +642,11 @@ class LeaderStateImpl implements LeaderState {
     } else {
       eventQueue.submit(checkStagingEvent);
     }
+  }
+
+  @Override
+  public boolean isFollowerBootstrapping(FollowerInfo follower) {
+    return isBootStrappingPeer(follower.getPeer().getId());
   }
 
   private void checkStaging() {

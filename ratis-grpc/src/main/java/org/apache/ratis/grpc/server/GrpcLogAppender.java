@@ -411,6 +411,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       switch (reply.getResult()) {
         case SUCCESS:
           LOG.info("{}: Completed InstallSnapshot. Reply: {}", this, reply);
+          getFollower().ackInstallSnapshotAttempt();
           removePending(reply);
           break;
         case IN_PROGRESS:
@@ -421,6 +422,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           final long followerSnapshotIndex = reply.getSnapshotIndex();
           LOG.info("{}: Already Installed Snapshot Index {}.", this, followerSnapshotIndex);
           getFollower().setSnapshotIndex(followerSnapshotIndex);
+          getFollower().ackInstallSnapshotAttempt();
           getLeaderState().onFollowerCommitIndex(getFollower(), followerSnapshotIndex);
           increaseNextIndex(followerSnapshotIndex);
           removePending(reply);
@@ -432,6 +434,10 @@ public class GrpcLogAppender extends LogAppenderBase {
           LOG.error("{}: Configuration Mismatch ({}): Leader {} has it set to {} but follower {} has it set to {}",
               this, RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
               getServer().getId(), installSnapshotEnabled, getFollowerId(), !installSnapshotEnabled);
+          break;
+        case NULL_SNAPSHOT:
+          LOG.info("{}: StateMachine could not install snapshot as it is not available.", this);
+          getFollower().ackInstallSnapshotAttempt();
           break;
         case UNRECOGNIZED:
           LOG.error("Unrecongnized the reply result {}: Leader is {}, follower is {}",
@@ -562,9 +568,21 @@ public class GrpcLogAppender extends LogAppenderBase {
    * @return the first available log's start term index
    */
   private TermIndex shouldNotifyToInstallSnapshot() {
-    final long followerNextIndex = getFollower().getNextIndex();
+    final FollowerInfo follower = getFollower();
     final long leaderNextIndex = getRaftLog().getNextIndex();
+    final boolean isFollowerBootstrapping = getLeaderState().isFollowerBootstrapping(follower);
 
+    if (isFollowerBootstrapping && !follower.hasAttemptedToInstallSnapshot()) {
+      // If the follower is bootstrapping and has not yet installed any snapshot from leader, then the follower should
+      // be notified to install a snapshot. Every follower should try to install at least one snapshot during
+      // bootstrapping, if available.
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: Notify follower to install snapshot as it is bootstrapping.", this);
+      }
+      return getRaftLog().getLastEntryTermIndex();
+    }
+
+    final long followerNextIndex = follower.getNextIndex();
     if (followerNextIndex >= leaderNextIndex) {
       return null;
     }
