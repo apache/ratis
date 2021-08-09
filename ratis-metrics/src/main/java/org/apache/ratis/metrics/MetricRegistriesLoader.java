@@ -45,7 +45,7 @@ public final class MetricRegistriesLoader {
    * @return A {@link MetricRegistries} implementation.
    */
   public static MetricRegistries load() {
-    List<MetricRegistries> availableImplementations = getDefinedImplemantations();
+    List<MetricRegistries> availableImplementations = getDefinedImplementations();
     return load(availableImplementations);
   }
 
@@ -84,7 +84,7 @@ public final class MetricRegistriesLoader {
     }
   }
 
-  private static List<MetricRegistries> getDefinedImplemantations() {
+  private static List<MetricRegistries> getDefinedImplementations() {
     ServiceLoader<MetricRegistries> loader = ServiceLoader.load(
         MetricRegistries.class,
         MetricRegistries.class.getClassLoader());
