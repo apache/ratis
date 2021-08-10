@@ -113,7 +113,7 @@ class FollowerInfoImpl implements FollowerInfo {
 
   @Override
   public void ackInstallSnapshotAttempt() {
-    LOG.info("----- Follower ack Install Snapshot old snapshotIndex: " + snapshotIndex.get());
+    LOG.info("Follower {} acknowledged installing snapshot", name);
     ackInstallSnapshotAttempt = true;
   }
 

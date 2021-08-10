@@ -123,9 +123,21 @@ class LogAppenderDefault extends LogAppenderBase {
               this, getFollower().getNextIndex(), getRaftLog().getStartIndex(), snapshot);
 
           final InstallSnapshotReplyProto r = installSnapshot(snapshot);
-          if (r != null && r.getResult() == InstallSnapshotResult.NOT_LEADER) {
-            onFollowerTerm(r.getTerm());
-          } // otherwise if r is null, retry the snapshot installation
+          if (r != null) {
+            switch (r.getResult()) {
+              case NOT_LEADER:
+                onFollowerTerm(r.getTerm());
+                break;
+              case SUCCESS:
+              case NULL_SNAPSHOT:
+              case ALREADY_INSTALLED:
+                getFollower().ackInstallSnapshotAttempt();
+                break;
+              default:
+                break;
+            }
+          }
+          // otherwise if r is null, retry the snapshot installation
         } else {
           final AppendEntriesReplyProto r = sendAppendEntriesWithRetries();
           if (r != null) {
