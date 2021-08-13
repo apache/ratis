@@ -96,7 +96,7 @@ class BlockingImpl implements BlockingApi {
         final RaftClientReply reply = sendRequest(request);
 
         if (reply != null) {
-          return reply;
+          return client.handleReply(request, reply);
         }
       } catch (GroupMismatchException | StateMachineException | TransferLeadershipException |
           LeaderSteppingDownException e) {

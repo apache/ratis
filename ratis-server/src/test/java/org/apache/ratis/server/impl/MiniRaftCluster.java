@@ -728,7 +728,7 @@ public abstract class MiniRaftCluster implements Closeable {
       ClientId clientId, RaftPeerId leaderId, long callId, Message message) {
     return RaftClientRequest.newBuilder()
         .setClientId(clientId)
-        .setServerId(leaderId)
+        .setLeaderId(leaderId)
         .setGroupId(getGroupId())
         .setCallId(callId)
         .setMessage(message)

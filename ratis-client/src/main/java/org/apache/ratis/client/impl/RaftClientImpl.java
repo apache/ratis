@@ -38,6 +38,8 @@ import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
+import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
@@ -56,6 +58,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -65,6 +68,11 @@ import java.util.function.Supplier;
 
 /** A client who sends requests to a raft service. */
 public final class RaftClientImpl implements RaftClient {
+  private static final Cache<RaftGroupId, RaftPeerId> leaderCache = CacheBuilder.newBuilder()
+      .expireAfterAccess(60, TimeUnit.SECONDS)
+      .maximumSize(1024)
+      .build();
+
   public abstract static class PendingClientRequest {
     private final long creationTimeInMs = System.currentTimeMillis();
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
@@ -139,7 +147,12 @@ public final class RaftClientImpl implements RaftClient {
     this.clientId = clientId;
     this.peers.set(group.getPeers());
     this.groupId = group.getGroupId();
-    this.leaderId = leaderId != null? leaderId : getHighestPriorityPeerId();
+    try {
+      this.leaderId = leaderId != null? leaderId : leaderCache.get(groupId, this::getHighestPriorityPeerId);
+    } catch (ExecutionException e) {
+      // This is not supposed to happen since getHighestPriorityPeerId won't throw any checked exceptions.
+      throw new AssertionError("BUG: getHighestPriorityPeerId throw a checked exceptions", e);
+    }
     this.retryPolicy = Objects.requireNonNull(retryPolicy, "retry policy can't be null");
 
     clientRpc.addRaftPeers(group.getPeers());
@@ -204,9 +217,13 @@ public final class RaftClientImpl implements RaftClient {
   RaftClientRequest newRaftClientRequest(
       RaftPeerId server, long callId, Message message, RaftClientRequest.Type type,
       SlidingWindowEntry slidingWindowEntry) {
-    return RaftClientRequest.newBuilder()
-        .setClientId(clientId)
-        .setServerId(server != null? server: leaderId)
+    final RaftClientRequest.Builder b = RaftClientRequest.newBuilder();
+    if (server != null) {
+      b.setServerId(server);
+    } else {
+      b.setLeaderId(leaderId);
+    }
+    return b.setClientId(clientId)
         .setGroupId(groupId)
         .setCallId(callId)
         .setMessage(message)
@@ -252,6 +269,13 @@ public final class RaftClientImpl implements RaftClient {
       return throwable;
     }
     return new RaftRetryFailureException(event.getRequest(), attemptCount, retryPolicy, throwable);
+  }
+
+  RaftClientReply handleReply(RaftClientRequest request, RaftClientReply reply) {
+    if (request.isToLeader() && reply != null && reply.getException() == null) {
+      leaderCache.put(reply.getRaftGroupId(), reply.getServerId());
+    }
+    return reply;
   }
 
   static <E extends Throwable> RaftClientReply handleRaftException(

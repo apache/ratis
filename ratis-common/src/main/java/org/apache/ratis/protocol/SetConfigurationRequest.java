@@ -27,7 +27,7 @@ public class SetConfigurationRequest extends RaftClientRequest {
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, List<RaftPeer> peers) {
-    super(clientId, serverId, groupId, callId, writeRequestType());
+    super(clientId, serverId, groupId, callId, true, writeRequestType());
     this.peers = peers != null? Collections.unmodifiableList(peers): Collections.emptyList();
     Preconditions.assertUnique(this.peers);
   }

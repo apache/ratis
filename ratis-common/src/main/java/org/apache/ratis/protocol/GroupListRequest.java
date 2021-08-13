@@ -23,6 +23,6 @@ package org.apache.ratis.protocol;
  */
 public class GroupListRequest extends RaftClientRequest {
   public GroupListRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId) {
-    super(clientId, serverId, groupId, callId, readRequestType());
+    super(clientId, serverId, groupId, callId, false, readRequestType());
   }
 }
