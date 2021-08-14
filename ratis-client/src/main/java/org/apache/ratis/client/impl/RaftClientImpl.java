@@ -40,6 +40,7 @@ import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
+import org.apache.ratis.thirdparty.org.checkerframework.checker.nullness.qual.Nullable;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
@@ -147,12 +148,14 @@ public final class RaftClientImpl implements RaftClient {
     this.clientId = clientId;
     this.peers.set(group.getPeers());
     this.groupId = group.getGroupId();
-    try {
-      this.leaderId = leaderId != null? leaderId : leaderCache.get(groupId, this::getHighestPriorityPeerId);
-    } catch (ExecutionException e) {
-      // This is not supposed to happen since getHighestPriorityPeerId won't throw any checked exceptions.
-      throw new AssertionError("BUG: getHighestPriorityPeerId throw a checked exceptions", e);
+
+    if (leaderId == null) {
+      final RaftPeerId cached = leaderCache.getIfPresent(groupId);
+      if (group.getPeer(cached) != null) {
+        leaderId = cached;
+      }
     }
+    this.leaderId = leaderId != null? leaderId : getHighestPriorityPeerId();
     this.retryPolicy = Objects.requireNonNull(retryPolicy, "retry policy can't be null");
 
     clientRpc.addRaftPeers(group.getPeers());
