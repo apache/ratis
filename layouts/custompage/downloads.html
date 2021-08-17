@@ -44,7 +44,7 @@ The binaries are also uploaded to the maven central for convenience. (See the ge
     {{ if .Params.linked }}
      <tr>
        <td>{{.File.BaseFileName }}</td>
-       <td>2021 Mar 24 </td>
+       <td>{{ time.Format "2006 Jan 2" .Params.date }}</td>
        <td>
          <a href="https://www.apache.org/dyn/closer.cgi/ratis/{{.File.BaseFileName }}/apache-ratis-{{.File.BaseFileName }}-src.tar.gz">source</a>
          (<a href="https://downloads.apache.org/ratis/{{.File.BaseFileName }}/apache-ratis-{{.File.BaseFileName }}-src.tar.gz.mds">checksum</a>
