@@ -22,7 +22,6 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -129,9 +128,9 @@ class LogAppenderDefault extends LogAppenderBase {
                 onFollowerTerm(r.getTerm());
                 break;
               case SUCCESS:
-              case NULL_SNAPSHOT:
+              case SNAPSHOT_UNAVAILABLE:
               case ALREADY_INSTALLED:
-                getFollower().ackInstallSnapshotAttempt();
+                getFollower().setAttemptedToInstallSnapshot();
                 break;
               default:
                 break;

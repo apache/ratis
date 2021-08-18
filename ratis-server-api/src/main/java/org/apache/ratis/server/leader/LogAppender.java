@@ -117,7 +117,7 @@ public interface LogAppender {
       if (snapshot == null) {
         // Leader cannot send null snapshot to follower. Hence, acknowledge InstallSnapshot attempt (even though it
         // was not attempted) so that follower can come out of staging state after appending log entries.
-        follower.ackInstallSnapshotAttempt();
+        follower.setAttemptedToInstallSnapshot();
       } else {
         return snapshot;
       }

@@ -407,11 +407,11 @@ public class GrpcLogAppender extends LogAppenderBase {
       if (!firstResponseReceived) {
         firstResponseReceived = true;
       }
-
+      final long followerSnapshotIndex;
       switch (reply.getResult()) {
         case SUCCESS:
           LOG.info("{}: Completed InstallSnapshot. Reply: {}", this, reply);
-          getFollower().ackInstallSnapshotAttempt();
+          getFollower().setAttemptedToInstallSnapshot();
           removePending(reply);
           break;
         case IN_PROGRESS:
@@ -419,10 +419,10 @@ public class GrpcLogAppender extends LogAppenderBase {
           removePending(reply);
           break;
         case ALREADY_INSTALLED:
-          final long followerSnapshotIndex = reply.getSnapshotIndex();
-          LOG.info("{}: Already Installed Snapshot Index {}.", this, followerSnapshotIndex);
+          followerSnapshotIndex = reply.getSnapshotIndex();
+          LOG.info("{}: Follower snapshot is already at index {}.", this, followerSnapshotIndex);
           getFollower().setSnapshotIndex(followerSnapshotIndex);
-          getFollower().ackInstallSnapshotAttempt();
+          getFollower().setAttemptedToInstallSnapshot();
           getLeaderState().onFollowerCommitIndex(getFollower(), followerSnapshotIndex);
           increaseNextIndex(followerSnapshotIndex);
           removePending(reply);
@@ -435,9 +435,19 @@ public class GrpcLogAppender extends LogAppenderBase {
               this, RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
               getServer().getId(), installSnapshotEnabled, getFollowerId(), !installSnapshotEnabled);
           break;
-        case NULL_SNAPSHOT:
-          LOG.info("{}: StateMachine could not install snapshot as it is not available.", this);
-          getFollower().ackInstallSnapshotAttempt();
+        case SNAPSHOT_INSTALLED:
+          followerSnapshotIndex = reply.getSnapshotIndex();
+          LOG.info("{}: Follower installed snapshot at index {}", this, followerSnapshotIndex);
+          getFollower().setSnapshotIndex(followerSnapshotIndex);
+          getFollower().setAttemptedToInstallSnapshot();
+          getLeaderState().onFollowerCommitIndex(getFollower(), followerSnapshotIndex);
+          increaseNextIndex(followerSnapshotIndex);
+          removePending(reply);
+          break;
+        case SNAPSHOT_UNAVAILABLE:
+          LOG.info("{}: Follower could not install snapshot as it is not available.", this);
+          getFollower().setAttemptedToInstallSnapshot();
+          removePending(reply);
           break;
         case UNRECOGNIZED:
           LOG.error("Unrecongnized the reply result {}: Leader is {}, follower is {}",
