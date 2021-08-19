@@ -67,6 +67,7 @@ public interface ClientProtoUtils {
         replyId.toByteString(), requestorId.getGroupId(), null, false, null, null, 0);
   }
 
+  @SuppressWarnings("parameternumber")
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       ByteString requesterId, ByteString replyId, RaftGroupId groupId, Long callId, boolean toLeader,
       SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable, long timeoutMs) {
@@ -90,6 +91,7 @@ public interface ClientProtoUtils {
     return b;
   }
 
+  @SuppressWarnings("parameternumber")
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       ClientId requesterId, RaftPeerId replyId, RaftGroupId groupId, long callId, boolean toLeader,
       SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable, long timeoutMs) {

@@ -67,7 +67,7 @@ import java.util.function.Supplier;
 
 /** A client who sends requests to a raft service. */
 public final class RaftClientImpl implements RaftClient {
-  private static final Cache<RaftGroupId, RaftPeerId> leaderCache = CacheBuilder.newBuilder()
+  private static final Cache<RaftGroupId, RaftPeerId> LEADER_CACHE = CacheBuilder.newBuilder()
       .expireAfterAccess(60, TimeUnit.SECONDS)
       .maximumSize(1024)
       .build();
@@ -148,7 +148,7 @@ public final class RaftClientImpl implements RaftClient {
     this.groupId = group.getGroupId();
 
     if (leaderId == null) {
-      final RaftPeerId cached = leaderCache.getIfPresent(groupId);
+      final RaftPeerId cached = LEADER_CACHE.getIfPresent(groupId);
       if (group.getPeer(cached) != null) {
         leaderId = cached;
       }
@@ -274,7 +274,7 @@ public final class RaftClientImpl implements RaftClient {
 
   RaftClientReply handleReply(RaftClientRequest request, RaftClientReply reply) {
     if (request.isToLeader() && reply != null && reply.getException() == null) {
-      leaderCache.put(reply.getRaftGroupId(), reply.getServerId());
+      LEADER_CACHE.put(reply.getRaftGroupId(), reply.getServerId());
     }
     return reply;
   }

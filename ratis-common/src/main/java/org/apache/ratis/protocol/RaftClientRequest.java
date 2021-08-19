@@ -250,8 +250,8 @@ public class RaftClientRequest extends RaftClientMessage {
       return this;
     }
 
-    public Builder setLeaderId(RaftPeerId serverId) {
-      this.serverId = serverId;
+    public Builder setLeaderId(RaftPeerId leaderId) {
+      this.serverId = leaderId;
       this.toLeader = true;
       return this;
     }
