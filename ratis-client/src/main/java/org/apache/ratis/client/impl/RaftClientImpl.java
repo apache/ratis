@@ -149,7 +149,7 @@ public final class RaftClientImpl implements RaftClient {
 
     if (leaderId == null) {
       final RaftPeerId cached = LEADER_CACHE.getIfPresent(groupId);
-      if (group.getPeer(cached) != null) {
+      if (cached != null && group.getPeer(cached) != null) {
         leaderId = cached;
       }
     }
