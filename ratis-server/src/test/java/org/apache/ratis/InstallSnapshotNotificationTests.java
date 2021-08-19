@@ -370,6 +370,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
   private void testInstallSnapshotDuringBootstrap(CLUSTER cluster) throws Exception {
     leaderSnapshotInfoRef.set(null);
+    numSnapshotRequests.set(0);
     int i = 0;
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -406,8 +407,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       // trigger setConfiguration
       cluster.setConfiguration(change.allPeersInNewConf);
 
-      RaftServerTestUtil
-          .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
 
       // Check the installed snapshot index on each Follower matches with the
       // leader snapshot.
