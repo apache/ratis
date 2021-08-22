@@ -176,7 +176,7 @@ public abstract class LogAppenderBase implements LogAppender {
 
   @Override
   public InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex) {
-    Preconditions.assertTrue(firstAvailableLogTermIndex.getIndex() > 0);
+    Preconditions.assertTrue(firstAvailableLogTermIndex.getIndex() >= 0);
     synchronized (server) {
       return LeaderProtoUtils.toInstallSnapshotRequestProto(server, getFollowerId(), firstAvailableLogTermIndex);
     }

@@ -52,6 +52,14 @@ public interface FollowerInfo {
   /** Set follower's snapshotIndex. */
   void setSnapshotIndex(long newSnapshotIndex);
 
+  /** Acknowledge that Follower attempted to install a snapshot. It does not guarantee that the installation was
+   * successful. This helps to determine whether Follower can come out of bootstrap process. */
+  void setAttemptedToInstallSnapshot();
+
+  /** Return true if install snapshot has been attempted by the Follower at least once. Used to verify if
+   * Follower tried to install snapshot during bootstrap process. */
+  boolean hasAttemptedToInstallSnapshot();
+
   /** @return the nextIndex for this follower. */
   long getNextIndex();
 

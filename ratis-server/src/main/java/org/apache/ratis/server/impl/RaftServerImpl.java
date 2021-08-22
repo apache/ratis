@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
@@ -166,6 +167,8 @@ class RaftServerImpl implements RaftServer.Division,
   private final RaftServerMetricsImpl raftServerMetrics;
 
   private final AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
+  private final AtomicLong installedSnapshotIndex;
+  private final AtomicBoolean isSnapshotNull;
 
   // To avoid append entry before complete start() method
   // For example, if thread1 start(), but before thread1 startAsFollower(), thread2 receive append entry
@@ -194,6 +197,8 @@ class RaftServerImpl implements RaftServer.Division,
     this.state = new ServerState(id, group, properties, this, stateMachine);
     this.retryCache = new RetryCacheImpl(properties);
     this.inProgressInstallSnapshotRequest = new AtomicReference<>(null);
+    this.installedSnapshotIndex = new AtomicLong();
+    this.isSnapshotNull = new AtomicBoolean(false);
     this.dataStreamMap = new DataStreamMapImpl(id);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
@@ -1530,7 +1535,6 @@ class RaftServerImpl implements RaftServer.Division,
     final TermIndex firstAvailableLogTermIndex = TermIndex.valueOf(
         request.getNotification().getFirstAvailableTermIndex());
     final long firstAvailableLogIndex = firstAvailableLogTermIndex.getIndex();
-
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
@@ -1542,23 +1546,22 @@ class RaftServerImpl implements RaftServer.Division,
       }
       changeToFollowerAndPersistMetadata(leaderTerm, "installSnapshot");
       state.setLeader(leaderId, "installSnapshot");
+      long snapshotIndex = state.getSnapshotIndex();
 
       updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
-
       if (inProgressInstallSnapshotRequest.compareAndSet(null, firstAvailableLogTermIndex)) {
-
+        LOG.info("{}: Received notification to install snapshot at index {}", getMemberId(), firstAvailableLogIndex);
         // Check if snapshot index is already at par or ahead of the first
         // available log index of the Leader.
-        long snapshotIndex = state.getSnapshotIndex();
-        if (snapshotIndex + 1 >= firstAvailableLogIndex) {
+        if (snapshotIndex + 1 >= firstAvailableLogIndex && firstAvailableLogIndex > 0) {
           // State Machine has already installed the snapshot. Return the
           // latest snapshot index to the Leader.
 
           inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
-          final InstallSnapshotReplyProto reply = ServerProtoUtils.toInstallSnapshotReplyProto(
-              leaderId, getMemberId(), currentTerm, InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
-          LOG.info("{}: StateMachine snapshotIndex is {}", getMemberId(), snapshotIndex);
-          return reply;
+          LOG.info("{}: InstallSnapshot notification result: {}, current snapshot index: {}", getMemberId(),
+              InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
+          return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(), currentTerm,
+              InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
         }
 
         Optional<RaftPeerProto> leaderPeerInfo = null;
@@ -1596,8 +1599,13 @@ class RaftServerImpl implements RaftServer.Division,
                   stateMachine.pause();
                   state.updateInstalledSnapshotIndex(reply);
                   state.reloadStateMachine(reply.getIndex());
+                  installedSnapshotIndex.set(reply.getIndex());
+                } else {
+                  isSnapshotNull.set(true);
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("{}: StateMachine could not install snapshot as it is not available", this);
+                  }
                 }
-                inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
               });
         } catch (Throwable t) {
           inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
@@ -1605,12 +1613,39 @@ class RaftServerImpl implements RaftServer.Division,
         }
 
         if (LOG.isDebugEnabled()) {
-          LOG.debug("{}: Snapshot Installation Request received and is in progress", getMemberId());
+          LOG.debug("{}: StateMachine is processing Snapshot Installation Request.", getMemberId());
         }
       } else {
-        LOG.info("{}: Snapshot Installation by StateMachine is in progress.", getMemberId());
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("{}: StateMachine is already installing a snapshot.", getMemberId());
+        }
       }
 
+      // If the snapshot is null or unavailable, return SNAPSHOT_UNAVAILABLE.
+      if (isSnapshotNull.compareAndSet(true, false)) {
+        LOG.info("{}: InstallSnapshot notification result: {}", getMemberId(),
+            InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
+        inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
+        return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, -1);
+      }
+
+      // If a snapshot has been installed, return SNAPSHOT_INSTALLED with the installed snapshot index and reset
+      // installedSnapshotIndex to 0.
+      long latestInstalledSnapshotIndex = this.installedSnapshotIndex.getAndSet(0);
+      if (latestInstalledSnapshotIndex > 0) {
+        LOG.info("{}: InstallSnapshot notification result: {}, at index: {}", getMemberId(),
+            InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotIndex);
+        inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
+        return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotIndex);
+      }
+
+      // Otherwise, Snapshot installation is in progress.
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: InstallSnapshot notification result: {}", getMemberId(),
+            InstallSnapshotResult.IN_PROGRESS);
+      }
       return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
           currentTerm, InstallSnapshotResult.IN_PROGRESS, -1);
     }

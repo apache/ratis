@@ -258,6 +258,58 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     }
   }
 
+  /**
+   * Test for install snapshot during a peer bootstrap: start a one node cluster
+   * and let it generate a snapshot. Add another node and verify that the new
+   * node installs a snapshot from the old node.
+   */
+  @Test
+  public void testInstallSnapshotDuringBootstrap() throws Exception {
+    int i = 0;
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+
+      try(final RaftClient client = cluster.createClient(leaderId)) {
+        for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+          RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
+          Assert.assertTrue(reply.isSuccess());
+        }
+      }
+
+      // wait for the snapshot to be done
+      final long nextIndex = cluster.getLeader().getRaftLog().getNextIndex();
+      LOG.info("nextIndex = {}", nextIndex);
+      final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
+      JavaUtils.attemptRepeatedly(() -> {
+        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        return null;
+      }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
+      verifyTakeSnapshotMetric(cluster.getLeader());
+
+      assertLeaderContent(cluster);
+
+      // add two more peers
+      String[] newPeers = new String[]{"s3", "s4"};
+      MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
+          newPeers, true, false);
+      // trigger setConfiguration
+      cluster.setConfiguration(change.allPeersInNewConf);
+
+      for (String newPeer : newPeers) {
+        final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));
+        SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
+        Assert.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
+      }
+
+      // Verify installSnapshot counter on leader
+      verifyInstallSnapshotMetric(cluster.getLeader());
+      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
   protected void verifyInstallSnapshotMetric(RaftServer.Division leader) {
     final Counter installSnapshotCounter = ((RaftServerMetricsImpl)leader.getRaftServerMetrics())
         .getCounter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT);

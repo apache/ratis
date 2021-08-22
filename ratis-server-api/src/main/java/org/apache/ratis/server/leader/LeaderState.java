@@ -58,4 +58,8 @@ public interface LeaderState {
 
   /** Handle the event that the follower has replied a success append entries. */
   void onFollowerSuccessAppendEntries(FollowerInfo follower);
+
+  /** Check if a follower is bootstrapping. */
+  boolean isFollowerBootstrapping(FollowerInfo follower);
+
 }

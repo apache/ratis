@@ -40,6 +40,7 @@ class FollowerInfoImpl implements FollowerInfo {
   private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex snapshotIndex = new RaftLogIndex("snapshotIndex", 0L);
   private volatile boolean attendVote;
+  private volatile boolean ackInstallSnapshotAttempt = false;
 
   FollowerInfoImpl(RaftGroupMemberId id, RaftPeer peer, Timestamp lastRpcTime, long nextIndex, boolean attendVote) {
     this.name = id + "->" + peer.getId();
@@ -108,6 +109,17 @@ class FollowerInfoImpl implements FollowerInfo {
     snapshotIndex.setUnconditionally(newSnapshotIndex, infoIndexChange);
     matchIndex.setUnconditionally(newSnapshotIndex, infoIndexChange);
     nextIndex.setUnconditionally(newSnapshotIndex + 1, infoIndexChange);
+  }
+
+  @Override
+  public void setAttemptedToInstallSnapshot() {
+    LOG.info("Follower {} acknowledged installing snapshot", name);
+    ackInstallSnapshotAttempt = true;
+  }
+
+  @Override
+  public boolean hasAttemptedToInstallSnapshot() {
+    return ackInstallSnapshotAttempt;
   }
 
   @Override

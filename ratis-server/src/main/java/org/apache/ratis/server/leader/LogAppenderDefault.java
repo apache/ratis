@@ -22,7 +22,6 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -123,9 +122,21 @@ class LogAppenderDefault extends LogAppenderBase {
               this, getFollower().getNextIndex(), getRaftLog().getStartIndex(), snapshot);
 
           final InstallSnapshotReplyProto r = installSnapshot(snapshot);
-          if (r != null && r.getResult() == InstallSnapshotResult.NOT_LEADER) {
-            onFollowerTerm(r.getTerm());
-          } // otherwise if r is null, retry the snapshot installation
+          if (r != null) {
+            switch (r.getResult()) {
+              case NOT_LEADER:
+                onFollowerTerm(r.getTerm());
+                break;
+              case SUCCESS:
+              case SNAPSHOT_UNAVAILABLE:
+              case ALREADY_INSTALLED:
+                getFollower().setAttemptedToInstallSnapshot();
+                break;
+              default:
+                break;
+            }
+          }
+          // otherwise if r is null, retry the snapshot installation
         } else {
           final AppendEntriesReplyProto r = sendAppendEntriesWithRetries();
           if (r != null) {
