@@ -727,9 +727,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   void stepDownOnJvmPause() {
-    if (getInfo().isLeader()) {
-      role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
-    }
+    role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
   }
 
   private RaftClientRequest filterDataStreamRaftClientRequest(RaftClientRequest request)
@@ -1655,11 +1653,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       // update pending request
-      synchronized (RaftServerImpl.this) {
-        if (getInfo().isLeader()) {
-          role.getLeaderState().ifPresent(leader -> leader.replyPendingRequest(logIndex, r));
-        }
-      }
+      role.getLeaderState().ifPresent(leader -> leader.replyPendingRequest(logIndex, r));
       cacheEntry.updateResult(r);
     });
   }
