@@ -44,6 +44,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.codahale.metrics.Timer;
 
@@ -66,6 +68,8 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private final GrpcServerMetrics grpcServerMetrics;
 
+  private final ReadWriteLock lock;
+
   public GrpcLogAppender(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     super(server, leaderState, f);
 
@@ -78,6 +82,8 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     grpcServerMetrics = new GrpcServerMetrics(server.getMemberId().toString());
     grpcServerMetrics.addPendingRequestsCount(getFollowerId().toString(), pendingRequests::logRequestsSize);
+
+    lock = new ReentrantReadWriteLock();
   }
 
   @Override
@@ -89,30 +95,29 @@ public class GrpcLogAppender extends LogAppenderBase {
     return getServerRpc().getProxies().getProxy(getFollowerId());
   }
 
-  private synchronized void resetClient(AppendEntriesRequest request, boolean onError) {
+  private void resetClient(AppendEntriesRequest request, boolean onError) {
+    lock.writeLock().lock();
     try {
       getClient().resetConnectBackoff();
+      appendLogRequestObserver = null;
+      firstResponseReceived = false;
+      // clear the pending requests queue and reset the next index of follower
+      pendingRequests.clear();
+      final long nextIndex = 1 + Optional.ofNullable(request)
+          .map(AppendEntriesRequest::getPreviousLog)
+          .map(TermIndex::getIndex)
+          .orElseGet(getFollower()::getMatchIndex);
+      if (onError && getFollower().getMatchIndex() == 0 && request == null) {
+        LOG.warn("{}: Leader has not got in touch with Follower {} yet, " +
+          "just keep nextIndex unchanged and retry.", this, getFollower());
+        return;
+      }
+      getFollower().decreaseNextIndex(nextIndex);
     } catch (IOException ie) {
       LOG.warn(this + ": Failed to getClient for " + getFollowerId(), ie);
+    } finally {
+      lock.writeLock().unlock();
     }
-
-    appendLogRequestObserver = null;
-    firstResponseReceived = false;
-
-    // clear the pending requests queue and reset the next index of follower
-    pendingRequests.clear();
-
-    final long nextIndex = 1 + Optional.ofNullable(request)
-        .map(AppendEntriesRequest::getPreviousLog)
-        .map(TermIndex::getIndex)
-        .orElseGet(getFollower()::getMatchIndex);
-
-    if (onError && getFollower().getMatchIndex() == 0 && request == null) {
-      LOG.warn("{}: Leader has not got in touch with Follower {} yet, " +
-          "just keep nextIndex unchanged and retry.", this, getFollower());
-      return;
-    }
-    getFollower().decreaseNextIndex(nextIndex);
   }
 
   private boolean isFollowerCommitBehindLastCommitIndex() {
@@ -204,22 +209,22 @@ public class GrpcLogAppender extends LogAppenderBase {
     final AppendEntriesRequestProto pending;
     final AppendEntriesRequest request;
     final StreamObserver<AppendEntriesRequestProto> s;
-    synchronized (this) {
-      // prepare and enqueue the append request. note changes on follower's
-      // nextIndex and ops on pendingRequests should always be associated
-      // together and protected by the lock
-      pending = newAppendEntriesRequest(callId++, excludeLogEntries);
-      if (pending == null) {
-        return;
-      }
-      request = new AppendEntriesRequest(pending, getFollowerId(), grpcServerMetrics);
-      pendingRequests.put(request);
-      increaseNextIndex(pending);
-      if (appendLogRequestObserver == null) {
-        appendLogRequestObserver = getClient().appendEntries(new AppendLogResponseHandler());
-      }
-      s = appendLogRequestObserver;
+    lock.writeLock().lock();
+    // prepare and enqueue the append request. note changes on follower's
+    // nextIndex and ops on pendingRequests should always be associated
+    // together and protected by the lock
+    pending = newAppendEntriesRequest(callId++, excludeLogEntries);
+    if (pending == null) {
+      return;
     }
+    request = new AppendEntriesRequest(pending, getFollowerId(), grpcServerMetrics);
+    pendingRequests.put(request);
+    increaseNextIndex(pending);
+    if (appendLogRequestObserver == null) {
+      appendLogRequestObserver = getClient().appendEntries(new AppendLogResponseHandler());
+    }
+    s = appendLogRequestObserver;
+    lock.writeLock().unlock();
 
     if (isRunning()) {
       sendRequest(request, pending, s);
@@ -351,7 +356,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
   }
 
-  private synchronized void updateNextIndex(long replyNextIndex) {
+  private void updateNextIndex(long replyNextIndex) {
     pendingRequests.clear();
     getFollower().setNextIndex(replyNextIndex);
   }
@@ -371,14 +376,18 @@ public class GrpcLogAppender extends LogAppenderBase {
       this.isNotificationOnly = notifyOnly;
     }
 
-    synchronized void addPending(InstallSnapshotRequestProto request) {
+    void addPending(InstallSnapshotRequestProto request) {
+      lock.writeLock().lock();
       pending.offer(request.getSnapshotChunk().getRequestIndex());
+      lock.writeLock().unlock();
     }
 
-    synchronized void removePending(InstallSnapshotReplyProto reply) {
+    void removePending(InstallSnapshotReplyProto reply) {
+      lock.writeLock().lock();
       final Integer index = pending.poll();
       Objects.requireNonNull(index, "index == null");
       Preconditions.assertTrue(index == reply.getRequestIndex());
+      lock.writeLock().unlock();
     }
 
     boolean isDone() {
@@ -390,8 +399,12 @@ public class GrpcLogAppender extends LogAppenderBase {
       notifyLogAppender();
     }
 
-    synchronized boolean hasAllResponse() {
-      return pending.isEmpty();
+    boolean hasAllResponse() {
+      boolean isEmpty;
+      lock.readLock().lock();
+      isEmpty = pending.isEmpty();
+      lock.readLock().unlock();
+      return isEmpty;
     }
 
     @Override
