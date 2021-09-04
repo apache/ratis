@@ -44,8 +44,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.codahale.metrics.Timer;
 
@@ -68,7 +66,8 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private final GrpcServerMetrics grpcServerMetrics;
 
-  private final ReadWriteLock lock;
+  private final AutoCloseableReadWriteLock lock;
+  private final StackTraceElement caller;
 
   public GrpcLogAppender(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     super(server, leaderState, f);
@@ -83,7 +82,8 @@ public class GrpcLogAppender extends LogAppenderBase {
     grpcServerMetrics = new GrpcServerMetrics(server.getMemberId().toString());
     grpcServerMetrics.addPendingRequestsCount(getFollowerId().toString(), pendingRequests::logRequestsSize);
 
-    lock = new ReentrantReadWriteLock();
+    lock = new AutoCloseableReadWriteLock(this);
+    caller = LOG.isTraceEnabled()? JavaUtils.getCallerStackTraceElement(): null;
   }
 
   @Override
@@ -96,8 +96,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   private void resetClient(AppendEntriesRequest request, boolean onError) {
-    lock.writeLock().lock();
-    try {
+    try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       getClient().resetConnectBackoff();
       appendLogRequestObserver = null;
       firstResponseReceived = false;
@@ -115,8 +114,6 @@ public class GrpcLogAppender extends LogAppenderBase {
       getFollower().decreaseNextIndex(nextIndex);
     } catch (IOException ie) {
       LOG.warn(this + ": Failed to getClient for " + getFollowerId(), ie);
-    } finally {
-      lock.writeLock().unlock();
     }
   }
 
@@ -209,22 +206,22 @@ public class GrpcLogAppender extends LogAppenderBase {
     final AppendEntriesRequestProto pending;
     final AppendEntriesRequest request;
     final StreamObserver<AppendEntriesRequestProto> s;
-    lock.writeLock().lock();
-    // prepare and enqueue the append request. note changes on follower's
-    // nextIndex and ops on pendingRequests should always be associated
-    // together and protected by the lock
-    pending = newAppendEntriesRequest(callId++, excludeLogEntries);
-    if (pending == null) {
-      return;
+    try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+      // prepare and enqueue the append request. note changes on follower's
+      // nextIndex and ops on pendingRequests should always be associated
+      // together and protected by the lock
+      pending = newAppendEntriesRequest(callId++, excludeLogEntries);
+      if (pending == null) {
+        return;
+      }
+      request = new AppendEntriesRequest(pending, getFollowerId(), grpcServerMetrics);
+      pendingRequests.put(request);
+      increaseNextIndex(pending);
+      if (appendLogRequestObserver == null) {
+        appendLogRequestObserver = getClient().appendEntries(new AppendLogResponseHandler());
+      }
+      s = appendLogRequestObserver;
     }
-    request = new AppendEntriesRequest(pending, getFollowerId(), grpcServerMetrics);
-    pendingRequests.put(request);
-    increaseNextIndex(pending);
-    if (appendLogRequestObserver == null) {
-      appendLogRequestObserver = getClient().appendEntries(new AppendLogResponseHandler());
-    }
-    s = appendLogRequestObserver;
-    lock.writeLock().unlock();
 
     if (isRunning()) {
       sendRequest(request, pending, s);
@@ -357,8 +354,10 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   private void updateNextIndex(long replyNextIndex) {
-    pendingRequests.clear();
-    getFollower().setNextIndex(replyNextIndex);
+    try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+      pendingRequests.clear();
+      getFollower().setNextIndex(replyNextIndex);
+    }
   }
 
   private class InstallSnapshotResponseHandler implements StreamObserver<InstallSnapshotReplyProto> {
@@ -377,17 +376,17 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
 
     void addPending(InstallSnapshotRequestProto request) {
-      lock.writeLock().lock();
-      pending.offer(request.getSnapshotChunk().getRequestIndex());
-      lock.writeLock().unlock();
+      try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+        pending.offer(request.getSnapshotChunk().getRequestIndex());
+      }
     }
 
     void removePending(InstallSnapshotReplyProto reply) {
-      lock.writeLock().lock();
-      final Integer index = pending.poll();
-      Objects.requireNonNull(index, "index == null");
-      Preconditions.assertTrue(index == reply.getRequestIndex());
-      lock.writeLock().unlock();
+      try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+        final Integer index = pending.poll();
+        Objects.requireNonNull(index, "index == null");
+        Preconditions.assertTrue(index == reply.getRequestIndex());
+      }
     }
 
     boolean isDone() {
@@ -400,11 +399,9 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
 
     boolean hasAllResponse() {
-      boolean isEmpty;
-      lock.readLock().lock();
-      isEmpty = pending.isEmpty();
-      lock.readLock().unlock();
-      return isEmpty;
+      try (AutoCloseableLock readLock = lock.readLock(caller, LOG::trace)) {
+        return pending.isEmpty();
+      }
     }
 
     @Override
