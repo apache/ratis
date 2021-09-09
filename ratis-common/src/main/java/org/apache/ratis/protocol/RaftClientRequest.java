@@ -232,6 +232,7 @@ public class RaftClientRequest extends RaftClientMessage {
     private RaftPeerId serverId;
     private RaftGroupId groupId;
     private long callId;
+    private boolean toLeader;
 
     private Message message;
     private Type type;
@@ -241,7 +242,7 @@ public class RaftClientRequest extends RaftClientMessage {
 
     public RaftClientRequest build() {
       return new RaftClientRequest(
-          clientId, serverId, groupId, callId, message, type, slidingWindowEntry, routingTable, timeoutMs);
+          clientId, serverId, groupId, callId, toLeader, message, type, slidingWindowEntry, routingTable, timeoutMs);
     }
 
     public Builder setClientId(ClientId clientId) {
@@ -249,8 +250,15 @@ public class RaftClientRequest extends RaftClientMessage {
       return this;
     }
 
+    public Builder setLeaderId(RaftPeerId leaderId) {
+      this.serverId = leaderId;
+      this.toLeader = true;
+      return this;
+    }
+
     public Builder setServerId(RaftPeerId serverId) {
       this.serverId = serverId;
+      this.toLeader = false;
       return this;
     }
 
@@ -316,21 +324,26 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private final long timeoutMs;
 
-  protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
-    this(clientId, serverId, groupId, callId, null, type, null, null, 0);
+  private final boolean toLeader;
+
+  protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
+      boolean toLeader, Type type) {
+    this(clientId, serverId, groupId, callId, toLeader, null, type, null, null, 0);
   }
 
   protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type,
       long timeoutMs) {
-    this(clientId, serverId, groupId, callId, null, type, null, null, timeoutMs);
+    this(clientId, serverId, groupId, callId, true, null, type, null, null, timeoutMs);
   }
 
   @SuppressWarnings("parameternumber")
   private RaftClientRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-      long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry,
+      long callId, boolean toLeader, Message message, Type type, SlidingWindowEntry slidingWindowEntry,
       RoutingTable routingTable, long timeoutMs) {
     super(clientId, serverId, groupId, callId);
+    this.toLeader = toLeader;
+
     this.message = message;
     this.type = type;
     this.slidingWindowEntry = slidingWindowEntry != null? slidingWindowEntry: SlidingWindowEntry.getDefaultInstance();
@@ -341,6 +354,10 @@ public class RaftClientRequest extends RaftClientMessage {
   @Override
   public final boolean isRequest() {
     return true;
+  }
+
+  public boolean isToLeader() {
+    return toLeader;
   }
 
   public SlidingWindowEntry getSlidingWindowEntry() {

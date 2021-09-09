@@ -112,6 +112,7 @@ message RaftRpcRequestProto {
   bytes replyId = 2;
   RaftGroupIdProto raftGroupId = 3;
   uint64 callId = 4;
+  bool toLeader = 5;
 
   uint64 timeoutMs = 13;
   RoutingTableProto routingTable = 14;

@@ -80,6 +80,7 @@ public interface UnorderedAsync {
         final RaftException replyException = reply != null? reply.getException(): null;
         reply = client.handleLeaderException(request, reply);
         if (reply != null) {
+          client.handleReply(request, reply);
           f.complete(reply);
           return;
         }

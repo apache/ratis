@@ -193,6 +193,7 @@ public final class OrderedAsync {
       if (reply == null) {
         scheduleWithTimeout(pending, request, retryPolicy, null);
       } else {
+        client.handleReply(request, reply);
         f.complete(reply);
       }
     }).exceptionally(e -> {

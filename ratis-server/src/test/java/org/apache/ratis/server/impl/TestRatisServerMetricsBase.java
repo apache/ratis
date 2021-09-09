@@ -60,7 +60,7 @@ public abstract class TestRatisServerMetricsBase<CLUSTER extends MiniRaftCluster
     // StaleRead with Long.MAX_VALUE minIndex will fail.
     RaftClientRequest r = RaftClientRequest.newBuilder()
         .setClientId(clientId)
-        .setServerId(leaderImpl.getId())
+        .setLeaderId(leaderImpl.getId())
         .setGroupId(cluster.getGroupId())
         .setCallId(0)
         .setMessage(Message.EMPTY)

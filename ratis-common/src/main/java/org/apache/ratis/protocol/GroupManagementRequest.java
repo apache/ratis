@@ -92,7 +92,7 @@ public final class GroupManagementRequest extends RaftClientRequest {
   private final Op op;
 
   private GroupManagementRequest(ClientId clientId, RaftPeerId serverId, long callId, Op op) {
-    super(clientId, serverId, op.getGroupId(), callId, writeRequestType());
+    super(clientId, serverId, op.getGroupId(), callId, false, writeRequestType());
     this.op = op;
   }
 
