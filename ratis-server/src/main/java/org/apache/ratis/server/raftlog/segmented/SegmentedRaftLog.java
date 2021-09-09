@@ -515,18 +515,6 @@ public class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  public String toString() {
-    try(AutoCloseableLock readLock = readLock()) {
-      if (isOpened()) {
-        return super.toString() + ",f" + getFlushIndex()
-            + ",i" + Optional.ofNullable(getLastEntryTermIndex()).map(TermIndex::getIndex).orElse(0L);
-      } else {
-        return super.toString();
-      }
-    }
-  }
-
-  @Override
   public String toLogEntryString(LogEntryProto logEntry) {
     return LogProtoUtils.toLogEntryString(logEntry, stateMachine::toStateMachineLogEntryString);
   }
