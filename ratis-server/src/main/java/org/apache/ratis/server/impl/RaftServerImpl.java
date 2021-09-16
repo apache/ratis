@@ -1059,17 +1059,13 @@ class RaftServerImpl implements RaftServer.Division,
       final VoteContext context = new VoteContext(this, phase, candidateId);
       final RaftPeer candidate = context.recognizeCandidate(candidateTerm);
       final boolean voteGranted = context.decideVote(candidate, candidateLastEntry);
-      if (candidate != null && phase == Phase.ELECTION) {
-        // change server state in the ELECTION phase
-        final boolean termUpdated = changeToFollower(candidateTerm, true, "candidate:" + candidateId);
-        if (voteGranted) {
+      if (voteGranted) {
+        if (candidate != null && phase == Phase.ELECTION) {
+          // only when vote is granted, change server state in the ELECTION phase
+          changeToFollower(candidateTerm, true, "candidate:" + candidateId);
           state.grantVote(candidate.getId());
-        }
-        if (termUpdated || voteGranted) {
           state.persistMetadata(); // sync metafile
         }
-      }
-      if (voteGranted) {
         role.getFollowerState().ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.REQUEST_VOTE));
       } else if(shouldSendShutdown(candidateId, candidateLastEntry)) {
         shouldShutdown = true;
