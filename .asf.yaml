@@ -31,9 +31,5 @@ notifications:
   pullrequests: issues@ratis.apache.org
   jira_options: link label worklog
 
-staging:
-  profile: ~
-  whoami:  asf-staging
-
 publish:
   whoami:  asf-site
