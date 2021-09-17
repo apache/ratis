@@ -14,7 +14,7 @@
 # limitations under the License.
 github:
   description: "Open source Java implementation for Raft consensus protocol."
-  homepage: http://ratis.apache.org/
+  homepage: https://ratis.apache.org/
   labels:
     - raft
     - consensus-protocol
@@ -24,8 +24,12 @@ github:
     squash:  true
     merge:   false
     rebase:  false
+
 notifications:
   commits:      commits@ratis.apache.org
   issues:       issues@ratis.apache.org
   pullrequests: issues@ratis.apache.org
   jira_options: link label worklog
+
+publish:
+  whoami:  asf-site
