@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 
 /**
@@ -277,6 +278,14 @@ public interface StateMachine extends Closeable {
      * @return a future for the cleanup task.
      */
     CompletableFuture<?> cleanUp();
+
+    /**
+     * @return an {@link Executor} for executing the streaming tasks of this stream.
+     *         If the returned value is null, the default {@link Executor} will be used.
+     */
+    default Executor getExecutor() {
+      return null;
+    }
   }
 
   /**

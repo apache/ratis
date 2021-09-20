@@ -84,7 +84,7 @@ public class DataStreamManagement {
 
     CompletableFuture<Long> write(ByteBuf buf, WriteOption[] options, Executor executor) {
       return composeAsync(writeFuture, executor,
-          n -> streamFuture.thenApplyAsync(stream -> writeTo(buf, options, stream), executor));
+          n -> streamFuture.thenCompose(stream -> writeToAsync(buf, options, stream, executor)));
     }
   }
 
@@ -241,6 +241,12 @@ public class DataStreamManagement {
     final CompletableFuture<T> composed = future.get().thenComposeAsync(function, executor);
     future.set(composed);
     return composed;
+  }
+
+  static CompletableFuture<Long> writeToAsync(ByteBuf buf, WriteOption[] options, DataStream stream,
+      Executor defaultExecutor) {
+    final Executor e = Optional.ofNullable(stream.getExecutor()).orElse(defaultExecutor);
+    return CompletableFuture.supplyAsync(() -> writeTo(buf, options, stream), e);
   }
 
   static long writeTo(ByteBuf buf, WriteOption[] options, DataStream stream) {
