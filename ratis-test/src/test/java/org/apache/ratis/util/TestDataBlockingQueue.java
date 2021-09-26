@@ -23,15 +23,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class TestDataBlockingQueue {
   static final Logger LOG = LoggerFactory.getLogger(TestDataBlockingQueue.class);
 
   final SizeInBytes byteLimit = SizeInBytes.valueOf(100);
   final int elementLimit = 10;
-  final DataBlockingQueue<Integer> q =
-      new DataBlockingQueue<>(null, byteLimit, elementLimit, Integer::intValue);
+  final DataBlockingQueue<Long> q =
+      new DataBlockingQueue<>(null, byteLimit, elementLimit, Long::longValue);
 
   final TimeDuration slow = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
   final TimeDuration fast = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);
@@ -56,27 +56,27 @@ public class TestDataBlockingQueue {
     runTestBlockingCalls(fast, slow, q);
   }
 
-  static void assertOfferPull(int offering, int polled, int elementLimit) {
+  static void assertOfferPull(long offering, long polled, long elementLimit) {
     Assert.assertTrue(offering >= polled);
     Assert.assertTrue(offering - polled <= elementLimit + 1);
   }
 
   static void runTestBlockingCalls(TimeDuration offerSleepTime, TimeDuration pollSleepTime,
-      DataBlockingQueue<Integer> q) throws Exception {
+      DataBlockingQueue<Long> q) throws Exception {
     Assert.assertTrue(q.isEmpty());
     ExitUtils.disableSystemExit();
     final int elementLimit = q.getElementLimit();
     final TimeDuration timeout = CollectionUtils.min(offerSleepTime, pollSleepTime);
 
-    final AtomicInteger offeringValue = new AtomicInteger();
-    final AtomicInteger polledValue = new AtomicInteger();
+    final AtomicLong offeringValue = new AtomicLong();
+    final AtomicLong polledValue = new AtomicLong();
     final int endValue = 30;
 
     final Thread pollThread = new Thread(() -> {
       try {
         for(; polledValue.get() < endValue;) {
           pollSleepTime.sleep();
-          final Integer polled = q.poll(timeout);
+          final Long polled = q.poll(timeout);
           if (polled != null) {
             Assert.assertEquals(polledValue.incrementAndGet(), polled.intValue());
             LOG.info("polled {}", polled);
