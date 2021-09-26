@@ -72,6 +72,10 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
     }
   }
 
+  @Override
+  public void onStateMachineReadTimeout() {
+  }
+
   public Timer getRaftLogReadEntryTimer() {
     return getTimer(RAFT_LOG_READ_ENTRY_LATENCY);
   }

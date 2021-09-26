@@ -394,6 +394,7 @@ public abstract class RaftLogBase implements RaftLog {
       } catch (TimeoutException t) {
         final String err = getName() + ": Timeout readStateMachineData for " + toLogEntryString(logEntry);
         LOG.error(err, t);
+        getRaftLogMetrics().onStateMachineReadTimeout();
         throw t;
       } catch (Exception e) {
         final String err = getName() + ": Failed readStateMachineData for " + toLogEntryString(logEntry);
