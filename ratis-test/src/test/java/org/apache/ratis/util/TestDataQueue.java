@@ -33,26 +33,26 @@ public class TestDataQueue {
     };
   }
 
-  static void assertSizes(int expectedNumElements, int expectedNumBytes, DataQueue<?> q) {
+  static void assertSizes(long expectedNumElements, long expectedNumBytes, DataQueue<?> q) {
     Assert.assertEquals(expectedNumElements, q.getNumElements());
     Assert.assertEquals(expectedNumBytes, q.getNumBytes());
   }
 
   final SizeInBytes byteLimit = SizeInBytes.valueOf(100);
   final int elementLimit = 5;
-  final DataQueue<Integer> q = new DataQueue<>(null, byteLimit, elementLimit, Integer::intValue);
+  final DataQueue<Long> q = new DataQueue<Long>(null, byteLimit, elementLimit, Long::longValue);
 
   @Test(timeout = 1000)
   public void testElementLimit() {
     runTestElementLimit(q);
   }
 
-  static void runTestElementLimit(DataQueue<Integer> q) {
+  static void runTestElementLimit(DataQueue<Long> q) {
     assertSizes(0, 0, q);
 
     final int elementLimit = q.getElementLimit();
     int numBytes = 0;
-    for (int i = 0; i < elementLimit; i++) {
+    for (long i = 0; i < elementLimit; i++) {
       Assert.assertEquals(i, q.getNumElements());
       Assert.assertEquals(numBytes, q.getNumBytes());
       final boolean offered = q.offer(i);
@@ -61,13 +61,13 @@ public class TestDataQueue {
       assertSizes(i+1, numBytes, q);
     }
     {
-      final boolean offered = q.offer(0);
+      final boolean offered = q.offer(0L);
       Assert.assertFalse(offered);
       assertSizes(elementLimit, numBytes, q);
     }
 
     { // poll all elements
-      final List<Integer> polled = q.pollList(100, (i, timeout) -> i, getTimeoutHandler(false));
+      final List<Long> polled = q.pollList(100, (i, timeout) -> i, getTimeoutHandler(false));
       Assert.assertEquals(elementLimit, polled.size());
       for (int i = 0; i < polled.size(); i++) {
         Assert.assertEquals(i, polled.get(i).intValue());
@@ -81,17 +81,17 @@ public class TestDataQueue {
     runTestByteLimit(q);
   }
 
-  static void runTestByteLimit(DataQueue<Integer> q) {
+  static void runTestByteLimit(DataQueue<Long> q) {
     assertSizes(0, 0, q);
 
-    final int byteLimit = q.getByteLimit();
+    final long byteLimit = q.getByteLimit();
     try {
       q.offer(byteLimit + 1);
       Assert.fail();
     } catch (IllegalStateException ignored) {
     }
 
-    final int halfBytes = byteLimit / 2;
+    final long halfBytes = byteLimit / 2;
     {
       final boolean offered = q.offer(halfBytes);
       Assert.assertTrue(offered);
@@ -111,19 +111,19 @@ public class TestDataQueue {
     }
 
     {
-      final boolean offered = q.offer(1);
+      final boolean offered = q.offer(1L);
       Assert.assertFalse(offered);
       assertSizes(2, byteLimit, q);
     }
 
     {
-      final boolean offered = q.offer(0);
+      final boolean offered = q.offer(0L);
       Assert.assertTrue(offered);
       assertSizes(3, byteLimit, q);
     }
 
     { // poll all elements
-      final List<Integer> polled = q.pollList(100, (i, timeout) -> i, getTimeoutHandler(false));
+      final List<Long> polled = q.pollList(100, (i, timeout) -> i, getTimeoutHandler(false));
       Assert.assertEquals(3, polled.size());
       Assert.assertEquals(halfBytes, polled.get(0).intValue());
       Assert.assertEquals(halfBytes, polled.get(1).intValue());
@@ -138,7 +138,7 @@ public class TestDataQueue {
     assertSizes(0, 0, q);
 
     int numBytes = 0;
-    for (int i = 0; i < elementLimit; i++) {
+    for (long i = 0; i < elementLimit; i++) {
       Assert.assertEquals(i, q.getNumElements());
       Assert.assertEquals(numBytes, q.getNumBytes());
       final boolean offered = q.offer(i);
@@ -148,14 +148,14 @@ public class TestDataQueue {
     }
 
     { // poll with zero time
-      final List<Integer> polled = q.pollList(0, (i, timeout) -> i, getTimeoutHandler(false));
+      final List<Long> polled = q.pollList(0, (i, timeout) -> i, getTimeoutHandler(false));
       Assert.assertTrue(polled.isEmpty());
       assertSizes(elementLimit, numBytes, q);
     }
 
     final int halfElements = elementLimit / 2;
     { // poll with timeout
-      final List<Integer> polled = q.pollList(100, (i, timeout) -> {
+      final List<Long> polled = q.pollList(100, (i, timeout) -> {
         if (i == halfElements) {
           // simulate timeout
           throw new TimeoutException("i=" + i);
@@ -171,7 +171,7 @@ public class TestDataQueue {
     }
 
     { // poll the remaining elements
-      final List<Integer> polled = q.pollList(100, (i, timeout) -> i, getTimeoutHandler(false));
+      final List<Long> polled = q.pollList(100, (i, timeout) -> i, getTimeoutHandler(false));
       Assert.assertEquals(elementLimit - halfElements, polled.size());
       for (int i = 0; i < polled.size(); i++) {
         Assert.assertEquals(halfElements + i, polled.get(i).intValue());

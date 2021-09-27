@@ -29,7 +29,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
 
 /**
  * A queue for data elements
@@ -46,12 +46,12 @@ public class DataBlockingQueue<E> extends DataQueue<E> {
   private final Condition notFull  = lock.newCondition();
   private final Condition notEmpty = lock.newCondition();
 
-  public DataBlockingQueue(Object name, SizeInBytes byteLimit, int elementLimit, ToIntFunction<E> getNumBytes) {
+  public DataBlockingQueue(Object name, SizeInBytes byteLimit, int elementLimit, ToLongFunction<E> getNumBytes) {
     super(name, byteLimit, elementLimit, getNumBytes);
   }
 
   @Override
-  public int getNumBytes() {
+  public long getNumBytes() {
     try(AutoCloseableLock auto = AutoCloseableLock.acquire(lock)) {
       return super.getNumBytes();
     }

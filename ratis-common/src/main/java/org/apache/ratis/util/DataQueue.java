@@ -31,7 +31,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
 
 /**
  * A queue for data elements
@@ -45,18 +45,18 @@ public class DataQueue<E> {
   public static final Logger LOG = LoggerFactory.getLogger(DataQueue.class);
 
   private final Object name;
-  private final int byteLimit;
+  private final long byteLimit;
   private final int elementLimit;
-  private final ToIntFunction<E> getNumBytes;
+  private final ToLongFunction<E> getNumBytes;
 
   private final Queue<E> q;
 
-  private int numBytes = 0;
+  private long numBytes = 0;
 
   public DataQueue(Object name, SizeInBytes byteLimit, int elementLimit,
-      ToIntFunction<E> getNumBytes) {
+      ToLongFunction<E> getNumBytes) {
     this.name = name != null? name: this;
-    this.byteLimit = byteLimit.getSizeInt();
+    this.byteLimit = byteLimit.getSize();
     this.elementLimit = elementLimit;
     this.getNumBytes = getNumBytes;
     this.q = new ArrayDeque<>(elementLimit);
@@ -66,11 +66,11 @@ public class DataQueue<E> {
     return elementLimit;
   }
 
-  public int getByteLimit() {
+  public long getByteLimit() {
     return byteLimit;
   }
 
-  public int getNumBytes() {
+  public long getNumBytes() {
     return numBytes;
   }
 
@@ -98,7 +98,7 @@ public class DataQueue<E> {
     if (elementLimit > 0 && q.size() >= elementLimit) {
       return false;
     }
-    final int elementNumBytes = getNumBytes.applyAsInt(element);
+    final long elementNumBytes = getNumBytes.applyAsLong(element);
     Preconditions.assertTrue(elementNumBytes >= 0,
         () -> name + ": elementNumBytes = " + elementNumBytes + " < 0");
     if (byteLimit > 0) {
@@ -146,7 +146,7 @@ public class DataQueue<E> {
   public E poll() {
     final E polled = q.poll();
     if (polled != null) {
-      numBytes -= getNumBytes.applyAsInt(polled);
+      numBytes -= getNumBytes.applyAsLong(polled);
     }
     return polled;
   }

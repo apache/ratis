@@ -183,8 +183,13 @@ public interface RaftServerConfigKeys {
       return getSizeInBytes(properties::getSizeInBytes,
           QUEUE_BYTE_LIMIT_KEY, QUEUE_BYTE_LIMIT_DEFAULT, getDefaultLog());
     }
+
+    @Deprecated
     static void setQueueByteLimit(RaftProperties properties, int queueSize) {
       setInt(properties::setInt, QUEUE_BYTE_LIMIT_KEY, queueSize, requireMin(1));
+    }
+    static void setQueueByteLimit(RaftProperties properties, SizeInBytes byteLimit) {
+      setSizeInBytes(properties::set, QUEUE_BYTE_LIMIT_KEY, byteLimit, requireMin(1L));
     }
 
     String PURGE_GAP_KEY = PREFIX + ".purge.gap";
