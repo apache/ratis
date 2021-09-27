@@ -1604,7 +1604,8 @@ class RaftServerImpl implements RaftServer.Division,
                     LOG.debug("{}: StateMachine could not install snapshot as it is not available", this);
                   }
                 }
-              });
+              // wait until the snapshot is installed successfully or exceptionally
+              }).join();
         } catch (Throwable t) {
           inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
           throw t;
