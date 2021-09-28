@@ -119,6 +119,17 @@ public interface RaftServerConfigKeys {
     static void setByteLimit(RaftProperties properties, SizeInBytes byteLimit) {
       setSizeInBytes(properties::set, BYTE_LIMIT_KEY, byteLimit, requireMin(1L));
     }
+
+    String FOLLOWER_MAX_GAP_RATIO_KEY = PREFIX + ".follower-max-gap-ratio";
+    float FOLLOWER_MAX_GAP_RATIO_DEFAULT = 1;
+
+    static float followerMaxGapRatio(RaftProperties properties) {
+      return getFloat(properties::getFloat, FOLLOWER_MAX_GAP_RATIO_KEY,
+          FOLLOWER_MAX_GAP_RATIO_DEFAULT, getDefaultLog(), requireMax(1f));
+    }
+    static void setFollowerMaxGapRatio(RaftProperties properties, float ratio) {
+      setFloat(properties::setFloat, FOLLOWER_MAX_GAP_RATIO_KEY, ratio, requireMax(1f));
+    }
   }
 
   interface Watch {

@@ -79,6 +79,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.apache.ratis.server.RaftServer.Division.LOG;
+import static org.apache.ratis.server.RaftServerConfigKeys.Write.FOLLOWER_MAX_GAP_RATIO_KEY;
 
 /**
  * States for leader only. It contains three different types of processors:
@@ -250,6 +251,8 @@ class LeaderStateImpl implements LeaderState {
   private final long placeHolderIndex;
   private final RaftServerMetricsImpl raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
+  private final long maxPendingRequests;
+  private final long followerMaxGapThreshold;
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -269,6 +272,13 @@ class LeaderStateImpl implements LeaderState {
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
+    this.maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
+    float followerMaxGapRatio = RaftServerConfigKeys.Write.followerMaxGapRatio(properties);
+
+    if (followerMaxGapRatio > 1f || followerMaxGapRatio <= 0f) {
+      throw new IllegalArgumentException(FOLLOWER_MAX_GAP_RATIO_KEY + "s value must between [1, 0)");
+    }
+    this.followerMaxGapThreshold = (long)(followerMaxGapRatio * maxPendingRequests);
 
     final RaftConfigurationImpl conf = state.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
@@ -700,6 +710,17 @@ class LeaderStateImpl implements LeaderState {
       return new MinMajorityMax(sorted[0], getMajority(sorted), getMax(sorted));
     }
 
+    static MinMajorityMax valueOf(long[] sorted, long gapThreshold) {
+      long majority = getMajority(sorted);
+      long min = sorted[0];
+      if ((majority - min) > gapThreshold) {
+        // The the gap between majority and min(the slow follower) is greater than gapThreshold,
+        // set the majority to min, which will skip one round of lastCommittedIndex update in updateCommit().
+        majority = min;
+      }
+      return new MinMajorityMax(min, majority, getMax(sorted));
+    }
+
     static long getMajority(long[] sorted) {
       return sorted[(sorted.length - 1) / 2];
     }
@@ -725,7 +746,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     final long[] indicesInNewConf = getSorted(followers, includeSelf, followerIndex, logIndex);
-    final MinMajorityMax newConf = MinMajorityMax.valueOf(indicesInNewConf);
+    final MinMajorityMax newConf = MinMajorityMax.valueOf(indicesInNewConf, followerMaxGapThreshold);
 
     if (!conf.isTransitional()) {
       return Optional.of(newConf);
@@ -737,7 +758,7 @@ class LeaderStateImpl implements LeaderState {
       }
 
       final long[] indicesInOldConf = getSorted(oldFollowers, includeSelfInOldConf, followerIndex, logIndex);
-      final MinMajorityMax oldConf = MinMajorityMax.valueOf(indicesInOldConf);
+      final MinMajorityMax oldConf = MinMajorityMax.valueOf(indicesInOldConf, followerMaxGapThreshold);
       return Optional.of(newConf.combine(oldConf));
     }
   }

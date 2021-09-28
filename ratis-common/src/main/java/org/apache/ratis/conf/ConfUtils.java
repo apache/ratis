@@ -68,6 +68,15 @@ public interface ConfUtils {
     };
   }
 
+  static BiConsumer<String, Float> requireMax(float max) {
+    return (key, value) -> {
+      if (value > max) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " > max = " + max);
+      }
+    };
+  }
+
   static BiConsumer<String, Long> requireMin(SizeInBytes min) {
     return requireMin(min.getSize());
   }
@@ -150,6 +159,13 @@ public interface ConfUtils {
   }
 
   @SafeVarargs
+  static float getFloat(
+      BiFunction<String, Float, Float> floatGetter,
+      String key, float defaultValue, Consumer<String> logger, BiConsumer<String, Float>... assertions) {
+    return get(floatGetter, key, defaultValue, logger, assertions);
+  }
+
+  @SafeVarargs
   static File getFile(
       BiFunction<String, File, File> fileGetter,
       String key, File defaultValue, Consumer<String> logger, BiConsumer<String, File>... assertions) {
@@ -216,6 +232,13 @@ public interface ConfUtils {
       BiConsumer<String, Long> longSetter, String key, long value,
       BiConsumer<String, Long>... assertions) {
     set(longSetter, key, value, assertions);
+  }
+
+  @SafeVarargs
+  static void setFloat(
+      BiConsumer<String, Float> floatSetter, String key, float value,
+      BiConsumer<String, Float>... assertions) {
+    set(floatSetter, key, value, assertions);
   }
 
   @SafeVarargs
