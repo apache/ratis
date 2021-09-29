@@ -273,15 +273,15 @@ class LeaderStateImpl implements LeaderState {
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
-    double followerMaxGapRatio = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
+    double followerGapRatioMax = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
 
-    if (followerMaxGapRatio == FOLLOWER_GAP_RATIO_MAX_DISABLED) {
+    if (followerGapRatioMax == FOLLOWER_GAP_RATIO_MAX_DISABLED) {
       this.followerMaxGapThreshold = -1;
-    } else if (followerMaxGapRatio > 1f || followerMaxGapRatio <= 0f) {
+    } else if (followerGapRatioMax > 1f || followerGapRatioMax <= 0f) {
       throw new IllegalArgumentException(FOLLOWER_GAP_RATIO_MAX_KEY +
           "s value must between [1, 0) to enable the feature");
     } else {
-      this.followerMaxGapThreshold = (long) (followerMaxGapRatio * maxPendingRequests);
+      this.followerMaxGapThreshold = (long) (followerGapRatioMax * maxPendingRequests);
     }
 
     final RaftConfigurationImpl conf = state.getRaftConf();
