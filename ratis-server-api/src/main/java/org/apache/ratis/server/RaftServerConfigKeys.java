@@ -122,12 +122,11 @@ public interface RaftServerConfigKeys {
 
     String FOLLOWER_GAP_RATIO_MAX_KEY = PREFIX + ".follower.gap.ratio.max";
     // The valid range is [1, 0) and -1, -1 means disable this feature
-    double FOLLOWER_GAP_RATIO_MAX_KEY_DEFAULT = -1d;
-    double FOLLOWER_GAP_RATIO_MAX_DISABLED = -1d;
+    double FOLLOWER_GAP_RATIO_MAX_DEFAULT = -1d;
 
     static double followerGapRatioMax(RaftProperties properties) {
       return getDouble(properties::getDouble, FOLLOWER_GAP_RATIO_MAX_KEY,
-          FOLLOWER_GAP_RATIO_MAX_DISABLED, getDefaultLog(), requireMax(1d));
+          FOLLOWER_GAP_RATIO_MAX_DEFAULT, getDefaultLog(), requireMax(1d));
     }
     static void setFollowerGapRatioMax(RaftProperties properties, float ratio) {
       setDouble(properties::setDouble, FOLLOWER_GAP_RATIO_MAX_KEY, ratio, requireMax(1d));

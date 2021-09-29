@@ -80,7 +80,6 @@ import java.util.stream.Stream;
 
 import static org.apache.ratis.server.RaftServer.Division.LOG;
 import static org.apache.ratis.server.RaftServerConfigKeys.Write.FOLLOWER_GAP_RATIO_MAX_KEY;
-import static org.apache.ratis.server.RaftServerConfigKeys.Write.FOLLOWER_GAP_RATIO_MAX_DISABLED;
 
 /**
  * States for leader only. It contains three different types of processors:
@@ -275,7 +274,7 @@ class LeaderStateImpl implements LeaderState {
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
     double followerGapRatioMax = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
 
-    if (followerGapRatioMax == FOLLOWER_GAP_RATIO_MAX_DISABLED) {
+    if (followerGapRatioMax == -1) {
       this.followerMaxGapThreshold = -1;
     } else if (followerGapRatioMax > 1f || followerGapRatioMax <= 0f) {
       throw new IllegalArgumentException(FOLLOWER_GAP_RATIO_MAX_KEY +
