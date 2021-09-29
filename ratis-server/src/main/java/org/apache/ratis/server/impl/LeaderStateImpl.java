@@ -79,7 +79,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.apache.ratis.server.RaftServer.Division.LOG;
-import static org.apache.ratis.server.RaftServerConfigKeys.Write.FOLLOWER_MAX_GAP_RATIO_KEY;
+import static org.apache.ratis.server.RaftServerConfigKeys.Write.FOLLOWER_GAP_RATIO_MAX_KEY;
+import static org.apache.ratis.server.RaftServerConfigKeys.Write.FOLLOWER_GAP_RATIO_MAX_DISABLED;
 
 /**
  * States for leader only. It contains three different types of processors:
@@ -251,7 +252,6 @@ class LeaderStateImpl implements LeaderState {
   private final long placeHolderIndex;
   private final RaftServerMetricsImpl raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
-  private final long maxPendingRequests;
   private final long followerMaxGapThreshold;
 
   LeaderStateImpl(RaftServerImpl server) {
@@ -272,13 +272,17 @@ class LeaderStateImpl implements LeaderState {
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
-    this.maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
-    float followerMaxGapRatio = RaftServerConfigKeys.Write.followerMaxGapRatio(properties);
+    long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
+    double followerMaxGapRatio = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
 
-    if (followerMaxGapRatio > 1f || followerMaxGapRatio <= 0f) {
-      throw new IllegalArgumentException(FOLLOWER_MAX_GAP_RATIO_KEY + "s value must between [1, 0)");
+    if (followerMaxGapRatio == FOLLOWER_GAP_RATIO_MAX_DISABLED) {
+      this.followerMaxGapThreshold = -1;
+    } else if (followerMaxGapRatio > 1f || followerMaxGapRatio <= 0f) {
+      throw new IllegalArgumentException(FOLLOWER_GAP_RATIO_MAX_KEY +
+          "s value must between [1, 0) to enable the feature");
+    } else {
+      this.followerMaxGapThreshold = (long) (followerMaxGapRatio * maxPendingRequests);
     }
-    this.followerMaxGapThreshold = (long)(followerMaxGapRatio * maxPendingRequests);
 
     final RaftConfigurationImpl conf = state.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
@@ -713,7 +717,7 @@ class LeaderStateImpl implements LeaderState {
     static MinMajorityMax valueOf(long[] sorted, long gapThreshold) {
       long majority = getMajority(sorted);
       long min = sorted[0];
-      if ((majority - min) > gapThreshold) {
+      if (gapThreshold != -1 && (majority - min) > gapThreshold) {
         // The the gap between majority and min(the slow follower) is greater than gapThreshold,
         // set the majority to min, which will skip one round of lastCommittedIndex update in updateCommit().
         majority = min;

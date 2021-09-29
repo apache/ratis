@@ -68,7 +68,7 @@ public interface ConfUtils {
     };
   }
 
-  static BiConsumer<String, Float> requireMax(float max) {
+  static BiConsumer<String, Double> requireMax(double max) {
     return (key, value) -> {
       if (value > max) {
         throw new IllegalArgumentException(
@@ -159,10 +159,10 @@ public interface ConfUtils {
   }
 
   @SafeVarargs
-  static float getFloat(
-      BiFunction<String, Float, Float> floatGetter,
-      String key, float defaultValue, Consumer<String> logger, BiConsumer<String, Float>... assertions) {
-    return get(floatGetter, key, defaultValue, logger, assertions);
+  static double getDouble(
+      BiFunction<String, Double, Double> doubleGetter,
+      String key, double defaultValue, Consumer<String> logger, BiConsumer<String, Double>... assertions) {
+    return get(doubleGetter, key, defaultValue, logger, assertions);
   }
 
   @SafeVarargs
@@ -235,10 +235,10 @@ public interface ConfUtils {
   }
 
   @SafeVarargs
-  static void setFloat(
-      BiConsumer<String, Float> floatSetter, String key, float value,
-      BiConsumer<String, Float>... assertions) {
-    set(floatSetter, key, value, assertions);
+  static void setDouble(
+      BiConsumer<String, Double> doubleSetter, String key, double value,
+      BiConsumer<String, Double>... assertions) {
+    set(doubleSetter, key, value, assertions);
   }
 
   @SafeVarargs
