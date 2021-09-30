@@ -68,6 +68,15 @@ public interface ConfUtils {
     };
   }
 
+  static BiConsumer<String, Double> requireMax(double max) {
+    return (key, value) -> {
+      if (value > max) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " > max = " + max);
+      }
+    };
+  }
+
   static BiConsumer<String, Long> requireMin(SizeInBytes min) {
     return requireMin(min.getSize());
   }
@@ -150,6 +159,13 @@ public interface ConfUtils {
   }
 
   @SafeVarargs
+  static double getDouble(
+      BiFunction<String, Double, Double> doubleGetter,
+      String key, double defaultValue, Consumer<String> logger, BiConsumer<String, Double>... assertions) {
+    return get(doubleGetter, key, defaultValue, logger, assertions);
+  }
+
+  @SafeVarargs
   static File getFile(
       BiFunction<String, File, File> fileGetter,
       String key, File defaultValue, Consumer<String> logger, BiConsumer<String, File>... assertions) {
@@ -216,6 +232,13 @@ public interface ConfUtils {
       BiConsumer<String, Long> longSetter, String key, long value,
       BiConsumer<String, Long>... assertions) {
     set(longSetter, key, value, assertions);
+  }
+
+  @SafeVarargs
+  static void setDouble(
+      BiConsumer<String, Double> doubleSetter, String key, double value,
+      BiConsumer<String, Double>... assertions) {
+    set(doubleSetter, key, value, assertions);
   }
 
   @SafeVarargs
