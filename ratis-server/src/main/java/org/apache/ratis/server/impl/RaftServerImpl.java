@@ -1547,7 +1547,7 @@ class RaftServerImpl implements RaftServer.Division,
       long snapshotIndex = state.getSnapshotIndex();
 
       updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
-      if (inProgressInstallSnapshotRequest.compareAndSet(0, firstAvailableLogTermIndex.hashCode())) {
+      if (inProgressInstallSnapshotRequest.compareAndSet(0, firstAvailableLogIndex)) {
         LOG.info("{}: Received notification to install snapshot at index {}", getMemberId(), firstAvailableLogIndex);
         // Check if snapshot index is already at par or ahead of the first
         // available log index of the Leader.
@@ -1555,7 +1555,7 @@ class RaftServerImpl implements RaftServer.Division,
           // State Machine has already installed the snapshot. Return the
           // latest snapshot index to the Leader.
 
-          inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex.hashCode(), 0);
+          inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogIndex, 0);
           LOG.info("{}: InstallSnapshot notification result: {}, current snapshot index: {}", getMemberId(),
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
           return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(), currentTerm,
@@ -1587,7 +1587,7 @@ class RaftServerImpl implements RaftServer.Division,
                 if (exception != null) {
                   LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
                       getMemberId(), exception.getMessage());
-                  inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex.hashCode(), 0);
+                  inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogIndex, 0);
                   return;
                 }
 
@@ -1605,9 +1605,9 @@ class RaftServerImpl implements RaftServer.Division,
                   }
                 }
               // wait for 10 seconds for statemachine to install snapshot
-              }).get(10, TimeUnit.SECONDS);
+              }).get(1, TimeUnit.SECONDS);
         } catch (ExecutionException t) {
-          inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex.hashCode(), 0);
+          inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogIndex, 0);
           LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. ExecutionException: {}",
               getMemberId(), t.getMessage());
           throw new IOException("Failed to install snapshot");
@@ -1626,7 +1626,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (isSnapshotNull.compareAndSet(true, false)) {
         LOG.info("{}: InstallSnapshot notification result: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
-        inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex.hashCode(), 0);
+        inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogIndex, 0);
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, -1);
       }
@@ -1637,7 +1637,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (latestInstalledSnapshotIndex > 0) {
         LOG.info("{}: InstallSnapshot notification result: {}, at index: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotIndex);
-        inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex.hashCode(), 0);
+        inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogIndex, 0);
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotIndex);
       }
