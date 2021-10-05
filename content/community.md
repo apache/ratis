@@ -68,3 +68,7 @@ The Ratis issues mailing list is: <issues@ratis.apache.org>.
 ### Slack
 
 You can join the #ratis channel in Apache slack workspace [http://s.apache.org/slack-invite](http://s.apache.org/slack-invite) for any discussions.
+
+### JIRA Issue Tracker
+
+The JIRA issue tracker for Ratis is at [https://issues.apache.org/jira/projects/RATIS/](https://issues.apache.org/jira/projects/RATIS/) .
