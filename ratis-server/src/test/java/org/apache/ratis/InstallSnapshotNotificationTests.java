@@ -350,13 +350,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       cluster.shutdown();
     }
   }
-
-  /**
-   * Basic test for install snapshot notification: start a one node cluster
-   * (disable install snapshot option) and let it generate a snapshot. Then
-   * delete the log and restart the node, and add more nodes as followers.
-   * The new follower nodes should get a install snapshot notification.
-   */
+  
   /**
    * Test for install snapshot during a peer bootstrap: start a one node cluster
    * (disable install snapshot option) and let it generate a snapshot. Add
