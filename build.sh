@@ -60,7 +60,7 @@ artifact="creadur/apache-rat-${rat_version}/${filename}"
 if [ ! -f "$DIR/build/${filename}" ]; then
   echo "RAT installation missing, download to build/"
   curl -L --fail -o "${DIR}/build/${filename}" "https://www.apache.org/dyn/closer.lua?filename=${artifact}&action=download"
-  curl -L --fail -o "${DIR}/build/${filename}.sha512" "https://dist.apache.org/repos/dist/release/${artifact}.sha512"
+  curl -L --fail -o "${DIR}/build/${filename}.sha512" "https://downloads.apache.org/${artifact}.sha512"
 fi
 
 if [ ! -d "$DIR/build/apache-rat-${rat_version}" ]; then
