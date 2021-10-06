@@ -113,13 +113,25 @@ public class TaskQueue {
     final CompletableFuture<OUTPUT> f = new CompletableFuture<>();
     final Runnable runnable = LogUtils.newRunnable(LOG, () -> {
       LOG.trace("{}: running {}", this, task);
+
+      // run the task and wait for it to complete
+      OUTPUT output = null;
+      Throwable throwable = null;
       try {
-        f.complete(task.get());
+        output = task.get();
       } catch (Throwable t) {
-        f.completeExceptionally(newThrowable.apply(t));
+        throwable = t;
       }
 
+      // poll the task and then submit the next task
       pollAndSubmit(executor);
+
+      // complete the future after poll
+      if (throwable != null) {
+        f.completeExceptionally(newThrowable.apply(throwable));
+      } else {
+        f.complete(output);
+      }
     }, task::toString);
 
     offerAndSubmit(runnable, executor);
