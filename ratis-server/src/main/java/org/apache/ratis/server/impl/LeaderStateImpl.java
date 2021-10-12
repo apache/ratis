@@ -337,7 +337,7 @@ class LeaderStateImpl implements LeaderState {
 
   private long getFollowerMaxGapThreshold(double followerGapRatioMax) {
     if (followerGapRatioMax == -1d) {
-      return -1l;
+      return -1L;
     } else if (followerGapRatioMax > 1d || followerGapRatioMax <= 0d) {
       throw new IllegalArgumentException(FOLLOWER_GAP_RATIO_MAX_KEY +
           "s value must between [1, 0) to enable the feature");
