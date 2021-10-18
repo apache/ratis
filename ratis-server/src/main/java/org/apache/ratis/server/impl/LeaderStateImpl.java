@@ -252,7 +252,6 @@ class LeaderStateImpl implements LeaderState {
   private final RaftServerMetricsImpl raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
   private final long followerMaxGapThreshold;
-  private final long maxPendingRequests;
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -272,9 +271,17 @@ class LeaderStateImpl implements LeaderState {
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
-    this.maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
+    long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
     double followerGapRatioMax = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
-    this.followerMaxGapThreshold = getFollowerMaxGapThreshold(followerGapRatioMax);
+
+    if (followerGapRatioMax == -1) {
+      this.followerMaxGapThreshold = -1;
+    } else if (followerGapRatioMax > 1f || followerGapRatioMax <= 0f) {
+      throw new IllegalArgumentException(FOLLOWER_GAP_RATIO_MAX_KEY +
+          "s value must between [1, 0) to enable the feature");
+    } else {
+      this.followerMaxGapThreshold = (long) (followerGapRatioMax * maxPendingRequests);
+    }
 
     final RaftConfigurationImpl conf = state.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
@@ -333,16 +340,6 @@ class LeaderStateImpl implements LeaderState {
 
   long getCurrentTerm() {
     return currentTerm;
-  }
-
-  private long getFollowerMaxGapThreshold(double followerGapRatioMax) {
-    if (followerGapRatioMax == -1d) {
-      return -1L;
-    } else if (followerGapRatioMax > 1d || followerGapRatioMax <= 0d) {
-      throw new IllegalArgumentException(FOLLOWER_GAP_RATIO_MAX_KEY +
-          "s value must between [1, 0) to enable the feature");
-    }
-    return (long) (followerGapRatioMax * maxPendingRequests);
   }
 
   @Override
@@ -437,9 +434,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private void commitIndexChanged() {
-    getMajorityMin(FollowerInfo::getCommitIndex, raftLog::getLastCommittedIndex,
-        getFollowerMaxGapThreshold(
-            RaftServerConfigKeys.Write.FOLLOWER_GAP_RATIO_MAX_DEFAULT))
+    getMajorityMin(FollowerInfo::getCommitIndex, raftLog::getLastCommittedIndex)
     .ifPresent(m -> {
         // Normally, leader commit index is always ahead of followers.
         // However, after a leader change, the new leader commit index may
@@ -743,6 +738,11 @@ class LeaderStateImpl implements LeaderState {
     getMajorityMin(FollowerInfo::getMatchIndex, raftLog::getFlushIndex,
         followerMaxGapThreshold)
     .ifPresent(m -> updateCommit(m.majority, m.min));
+  }
+
+  private Optional<MinMajorityMax> getMajorityMin(
+      ToLongFunction<FollowerInfo> followerIndex, LongSupplier logIndex) {
+    return getMajorityMin(followerIndex, logIndex, -1);
   }
 
   private Optional<MinMajorityMax> getMajorityMin(
