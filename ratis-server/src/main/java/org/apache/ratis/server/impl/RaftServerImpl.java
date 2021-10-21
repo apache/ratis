@@ -1604,14 +1604,21 @@ class RaftServerImpl implements RaftServer.Division,
                     LOG.debug("{}: StateMachine could not install snapshot as it is not available", this);
                   }
                 }
-              // wait for 10 seconds for statemachine to install snapshot
+              // wait for 1 seconds for statemachine to install snapshot
               }).get(1, TimeUnit.SECONDS);
-        } catch (ExecutionException t) {
+        } catch (InterruptedException | TimeoutException t) {
+          //nothing to do
+        } catch (Exception t) {
+          // there are two cases:
+          //1 `get()` may throw ExecutionException if `whenComplete` throw an exception
+          //2 when generating completeFuture, `statemachine#notifyInstallSnapshotFromLeader`
+          // may throw an uncertain exception, which is determined by the implementation of
+          // user statemachine.
           inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogIndex, 0);
-          LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. ExecutionException: {}",
+          LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
               getMemberId(), t.getMessage());
           throw new IOException("Failed to install snapshot");
-        } catch (InterruptedException | TimeoutException t) {}
+        }
 
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: StateMachine is processing Snapshot Installation Request.", getMemberId());
