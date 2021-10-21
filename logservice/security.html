@@ -136,7 +136,7 @@ but the private key is sensitive and should be protected like a password.</p>
 <p>Every component in HBase using the Ratis LogService would need to ensure that each LogService StateMachine is
 configured to use the server keystore and truststore. The LogService state machines would need to constructed
 with the appropriate configuration options to specify this TLS material:</p>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">RaftProperties properties <span style="color:#f92672">=</span> <span style="color:#f92672">...;</span>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">RaftProperties properties <span style="color:#f92672">=</span> <span style="color:#f92672">...;</span>
 
 GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">tlsEnabled</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>
 GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">mutualAuthnEnabled</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>
@@ -150,7 +150,7 @@ builder<span style="color:#f92672">.</span><span style="color:#a6e22e">setProper
 
 RaftServer server <span style="color:#f92672">=</span> builder<span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
 </code></pre></div><p>Clients to the StateMachine would construct a similar configuration:</p>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">RaftProperties properties <span style="color:#f92672">=</span> <span style="color:#f92672">...;</span>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">RaftProperties properties <span style="color:#f92672">=</span> <span style="color:#f92672">...;</span>
 
 GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">tlsEnabled</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>
 GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">mutualAuthnEnabled</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>

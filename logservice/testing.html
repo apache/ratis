@@ -117,16 +117,16 @@
 with a running cluster via Compose.</li>
 </ol>
 <h2 id="building-the-docker-image">Building the Docker image</h2>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ mvn clean package assembly:single -DskipTests
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ mvn clean package assembly:single -DskipTests
 $ cd ratis-logservice <span style="color:#f92672">&amp;&amp;</span> ./build-docker.sh
 </code></pre></div><p>The above will create a Docker image tagged as <code>ratis-logservice:latest</code>.</p>
 <h2 id="launching-a-cluster-via-compose">Launching a cluster via Compose</h2>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ docker-compose up -d
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ docker-compose up -d
 </code></pre></div><p>The Compose orchestration will launch three MetadataServer containers and three
 Worker containers, all on the same Docker network. The <code>-d</code> option detaches the
 container logs from your current shell.</p>
 <h2 id="connecting-a-client">Connecting a client</h2>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ ./client-env.sh
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ ./client-env.sh
 $ ./bin/shell &lt;...&gt;
 $ ./bin/load-test &lt;...&gt;
 </code></pre></div><p>The <code>client-env.sh</code> script will launch a Docker container which is on the same
