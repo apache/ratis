@@ -734,11 +734,17 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private void updateCommit() {
-    getMajorityMin(FollowerInfo::getMatchIndex, raftLog::getFlushIndex)
-        .ifPresent(m -> updateCommit(m.majority, m.min));
+    getMajorityMin(FollowerInfo::getMatchIndex, raftLog::getFlushIndex,
+        followerMaxGapThreshold)
+    .ifPresent(m -> updateCommit(m.majority, m.min));
   }
 
   private Optional<MinMajorityMax> getMajorityMin(ToLongFunction<FollowerInfo> followerIndex, LongSupplier logIndex) {
+    return getMajorityMin(followerIndex, logIndex, -1);
+  }
+
+  private Optional<MinMajorityMax> getMajorityMin(ToLongFunction<FollowerInfo> followerIndex,
+      LongSupplier logIndex, long gapThreshold) {
     final RaftPeerId selfId = server.getId();
     final RaftConfigurationImpl conf = server.getRaftConf();
 
@@ -749,7 +755,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     final long[] indicesInNewConf = getSorted(followers, includeSelf, followerIndex, logIndex);
-    final MinMajorityMax newConf = MinMajorityMax.valueOf(indicesInNewConf, followerMaxGapThreshold);
+    final MinMajorityMax newConf = MinMajorityMax.valueOf(indicesInNewConf, gapThreshold);
 
     if (!conf.isTransitional()) {
       return Optional.of(newConf);
