@@ -434,14 +434,13 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private void commitIndexChanged() {
-    getMajorityMin(FollowerInfo::getCommitIndex, raftLog::getLastCommittedIndex)
-    .ifPresent(m -> {
-        // Normally, leader commit index is always ahead of followers.
-        // However, after a leader change, the new leader commit index may
-        // be behind some followers in the beginning.
-        watchRequests.update(ReplicationLevel.ALL_COMMITTED, m.min);
-        watchRequests.update(ReplicationLevel.MAJORITY_COMMITTED, m.majority);
-        watchRequests.update(ReplicationLevel.MAJORITY, m.max);
+    getMajorityMin(FollowerInfo::getCommitIndex, raftLog::getLastCommittedIndex).ifPresent(m -> {
+      // Normally, leader commit index is always ahead of followers.
+      // However, after a leader change, the new leader commit index may
+      // be behind some followers in the beginning.
+      watchRequests.update(ReplicationLevel.ALL_COMMITTED, m.min);
+      watchRequests.update(ReplicationLevel.MAJORITY_COMMITTED, m.majority);
+      watchRequests.update(ReplicationLevel.MAJORITY, m.max);
     });
     notifySenders();
   }
@@ -740,14 +739,12 @@ class LeaderStateImpl implements LeaderState {
     .ifPresent(m -> updateCommit(m.majority, m.min));
   }
 
-  private Optional<MinMajorityMax> getMajorityMin(
-      ToLongFunction<FollowerInfo> followerIndex, LongSupplier logIndex) {
+  private Optional<MinMajorityMax> getMajorityMin(ToLongFunction<FollowerInfo> followerIndex, LongSupplier logIndex) {
     return getMajorityMin(followerIndex, logIndex, -1);
   }
 
-  private Optional<MinMajorityMax> getMajorityMin(
-      ToLongFunction<FollowerInfo> followerIndex, LongSupplier logIndex,
-      long gapThreshold) {
+  private Optional<MinMajorityMax> getMajorityMin(ToLongFunction<FollowerInfo> followerIndex,
+      LongSupplier logIndex, long gapThreshold) {
     final RaftPeerId selfId = server.getId();
     final RaftConfigurationImpl conf = server.getRaftConf();
 
