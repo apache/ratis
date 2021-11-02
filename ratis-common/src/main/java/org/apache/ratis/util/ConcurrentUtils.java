@@ -19,9 +19,7 @@ package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.CheckedFunction;
 
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -75,11 +73,11 @@ public interface ConcurrentUtils {
   }
 
   /**
-   * The same as {@link Executors#newCachedThreadPool()} except that this method takes a maximumPoolSize parameter.
+   * The same as {@link java.util.concurrent.Executors#newCachedThreadPool()}
+   * except that this method takes a maximumPoolSize parameter.
    *
    * @param maximumPoolSize the maximum number of threads to allow in the pool.
    * @return a new {@link ExecutorService}.
-   * @see ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit, BlockingQueue, ThreadFactory)
    */
   static ExecutorService newCachedThreadPool(int maximumPoolSize, ThreadFactory threadFactory) {
     return new ThreadPoolExecutor(0, maximumPoolSize, 60L, TimeUnit.SECONDS,
