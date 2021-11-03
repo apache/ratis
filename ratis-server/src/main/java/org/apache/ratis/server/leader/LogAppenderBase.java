@@ -128,7 +128,8 @@ public abstract class LogAppenderBase implements LogAppender {
     final TermIndex previous = getPrevious(follower.getNextIndex());
     final long snapshotIndex = follower.getSnapshotIndex();
     final long heartbeatRemainingMs = getHeartbeatRemainingTimeMs();
-    if (heartbeatRemainingMs <= 0L || heartbeat) {
+    if ((heartbeatRemainingMs <= 0L && follower.getLastHeartbeatSendTime().elapsedTimeMs()
+        > getServer().properties().minRpcTimeoutMs()/4) || heartbeat) {
       // heartbeat
       return leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(), previous, callId);
     }

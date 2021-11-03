@@ -237,7 +237,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     scheduler.onTimeout(requestTimeoutDuration,
         () -> timeoutAppendRequest(request.getCallId(), request.isHeartbeat()),
         LOG, () -> "Timeout check failed for append entry request: " + request);
-    getFollower().updateLastRpcSendTime();
+    getFollower().updateLastRpcSendTime(request.isHeartbeat());
   }
 
   private void timeoutAppendRequest(long cid, boolean heartbeat) {
@@ -510,7 +510,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
         if (isRunning()) {
           snapshotRequestObserver.onNext(request);
-          getFollower().updateLastRpcSendTime();
+          getFollower().updateLastRpcSendTime(false);
           responseHandler.addPending(request);
         } else {
           break;
@@ -560,7 +560,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     try {
       snapshotRequestObserver = getClient().installSnapshot(responseHandler);
       snapshotRequestObserver.onNext(request);
-      getFollower().updateLastRpcSendTime();
+      getFollower().updateLastRpcSendTime(false);
       responseHandler.addPending(request);
       snapshotRequestObserver.onCompleted();
     } catch (Exception e) {

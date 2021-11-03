@@ -61,7 +61,7 @@ class LogAppenderDefault extends LogAppenderBase {
           return null;
         }
 
-        getFollower().updateLastRpcSendTime();
+        getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
         final AppendEntriesReplyProto r = getServerRpc().appendEntries(request);
         getFollower().updateLastRpcResponseTime();
 
@@ -88,7 +88,7 @@ class LogAppenderDefault extends LogAppenderBase {
     InstallSnapshotReplyProto reply = null;
     try {
       for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
-        getFollower().updateLastRpcSendTime();
+        getFollower().updateLastRpcSendTime(false);
         reply = getServerRpc().installSnapshot(request);
         getFollower().updateLastRpcResponseTime();
 

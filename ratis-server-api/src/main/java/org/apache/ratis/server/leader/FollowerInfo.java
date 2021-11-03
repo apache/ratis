@@ -82,8 +82,11 @@ public interface FollowerInfo {
   void updateLastRpcResponseTime();
 
   /** Update lastRpcSendTime to the current time. */
-  void updateLastRpcSendTime();
+  void updateLastRpcSendTime(boolean isHeartbeat);
 
   /** @return the latest of the lastRpcSendTime and the lastRpcResponseTime . */
   Timestamp getLastRpcTime();
+
+  /** @return the latest heartbeat send time. */
+  Timestamp getLastHeartbeatSendTime();
 }
