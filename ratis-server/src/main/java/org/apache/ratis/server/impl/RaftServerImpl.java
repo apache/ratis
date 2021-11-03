@@ -1297,22 +1297,18 @@ class RaftServerImpl implements RaftServer.Division,
       return state.getNextIndex();
     }
 
-    // Check that the first log entry is greater than the snapshot index in the latest snapshot.
-    // If not, reply to the leader the new next index.
+    // Check that the first log entry is greater than the snapshot index in the latest snapshot and follower's last
+    // committed index. If not, reply to the leader the new next index.
     if (entries != null && entries.length > 0) {
       final long firstEntryIndex = entries[0].getIndex();
       final long snapshotIndex = state.getSnapshotIndex();
-      if (snapshotIndex > 0 && snapshotIndex >= firstEntryIndex) {
-        LOG.info("{}: Failed appendEntries: the first entry (index {}) is already in snapshot (snapshot index: {})",
-            getMemberId(), firstEntryIndex, snapshotIndex);
-        return snapshotIndex + 1;
-      }
-
       final long commitIndex =  state.getLog().getLastCommittedIndex();
-      if (commitIndex > 0 && commitIndex >= firstEntryIndex) {
-        LOG.info("{}: Failed appendEntries: the first entry (index {}) is already committed (commit index: {})",
-            getMemberId(), firstEntryIndex, commitIndex);
-        return commitIndex + 1;
+      final long nextIndex = Math.max(snapshotIndex, commitIndex);
+      if (nextIndex > 0 && nextIndex >= firstEntryIndex) {
+        LOG.info("{}: Failed appendEntries as the first entry (index {})" +
+                " already exists (snapshotIndex: {}, commitIndex: {})",
+            getMemberId(), firstEntryIndex, snapshotIndex, commitIndex);
+        return nextIndex + 1;
       }
     }
 
