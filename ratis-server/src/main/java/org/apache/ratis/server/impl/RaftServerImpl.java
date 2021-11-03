@@ -1305,8 +1305,9 @@ class RaftServerImpl implements RaftServer.Division,
       final long commitIndex =  state.getLog().getLastCommittedIndex();
       final long nextIndex = Math.max(snapshotIndex, commitIndex);
       if (nextIndex > 0 && nextIndex >= firstEntryIndex) {
-        LOG.info("{}: Failed appendEntries as the first entry (index {}) is already existed (index: {})",
-            getMemberId(), firstEntryIndex, nextIndex);
+        LOG.info("{}: Failed appendEntries as the first entry (index {})" +
+                " already exists (snapshotIndex: {}, commitIndex: {})",
+            getMemberId(), firstEntryIndex, snapshotIndex, commitIndex);
         return nextIndex + 1;
       }
     }
