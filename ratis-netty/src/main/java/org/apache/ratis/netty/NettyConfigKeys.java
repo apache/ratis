@@ -18,6 +18,7 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.thirdparty.io.netty.util.NettyRuntime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +68,15 @@ public interface NettyConfigKeys {
 
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
+    }
+
+    String CLIENT_PREFIX = NettyConfigKeys.PREFIX + ".client";
+    String NIO_LOOP_THREAD_KEY = CLIENT_PREFIX + ".eventLoopThreads";
+    int NIO_LOOP_THREAD_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
+
+    static int eventLoopThreads(RaftProperties properties) {
+      return getInt(properties::getInt,
+          NIO_LOOP_THREAD_KEY, NIO_LOOP_THREAD_DEFAULT, getDefaultLog(), requireMin(1), requireMax(65536));
     }
   }
 
