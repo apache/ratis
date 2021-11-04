@@ -153,18 +153,19 @@ public class GrpcLogAppender extends LogAppenderBase {
     Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObserver::onCompleted);
   }
 
-  private long getWaitTimeMs() {
+  @Override
+  public long getHeartbeatWaitTimeMs() {
     if (haveTooManyPendingRequests()) {
-      return getHeartbeatRemainingTimeMs(); // Should wait for a short time
+      return super.getHeartbeatWaitTimeMs(); // Should wait for a short time
     } else if (shouldSendAppendEntries()) {
       return 0L;
     }
-    return Math.min(10L, getHeartbeatRemainingTimeMs());
+    return Math.min(10L, super.getHeartbeatWaitTimeMs());
   }
 
   private void mayWait() {
     // use lastSend time instead of lastResponse time
-    final long waitTimeMs = getWaitTimeMs();
+    final long waitTimeMs = getHeartbeatWaitTimeMs();
     if (waitTimeMs <= 0L) {
       return;
     }

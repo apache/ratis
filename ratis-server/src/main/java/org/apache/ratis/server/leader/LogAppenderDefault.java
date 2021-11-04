@@ -145,7 +145,7 @@ class LogAppenderDefault extends LogAppenderBase {
         }
       }
       if (isRunning() && !hasAppendEntries()) {
-        final long waitTime = getHeartbeatRemainingTimeMs();
+        final long waitTime = getHeartbeatWaitTimeMs();
         if (waitTime > 0) {
           synchronized (this) {
             wait(waitTime);

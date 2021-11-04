@@ -162,9 +162,10 @@ class FollowerInfoImpl implements FollowerInfo {
 
   @Override
   public void updateLastRpcSendTime(boolean isHeartbeat) {
-    lastRpcSendTime.set(Timestamp.currentTime());
+    final Timestamp currentTime = Timestamp.currentTime();
+    lastRpcSendTime.set(currentTime);
     if (isHeartbeat) {
-      lastHeartbeatSendTime.set(Timestamp.currentTime());
+      lastHeartbeatSendTime.set(currentTime);
     }
   }
 
