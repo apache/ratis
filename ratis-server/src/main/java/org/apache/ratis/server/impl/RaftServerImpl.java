@@ -1615,9 +1615,9 @@ class RaftServerImpl implements RaftServer.Division,
           // may throw an uncertain exception, which is determined by the implementation of
           // user statemachine.
           inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogIndex, 0);
-          LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
-              getMemberId(), t.getMessage());
-          throw new IOException("Failed to install snapshot");
+          final String err = getMemberId() + ": Failed to notify StateMachine to InstallSnapshot.";
+          LOG.warn(err + " " + t);
+          throw new IOException(err, t);
         }
 
         if (LOG.isDebugEnabled()) {
