@@ -35,6 +35,7 @@ class FollowerInfoImpl implements FollowerInfo {
   private final RaftPeer peer;
   private final AtomicReference<Timestamp> lastRpcResponseTime;
   private final AtomicReference<Timestamp> lastRpcSendTime;
+  private final AtomicReference<Timestamp> lastRpcSendTimeWithResponse;
   private final RaftLogIndex nextIndex;
   private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", 0L);
   private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
@@ -50,6 +51,7 @@ class FollowerInfoImpl implements FollowerInfo {
     this.peer = peer;
     this.lastRpcResponseTime = new AtomicReference<>(lastRpcTime);
     this.lastRpcSendTime = new AtomicReference<>(lastRpcTime);
+    this.lastRpcSendTimeWithResponse = new AtomicReference<>(lastRpcTime);
     this.nextIndex = new RaftLogIndex("nextIndex", nextIndex);
     this.attendVote = attendVote;
   }
@@ -161,6 +163,16 @@ class FollowerInfoImpl implements FollowerInfo {
   @Override
   public void updateLastRpcSendTime() {
     lastRpcSendTime.set(Timestamp.currentTime());
+  }
+
+  @Override
+  public void updateLastRpcSendTimeWithResponse(Timestamp time) {
+    lastRpcSendTimeWithResponse.set(time);
+  }
+
+  @Override
+  public Timestamp getLastRpcSendTimeWithResponse() {
+    return lastRpcSendTimeWithResponse.get();
   }
 
   @Override

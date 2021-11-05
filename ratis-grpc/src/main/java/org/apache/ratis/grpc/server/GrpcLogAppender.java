@@ -278,6 +278,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       AppendEntriesRequest request = pendingRequests.remove(reply);
       if (request != null) {
         request.stopRequestTimer(); // Update completion time
+        getFollower().updateLastRpcSendTimeWithResponse(request.getSendTimeWithResponse());
       }
 
       if (LOG.isDebugEnabled()) {
@@ -634,6 +635,8 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     private final TermIndex lastEntry;
 
+    private final Timestamp sendTimeWithResponse;
+
     AppendEntriesRequest(AppendEntriesRequestProto proto, RaftPeerId followerId, GrpcServerMetrics grpcServerMetrics) {
       this.callId = proto.getServerRequest().getCallId();
       this.previousLog = proto.hasPreviousLog()? TermIndex.valueOf(proto.getPreviousLog()): null;
@@ -642,10 +645,15 @@ public class GrpcLogAppender extends LogAppenderBase {
 
       this.timer = grpcServerMetrics.getGrpcLogAppenderLatencyTimer(followerId.toString(), isHeartbeat());
       grpcServerMetrics.onRequestCreate(isHeartbeat());
+      this.sendTimeWithResponse = Timestamp.currentTime();
     }
 
     long getCallId() {
       return callId;
+    }
+
+    Timestamp getSendTimeWithResponse() {
+      return sendTimeWithResponse;
     }
 
     TermIndex getPreviousLog() {
