@@ -596,10 +596,18 @@ public class GrpcLogAppender extends LogAppenderBase {
       // If the follower is bootstrapping and has not yet installed any snapshot from leader, then the follower should
       // be notified to install a snapshot. Every follower should try to install at least one snapshot during
       // bootstrapping, if available.
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: Notify follower to install snapshot as it is bootstrapping.", this);
+      TermIndex lastEntry = getRaftLog().getLastEntryTermIndex();
+      if (lastEntry == null) {
+        // lastEntry may need to be derived from snapshot
+        SnapshotInfo snapshot = getServer().getStateMachine().getLatestSnapshot();
+        if (snapshot != null) {
+          lastEntry = snapshot.getTermIndex();
+        }
       }
-      return getRaftLog().getLastEntryTermIndex();
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: Notify follower to install snapshot as it is bootstrapping to TermIndex {}.", this, lastEntry);
+      }
+      return lastEntry;
     }
 
     final long followerNextIndex = follower.getNextIndex();
