@@ -151,24 +151,22 @@ public interface LogAppender {
 
   /** Should the leader send appendEntries RPC to the follower? */
   default boolean shouldSendAppendEntries() {
-    return hasAppendEntries() || shouldHeartbeat();
+    return hasAppendEntries() || getHeartbeatWaitTimeMs() <= 0;
   }
 
-  /** Does it has outstanding appendEntries? */
+  /** Does it have outstanding appendEntries? */
   default boolean hasAppendEntries() {
     return getFollower().getNextIndex() < getRaftLog().getNextIndex();
   }
 
-  /** The same as getHeartbeatRemainingTime() <= 0. */
-  default boolean shouldHeartbeat() {
-    return getHeartbeatRemainingTimeMs() <= 0;
-  }
-
-  /**
-   * @return the time in milliseconds that the leader should send a heartbeat.
-   */
-  default long getHeartbeatRemainingTimeMs() {
-    return getServer().properties().minRpcTimeoutMs()/2 - getFollower().getLastRpcTime().elapsedTimeMs();
+  /** @return the wait time in milliseconds to send the next heartbeat. */
+  default long getHeartbeatWaitTimeMs() {
+    final int min = getServer().properties().minRpcTimeoutMs();
+    // time remaining to send a heartbeat
+    final long heartbeatRemainingTimeMs = min/2 - getFollower().getLastRpcResponseTime().elapsedTimeMs();
+    // avoid sending heartbeat too frequently
+    final long noHeartbeatTimeMs = min/4 - getFollower().getLastHeartbeatSendTime().elapsedTimeMs();
+    return Math.max(heartbeatRemainingTimeMs, noHeartbeatTimeMs);
   }
 
   /** Handle the event that the follower has replied a term. */

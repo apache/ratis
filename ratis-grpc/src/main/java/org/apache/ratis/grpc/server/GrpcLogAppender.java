@@ -153,13 +153,13 @@ public class GrpcLogAppender extends LogAppenderBase {
     Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObserver::onCompleted);
   }
 
-  private long getWaitTimeMs() {
+  public long getWaitTimeMs() {
     if (haveTooManyPendingRequests()) {
-      return getHeartbeatRemainingTimeMs(); // Should wait for a short time
+      return getHeartbeatWaitTimeMs(); // Should wait for a short time
     } else if (shouldSendAppendEntries()) {
       return 0L;
     }
-    return Math.min(10L, getHeartbeatRemainingTimeMs());
+    return Math.min(10L, getHeartbeatWaitTimeMs());
   }
 
   private void mayWait() {
@@ -237,7 +237,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     scheduler.onTimeout(requestTimeoutDuration,
         () -> timeoutAppendRequest(request.getCallId(), request.isHeartbeat()),
         LOG, () -> "Timeout check failed for append entry request: " + request);
-    getFollower().updateLastRpcSendTime();
+    getFollower().updateLastRpcSendTime(request.isHeartbeat());
   }
 
   private void timeoutAppendRequest(long cid, boolean heartbeat) {
@@ -510,7 +510,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
         if (isRunning()) {
           snapshotRequestObserver.onNext(request);
-          getFollower().updateLastRpcSendTime();
+          getFollower().updateLastRpcSendTime(false);
           responseHandler.addPending(request);
         } else {
           break;
@@ -560,7 +560,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     try {
       snapshotRequestObserver = getClient().installSnapshot(responseHandler);
       snapshotRequestObserver.onNext(request);
-      getFollower().updateLastRpcSendTime();
+      getFollower().updateLastRpcSendTime(false);
       responseHandler.addPending(request);
       snapshotRequestObserver.onCompleted();
     } catch (Exception e) {
@@ -596,10 +596,18 @@ public class GrpcLogAppender extends LogAppenderBase {
       // If the follower is bootstrapping and has not yet installed any snapshot from leader, then the follower should
       // be notified to install a snapshot. Every follower should try to install at least one snapshot during
       // bootstrapping, if available.
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: Notify follower to install snapshot as it is bootstrapping.", this);
+      TermIndex lastEntry = getRaftLog().getLastEntryTermIndex();
+      if (lastEntry == null) {
+        // lastEntry may need to be derived from snapshot
+        SnapshotInfo snapshot = getServer().getStateMachine().getLatestSnapshot();
+        if (snapshot != null) {
+          lastEntry = snapshot.getTermIndex();
+        }
       }
-      return getRaftLog().getLastEntryTermIndex();
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: Notify follower to install snapshot as it is bootstrapping to TermIndex {}.", this, lastEntry);
+      }
+      return lastEntry;
     }
 
     final long followerNextIndex = follower.getNextIndex();

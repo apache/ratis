@@ -127,8 +127,8 @@ public abstract class LogAppenderBase implements LogAppender {
   public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat) throws RaftLogIOException {
     final TermIndex previous = getPrevious(follower.getNextIndex());
     final long snapshotIndex = follower.getSnapshotIndex();
-    final long heartbeatRemainingMs = getHeartbeatRemainingTimeMs();
-    if (heartbeatRemainingMs <= 0L || heartbeat) {
+    final long heartbeatWaitTimeMs = getHeartbeatWaitTimeMs();
+    if (heartbeatWaitTimeMs <= 0L || heartbeat) {
       // heartbeat
       return leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(), previous, callId);
     }
@@ -137,8 +137,8 @@ public abstract class LogAppenderBase implements LogAppender {
 
     final long leaderNext = getRaftLog().getNextIndex();
     final long followerNext = follower.getNextIndex();
-    final long halfMs = heartbeatRemainingMs/2;
-    for (long next = followerNext; leaderNext > next && getHeartbeatRemainingTimeMs() - halfMs > 0; ) {
+    final long halfMs = heartbeatWaitTimeMs/2;
+    for (long next = followerNext; leaderNext > next && getHeartbeatWaitTimeMs() - halfMs > 0; ) {
       if (!buffer.offer(getRaftLog().getEntryWithData(next++))) {
         break;
       }
@@ -147,7 +147,7 @@ public abstract class LogAppenderBase implements LogAppender {
       return null;
     }
 
-    final List<LogEntryProto> protos = buffer.pollList(getHeartbeatRemainingTimeMs(), EntryWithData::getEntry,
+    final List<LogEntryProto> protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
         (entry, time, exception) -> LOG.warn("{}: Failed to get {} in {}: {}",
             follower.getName(), entry, time, exception));
     buffer.clear();
