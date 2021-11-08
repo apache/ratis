@@ -61,7 +61,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   public NettyClientStreamRpc(RaftPeer server, RaftProperties properties){
     this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
-    this.workerGroup = new NioEventLoopGroup(NettyConfigKeys.DataStream.eventLoopThreads(properties));
+    this.workerGroup = new NioEventLoopGroup(NettyConfigKeys.DataStream.clientEventLoopThreads(properties));
     final ChannelFuture f = new Bootstrap()
         .group(workerGroup)
         .channel(NioSocketChannel.class)
