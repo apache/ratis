@@ -324,8 +324,12 @@ public interface RaftTestUtil {
     final ByteString bytes;
 
     public SimpleMessage(final String messageId) {
+      this(messageId, ProtoUtils.toByteString(messageId));
+    }
+
+    public SimpleMessage(final String messageId, ByteString bytes) {
       this.messageId = messageId;
-      this.bytes = ProtoUtils.toByteString(messageId);
+      this.bytes = bytes;
     }
 
     @Override

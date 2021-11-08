@@ -226,9 +226,6 @@
     <!--metrics-->
     <dropwizard.version>3.2.5</dropwizard.version>
 
-    <!-- commons lang version -->
-    <commons.lang.version>3.8.1</commons.lang.version>
-
     <!-- LOG4J version -->
     <log4j.version>1.2.17</log4j.version>
 
