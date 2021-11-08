@@ -53,7 +53,7 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     runWithNewCluster(1, this::runTestDataStream);
   }
 
-  @Test
+  @Test(timeout = 300000)
   public void testMultipleStreamsMultipleServers() throws Exception {
     // Avoid changing leader
     final TimeDuration min = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
@@ -68,7 +68,7 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), max);
   }
 
-  @Test
+  @Test(timeout = 300000)
   public void testMultipleStreamsMultipleServersStepDownLeader() throws Exception {
     runWithNewCluster(3, this::runTestDataStreamStepDownLeader);
   }
