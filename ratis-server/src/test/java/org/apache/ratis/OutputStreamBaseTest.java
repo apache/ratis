@@ -70,7 +70,7 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     return b;
   }
 
-  @Test
+  @Test(timeout = 300000)
   public void testSimpleWrite() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::runTestSimpleWrite);
   }
