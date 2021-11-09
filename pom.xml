@@ -87,6 +87,7 @@
     <module>ratis-logservice</module>
     <module>ratis-metrics</module>
     <module>ratis-tools</module>
+    <module>ratis-shell</module>
     <module>ratis-assembly</module>
   </modules>
 
@@ -308,6 +309,11 @@
         <version>${project.version}</version>
         <type>test-jar</type>
         <scope>test</scope>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-shell</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
       </dependency>
       <dependency>
         <artifactId>ratis-grpc</artifactId>
