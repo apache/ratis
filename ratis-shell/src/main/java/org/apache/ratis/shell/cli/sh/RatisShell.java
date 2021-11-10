@@ -17,8 +17,66 @@
  */
 package org.apache.ratis.shell.cli.sh;
 
-public class RatisShell {
+import org.apache.ratis.shell.cli.AbstractShell;
+import org.apache.ratis.shell.cli.Command;
+import org.apache.ratis.shell.cli.sh.command.Context;
+import org.apache.ratis.util.ReflectionUtils;
+import org.reflections.Reflections;
+
+import java.lang.reflect.Modifier;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Shell for manage ratis group.
+ */
+public class RatisShell extends AbstractShell {
+
+  /**
+   * Manage ratis shell command.
+   *
+   * @param args array of arguments given by the user's input from the terminal
+   */
   public static void main(String[] args) {
-    System.out.println("Hello " + RatisShell.class.getSimpleName());
+    RatisShell extensionShell = new RatisShell();
+    System.exit(extensionShell.run(args));
+  }
+
+  @Override
+  protected String getShellName() {
+    return "sh";
+  }
+
+  @Override
+  protected Map<String, Command> loadCommands() {
+    Context adminContext = new Context(System.out);
+    return loadCommands(RatisShell.class.getPackage().getName(),
+        new Class[] {Context.class},
+        new Object[] {getCloser().register(adminContext)});
+  }
+
+  /**
+   * Get instances of all subclasses of {@link Command} in a sub-package called "command" the given
+   * package.
+   *
+   * @param pkgName package prefix to look in
+   * @param classArgs type of args to instantiate the class
+   * @param objectArgs args to instantiate the class
+   * @return a mapping from command name to command instance
+   */
+  public static Map<String, Command> loadCommands(String pkgName, Class[] classArgs,
+      Object[] objectArgs) {
+    Map<String, Command> commandsMap = new HashMap<>();
+    Reflections reflections = new Reflections(pkgName);
+    for (Class<? extends Command> cls : reflections.getSubTypesOf(Command.class)) {
+      // Add commands from <pkgName>.command.*
+      if (cls.getPackage().getName().equals(pkgName + ".command")
+          && !Modifier.isAbstract(cls.getModifiers())) {
+        // Only instantiate a concrete class
+        final Command cmd = ReflectionUtils.newInstance(cls, classArgs, objectArgs);
+        commandsMap.put(cmd.getCommandName(), cmd);
+      }
+    }
+    return commandsMap;
   }
 }
