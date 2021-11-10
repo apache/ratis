@@ -20,8 +20,7 @@ package org.apache.ratis.shell.cli.sh;
 import org.apache.ratis.shell.cli.AbstractShell;
 import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.sh.command.Context;
-import org.apache.ratis.shell.util.CommonUtils;
-
+import org.apache.ratis.util.ReflectionUtils;
 import org.reflections.Reflections;
 
 import java.lang.reflect.Modifier;
@@ -74,7 +73,7 @@ public class RatisShell extends AbstractShell {
       if (cls.getPackage().getName().equals(pkgName + ".command")
           && !Modifier.isAbstract(cls.getModifiers())) {
         // Only instantiate a concrete class
-        Command cmd = CommonUtils.createNewClassInstance(cls, classArgs, objectArgs);
+        final Command cmd = ReflectionUtils.newInstance(cls, classArgs, objectArgs);
         commandsMap.put(cmd.getCommandName(), cmd);
       }
     }

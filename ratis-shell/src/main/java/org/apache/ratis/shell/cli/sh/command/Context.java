@@ -17,12 +17,12 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
-import com.google.common.base.Preconditions;
-import com.google.common.io.Closer;
+import org.apache.ratis.thirdparty.com.google.common.io.Closer;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Objects;
 
 /**
  * A context for ratis-shell.
@@ -37,8 +37,7 @@ public final class Context implements Closeable {
    */
   public Context(PrintStream printStream) {
     mCloser = Closer.create();
-    mCloser.register(
-        mPrintStream = Preconditions.checkNotNull(printStream, "printStream"));
+    mPrintStream = mCloser.register(Objects.requireNonNull(printStream, "printStream == null"));
   }
 
   /**

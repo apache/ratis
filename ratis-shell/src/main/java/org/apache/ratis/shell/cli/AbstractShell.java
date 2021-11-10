@@ -17,9 +17,8 @@
  */
 package org.apache.ratis.shell.cli;
 
-import com.google.common.io.Closer;
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.ratis.thirdparty.com.google.common.io.Closer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,8 +36,8 @@ import java.util.TreeSet;
 public abstract class AbstractShell implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(AbstractShell.class);
 
-  private Map<String, Command> mCommands;
-  private Closer closer;
+  private final Map<String, Command> mCommands;
+  private final Closer closer;
 
   /**
    * Creates a new instance of {@link AbstractShell}.
@@ -47,7 +46,7 @@ public abstract class AbstractShell implements Closeable {
     closer = Closer.create();
     mCommands = loadCommands();
     // Register all loaded commands under closer.
-    mCommands.values().stream().forEach((cmd) -> closer.register(cmd));
+    mCommands.values().forEach(closer::register);
   }
 
   /**
@@ -68,7 +67,7 @@ public abstract class AbstractShell implements Closeable {
 
     if (command == null) {
       // Unknown command (we didn't find the cmd in our dict)
-      System.err.println(String.format("%s is an unknown command.", cmd));
+      System.err.printf("%s is an unknown command.%n", cmd);
       printUsage();
       return -1;
     }
@@ -85,9 +84,7 @@ public abstract class AbstractShell implements Closeable {
           throw new IllegalArgumentException("Unknown sub-command: " + currArgs[1]);
         }
         command = command.getSubCommands().get(currArgs[1]);
-        if (currArgs.length >= 2) {
-          currArgs = Arrays.copyOfRange(currArgs, 1, currArgs.length);
-        }
+        currArgs = Arrays.copyOfRange(currArgs, 1, currArgs.length);
       }
       currArgs = Arrays.copyOfRange(currArgs, 1, currArgs.length);
 
@@ -106,7 +103,7 @@ public abstract class AbstractShell implements Closeable {
       return command.run(cmdline);
     } catch (Exception e) {
       System.out.println(e.getMessage());
-      LOG.error("Error running " + StringUtils.join(argv, " "), e);
+      LOG.error("Error running" + Arrays.stream(argv).reduce("", (a, b) -> a + " " + b), e);
       return -1;
     }
   }

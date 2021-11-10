@@ -25,7 +25,7 @@ import org.apache.commons.cli.ParseException;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -61,7 +61,7 @@ public interface Command extends Closeable {
    * @return a map from sub-command names to sub-command instances
    */
   default Map<String, Command> getSubCommands() {
-    return new HashMap<>();
+    return Collections.emptyMap();
   }
 
   /**
