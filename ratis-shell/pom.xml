@@ -29,8 +29,24 @@
 
   <dependencies>
     <dependency>
+      <artifactId>ratis-client</artifactId>
       <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
       <artifactId>ratis-common</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-grpc</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-metrics</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-server-api</artifactId>
+      <groupId>org.apache.ratis</groupId>
     </dependency>
 
     <dependency>
