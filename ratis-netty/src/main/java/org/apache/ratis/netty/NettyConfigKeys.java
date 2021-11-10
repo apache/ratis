@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -70,16 +70,28 @@ public interface NettyConfigKeys {
       setInt(properties::setInt, PORT_KEY, port);
     }
 
-    String CLIENT_EVENT_LOOP_THREADS_KEY = PREFIX + ".client.eventLoopThreads";
-    int CLIENT_EVENT_LOOP_THREADS_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
+    String CLIENT_WORKER_GROUP_SIZE_KEY = PREFIX + ".client.worker-group.size";
+    int CLIENT_WORKER_GROUP_SIZE_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
 
-    static int clientEventLoopThreads(RaftProperties properties) {
-      return getInt(properties::getInt, CLIENT_EVENT_LOOP_THREADS_KEY,
-          CLIENT_EVENT_LOOP_THREADS_DEFAULT, getDefaultLog(), requireMin(1), requireMax(65536));
+    static int clientWorkerGroupSize(RaftProperties properties) {
+      return getInt(properties::getInt, CLIENT_WORKER_GROUP_SIZE_KEY,
+          CLIENT_WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(1), requireMax(65536));
     }
 
-    static void setClientEventLoopThreads(RaftProperties properties, int eventLoopThreads) {
-      setInt(properties::setInt, CLIENT_EVENT_LOOP_THREADS_KEY, eventLoopThreads);
+    static void setClientWorkerGroupSize(RaftProperties properties, int clientWorkerGroupSize) {
+      setInt(properties::setInt, CLIENT_WORKER_GROUP_SIZE_KEY, clientWorkerGroupSize);
+    }
+
+    String CLIENT_WORKER_GROUP_SHARE_KEY = PREFIX + ".client.worker-group.share";
+    boolean CLIENT_WORKER_GROUP_SHARE_DEFAULT = false;
+
+    static boolean clientWorkerGroupShare(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, CLIENT_WORKER_GROUP_SHARE_KEY,
+          CLIENT_WORKER_GROUP_SHARE_DEFAULT, getDefaultLog());
+    }
+
+    static void setClientWorkerGroupShare(RaftProperties properties, boolean clientWorkerGroupShare) {
+      setBoolean(properties::setBoolean, CLIENT_WORKER_GROUP_SHARE_KEY, clientWorkerGroupShare);
     }
   }
 

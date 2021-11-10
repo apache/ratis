@@ -48,22 +48,55 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class NettyClientStreamRpc implements DataStreamClientRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyClientStreamRpc.class);
 
+  private static class WorkerGroupGetter implements Supplier<EventLoopGroup> {
+    private static final AtomicReference<EventLoopGroup> SHARED_WORKER_GROUP = new AtomicReference<>();
+
+    static EventLoopGroup newWorkerGroup(RaftProperties properties) {
+      return new NioEventLoopGroup(NettyConfigKeys.DataStream.clientWorkerGroupSize(properties));
+    }
+
+    private final EventLoopGroup workerGroup;
+    private final boolean ignoreShutdown;
+
+    WorkerGroupGetter(RaftProperties properties) {
+      if (NettyConfigKeys.DataStream.clientWorkerGroupShare(properties)) {
+        workerGroup = SHARED_WORKER_GROUP.updateAndGet(g -> g != null? g: newWorkerGroup(properties));
+        ignoreShutdown = true;
+      } else {
+        workerGroup = newWorkerGroup(properties);
+        ignoreShutdown = false;
+      }
+    }
+
+    @Override
+    public EventLoopGroup get() {
+      return workerGroup;
+    }
+
+    void shutdownGracefully() {
+      if (!ignoreShutdown) {
+        workerGroup.shutdownGracefully();
+      }
+    }
+  }
+
   private final String name;
-  private final EventLoopGroup workerGroup;
+  private final WorkerGroupGetter workerGroup;
   private final Supplier<Channel> channel;
   private final ConcurrentMap<ClientInvocationId, Queue<CompletableFuture<DataStreamReply>>> replies =
       new ConcurrentHashMap<>();
 
   public NettyClientStreamRpc(RaftPeer server, RaftProperties properties){
     this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
-    this.workerGroup = new NioEventLoopGroup(NettyConfigKeys.DataStream.clientEventLoopThreads(properties));
+    this.workerGroup = new WorkerGroupGetter(properties);
     final ChannelFuture f = new Bootstrap()
-        .group(workerGroup)
+        .group(workerGroup.get())
         .channel(NioSocketChannel.class)
         .handler(getInitializer())
         .option(ChannelOption.SO_KEEPALIVE, true)
