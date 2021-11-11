@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
 public abstract class AbstractRatisCommand implements Command {
   public static final String PEER_OPTION_NAME = "peers";
   public static final String GROUPID_OPTION_NAME = "groupid";
-  public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.emptyGroupId();
+  public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.randomId();
 
   /**
    * Execute a given function with input parameter from the members of a list.

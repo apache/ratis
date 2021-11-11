@@ -20,17 +20,12 @@ package org.apache.ratis.shell.cli;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.retry.ExponentialBackoffRetry;
 import org.apache.ratis.util.TimeDuration;
 
-import java.io.IOException;
-import java.io.PrintStream;
 import java.net.InetSocketAddress;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
