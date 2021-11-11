@@ -59,8 +59,8 @@ public class InfoCommand extends AbstractRatisCommand {
   @Override
   public String getUsage() {
     return String.format("%s"
-        + " [-%s PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT]"
-        + " [-%s RAFT_GROUP_ID]",
+        + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
+        + " [-%s <RAFT_GROUP_ID>]",
         getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME);
   }
 

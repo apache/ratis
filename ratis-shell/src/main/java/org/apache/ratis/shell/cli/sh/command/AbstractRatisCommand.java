@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
+import org.apache.commons.cli.Option;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.shell.cli.Command;
@@ -80,10 +81,7 @@ public abstract class AbstractRatisCommand implements Command {
   @Override
   public int run(CommandLine cl) throws IOException {
     List<InetSocketAddress> addresses = new ArrayList<>();
-    String peersStr = "";
-    if (cl.hasOption(PEER_OPTION_NAME)) {
-      peersStr = cl.getOptionValue(PEER_OPTION_NAME);
-    }
+    String peersStr = cl.getOptionValue(PEER_OPTION_NAME);
     String[] peersArray = peersStr.split(",");
     for (int i = 0; i < peersArray.length; i++) {
       String[] hostPortPair = peersArray[i].split(":");
@@ -131,17 +129,15 @@ public abstract class AbstractRatisCommand implements Command {
   }
 
   @Override
-  public void validateArgs(CommandLine cl) throws IllegalArgumentException {
-    if (!cl.hasOption(PEER_OPTION_NAME)) {
-      throw new IllegalArgumentException(String.format(
-          "should provide [%s]", PEER_OPTION_NAME));
-    }
-  }
-
-  @Override
   public Options getOptions() {
     return new Options()
-            .addOption(PEER_OPTION_NAME, true, "Peer addresses seperated by comma")
+            .addOption(
+                Option.builder()
+                    .option(PEER_OPTION_NAME)
+                    .hasArg()
+                    .required()
+                    .desc("Peer addresses seperated by comma")
+                    .build())
             .addOption(GROUPID_OPTION_NAME, true, "Raft group id");
   }
 
