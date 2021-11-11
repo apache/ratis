@@ -403,7 +403,8 @@ public class SegmentedRaftLogCache {
   }
 
   public long getTotalCacheSize() {
-    return closedSegments.getTotalCacheSize() + openSegment.getTotalCacheSize();
+    return closedSegments.getTotalCacheSize() +
+            Optional.ofNullable(openSegment).map(LogSegment::getTotalCacheSize).orElse(0L);
   }
 
   boolean shouldEvict() {
