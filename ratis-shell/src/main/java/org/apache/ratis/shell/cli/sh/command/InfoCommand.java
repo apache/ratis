@@ -17,10 +17,8 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
-import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
-import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.GroupInfoReply;
 
@@ -46,23 +44,15 @@ public class InfoCommand extends AbstractRatisCommand {
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
-    getPrintStream().println("group id: " + getRaftGroup().getGroupId().getUuid());
-    try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      GroupInfoReply reply =
-          client.getGroupManagementApi(
-              getRaftGroup().getPeers().stream()
-                  .findFirst()
-                  .get()
-                  .getId())
-              .info(getRaftGroup().getGroupId());
-      processReply(reply,
-          "failed to get info");
-      RaftProtos.RaftPeerProto leader =
-          getLeader(reply.getRoleInfoProto());
-      getPrintStream().printf("leader info: %s(%s)%n%n",
-          leader.getId().toStringUtf8(), leader.getAddress());
-      getPrintStream().println(reply.getCommitInfos());
+    println("group id: " + getRaftGroup().getGroupId().getUuid());
+    final GroupInfoReply reply = getGroupInfoReply();
+    RaftProtos.RaftPeerProto leader = getLeader(reply.getRoleInfoProto());
+    if (leader == null) {
+      println("leader not found");
+    } else {
+      printf("leader info: %s(%s)%n%n", leader.getId().toStringUtf8(), leader.getAddress());
     }
+    println(reply.getCommitInfos());
     return 0;
   }
 
