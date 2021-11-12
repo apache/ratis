@@ -18,6 +18,7 @@
 package org.apache.ratis.shell.cli.sh.command;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -34,7 +35,7 @@ import java.util.Map;
  *  Command for setting priority of the specific ratis server.
  */
 public class SetPriorityCommand extends AbstractRatisCommand {
-  public static final String PEER_WITH_NEW_PRIORITY = "addressPriority";
+  public static final String PEER_WITH_NEW_PRIORITY_OPTION_NAME = "addressPriority";
 
   /**
    * @param context command context
@@ -51,13 +52,12 @@ public class SetPriorityCommand extends AbstractRatisCommand {
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
-    String[] peersNewPriority = cl.getOptionValues(PEER_WITH_NEW_PRIORITY);
-    if (peersNewPriority.length < 1) {
-      return -2;
-    }
     Map<String, Integer> addressPriorityMap = new HashMap<>();
-    for (String peer : peersNewPriority) {
-      String[] str = peer.split(",");
+    for (String optionValue : cl.getOptionValues(PEER_WITH_NEW_PRIORITY_OPTION_NAME)) {
+      String[] str = optionValue.split("[|]");
+      if(str.length < 2) {
+        println("The format of the parameter is wrong");
+      }
       addressPriorityMap.put(str[0], Integer.parseInt(str[1]));
     }
 
@@ -83,10 +83,10 @@ public class SetPriorityCommand extends AbstractRatisCommand {
   @Override
   public String getUsage() {
     return String.format("%s"
-                    + " [-%s PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT]"
-                    + " [-%s RAFT_GROUP_ID]"
-                    + " [-%s PEER_HOST:PEER_PORT,PRIORITY]",
-            getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, PEER_WITH_NEW_PRIORITY);
+                    + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
+                    + " [-%s <RAFT_GROUP_ID>]"
+                    + " -%s <PEER_HOST:PEER_PORT,PRIORITY>",
+            getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, PEER_WITH_NEW_PRIORITY_OPTION_NAME);
   }
 
   @Override
@@ -96,8 +96,13 @@ public class SetPriorityCommand extends AbstractRatisCommand {
 
   @Override
   public Options getOptions() {
-    return super.getOptions().addOption(PEER_WITH_NEW_PRIORITY, true,
-            "Peers information with priority");
+    return super.getOptions().addOption(
+            Option.builder()
+                 .option(PEER_WITH_NEW_PRIORITY_OPTION_NAME)
+                 .hasArg()
+                 .required()
+                 .desc("Peers information with priority")
+                 .build());
   }
 
   /**
