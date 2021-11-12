@@ -57,6 +57,7 @@ public class SetPriorityCommand extends AbstractRatisCommand {
       String[] str = optionValue.split("[|]");
       if(str.length < 2) {
         println("The format of the parameter is wrong");
+        return -1;
       }
       addressPriorityMap.put(str[0], Integer.parseInt(str[1]));
     }
@@ -67,8 +68,7 @@ public class SetPriorityCommand extends AbstractRatisCommand {
         if (!addressPriorityMap.containsKey(peer.getAddress())) {
           peers.add(RaftPeer.newBuilder(peer).build());
         } else {
-          peers.add(
-                  RaftPeer.newBuilder(peer)
+          peers.add(RaftPeer.newBuilder(peer)
                           .setPriority(addressPriorityMap.get(peer.getAddress()))
                           .build()
           );
@@ -85,7 +85,7 @@ public class SetPriorityCommand extends AbstractRatisCommand {
     return String.format("%s"
                     + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
                     + " [-%s <RAFT_GROUP_ID>]"
-                    + " -%s <PEER_HOST:PEER_PORT,PRIORITY>",
+                    + " -%s <PEER_HOST:PEER_PORT|PRIORITY>",
             getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, PEER_WITH_NEW_PRIORITY_OPTION_NAME);
   }
 
