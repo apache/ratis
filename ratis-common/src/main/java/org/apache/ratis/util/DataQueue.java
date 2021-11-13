@@ -22,11 +22,11 @@ import org.apache.ratis.util.function.TriConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,7 +61,7 @@ public class DataQueue<E> implements Iterable<E> {
     this.byteLimit = byteLimit.getSize();
     this.elementLimit = elementLimit;
     this.getNumBytes = getNumBytes;
-    this.q = new ArrayDeque<>(elementLimit);
+    this.q = new LinkedList<>();
   }
 
   public int getElementLimit() {
@@ -166,6 +166,18 @@ public class DataQueue<E> implements Iterable<E> {
 
   @Override
   public Iterator<E> iterator() {
-    return q.iterator();
+    final Iterator<E> i = q.iterator();
+    // Do not support the remove() method.
+    return new Iterator<E>() {
+      @Override
+      public boolean hasNext() {
+        return i.hasNext();
+      }
+
+      @Override
+      public E next() {
+        return i.next();
+      }
+    };
   }
 }
