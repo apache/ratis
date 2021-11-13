@@ -23,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -80,12 +79,12 @@ public class DataQueue<E> implements Iterable<E> {
     return q.size();
   }
 
-  /** The same as {@link Collection#isEmpty()}. */
+  /** The same as {@link java.util.Collection#isEmpty()}. */
   public final boolean isEmpty() {
     return getNumElements() == 0;
   }
 
-  /** The same as {@link Collection#clear()}. */
+  /** The same as {@link java.util.Collection#clear()}. */
   public void clear() {
     q.clear();
     numBytes = 0;
