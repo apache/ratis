@@ -21,6 +21,9 @@ import org.apache.ratis.util.function.TriConsumer;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
@@ -128,6 +131,50 @@ public class TestDataQueue {
       Assert.assertEquals(halfBytes, polled.get(0).intValue());
       Assert.assertEquals(halfBytes, polled.get(1).intValue());
       Assert.assertEquals(0, polled.get(2).intValue());
+    }
+
+    assertSizes(0, 0, q);
+  }
+
+  @Test(timeout = 1000)
+  public void testIteratorAndRemove() {
+    runTestIteratorAndRemove(q);
+  }
+
+  static void runTestIteratorAndRemove(DataQueue<Long> q) {
+    assertSizes(0, 0, q);
+
+    final int elementLimit = q.getElementLimit();
+    int numElements = 0;
+    int numBytes = 0;
+    for(long i = 0; i < elementLimit; i++) {
+      final boolean offered = q.offer(i);
+      Assert.assertTrue(offered);
+      numElements++;
+      numBytes += i;
+      assertSizes(numElements, numBytes, q);
+    }
+
+    { // test iterator()
+      final Iterator<Long> i = q.iterator();
+      for (long expected = 0; expected < elementLimit; expected++) {
+        Assert.assertEquals(expected, i.next().longValue());
+      }
+    }
+
+    { // test remove(..)
+      final List<Long> toRemoves = new ArrayList<>(elementLimit);
+      for (long i = 0; i < elementLimit; i++) {
+        toRemoves.add(i);
+      }
+      Collections.shuffle(toRemoves);
+
+      for (Long r : toRemoves) {
+        q.remove(r);
+        numElements--;
+        numBytes -= r;
+        assertSizes(numElements, numBytes, q);
+      }
     }
 
     assertSizes(0, 0, q);

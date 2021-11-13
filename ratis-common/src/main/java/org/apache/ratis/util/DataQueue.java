@@ -24,7 +24,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -41,7 +43,7 @@ import java.util.function.ToLongFunction;
  *
  * This class is NOT threadsafe.
  */
-public class DataQueue<E> {
+public class DataQueue<E> implements Iterable<E> {
   public static final Logger LOG = LoggerFactory.getLogger(DataQueue.class);
 
   private final Object name;
@@ -78,10 +80,12 @@ public class DataQueue<E> {
     return q.size();
   }
 
+  /** The same as {@link Collection#isEmpty()}. */
   public final boolean isEmpty() {
     return getNumElements() == 0;
   }
 
+  /** The same as {@link Collection#clear()}. */
   public void clear() {
     q.clear();
     numBytes = 0;
@@ -151,6 +155,21 @@ public class DataQueue<E> {
     return polled;
   }
 
+  /** The same as {@link java.util.Collection#remove(Object)}. */
+  public boolean remove(E e) {
+    final boolean removed = q.remove(e);
+    if (removed) {
+      numBytes -= getNumBytes.applyAsLong(e);
+    }
+    return removed;
+  }
+
+  @Override
+  public Iterator<E> iterator() {
+    return q.iterator();
+  }
+
+  /** The same as {@link Collection#size()}. */
   public int size(){
     return q.size();
   }

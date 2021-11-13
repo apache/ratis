@@ -109,6 +109,17 @@ public class DataBlockingQueue<E> extends DataQueue<E> {
   }
 
   @Override
+  public boolean remove(E e) {
+    try(AutoCloseableLock auto = AutoCloseableLock.acquire(lock)) {
+      final boolean removed = super.remove(e);
+      if (removed) {
+        notFull.signal();
+      }
+      return removed;
+    }
+  }
+
+  @Override
   public E poll() {
     try(AutoCloseableLock auto = AutoCloseableLock.acquire(lock)) {
       final E polled = super.poll();
