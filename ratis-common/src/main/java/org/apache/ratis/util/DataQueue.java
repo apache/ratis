@@ -168,9 +168,4 @@ public class DataQueue<E> implements Iterable<E> {
   public Iterator<E> iterator() {
     return q.iterator();
   }
-
-  /** The same as {@link Collection#size()}. */
-  public int size(){
-    return q.size();
-  }
 }
