@@ -1421,6 +1421,7 @@ class RaftServerImpl implements RaftServer.Division,
         return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
       }
 
+      leaderElectionMetrics.onLeaderElectionTimeout();
       changeToCandidate(true);
       return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
     }
