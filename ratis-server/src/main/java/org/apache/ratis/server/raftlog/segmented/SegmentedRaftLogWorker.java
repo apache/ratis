@@ -467,7 +467,7 @@ class SegmentedRaftLogWorker {
         }
       } else {
         try {
-          // this.entry != entry if the entry has state machine data
+          // this.entry != entry iff the entry has state machine data
           this.stateMachineFuture = stateMachine.data().write(entry);
         } catch (Exception e) {
           LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()

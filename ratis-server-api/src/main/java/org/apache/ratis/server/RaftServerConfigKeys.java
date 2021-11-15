@@ -405,6 +405,17 @@ public interface RaftServerConfigKeys {
       static void setInstallSnapshotEnabled(RaftProperties properties, boolean shouldInstallSnapshot) {
         setBoolean(properties::setBoolean, INSTALL_SNAPSHOT_ENABLED_KEY, shouldInstallSnapshot);
       }
+
+      String READ_TIMEOUT_KEY = PREFIX + ".read.statemachine.data.timeout";
+      TimeDuration READ_TIMEOUT_DEFAULT = TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS);
+      static TimeDuration readStatemachineTimeout(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(READ_TIMEOUT_DEFAULT.getUnit()),
+            READ_TIMEOUT_KEY, READ_TIMEOUT_DEFAULT, getDefaultLog());
+      }
+      static void setReadStatemachineTimeout(RaftProperties properties, TimeDuration readStatemachineTimeout) {
+        setTimeDuration(properties::setTimeDuration, READ_TIMEOUT_KEY, readStatemachineTimeout);
+      }
+
     }
   }
 
