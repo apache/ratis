@@ -19,48 +19,18 @@ package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.CheckedFunction;
 
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Utilities related to atomic operations.
+ * Utilities related to concurrent programming.
  */
-public interface AtomicUtils {
-
-  /**
-   * Updates a AtomicLong which is supposed to maintain the minimum values. This method is not
-   * synchronized but is thread-safe.
-   */
-  static void updateMin(AtomicLong min, long value) {
-    while (true) {
-      long cur = min.get();
-      if (value >= cur) {
-        break;
-      }
-
-      if (min.compareAndSet(cur, value)) {
-        break;
-      }
-    }
-  }
-
-  /**
-   * Updates a AtomicLong which is supposed to maintain the maximum values. This method is not
-   * synchronized but is thread-safe.
-   */
-  static void updateMax(AtomicLong max, long value) {
-    while (true) {
-      long cur = max.get();
-      if (value <= cur) {
-        break;
-      }
-
-      if (max.compareAndSet(cur, value)) {
-        break;
-      }
-    }
-  }
-
+public interface ConcurrentUtils {
   /**
    * Similar to {@link AtomicReference#updateAndGet(java.util.function.UnaryOperator)}
    * except that the update function is checked.
@@ -84,5 +54,33 @@ public interface AtomicUtils {
       throw t;
     }
     return updated;
+  }
+
+  /**
+   * Creates a {@link ThreadFactory} so that the threads created by the factory are named with the given name prefix.
+   *
+   * @param namePrefix the prefix used in the name of the threads created.
+   * @return a new {@link ThreadFactory}.
+   */
+  static ThreadFactory newThreadFactory(String namePrefix) {
+    final AtomicInteger numThread = new AtomicInteger();
+    return runnable -> {
+      final int id = numThread.incrementAndGet();
+      final Thread t = new Thread(runnable);
+      t.setName(namePrefix + "-thread" + id);
+      return t;
+    };
+  }
+
+  /**
+   * The same as {@link java.util.concurrent.Executors#newCachedThreadPool()}
+   * except that this method takes a maximumPoolSize parameter.
+   *
+   * @param maximumPoolSize the maximum number of threads to allow in the pool.
+   * @return a new {@link ExecutorService}.
+   */
+  static ExecutorService newCachedThreadPool(int maximumPoolSize, ThreadFactory threadFactory) {
+    return new ThreadPoolExecutor(0, maximumPoolSize, 60L, TimeUnit.SECONDS,
+        new LinkedBlockingQueue<>(), threadFactory);
   }
 }
