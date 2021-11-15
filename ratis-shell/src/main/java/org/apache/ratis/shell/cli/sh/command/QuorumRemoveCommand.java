@@ -35,7 +35,7 @@ import java.util.List;
  * Command for remove ratis server.
  */
 public class QuorumRemoveCommand extends AbstractRatisCommand {
-  public static final String REMOVE_PEER_ADDRESS_OPTION_NAME = "removePeer";
+  public static final String ADDRESS_OPTION_NAME = "removePeer";
 
   /**
    * @param context command context
@@ -53,7 +53,7 @@ public class QuorumRemoveCommand extends AbstractRatisCommand {
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
     List<RaftPeerId> raftPeerIds = new ArrayList<>();
-    for (String address : cl.getOptionValues(REMOVE_PEER_ADDRESS_OPTION_NAME)) {
+    for (String address : cl.getOptionValues(ADDRESS_OPTION_NAME)) {
       String[] str = address.split(":");
       if(str.length < 2) {
         println("The format of the parameter is wrong");
@@ -84,7 +84,7 @@ public class QuorumRemoveCommand extends AbstractRatisCommand {
                     + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
                     + " [-%s <RAFT_GROUP_ID>]"
                     + " -%s <PEER_HOST:PEER_PORT>",
-            getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, REMOVE_PEER_ADDRESS_OPTION_NAME);
+            getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, ADDRESS_OPTION_NAME);
   }
 
   @Override
@@ -96,7 +96,7 @@ public class QuorumRemoveCommand extends AbstractRatisCommand {
   public Options getOptions() {
     return super.getOptions().addOption(
             Option.builder()
-                    .option(REMOVE_PEER_ADDRESS_OPTION_NAME)
+                    .option(ADDRESS_OPTION_NAME)
                     .hasArg()
                     .required()
                     .desc("peer address to be removed")
