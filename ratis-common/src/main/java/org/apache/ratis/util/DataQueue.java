@@ -22,9 +22,10 @@ import org.apache.ratis.util.function.TriConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -41,7 +42,7 @@ import java.util.function.ToLongFunction;
  *
  * This class is NOT threadsafe.
  */
-public class DataQueue<E> {
+public class DataQueue<E> implements Iterable<E> {
   public static final Logger LOG = LoggerFactory.getLogger(DataQueue.class);
 
   private final Object name;
@@ -59,7 +60,7 @@ public class DataQueue<E> {
     this.byteLimit = byteLimit.getSize();
     this.elementLimit = elementLimit;
     this.getNumBytes = getNumBytes;
-    this.q = new ArrayDeque<>(elementLimit);
+    this.q = new LinkedList<>();
   }
 
   public int getElementLimit() {
@@ -78,10 +79,12 @@ public class DataQueue<E> {
     return q.size();
   }
 
+  /** The same as {@link java.util.Collection#isEmpty()}. */
   public final boolean isEmpty() {
     return getNumElements() == 0;
   }
 
+  /** The same as {@link java.util.Collection#clear()}. */
   public void clear() {
     q.clear();
     numBytes = 0;
@@ -151,7 +154,29 @@ public class DataQueue<E> {
     return polled;
   }
 
-  public int size(){
-    return q.size();
+  /** The same as {@link java.util.Collection#remove(Object)}. */
+  public boolean remove(E e) {
+    final boolean removed = q.remove(e);
+    if (removed) {
+      numBytes -= getNumBytes.applyAsLong(e);
+    }
+    return removed;
+  }
+
+  @Override
+  public Iterator<E> iterator() {
+    final Iterator<E> i = q.iterator();
+    // Do not support the remove() method.
+    return new Iterator<E>() {
+      @Override
+      public boolean hasNext() {
+        return i.hasNext();
+      }
+
+      @Override
+      public E next() {
+        return i.next();
+      }
+    };
   }
 }
