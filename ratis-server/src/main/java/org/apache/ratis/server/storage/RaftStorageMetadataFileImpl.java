@@ -19,7 +19,7 @@ package org.apache.ratis.server.storage;
 
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.AtomicFileOutputStream;
-import org.apache.ratis.util.AtomicUtils;
+import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 
 import java.io.BufferedReader;
@@ -52,12 +52,12 @@ class RaftStorageMetadataFileImpl implements RaftStorageMetadataFile {
 
   @Override
   public RaftStorageMetadata getMetadata() throws IOException {
-    return AtomicUtils.updateAndGet(metadata, value -> value != null? value: load(file));
+    return ConcurrentUtils.updateAndGet(metadata, value -> value != null? value: load(file));
   }
 
   @Override
   public void persist(RaftStorageMetadata newMetadata) throws IOException {
-    AtomicUtils.updateAndGet(metadata,
+    ConcurrentUtils.updateAndGet(metadata,
         old -> Objects.equals(old, newMetadata)? old: atomicWrite(newMetadata, file));
   }
 

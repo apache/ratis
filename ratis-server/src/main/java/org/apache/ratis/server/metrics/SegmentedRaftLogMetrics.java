@@ -81,10 +81,7 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   }
 
   public void addDataQueueSizeGauge(DataQueue queue) {
-    registry.gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> () -> {
-      //q.size() is O(1) operation
-      return queue.size();
-    });
+    registry.gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> queue::getNumElements);
   }
 
   public void addClosedSegmentsNum(SegmentedRaftLogCache cache) {

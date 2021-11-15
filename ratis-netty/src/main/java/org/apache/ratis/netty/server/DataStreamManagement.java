@@ -47,6 +47,7 @@ import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
+import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
@@ -65,7 +66,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -205,10 +205,12 @@ public class DataStreamManagement {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
     final RaftProperties properties = server.getProperties();
-    this.requestExecutor = Executors.newFixedThreadPool(
-        RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties));
-    this.writeExecutor = Executors.newFixedThreadPool(
-        RaftServerConfigKeys.DataStream.asyncWriteThreadPoolSize(properties));
+    this.requestExecutor = ConcurrentUtils.newCachedThreadPool(
+        RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties),
+        ConcurrentUtils.newThreadFactory(name + "-request-"));
+    this.writeExecutor = ConcurrentUtils.newCachedThreadPool(
+        RaftServerConfigKeys.DataStream.asyncWriteThreadPoolSize(properties),
+        ConcurrentUtils.newThreadFactory(name + "-write-"));
   }
 
   private CompletableFuture<DataStream> computeDataStreamIfAbsent(RaftClientRequest request) throws IOException {
