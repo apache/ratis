@@ -92,7 +92,7 @@ public abstract class RaftLogBase implements RaftLog {
     this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
     this.state = new OpenCloseState(getName());
     this.getSnapshotIndexFromStateMachine = getSnapshotIndexFromStateMachine;
-    this.readStatemachineTimeout = RaftServerConfigKeys.Log.Appender.readStatemachineTimeout(properties);
+    this.readStatemachineTimeout = RaftServerConfigKeys.Log.Appender.readStatemachineDataTimeout(properties);
   }
 
   @Override
