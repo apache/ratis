@@ -43,8 +43,7 @@ public final class LeaderElectionMetrics extends RatisMetrics {
   public static final String LAST_LEADER_ELAPSED_TIME = "lastLeaderElapsedTime";
   public static final String TRANSFER_LEADERSHIP_COUNT_METRIC = "transferLeadershipCount";
 
-  public static final String LAST_LEADER_ELECTION_ELAPSED_TIME =
-      "lastLeaderElectionElapsedTime";
+  public static final String LAST_LEADER_ELECTION_ELAPSED_TIME = "lastLeaderElectionElapsedTime";
   private volatile Timestamp lastElectionTime;
 
   private LeaderElectionMetrics(RaftGroupMemberId serverId, LongSupplier getLastLeaderElapsedTimeMs) {
