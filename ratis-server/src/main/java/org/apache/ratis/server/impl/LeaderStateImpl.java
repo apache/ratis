@@ -928,6 +928,7 @@ class LeaderStateImpl implements LeaderState {
                 "is higher than leader's:{} and leader's lastEntry is null",
             this, followerID, currentTerm, followerPriority, leaderPriority);
 
+        server.getLeaderElectionMetrics().onTransferLeader();
         sendStartLeaderElectionToHigherPriorityPeer(followerID, null);
         return;
       }
@@ -938,6 +939,7 @@ class LeaderStateImpl implements LeaderState {
             this, followerID, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
             leaderLastEntry.getIndex());
 
+        server.getLeaderElectionMetrics().onTransferLeader();
         sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
         return;
       }
