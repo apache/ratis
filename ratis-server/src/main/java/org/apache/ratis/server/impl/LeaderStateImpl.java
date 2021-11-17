@@ -559,6 +559,7 @@ class LeaderStateImpl implements LeaderState {
     final StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
         server.getMemberId(), follower, lastEntry);
     CompletableFuture.supplyAsync(() -> {
+      server.getLeaderElectionMetrics().onTransferLeadership();
       try {
         StartLeaderElectionReplyProto replyProto = server.getServerRpc().startLeaderElection(r);
         LOG.info("{} received {} reply of StartLeaderElectionRequest from follower:{}",
@@ -937,7 +938,6 @@ class LeaderStateImpl implements LeaderState {
                 "is higher than leader's:{} and follower's lastEntry index:{} catch up with leader's:{}",
             this, followerID, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
             leaderLastEntry.getIndex());
-
         sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
         return;
       }
