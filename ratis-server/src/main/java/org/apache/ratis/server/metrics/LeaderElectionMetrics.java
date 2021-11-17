@@ -41,7 +41,7 @@ public final class LeaderElectionMetrics extends RatisMetrics {
   public static final String LEADER_ELECTION_TIMEOUT_COUNT_METRIC = "timeoutCount";
   public static final String LEADER_ELECTION_TIME_TAKEN = "electionTime";
   public static final String LAST_LEADER_ELAPSED_TIME = "lastLeaderElapsedTime";
-  public static final String TRANSFER_LEADERSHIP_COUNT_METRIC = "transferLeaderCount";
+  public static final String TRANSFER_LEADERSHIP_COUNT_METRIC = "transferLeadershipCount";
 
   public static final String LAST_LEADER_ELECTION_ELAPSED_TIME =
       "lastLeaderElectionElapsedTime";
@@ -78,7 +78,7 @@ public final class LeaderElectionMetrics extends RatisMetrics {
     registry.counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC).inc();
   }
 
-  public void onTransferLeader() {
+  public void onTransferLeadership() {
     registry.counter(TRANSFER_LEADERSHIP_COUNT_METRIC).inc();
   }
 }
