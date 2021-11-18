@@ -59,8 +59,9 @@ public class QuorumCommand extends AbstractRatisCommand {
     List<RaftPeerId> removePeerIds = new ArrayList<>();
     List<RaftPeerId> addPeerIds = new ArrayList<>();
     Map<RaftPeerId, InetSocketAddress> peersInfo = new HashMap<>();
-    if(getIds(cl, removePeerIds, REMOVE_PEER_ADDRESS_OPTION_NAME, new HashMap<>())
-      & getIds(cl, addPeerIds, ADD_PEER_ADDRESS_OPTION_NAME, peersInfo)) {
+    getIds(cl, removePeerIds, REMOVE_PEER_ADDRESS_OPTION_NAME, new HashMap<>());
+    getIds(cl, addPeerIds, ADD_PEER_ADDRESS_OPTION_NAME, peersInfo);
+    if (removePeerIds.size() == 0 && addPeerIds.isEmpty()) {
       return -1;
     }
 
@@ -83,19 +84,18 @@ public class QuorumCommand extends AbstractRatisCommand {
     return 0;
   }
 
-  private boolean getIds(CommandLine cl, List<RaftPeerId> ids, String addressOptionName,
+  private void getIds(CommandLine cl, List<RaftPeerId> ids, String addressOptionName,
                          Map<RaftPeerId, InetSocketAddress> infos) {
     if (cl.getOptionValues(addressOptionName) == null) {
-      return false;
+      return;
     }
     for (String address : cl.getOptionValues(addressOptionName)) {
       String[] str = isFormat(address);
       if (str == null) {
-        return true;
+        return;
       }
       ids.add(addressToPeerId(str, infos));
     }
-    return false;
   }
 
   private String[] isFormat(String address) {
