@@ -516,6 +516,23 @@ public interface ClientProtoUtils {
         .build();
   }
 
+  static SnapshotManuallyRequest toSnapshotManuallyRequest(
+          SnapshotManuallyRequestProto p) {
+    final RaftRpcRequestProto m = p.getRpcRequest();
+    return new SnapshotManuallyRequest(
+            ClientId.valueOf(m.getRequestorId()),
+            RaftPeerId.valueOf(m.getReplyId()),
+            ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
+            p.getRpcRequest().getCallId());
+  }
+
+  static SnapshotManuallyRequestProto toSnapshotManuallyRequestProto(
+          SnapshotManuallyRequest request) {
+    return SnapshotManuallyRequestProto.newBuilder()
+            .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+            .build();
+  }
+
   static TransferLeadershipRequest toTransferLeadershipRequest(
       TransferLeadershipRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();

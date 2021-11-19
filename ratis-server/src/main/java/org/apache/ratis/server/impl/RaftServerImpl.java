@@ -963,6 +963,15 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
+  public RaftClientReply snapshotManually(SnapshotManuallyRequest request) throws IOException {
+    return waitForReply(request, snapshotManuallyAsync(request));
+  }
+
+  public CompletableFuture<RaftClientReply> snapshotManuallyAsync(SnapshotManuallyRequest request) throws IOException {
+    //TODO(codings-dan) : implement snapshot manually in server
+    return null;
+  }
+
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
     return waitForReply(request, setConfigurationAsync(request));
   }

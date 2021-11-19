@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,19 +17,10 @@
  */
 package org.apache.ratis.protocol;
 
-import java.io.IOException;
+public class SnapshotManuallyRequest extends RaftClientRequest {
 
-/** For server administration. */
-public interface AdminProtocol {
-  GroupListReply getGroupList(GroupListRequest request) throws IOException;
-
-  GroupInfoReply getGroupInfo(GroupInfoRequest request) throws IOException;
-
-  RaftClientReply groupManagement(GroupManagementRequest request) throws IOException;
-
-  RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException;
-
-  RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException;
-
-  RaftClientReply snapshotManually(SnapshotManuallyRequest request) throws IOException;
+  public SnapshotManuallyRequest(
+          ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId) {
+    super(clientId, serverId, groupId, callId, true, writeRequestType());
+  }
 }

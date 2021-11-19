@@ -33,6 +33,7 @@ import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
+import org.apache.ratis.proto.RaftProtos.SnapshotManuallyRequestProto;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
@@ -208,6 +209,14 @@ public class GrpcClientProtocolClient implements Closeable {
         .withDeadlineAfter(newDuration.getDuration(), newDuration.getUnit())
         .transferLeadership(request));
   }
+
+  RaftClientReplyProto snapshotManually(
+          SnapshotManuallyRequestProto request) throws IOException {
+    return blockingCall(() -> adminBlockingStub
+            .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+            .snapshotManually(request));
+  }
+
 
   private static RaftClientReplyProto blockingCall(
       CheckedSupplier<RaftClientReplyProto, StatusRuntimeException> supplier

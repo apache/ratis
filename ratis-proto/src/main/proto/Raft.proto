@@ -411,6 +411,11 @@ message TransferLeadershipRequestProto {
   RaftPeerProto newLeader = 2;
 }
 
+// snapshot manually request
+message SnapshotManuallyRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+}
+
 message StartLeaderElectionRequestProto {
   RaftRpcRequestProto serverRequest = 1;
   TermIndexProto leaderLastEntry = 2;
