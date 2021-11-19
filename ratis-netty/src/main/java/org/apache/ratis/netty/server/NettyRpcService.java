@@ -24,7 +24,6 @@ import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.GroupListReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.SnapshotManuallyRequest;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
