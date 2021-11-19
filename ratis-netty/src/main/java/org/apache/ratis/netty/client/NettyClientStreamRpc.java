@@ -125,9 +125,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       }
 
       @Override
-      public void exceptionCaught(ChannelHandlerContext ctx,
-                                  Throwable cause) {
-        LOG.warn("netty stream client handler error", cause);
+      public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        LOG.warn(name + ": exceptionCaught", cause);
         ctx.close();
       }
     };
