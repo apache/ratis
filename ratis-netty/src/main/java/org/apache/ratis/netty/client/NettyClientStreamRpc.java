@@ -123,6 +123,12 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
             .map(Queue::poll)
             .ifPresent(f -> f.complete(reply));
       }
+
+      @Override
+      public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        LOG.warn(name + ": exceptionCaught", cause);
+        ctx.close();
+      }
     };
   }
 
