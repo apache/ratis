@@ -29,22 +29,25 @@ import org.apache.ratis.shell.cli.RaftUtils;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * Command for remove ratis server.
+ * Command for remove and add ratis server.
  */
-public class QuorumCommand extends AbstractRatisCommand {
-  public static final String REMOVE_PEER_ADDRESS_OPTION_NAME = "removePeer";
-  public static final String ADD_PEER_ADDRESS_OPTION_NAME = "addPeer";
+public class GroupCommand extends AbstractRatisCommand {
+  public static final String REMOVE_OPTION_NAME = "remove";
+  public static final String ADD_OPTION_NAME = "add";
 
   /**
    * @param context command context
    */
-  public QuorumCommand(Context context) {
+  public GroupCommand(Context context) {
     super(context);
   }
 
@@ -56,63 +59,52 @@ public class QuorumCommand extends AbstractRatisCommand {
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
-    List<RaftPeerId> removePeerIds = new ArrayList<>();
-    List<RaftPeerId> addPeerIds = new ArrayList<>();
-    Map<RaftPeerId, InetSocketAddress> peersInfo = new HashMap<>();
-    getIds(cl, removePeerIds, REMOVE_PEER_ADDRESS_OPTION_NAME, new HashMap<>());
-    getIds(cl, addPeerIds, ADD_PEER_ADDRESS_OPTION_NAME, peersInfo);
-    if (removePeerIds.size() == 0 && addPeerIds.isEmpty()) {
-      return -1;
+    final Map<RaftPeerId, InetSocketAddress> peersInfo = new HashMap<>();
+    final List<RaftPeerId> toRemove = getIds(cl.getOptionValues(REMOVE_OPTION_NAME), (a, b) -> {});
+    final List<RaftPeerId> toAdd = getIds(cl.getOptionValues(ADD_OPTION_NAME), peersInfo::put);
+    if (toRemove.isEmpty() && toAdd.isEmpty()) {
+      throw new IllegalArgumentException(String.format("Both -%s and -%s options are empty",
+          REMOVE_OPTION_NAME, ADD_OPTION_NAME));
     }
 
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      List<RaftPeer> peers =
-              getRaftGroup().getPeers().stream()
-              .filter(raftPeer -> !removePeerIds.contains(raftPeer.getId()))
-              .filter(raftPeer -> !addPeerIds.contains(raftPeer.getId()))
-              .collect(Collectors.toList());
-      System.out.println(peers);
-      peers.addAll(addPeerIds.stream()
-                      .map(raftPeerId -> RaftPeer.newBuilder().setId(raftPeerId)
-                      .setAddress(peersInfo.get(raftPeerId))
-                      .setPriority(0)
-                      .build()).collect(Collectors.toList()));
-      System.out.println(peers);
+      final Stream<RaftPeer> remaining = getRaftGroup().getPeers().stream()
+          .filter(raftPeer -> !toRemove.contains(raftPeer.getId()))
+          .filter(raftPeer -> !toAdd.contains(raftPeer.getId()));
+      final Stream<RaftPeer> adding = toAdd.stream().map(raftPeerId -> RaftPeer.newBuilder()
+          .setId(raftPeerId)
+          .setAddress(peersInfo.get(raftPeerId))
+          .setPriority(0)
+          .build());
+      final List<RaftPeer> peers = Stream.concat(remaining, adding).collect(Collectors.toList());
+      System.out.println("New peer list: " + peers);
       RaftClientReply reply = client.admin().setConfiguration(peers);
-      processReply(reply, () ->"failed to change raft peer");
+      processReply(reply, () -> "failed to change raft peer");
     }
     return 0;
   }
 
-  private void getIds(CommandLine cl, List<RaftPeerId> ids, String addressOptionName,
-                         Map<RaftPeerId, InetSocketAddress> infos) {
-    if (cl.getOptionValues(addressOptionName) == null) {
-      return;
+  private static List<RaftPeerId> getIds(String[] optionValues, BiConsumer<RaftPeerId, InetSocketAddress> consumer) {
+    if (optionValues == null) {
+      return Collections.emptyList();
     }
-    for (String address : cl.getOptionValues(addressOptionName)) {
-      String[] str = isFormat(address);
-      if (str == null) {
-        return;
-      }
-      ids.add(addressToPeerId(str, infos));
+    final List<RaftPeerId> ids = new ArrayList<>();
+    for (String address : optionValues) {
+      final String[] str = parse(address);
+      final InetSocketAddress serverAddress = InetSocketAddress.createUnresolved(str[0], Integer.parseInt(str[1]));
+      final RaftPeerId peerId = RaftUtils.getPeerId(serverAddress);
+      consumer.accept(peerId, serverAddress);
+      ids.add(peerId);
     }
+    return ids;
   }
 
-  private String[] isFormat(String address) {
+  private static String[] parse(String address) {
     String[] str = address.split(":");
     if(str.length < 2) {
-      println("The format of the parameter is wrong");
-      return null;
+      throw new IllegalArgumentException("Failed to parse the address parameter \"" + address + "\".");
     }
     return str;
-  }
-
-  private RaftPeerId addressToPeerId(String[] str, Map<RaftPeerId, InetSocketAddress> infos) {
-    InetSocketAddress serverAddress = InetSocketAddress
-            .createUnresolved(str[0], Integer.parseInt(str[1]));
-    RaftPeerId peerId = RaftUtils.getPeerId(serverAddress);
-    infos.put(peerId, serverAddress);
-    return peerId;
   }
 
   @Override
@@ -123,7 +115,7 @@ public class QuorumCommand extends AbstractRatisCommand {
                     + " -%s <PEER_HOST:PEER_PORT>"
                     + " -%s <PEER_HOST:PEER_PORT>",
             getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME,
-            REMOVE_PEER_ADDRESS_OPTION_NAME, ADD_PEER_ADDRESS_OPTION_NAME);
+            REMOVE_OPTION_NAME, ADD_OPTION_NAME);
   }
 
   @Override
@@ -135,12 +127,12 @@ public class QuorumCommand extends AbstractRatisCommand {
   public Options getOptions() {
     return super.getOptions()
             .addOption(Option.builder()
-                    .option(REMOVE_PEER_ADDRESS_OPTION_NAME)
+                    .option(REMOVE_OPTION_NAME)
                     .hasArg()
                     .desc("peer address to be removed")
                     .build())
             .addOption(Option.builder()
-                    .option(ADD_PEER_ADDRESS_OPTION_NAME)
+                    .option(ADD_OPTION_NAME)
                     .hasArg()
                     .desc("peer address to be added")
                     .build());
