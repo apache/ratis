@@ -135,7 +135,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
     final CompletableFuture<RaftClientReplyProto> replyFuture = new CompletableFuture<>();
     // create a new grpc stream for each non-async call.
     final StreamObserver<RaftClientRequestProto> requestObserver =
-        proxy.orderedWithTimeout(new StreamObserver<RaftClientReplyProto>() {
+        proxy.unorderedWithTimeout(new StreamObserver<RaftClientReplyProto>() {
           @Override
           public void onNext(RaftClientReplyProto value) {
             replyFuture.complete(value);

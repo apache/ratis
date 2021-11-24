@@ -223,7 +223,7 @@ public class GrpcClientProtocolClient implements Closeable {
     return asyncStub.ordered(responseHandler);
   }
 
-  StreamObserver<RaftClientRequestProto> orderedWithTimeout(StreamObserver<RaftClientReplyProto> responseHandler) {
+  StreamObserver<RaftClientRequestProto> unorderedWithTimeout(StreamObserver<RaftClientReplyProto> responseHandler) {
     return asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
         .unordered(responseHandler);
   }
