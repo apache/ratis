@@ -40,20 +40,20 @@ import java.util.stream.Stream;
 /**
  * Command for remove and add ratis server.
  */
-public class GroupCommand extends AbstractRatisCommand {
+public class PeerCommand extends AbstractRatisCommand {
   public static final String REMOVE_OPTION_NAME = "remove";
   public static final String ADD_OPTION_NAME = "add";
 
   /**
    * @param context command context
    */
-  public GroupCommand(Context context) {
+  public PeerCommand(Context context) {
     super(context);
   }
 
   @Override
   public String getCommandName() {
-    return "group";
+    return "peer";
   }
 
   @Override
