@@ -110,6 +110,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   private ChannelInboundHandler getClientHandler(){
     return new ChannelInboundHandlerAdapter(){
+
+      private ClientInvocationId clientInvocationId;
+
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
         if (!(msg instanceof DataStreamReply)) {
@@ -118,7 +121,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         }
         final DataStreamReply reply = (DataStreamReply) msg;
         LOG.debug("{}: read {}", this, reply);
-        ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(reply.getClientId(), reply.getStreamId());
+        clientInvocationId = ClientInvocationId.valueOf(reply.getClientId(), reply.getStreamId());
         Optional.ofNullable(replies.get(clientInvocationId))
             .map(Queue::poll)
             .ifPresent(f -> f.complete(reply));
@@ -126,6 +129,15 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
       @Override
       public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        Optional.ofNullable(clientInvocationId).ifPresent(id ->
+            Optional.ofNullable(replies.get(id)).ifPresent(q -> {
+              for (int i = 0; i < q.size(); i++) {
+                CompletableFuture<DataStreamReply> f = q.poll();
+                f.completeExceptionally(cause);
+              }
+              replies.remove(id);
+            })
+        );
         LOG.warn(name + ": exceptionCaught", cause);
         ctx.close();
       }
