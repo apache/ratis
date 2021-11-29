@@ -41,6 +41,7 @@ import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
@@ -129,15 +130,11 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
       @Override
       public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        Optional.ofNullable(clientInvocationId).ifPresent(id ->
-            Optional.ofNullable(replies.get(id)).ifPresent(q -> {
-              for (int i = 0; i < q.size(); i++) {
-                CompletableFuture<DataStreamReply> f = q.poll();
-                f.completeExceptionally(cause);
-              }
-              replies.remove(id);
-            })
-        );
+        Optional.ofNullable(clientInvocationId)
+            .map(replies::remove)
+            .orElseGet(LinkedList::new)
+            .forEach(f -> f.completeExceptionally(cause));
+
         LOG.warn(name + ": exceptionCaught", cause);
         ctx.close();
       }
