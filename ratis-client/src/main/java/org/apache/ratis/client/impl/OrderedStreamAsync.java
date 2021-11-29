@@ -114,7 +114,10 @@ public class OrderedStreamAsync {
     final LongFunction<DataStreamWindowRequest> constructor
         = seqNum -> new DataStreamWindowRequest(header, data, seqNum);
     return slidingWindow.submitNewRequest(constructor, this::sendRequestToNetwork).
-           getReplyFuture().whenComplete((r, e) -> requestSemaphore.release());
+           getReplyFuture().whenComplete((r, e) -> {
+      LOG.error("Failed to send request, header=" + header, e);
+      requestSemaphore.release();
+    });
   }
 
   private void sendRequestToNetwork(DataStreamWindowRequest request){
