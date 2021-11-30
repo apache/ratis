@@ -253,7 +253,7 @@ public interface ClientProtoUtils {
       if (reply.getMessage() != null) {
         b.setMessage(toClientMessageEntryProtoBuilder(reply.getMessage()));
       }
-      ProtoUtils.addCommitInfos(reply.getCommitInfos(), b::addCommitInfos);
+      b.addAllCommitInfos(reply.getCommitInfos());
 
       final NotLeaderException nle = reply.getNotLeaderException();
       if (nle != null) {
@@ -344,7 +344,7 @@ public interface ClientProtoUtils {
         b.setGroup(ProtoUtils.toRaftGroupProtoBuilder(reply.getGroup()));
         b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
         b.setRole(reply.getRoleInfoProto());
-        ProtoUtils.addCommitInfos(reply.getCommitInfos(), b::addCommitInfos);
+        b.addAllCommitInfos(reply.getCommitInfos());
       }
     }
     return b.build();
