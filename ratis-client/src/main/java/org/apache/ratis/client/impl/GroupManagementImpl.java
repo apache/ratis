@@ -48,7 +48,8 @@ class GroupManagementImpl implements GroupManagementApi {
 
     final long callId = CallId.getAndIncrement();
     client.getClientRpc().addRaftPeers(newGroup.getPeers());
-    return client.io().sendRequest(GroupManagementRequest.newAdd(client.getId(), server, callId, newGroup));
+    return client.io().sendRequestWithRetry(
+        () -> GroupManagementRequest.newAdd(client.getId(), server, callId, newGroup));
   }
 
   @Override
@@ -57,27 +58,26 @@ class GroupManagementImpl implements GroupManagementApi {
     Objects.requireNonNull(groupId, "groupId == null");
 
     final long callId = CallId.getAndIncrement();
-    return client.io().sendRequest(GroupManagementRequest.newRemove(client.getId(), server,
-        callId, groupId, deleteDirectory, renameDirectory));
+    return client.io().sendRequestWithRetry(
+        () -> GroupManagementRequest.newRemove(client.getId(), server, callId, groupId,
+            deleteDirectory, renameDirectory));
   }
 
   @Override
   public GroupListReply list() throws IOException {
     final long callId = CallId.getAndIncrement();
-    final RaftClientReply reply = client.io().sendRequest(
-        new GroupListRequest(client.getId(), server, client.getGroupId(), callId));
+    final RaftClientReply reply = client.io().sendRequestWithRetry(
+        () -> new GroupListRequest(client.getId(), server, client.getGroupId(), callId));
     Preconditions.assertTrue(reply instanceof GroupListReply, () -> "Unexpected reply: " + reply);
     return (GroupListReply)reply;
   }
 
   @Override
   public GroupInfoReply info(RaftGroupId groupId) throws IOException {
-    if (groupId == null) {
-      groupId = client.getGroupId();
-    }
+    final RaftGroupId gid = groupId != null? groupId: client.getGroupId();
     final long callId = CallId.getAndIncrement();
-    final RaftClientReply reply = client.io().sendRequest(
-        new GroupInfoRequest(client.getId(), server, groupId, callId));
+    final RaftClientReply reply = client.io().sendRequestWithRetry(
+        () -> new GroupInfoRequest(client.getId(), server, gid, callId));
     Preconditions.assertTrue(reply instanceof GroupInfoReply, () -> "Unexpected reply: " + reply);
     return (GroupInfoReply)reply;
   }
