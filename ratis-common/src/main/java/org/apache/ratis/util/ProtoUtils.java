@@ -34,7 +34,6 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -44,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public interface ProtoUtils {
@@ -125,14 +123,6 @@ public interface ProtoUtils {
 
   static List<RaftPeer> toRaftPeers(List<RaftPeerProto> protos) {
     return protos.stream().map(ProtoUtils::toRaftPeer).collect(Collectors.toList());
-  }
-
-  static RaftPeerId toRaftPeerId(RaftPeerIdProto p) {
-    return RaftPeerId.valueOf(p.getId());
-  }
-
-  static List<RaftPeerId> toRaftPeerIds(List<RaftPeerIdProto> protos) {
-    return protos.stream().map(ProtoUtils::toRaftPeerId).collect(Collectors.toList());
   }
 
   static Iterable<RaftPeerProto> toRaftPeerProtos(
@@ -229,12 +219,6 @@ public interface ProtoUtils {
         .build();
   }
 
-  static void addCommitInfos(Collection<CommitInfoProto> commitInfos, Consumer<CommitInfoProto> accumulator) {
-    if (commitInfos != null && !commitInfos.isEmpty()) {
-      commitInfos.forEach(accumulator);
-    }
-  }
-
   static String toString(CommitInfoProto proto) {
     return RaftPeerId.valueOf(proto.getServer().getId()) + ":c" + proto.getCommitIndex();
   }
@@ -249,14 +233,6 @@ public interface ProtoUtils {
 
   static String toString(SlidingWindowEntry proto) {
     return proto.getSeqNum() + (proto.getIsFirst()? "*": "");
-  }
-
-  static IOException toIOException(ServiceException se) {
-    final Throwable t = se.getCause();
-    if (t == null) {
-      return new IOException(se);
-    }
-    return t instanceof IOException? (IOException)t : new IOException(se);
   }
 
   static String toString(RaftRpcRequestProto proto) {
