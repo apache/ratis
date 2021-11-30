@@ -123,7 +123,7 @@ class BlockingImpl implements BlockingApi {
     }
   }
 
-  RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
+  private RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
     LOG.debug("{}: send {}", client.getId(), request);
     RaftClientReply reply;
     try {
