@@ -31,6 +31,7 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
@@ -99,7 +100,7 @@ class BlockingImpl implements BlockingApi {
           return client.handleReply(request, reply);
         }
       } catch (GroupMismatchException | StateMachineException | TransferLeadershipException |
-          LeaderSteppingDownException e) {
+          LeaderSteppingDownException | AlreadyExistsException e) {
         throw e;
       } catch (IOException e) {
         ioe = e;
