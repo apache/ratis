@@ -18,49 +18,10 @@
 
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
-import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** The header format is {@link DataStreamPacketHeader}, bytesWritten and flags. */
 public class DataStreamReplyHeader extends DataStreamPacketHeader implements DataStreamReply {
-  private static final Logger LOG = LoggerFactory.getLogger(DataStreamReplyHeader.class);
-
-  public static DataStreamReplyHeader read(ByteBuf buf) {
-    if (getSizeOfHeaderLen() > buf.readableBytes()) {
-      return null;
-    }
-
-    int headerBufLen = buf.readInt();
-    if (headerBufLen > buf.readableBytes()) {
-      buf.resetReaderIndex();
-      return null;
-    }
-
-    try {
-      ByteBuf headerBuf = buf.slice(buf.readerIndex(), headerBufLen);
-      DataStreamReplyHeaderProto header = DataStreamReplyHeaderProto.parseFrom(headerBuf.nioBuffer());
-
-      final DataStreamPacketHeaderProto h = header.getPacketHeader();
-      if (header.getPacketHeader().getDataLength() + headerBufLen <= buf.readableBytes()) {
-        buf.readerIndex(buf.readerIndex() + headerBufLen);
-        return new DataStreamReplyHeader(ClientId.valueOf(h.getClientId()), h.getType(), h.getStreamId(),
-            h.getStreamOffset(), h.getDataLength(), header.getBytesWritten(), header.getSuccess());
-      } else {
-        buf.resetReaderIndex();
-        return null;
-      }
-    } catch (InvalidProtocolBufferException e) {
-      LOG.error("Fail to decode reply header:", e);
-      buf.resetReaderIndex();
-      return null;
-    }
-  }
-
   private final long bytesWritten;
   private final boolean success;
 
