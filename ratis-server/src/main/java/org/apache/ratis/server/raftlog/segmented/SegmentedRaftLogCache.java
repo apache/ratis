@@ -51,7 +51,7 @@ public class SegmentedRaftLogCache {
   static final class SegmentFileInfo {
     static SegmentFileInfo newClosedSegmentFileInfo(LogSegment ls) {
       Objects.requireNonNull(ls, "ls == null");
-      Preconditions.assertTrue(!ls.isOpen(), ls + " is OPEN");
+      Preconditions.assertTrue(!ls.isOpen(), () -> ls + " is OPEN");
       return new SegmentFileInfo(ls.getStartIndex(), ls.getEndIndex(), ls.isOpen(), 0, 0);
     }
 
@@ -276,7 +276,8 @@ public class SegmentedRaftLogCache {
               return new TruncationSegments(null, Collections.singletonList(deleted));
             } else {
               openSegment.truncate(index);
-              Preconditions.assertTrue(!openSegment.isOpen());
+              Preconditions.assertTrue(!openSegment.isOpen(),
+                  () -> "Illegal state: " + openSegment + " remains open after truncate.");
               final SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
                   oldEnd, true, openSegment.getTotalFileSize(), openSegment.getEndIndex());
               segments.add(openSegment);
@@ -423,8 +424,12 @@ public class SegmentedRaftLogCache {
   private void validateAdding(LogSegment segment) {
     final LogSegment lastClosed = closedSegments.getLast();
     if (lastClosed != null) {
-      Preconditions.assertTrue(!lastClosed.isOpen());
-      Preconditions.assertTrue(lastClosed.getEndIndex() + 1 == segment.getStartIndex());
+      Preconditions.assertTrue(!lastClosed.isOpen(),
+          () -> "Unexpected log segment state: the log segment " + lastClosed
+              + " is open but it is not the last segment. The next log segment is " + segment);
+      Preconditions.assertTrue(lastClosed.getEndIndex() + 1 == segment.getStartIndex(),
+          () -> "Found a gap between logs: the last log segment " + lastClosed + " ended at " + lastClosed.getEndIndex()
+              + " but the next log segment " + segment + " started at " + segment.getStartIndex());
     }
   }
 
@@ -443,7 +448,7 @@ public class SegmentedRaftLogCache {
 
   private void setOpenSegment(LogSegment openSegment) {
     LOG.trace("{}: setOpenSegment to {}", name, openSegment);
-    Preconditions.assertTrue(this.openSegment == null);
+    Preconditions.assertNull(this.openSegment, "this.openSegment");
     this.openSegment = Objects.requireNonNull(openSegment);
   }
 
@@ -461,8 +466,8 @@ public class SegmentedRaftLogCache {
    * finalize the current open segment, and start a new open segment
    */
   void rollOpenSegment(boolean createNewOpen) {
-    Preconditions.assertTrue(openSegment != null
-        && openSegment.numOfEntries() > 0);
+    Preconditions.assertTrue(openSegment != null && openSegment.numOfEntries() > 0,
+        () -> "The number of entries of " + openSegment + " is " + openSegment.numOfEntries());
     final long nextIndex = openSegment.getEndIndex() + 1;
     openSegment.close();
     closedSegments.add(openSegment);
@@ -545,7 +550,7 @@ public class SegmentedRaftLogCache {
   void appendEntry(LogEntryProto entry, LogSegment.Op op) {
     // SegmentedRaftLog does the segment creation/rolling work. Here we just
     // simply append the entry into the open segment.
-    Preconditions.assertTrue(openSegment != null);
+    Preconditions.assertNotNull(openSegment, "openSegment");
     openSegment.appendToOpenSegment(entry, op);
   }
 
@@ -634,7 +639,8 @@ public class SegmentedRaftLogCache {
           // the start index is smaller than the first closed segment's start
           // index. We no longer keep the log entry (because of the snapshot) or
           // the start index is invalid.
-          Preconditions.assertTrue(segmentIndex == 0);
+          Preconditions.assertTrue(segmentIndex == 0,
+              () -> "segmentIndex is expected to be 0 but segmentIndex = " + segmentIndex);
           throw new IndexOutOfBoundsException();
         }
       }
