@@ -95,16 +95,16 @@ public interface NettyConfigKeys {
       setBoolean(properties::setBoolean, CLIENT_WORKER_GROUP_SHARE_KEY, clientWorkerGroupShare);
     }
 
-    String CLIENT_REPLY_QUEUE_GRACE_PERIOD = PREFIX + ".client.reply.queue.grace-period";
+    String CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY = PREFIX + ".client.reply.queue.grace-period";
     TimeDuration CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT = TimeDuration.ONE_SECOND;
 
     static TimeDuration clientReplyQueueGracePeriod(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT.getUnit()),
-          CLIENT_REPLY_QUEUE_GRACE_PERIOD, CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT, getDefaultLog());
+          CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY, CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT, getDefaultLog());
     }
 
     static void setClientReplyQueueGracePeriod(RaftProperties properties, TimeDuration timeoutDuration) {
-      setTimeDuration(properties::setTimeDuration, CLIENT_REPLY_QUEUE_GRACE_PERIOD, timeoutDuration);
+      setTimeDuration(properties::setTimeDuration, CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY, timeoutDuration);
     }
   }
 
