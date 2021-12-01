@@ -19,6 +19,7 @@ package org.apache.ratis.netty;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.thirdparty.io.netty.util.NettyRuntime;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,6 +93,18 @@ public interface NettyConfigKeys {
 
     static void setClientWorkerGroupShare(RaftProperties properties, boolean clientWorkerGroupShare) {
       setBoolean(properties::setBoolean, CLIENT_WORKER_GROUP_SHARE_KEY, clientWorkerGroupShare);
+    }
+
+    String CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY = PREFIX + ".client.reply.queue.grace-period";
+    TimeDuration CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT = TimeDuration.ONE_SECOND;
+
+    static TimeDuration clientReplyQueueGracePeriod(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT.getUnit()),
+          CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY, CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT, getDefaultLog());
+    }
+
+    static void setClientReplyQueueGracePeriod(RaftProperties properties, TimeDuration timeoutDuration) {
+      setTimeDuration(properties::setTimeDuration, CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY, timeoutDuration);
     }
   }
 
