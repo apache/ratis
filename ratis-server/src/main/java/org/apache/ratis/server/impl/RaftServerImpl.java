@@ -493,7 +493,8 @@ class RaftServerImpl implements RaftServer.Division,
     getState().setRaftConf(e);
   }
 
-  Collection<CommitInfoProto> getCommitInfos() {
+  @Override
+  public Collection<CommitInfoProto> getCommitInfos() {
     final List<CommitInfoProto> infos = new ArrayList<>();
     // add the commit info of this server
     infos.add(updateCommitInfoCache());

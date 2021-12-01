@@ -18,9 +18,16 @@
 
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+
+import java.util.Collection;
+
 public interface DataStreamReply extends DataStreamPacket {
 
   boolean isSuccess();
 
   long getBytesWritten();
+
+  /** @return the commit information when the reply is created. */
+  Collection<CommitInfoProto> getCommitInfos();
 }
