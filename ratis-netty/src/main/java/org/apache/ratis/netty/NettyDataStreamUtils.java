@@ -81,6 +81,7 @@ public interface NettyDataStreamUtils {
         .setPacketHeader(b)
         .setBytesWritten(reply.getBytesWritten())
         .setSuccess(reply.isSuccess())
+        .addAllCommitInfos(reply.getCommitInfos())
         .build()
         .toByteString()
         .asReadOnlyByteBuffer();
@@ -208,7 +209,8 @@ public interface NettyDataStreamUtils {
       if (header.getPacketHeader().getDataLength() + headerBufLen <= buf.readableBytes()) {
         buf.readerIndex(buf.readerIndex() + headerBufLen);
         return new DataStreamReplyHeader(ClientId.valueOf(h.getClientId()), h.getType(), h.getStreamId(),
-            h.getStreamOffset(), h.getDataLength(), header.getBytesWritten(), header.getSuccess());
+            h.getStreamOffset(), h.getDataLength(), header.getBytesWritten(), header.getSuccess(),
+            header.getCommitInfosList());
       } else {
         buf.resetReaderIndex();
         return null;

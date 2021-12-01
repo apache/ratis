@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.datastream.impl;
 
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.DataStreamReply;
@@ -24,6 +25,8 @@ import org.apache.ratis.protocol.DataStreamReplyHeader;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 
 import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.Collections;
 
 /**
  * Implements {@link DataStreamReply} with {@link ByteBuffer}.
@@ -40,6 +43,7 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
 
     private boolean success;
     private long bytesWritten;
+    private Collection<CommitInfoProto> commitInfos;
 
     private Builder() {}
 
@@ -78,10 +82,16 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
       return this;
     }
 
+    public Builder setCommitInfos(Collection<CommitInfoProto> commitInfos) {
+      this.commitInfos = commitInfos;
+      return this;
+    }
+
     public Builder setDataStreamReplyHeader(DataStreamReplyHeader header) {
       return setDataStreamPacket(header)
           .setSuccess(header.isSuccess())
-          .setBytesWritten(header.getBytesWritten());
+          .setBytesWritten(header.getBytesWritten())
+          .setCommitInfos(header.getCommitInfos());
     }
 
     public Builder setDataStreamPacket(DataStreamPacket packet) {
@@ -92,7 +102,8 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
     }
 
     public DataStreamReplyByteBuffer build() {
-      return new DataStreamReplyByteBuffer(clientId, type, streamId, streamOffset, buffer, success, bytesWritten);
+      return new DataStreamReplyByteBuffer(
+          clientId, type, streamId, streamOffset, buffer, success, bytesWritten, commitInfos);
     }
   }
 
@@ -102,13 +113,16 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
 
   private final boolean success;
   private final long bytesWritten;
+  private final Collection<CommitInfoProto> commitInfos;
 
+  @SuppressWarnings("parameternumber")
   private DataStreamReplyByteBuffer(ClientId clientId, Type type, long streamId, long streamOffset, ByteBuffer buffer,
-      boolean success, long bytesWritten) {
+      boolean success, long bytesWritten, Collection<CommitInfoProto> commitInfos) {
     super(clientId, type, streamId, streamOffset, buffer);
 
     this.success = success;
     this.bytesWritten = bytesWritten;
+    this.commitInfos = commitInfos != null? commitInfos: Collections.emptyList();
   }
 
   @Override
@@ -119,6 +133,11 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
   @Override
   public long getBytesWritten() {
     return bytesWritten;
+  }
+
+  @Override
+  public Collection<CommitInfoProto> getCommitInfos() {
+    return commitInfos;
   }
 
   @Override
