@@ -18,7 +18,6 @@
 package org.apache.ratis.shell.cli.sh.group;
 
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.GroupInfoReply;

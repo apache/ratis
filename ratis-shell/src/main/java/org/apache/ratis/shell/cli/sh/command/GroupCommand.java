@@ -20,8 +20,6 @@ package org.apache.ratis.shell.cli.sh.command;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.shell.cli.Command;
-import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
-import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.shell.cli.sh.group.GroupInfoCommand;
 import org.apache.ratis.shell.cli.sh.group.GroupListCommand;
 
