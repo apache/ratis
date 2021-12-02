@@ -47,9 +47,9 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
+import org.apache.ratis.thirdparty.io.netty.util.AttributeKey;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.PeerProxyMap;
-import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,7 +62,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyServerStreamRpc.class);
@@ -151,29 +150,22 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     }
   }
 
-  static class RequestRef {
-    private final AtomicReference<DataStreamRequestByteBuf> ref = new AtomicReference<>();
-
-    DataStreamRequestByteBuf set(DataStreamRequestByteBuf current) {
-      Optional.ofNullable(ref.getAndSet(current)).ifPresent(previous -> {
-        throw new IllegalStateException("previous = " + previous + " != null, current=" + current);
-      });
-      return current;
-    }
-
-    void reset(DataStreamRequestByteBuf expected) {
-      final DataStreamRequestByteBuf stored = ref.getAndSet(null);
-      Preconditions.assertTrue(stored == expected, () -> "Expected=" + expected + " but stored=" + stored);
-    }
-
-    DataStreamRequestByteBuf getAndSetNull() {
-      return ref.getAndSet(null);
-    }
-  }
-
   private ChannelInboundHandler newChannelInboundHandlerAdapter(){
     return new ChannelInboundHandlerAdapter(){
-      private final RequestRef requestRef = new RequestRef();
+
+      private final String REQUEST_ATTR_NAME = "DATA-STREAM-REQUEST-%s";
+
+      private void setRequest(ChannelHandlerContext ctx, DataStreamRequestByteBuf request) {
+        ctx.channel().attr(AttributeKey.newInstance(String.format(REQUEST_ATTR_NAME, ctx.name()))).set(request);
+      }
+
+      private DataStreamRequestByteBuf getAndRemoveRequest(ChannelHandlerContext ctx) {
+        Object o = ctx.channel().attr(AttributeKey.newInstance(String.format(REQUEST_ATTR_NAME, ctx.name()))).getAndRemove();
+        if (o instanceof DataStreamRequestByteBuf) {
+          return (DataStreamRequestByteBuf) o;
+        }
+        return null;
+      }
 
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -181,20 +173,24 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
           LOG.error("Unexpected message class {}, ignoring ...", msg.getClass().getName());
           return;
         }
-
-        final DataStreamRequestByteBuf request = requestRef.set((DataStreamRequestByteBuf)msg);
-
+        final DataStreamRequestByteBuf request = (DataStreamRequestByteBuf)msg;
+        setRequest(ctx, request);
         int index = Math.toIntExact(
             ((0xFFFFFFFFL & request.getClientId().hashCode()) + request.getStreamId()) % proxies.size());
         requests.read(request, ctx, proxies.get(index)::getDataStreamOutput);
+      }
 
-        requestRef.reset(request);
+      @Override
+      public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+        getAndRemoveRequest(ctx);
       }
 
       @Override
       public void exceptionCaught(ChannelHandlerContext ctx, Throwable throwable) {
-        Optional.ofNullable(requestRef.getAndSetNull())
+        LOG.warn(name + ": exceptionCaught", throwable);
+        Optional.ofNullable(getAndRemoveRequest(ctx))
             .ifPresent(request -> requests.replyDataStreamException(throwable, request, ctx));
+        ctx.close();
       }
     };
   }
