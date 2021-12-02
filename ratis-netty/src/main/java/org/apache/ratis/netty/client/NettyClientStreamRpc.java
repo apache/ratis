@@ -36,6 +36,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
+import org.apache.ratis.thirdparty.io.netty.util.AttributeKey;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -144,8 +145,21 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   private ChannelInboundHandler getClientHandler(){
     return new ChannelInboundHandlerAdapter(){
+      private static final String CLIENT_INVOCATION_ID_ATTR_NAME = "CLIENT-INVOCATION-ID-%s";
 
-      private ClientInvocationId clientInvocationId;
+      private void setClientInvocationId(ChannelHandlerContext ctx, ClientInvocationId clientInvocationId) {
+        ctx.channel().attr(AttributeKey
+            .newInstance(String.format(CLIENT_INVOCATION_ID_ATTR_NAME, ctx.name()))).set(clientInvocationId);
+      }
+
+      private ClientInvocationId getAndRemoveClientInvocationId(ChannelHandlerContext ctx) {
+        Object o = ctx.channel().attr(AttributeKey.newInstance(String.format(CLIENT_INVOCATION_ID_ATTR_NAME, ctx.name())))
+            .getAndRemove();
+        if (o instanceof ClientInvocationId) {
+          return (ClientInvocationId) o;
+        }
+        return null;
+      }
 
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -155,7 +169,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         }
         final DataStreamReply reply = (DataStreamReply) msg;
         LOG.debug("{}: read {}", this, reply);
-        clientInvocationId = ClientInvocationId.valueOf(reply.getClientId(), reply.getStreamId());
+        ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(reply.getClientId(), reply.getStreamId());
+        setClientInvocationId(ctx, clientInvocationId);
         final ReplyQueue queue = replies.get(clientInvocationId);
         if (queue != null) {
           final CompletableFuture<DataStreamReply> f = queue.poll();
@@ -174,8 +189,13 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       }
 
       @Override
+      public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+        getAndRemoveClientInvocationId(ctx);
+      }
+
+      @Override
       public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        Optional.ofNullable(clientInvocationId)
+        Optional.ofNullable(getAndRemoveClientInvocationId(ctx))
             .map(replies::remove)
             .orElse(ReplyQueue.EMPTY)
             .forEach(f -> f.completeExceptionally(cause));
