@@ -153,8 +153,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       }
 
       private ClientInvocationId getAndRemoveClientInvocationId(ChannelHandlerContext ctx) {
-        Object o = ctx.channel().attr(AttributeKey.newInstance(String.format(CLIENT_INVOCATION_ID_ATTR_NAME, ctx.name())))
-            .getAndRemove();
+        Object o = ctx.channel().attr(AttributeKey.newInstance(
+            String.format(CLIENT_INVOCATION_ID_ATTR_NAME, ctx.name()))).getAndRemove();
         if (o instanceof ClientInvocationId) {
           return (ClientInvocationId) o;
         }
