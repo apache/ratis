@@ -378,6 +378,7 @@ public class DataStreamManagement {
       final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getStreams));
       info = streams.computeIfAbsent(key, id -> supplier.get());
       if (!supplier.isInitialized()) {
+        streams.remove(key);
         throw new IllegalStateException("Failed to create a new stream for " + request
             + " since a stream already exists Key: " + key + " StreamInfo:" + info);
       }
@@ -386,7 +387,10 @@ public class DataStreamManagement {
           () -> new IllegalStateException("Failed to remove StreamInfo for " + request));
     } else {
       info = Optional.ofNullable(streams.get(key)).orElseThrow(
-          () -> new IllegalStateException("Failed to get StreamInfo for " + request));
+          () -> {
+            streams.remove(key);
+            return new IllegalStateException("Failed to get StreamInfo for " + request);
+          });
     }
 
     final CompletableFuture<Long> localWrite;
@@ -420,6 +424,7 @@ public class DataStreamManagement {
         }, requestExecutor)).whenComplete((v, exception) -> {
       try {
         if (exception != null) {
+          streams.remove(key);
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
         }
       } finally {
@@ -441,7 +446,14 @@ public class DataStreamManagement {
     for (CompletableFuture<DataStreamReply> replyFuture : replyFutures) {
       final DataStreamReply reply = replyFuture.join();
       assertReplyCorrespondingToRequest(request, reply);
-      if (!reply.isSuccess() || reply.getBytesWritten() != bytesWritten) {
+      if (!reply.isSuccess()) {
+        LOG.warn("reply is not success, request: {}", request);
+        return false;
+      }
+      if (reply.getBytesWritten() != bytesWritten) {
+        LOG.warn(
+            "reply written bytes not match, local size: {} remote size: {} request: {}",
+            bytesWritten, reply.getBytesWritten(), request);
         return false;
       }
     }
