@@ -153,14 +153,15 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private ChannelInboundHandler newChannelInboundHandlerAdapter(){
     return new ChannelInboundHandlerAdapter(){
 
-      private final String REQUEST_ATTR_NAME = "DATA-STREAM-REQUEST-%s";
+      private static final String REQUEST_ATTR_NAME = "DATA-STREAM-REQUEST-%s";
 
       private void setRequest(ChannelHandlerContext ctx, DataStreamRequestByteBuf request) {
         ctx.channel().attr(AttributeKey.newInstance(String.format(REQUEST_ATTR_NAME, ctx.name()))).set(request);
       }
 
       private DataStreamRequestByteBuf getAndRemoveRequest(ChannelHandlerContext ctx) {
-        Object o = ctx.channel().attr(AttributeKey.newInstance(String.format(REQUEST_ATTR_NAME, ctx.name()))).getAndRemove();
+        Object o = ctx.channel().attr(AttributeKey.newInstance(String.format(REQUEST_ATTR_NAME, ctx.name())))
+            .getAndRemove();
         if (o instanceof DataStreamRequestByteBuf) {
           return (DataStreamRequestByteBuf) o;
         }
