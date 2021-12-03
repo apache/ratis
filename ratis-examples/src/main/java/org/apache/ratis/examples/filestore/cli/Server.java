@@ -48,7 +48,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Class to start a ratis arithmetic example server.
+ * Class to start a ratis filestore example server.
  */
 @Parameters(commandDescription = "Start an filestore server")
 public class Server extends SubCommandBase {
