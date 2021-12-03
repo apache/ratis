@@ -74,7 +74,7 @@ public class GroupCommand extends AbstractRatisCommand {
 
   @Override
   public boolean hasSubCommand() {
-    return Optional.ofNullable(getSubCommands()).filter(subs -> !subs.isEmpty()).isPresent();
+    return Optional.ofNullable(getSubCommands()).filter(sub -> !subs.isEmpty()).isPresent();
   }
 
   @Override
