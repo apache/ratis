@@ -46,6 +46,18 @@ public abstract class AbstractRatisCommand implements Command {
   public static final String GROUPID_OPTION_NAME = "groupid";
   public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.randomId();
 
+  public static InetSocketAddress parseInetSocketAddress(String address) {
+    try {
+      final String[] hostPortPair = address.split(":");
+      if (hostPortPair.length < 2) {
+        throw new IllegalArgumentException("Unexpected address format <HOST:PORT>.");
+      }
+      return new InetSocketAddress(hostPortPair[0], Integer.parseInt(hostPortPair[1]));
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to parse the server address parameter \"" + address + "\".", e);
+    }
+  }
+
   /**
    * Execute a given function with input parameter from the members of a list.
    *
@@ -83,11 +95,8 @@ public abstract class AbstractRatisCommand implements Command {
     List<InetSocketAddress> addresses = new ArrayList<>();
     String peersStr = cl.getOptionValue(PEER_OPTION_NAME);
     String[] peersArray = peersStr.split(",");
-    for (int i = 0; i < peersArray.length; i++) {
-      String[] hostPortPair = peersArray[i].split(":");
-      InetSocketAddress addr =
-          new InetSocketAddress(hostPortPair[0], Integer.parseInt(hostPortPair[1]));
-      addresses.add(addr);
+    for (String peer : peersArray) {
+      addresses.add(parseInetSocketAddress(peer));
     }
 
     final RaftGroupId raftGroupIdFromConfig = cl.hasOption(GROUPID_OPTION_NAME)?

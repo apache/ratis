@@ -27,6 +27,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * An interface for all the commands that can be run from a shell.
@@ -54,7 +55,7 @@ public interface Command extends Closeable {
    * @return whether this command has sub-commands
    */
   default boolean hasSubCommand() {
-    return false;
+    return Optional.ofNullable(getSubCommands()).filter(subs -> !subs.isEmpty()).isPresent();
   }
 
   /**

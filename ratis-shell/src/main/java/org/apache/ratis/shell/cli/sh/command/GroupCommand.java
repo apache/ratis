@@ -23,33 +23,33 @@ import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.sh.group.GroupInfoCommand;
 import org.apache.ratis.shell.cli.sh.group.GroupListCommand;
 
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Command for the ratis group
  */
 public class GroupCommand extends AbstractRatisCommand {
 
-  private static final Map<String, Function<Context, ? extends Command>>
-          SUB_COMMANDS = new HashMap<>();
+  private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
+          = Collections.unmodifiableList(Arrays.asList(
+          GroupInfoCommand::new, GroupListCommand::new));
 
-  static {
-    SUB_COMMANDS.put("info", GroupInfoCommand::new);
-    SUB_COMMANDS.put("list", GroupListCommand::new);
-  }
-
-  private Map<String, Command> mSubCommands = new HashMap<>();
+  private final Map<String, Command> subs;
 
   /**
    * @param context command context
    */
   public GroupCommand(Context context) {
     super(context);
-    SUB_COMMANDS.forEach((name, constructor) -> {
-      mSubCommands.put(name, constructor.apply(context));
-    });
+    this.subs = Collections.unmodifiableMap(SUB_COMMAND_CONSTRUCTORS.stream()
+            .map(constructor -> constructor.apply(context))
+            .collect(Collectors.toMap(Command::getCommandName, Function.identity())));
   }
 
   @Override
@@ -61,7 +61,7 @@ public class GroupCommand extends AbstractRatisCommand {
   public String getUsage() {
 
     StringBuilder usage = new StringBuilder(getCommandName());
-    for (String cmd : SUB_COMMANDS.keySet()) {
+    for (String cmd : subs.keySet()) {
       usage.append(" [").append(cmd).append("]");
     }
     return usage.toString();
@@ -74,12 +74,12 @@ public class GroupCommand extends AbstractRatisCommand {
 
   @Override
   public boolean hasSubCommand() {
-    return true;
+    return Optional.ofNullable(getSubCommands()).filter(subs -> !subs.isEmpty()).isPresent();
   }
 
   @Override
   public Map<String, Command> getSubCommands() {
-    return mSubCommands;
+    return subs;
   }
 
   @Override

@@ -90,21 +90,12 @@ public class PeerCommand extends AbstractRatisCommand {
     }
     final List<RaftPeerId> ids = new ArrayList<>();
     for (String address : optionValues) {
-      final String[] str = parse(address);
-      final InetSocketAddress serverAddress = InetSocketAddress.createUnresolved(str[0], Integer.parseInt(str[1]));
+      final InetSocketAddress serverAddress = parseInetSocketAddress(address);
       final RaftPeerId peerId = RaftUtils.getPeerId(serverAddress);
       consumer.accept(peerId, serverAddress);
       ids.add(peerId);
     }
     return ids;
-  }
-
-  private static String[] parse(String address) {
-    String[] str = address.split(":");
-    if(str.length < 2) {
-      throw new IllegalArgumentException("Failed to parse the address parameter \"" + address + "\".");
-    }
-    return str;
   }
 
   @Override

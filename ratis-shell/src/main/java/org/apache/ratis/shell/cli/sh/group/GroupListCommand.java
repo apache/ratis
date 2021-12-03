@@ -52,12 +52,7 @@ public class GroupListCommand extends AbstractRatisCommand {
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
     String strAddr = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
-
-    String[] str = strAddr.split(":");
-    if(str.length < 2) {
-      throw new IllegalArgumentException("Failed to parse the server address parameter \"" + strAddr + "\".");
-    }
-    final InetSocketAddress serverAddress = InetSocketAddress.createUnresolved(str[0], Integer.parseInt(str[1]));
+    final InetSocketAddress serverAddress = parseInetSocketAddress(strAddr);
     final RaftPeerId peerId = RaftUtils.getPeerId(serverAddress);
 
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
