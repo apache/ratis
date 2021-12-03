@@ -80,13 +80,13 @@ public final class ExceptionDependentRetry implements RetryPolicy {
     this.exceptionNameToPolicyMap = Collections.unmodifiableMap(policyMap);
     this.maxAttempts = maxAttempts;
     this.toStringSupplier = JavaUtils.memoize(() -> {
-      final StringBuilder b = new StringBuilder(JavaUtils.getClassSimpleName(getClass())).append("{")
+      final StringBuilder b = new StringBuilder(JavaUtils.getClassSimpleName(getClass())).append("(")
           .append("maxAttempts=").append(maxAttempts).append("; ")
           .append("defaultPolicy=").append(defaultPolicy).append("; ")
-          .append("map=");
+          .append("map={");
       policyMap.forEach((key, value) -> b.append(key).append("->").append(value).append(", "));
       b.setLength(b.length() - 2);
-      return b.append("}").toString();
+      return b.append("})").toString();
     });
   }
 
