@@ -15,24 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.shell.cli.sh.command;
+package org.apache.ratis.shell.cli.sh.group;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.GroupInfoReply;
+import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
+import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
 
 /**
  * Command for querying ratis group information.
  */
-public class InfoCommand extends AbstractRatisCommand {
-
+public class GroupInfoCommand extends AbstractRatisCommand {
   /**
    * @param context command context
    */
-  public InfoCommand(Context context) {
+  public GroupInfoCommand(Context context) {
     super(context);
   }
 
