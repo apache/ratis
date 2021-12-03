@@ -97,6 +97,6 @@ public class GroupCommand extends AbstractRatisCommand {
    * @return command's description
    */
   public static String description() {
-    return "Manage the ratis gropu, See sub-commands' descriptions for more details.";
+    return "Manage ratis groups; see the sub-commands for the details.";
   }
 }
