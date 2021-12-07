@@ -42,5 +42,5 @@ public interface AdminApi {
   RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException;
 
   /** Make the server snapshot manually. */
-  RaftClientReply snapshotManually() throws IOException;
+  RaftClientReply snapshot() throws IOException;
 }

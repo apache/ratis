@@ -43,7 +43,7 @@ service CombinedClientProtocolService {
   rpc transferLeadership(ratis.common.TransferLeadershipRequestProto)
       returns(ratis.common.RaftClientReplyProto);
 
-  rpc snapshotManually(ratis.common.SnapshotManuallyRequestProto)
+  rpc snapshot(ratis.common.SnapshotRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}
 }
 

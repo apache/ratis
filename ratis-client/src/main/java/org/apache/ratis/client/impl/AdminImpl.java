@@ -22,7 +22,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.protocol.SnapshotManuallyRequest;
+import org.apache.ratis.protocol.SnapshotRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.rpc.CallId;
 
@@ -57,9 +57,9 @@ class AdminImpl implements AdminApi {
   }
 
   @Override
-  public RaftClientReply snapshotManually() throws IOException {
+  public RaftClientReply snapshot() throws IOException {
     final long callId = CallId.getAndIncrement();
-    return client.io().sendRequestWithRetry(() -> new SnapshotManuallyRequest(
+    return client.io().sendRequestWithRetry(() -> new SnapshotRequest(
             client.getId(), client.getLeaderId(), client.getGroupId(), callId
     ));
   }

@@ -436,9 +436,9 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public RaftClientReply snapshotManually(SnapshotManuallyRequest request)
+  public RaftClientReply snapshot(SnapshotRequest request)
     throws IOException {
-    return getImpl(request.getRaftGroupId()).snapshotManually(request);
+    return getImpl(request.getRaftGroupId()).snapshot(request);
   }
 
   @Override
@@ -550,8 +550,8 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> snapshotManuallyAsync(SnapshotManuallyRequest request) {
-    return submitRequest(request.getRaftGroupId(), impl -> impl.snapshotManuallyAsync(request));
+  public CompletableFuture<RaftClientReply> snapshotAsync(SnapshotRequest request) {
+    return submitRequest(request.getRaftGroupId(), impl -> impl.snapshotAsync(request));
   }
 
   @Override

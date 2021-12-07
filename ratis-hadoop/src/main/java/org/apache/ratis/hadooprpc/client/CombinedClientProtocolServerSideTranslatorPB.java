@@ -40,7 +40,7 @@ import org.apache.ratis.proto.RaftProtos.GroupListReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
 import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
-import org.apache.ratis.proto.RaftProtos.SnapshotManuallyRequestProto;
+import org.apache.ratis.proto.RaftProtos.SnapshotRequestProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.GeneratedMessageV3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,8 +82,8 @@ public class CombinedClientProtocolServerSideTranslatorPB
       case transferLeadership:
         response = transferLeadership(TransferLeadershipRequestProto.parseFrom(buf));
         break;
-      case snapshotManually:
-        response = snapshotManually(SnapshotManuallyRequestProto.parseFrom(buf));
+      case snapshot:
+        response = snapshot(SnapshotRequestProto.parseFrom(buf));
         break;
       default:
         String message = "Internal error, all response types are not being handled as expected. " +
@@ -142,10 +142,10 @@ public class CombinedClientProtocolServerSideTranslatorPB
     return ClientProtoUtils.toRaftClientReplyProto(reply);
   }
 
-  public RaftClientReplyProto snapshotManually(SnapshotManuallyRequestProto proto)
+  public RaftClientReplyProto snapshot(SnapshotRequestProto proto)
       throws IOException {
-    final SnapshotManuallyRequest request = ClientProtoUtils.toSnapshotManuallyRequest(proto);
-    final RaftClientReply reply = impl.snapshotManually(request);
+    final SnapshotRequest request = ClientProtoUtils.toSnapshotRequest(proto);
+    final RaftClientReply reply = impl.snapshot(request);
     return ClientProtoUtils.toRaftClientReplyProto(reply);
   }
 }

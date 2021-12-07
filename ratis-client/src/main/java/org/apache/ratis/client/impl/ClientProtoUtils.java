@@ -516,19 +516,19 @@ public interface ClientProtoUtils {
         .build();
   }
 
-  static SnapshotManuallyRequest toSnapshotManuallyRequest(
-          SnapshotManuallyRequestProto p) {
+  static SnapshotRequest toSnapshotRequest(
+          SnapshotRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    return new SnapshotManuallyRequest(
+    return new SnapshotRequest(
             ClientId.valueOf(m.getRequestorId()),
             RaftPeerId.valueOf(m.getReplyId()),
             ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
             p.getRpcRequest().getCallId());
   }
 
-  static SnapshotManuallyRequestProto toSnapshotManuallyRequestProto(
-          SnapshotManuallyRequest request) {
-    return SnapshotManuallyRequestProto.newBuilder()
+  static SnapshotRequestProto toSnapshotRequestProto(
+          SnapshotRequest request) {
+    return SnapshotRequestProto.newBuilder()
             .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
             .build();
   }

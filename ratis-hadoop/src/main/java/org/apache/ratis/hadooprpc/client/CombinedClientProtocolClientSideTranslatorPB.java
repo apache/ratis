@@ -34,7 +34,7 @@ import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.protocol.SnapshotManuallyRequest;
+import org.apache.ratis.protocol.SnapshotRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.thirdparty.com.google.protobuf
     .GeneratedMessageV3;
@@ -90,12 +90,12 @@ public class CombinedClientProtocolClientSideTranslatorPB
   }
 
   @Override
-  public RaftClientReply snapshotManually(SnapshotManuallyRequest request)
+  public RaftClientReply snapshot(SnapshotRequest request)
       throws IOException {
     return handleRequest(request,
-            ClientProtoUtils::toSnapshotManuallyRequestProto,
+            ClientProtoUtils::toSnapshotRequestProto,
             ClientProtoUtils::toRaftClientReply,
-            ClientOps.snapshotManually,
+            ClientOps.snapshot,
             RaftProtos.RaftClientReplyProto::parseFrom);
   }
 

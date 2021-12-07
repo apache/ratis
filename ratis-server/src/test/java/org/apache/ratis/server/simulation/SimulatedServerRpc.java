@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
@@ -34,7 +33,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.protocol.SnapshotManuallyRequest;
+import org.apache.ratis.protocol.SnapshotRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
@@ -194,8 +193,8 @@ class SimulatedServerRpc implements RaftServerRpc {
         future = server.setConfigurationAsync((SetConfigurationRequest) request);
       } else if (request instanceof TransferLeadershipRequest) {
         future = server.transferLeadershipAsync((TransferLeadershipRequest) request);
-      } else if (request instanceof SnapshotManuallyRequest) {
-        future = server.snapshotManuallyAsync((SnapshotManuallyRequest) request);
+      } else if (request instanceof SnapshotRequest) {
+        future = server.snapshotAsync((SnapshotRequest) request);
       } else {
         future = server.submitClientRequestAsync(request);
       }

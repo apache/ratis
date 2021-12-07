@@ -34,6 +34,6 @@ public interface AdminAsynchronousProtocol {
   CompletableFuture<RaftClientReply> transferLeadershipAsync(
       TransferLeadershipRequest request) throws IOException;
 
-  CompletableFuture<RaftClientReply> snapshotManuallyAsync(
-          SnapshotManuallyRequest request) throws IOException;
+  CompletableFuture<RaftClientReply> snapshotAsync(
+          SnapshotRequest request) throws IOException;
 }

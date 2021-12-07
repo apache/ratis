@@ -31,5 +31,5 @@ public interface AdminProtocol {
 
   RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException;
 
-  RaftClientReply snapshotManually(SnapshotManuallyRequest request) throws IOException;
+  RaftClientReply snapshot(SnapshotRequest request) throws IOException;
 }

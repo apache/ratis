@@ -412,7 +412,7 @@ message TransferLeadershipRequestProto {
 }
 
 // snapshot manually request
-message SnapshotManuallyRequestProto {
+message SnapshotRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
 }
 

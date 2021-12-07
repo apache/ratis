@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.protocol;
 
-public class SnapshotManuallyRequest extends RaftClientRequest {
+public class SnapshotRequest extends RaftClientRequest {
 
-  public SnapshotManuallyRequest(
+  public SnapshotRequest(
           ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId) {
     super(clientId, serverId, groupId, callId, true, writeRequestType());
   }
