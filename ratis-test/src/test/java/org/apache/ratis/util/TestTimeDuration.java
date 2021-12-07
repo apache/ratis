@@ -30,6 +30,7 @@ import static org.apache.ratis.util.TimeDuration.Abbreviation;
 import static org.apache.ratis.util.TimeDuration.parse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 public class TestTimeDuration {
   {
@@ -242,6 +243,18 @@ public class TestTimeDuration {
 
     Assert.assertSame(TimeUnit.NANOSECONDS, TimeDuration.lowerUnit(TimeUnit.NANOSECONDS));
     Assert.assertSame(TimeUnit.DAYS, TimeDuration.higherUnit(TimeUnit.DAYS));
+  }
+
+  @Test(timeout = 1000)
+  public void testCompareTo() {
+    assertTrue(TimeDuration.ONE_SECOND.compareTo(TimeDuration.ONE_MINUTE) < 0);
+    assertTrue(TimeDuration.ONE_MINUTE.compareTo(TimeDuration.ONE_SECOND) > 0);
+
+    assertTrue(TimeDuration.valueOf(15, TimeUnit.SECONDS).compareTo(TimeDuration.ONE_MINUTE) < 0);
+    assertTrue(TimeDuration.ONE_MINUTE.compareTo(TimeDuration.valueOf(15, TimeUnit.SECONDS)) > 0);
+
+    assertEquals(0, TimeDuration.valueOf(60, TimeUnit.SECONDS).compareTo(TimeDuration.ONE_MINUTE));
+    assertEquals(0, TimeDuration.ONE_MINUTE.compareTo(TimeDuration.valueOf(60, TimeUnit.SECONDS)));
   }
 
   private static void assertHigherLower(TimeUnit lower, TimeUnit higher) {
