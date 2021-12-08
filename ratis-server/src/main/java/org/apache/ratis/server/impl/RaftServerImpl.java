@@ -583,6 +583,12 @@ class RaftServerImpl implements RaftServer.Division,
     if (state.shouldNotifyExtendedNoLeader()) {
       stateMachine.followerEvent().notifyExtendedNoLeader(getRoleInfoProto());
     }
+    // Candidate shall not start leader election in these cases in case of
+    // possible NPE caused by conf.getPeer().getPriority()
+    if (!getRaftConf().containsInBothConfs(getId())) {
+      LOG.warn("{} find invalid configuration {}, skip start leader election", this, getRaftConf());
+      return;
+    }
     // start election
     role.startLeaderElection(this, forceStartLeaderElection);
   }
