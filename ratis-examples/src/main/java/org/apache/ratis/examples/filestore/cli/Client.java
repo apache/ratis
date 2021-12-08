@@ -135,7 +135,7 @@ public abstract class Client extends SubCommandBase {
           new GrpcFactory(new org.apache.ratis.conf.Parameters())
               .newRaftClientRpc(ClientId.randomId(), raftProperties));
       RaftPeer[] peers = getPeers();
-      builder.setPrimaryDataStreamServer(peers[i % peers.length]);
+      builder.setPrimaryDataStreamServer(peers[0]);
       RaftClient client = builder.build();
       fileStoreClients.add(new FileStoreClient(client));
     }
