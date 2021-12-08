@@ -144,7 +144,11 @@ class VoteContext {
     }
 
     // Check priority
-    final int priority = impl.getRaftConf().getPeer(impl.getId()).getPriority();
+    final RaftPeer peer = conf.getPeer(impl.getId());
+    if (peer == null) {
+      return reject("our server " + impl.getId() + " is not in the conf " + conf);
+    }
+    final int priority = peer.getPriority();
     if (priority <= candidate.getPriority()) {
       return log(true, "our priority " + priority + " <= candidate's priority " + candidate.getPriority());
     } else {
