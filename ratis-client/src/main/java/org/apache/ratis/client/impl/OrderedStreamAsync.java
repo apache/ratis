@@ -142,6 +142,9 @@ public class OrderedStreamAsync {
         return;
       }
       f.complete(reply);
+    }).exceptionally(e -> {
+      f.completeExceptionally(e);
+      return null;
     });
   }
 }
