@@ -323,16 +323,20 @@ public class DataStreamManagement {
     ctx.writeAndFlush(builder.build());
   }
 
-  private CompletableFuture<Void> startTransaction(StreamInfo info, DataStreamRequestByteBuf request, long bytesWritten,
-      ChannelHandlerContext ctx) {
+  private CompletableFuture<RaftClientReply> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
+      long bytesWritten, ChannelHandlerContext ctx) {
     try {
       AsyncRpcApi asyncRpcApi = (AsyncRpcApi) (server.getDivision(info.getRequest()
           .getRaftGroupId())
           .getRaftClient()
           .async());
-      return asyncRpcApi.sendForward(info.request).thenAcceptAsync(
-          reply -> ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply, bytesWritten, info.getCommitInfos())),
-          requestExecutor);
+      return asyncRpcApi.sendForward(info.request).whenCompleteAsync((reply, e) -> {
+        if (e != null) {
+          replyDataStreamException(server, e, info.getRequest(), request, ctx);
+        } else {
+          ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply, bytesWritten, info.getCommitInfos()));
+        }
+      }, requestExecutor);
     } catch (IOException e) {
       throw new CompletionException(e);
     }
