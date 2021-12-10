@@ -367,7 +367,7 @@ public interface RaftServerConfigKeys {
         return getTimeDuration(properties.getTimeDuration(READ_TIMEOUT_DEFAULT.getUnit()),
             READ_TIMEOUT_KEY, READ_TIMEOUT_DEFAULT, getDefaultLog());
       }
-      static void setTimeout(RaftProperties properties, TimeDuration readTimeout) {
+      static void setReadTimeout(RaftProperties properties, TimeDuration readTimeout) {
         setTimeDuration(properties::setTimeDuration, READ_TIMEOUT_KEY, readTimeout);
       }
     }
