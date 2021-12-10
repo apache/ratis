@@ -92,7 +92,7 @@ class SegmentedRaftLogWorker {
         } catch(TimeoutIOException e) {
           LOG.warn("Timeout " + retry + (syncTimeoutRetry == -1? "/~": "/" + syncTimeoutRetry), e);
           lastException = e;
-          metrics.onStateMachineWriteTimeout();
+          metrics.onStateMachineDataWriteTimeout();
         }
       }
       Objects.requireNonNull(lastException, "lastException == null");

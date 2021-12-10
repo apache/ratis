@@ -360,6 +360,16 @@ public interface RaftServerConfigKeys {
       static void setSyncTimeoutRetry(RaftProperties properties, int syncTimeoutRetry) {
         setInt(properties::setInt, SYNC_TIMEOUT_RETRY_KEY, syncTimeoutRetry, requireMin(-1));
       }
+
+      String READ_TIMEOUT_KEY = PREFIX + ".read.timeout";
+      TimeDuration READ_TIMEOUT_DEFAULT = TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS);
+      static TimeDuration readTimeout(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(READ_TIMEOUT_DEFAULT.getUnit()),
+            READ_TIMEOUT_KEY, READ_TIMEOUT_DEFAULT, getDefaultLog());
+      }
+      static void setTimeout(RaftProperties properties, TimeDuration readTimeout) {
+        setTimeDuration(properties::setTimeDuration, READ_TIMEOUT_KEY, readTimeout);
+      }
     }
 
     interface Appender {
@@ -405,17 +415,6 @@ public interface RaftServerConfigKeys {
       static void setInstallSnapshotEnabled(RaftProperties properties, boolean shouldInstallSnapshot) {
         setBoolean(properties::setBoolean, INSTALL_SNAPSHOT_ENABLED_KEY, shouldInstallSnapshot);
       }
-
-      String READ_STATEMACHINE_DATA_TIMEOUT_KEY = PREFIX + ".read.statemachine.data.timeout";
-      TimeDuration READ_STATEMACHINE_DATA_TIMEOUT_DEFAULT = TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS);
-      static TimeDuration readStatemachineDataTimeout(RaftProperties properties) {
-        return getTimeDuration(properties.getTimeDuration(READ_STATEMACHINE_DATA_TIMEOUT_DEFAULT.getUnit()),
-            READ_STATEMACHINE_DATA_TIMEOUT_KEY, READ_STATEMACHINE_DATA_TIMEOUT_DEFAULT, getDefaultLog());
-      }
-      static void setReadStatemachineDataTimeout(RaftProperties properties, TimeDuration readStatemachineTimeout) {
-        setTimeDuration(properties::setTimeDuration, READ_STATEMACHINE_DATA_TIMEOUT_KEY, readStatemachineTimeout);
-      }
-
     }
   }
 

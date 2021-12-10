@@ -67,10 +67,10 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   /** Number of entries appended to the raft log */
   public static final String RAFT_LOG_APPEND_ENTRY_COUNT = "appendEntryCount";
   public static final String RAFT_LOG_PURGE_METRIC = "purgeLog";
-  /** Time taken for a Raft log operation to complete write execution. */
-  public static final String RAFT_LOG_WRITE_STATEMACHINE_TIMEOUT_COUNT = "numStateMachineWriteTimeout";
-  /** Time taken for a Raft log operation to complete read execution. */
-  public static final String RAFT_LOG_READ_STATEMACHINE_TIMEOUT_COUNT = "numStateMachineReadTimeout";
+  /** Time taken for a Raft log operation to complete write state machine data. */
+  public static final String RAFT_LOG_STATEMACHINE_DATA_WRITE_TIMEOUT_COUNT = "numStateMachineDataWriteTimeout";
+  /** Time taken for a Raft log operation to complete read state machine data. */
+  public static final String RAFT_LOG_STATEMACHINE_DATA_READ_TIMEOUT_COUNT = "numStateMachineDataReadTimeout";
 
   //////////////////////////////
   // Raft Log Read Path Metrics
@@ -170,12 +170,12 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     return getTimer(RAFT_LOG_PURGE_METRIC);
   }
 
-  public void onStateMachineWriteTimeout() {
-    registry.counter(RAFT_LOG_WRITE_STATEMACHINE_TIMEOUT_COUNT).inc();
+  public void onStateMachineDataWriteTimeout() {
+    registry.counter(RAFT_LOG_STATEMACHINE_DATA_WRITE_TIMEOUT_COUNT).inc();
   }
 
   @Override
-  public void onStateMachineReadTimeout() {
-    registry.counter(RAFT_LOG_READ_STATEMACHINE_TIMEOUT_COUNT).inc();
+  public void onStateMachineDataReadTimeout() {
+    registry.counter(RAFT_LOG_STATEMACHINE_DATA_READ_TIMEOUT_COUNT).inc();
   }
 }
