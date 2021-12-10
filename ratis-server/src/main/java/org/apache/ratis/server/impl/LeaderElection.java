@@ -51,7 +51,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -106,7 +105,7 @@ class LeaderElection implements Runnable {
     ELECTION
   }
 
-  enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN}
+  enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN, NOT_IN_CONF}
 
   private static class ResultAndTerm {
     private final Result result;
@@ -273,12 +272,11 @@ class LeaderElection implements Runnable {
 
   private ResultAndTerm submitRequestAndWaitResult(Phase phase, RaftConfigurationImpl conf, long electionTerm)
       throws InterruptedException {
+    if (!conf.containsInConf(server.getId()) && phase == Phase.ELECTION) {
+      return new ResultAndTerm(Result.NOT_IN_CONF, electionTerm);
+    }
     final ResultAndTerm r;
     final Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
-    if (!conf.containsInBothConfs(server.getId())) {
-      r = new ResultAndTerm(Result.REJECTED, electionTerm);
-      return r;
-    }
     if (others.isEmpty()) {
       r = new ResultAndTerm(Result.PASSED, electionTerm);
     } else {
@@ -328,6 +326,7 @@ class LeaderElection implements Runnable {
             continue; // should retry
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:
+          case NOT_IN_CONF:
             final long term = r.maxTerm(server.getState().getCurrentTerm());
             server.changeToFollowerAndPersistMetadata(term, r);
             return false;

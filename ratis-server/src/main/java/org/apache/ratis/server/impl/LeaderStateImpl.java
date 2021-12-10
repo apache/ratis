@@ -914,11 +914,10 @@ class LeaderStateImpl implements LeaderState {
     final RaftConfigurationImpl conf = server.getRaftConf();
     final RaftPeer leader = conf.getPeer(server.getId());
     if (leader == null) {
-      LOG.error("{} find leader {} not in the conf {}",
-          this, server.getId(), conf);
+      LOG.error("{} the leader {} is not in the conf {}", this, server.getId(), conf);
       return;
     }
-    int leaderPriority = conf.getPeer(server.getId()).getPriority();
+    int leaderPriority = leader.getPriority();
 
     for (LogAppender logAppender : senders.getSenders()) {
       FollowerInfo followerInfo = logAppender.getFollower();
