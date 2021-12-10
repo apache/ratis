@@ -75,6 +75,7 @@ public abstract class RaftLogBase implements RaftLog {
   private final Runner runner = new Runner(this::getName);
   private final OpenCloseState state;
   private final LongSupplier getSnapshotIndexFromStateMachine;
+  private final TimeDuration stateMachineDataReadTimeout;
 
   private volatile LogEntryProto lastMetadataEntry = null;
 
@@ -91,6 +92,7 @@ public abstract class RaftLogBase implements RaftLog {
     this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
     this.state = new OpenCloseState(getName());
     this.getSnapshotIndexFromStateMachine = getSnapshotIndexFromStateMachine;
+    this.stateMachineDataReadTimeout = RaftServerConfigKeys.Log.StateMachineData.readTimeout(properties);
   }
 
   @Override
@@ -392,8 +394,9 @@ public abstract class RaftLogBase implements RaftLog {
         entryProto = future.thenApply(data -> LogProtoUtils.addStateMachineData(data, logEntry))
             .get(timeout.getDuration(), timeout.getUnit());
       } catch (TimeoutException t) {
-        final String err = getName() + ": Timeout readStateMachineData for " + toLogEntryString(logEntry);
-        LOG.error(err, t);
+        if (timeout.compareTo(stateMachineDataReadTimeout) > 0) {
+          getRaftLogMetrics().onStateMachineDataReadTimeout();
+        }
         throw t;
       } catch (Exception e) {
         final String err = getName() + ": Failed readStateMachineData for " + toLogEntryString(logEntry);
