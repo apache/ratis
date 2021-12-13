@@ -225,10 +225,6 @@
 
     <!--metrics-->
     <dropwizard.version>3.2.5</dropwizard.version>
-
-    <!-- LOG4J version -->
-    <log4j.version>1.2.17</log4j.version>
-
   </properties>
 
   <dependencyManagement>
@@ -431,11 +427,6 @@
         <artifactId>slf4j-log4j12</artifactId>
         <scope>test</scope>
         <version>1.7.29</version>
-      </dependency>
-      <dependency>
-        <groupId>log4j</groupId>
-        <artifactId>log4j</artifactId>
-        <version>${log4j.version}</version>
       </dependency>
 
       <dependency>
