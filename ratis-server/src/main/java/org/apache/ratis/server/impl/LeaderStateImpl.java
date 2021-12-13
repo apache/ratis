@@ -920,13 +920,17 @@ class LeaderStateImpl implements LeaderState {
     int leaderPriority = leader.getPriority();
 
     for (LogAppender logAppender : senders.getSenders()) {
-      FollowerInfo followerInfo = logAppender.getFollower();
-      final RaftPeer follower = followerInfo.getPeer();
+      final FollowerInfo followerInfo = logAppender.getFollower();
+      final RaftPeerId followerID = followerInfo.getPeer().getId();
+      final RaftPeer follower = conf.getPeer(followerID);
+      if (follower == null) {
+        LOG.error("{} the follower {} is not in the conf {}", this, server.getId(), conf);
+        continue;
+      }
       final int followerPriority = follower.getPriority();
       if (followerPriority <= leaderPriority) {
         continue;
       }
-      final RaftPeerId followerID = follower.getId();
       final TermIndex leaderLastEntry = server.getState().getLastEntry();
       if (leaderLastEntry == null) {
         LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} " +
