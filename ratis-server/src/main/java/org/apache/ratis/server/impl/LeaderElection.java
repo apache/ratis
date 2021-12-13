@@ -272,7 +272,7 @@ class LeaderElection implements Runnable {
 
   private ResultAndTerm submitRequestAndWaitResult(Phase phase, RaftConfigurationImpl conf, long electionTerm)
       throws InterruptedException {
-    if (!conf.containsInConf(server.getId()) && phase == Phase.ELECTION) {
+    if (!conf.containsInConf(server.getId())) {
       return new ResultAndTerm(Result.NOT_IN_CONF, electionTerm);
     }
     final ResultAndTerm r;
