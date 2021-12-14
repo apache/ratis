@@ -103,6 +103,16 @@ public interface RaftClientConfigKeys {
     static void setOutstandingRequestsMax(RaftProperties properties, int outstandingRequests) {
       setInt(properties::setInt, OUTSTANDING_REQUESTS_MAX_KEY, outstandingRequests);
     }
+
+    String REQUEST_TIMEOUT_KEY = PREFIX + ".request.timeout";
+    TimeDuration REQUEST_TIMEOUT_DEFAULT = TimeDuration.valueOf(3000, TimeUnit.MILLISECONDS);
+    static TimeDuration requestTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(REQUEST_TIMEOUT_DEFAULT.getUnit()),
+          REQUEST_TIMEOUT_KEY, REQUEST_TIMEOUT_DEFAULT, getDefaultLog());
+    }
+    static void setRequestTimeout(RaftProperties properties, TimeDuration timeoutDuration) {
+      setTimeDuration(properties::setTimeDuration, REQUEST_TIMEOUT_KEY, timeoutDuration);
+    }
   }
 
   interface MessageStream {
