@@ -319,6 +319,7 @@ class LeaderElection implements Runnable {
         switch (r.getResult()) {
           case PASSED:
             return true;
+          case NOT_IN_CONF:
           case SHUTDOWN:
             server.getRaftServer().close();
             return false;
@@ -326,7 +327,6 @@ class LeaderElection implements Runnable {
             continue; // should retry
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:
-          case NOT_IN_CONF:
             final long term = r.maxTerm(server.getState().getCurrentTerm());
             server.changeToFollowerAndPersistMetadata(term, r);
             return false;
