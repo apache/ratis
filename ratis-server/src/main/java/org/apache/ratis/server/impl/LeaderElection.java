@@ -43,6 +43,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
@@ -50,8 +51,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
@@ -104,7 +105,7 @@ class LeaderElection implements Runnable {
     ELECTION
   }
 
-  enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN}
+  enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN, NOT_IN_CONF}
 
   private static class ResultAndTerm {
     private final Result result;
@@ -271,6 +272,9 @@ class LeaderElection implements Runnable {
 
   private ResultAndTerm submitRequestAndWaitResult(Phase phase, RaftConfigurationImpl conf, long electionTerm)
       throws InterruptedException {
+    if (!conf.containsInConf(server.getId())) {
+      return new ResultAndTerm(Result.NOT_IN_CONF, electionTerm);
+    }
     final ResultAndTerm r;
     final Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
     if (others.isEmpty()) {
@@ -315,6 +319,7 @@ class LeaderElection implements Runnable {
         switch (r.getResult()) {
           case PASSED:
             return true;
+          case NOT_IN_CONF:
           case SHUTDOWN:
             server.getRaftServer().close();
             return false;
@@ -345,18 +350,12 @@ class LeaderElection implements Runnable {
   }
 
   private Set<RaftPeerId> getHigherPriorityPeers(RaftConfiguration conf) {
-    Set<RaftPeerId> higherPriorityPeers = new HashSet<>();
-
-    int currPriority = conf.getPeer(server.getId()).getPriority();
-    final Collection<RaftPeer> peers = conf.getAllPeers();
-
-    for (RaftPeer peer : peers) {
-      if (peer.getPriority() > currPriority) {
-        higherPriorityPeers.add(peer.getId());
-      }
-    }
-
-    return higherPriorityPeers;
+    final Optional<Integer> priority = Optional.ofNullable(conf.getPeer(server.getId()))
+        .map(RaftPeer::getPriority);
+    return conf.getAllPeers().stream()
+        .filter(peer -> priority.filter(p -> peer.getPriority() > p).isPresent())
+        .map(RaftPeer::getId)
+        .collect(Collectors.toSet());
   }
 
   private ResultAndTerm waitForResults(Phase phase, long electionTerm, int submitted,
