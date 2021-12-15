@@ -53,7 +53,7 @@ public class GroupListCommand extends AbstractRatisCommand {
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
     RaftPeerId peerId;
-    String strAddr = null;
+    String strAddr;
     if(cl.hasOption(SERVER_ADDRESS_OPTION_NAME)) {
       strAddr = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
       final InetSocketAddress serverAddress = parseInetSocketAddress(strAddr);
