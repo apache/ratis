@@ -457,6 +457,18 @@ public interface RaftServerConfigKeys {
   interface DataStream {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".data-stream";
 
+    String USE_CACHED_THREAD_POOL = PREFIX + ".use.cached.thread.pool";
+    boolean USE_CACHED_THREAD_POOL_DEFAULT = false;
+
+    static boolean useCachedThreadPool(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, USE_CACHED_THREAD_POOL,
+          USE_CACHED_THREAD_POOL_DEFAULT, getDefaultLog());
+    }
+
+    static void setUseCachedThreadPool(RaftProperties properties, boolean useCached) {
+      setBoolean(properties::setBoolean, USE_CACHED_THREAD_POOL, useCached);
+    }
+
     String ASYNC_REQUEST_THREAD_POOL_SIZE_KEY = PREFIX + ".async.request.thread.pool.size";
     int ASYNC_REQUEST_THREAD_POOL_SIZE_DEFAULT = 32;
 
