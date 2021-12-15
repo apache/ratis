@@ -59,7 +59,7 @@ public class GroupListCommand extends AbstractRatisCommand {
     if (cl.hasOption(PEER_ID_OPTION_NAME)) {
       peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
       address = getRaftGroup().getPeer(peerId).getAddress();
-    } else if(cl.hasOption(SERVER_ADDRESS_OPTION_NAME)) {
+    } else if (cl.hasOption(SERVER_ADDRESS_OPTION_NAME)) {
       address = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
       final InetSocketAddress serverAddress = parseInetSocketAddress(address);
       peerId = RaftUtils.getPeerId(serverAddress);
