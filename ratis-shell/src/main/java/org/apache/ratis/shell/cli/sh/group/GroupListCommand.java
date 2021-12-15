@@ -19,6 +19,7 @@ package org.apache.ratis.shell.cli.sh.group;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.GroupListReply;
@@ -52,8 +53,8 @@ public class GroupListCommand extends AbstractRatisCommand {
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
-    RaftPeerId peerId;
-    String strAddr;
+    RaftPeerId peerId = null;
+    String strAddr = null;
     if(cl.hasOption(SERVER_ADDRESS_OPTION_NAME)) {
       strAddr = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
       final InetSocketAddress serverAddress = parseInetSocketAddress(strAddr);
@@ -61,16 +62,14 @@ public class GroupListCommand extends AbstractRatisCommand {
     } else if (cl.hasOption(PEER_ID_OPTION_NAME)) {
       peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
       strAddr = getRaftGroup().getPeer(peerId).getAddress();
-    } else {
-      System.out.println("Usage: " + getUsage());
-      return -1;
     }
 
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
       GroupListReply reply = raftClient.getGroupManagementApi(peerId).list();
       String finalStrAddr = strAddr;
+      RaftPeerId finalPeerId = peerId;
       processReply(reply, () -> String.format("Failed to get group information of peerId %s (server %s)",
-              peerId, finalStrAddr));
+              finalPeerId, finalStrAddr));
       printf(String.format("The peerId %s (server %s) is in %d groups, and the groupIds is: %s",
               peerId, strAddr, reply.getGroupIds().size(), reply.getGroupIds()));
     }
@@ -95,19 +94,11 @@ public class GroupListCommand extends AbstractRatisCommand {
 
   @Override
   public Options getOptions() {
-    Option serverOption = Option.builder()
-            .option(SERVER_ADDRESS_OPTION_NAME)
-            .hasArg()
-            .desc("the server address")
-            .build();
-    Option peerIdOption = Option.builder()
-            .option(PEER_ID_OPTION_NAME)
-            .hasArg()
-            .desc("the peer id")
-            .build();
-    return super.getOptions()
-            .addOption(serverOption)
-            .addOption(peerIdOption);
+    OptionGroup group = new OptionGroup();
+    group.setRequired(true);
+    group.addOption(new Option(null, SERVER_ADDRESS_OPTION_NAME, true, "the server address"));
+    group.addOption(new Option(null, PEER_ID_OPTION_NAME, true, "the peer id"));
+    return super.getOptions().addOptionGroup(group);
   }
 
   /**
