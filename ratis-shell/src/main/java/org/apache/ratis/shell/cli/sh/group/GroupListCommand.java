@@ -55,16 +55,18 @@ public class GroupListCommand extends AbstractRatisCommand {
     super.run(cl);
     final RaftPeerId peerId;
     final String address;
-    if(cl.hasOption(SERVER_ADDRESS_OPTION_NAME)) {
+
+    if (cl.hasOption(PEER_ID_OPTION_NAME)) {
+      peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
+      address = getRaftGroup().getPeer(peerId).getAddress();
+    } else if(cl.hasOption(SERVER_ADDRESS_OPTION_NAME)) {
       address = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
       final InetSocketAddress serverAddress = parseInetSocketAddress(address);
       peerId = RaftUtils.getPeerId(serverAddress);
-    } else if (cl.hasOption(PEER_ID_OPTION_NAME)) {
-      peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
-      address = getRaftGroup().getPeer(peerId).getAddress();
-    }  else {
+    } else {
       throw new IllegalArgumentException(
-          "Both " + PEER_ID_OPTION_NAME + " and " + SERVER_ADDRESS_OPTION_NAME + " options are missing.");
+              "Both " + PEER_ID_OPTION_NAME + " and " + SERVER_ADDRESS_OPTION_NAME
+              + " options are missing.");
     }
 
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
