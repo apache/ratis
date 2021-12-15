@@ -28,6 +28,7 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
+import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SlidingWindow;
@@ -36,7 +37,6 @@ import org.apache.ratis.util.TimeoutScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
@@ -95,6 +95,11 @@ public class OrderedStreamAsync {
     public CompletableFuture<DataStreamReply> getReplyFuture(){
       return replyFuture;
     }
+
+    @Override
+    public String toString() {
+      return JavaUtils.getClassSimpleName(getClass()) + ":seqNum=" + seqNum + "," + header;
+    }
   }
 
   private final DataStreamClientRpc dataStreamClientRpc;
@@ -140,7 +145,7 @@ public class OrderedStreamAsync {
         request.getDataStreamRequest());
     long seqNum = request.getSeqNum();
 
-    scheduleWithTimeout(request, requestTimeout);
+    scheduleWithTimeout(request);
 
     requestFuture.thenApply(reply -> {
       slidingWindow.receiveReply(
@@ -157,12 +162,12 @@ public class OrderedStreamAsync {
     });
   }
 
-  private void scheduleWithTimeout(DataStreamWindowRequest request, TimeDuration sleepTime) {
-    scheduler.onTimeout(sleepTime, () -> {
+  private void scheduleWithTimeout(DataStreamWindowRequest request) {
+    scheduler.onTimeout(requestTimeout, () -> {
       if (!request.getReplyFuture().isDone()) {
         request.getReplyFuture().completeExceptionally(
-            new IOException("Send request timeout " + request));
+            new TimeoutIOException("Timeout " + requestTimeout + ": Failed to send " + request));
       }
-    }, LOG, () -> "Send request timeout " + request);
+    }, LOG, () -> "Failed to completeExceptionally for " + request);
   }
 }
