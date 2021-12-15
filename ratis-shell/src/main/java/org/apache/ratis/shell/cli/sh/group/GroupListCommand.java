@@ -53,25 +53,26 @@ public class GroupListCommand extends AbstractRatisCommand {
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
-    RaftPeerId peerId = null;
-    String strAddr = null;
+    final RaftPeerId peerId;
+    final String address;
     if(cl.hasOption(SERVER_ADDRESS_OPTION_NAME)) {
-      strAddr = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
-      final InetSocketAddress serverAddress = parseInetSocketAddress(strAddr);
+      address = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
+      final InetSocketAddress serverAddress = parseInetSocketAddress(address);
       peerId = RaftUtils.getPeerId(serverAddress);
     } else if (cl.hasOption(PEER_ID_OPTION_NAME)) {
       peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
-      strAddr = getRaftGroup().getPeer(peerId).getAddress();
+      address = getRaftGroup().getPeer(peerId).getAddress();
+    }  else {
+      throw new IllegalArgumentException(
+          "Both " + PEER_ID_OPTION_NAME + " and " + SERVER_ADDRESS_OPTION_NAME + " options are missing.");
     }
 
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
       GroupListReply reply = raftClient.getGroupManagementApi(peerId).list();
-      String finalStrAddr = strAddr;
-      RaftPeerId finalPeerId = peerId;
       processReply(reply, () -> String.format("Failed to get group information of peerId %s (server %s)",
-              finalPeerId, finalStrAddr));
+              peerId, address));
       printf(String.format("The peerId %s (server %s) is in %d groups, and the groupIds is: %s",
-              peerId, strAddr, reply.getGroupIds().size(), reply.getGroupIds()));
+              peerId, address, reply.getGroupIds().size(), reply.getGroupIds()));
     }
     return 0;
 
