@@ -47,7 +47,7 @@ import java.util.regex.Matcher;
  */
 public class TestRaftStorage extends BaseTest {
   static RaftStorageImpl newRaftStorage(File dir) throws IOException {
-    return new RaftStorageImpl(dir, null, 0);
+    return new RaftStorageImpl(dir, null);
   }
 
   private File storageDir;
