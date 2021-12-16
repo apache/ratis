@@ -213,14 +213,13 @@ public class DataStreamManagement {
   private final StreamMap streams = new StreamMap();
   private final Executor requestExecutor;
   private final Executor writeExecutor;
-  private final Boolean useCachedThreadPool;
 
   DataStreamManagement(RaftServer server) {
     this.server = server;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
     final RaftProperties properties = server.getProperties();
-    this.useCachedThreadPool = RaftServerConfigKeys.DataStream.useCachedThreadPool(properties);
+    Boolean useCachedThreadPool = RaftServerConfigKeys.DataStream.useCachedThreadPool(properties);
     if(useCachedThreadPool) {
       this.requestExecutor = ConcurrentUtils.newCachedThreadPool(
           RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties),
