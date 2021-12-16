@@ -19,6 +19,7 @@ package org.apache.ratis.shell.cli.sh.group;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.GroupListReply;
@@ -35,6 +36,7 @@ import java.net.InetSocketAddress;
  */
 public class GroupListCommand extends AbstractRatisCommand {
   public static final String SERVER_ADDRESS_OPTION_NAME = "serverAddress";
+  public static final String PEER_ID_OPTION_NAME = "peerId";
 
   /**
    * @param context command context
@@ -51,15 +53,28 @@ public class GroupListCommand extends AbstractRatisCommand {
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
-    String strAddr = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
-    final InetSocketAddress serverAddress = parseInetSocketAddress(strAddr);
-    final RaftPeerId peerId = RaftUtils.getPeerId(serverAddress);
+    final RaftPeerId peerId;
+    final String address;
+
+    if (cl.hasOption(PEER_ID_OPTION_NAME)) {
+      peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
+      address = getRaftGroup().getPeer(peerId).getAddress();
+    } else if (cl.hasOption(SERVER_ADDRESS_OPTION_NAME)) {
+      address = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
+      final InetSocketAddress serverAddress = parseInetSocketAddress(address);
+      peerId = RaftUtils.getPeerId(serverAddress);
+    } else {
+      throw new IllegalArgumentException(
+              "Both " + PEER_ID_OPTION_NAME + " and " + SERVER_ADDRESS_OPTION_NAME
+              + " options are missing.");
+    }
 
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
       GroupListReply reply = raftClient.getGroupManagementApi(peerId).list();
-      processReply(reply, () -> String.format("Failed to get group information of server %s", strAddr));
-      printf(String.format("The server %s is in %d groups, and the groupIds is: %s",
-              strAddr, reply.getGroupIds().size(), reply.getGroupIds()));
+      processReply(reply, () -> String.format("Failed to get group information of peerId %s (server %s)",
+              peerId, address));
+      printf(String.format("The peerId %s (server %s) is in %d groups, and the groupIds is: %s",
+              peerId, address, reply.getGroupIds().size(), reply.getGroupIds()));
     }
     return 0;
 
@@ -70,8 +85,9 @@ public class GroupListCommand extends AbstractRatisCommand {
     return String.format("%s"
                     + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
                     + " [-%s <RAFT_GROUP_ID>]"
-                    + "-%s <PEER0_HOST:PEER0_PORT>",
-            getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, SERVER_ADDRESS_OPTION_NAME);
+                    + " <[-%s <PEER0_HOST:PEER0_PORT>]|[-%s <peerId>]>",
+            getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, SERVER_ADDRESS_OPTION_NAME,
+            PEER_ID_OPTION_NAME);
   }
 
   @Override
@@ -81,13 +97,11 @@ public class GroupListCommand extends AbstractRatisCommand {
 
   @Override
   public Options getOptions() {
-    return super.getOptions()
-            .addOption(Option.builder()
-                    .option(SERVER_ADDRESS_OPTION_NAME)
-                    .hasArg()
-                    .required()
-                    .desc("the server address")
-                    .build());
+    OptionGroup group = new OptionGroup();
+    group.setRequired(true);
+    group.addOption(new Option(null, SERVER_ADDRESS_OPTION_NAME, true, "the server address"));
+    group.addOption(new Option(null, PEER_ID_OPTION_NAME, true, "the peer id"));
+    return super.getOptions().addOptionGroup(group);
   }
 
   /**
