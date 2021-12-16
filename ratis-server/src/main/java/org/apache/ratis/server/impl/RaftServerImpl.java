@@ -988,14 +988,14 @@ class RaftServerImpl implements RaftServer.Division,
       // check snapshot install/load
       if (installSnapshot != 0) {
         String msg = String.format("{}: Failed do snapshot as snapshot ({}) installation is in progress",
-              getMemberId(), installSnapshot);
+            getMemberId(), installSnapshot);
         LOG.warn(msg);
         return CompletableFuture.completedFuture(newExceptionReply(request,new RaftException(msg)));
       }
       //TODO(liuyaolong): make the min gap configurable, or get the gap value from shell command
       if (state.getLastAppliedIndex() - lastSnapshotIndex < minGapValue) {
         String msg = String.format("{}: Failed do snapshot as the gap between the applied index and last"
-              + " snapshot index is less than {}", getMemberId(), minGapValue);
+            + " snapshot index is less than {}", getMemberId(), minGapValue);
         LOG.warn(msg);
         return CompletableFuture.completedFuture(newExceptionReply(request,new RaftException(msg)));
       }
