@@ -82,6 +82,7 @@ class StateMachineUpdater implements Runnable {
   private volatile State state = State.RUNNING;
   private SnapshotRetentionPolicy snapshotRetentionPolicy;
   private StateMachineMetrics stateMachineMetrics = null;
+  private boolean takeSnapshot;
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
       ServerState serverState, long lastAppliedIndex, RaftProperties properties) {
@@ -108,6 +109,7 @@ class StateMachineUpdater implements Runnable {
     this.purgeUptoSnapshotIndex = RaftServerConfigKeys.Log.purgeUptoSnapshotIndex(properties);
 
     updater = new Daemon(this);
+    this.takeSnapshot = false;
   }
 
   void start() {
@@ -253,7 +255,6 @@ class StateMachineUpdater implements Runnable {
       if (futures.isInitialized()) {
         JavaUtils.allOf(futures.get()).get();
       }
-
       takeSnapshot();
     }
   }
@@ -264,6 +265,7 @@ class StateMachineUpdater implements Runnable {
       Timer.Context takeSnapshotTimerContext = stateMachineMetrics.getTakeSnapshotTimer().time();
       i = stateMachine.takeSnapshot();
       takeSnapshotTimerContext.stop();
+      disableSnapshot();
 
       final long lastAppliedIndex = getLastAppliedIndex();
       if (i > lastAppliedIndex) {
@@ -273,6 +275,7 @@ class StateMachineUpdater implements Runnable {
       }
       stateMachine.getStateMachineStorage().cleanupOldSnapshots(snapshotRetentionPolicy);
     } catch (IOException e) {
+      disableSnapshot();
       LOG.error(name + ": Failed to take snapshot", e);
       return;
     }
@@ -292,6 +295,7 @@ class StateMachineUpdater implements Runnable {
         purgeIndex = LongStream.concat(LongStream.of(i), commitIndexStream).min().orElse(i);
       }
       raftLog.purge(purgeIndex);
+      server.setFinishSnapshot(true);
     }
   }
 
@@ -305,7 +309,23 @@ class StateMachineUpdater implements Runnable {
     } else if (shouldStop()) {
       return getLastAppliedIndex() - snapshotIndex.get() > 0;
     }
-    return state == State.RUNNING && getLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold;
+    return state == State.RUNNING
+        && (takeSnapshot || getLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold);
+  }
+
+  public void enableSnapshot() {
+    if(!takeSnapshot) {
+      takeSnapshot = true;
+      if(shouldTakeSnapshot()) {
+        takeSnapshot();
+      }
+    }
+  }
+
+  public void disableSnapshot() {
+    if (takeSnapshot) {
+      takeSnapshot = false;
+    }
   }
 
   private long getLastAppliedIndex() {

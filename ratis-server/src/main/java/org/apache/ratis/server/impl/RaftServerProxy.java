@@ -530,6 +530,11 @@ class RaftServerProxy implements RaftServer {
         server -> server.getGroupInfo(request));
   }
 
+  @Override
+  public CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotRequest request) {
+    return submitRequest(request.getRaftGroupId(), impl -> impl.takeSnapshotAsync(request));
+  }
+
   /**
    * Handle a raft configuration change request from client.
    */

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,23 +17,14 @@
  */
 package org.apache.ratis.protocol;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
+public final class SnapshotRequest extends RaftClientRequest {
 
-/** Asynchronous version of {@link AdminProtocol}. */
-public interface AdminAsynchronousProtocol {
-  CompletableFuture<GroupListReply> getGroupListAsync(GroupListRequest request);
+  public SnapshotRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,long callId) {
+    super(clientId, serverId, groupId, callId, true, writeRequestType());
+  }
 
-  CompletableFuture<GroupInfoReply> getGroupInfoAsync(GroupInfoRequest request);
-
-  CompletableFuture<RaftClientReply> groupManagementAsync(GroupManagementRequest request);
-
-  CompletableFuture<RaftClientReply> setConfigurationAsync(
-      SetConfigurationRequest request) throws IOException;
-
-  CompletableFuture<RaftClientReply> transferLeadershipAsync(
-      TransferLeadershipRequest request) throws IOException;
-
-  CompletableFuture<RaftClientReply> takeSnapshotAsync(
-        SnapshotRequest request) throws IOException;
+  @Override
+  public String toString() {
+    return super.toString();
+  }
 }
