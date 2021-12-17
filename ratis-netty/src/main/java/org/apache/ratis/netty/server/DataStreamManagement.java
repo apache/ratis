@@ -219,7 +219,7 @@ public class DataStreamManagement {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
     final RaftProperties properties = server.getProperties();
-    Boolean useCachedThreadPool = RaftServerConfigKeys.DataStream.useCachedThreadPool(properties);
+    Boolean useCachedThreadPool = RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties);
     if(useCachedThreadPool) {
       this.requestExecutor = ConcurrentUtils.newCachedThreadPool(
           RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties),

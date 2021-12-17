@@ -460,12 +460,12 @@ public interface RaftServerConfigKeys {
     String ASYNC_REQUEST_THREAD_POOL_CACHED_KEY = PREFIX + ".async.request.thread.pool.cached";
     boolean ASYNC_REQUEST_THREAD_POOL_CACHED_DEFAULT = false;
 
-    static boolean useCachedThreadPool(RaftProperties properties) {
+    static boolean asyncRequestThreadPoolCached(RaftProperties properties) {
       return getBoolean(properties::getBoolean, ASYNC_REQUEST_THREAD_POOL_CACHED_KEY,
           ASYNC_REQUEST_THREAD_POOL_CACHED_DEFAULT, getDefaultLog());
     }
 
-    static void setUseCachedThreadPool(RaftProperties properties, boolean useCached) {
+    static void setAsyncRequestThreadPoolCached(RaftProperties properties, boolean useCached) {
       setBoolean(properties::setBoolean, ASYNC_REQUEST_THREAD_POOL_CACHED_KEY, useCached);
     }
 
