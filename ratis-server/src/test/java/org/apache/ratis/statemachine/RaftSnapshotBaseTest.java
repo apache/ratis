@@ -25,7 +25,6 @@ import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRI
 
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.protocol.SnapshotRequest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -113,7 +112,9 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
   private MiniRaftCluster cluster;
 
-  public abstract MiniRaftCluster.Factory<?> getFactory();
+  public MiniRaftCluster.Factory<?> getFactory() {
+    return null;
+  }
 
   @Before
   public void setup() throws IOException {
@@ -130,37 +131,6 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   @After
   public void tearDown() {
     if (cluster != null) {
-      cluster.shutdown();
-    }
-  }
-
-  @Test
-  public void testTakeSnapshot() throws Exception {
-    int i = 0;
-    try {
-      RaftTestUtil.waitForLeader(cluster);
-      final RaftPeerId leaderId = cluster.getLeader().getId();
-      try(final RaftClient client = cluster.createClient(leaderId)) {
-        //todo(yaolong liu) : make 5 to be a configurable value
-        for (; i < 5; i++) {
-          RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
-        }
-        RaftServer server = cluster.getServer(leaderId);
-        server.takeSnapshotAsync(new SnapshotRequest(client.getId(),leaderId,cluster.getGroupId(),0));
-      }
-
-      // wait for the snapshot to be done
-      long nextIndex = cluster.getLeader().getRaftLog().getNextIndex();
-      LOG.info("nextIndex = {}", nextIndex);
-      Timer timer = getTakeSnapshotTimer(cluster.getLeader());
-      final List<File> snapshotFiles = getSnapshotFiles(cluster, 0, nextIndex);
-      JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
-        return null;
-      }, 100, ONE_SECOND, "snapshotFile.exist", LOG);
-      verifyTakeSnapshotMetric(cluster.getLeader());
-    } finally {
       cluster.shutdown();
     }
   }

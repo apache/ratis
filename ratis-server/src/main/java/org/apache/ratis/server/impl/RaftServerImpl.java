@@ -180,7 +180,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicBoolean startComplete;
 
   private final TransferLeadership transferLeadership;
-  private final Snapshot snapshot;
+  private final SnapshotRequestHandler snapshotRequestHandler;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -222,7 +222,7 @@ class RaftServerImpl implements RaftServer.Division,
     });
 
     this.transferLeadership = new TransferLeadership(this);
-    this.snapshot = new Snapshot(this);
+    this.snapshotRequestHandler = new SnapshotRequestHandler(this);
   }
 
   @Override
@@ -616,6 +616,13 @@ class RaftServerImpl implements RaftServer.Division,
         .build();
   }
 
+  RaftClientReply newSuccessReply(RaftClientRequest request, long logIndex) {
+    return newReplyBuilder(request)
+        .setSuccess()
+        .setLogIndex(logIndex)
+        .build();
+  }
+
   RaftClientReply newExceptionReply(RaftClientRequest request, RaftException exception) {
     return newReplyBuilder(request)
         .setException(exception)
@@ -972,45 +979,43 @@ class RaftServerImpl implements RaftServer.Division,
     return waitForReply(request, takeSnapshotAsync(request));
   }
 
-  public CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotRequest request) throws IOException {
-    LOG.info("{}: receive snapshot", getMemberId());
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    assertGroup(request.getRequestorId(), request.getRaftGroupId());
-    SnapshotInfo latest = stateMachine.getLatestSnapshot();
-    long lastSnapshotIndex = -1;
-    if (latest != null) {
-      lastSnapshotIndex = latest.getIndex();
-    }
-    long minGapValue = 5;
-
-    synchronized (this) {
-      long installSnapshot = inProgressInstallSnapshotRequest.get();
-      // check snapshot install/load
-      if (installSnapshot != 0) {
-        String msg = String.format("{}: Failed do snapshot as snapshot ({}) installation is in progress",
-            getMemberId(), installSnapshot);
-        LOG.warn(msg);
-        return CompletableFuture.completedFuture(newExceptionReply(request,new RaftException(msg)));
-      }
-      //TODO(liuyaolong): make the min gap configurable, or get the gap value from shell command
-      if (state.getLastAppliedIndex() - lastSnapshotIndex < minGapValue) {
-        String msg = String.format("{}: Failed do snapshot as the gap between the applied index and last"
-            + " snapshot index is less than {}", getMemberId(), minGapValue);
-        LOG.warn(msg);
-        return CompletableFuture.completedFuture(newExceptionReply(request,new RaftException(msg)));
-      }
-      setFinishSnapshot(false);
-      state.getStateMachineUpdater().enableSnapshot();
-      return snapshot.start(request);
-    }
-  }
-
   public void setFinishSnapshot(boolean bool) {
     finishSnapshot.set(bool);
   }
 
   public boolean getFinishSnapshot() {
     return finishSnapshot.get();
+  }
+
+  CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotRequest request) throws IOException {
+    LOG.info("{}: takeSnapshotAsync {}", getMemberId(), request);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
+    //TODO(liuyaolong): make the min gap configurable, or get the gap value from shell command
+    long minGapValue = 5;
+    final Long lastSnapshotIndex = Optional.ofNullable(stateMachine.getLatestSnapshot())
+        .map(SnapshotInfo::getIndex)
+        .orElse(null);
+    if (lastSnapshotIndex != null && state.getLastAppliedIndex() - lastSnapshotIndex < minGapValue) {
+      return CompletableFuture.completedFuture(newSuccessReply(request, lastSnapshotIndex));
+    }
+
+    synchronized (this) {
+      long installSnapshot = inProgressInstallSnapshotRequest.get();
+      // check snapshot install/load
+      if (installSnapshot != 0) {
+        String msg = String.format("%s: Failed do snapshot as snapshot (%s) installation is in progress",
+            getMemberId(), installSnapshot);
+        LOG.warn(msg);
+        return CompletableFuture.completedFuture(newExceptionReply(request,new RaftException(msg)));
+      }
+      return snapshotRequestHandler.takingSnapshotAsync(request);
+    }
+  }
+
+  SnapshotRequestHandler getSnapshotRequestHandler() {
+    return snapshotRequestHandler;
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {

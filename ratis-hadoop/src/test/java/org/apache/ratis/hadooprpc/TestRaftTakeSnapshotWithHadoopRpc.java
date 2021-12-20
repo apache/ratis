@@ -15,11 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.hadooprpc;
 
-public final class SnapshotRequest extends RaftClientRequest {
+import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.statemachine.RaftTakeSnapshotTest;
 
-  public SnapshotRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,long callId, long timeoutMs) {
-    super(clientId, serverId, groupId, callId, readRequestType(), timeoutMs);
+public class TestRaftTakeSnapshotWithHadoopRpc extends RaftTakeSnapshotTest {
+  @Override
+  public MiniRaftCluster.Factory<?> getFactory() {
+    return MiniRaftClusterWithHadoopRpc.FACTORY;
   }
 }
+

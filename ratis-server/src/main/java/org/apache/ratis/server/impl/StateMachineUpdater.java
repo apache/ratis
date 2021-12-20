@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
@@ -80,9 +81,10 @@ class StateMachineUpdater implements Runnable {
   private final RaftLogIndex snapshotIndex;
   private final AtomicReference<Long> stopIndex = new AtomicReference<>();
   private volatile State state = State.RUNNING;
+  private final AtomicBoolean notified = new AtomicBoolean();
+
   private SnapshotRetentionPolicy snapshotRetentionPolicy;
   private StateMachineMetrics stateMachineMetrics = null;
-  private boolean takeSnapshot;
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
       ServerState serverState, long lastAppliedIndex, RaftProperties properties) {
@@ -109,7 +111,6 @@ class StateMachineUpdater implements Runnable {
     this.purgeUptoSnapshotIndex = RaftServerConfigKeys.Log.purgeUptoSnapshotIndex(properties);
 
     updater = new Daemon(this);
-    this.takeSnapshot = false;
   }
 
   void start() {
@@ -160,6 +161,7 @@ class StateMachineUpdater implements Runnable {
 
   @SuppressFBWarnings("NN_NAKED_NOTIFY")
   synchronized void notifyUpdater() {
+    notified.set(true);
     notifyAll();
   }
 
@@ -204,6 +206,9 @@ class StateMachineUpdater implements Runnable {
     final long applied = getLastAppliedIndex();
     for(; applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop(); ) {
       wait();
+      if (notified.getAndSet(false)) {
+        return;
+      }
     }
   }
 
@@ -265,7 +270,7 @@ class StateMachineUpdater implements Runnable {
       Timer.Context takeSnapshotTimerContext = stateMachineMetrics.getTakeSnapshotTimer().time();
       i = stateMachine.takeSnapshot();
       takeSnapshotTimerContext.stop();
-      disableSnapshot();
+      server.getSnapshotRequestHandler().completeTakingSnapshot(i);
 
       final long lastAppliedIndex = getLastAppliedIndex();
       if (i > lastAppliedIndex) {
@@ -275,7 +280,6 @@ class StateMachineUpdater implements Runnable {
       }
       stateMachine.getStateMachineStorage().cleanupOldSnapshots(snapshotRetentionPolicy);
     } catch (IOException e) {
-      disableSnapshot();
       LOG.error(name + ": Failed to take snapshot", e);
       return;
     }
@@ -304,28 +308,15 @@ class StateMachineUpdater implements Runnable {
   }
 
   private boolean shouldTakeSnapshot() {
+    if (state == State.RUNNING && server.getSnapshotRequestHandler().shouldTriggerTakingSnapshot()) {
+      return true;
+    }
     if (autoSnapshotThreshold == null) {
       return false;
     } else if (shouldStop()) {
       return getLastAppliedIndex() - snapshotIndex.get() > 0;
     }
-    return state == State.RUNNING
-        && (takeSnapshot || getLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold);
-  }
-
-  public void enableSnapshot() {
-    if(!takeSnapshot) {
-      takeSnapshot = true;
-      if(shouldTakeSnapshot()) {
-        takeSnapshot();
-      }
-    }
-  }
-
-  public void disableSnapshot() {
-    if (takeSnapshot) {
-      takeSnapshot = false;
-    }
+    return state == State.RUNNING || getLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold;
   }
 
   private long getLastAppliedIndex() {
