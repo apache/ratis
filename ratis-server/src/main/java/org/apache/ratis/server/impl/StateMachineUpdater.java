@@ -260,6 +260,7 @@ class StateMachineUpdater implements Runnable {
       if (futures.isInitialized()) {
         JavaUtils.allOf(futures.get()).get();
       }
+
       takeSnapshot();
     }
   }
@@ -299,7 +300,6 @@ class StateMachineUpdater implements Runnable {
         purgeIndex = LongStream.concat(LongStream.of(i), commitIndexStream).min().orElse(i);
       }
       raftLog.purge(purgeIndex);
-      server.setFinishSnapshot(true);
     }
   }
 

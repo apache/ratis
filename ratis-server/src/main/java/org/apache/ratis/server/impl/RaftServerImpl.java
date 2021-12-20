@@ -170,7 +170,6 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicLong inProgressInstallSnapshotRequest;
   private final AtomicLong installedSnapshotIndex;
   private final AtomicBoolean isSnapshotNull;
-  private final AtomicBoolean finishSnapshot;
 
   // To avoid append entry before complete start() method
   // For example, if thread1 start(), but before thread1 startAsFollower(), thread2 receive append entry
@@ -211,7 +210,6 @@ class RaftServerImpl implements RaftServer.Division,
         getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
-    this.finishSnapshot = new AtomicBoolean(false);
 
     this.raftClient = JavaUtils.memoize(() -> {
       RaftClient client = RaftClient.newBuilder()
@@ -973,18 +971,6 @@ class RaftServerImpl implements RaftServer.Division,
 
       return transferLeadership.start(request);
     }
-  }
-
-  public RaftClientReply takeSnapshot(SnapshotRequest request) throws IOException {
-    return waitForReply(request, takeSnapshotAsync(request));
-  }
-
-  public void setFinishSnapshot(boolean bool) {
-    finishSnapshot.set(bool);
-  }
-
-  public boolean getFinishSnapshot() {
-    return finishSnapshot.get();
   }
 
   CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotRequest request) throws IOException {

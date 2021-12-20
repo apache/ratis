@@ -31,6 +31,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.junit.Assert;
@@ -43,7 +44,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
-public abstract class RaftTakeSnapshotTest extends BaseTest {
+public abstract class SnapshotManagementTest extends BaseTest {
 
   {
     Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
@@ -51,11 +52,11 @@ public abstract class RaftTakeSnapshotTest extends BaseTest {
     Log4jUtils.setLogLevel(RaftClient.LOG, Level.INFO);
   }
 
-  static final Logger LOG = LoggerFactory.getLogger(RaftTakeSnapshotTest.class);
+  static final Logger LOG = LoggerFactory.getLogger(SnapshotManagementTest.class);
   private MiniRaftCluster cluster;
 
   public MiniRaftCluster.Factory<?> getFactory() {
-    return null;
+    return MiniRaftClusterWithSimulatedRpc.FACTORY;
   }
 
   @Test

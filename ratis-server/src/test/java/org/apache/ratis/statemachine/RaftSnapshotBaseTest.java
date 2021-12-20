@@ -112,9 +112,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
   private MiniRaftCluster cluster;
 
-  public MiniRaftCluster.Factory<?> getFactory() {
-    return null;
-  }
+  public abstract MiniRaftCluster.Factory<?> getFactory();
 
   @Before
   public void setup() throws IOException {

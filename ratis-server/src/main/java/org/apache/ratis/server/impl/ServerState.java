@@ -472,10 +472,6 @@ class ServerState implements Closeable {
     return stateMachineUpdater.getStateMachineLastAppliedIndex();
   }
 
-  StateMachineUpdater getStateMachineUpdater() {
-    return stateMachineUpdater;
-  }
-
   boolean containsTermIndex(TermIndex ti) {
     Objects.requireNonNull(ti, "ti == null");
 
