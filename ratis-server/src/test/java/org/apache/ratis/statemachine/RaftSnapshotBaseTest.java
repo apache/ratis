@@ -72,7 +72,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   }
 
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);
-  private static final int SNAPSHOT_TRIGGER_THRESHOLD = 100;
+  private static final int SNAPSHOT_TRIGGER_THRESHOLD = 10;
 
   public static List<File> getSnapshotFiles(MiniRaftCluster cluster, long startIndex, long endIndex) {
     final RaftServer.Division leader = cluster.getLeader();
