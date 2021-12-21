@@ -41,6 +41,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.SlidingWindow;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -66,12 +67,13 @@ public class DataStreamClientImpl implements DataStreamClient {
     this.groupId = groupId;
     this.dataStreamServer = dataStreamServer;
     this.dataStreamClientRpc = dataStreamClientRpc;
-    this.orderedStreamAsync = new OrderedStreamAsync(clientId, dataStreamClientRpc, properties);
+    this.orderedStreamAsync = new OrderedStreamAsync(dataStreamClientRpc, properties);
   }
 
   public final class DataStreamOutputImpl implements DataStreamOutputRpc {
     private final RaftClientRequest header;
     private final CompletableFuture<DataStreamReply> headerFuture;
+    private final SlidingWindow.Client<OrderedStreamAsync.DataStreamWindowRequest, DataStreamReply> slidingWindow;
     private final CompletableFuture<RaftClientReply> raftClientReplyFuture = new CompletableFuture<>();
     private CompletableFuture<DataStreamReply> closeFuture;
     private final MemoizedSupplier<WritableByteChannel> writableByteChannelSupplier
@@ -103,6 +105,7 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     private DataStreamOutputImpl(RaftClientRequest request) {
       this.header = request;
+      this.slidingWindow = new SlidingWindow.Client<>(ClientInvocationId.valueOf(clientId, header.getCallId()));
       final ByteBuffer buffer = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(header);
       this.headerFuture = send(Type.STREAM_HEADER, buffer, buffer.remaining());
     }
@@ -110,7 +113,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     private CompletableFuture<DataStreamReply> send(Type type, Object data, long length, WriteOption... options) {
       final DataStreamRequestHeader h =
           new DataStreamRequestHeader(header.getClientId(), type, header.getCallId(), streamOffset, length, options);
-      return orderedStreamAsync.sendRequest(h, data);
+      return orderedStreamAsync.sendRequest(h, data, slidingWindow);
     }
 
     private CompletableFuture<DataStreamReply> combineHeader(CompletableFuture<DataStreamReply> future) {

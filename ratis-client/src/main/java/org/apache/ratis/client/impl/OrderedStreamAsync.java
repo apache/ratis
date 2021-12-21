@@ -24,7 +24,6 @@ import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.FilePositionCount;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
@@ -103,19 +102,19 @@ public class OrderedStreamAsync {
   }
 
   private final DataStreamClientRpc dataStreamClientRpc;
-  private final SlidingWindow.Client<DataStreamWindowRequest, DataStreamReply> slidingWindow;
+
   private final Semaphore requestSemaphore;
   private final TimeDuration requestTimeout;
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
-  OrderedStreamAsync(ClientId clientId, DataStreamClientRpc dataStreamClientRpc, RaftProperties properties){
+  OrderedStreamAsync(DataStreamClientRpc dataStreamClientRpc, RaftProperties properties){
     this.dataStreamClientRpc = dataStreamClientRpc;
-    this.slidingWindow = new SlidingWindow.Client<>(clientId);
     this.requestSemaphore = new Semaphore(RaftClientConfigKeys.DataStream.outstandingRequestsMax(properties));
     this.requestTimeout = RaftClientConfigKeys.DataStream.requestTimeout(properties);
   }
 
-  CompletableFuture<DataStreamReply> sendRequest(DataStreamRequestHeader header, Object data) {
+  CompletableFuture<DataStreamReply> sendRequest(DataStreamRequestHeader header, Object data,
+      SlidingWindow.Client<DataStreamWindowRequest, DataStreamReply> slidingWindow) {
     try {
       requestSemaphore.acquire();
     } catch (InterruptedException e){
@@ -124,7 +123,7 @@ public class OrderedStreamAsync {
     }
     final LongFunction<DataStreamWindowRequest> constructor
         = seqNum -> new DataStreamWindowRequest(header, data, seqNum);
-    return slidingWindow.submitNewRequest(constructor, this::sendRequestToNetwork).
+    return slidingWindow.submitNewRequest(constructor, r -> sendRequestToNetwork(r, slidingWindow)).
            getReplyFuture().whenComplete((r, e) -> {
              if (e != null) {
                LOG.error("Failed to send request, header=" + header, e);
@@ -133,7 +132,8 @@ public class OrderedStreamAsync {
            });
   }
 
-  private void sendRequestToNetwork(DataStreamWindowRequest request){
+  private void sendRequestToNetwork(DataStreamWindowRequest request,
+      SlidingWindow.Client<DataStreamWindowRequest, DataStreamReply> slidingWindow) {
     CompletableFuture<DataStreamReply> f = request.getReplyFuture();
     if(f.isDone()) {
       return;
@@ -149,7 +149,7 @@ public class OrderedStreamAsync {
 
     requestFuture.thenApply(reply -> {
       slidingWindow.receiveReply(
-          seqNum, reply, this::sendRequestToNetwork);
+          seqNum, reply, r -> sendRequestToNetwork(r, slidingWindow));
       return reply;
     }).thenAccept(reply -> {
       if (f.isDone()) {
