@@ -403,6 +403,10 @@ class ServerState implements Closeable {
     return false;
   }
 
+  void notifyStateMachineUpdater() {
+    stateMachineUpdater.notifyUpdater();
+  }
+
   void reloadStateMachine(long lastIndexInSnapshot) {
     log.updateSnapshotIndex(lastIndexInSnapshot);
     stateMachineUpdater.reloadStateMachine();

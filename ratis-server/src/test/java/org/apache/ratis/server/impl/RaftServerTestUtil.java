@@ -20,10 +20,12 @@ package org.apache.ratis.server.impl;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SnapshotRequest;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DivisionInfo;
@@ -41,9 +43,11 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 public class RaftServerTestUtil {
@@ -175,5 +179,10 @@ public class RaftServerTestUtil {
 
   public static boolean isHighestPriority(RaftConfiguration config, RaftPeerId peerId) {
     return ((RaftConfigurationImpl)config).isHighestPriority(peerId);
+  }
+
+  public static CompletableFuture<RaftClientReply> takeSnapshotAsync(RaftServer.Division leader, SnapshotRequest r)
+      throws IOException {
+    return ((RaftServerImpl)leader).takeSnapshotAsync(r);
   }
 }

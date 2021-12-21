@@ -59,6 +59,7 @@ import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
@@ -178,6 +179,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicBoolean startComplete;
 
   private final TransferLeadership transferLeadership;
+  private final SnapshotRequestHandler snapshotRequestHandler;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -218,6 +220,7 @@ class RaftServerImpl implements RaftServer.Division,
     });
 
     this.transferLeadership = new TransferLeadership(this);
+    this.snapshotRequestHandler = new SnapshotRequestHandler(this);
   }
 
   @Override
@@ -612,6 +615,13 @@ class RaftServerImpl implements RaftServer.Division,
         .build();
   }
 
+  RaftClientReply newSuccessReply(RaftClientRequest request, long logIndex) {
+    return newReplyBuilder(request)
+        .setSuccess()
+        .setLogIndex(logIndex)
+        .build();
+  }
+
   RaftClientReply newExceptionReply(RaftClientRequest request, RaftException exception) {
     return newReplyBuilder(request)
         .setException(exception)
@@ -962,6 +972,37 @@ class RaftServerImpl implements RaftServer.Division,
 
       return transferLeadership.start(request);
     }
+  }
+
+  CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotRequest request) throws IOException {
+    LOG.info("{}: takeSnapshotAsync {}", getMemberId(), request);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
+    //TODO(liuyaolong): make the min gap configurable, or get the gap value from shell command
+    long minGapValue = 5;
+    final Long lastSnapshotIndex = Optional.ofNullable(stateMachine.getLatestSnapshot())
+        .map(SnapshotInfo::getIndex)
+        .orElse(null);
+    if (lastSnapshotIndex != null && state.getLastAppliedIndex() - lastSnapshotIndex < minGapValue) {
+      return CompletableFuture.completedFuture(newSuccessReply(request, lastSnapshotIndex));
+    }
+
+    synchronized (this) {
+      long installSnapshot = inProgressInstallSnapshotRequest.get();
+      // check snapshot install/load
+      if (installSnapshot != 0) {
+        String msg = String.format("%s: Failed do snapshot as snapshot (%s) installation is in progress",
+            getMemberId(), installSnapshot);
+        LOG.warn(msg);
+        return CompletableFuture.completedFuture(newExceptionReply(request,new RaftException(msg)));
+      }
+      return snapshotRequestHandler.takingSnapshotAsync(request);
+    }
+  }
+
+  SnapshotRequestHandler getSnapshotRequestHandler() {
+    return snapshotRequestHandler;
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
