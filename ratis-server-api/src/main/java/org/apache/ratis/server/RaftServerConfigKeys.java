@@ -438,7 +438,8 @@ public interface RaftServerConfigKeys {
     long MIN_GAP_TAKE_SNAPSHOT_DEFAULT = 5;
     static long minGapTakeSnapshot(RaftProperties properties) {
       return getLong(
-            properties::getLong, MIN_GAP_TAKE_SNAPSHOT_KEY, MIN_GAP_TAKE_SNAPSHOT_DEFAULT, getDefaultLog(), requireMin(5L));
+          properties::getLong, MIN_GAP_TAKE_SNAPSHOT_KEY, MIN_GAP_TAKE_SNAPSHOT_DEFAULT,
+          getDefaultLog(), requireMin(5L));
     }
     static void setMinGapTakeSnapshot(RaftProperties properties, long minGapTakeSnapshot) {
       setLong(properties::setLong, MIN_GAP_TAKE_SNAPSHOT_KEY, minGapTakeSnapshot);
