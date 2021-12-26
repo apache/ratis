@@ -433,6 +433,17 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerThreshold);
     }
 
+    /** min gap to take snapshot async */
+    String MIN_GAP_TAKE_SNAPSHOT_KEY = PREFIX + ".min.gap.takeSnapshot";
+    long MIN_GAP_TAKE_SNAPSHOT_DEFAULT = 5;
+    static long minGapTakeSnapshot(RaftProperties properties) {
+      return getLong(
+            properties::getLong, MIN_GAP_TAKE_SNAPSHOT_KEY, MIN_GAP_TAKE_SNAPSHOT_DEFAULT, getDefaultLog(), requireMin(5L));
+    }
+    static void setMinGapTakeSnapshot(RaftProperties properties, long minGapTakeSnapshot) {
+      setLong(properties::setLong, MIN_GAP_TAKE_SNAPSHOT_KEY, minGapTakeSnapshot);
+    }
+
     /** log size limit (in number of log entries) that triggers the snapshot */
     String AUTO_TRIGGER_THRESHOLD_KEY = PREFIX + ".auto.trigger.threshold";
     long AUTO_TRIGGER_THRESHOLD_DEFAULT = 400000L;
