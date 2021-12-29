@@ -29,7 +29,7 @@ this="${config_bin}/${script}"
 # This will set the default installation for a tarball installation while os distributors can
 # set system installation locations.
 RATIS_SHELL_HOME=$(dirname $(dirname "${this}"))
-RATIS_SHELL_ASSEMBLY_CLIENT_JAR="${RATIS_SHELL_HOME}/lib/ratis-shell/*"
+RATIS_SHELL_ASSEMBLY_CLIENT_JAR="${RATIS_SHELL_HOME}/lib/shell/*"
 RATIS_SHELL_CONF_DIR="${RATIS_SHELL_CONF_DIR:-${RATIS_SHELL_HOME}/conf}"
 RATIS_SHELL_LOGS_DIR="${RATIS_SHELL_LOGS_DIR:-${RATIS_SHELL_HOME}/logs}"
 

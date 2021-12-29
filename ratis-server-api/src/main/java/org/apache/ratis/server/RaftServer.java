@@ -20,6 +20,7 @@ package org.apache.ratis.server;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
@@ -38,6 +39,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -95,6 +97,9 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the storage of this division. */
     RaftStorage getRaftStorage();
+
+    /** @return the commit information of this division. */
+    Collection<CommitInfoProto> getCommitInfos();
 
     /** @return the retry cache of this division. */
     RetryCache getRetryCache();

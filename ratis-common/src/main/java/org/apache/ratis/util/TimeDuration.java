@@ -338,7 +338,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
   @Override
   public int compareTo(TimeDuration that) {
     if (this.unit.compareTo(that.unit) > 0) {
-      return that.compareTo(this);
+      return Integer.compare(0, that.compareTo(this));
     }
     if (this.unit == that.unit) {
       return Long.compare(this.duration, that.duration);

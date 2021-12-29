@@ -18,11 +18,13 @@
 
 package org.apache.ratis.retry;
 
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 
 /**
  * Exception dependent retry policy.
@@ -69,7 +71,7 @@ public final class ExceptionDependentRetry implements RetryPolicy {
   private final RetryPolicy defaultPolicy;
   private final Map<String, RetryPolicy> exceptionNameToPolicyMap;
   private final int maxAttempts;
-
+  private final Supplier<String> toStringSupplier;
 
   private ExceptionDependentRetry(RetryPolicy defaultPolicy,
       Map<String, RetryPolicy> policyMap, int maxAttempts) {
@@ -77,6 +79,15 @@ public final class ExceptionDependentRetry implements RetryPolicy {
     this.defaultPolicy = defaultPolicy;
     this.exceptionNameToPolicyMap = Collections.unmodifiableMap(policyMap);
     this.maxAttempts = maxAttempts;
+    this.toStringSupplier = JavaUtils.memoize(() -> {
+      final StringBuilder b = new StringBuilder(JavaUtils.getClassSimpleName(getClass())).append("(")
+          .append("maxAttempts=").append(maxAttempts).append("; ")
+          .append("defaultPolicy=").append(defaultPolicy).append("; ")
+          .append("map={");
+      policyMap.forEach((key, value) -> b.append(key).append("->").append(value).append(", "));
+      b.setLength(b.length() - 2);
+      return b.append("})").toString();
+    });
   }
 
   @Override
@@ -97,5 +108,10 @@ public final class ExceptionDependentRetry implements RetryPolicy {
 
     return event.getAttemptCount() < maxAttempts ? policy.handleAttemptFailure(event::getCauseCount) :
         NO_RETRY_ACTION;
+  }
+
+  @Override
+  public String toString() {
+    return toStringSupplier.get();
   }
 }

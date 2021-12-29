@@ -23,4 +23,12 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 public interface RaftLogMetrics {
   /** A log entry just has been committed. */
   void onLogEntryCommitted(LogEntryHeader header);
+
+  /** Read statemachine data timeout */
+  default void onStateMachineDataReadTimeout() {
+  }
+
+  /** Write statemachine data timeout */
+  default void onStateMachineDataWriteTimeout() {
+  }
 }

@@ -277,7 +277,8 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     for(RaftServer.Division s : cluster.iterateDivisions()) {
       if (!s.getId().equals(leaderId)) {
         ids.add(s.getId());
-        RaftTestUtil.assertSameLog(leaderLog, s.getRaftLog());
+        JavaUtils.attempt(() -> RaftTestUtil.assertSameLog(leaderLog, s.getRaftLog()),
+            10, HUNDRED_MILLIS, "assertRaftLog-" + s.getId(), LOG);
       }
     }
 

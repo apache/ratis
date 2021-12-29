@@ -344,6 +344,8 @@ message DataStreamReplyHeaderProto {
   DataStreamPacketHeaderProto packetHeader = 1;
   uint64 bytesWritten = 2;
   bool success = 3;
+
+  repeated CommitInfoProto commitInfos = 15;
 }
 
 message NotLeaderExceptionProto {

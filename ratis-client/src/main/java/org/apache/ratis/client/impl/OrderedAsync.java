@@ -170,7 +170,12 @@ public final class OrderedAsync {
     return getSlidingWindow(server).submitNewRequest(constructor, this::sendRequestWithRetry
     ).getReplyFuture(
     ).thenApply(reply -> RaftClientImpl.handleRaftException(reply, CompletionException::new)
-    ).whenComplete((r, e) -> requestSemaphore.release());
+    ).whenComplete((r, e) -> {
+      if (e != null) {
+        LOG.error("Failed to send request, message=" + message, e);
+      }
+      requestSemaphore.release();
+    });
   }
 
   private void sendRequestWithRetry(PendingOrderedRequest pending) {

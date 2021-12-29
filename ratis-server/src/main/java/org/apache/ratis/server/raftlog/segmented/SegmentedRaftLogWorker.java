@@ -68,11 +68,13 @@ class SegmentedRaftLogWorker {
     private final boolean sync;
     private final TimeDuration syncTimeout;
     private final int syncTimeoutRetry;
+    private final SegmentedRaftLogMetrics metrics;
 
-    StateMachineDataPolicy(RaftProperties properties) {
+    StateMachineDataPolicy(RaftProperties properties, SegmentedRaftLogMetrics metricRegistry) {
       this.sync = RaftServerConfigKeys.Log.StateMachineData.sync(properties);
       this.syncTimeout = RaftServerConfigKeys.Log.StateMachineData.syncTimeout(properties);
       this.syncTimeoutRetry = RaftServerConfigKeys.Log.StateMachineData.syncTimeoutRetry(properties);
+      this.metrics = metricRegistry;
       Preconditions.assertTrue(syncTimeoutRetry >= -1);
     }
 
@@ -90,6 +92,7 @@ class SegmentedRaftLogWorker {
         } catch(TimeoutIOException e) {
           LOG.warn("Timeout " + retry + (syncTimeoutRetry == -1? "/~": "/" + syncTimeoutRetry), e);
           lastException = e;
+          metrics.onStateMachineDataWriteTimeout();
         }
       }
       Objects.requireNonNull(lastException, "lastException == null");
@@ -196,7 +199,7 @@ class SegmentedRaftLogWorker {
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
     this.flushBatchSize = 0;
 
-    this.stateMachineDataPolicy = new StateMachineDataPolicy(properties);
+    this.stateMachineDataPolicy = new StateMachineDataPolicy(properties, metricRegistry);
 
     this.workerThread = new Thread(this::run, name);
 

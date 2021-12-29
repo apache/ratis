@@ -59,6 +59,7 @@ import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
@@ -178,6 +179,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicBoolean startComplete;
 
   private final TransferLeadership transferLeadership;
+  private final SnapshotRequestHandler snapshotRequestHandler;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -218,6 +220,7 @@ class RaftServerImpl implements RaftServer.Division,
     });
 
     this.transferLeadership = new TransferLeadership(this);
+    this.snapshotRequestHandler = new SnapshotRequestHandler(this);
   }
 
   @Override
@@ -493,7 +496,8 @@ class RaftServerImpl implements RaftServer.Division,
     getState().setRaftConf(e);
   }
 
-  Collection<CommitInfoProto> getCommitInfos() {
+  @Override
+  public Collection<CommitInfoProto> getCommitInfos() {
     final List<CommitInfoProto> infos = new ArrayList<>();
     // add the commit info of this server
     infos.add(updateCommitInfoCache());
@@ -608,6 +612,13 @@ class RaftServerImpl implements RaftServer.Division,
   RaftClientReply newSuccessReply(RaftClientRequest request) {
     return newReplyBuilder(request)
         .setSuccess()
+        .build();
+  }
+
+  RaftClientReply newSuccessReply(RaftClientRequest request, long logIndex) {
+    return newReplyBuilder(request)
+        .setSuccess()
+        .setLogIndex(logIndex)
         .build();
   }
 
@@ -964,12 +975,38 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   public RaftClientReply snapshot(SnapshotRequest request) throws IOException {
-    return waitForReply(request, snapshotAsync(request));
+    return waitForReply(request, takeSnapshotAsync(request));
   }
 
-  public CompletableFuture<RaftClientReply> snapshotAsync(SnapshotRequest request) throws IOException {
-    //TODO(codings-dan) : implement snapshot manually in server
-    return null;
+  CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotRequest request) throws IOException {
+    LOG.info("{}: takeSnapshotAsync {}", getMemberId(), request);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
+    //TODO(liuyaolong): get the gap value from shell command
+    long minGapValue = RaftServerConfigKeys.Snapshot.creationGap(proxy.getProperties());
+    final long lastSnapshotIndex = Optional.ofNullable(stateMachine.getLatestSnapshot())
+        .map(SnapshotInfo::getIndex)
+        .orElse(0L);
+    if (state.getLastAppliedIndex() - lastSnapshotIndex < minGapValue) {
+      return CompletableFuture.completedFuture(newSuccessReply(request, lastSnapshotIndex));
+    }
+
+    synchronized (this) {
+      long installSnapshot = inProgressInstallSnapshotRequest.get();
+      // check snapshot install/load
+      if (installSnapshot != 0) {
+        String msg = String.format("%s: Failed do snapshot as snapshot (%s) installation is in progress",
+            getMemberId(), installSnapshot);
+        LOG.warn(msg);
+        return CompletableFuture.completedFuture(newExceptionReply(request,new RaftException(msg)));
+      }
+      return snapshotRequestHandler.takingSnapshotAsync(request);
+    }
+  }
+
+  SnapshotRequestHandler getSnapshotRequestHandler() {
+    return snapshotRequestHandler;
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {

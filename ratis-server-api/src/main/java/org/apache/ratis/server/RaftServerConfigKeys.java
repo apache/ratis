@@ -360,6 +360,16 @@ public interface RaftServerConfigKeys {
       static void setSyncTimeoutRetry(RaftProperties properties, int syncTimeoutRetry) {
         setInt(properties::setInt, SYNC_TIMEOUT_RETRY_KEY, syncTimeoutRetry, requireMin(-1));
       }
+
+      String READ_TIMEOUT_KEY = PREFIX + ".read.timeout";
+      TimeDuration READ_TIMEOUT_DEFAULT = TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS);
+      static TimeDuration readTimeout(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(READ_TIMEOUT_DEFAULT.getUnit()),
+            READ_TIMEOUT_KEY, READ_TIMEOUT_DEFAULT, getDefaultLog());
+      }
+      static void setReadTimeout(RaftProperties properties, TimeDuration readTimeout) {
+        setTimeDuration(properties::setTimeDuration, READ_TIMEOUT_KEY, readTimeout);
+      }
     }
 
     interface Appender {
@@ -423,6 +433,18 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerThreshold);
     }
 
+    /** The log index gap between to two snapshot creations. */
+    String CREATION_GAP_KEY = PREFIX + ".creation.gap";
+    long CREATION_GAP_DEFAULT = 1024;
+    static long creationGap(RaftProperties properties) {
+      return getLong(
+          properties::getLong, CREATION_GAP_KEY, CREATION_GAP_DEFAULT,
+          getDefaultLog(), requireMin(1L));
+    }
+    static void setCreationGap(RaftProperties properties, long creationGap) {
+      setLong(properties::setLong, CREATION_GAP_KEY, creationGap);
+    }
+
     /** log size limit (in number of log entries) that triggers the snapshot */
     String AUTO_TRIGGER_THRESHOLD_KEY = PREFIX + ".auto.trigger.threshold";
     long AUTO_TRIGGER_THRESHOLD_DEFAULT = 400000L;
@@ -446,6 +468,18 @@ public interface RaftServerConfigKeys {
 
   interface DataStream {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".data-stream";
+
+    String ASYNC_REQUEST_THREAD_POOL_CACHED_KEY = PREFIX + ".async.request.thread.pool.cached";
+    boolean ASYNC_REQUEST_THREAD_POOL_CACHED_DEFAULT = false;
+
+    static boolean asyncRequestThreadPoolCached(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, ASYNC_REQUEST_THREAD_POOL_CACHED_KEY,
+          ASYNC_REQUEST_THREAD_POOL_CACHED_DEFAULT, getDefaultLog());
+    }
+
+    static void setAsyncRequestThreadPoolCached(RaftProperties properties, boolean useCached) {
+      setBoolean(properties::setBoolean, ASYNC_REQUEST_THREAD_POOL_CACHED_KEY, useCached);
+    }
 
     String ASYNC_REQUEST_THREAD_POOL_SIZE_KEY = PREFIX + ".async.request.thread.pool.size";
     int ASYNC_REQUEST_THREAD_POOL_SIZE_DEFAULT = 32;

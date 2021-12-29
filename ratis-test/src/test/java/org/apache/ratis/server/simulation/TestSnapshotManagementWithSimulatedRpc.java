@@ -15,19 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.server.simulation;
 
-package org.apache.ratis.protocol;
+import org.apache.ratis.statemachine.SnapshotManagementTest;
 
-import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-
-import java.util.Collection;
-
-public interface DataStreamReply extends DataStreamPacket {
-
-  boolean isSuccess();
-
-  long getBytesWritten();
-
-  /** @return the commit information when the reply is created. */
-  Collection<CommitInfoProto> getCommitInfos();
+public class TestSnapshotManagementWithSimulatedRpc
+    extends SnapshotManagementTest<MiniRaftClusterWithSimulatedRpc>
+    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
 }

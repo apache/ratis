@@ -24,13 +24,15 @@ import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.FilePositionCount;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
+import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SlidingWindow;
+import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.TimeoutScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,19 +94,27 @@ public class OrderedStreamAsync {
     public CompletableFuture<DataStreamReply> getReplyFuture(){
       return replyFuture;
     }
+
+    @Override
+    public String toString() {
+      return JavaUtils.getClassSimpleName(getClass()) + ":seqNum=" + seqNum + "," + header;
+    }
   }
 
   private final DataStreamClientRpc dataStreamClientRpc;
-  private final SlidingWindow.Client<DataStreamWindowRequest, DataStreamReply> slidingWindow;
-  private final Semaphore requestSemaphore;
 
-  OrderedStreamAsync(ClientId clientId, DataStreamClientRpc dataStreamClientRpc, RaftProperties properties){
+  private final Semaphore requestSemaphore;
+  private final TimeDuration requestTimeout;
+  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+
+  OrderedStreamAsync(DataStreamClientRpc dataStreamClientRpc, RaftProperties properties){
     this.dataStreamClientRpc = dataStreamClientRpc;
-    this.slidingWindow = new SlidingWindow.Client<>(clientId);
     this.requestSemaphore = new Semaphore(RaftClientConfigKeys.DataStream.outstandingRequestsMax(properties));
+    this.requestTimeout = RaftClientConfigKeys.DataStream.requestTimeout(properties);
   }
 
-  CompletableFuture<DataStreamReply> sendRequest(DataStreamRequestHeader header, Object data) {
+  CompletableFuture<DataStreamReply> sendRequest(DataStreamRequestHeader header, Object data,
+      SlidingWindow.Client<DataStreamWindowRequest, DataStreamReply> slidingWindow) {
     try {
       requestSemaphore.acquire();
     } catch (InterruptedException e){
@@ -113,11 +123,17 @@ public class OrderedStreamAsync {
     }
     final LongFunction<DataStreamWindowRequest> constructor
         = seqNum -> new DataStreamWindowRequest(header, data, seqNum);
-    return slidingWindow.submitNewRequest(constructor, this::sendRequestToNetwork).
-           getReplyFuture().whenComplete((r, e) -> requestSemaphore.release());
+    return slidingWindow.submitNewRequest(constructor, r -> sendRequestToNetwork(r, slidingWindow)).
+           getReplyFuture().whenComplete((r, e) -> {
+             if (e != null) {
+               LOG.error("Failed to send request, header=" + header, e);
+             }
+             requestSemaphore.release();
+           });
   }
 
-  private void sendRequestToNetwork(DataStreamWindowRequest request){
+  private void sendRequestToNetwork(DataStreamWindowRequest request,
+      SlidingWindow.Client<DataStreamWindowRequest, DataStreamReply> slidingWindow) {
     CompletableFuture<DataStreamReply> f = request.getReplyFuture();
     if(f.isDone()) {
       return;
@@ -128,15 +144,30 @@ public class OrderedStreamAsync {
     final CompletableFuture<DataStreamReply> requestFuture = dataStreamClientRpc.streamAsync(
         request.getDataStreamRequest());
     long seqNum = request.getSeqNum();
+
+    scheduleWithTimeout(request);
+
     requestFuture.thenApply(reply -> {
       slidingWindow.receiveReply(
-          seqNum, reply, this::sendRequestToNetwork);
+          seqNum, reply, r -> sendRequestToNetwork(r, slidingWindow));
       return reply;
     }).thenAccept(reply -> {
       if (f.isDone()) {
         return;
       }
       f.complete(reply);
+    }).exceptionally(e -> {
+      f.completeExceptionally(e);
+      return null;
     });
+  }
+
+  private void scheduleWithTimeout(DataStreamWindowRequest request) {
+    scheduler.onTimeout(requestTimeout, () -> {
+      if (!request.getReplyFuture().isDone()) {
+        request.getReplyFuture().completeExceptionally(
+            new TimeoutIOException("Timeout " + requestTimeout + ": Failed to send " + request));
+      }
+    }, LOG, () -> "Failed to completeExceptionally for " + request);
   }
 }

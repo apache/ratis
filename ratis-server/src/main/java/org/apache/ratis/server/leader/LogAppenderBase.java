@@ -148,8 +148,7 @@ public abstract class LogAppenderBase implements LogAppender {
     }
 
     final List<LogEntryProto> protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
-        (entry, time, exception) -> LOG.warn("{}: Failed to get {} in {}: {}",
-            follower.getName(), entry, time, exception));
+        (entry, time, exception) -> LOG.warn("Failed to get {} in {}: {}", entry, time, exception));
     buffer.clear();
     assertProtos(protos, followerNext, previous, snapshotIndex);
     return leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);

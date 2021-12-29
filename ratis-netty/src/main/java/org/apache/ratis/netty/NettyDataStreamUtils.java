@@ -27,14 +27,18 @@ import org.apache.ratis.netty.server.DataStreamRequestByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamPacketHeader;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBufAllocator;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.thirdparty.io.netty.channel.DefaultFileRegion;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -42,6 +46,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public interface NettyDataStreamUtils {
+  Logger LOG = LoggerFactory.getLogger(NettyDataStreamUtils.class);
+
   static ByteBuffer getDataStreamRequestHeaderProtoByteBuffer(DataStreamRequest request) {
     DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
         .newBuilder()
@@ -75,6 +81,7 @@ public interface NettyDataStreamUtils {
         .setPacketHeader(b)
         .setBytesWritten(reply.getBytesWritten())
         .setSuccess(reply.isSuccess())
+        .addAllCommitInfos(reply.getCommitInfos())
         .build()
         .toByteString()
         .asReadOnlyByteBuffer();
@@ -119,10 +126,52 @@ public interface NettyDataStreamUtils {
   }
 
   static DataStreamRequestByteBuf decodeDataStreamRequestByteBuf(ByteBuf buf) {
-    return Optional.ofNullable(DataStreamRequestHeader.read(buf))
+    return Optional.ofNullable(decodeDataStreamRequestHeader(buf))
         .map(header -> checkHeader(header, buf))
         .map(header -> new DataStreamRequestByteBuf(header, decodeData(buf, header, ByteBuf::retain)))
         .orElse(null);
+  }
+
+  static DataStreamRequestHeader decodeDataStreamRequestHeader(ByteBuf buf) {
+    if (DataStreamPacketHeader.getSizeOfHeaderBodyLen() > buf.readableBytes()) {
+      return null;
+    }
+
+    long headerBodyBufLen = buf.readLong();
+    if (headerBodyBufLen > buf.readableBytes()) {
+      buf.resetReaderIndex();
+      return null;
+    }
+
+    int headerBufLen = buf.readInt();
+    if (headerBufLen > buf.readableBytes()) {
+      buf.resetReaderIndex();
+      return null;
+    }
+
+    try {
+      ByteBuf headerBuf = buf.slice(buf.readerIndex(), headerBufLen);
+      DataStreamRequestHeaderProto header = DataStreamRequestHeaderProto.parseFrom(headerBuf.nioBuffer());
+
+      final DataStreamPacketHeaderProto h = header.getPacketHeader();
+      if (h.getDataLength() + headerBufLen <= buf.readableBytes()) {
+        buf.readerIndex(buf.readerIndex() + headerBufLen);
+        WriteOption[] options = new WriteOption[h.getOptionsCount()];
+        for (int i = 0; i < options.length; i++) {
+          options[i] = StandardWriteOption.values()[h.getOptions(i).ordinal()];
+        }
+
+        return new DataStreamRequestHeader(ClientId.valueOf(h.getClientId()), h.getType(), h.getStreamId(),
+            h.getStreamOffset(), h.getDataLength(), options);
+      } else {
+        buf.resetReaderIndex();
+        return null;
+      }
+    } catch (InvalidProtocolBufferException e) {
+      LOG.error("Fail to decode request header:", e);
+      buf.resetReaderIndex();
+      return null;
+    }
   }
 
   static ByteBuffer copy(ByteBuf buf) {
@@ -132,13 +181,45 @@ public interface NettyDataStreamUtils {
   }
 
   static DataStreamReplyByteBuffer decodeDataStreamReplyByteBuffer(ByteBuf buf) {
-    return Optional.ofNullable(DataStreamReplyHeader.read(buf))
+    return Optional.ofNullable(decodeDataStreamReplyHeader(buf))
         .map(header -> checkHeader(header, buf))
         .map(header -> DataStreamReplyByteBuffer.newBuilder()
             .setDataStreamReplyHeader(header)
             .setBuffer(decodeData(buf, header, NettyDataStreamUtils::copy))
             .build())
         .orElse(null);
+  }
+
+  static DataStreamReplyHeader decodeDataStreamReplyHeader(ByteBuf buf) {
+    if (DataStreamPacketHeader.getSizeOfHeaderLen() > buf.readableBytes()) {
+      return null;
+    }
+
+    int headerBufLen = buf.readInt();
+    if (headerBufLen > buf.readableBytes()) {
+      buf.resetReaderIndex();
+      return null;
+    }
+
+    try {
+      ByteBuf headerBuf = buf.slice(buf.readerIndex(), headerBufLen);
+      DataStreamReplyHeaderProto header = DataStreamReplyHeaderProto.parseFrom(headerBuf.nioBuffer());
+
+      final DataStreamPacketHeaderProto h = header.getPacketHeader();
+      if (header.getPacketHeader().getDataLength() + headerBufLen <= buf.readableBytes()) {
+        buf.readerIndex(buf.readerIndex() + headerBufLen);
+        return new DataStreamReplyHeader(ClientId.valueOf(h.getClientId()), h.getType(), h.getStreamId(),
+            h.getStreamOffset(), h.getDataLength(), header.getBytesWritten(), header.getSuccess(),
+            header.getCommitInfosList());
+      } else {
+        buf.resetReaderIndex();
+        return null;
+      }
+    } catch (InvalidProtocolBufferException e) {
+      LOG.error("Fail to decode reply header:", e);
+      buf.resetReaderIndex();
+      return null;
+    }
   }
 
   static <HEADER extends DataStreamPacketHeader> HEADER checkHeader(HEADER header, ByteBuf buf) {

@@ -24,7 +24,6 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Collection;
 import java.util.List;
@@ -147,7 +146,7 @@ final class ServerProtoUtils {
     }
 
     Optional.ofNullable(previous).map(TermIndex::toProto).ifPresent(b::setPreviousLog);
-    ProtoUtils.addCommitInfos(commitInfos, b::addCommitInfos);
+    Optional.ofNullable(commitInfos).ifPresent(b::addAllCommitInfos);
     return b.build();
   }
 

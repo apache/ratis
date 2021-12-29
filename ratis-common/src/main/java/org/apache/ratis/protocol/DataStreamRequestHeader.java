@@ -19,64 +19,14 @@
 package org.apache.ratis.protocol;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
-import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The header format is the same {@link DataStreamPacketHeader}
  * since there are no additional fields.
  */
 public class DataStreamRequestHeader extends DataStreamPacketHeader implements DataStreamRequest {
-  private static final Logger LOG = LoggerFactory.getLogger(DataStreamRequestHeader.class);
-
-  public static DataStreamRequestHeader read(ByteBuf buf) {
-    if (getSizeOfHeaderBodyLen() > buf.readableBytes()) {
-      return null;
-    }
-
-    long headerBodyBufLen = buf.readLong();
-    if (headerBodyBufLen > buf.readableBytes()) {
-      buf.resetReaderIndex();
-      return null;
-    }
-
-    int headerBufLen = buf.readInt();
-    if (headerBufLen > buf.readableBytes()) {
-      buf.resetReaderIndex();
-      return null;
-    }
-
-    try {
-      ByteBuf headerBuf = buf.slice(buf.readerIndex(), headerBufLen);
-      DataStreamRequestHeaderProto header = DataStreamRequestHeaderProto.parseFrom(headerBuf.nioBuffer());
-
-      final DataStreamPacketHeaderProto h = header.getPacketHeader();
-      if (h.getDataLength() + headerBufLen <= buf.readableBytes()) {
-        buf.readerIndex(buf.readerIndex() + headerBufLen);
-        WriteOption[] options = new WriteOption[h.getOptionsCount()];
-        for (int i = 0; i < options.length; i++) {
-          options[i] = StandardWriteOption.values()[h.getOptions(i).ordinal()];
-        }
-
-        return new DataStreamRequestHeader(ClientId.valueOf(h.getClientId()), h.getType(), h.getStreamId(),
-            h.getStreamOffset(), h.getDataLength(), options);
-      } else {
-        buf.resetReaderIndex();
-        return null;
-      }
-    } catch (InvalidProtocolBufferException e) {
-      LOG.error("Fail to decode request header:", e);
-      buf.resetReaderIndex();
-      return null;
-    }
-  }
 
   private final WriteOption[] options;
 
