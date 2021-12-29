@@ -433,6 +433,18 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerThreshold);
     }
 
+    /** The log index gap between to two snapshot creations. */
+    String CREATION_GAP_KEY = PREFIX + ".creation.gap";
+    long CREATION_GAP_DEFAULT = 1024;
+    static long creationGap(RaftProperties properties) {
+      return getLong(
+          properties::getLong, CREATION_GAP_KEY, CREATION_GAP_DEFAULT,
+          getDefaultLog(), requireMin(1L));
+    }
+    static void setCreationGap(RaftProperties properties, long creationGap) {
+      setLong(properties::setLong, CREATION_GAP_KEY, creationGap);
+    }
+
     /** log size limit (in number of log entries) that triggers the snapshot */
     String AUTO_TRIGGER_THRESHOLD_KEY = PREFIX + ".auto.trigger.threshold";
     long AUTO_TRIGGER_THRESHOLD_DEFAULT = 400000L;

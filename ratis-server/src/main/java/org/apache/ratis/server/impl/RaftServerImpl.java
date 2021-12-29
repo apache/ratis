@@ -979,12 +979,12 @@ class RaftServerImpl implements RaftServer.Division,
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
-    //TODO(liuyaolong): make the min gap configurable, or get the gap value from shell command
-    long minGapValue = 5;
-    final Long lastSnapshotIndex = Optional.ofNullable(stateMachine.getLatestSnapshot())
+    //TODO(liuyaolong): get the gap value from shell command
+    long minGapValue = RaftServerConfigKeys.Snapshot.creationGap(proxy.getProperties());
+    final long lastSnapshotIndex = Optional.ofNullable(stateMachine.getLatestSnapshot())
         .map(SnapshotInfo::getIndex)
-        .orElse(null);
-    if (lastSnapshotIndex != null && state.getLastAppliedIndex() - lastSnapshotIndex < minGapValue) {
+        .orElse(0L);
+    if (state.getLastAppliedIndex() - lastSnapshotIndex < minGapValue) {
       return CompletableFuture.completedFuture(newSuccessReply(request, lastSnapshotIndex));
     }
 
