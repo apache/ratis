@@ -980,7 +980,7 @@ class RaftServerImpl implements RaftServer.Division,
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
     //TODO(liuyaolong): get the gap value from shell command
-    long minGapValue = RaftServerConfigKeys.Snapshot.minGapTakeSnapshot(proxy.getProperties());
+    long minGapValue = RaftServerConfigKeys.Snapshot.creationGap(proxy.getProperties());
     final long lastSnapshotIndex = Optional.ofNullable(stateMachine.getLatestSnapshot())
         .map(SnapshotInfo::getIndex)
         .orElse(0L);

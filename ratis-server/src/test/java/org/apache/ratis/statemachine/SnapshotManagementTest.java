@@ -56,7 +56,7 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
     final RaftProperties p = getProperties();
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    RaftServerConfigKeys.Snapshot.setMinGapTakeSnapshot(p,20L);
+    RaftServerConfigKeys.Snapshot.setCreationGap(p,20L);
     RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(p, false);
   }
 
@@ -71,7 +71,7 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
     try (final RaftClient client = cluster.createClient(leaderId)) {
-      for (int i = 0; i < RaftServerConfigKeys.Snapshot.minGapTakeSnapshot(getProperties()); i++) {
+      for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties()); i++) {
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
@@ -94,18 +94,18 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
     try (final RaftClient client = cluster.createClient(leaderId)) {
-      for (int i = 0; i < RaftServerConfigKeys.Snapshot.minGapTakeSnapshot(getProperties())/2-1; i++) {
+      for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties())/2-1; i++) {
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
       Assert.assertTrue(leader.getStateMachine().getLastAppliedTermIndex().getIndex()
-            < RaftServerConfigKeys.Snapshot.minGapTakeSnapshot(getProperties()));
+            < RaftServerConfigKeys.Snapshot.creationGap(getProperties()));
       final SnapshotRequest r = new SnapshotRequest(client.getId(), leaderId, cluster.getGroupId(),
             CallId.getAndIncrement(), 3000);
       snapshotReply = RaftServerTestUtil.takeSnapshotAsync(leader, r).join();
       Assert.assertTrue(snapshotReply.isSuccess());
       Assert.assertEquals(0,snapshotReply.getLogIndex());
-      for (int i = 0; i < RaftServerConfigKeys.Snapshot.minGapTakeSnapshot(getProperties())/2-1; i++) {
+      for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties())/2-1; i++) {
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
