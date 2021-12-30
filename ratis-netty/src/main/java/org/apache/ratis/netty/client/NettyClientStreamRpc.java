@@ -160,7 +160,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         final DataStreamReply reply = (DataStreamReply) msg;
         LOG.debug("{}: read {}", this, reply);
         clientInvocationId = ClientInvocationId.valueOf(reply.getClientId(), reply.getStreamId());
-        final ReplyQueue queue = reply.isSuccess() ? replies.get(clientInvocationId) : replies.remove(clientInvocationId);
+        final ReplyQueue queue = reply.isSuccess() ? replies.get(clientInvocationId) :
+                replies.remove(clientInvocationId);
         if (queue != null) {
           final CompletableFuture<DataStreamReply> f = queue.poll();
           if (f != null) {
