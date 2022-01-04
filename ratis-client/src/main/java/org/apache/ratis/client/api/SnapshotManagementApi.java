@@ -15,9 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.client.api;
-
 
 import org.apache.ratis.protocol.RaftClientReply;
 
