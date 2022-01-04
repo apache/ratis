@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,29 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.api;
+package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.api.SnapshotManagementApi;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SnapshotRequest;
+import org.apache.ratis.rpc.CallId;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
+import java.util.Objects;
 
-/**
- * An API to support administration
- * such as setting raft configuration and transferring leadership.
- */
-public interface AdminApi {
-  /** Set the configuration request to the raft service. */
-  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf) throws IOException;
+class SnapshotManagementImpl implements SnapshotManagementApi {
+  private final RaftClientImpl client;
 
-  /** The same as setConfiguration(Arrays.asList(serversInNewConf)). */
-  default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException {
-    return setConfiguration(Arrays.asList(serversInNewConf));
+  SnapshotManagementImpl(RaftClientImpl client) {
+    this.client = Objects.requireNonNull(client, "client == null");
   }
 
-  /** Transfer leadership to the given server.*/
-  RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException;
+  @Override
+  public RaftClientReply createSnapshot(long timeoutMs) throws IOException {
+    final long callId = CallId.getAndIncrement();
+    return client.io().sendRequestWithRetry(() -> new SnapshotRequest(
+          client.getId(), client.getLeaderId(), client.getGroupId(), callId, timeoutMs
+    ));
+  }
 }

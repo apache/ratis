@@ -18,16 +18,9 @@
 package org.apache.ratis.protocol;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
-/** For server administration. */
-public interface AdminProtocol {
-  GroupListReply getGroupList(GroupListRequest request) throws IOException;
-
-  GroupInfoReply getGroupInfo(GroupInfoRequest request) throws IOException;
-
-  RaftClientReply groupManagement(GroupManagementRequest request) throws IOException;
-
-  RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException;
-
-  RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException;
+public interface SnapshotManagementAsyncProtocol {
+  CompletableFuture<RaftClientReply> createSnapshotAsync(
+        SnapshotRequest request) throws IOException;
 }

@@ -34,7 +34,6 @@ import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
-import org.apache.ratis.proto.RaftProtos.SnapshotRequestProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.PeerProxyMap;
@@ -111,10 +110,6 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
       final TransferLeadershipRequestProto proto = ClientProtoUtils.toTransferLeadershipRequestProto(
           (TransferLeadershipRequest) request);
       return ClientProtoUtils.toRaftClientReply(proxy.transferLeadership(proto));
-    } else if (request instanceof SnapshotRequest) {
-      final SnapshotRequestProto proto = ClientProtoUtils.toSnapshotRequestProto(
-          (SnapshotRequest) request);
-      return ClientProtoUtils.toRaftClientReply(proxy.snapshot(proto));
     } else {
       final CompletableFuture<RaftClientReply> f = sendRequest(request, proxy);
       // TODO: timeout support

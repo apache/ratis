@@ -15,29 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ratis.client.api;
 
+
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 
 /**
- * An API to support administration
- * such as setting raft configuration and transferring leadership.
+ * An API to support control snapshot
+ * such as create and list snapshot file.
  */
-public interface AdminApi {
-  /** Set the configuration request to the raft service. */
-  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf) throws IOException;
+public interface SnapshotManagementApi {
 
-  /** The same as setConfiguration(Arrays.asList(serversInNewConf)). */
-  default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException {
-    return setConfiguration(Arrays.asList(serversInNewConf));
-  }
-
-  /** Transfer leadership to the given server.*/
-  RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException;
+  /** trigger create snapshot file. */
+  RaftClientReply createSnapshot(long timeoutMs) throws IOException;
 }

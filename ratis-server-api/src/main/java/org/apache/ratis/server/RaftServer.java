@@ -47,7 +47,8 @@ import java.util.Optional;
 public interface RaftServer extends Closeable, RpcType.Get,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol,
-    AdminProtocol, AdminAsynchronousProtocol {
+    AdminProtocol, AdminAsynchronousProtocol,
+    SnapshotManagementProtocol, SnapshotManagementAsyncProtocol {
   Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
   /** A division of a {@link RaftServer} for a particular {@link RaftGroup}. */

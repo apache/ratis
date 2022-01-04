@@ -19,15 +19,6 @@ package org.apache.ratis.protocol;
 
 import java.io.IOException;
 
-/** For server administration. */
-public interface AdminProtocol {
-  GroupListReply getGroupList(GroupListRequest request) throws IOException;
-
-  GroupInfoReply getGroupInfo(GroupInfoRequest request) throws IOException;
-
-  RaftClientReply groupManagement(GroupManagementRequest request) throws IOException;
-
-  RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException;
-
-  RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException;
+public interface SnapshotManagementProtocol {
+  RaftClientReply createSnapshot(SnapshotRequest request) throws IOException;
 }

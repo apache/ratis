@@ -523,7 +523,7 @@ public interface ClientProtoUtils {
             ClientId.valueOf(m.getRequestorId()),
             RaftPeerId.valueOf(m.getReplyId()),
             ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-            p.getRpcRequest().getCallId());
+            p.getRpcRequest().getCallId(), m.getTimeoutMs());
   }
 
   static SnapshotRequestProto toSnapshotRequestProto(

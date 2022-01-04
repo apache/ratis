@@ -42,9 +42,6 @@ service CombinedClientProtocolService {
 
   rpc transferLeadership(ratis.common.TransferLeadershipRequestProto)
       returns(ratis.common.RaftClientReplyProto);
-
-  rpc snapshot(ratis.common.SnapshotRequestProto)
-      returns(ratis.common.RaftClientReplyProto) {}
 }
 
 service RaftServerProtocolService {

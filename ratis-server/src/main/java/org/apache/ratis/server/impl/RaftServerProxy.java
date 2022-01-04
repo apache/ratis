@@ -436,9 +436,9 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public RaftClientReply snapshot(SnapshotRequest request)
+  public RaftClientReply createSnapshot(SnapshotRequest request)
     throws IOException {
-    return getImpl(request.getRaftGroupId()).snapshot(request);
+    return getImpl(request.getRaftGroupId()).takeSnapshot(request);
   }
 
   @Override
@@ -536,7 +536,8 @@ class RaftServerProxy implements RaftServer {
         server -> server.getGroupInfo(request));
   }
 
-  public CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotRequest request) {
+  @Override
+  public CompletableFuture<RaftClientReply> createSnapshotAsync(SnapshotRequest request) {
     return submitRequest(request.getRaftGroupId(), impl -> impl.takeSnapshotAsync(request));
   }
 
@@ -551,11 +552,6 @@ class RaftServerProxy implements RaftServer {
   @Override
   public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request) {
     return submitRequest(request.getRaftGroupId(), impl -> impl.transferLeadershipAsync(request));
-  }
-
-  @Override
-  public CompletableFuture<RaftClientReply> snapshotAsync(SnapshotRequest request) {
-    return submitRequest(request.getRaftGroupId(), impl -> impl.snapshotAsync(request));
   }
 
   @Override

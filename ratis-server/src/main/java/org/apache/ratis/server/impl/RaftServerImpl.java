@@ -974,7 +974,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  public RaftClientReply snapshot(SnapshotRequest request) throws IOException {
+  public RaftClientReply takeSnapshot(SnapshotRequest request) throws IOException {
     return waitForReply(request, takeSnapshotAsync(request));
   }
 

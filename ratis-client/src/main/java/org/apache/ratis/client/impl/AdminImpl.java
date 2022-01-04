@@ -55,12 +55,4 @@ class AdminImpl implements AdminApi {
     return client.io().sendRequestWithRetry(() -> new TransferLeadershipRequest(
         client.getId(), client.getLeaderId(), client.getGroupId(), callId, newLeader, timeoutMs));
   }
-
-  @Override
-  public RaftClientReply snapshot() throws IOException {
-    final long callId = CallId.getAndIncrement();
-    return client.io().sendRequestWithRetry(() -> new SnapshotRequest(
-            client.getId(), client.getLeaderId(), client.getGroupId(), callId
-    ));
-  }
 }

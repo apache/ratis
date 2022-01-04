@@ -183,14 +183,6 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
           return RaftNettyServerReplyProto.newBuilder()
               .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(transferLeadershipReply))
               .build();
-        case SNAPSHOTREQUEST:
-          final SnapshotRequestProto snapshotRequest = proto.getSnapshotRequest();
-          rpcRequest = snapshotRequest.getRpcRequest();
-          final RaftClientReply snapshotReply = server.snapshot(
-                  ClientProtoUtils.toSnapshotRequest(snapshotRequest));
-          return RaftNettyServerReplyProto.newBuilder()
-                  .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(snapshotReply))
-                  .build();
         case STARTLEADERELECTIONREQUEST:
           final StartLeaderElectionRequestProto startLeaderElectionRequest = proto.getStartLeaderElectionRequest();
           rpcRequest = startLeaderElectionRequest.getServerRequest();

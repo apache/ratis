@@ -25,7 +25,6 @@ import org.apache.ratis.protocol.GroupInfoRequest;
 import org.apache.ratis.protocol.GroupListRequest;
 import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.protocol.SnapshotRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
@@ -75,14 +74,6 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
       StreamObserver<RaftClientReplyProto> responseObserver) {
     final TransferLeadershipRequest request = ClientProtoUtils.toTransferLeadershipRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.transferLeadershipAsync(request),
-        ClientProtoUtils::toRaftClientReplyProto);
-  }
-
-  @Override
-  public void snapshot(SnapshotRequestProto proto,
-      StreamObserver<RaftClientReplyProto> responseObserver) {
-    final SnapshotRequest request = ClientProtoUtils.toSnapshotRequest(proto);
-    GrpcUtil.asyncCall(responseObserver, () -> protocol.snapshotAsync(request),
         ClientProtoUtils::toRaftClientReplyProto);
   }
 }
