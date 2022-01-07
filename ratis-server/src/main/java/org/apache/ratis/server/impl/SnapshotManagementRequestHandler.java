@@ -18,7 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.SnapshotRequest;
+import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
@@ -34,15 +34,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-class SnapshotRequestHandler {
+class SnapshotManagementRequestHandler {
   public static final Logger LOG = LoggerFactory.getLogger(TransferLeadership.class);
 
   class PendingRequest {
-    private final SnapshotRequest request;
+    private final SnapshotManagementRequest request;
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
     private final AtomicBoolean triggerTakingSnapshot = new AtomicBoolean(true);
 
-    PendingRequest(SnapshotRequest request) {
+    PendingRequest(SnapshotManagementRequest request) {
       LOG.info("new PendingRequest " + request);
       this.request = request;
     }
@@ -92,11 +92,11 @@ class SnapshotRequestHandler {
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
   private final PendingRequestReference pending = new PendingRequestReference();
 
-  SnapshotRequestHandler(RaftServerImpl server) {
+  SnapshotManagementRequestHandler(RaftServerImpl server) {
     this.server = server;
   }
 
-  CompletableFuture<RaftClientReply> takingSnapshotAsync(SnapshotRequest request) {
+  CompletableFuture<RaftClientReply> takingSnapshotAsync(SnapshotManagementRequest request) {
     final MemoizedSupplier<PendingRequest> supplier = JavaUtils.memoize(() -> new PendingRequest(request));
     final PendingRequest previous = pending.getAndUpdate(supplier);
     if (previous != null) {

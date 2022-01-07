@@ -436,12 +436,6 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public RaftClientReply createSnapshot(SnapshotRequest request)
-    throws IOException {
-    return getImpl(request.getRaftGroupId()).takeSnapshot(request);
-  }
-
-  @Override
   public RaftClientReply groupManagement(GroupManagementRequest request) throws IOException {
     return RaftServerImpl.waitForReply(getId(), request, groupManagementAsync(request),
         e -> RaftClientReply.newBuilder()
@@ -516,6 +510,34 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
+  public RaftClientReply snapshotManagement(SnapshotManagementRequest request) throws IOException {
+    return RaftServerImpl.waitForReply(getId(), request, snapshotManagementAsync(request),
+          e -> RaftClientReply.newBuilder()
+                .setRequest(request)
+                .setException(e)
+                .build());
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> snapshotManagementAsync(SnapshotManagementRequest request) {
+    final RaftGroupId groupId = request.getRaftGroupId();
+    if (groupId == null) {
+      return JavaUtils.completeExceptionally(new GroupMismatchException(
+            getId() + ": Request group id == null"));
+    }
+    final SnapshotManagementRequest.Create create = request.getCreate();
+    if (create != null) {
+      return createAsync(request);
+    }
+    return JavaUtils.completeExceptionally(new UnsupportedOperationException(
+          getId() + ": Request not supported " + request));
+  }
+
+  private CompletableFuture<RaftClientReply> createAsync(SnapshotManagementRequest request) {
+    return submitRequest(request.getRaftGroupId(), impl -> impl.takeSnapshotAsync(request));
+  }
+
+  @Override
   public GroupListReply getGroupList(GroupListRequest request) {
     return new GroupListReply(request, getGroupIds());
   }
@@ -534,11 +556,6 @@ class RaftServerProxy implements RaftServer {
   public CompletableFuture<GroupInfoReply> getGroupInfoAsync(GroupInfoRequest request) {
     return getImplFuture(request.getRaftGroupId()).thenApplyAsync(
         server -> server.getGroupInfo(request));
-  }
-
-  @Override
-  public CompletableFuture<RaftClientReply> createSnapshotAsync(SnapshotRequest request) {
-    return submitRequest(request.getRaftGroupId(), impl -> impl.takeSnapshotAsync(request));
   }
 
   /**

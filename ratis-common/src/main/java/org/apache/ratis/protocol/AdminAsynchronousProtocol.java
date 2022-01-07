@@ -28,6 +28,8 @@ public interface AdminAsynchronousProtocol {
 
   CompletableFuture<RaftClientReply> groupManagementAsync(GroupManagementRequest request);
 
+  CompletableFuture<RaftClientReply> snapshotManagementAsync(SnapshotManagementRequest request);
+
   CompletableFuture<RaftClientReply> setConfigurationAsync(
       SetConfigurationRequest request) throws IOException;
 

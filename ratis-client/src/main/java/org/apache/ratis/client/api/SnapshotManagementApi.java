@@ -28,5 +28,5 @@ import java.io.IOException;
 public interface SnapshotManagementApi {
 
   /** trigger create snapshot file. */
-  RaftClientReply createSnapshot(long timeoutMs) throws IOException;
+  RaftClientReply create(long timeoutMs) throws IOException;
 }

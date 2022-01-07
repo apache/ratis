@@ -516,23 +516,6 @@ public interface ClientProtoUtils {
         .build();
   }
 
-  static SnapshotRequest toSnapshotRequest(
-          SnapshotRequestProto p) {
-    final RaftRpcRequestProto m = p.getRpcRequest();
-    return new SnapshotRequest(
-            ClientId.valueOf(m.getRequestorId()),
-            RaftPeerId.valueOf(m.getReplyId()),
-            ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-            p.getRpcRequest().getCallId(), m.getTimeoutMs());
-  }
-
-  static SnapshotRequestProto toSnapshotRequestProto(
-          SnapshotRequest request) {
-    return SnapshotRequestProto.newBuilder()
-            .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-            .build();
-  }
-
   static TransferLeadershipRequest toTransferLeadershipRequest(
       TransferLeadershipRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
@@ -608,6 +591,30 @@ public interface ClientProtoUtils {
           .setDeleteDirectory(remove.isDeleteDirectory())
           .setRenameDirectory(remove.isRenameDirectory())
           .build());
+    }
+    return b.build();
+  }
+
+  static SnapshotManagementRequest toSnapshotManagementRequest(SnapshotManagementRequestProto p) {
+    final RaftRpcRequestProto m = p.getRpcRequest();
+    final ClientId clientId = ClientId.valueOf(m.getRequestorId());
+    final RaftPeerId serverId = RaftPeerId.valueOf(m.getReplyId());
+    switch(p.getOpCase()) {
+      case CREATE:
+        return SnapshotManagementRequest.newCreate(clientId, serverId,
+            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId(), m.getTimeoutMs());
+      default:
+        throw new IllegalArgumentException("Unexpected op " + p.getOpCase() + " in " + p);
+    }
+  }
+
+  static SnapshotManagementRequestProto toSnapshotManagementRequestProto(
+      SnapshotManagementRequest request) {
+    final SnapshotManagementRequestProto.Builder b = SnapshotManagementRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    final SnapshotManagementRequest.Create create = request.getCreate();
+    if (create != null) {
+      b.setCreate(SnapshotCreateRequestProto.newBuilder().build());
     }
     return b.build();
   }

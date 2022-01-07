@@ -414,8 +414,16 @@ message TransferLeadershipRequestProto {
 }
 
 // snapshot request
-message SnapshotRequestProto {
+message SnapshotManagementRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
+
+  oneof Op {
+    SnapshotCreateRequestProto create = 2;
+  }
+}
+
+message SnapshotCreateRequestProto {
+
 }
 
 message StartLeaderElectionRequestProto {

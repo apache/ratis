@@ -18,8 +18,9 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.api.SnapshotManagementApi;
+import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.SnapshotRequest;
+import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.rpc.CallId;
 
 import java.io.IOException;
@@ -33,10 +34,9 @@ class SnapshotManagementImpl implements SnapshotManagementApi {
   }
 
   @Override
-  public RaftClientReply createSnapshot(long timeoutMs) throws IOException {
+  public RaftClientReply create(long timeoutMs) throws IOException {
     final long callId = CallId.getAndIncrement();
-    return client.io().sendRequestWithRetry(() -> new SnapshotRequest(
-          client.getId(), client.getLeaderId(), client.getGroupId(), callId, timeoutMs
-    ));
+    return client.io().sendRequestWithRetry(() -> SnapshotManagementRequest.newCreate(
+        client.getId(), client.getLeaderId(), client.getGroupId(), callId, timeoutMs));
   }
 }
