@@ -34,6 +34,7 @@ import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.thirdparty.com.google.protobuf
     .GeneratedMessageV3;
@@ -95,6 +96,12 @@ public class CombinedClientProtocolClientSideTranslatorPB
         ClientProtoUtils::toRaftClientReply,
         ClientOps.groupManagement,
         RaftProtos.RaftClientReplyProto::parseFrom);
+  }
+
+  @Override
+  public RaftClientReply snapshotManagement(SnapshotManagementRequest request) throws IOException {
+    //todo(codings-dan): add proto related to hadoop
+    return null;
   }
 
   @Override

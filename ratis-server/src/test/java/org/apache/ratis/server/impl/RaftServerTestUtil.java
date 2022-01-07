@@ -25,7 +25,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.SnapshotRequest;
+import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DivisionInfo;
@@ -181,7 +181,7 @@ public class RaftServerTestUtil {
     return ((RaftConfigurationImpl)config).isHighestPriority(peerId);
   }
 
-  public static CompletableFuture<RaftClientReply> takeSnapshotAsync(RaftServer.Division leader, SnapshotRequest r)
+  public static CompletableFuture<RaftClientReply> takeSnapshotAsync(RaftServer.Division leader, SnapshotManagementRequest r)
       throws IOException {
     return ((RaftServerImpl)leader).takeSnapshotAsync(r);
   }

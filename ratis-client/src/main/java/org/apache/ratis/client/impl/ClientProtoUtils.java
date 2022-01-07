@@ -595,6 +595,30 @@ public interface ClientProtoUtils {
     return b.build();
   }
 
+  static SnapshotManagementRequest toSnapshotManagementRequest(SnapshotManagementRequestProto p) {
+    final RaftRpcRequestProto m = p.getRpcRequest();
+    final ClientId clientId = ClientId.valueOf(m.getRequestorId());
+    final RaftPeerId serverId = RaftPeerId.valueOf(m.getReplyId());
+    switch(p.getOpCase()) {
+      case CREATE:
+        return SnapshotManagementRequest.newCreate(clientId, serverId,
+            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId(), m.getTimeoutMs());
+      default:
+        throw new IllegalArgumentException("Unexpected op " + p.getOpCase() + " in " + p);
+    }
+  }
+
+  static SnapshotManagementRequestProto toSnapshotManagementRequestProto(
+      SnapshotManagementRequest request) {
+    final SnapshotManagementRequestProto.Builder b = SnapshotManagementRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    final SnapshotManagementRequest.Create create = request.getCreate();
+    if (create != null) {
+      b.setCreate(SnapshotCreateRequestProto.newBuilder().build());
+    }
+    return b.build();
+  }
+
   static GroupInfoRequestProto toGroupInfoRequestProto(
       GroupInfoRequest request) {
     return GroupInfoRequestProto.newBuilder()

@@ -179,7 +179,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicBoolean startComplete;
 
   private final TransferLeadership transferLeadership;
-  private final SnapshotRequestHandler snapshotRequestHandler;
+  private final SnapshotManagementRequestHandler snapshotRequestHandler;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -220,7 +220,7 @@ class RaftServerImpl implements RaftServer.Division,
     });
 
     this.transferLeadership = new TransferLeadership(this);
-    this.snapshotRequestHandler = new SnapshotRequestHandler(this);
+    this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
   }
 
   @Override
@@ -974,7 +974,11 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotRequest request) throws IOException {
+  public RaftClientReply takeSnapshot(SnapshotManagementRequest request) throws IOException {
+    return waitForReply(request, takeSnapshotAsync(request));
+  }
+
+  CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotManagementRequest request) throws IOException {
     LOG.info("{}: takeSnapshotAsync {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
@@ -1001,7 +1005,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  SnapshotRequestHandler getSnapshotRequestHandler() {
+  SnapshotManagementRequestHandler getSnapshotRequestHandler() {
     return snapshotRequestHandler;
   }
 

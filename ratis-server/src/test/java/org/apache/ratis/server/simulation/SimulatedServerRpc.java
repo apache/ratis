@@ -33,6 +33,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
@@ -192,6 +193,8 @@ class SimulatedServerRpc implements RaftServerRpc {
         future = server.setConfigurationAsync((SetConfigurationRequest) request);
       } else if (request instanceof TransferLeadershipRequest) {
         future = server.transferLeadershipAsync((TransferLeadershipRequest) request);
+      } else if (request instanceof SnapshotManagementRequest) {
+        future = server.snapshotManagementAsync((SnapshotManagementRequest) request);
       } else {
         future = server.submitClientRequestAsync(request);
       }

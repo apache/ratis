@@ -15,11 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.client.api;
 
-public final class SnapshotRequest extends RaftClientRequest {
+import org.apache.ratis.protocol.RaftClientReply;
 
-  public SnapshotRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,long callId, long timeoutMs) {
-    super(clientId, serverId, groupId, callId, readRequestType(), timeoutMs);
-  }
+import java.io.IOException;
+
+/**
+ * An API to support control snapshot
+ * such as create and list snapshot file.
+ */
+public interface SnapshotManagementApi {
+
+  /** trigger create snapshot file. */
+  RaftClientReply create(long timeoutMs) throws IOException;
 }
