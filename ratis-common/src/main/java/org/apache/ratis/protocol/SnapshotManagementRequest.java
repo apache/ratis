@@ -33,13 +33,16 @@ public final class SnapshotManagementRequest extends RaftClientRequest {
 
   }
 
-  public static SnapshotManagementRequest newCreate(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, long timeoutMs) {
-    return new SnapshotManagementRequest(clientId, serverId, groupId, callId, timeoutMs,new SnapshotManagementRequest.Create());
+  public static SnapshotManagementRequest newCreate(ClientId clientId,
+      RaftPeerId serverId, RaftGroupId groupId, long callId, long timeoutMs) {
+    return new SnapshotManagementRequest(clientId,
+        serverId, groupId, callId, timeoutMs,new SnapshotManagementRequest.Create());
   }
 
   private final Op op;
 
-  public SnapshotManagementRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, long timeoutMs, Op op) {
+  public SnapshotManagementRequest(ClientId clientId,
+      RaftPeerId serverId, RaftGroupId groupId, long callId, long timeoutMs, Op op) {
     super(clientId, serverId, groupId, callId, readRequestType(), timeoutMs);
     this.op = op;
   }

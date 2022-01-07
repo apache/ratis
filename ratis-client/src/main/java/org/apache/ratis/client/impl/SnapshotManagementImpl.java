@@ -18,7 +18,6 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.api.SnapshotManagementApi;
-import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.rpc.CallId;
