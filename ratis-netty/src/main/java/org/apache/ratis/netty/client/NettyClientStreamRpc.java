@@ -112,6 +112,10 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       return queue.poll();
     }
 
+    int size() {
+      return queue.size();
+    }
+
     @Override
     public Iterator<CompletableFuture<DataStreamReply>> iterator() {
       return queue.iterator();
@@ -156,11 +160,19 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         final DataStreamReply reply = (DataStreamReply) msg;
         LOG.debug("{}: read {}", this, reply);
         clientInvocationId = ClientInvocationId.valueOf(reply.getClientId(), reply.getStreamId());
-        final ReplyQueue queue = replies.get(clientInvocationId);
+        final ReplyQueue queue = reply.isSuccess() ? replies.get(clientInvocationId) :
+                replies.remove(clientInvocationId);
         if (queue != null) {
           final CompletableFuture<DataStreamReply> f = queue.poll();
           if (f != null) {
             f.complete(reply);
+
+            if (!reply.isSuccess() && queue.size() > 0) {
+              final IllegalStateException e = new IllegalStateException(
+                  this + ": an earlier request failed with " + reply);
+              queue.forEach(future -> future.completeExceptionally(e));
+            }
+
             final Integer emptyId = queue.getEmptyId();
             if (emptyId != null) {
               timeoutScheduler.onTimeout(replyQueueGracePeriod,
@@ -175,6 +187,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
       @Override
       public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        LOG.warn(name + ": exceptionCaught", cause);
+
         Optional.ofNullable(clientInvocationId)
             .map(replies::remove)
             .orElse(ReplyQueue.EMPTY)
