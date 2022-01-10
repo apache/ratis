@@ -591,23 +591,15 @@ public class GrpcLogAppender extends LogAppenderBase {
     final FollowerInfo follower = getFollower();
     final long leaderNextIndex = getRaftLog().getNextIndex();
     final boolean isFollowerBootstrapping = getLeaderState().isFollowerBootstrapping(follower);
-
+    final long leaderStartIndex = getRaftLog().getStartIndex();
+    final TermIndex firstAvailable = Optional.ofNullable(getRaftLog().getTermIndex(leaderStartIndex))
+        .orElseGet(() -> TermIndex.valueOf(getServer().getInfo().getCurrentTerm(), leaderNextIndex));
     if (isFollowerBootstrapping && !follower.hasAttemptedToInstallSnapshot()) {
       // If the follower is bootstrapping and has not yet installed any snapshot from leader, then the follower should
       // be notified to install a snapshot. Every follower should try to install at least one snapshot during
       // bootstrapping, if available.
-      TermIndex lastEntry = getRaftLog().getLastEntryTermIndex();
-      if (lastEntry == null) {
-        // lastEntry may need to be derived from snapshot
-        SnapshotInfo snapshot = getServer().getStateMachine().getLatestSnapshot();
-        if (snapshot != null) {
-          lastEntry = snapshot.getTermIndex();
-        }
-      }
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: Notify follower to install snapshot as it is bootstrapping to TermIndex {}.", this, lastEntry);
-      }
-      return lastEntry;
+      LOG.debug("{}: follower is bootstrapping, notify to install snapshot to {}.", this, firstAvailable);
+      return firstAvailable;
     }
 
     final long followerNextIndex = follower.getNextIndex();
@@ -615,18 +607,15 @@ public class GrpcLogAppender extends LogAppenderBase {
       return null;
     }
 
-    final long leaderStartIndex = getRaftLog().getStartIndex();
-
     if (followerNextIndex < leaderStartIndex) {
       // The Leader does not have the logs from the Follower's last log
       // index onwards. And install snapshot is disabled. So the Follower
       // should be notified to install the latest snapshot through its
       // State Machine.
-      return getRaftLog().getTermIndex(leaderStartIndex);
+      return firstAvailable;
     } else if (leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
       // Leader has no logs to check from, hence return next index.
-      return TermIndex.valueOf(getServer().getInfo().getCurrentTerm(),
-          leaderNextIndex);
+      return firstAvailable;
     }
 
     return null;

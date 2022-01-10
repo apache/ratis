@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -98,16 +99,26 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         return super.notifyInstallSnapshotFromLeader(roleInfoProto, termIndex);
       }
 
-      try {
-        Path leaderSnapshotFile = leaderSnapshotInfo.getFile().getPath();
-        File followerSnapshotFilePath = new File(getSMdir(),
-            leaderSnapshotFile.getFileName().toString());
-        Files.copy(leaderSnapshotFile, followerSnapshotFilePath.toPath());
-      } catch (IOException e) {
-        LOG.error("Failed notifyInstallSnapshotFromLeader", e);
-        return JavaUtils.completeExceptionally(e);
-      }
-      return CompletableFuture.completedFuture(leaderSnapshotInfo.getTermIndex());
+      Supplier<TermIndex> supplier = () -> {
+        try {
+          Path leaderSnapshotFile = leaderSnapshotInfo.getFile().getPath();
+          File followerSnapshotFilePath = new File(getSMdir(),
+              leaderSnapshotFile.getFileName().toString());
+          // simulate the real situation such as snapshot transmission delay
+          Thread.sleep(1000);
+          if (followerSnapshotFilePath.exists()) {
+            LOG.warn(followerSnapshotFilePath + " exists");
+          } else {
+            Files.copy(leaderSnapshotFile, followerSnapshotFilePath.toPath());
+          }
+        } catch (IOException | InterruptedException e) {
+          LOG.error("Failed notifyInstallSnapshotFromLeader", e);
+          return null;
+        }
+        return leaderSnapshotInfo.getTermIndex();
+      };
+
+      return CompletableFuture.supplyAsync(supplier);
     }
   }
 
