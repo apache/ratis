@@ -1384,6 +1384,32 @@ class RaftServerImpl implements RaftServer.Division,
     return reply;
   }
 
+  boolean pauseLeaderElection() throws ServerNotReadyException {
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    synchronized (this) {
+      try {
+        role.pauseLeaderElection();
+      } catch (Exception e) {
+        LOG.error("Failed to pause leader election on the server {}",getRaftServer().getId());
+        return false;
+      }
+    }
+    return true;
+  }
+
+  boolean resumeLeaderElection() throws ServerNotReadyException {
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    synchronized (this) {
+      try {
+        role.resumeLeaderElection();
+      } catch (Exception e) {
+        LOG.error("Failed to resume leader election on the server {}",getRaftServer().getId());
+        return false;
+      }
+    }
+    return true;
+  }
+
   boolean pause() throws IOException {
     // TODO: should pause() be limited on only working for a follower?
 

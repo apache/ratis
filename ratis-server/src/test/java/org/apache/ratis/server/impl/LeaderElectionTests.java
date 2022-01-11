@@ -408,6 +408,37 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
+  @Test
+  public void testPauseResumeLeaderElection() {
+    try(final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+      RaftServer.Division leader = waitForLeader(cluster);
+      RaftPeerId leaderId = leader.getId();
+      final List<RaftServer.Division> followers = cluster.getFollowers();
+      Assert.assertTrue(followers.size() >= 1);
+      final RaftServerImpl f1 = (RaftServerImpl)followers.get(0);
+      f1.pauseLeaderElection();
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        RaftServer.Division newLeader = followers.get(0);
+
+        List<RaftPeer> peers = cluster.getPeers();
+        List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
+        RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+        Assert.assertTrue(reply.isSuccess());
+        Thread.sleep(2000);
+        Assert.assertEquals(leaderId, leader.getId());
+        f1.resumeLeaderElection();
+        reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+        Assert.assertTrue(reply.isSuccess());
+        Thread.sleep(2000);
+        Assert.assertEquals(f1.getId(), cluster.getLeader().getId());
+      }
+    } catch (IOException | InterruptedException e) {
+      e.printStackTrace();
+    }
+  }
+
   private static RaftServerImpl createMockServer(boolean alive) {
     final DivisionInfo info = mock(DivisionInfo.class);
     when(info.isAlive()).thenReturn(alive);

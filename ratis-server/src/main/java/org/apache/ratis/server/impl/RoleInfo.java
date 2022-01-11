@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -46,6 +47,7 @@ class RoleInfo {
   private final AtomicReference<LeaderElection> leaderElection = new AtomicReference<>();
 
   private final AtomicReference<Timestamp> transitionTime;
+  private final AtomicBoolean pauseElection = new AtomicBoolean(false);
 
   RoleInfo(RaftPeerId id) {
     this.id = id;
@@ -112,7 +114,29 @@ class RoleInfo {
   }
 
   void startLeaderElection(RaftServerImpl server, boolean force) {
-    updateAndGet(leaderElection, new LeaderElection(server, force)).start();
+    updateAndGet(leaderElection, new LeaderElection(server, force, pauseElection.get())).start();
+  }
+
+  void pauseLeaderElection() {
+    final LeaderElection election = leaderElection.getAndSet(null);
+    if (election != null) {
+      LOG.info("{}: shutdown {}", id, election);
+      election.pause();
+      // no need to interrupt the election thread
+    } else {
+      pauseElection.getAndSet(true);
+    }
+  }
+
+  void resumeLeaderElection() {
+    final LeaderElection election = leaderElection.getAndSet(null);
+    if (election != null) {
+      LOG.info("{}: resume {}", id, election);
+      election.resume();
+      // no need to interrupt the election thread
+    } else {
+      pauseElection.getAndSet(false);
+    }
   }
 
   void shutdownLeaderElection() {
