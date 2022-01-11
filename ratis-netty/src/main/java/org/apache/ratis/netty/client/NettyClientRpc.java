@@ -27,7 +27,6 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
-import org.apache.ratis.proto.RaftProtos.SnapshotManagementRequestProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 
 import java.io.IOException;

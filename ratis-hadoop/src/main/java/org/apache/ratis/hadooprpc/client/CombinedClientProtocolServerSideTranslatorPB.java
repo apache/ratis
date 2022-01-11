@@ -25,7 +25,6 @@ import com.google.protobuf.ServiceException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ClientReplyProto;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ClientRequestProto;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ClientOps;
