@@ -27,6 +27,7 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.ratis.proto.RaftProtos.SnapshotManagementRequestProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 
 import java.io.IOException;
@@ -67,6 +68,11 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
       final RaftProtos.TransferLeadershipRequestProto proto = ClientProtoUtils.toTransferLeadershipRequestProto(
           (TransferLeadershipRequest)request);
       b.setTransferLeadershipRequest(proto);
+      rpcRequest = proto.getRpcRequest();
+    } else if (request instanceof SnapshotManagementRequest) {
+      final RaftProtos.SnapshotManagementRequestProto proto = ClientProtoUtils.toSnapshotManagementRequestProto(
+          (SnapshotManagementRequest) request);
+      b.setSnapshotManagementRequest(proto);
       rpcRequest = proto.getRpcRequest();
     } else {
       final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
