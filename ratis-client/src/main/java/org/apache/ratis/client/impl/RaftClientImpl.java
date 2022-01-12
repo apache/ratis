@@ -21,6 +21,7 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.api.DataStreamApi;
+import org.apache.ratis.client.api.SnapshotManagementApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
@@ -140,6 +141,7 @@ public final class RaftClientImpl implements RaftClient {
 
   private final Supplier<AdminImpl> adminApi;
   private final ConcurrentMap<RaftPeerId, GroupManagementImpl> groupManagmenets = new ConcurrentHashMap<>();
+  private final Supplier<SnapshotManagementApi> snapshotManagemenet;
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primaryDataStreamServer,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
@@ -170,6 +172,7 @@ public final class RaftClientImpl implements RaftClient {
         .setProperties(properties)
         .build());
     this.adminApi = JavaUtils.memoize(() -> new AdminImpl(this));
+    this.snapshotManagemenet= JavaUtils.memoize(() -> new SnapshotManagementImpl(this));
   }
 
   public RaftPeerId getLeaderId() {
@@ -241,6 +244,11 @@ public final class RaftClientImpl implements RaftClient {
   @Override
   public GroupManagementImpl getGroupManagementApi(RaftPeerId server) {
     return groupManagmenets.computeIfAbsent(server, id -> new GroupManagementImpl(id, this));
+  }
+
+  @Override
+  public SnapshotManagementApi getSnapshotManagementApi() {
+    return snapshotManagemenet.get();
   }
 
   @Override
