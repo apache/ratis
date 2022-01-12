@@ -429,8 +429,6 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         Thread.sleep(2000);
         Assert.assertEquals(leaderId, leader.getId());
         f1.resumeLeaderElection();
-        reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
-        Assert.assertTrue(reply.isSuccess());
         Thread.sleep(2000);
         Assert.assertEquals(f1.getId(), cluster.getLeader().getId());
       }
