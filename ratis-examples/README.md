@@ -55,15 +55,16 @@ For example,
 #### FileStore Client
 
 To spawn a FileStore load generation client, run
-* `client.sh filestore loadgen --size <FILE_SIZE> --numFiles <NUM_FILES> --peers <ID:IP_ADDRESS,...>`
+* `client.sh filestore loadgen --size <FILE_SIZE> --numFiles <NUM_FILES> --numClients <NUM_CLIENTS> --peers <ID:IP_ADDRESS,...>`
 
 where
 * `<FILE_SIZE>` is the size of the files to be generated in bytes, and
-* `<NUM_FILES>` is the number of files to be generated.
+* `<NUM_FILES>` is the number of files to be generated, and
+* `<NUM_CLIENTS>` is the number of clients.
 
 Continue the server command example,
 
-    ${BIN}/client.sh filestore loadgen --size 1048576 --numFiles 1000 --storage /tmp/ratis/loadgen --peers ${PEERS}
+    ${BIN}/client.sh filestore loadgen --size 1048576 --numFiles 1000 --storage /tmp/ratis/loadgen --numClients 1 --peers ${PEERS}
 
 ## Example 2: Arithmetic
 
