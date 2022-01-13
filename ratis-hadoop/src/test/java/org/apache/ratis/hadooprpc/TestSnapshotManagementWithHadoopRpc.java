@@ -15,11 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc;
+package org.apache.ratis.hadooprpc;
 
 import org.apache.ratis.statemachine.SnapshotManagementTest;
 
-public class TestSnapshotManagementWithGrpc
-    extends SnapshotManagementTest<MiniRaftClusterWithGrpc>
-    implements MiniRaftClusterWithGrpc.FactoryGet {
+public class TestSnapshotManagementWithHadoopRpc
+    extends SnapshotManagementTest<MiniRaftClusterWithHadoopRpc>
+    implements MiniRaftClusterWithHadoopRpc.Factory.Get {
 }

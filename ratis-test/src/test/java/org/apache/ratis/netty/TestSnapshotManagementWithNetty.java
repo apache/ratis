@@ -15,11 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc;
+package org.apache.ratis.netty;
 
 import org.apache.ratis.statemachine.SnapshotManagementTest;
 
-public class TestSnapshotManagementWithGrpc
-    extends SnapshotManagementTest<MiniRaftClusterWithGrpc>
-    implements MiniRaftClusterWithGrpc.FactoryGet {
+public class TestSnapshotManagementWithNetty
+    extends SnapshotManagementTest<MiniRaftClusterWithNetty>
+    implements MiniRaftClusterWithNetty.FactoryGet {
 }

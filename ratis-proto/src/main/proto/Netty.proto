@@ -40,6 +40,7 @@ message RaftNettyServerRequestProto {
     ratis.common.GroupInfoRequestProto groupInfoRequest = 8;
     ratis.common.TransferLeadershipRequestProto transferLeadershipRequest = 9;
     ratis.common.StartLeaderElectionRequestProto startLeaderElectionRequest = 10;
+    ratis.common.SnapshotManagementRequestProto snapshotManagementRequest = 11;
   }
 }
 

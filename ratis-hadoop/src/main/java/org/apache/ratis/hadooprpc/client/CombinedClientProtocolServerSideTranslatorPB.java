@@ -40,6 +40,7 @@ import org.apache.ratis.proto.RaftProtos.GroupListReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
 import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
+import org.apache.ratis.proto.RaftProtos.SnapshotManagementRequestProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.GeneratedMessageV3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,6 +81,9 @@ public class CombinedClientProtocolServerSideTranslatorPB
         break;
       case transferLeadership:
         response = transferLeadership(TransferLeadershipRequestProto.parseFrom(buf));
+        break;
+      case snapshotManagement:
+        response = snapshotManagement(SnapshotManagementRequestProto.parseFrom(buf));
         break;
       default:
         String message = "Internal error, all response types are not being handled as expected. " +
@@ -135,6 +139,13 @@ public class CombinedClientProtocolServerSideTranslatorPB
       throws IOException {
     final TransferLeadershipRequest request = ClientProtoUtils.toTransferLeadershipRequest(proto);
     final RaftClientReply reply = impl.transferLeadership(request);
+    return ClientProtoUtils.toRaftClientReplyProto(reply);
+  }
+
+  public RaftClientReplyProto snapshotManagement(SnapshotManagementRequestProto proto)
+      throws IOException {
+    final SnapshotManagementRequest request = ClientProtoUtils.toSnapshotManagementRequest(proto);
+    final RaftClientReply reply = impl.snapshotManagement(request);
     return ClientProtoUtils.toRaftClientReplyProto(reply);
   }
 }

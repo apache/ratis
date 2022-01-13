@@ -100,8 +100,11 @@ public class CombinedClientProtocolClientSideTranslatorPB
 
   @Override
   public RaftClientReply snapshotManagement(SnapshotManagementRequest request) throws IOException {
-    //todo(codings-dan): add proto related to hadoop
-    return null;
+    return handleRequest(request,
+        ClientProtoUtils::toSnapshotManagementRequestProto,
+        ClientProtoUtils::toRaftClientReply,
+        ClientOps.snapshotManagement,
+        RaftProtos.RaftClientReplyProto::parseFrom);
   }
 
   @Override
