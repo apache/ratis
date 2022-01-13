@@ -24,6 +24,7 @@ import org.apache.ratis.client.api.BlockingApi;
 import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.client.api.MessageStreamApi;
+import org.apache.ratis.client.api.SnapshotManagementApi;
 import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -56,6 +57,9 @@ public interface RaftClient extends Closeable {
 
   /** Get the {@link GroupManagementApi} for the given server. */
   GroupManagementApi getGroupManagementApi(RaftPeerId server);
+
+  /** Get the {@link SnapshotManagementApi}. */
+  SnapshotManagementApi getSnapshotManagementApi();
 
   /** @return the {@link BlockingApi}. */
   BlockingApi io();

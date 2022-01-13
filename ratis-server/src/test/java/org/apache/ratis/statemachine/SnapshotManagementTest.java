@@ -75,9 +75,7 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
-      final SnapshotManagementRequest r = SnapshotManagementRequest.newCreate(client.getId(),
-          leaderId, cluster.getGroupId(), CallId.getAndIncrement(), 3000);
-      snapshotReply = RaftServerTestUtil.takeSnapshotAsync(leader, r).join();
+      snapshotReply = client.getSnapshotManagementApi().create(3000);
     }
 
     Assert.assertTrue(snapshotReply.isSuccess());
@@ -100,10 +98,7 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
       }
       Assert.assertTrue(leader.getStateMachine().getLastAppliedTermIndex().getIndex()
             < RaftServerConfigKeys.Snapshot.creationGap(getProperties()));
-      final SnapshotManagementRequest r =
-          SnapshotManagementRequest.newCreate(client.getId(), leaderId, cluster.getGroupId(),
-              CallId.getAndIncrement(), 3000);
-      snapshotReply = RaftServerTestUtil.takeSnapshotAsync(leader, r).join();
+      snapshotReply = client.getSnapshotManagementApi().create(3000);
       Assert.assertTrue(snapshotReply.isSuccess());
       Assert.assertEquals(0,snapshotReply.getLogIndex());
       for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties())/2-1; i++) {
@@ -112,7 +107,7 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
       }
       final SnapshotManagementRequest r1 = SnapshotManagementRequest.newCreate(client.getId(),
           leaderId, cluster.getGroupId(), CallId.getAndIncrement(), 3000);
-      snapshotReply = RaftServerTestUtil.takeSnapshotAsync(leader, r1).join();
+      snapshotReply = client.getSnapshotManagementApi().create(3000);
     }
     Assert.assertTrue(snapshotReply.isSuccess());
     final long snapshotIndex = snapshotReply.getLogIndex();
