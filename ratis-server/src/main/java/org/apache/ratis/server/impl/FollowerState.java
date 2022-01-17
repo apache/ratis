@@ -129,6 +129,7 @@ class FollowerState extends Daemon {
         }
         synchronized (server) {
           if (outstandingOp.get() == 0
+              && isRunning
               && lastRpcTime.elapsedTime().compareTo(electionTimeout) >= 0
               && !lostMajorityHeartbeatsRecently()) {
             LOG.info("{}: change to CANDIDATE, lastRpcElapsedTime:{}, electionTimeout:{}",
