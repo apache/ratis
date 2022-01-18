@@ -48,7 +48,6 @@ class RoleInfo {
   private final AtomicBoolean pauseLeaderElection = new AtomicBoolean(false);
 
   private final AtomicReference<Timestamp> transitionTime;
-  private final AtomicBoolean pauseElection = new AtomicBoolean(false);
 
   RoleInfo(RaftPeerId id) {
     this.id = id;
