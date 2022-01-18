@@ -50,7 +50,6 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -187,13 +186,8 @@ class LeaderElection implements Runnable {
 
   private final RaftServerImpl server;
   private final boolean skipPreVote;
-  private final AtomicBoolean pause;
 
   LeaderElection(RaftServerImpl server, boolean skipPreVote) {
-    this(server, skipPreVote, false);
-  }
-
-  LeaderElection(RaftServerImpl server, boolean skipPreVote, boolean pause) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
     this.daemon = new Daemon(this);
@@ -201,7 +195,6 @@ class LeaderElection implements Runnable {
     this.skipPreVote = skipPreVote ||
         !RaftServerConfigKeys.LeaderElection.preVote(
             server.getRaftServer().getProperties());
-    this.pause = new AtomicBoolean(pause);
   }
 
   void start() {
@@ -214,24 +207,12 @@ class LeaderElection implements Runnable {
   }
 
   private void startIfNew(Runnable starter) {
-    if (pause.get()) {
-      LOG.info("{}: skip starting election since the election has been paused", this);
-      return;
-    }
     if (lifeCycle.compareAndTransition(NEW, STARTING)) {
       starter.run();
     } else {
       final LifeCycle.State state = lifeCycle.getCurrentState();
       LOG.info("{}: skip starting since this is already {}", this, state);
     }
-  }
-
-  void pause() {
-    pause.getAndSet(true);
-  }
-
-  void resume() {
-    pause.getAndSet(false);
   }
 
   void shutdown() {
