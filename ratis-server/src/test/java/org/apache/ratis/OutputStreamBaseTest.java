@@ -70,11 +70,6 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     return b;
   }
 
-  @Override
-  public int getGlobalTimeoutSeconds() {
-    return 300;
-  }
-
   @Test
   public void testSimpleWrite() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::runTestSimpleWrite);
