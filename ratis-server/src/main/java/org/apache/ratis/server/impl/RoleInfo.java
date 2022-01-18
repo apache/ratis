@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -44,6 +45,7 @@ class RoleInfo {
   private final AtomicReference<FollowerState> followerState = new AtomicReference<>();
   /** Used when the peer is candidate, to request votes from other peers */
   private final AtomicReference<LeaderElection> leaderElection = new AtomicReference<>();
+  private final AtomicBoolean pauseLeaderElection = new AtomicBoolean(false);
 
   private final AtomicReference<Timestamp> transitionTime;
 
@@ -112,7 +114,14 @@ class RoleInfo {
   }
 
   void startLeaderElection(RaftServerImpl server, boolean force) {
+    if (pauseLeaderElection.get()) {
+      return;
+    }
     updateAndGet(leaderElection, new LeaderElection(server, force)).start();
+  }
+
+  void setLeaderElectionPause(boolean pause) {
+    pauseLeaderElection.set(pause);
   }
 
   void shutdownLeaderElection() {

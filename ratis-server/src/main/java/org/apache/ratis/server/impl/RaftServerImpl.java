@@ -1388,6 +1388,11 @@ class RaftServerImpl implements RaftServer.Division,
     return reply;
   }
 
+  void setLeaderElectionPause(boolean pause) throws ServerNotReadyException {
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    role.setLeaderElectionPause(pause);
+  }
+
   boolean pause() throws IOException {
     // TODO: should pause() be limited on only working for a follower?
 
