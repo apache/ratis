@@ -866,12 +866,12 @@ under the License.
   </supplement>
   <supplement>
     <project>
-      <groupId>javax.annotation</groupId>
-      <artifactId>javax.annotation-api</artifactId>
+      <groupId>org.apache.tomcat</groupId>
+      <artifactId>annotations-api</artifactId>
       <licenses>
         <license>
-          <name>Common Development and Distribution License (CDDL) v1.0</name>
-          <url>https://glassfish.dev.java.net/public/CDDLv1.0.html</url>
+          <name>Apache License, Version 2.0</name>
+          <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
           <distribution>repo</distribution>
         </license>
       </licenses>
