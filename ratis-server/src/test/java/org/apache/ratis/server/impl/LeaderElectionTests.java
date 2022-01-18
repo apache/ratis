@@ -35,6 +35,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
+import org.apache.ratis.thirdparty.org.checkerframework.checker.units.qual.A;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
@@ -405,6 +406,33 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       cluster.shutdown();
     } catch (Exception e) {
       fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testPauseResumeLeaderElection() throws Exception {
+    runWithNewCluster(3, this::runTestPauseResumeLeaderElection);
+  }
+
+  void runTestPauseResumeLeaderElection(CLUSTER cluster) throws IOException, InterruptedException {
+    RaftServer.Division leader = waitForLeader(cluster);
+    RaftPeerId leaderId = leader.getId();
+    final List<RaftServer.Division> followers = cluster.getFollowers();
+    Assert.assertTrue(followers.size() >= 1);
+    final RaftServerImpl f1 = (RaftServerImpl)followers.get(0);
+    f1.setLeaderElectionPause(true);
+    try (RaftClient client = cluster.createClient(leader.getId())) {
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+      RaftServer.Division newLeader = followers.get(0);
+      List<RaftPeer> peers = cluster.getPeers();
+      List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
+      RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+      Assert.assertTrue(reply.isSuccess());
+      JavaUtils.attempt(() -> Assert.assertEquals(leaderId, leader.getId()),
+          20, HUNDRED_MILLIS, "check leader id", LOG);
+      f1.setLeaderElectionPause(false);
+      JavaUtils.attempt(() -> Assert.assertEquals(f1.getId(), cluster.getLeader().getId()),
+          20, HUNDRED_MILLIS, "check new leader", LOG);
     }
   }
 
