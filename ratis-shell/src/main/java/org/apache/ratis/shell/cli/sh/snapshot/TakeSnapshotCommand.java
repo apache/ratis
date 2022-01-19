@@ -18,7 +18,7 @@
 package org.apache.ratis.shell.cli.sh.snapshot;
 
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.OptionGroup;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -32,6 +32,7 @@ import java.io.IOException;
  * Command for make a ratis server take snapshot.
  */
 public class TakeSnapshotCommand extends AbstractRatisCommand {
+  public static final String TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME = "snapshotTimeout";
 
   /**
    * @param context command context
@@ -48,9 +49,17 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
+    long timeout;
+    if (cl.hasOption(TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME)) {
+      timeout = Long.parseLong(cl.getOptionValue(TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME));
+    } else {
+      timeout = 3000;
+    }
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
-      RaftClientReply reply = raftClient.getSnapshotManagementApi().create(3000);
+      RaftClientReply reply = raftClient.getSnapshotManagementApi().create(timeout);
       processReply(reply, () -> String.format("Failed to take snapshot of peerId %s", raftClient.getLeaderId()));
+      printf(String.format("Successful take snapshot, the latest snapshot index is %d",
+          reply.getLogIndex()));
     }
     return 0;
   }
@@ -59,8 +68,9 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
   public String getUsage() {
     return String.format("%s"
             + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-            + " [-%s <RAFT_GROUP_ID>]",
-        getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME);
+            + " [-%s <RAFT_GROUP_ID>]"
+            + " [-%s <timeoutInMs>]",
+        getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME);
   }
 
   @Override
@@ -70,9 +80,12 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
 
   @Override
   public Options getOptions() {
-    OptionGroup group = new OptionGroup();
-    group.setRequired(true);
-    return super.getOptions().addOptionGroup(group);
+    return super.getOptions().addOption(
+        Option.builder()
+            .option(TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME)
+            .hasArg()
+            .desc("timeout to wait taking snapshot in ms")
+            .build());
   }
 
   /**
