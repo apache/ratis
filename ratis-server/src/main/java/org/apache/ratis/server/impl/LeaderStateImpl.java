@@ -201,7 +201,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     void forEach(Consumer<LogAppender> action) {
-      senders.parallelStream().forEach(action);
+      senders.forEach(action);
     }
 
     void addAll(Collection<LogAppender> newSenders) {
@@ -331,7 +331,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void notifySenders() {
-    senders.forEach(LogAppender::notifyLogAppender);
+    senders.forEach(a -> a.getEventAwaitForSignal().signal());
   }
 
   boolean inStagingState() {

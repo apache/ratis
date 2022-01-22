@@ -31,6 +31,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The default implementation of {@link LogAppender}
@@ -145,12 +146,7 @@ class LogAppenderDefault extends LogAppenderBase {
         }
       }
       if (isRunning() && !hasAppendEntries()) {
-        final long waitTime = getHeartbeatWaitTimeMs();
-        if (waitTime > 0) {
-          synchronized (this) {
-            wait(waitTime);
-          }
-        }
+        getEventAwaitForSignal().await(getHeartbeatWaitTimeMs(), TimeUnit.MILLISECONDS);
       }
       getLeaderState().checkHealth(getFollower());
     }

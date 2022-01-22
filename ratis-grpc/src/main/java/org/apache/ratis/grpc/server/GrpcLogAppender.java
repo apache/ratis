@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.codahale.metrics.Timer;
@@ -164,19 +165,11 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private void mayWait() {
     // use lastSend time instead of lastResponse time
-    final long waitTimeMs = getWaitTimeMs();
-    if (waitTimeMs <= 0L) {
-      return;
-    }
-
-    synchronized(this) {
-      try {
-        LOG.trace("{}: wait {}ms", this, waitTimeMs);
-        wait(waitTimeMs);
-      } catch (InterruptedException ie) {
-        LOG.warn(this + ": Wait interrupted by " + ie);
-        Thread.currentThread().interrupt();
-      }
+    try {
+      getEventAwaitForSignal().await(getWaitTimeMs(), TimeUnit.MILLISECONDS);
+    } catch (InterruptedException ie) {
+      LOG.warn(this + ": Wait interrupted by " + ie);
+      Thread.currentThread().interrupt();
     }
   }
 
@@ -323,7 +316,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         default:
           throw new IllegalStateException("Unexpected reply result: " + reply.getResult());
       }
-      notifyLogAppender();
+      getEventAwaitForSignal().signal();
     }
 
     /**
@@ -395,7 +388,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     void close() {
       done.set(true);
-      notifyLogAppender();
+      getEventAwaitForSignal().signal();
     }
 
     boolean hasAllResponse() {
@@ -526,15 +519,13 @@ public class GrpcLogAppender extends LogAppenderBase {
       return;
     }
 
-    synchronized (this) {
       while (isRunning() && !responseHandler.isDone()) {
         try {
-          wait();
+          getEventAwaitForSignal().await();
         } catch (InterruptedException ignored) {
           Thread.currentThread().interrupt();
         }
       }
-    }
 
     if (responseHandler.hasAllResponse()) {
       getFollower().setSnapshotIndex(snapshot.getTermIndex().getIndex());
@@ -571,15 +562,13 @@ public class GrpcLogAppender extends LogAppenderBase {
       return;
     }
 
-    synchronized (this) {
       while (isRunning() && !responseHandler.isDone()) {
         try {
-          wait();
+          getEventAwaitForSignal().await();
         } catch (InterruptedException ignored) {
           Thread.currentThread().interrupt();
         }
       }
-    }
   }
 
   /**
