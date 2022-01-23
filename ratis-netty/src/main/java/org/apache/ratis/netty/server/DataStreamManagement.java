@@ -68,7 +68,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -219,21 +218,13 @@ public class DataStreamManagement {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
     final RaftProperties properties = server.getProperties();
-    Boolean useCachedThreadPool = RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties);
-    if(useCachedThreadPool) {
-      this.requestExecutor = ConcurrentUtils.newCachedThreadPool(
+    final boolean useCachedThreadPool = RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties);
+    this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
           RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties),
-          ConcurrentUtils.newThreadFactory(name + "-request-"));
-      this.writeExecutor = ConcurrentUtils.newCachedThreadPool(
+          name + "-request-");
+    this.writeExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
           RaftServerConfigKeys.DataStream.asyncWriteThreadPoolSize(properties),
-          ConcurrentUtils.newThreadFactory(name + "-write-"));
-    } else {
-      this.requestExecutor = Executors.newFixedThreadPool(
-          RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties));
-      this.writeExecutor = Executors.newFixedThreadPool(
-          RaftServerConfigKeys.DataStream.asyncWriteThreadPoolSize(properties));
-    }
-
+          name + "-write-");
   }
 
   private CompletableFuture<DataStream> computeDataStreamIfAbsent(RaftClientRequest request) throws IOException {

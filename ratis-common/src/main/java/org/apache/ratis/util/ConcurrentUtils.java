@@ -20,6 +20,7 @@ package org.apache.ratis.util;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -82,5 +83,35 @@ public interface ConcurrentUtils {
   static ExecutorService newCachedThreadPool(int maximumPoolSize, ThreadFactory threadFactory) {
     return new ThreadPoolExecutor(0, maximumPoolSize, 60L, TimeUnit.SECONDS,
         new LinkedBlockingQueue<>(), threadFactory);
+  }
+
+  /**
+   * Create a new {@link ExecutorService} with a maximum pool size.
+   * If it is cached, this method is similar to {@link #newCachedThreadPool(int, ThreadFactory)}.
+   * Otherwise, this method is similar to {@link java.util.concurrent.Executors#newFixedThreadPool(int)}.
+   *
+   * @param cached Use cached thread pool?  If not, use a fixed thread pool.
+   * @param maximumPoolSize the maximum number of threads to allow in the pool.
+   * @param namePrefix the prefix used in the name of the threads created.
+   * @return a new {@link ExecutorService}.
+   */
+  static ExecutorService newThreadPoolWithMax(boolean cached, int maximumPoolSize, String namePrefix) {
+    final ThreadFactory f = newThreadFactory(namePrefix);
+    return cached ? newCachedThreadPool(maximumPoolSize, f)
+        : Executors.newFixedThreadPool(maximumPoolSize, f);
+  }
+
+  /**
+   * Shutdown the given executor and wait for its termination.
+   *
+   * @param executor The executor to be shut down.
+   */
+  static void shutdownAndWait(ExecutorService executor) {
+    try {
+      executor.shutdown();
+      Preconditions.assertTrue(executor.awaitTermination(1, TimeUnit.DAYS));
+    } catch (InterruptedException ignored) {
+      Thread.currentThread().interrupt();
+    }
   }
 }

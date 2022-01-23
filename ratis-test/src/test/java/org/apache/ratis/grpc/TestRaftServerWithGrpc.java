@@ -39,7 +39,6 @@ import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.GrpcClientProtocolClient;
-import org.apache.ratis.grpc.client.GrpcClientProtocolService;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
@@ -78,7 +77,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
   {
-    Log4jUtils.setLogLevel(GrpcClientProtocolService.LOG, Level.ALL);
     Log4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.ALL);
   }
 

@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.grpc.server;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
-import org.apache.ratis.grpc.client.GrpcClientProtocolService;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
 import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
@@ -107,6 +108,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   private final Supplier<InetSocketAddress> clientServerAddressSupplier;
   private final Supplier<InetSocketAddress> adminServerAddressSupplier;
 
+  private final ExecutorService executor;
   private final GrpcClientProtocolService clientProtocolService;
 
   private final MetricServerInterceptor serverInterceptor;
@@ -143,7 +145,12 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
           + " > " + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + " = " + grpcMessageSizeMax);
     }
 
-    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer);
+    final RaftProperties properties = raftServer.getProperties();
+    this.executor = ConcurrentUtils.newThreadPoolWithMax(
+        GrpcConfigKeys.Server.asyncRequestThreadPoolCached(properties),
+        GrpcConfigKeys.Server.asyncRequestThreadPoolSize(properties),
+        getId() + "-request-");
+    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor);
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
@@ -272,6 +279,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     }
 
     serverInterceptor.close();
+    ConcurrentUtils.shutdownAndWait(executor);
   }
 
   @Override

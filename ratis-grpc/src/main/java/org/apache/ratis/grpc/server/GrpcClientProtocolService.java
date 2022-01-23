@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc.client;
+package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.GrpcUtil;
@@ -41,14 +41,15 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
-  public static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolService.class);
+class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
+  private static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolService.class);
 
   private static class PendingOrderedRequest implements SlidingWindow.ServerSideRequest<RaftClientReply> {
     private final RaftClientRequest request;
@@ -131,12 +132,15 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftClientAsynchronousProtocol protocol;
+  private final ExecutorService executor;
 
   private final OrderedStreamObservers orderedStreamObservers = new OrderedStreamObservers();
 
-  public GrpcClientProtocolService(Supplier<RaftPeerId> idSupplier, RaftClientAsynchronousProtocol protocol) {
+  GrpcClientProtocolService(Supplier<RaftPeerId> idSupplier, RaftClientAsynchronousProtocol protocol,
+      ExecutorService executor) {
     this.idSupplier = idSupplier;
     this.protocol = protocol;
+    this.executor = executor;
   }
 
   RaftPeerId getId() {
@@ -150,7 +154,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     return so;
   }
 
-  public void closeAllOrderedRequestStreamObservers(RaftGroupId groupId) {
+  void closeAllOrderedRequestStreamObservers(RaftGroupId groupId) {
     LOG.debug("{}: closeAllOrderedRequestStreamObservers", getId());
     orderedStreamObservers.closeAllExisting(groupId);
   }
@@ -218,9 +222,9 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
     CompletableFuture<Void> processClientRequest(RaftClientRequest request, Consumer<RaftClientReply> replyHandler) {
       try {
-        String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + request.toString() : "";
+        final String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + request : "";
         return protocol.submitClientRequestAsync(request
-        ).thenAcceptAsync(replyHandler
+        ).thenAcceptAsync(replyHandler, executor
         ).exceptionally(exception -> {
           // TODO: the exception may be from either raft or state machine.
           // Currently we skip all the following responses when getting an
