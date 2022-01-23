@@ -25,22 +25,21 @@ import org.apache.ratis.rpc.CallId;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 
 class SnapshotManagementImpl implements SnapshotManagementApi {
   private final RaftClientImpl client;
   private final RaftPeerId server;
 
   SnapshotManagementImpl(RaftPeerId server, RaftClientImpl client) {
-    this.server = Objects.requireNonNull(server, "server == null");
+    this.server = server;
     this.client = Objects.requireNonNull(client, "client == null");
   }
 
   @Override
   public RaftClientReply create(long timeoutMs) throws IOException {
     final long callId = CallId.getAndIncrement();
-    final RaftClientReply reply = client.io().sendRequestWithRetry(
-        () -> SnapshotManagementRequest.newCreate(client.getId(), server,
-            client.getGroupId(), callId, timeoutMs));
-    return reply;
+    return client.io().sendRequestWithRetry(() -> SnapshotManagementRequest.newCreate(client.getId(),
+        Optional.ofNullable(server).orElseGet(client::getLeaderId), client.getGroupId(), callId, timeoutMs));
   }
 }

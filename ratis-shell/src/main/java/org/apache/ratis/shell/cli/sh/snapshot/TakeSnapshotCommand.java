@@ -62,7 +62,7 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
       if (cl.hasOption(PEER_ID_OPTION_NAME)) {
         peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
       } else {
-        peerId = raftClient.getLeaderId();
+        peerId = null;
       }
       RaftClientReply reply = raftClient.getSnapshotManagementApi(peerId).create(timeout);
       processReply(reply, () -> String.format("Failed to take snapshot of peerId %s", peerId));

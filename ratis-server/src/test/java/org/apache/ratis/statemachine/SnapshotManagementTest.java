@@ -76,7 +76,7 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
-      snapshotReply = client.getSnapshotManagementApi(leaderId).create(3000);
+      snapshotReply = client.getSnapshotManagementApi().create(3000);
     }
 
     Assert.assertTrue(snapshotReply.isSuccess());

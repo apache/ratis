@@ -246,6 +246,11 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   @Override
+  public SnapshotManagementApi getSnapshotManagementApi() {
+    return JavaUtils.memoize(() -> new SnapshotManagementImpl(null, this)).get();
+  }
+
+  @Override
   public SnapshotManagementApi getSnapshotManagementApi(RaftPeerId server) {
     return snapshotManagemenet.computeIfAbsent(server, id -> new SnapshotManagementImpl(id, this));
   }
