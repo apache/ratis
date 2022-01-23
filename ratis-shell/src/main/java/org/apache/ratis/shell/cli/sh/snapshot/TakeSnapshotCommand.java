@@ -22,6 +22,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
@@ -33,6 +34,7 @@ import java.io.IOException;
  */
 public class TakeSnapshotCommand extends AbstractRatisCommand {
   public static final String TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME = "snapshotTimeout";
+  public static final String PEER_ID_OPTION_NAME = "peerId";
 
   /**
    * @param context command context
@@ -50,16 +52,22 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
     long timeout;
+    final RaftPeerId peerId;
     if (cl.hasOption(TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME)) {
       timeout = Long.parseLong(cl.getOptionValue(TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME));
     } else {
       timeout = 3000;
     }
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
-      RaftClientReply reply = raftClient.getSnapshotManagementApi().create(timeout);
-      processReply(reply, () -> String.format("Failed to take snapshot of peerId %s", raftClient.getLeaderId()));
-      printf(String.format("Successful take snapshot, the latest snapshot index is %d",
-          reply.getLogIndex()));
+      if (cl.hasOption(PEER_ID_OPTION_NAME)) {
+        peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
+      } else {
+        peerId = null;
+      }
+      RaftClientReply reply = raftClient.getSnapshotManagementApi(peerId).create(timeout);
+      processReply(reply, () -> String.format("Failed to take snapshot of peerId %s", peerId));
+      printf(String.format("Successful take snapshot on peerId %s, the latest snapshot index is %d",
+          peerId, reply.getLogIndex()));
     }
     return 0;
   }
@@ -69,7 +77,8 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
     return String.format("%s"
             + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
             + " [-%s <RAFT_GROUP_ID>]"
-            + " [-%s <timeoutInMs>]",
+            + " [-%s <timeoutInMs>]"
+            + " [-%s <raftPeerId>]",
         getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME);
   }
 
@@ -80,11 +89,16 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
 
   @Override
   public Options getOptions() {
-    return super.getOptions().addOption(
-        Option.builder()
+    return super.getOptions()
+        .addOption(Option.builder()
             .option(TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME)
             .hasArg()
             .desc("timeout to wait taking snapshot in ms")
+            .build())
+        .addOption(Option.builder()
+            .option(PEER_ID_OPTION_NAME)
+            .hasArg()
+            .desc("the id of server takeing snapshot")
             .build());
   }
 

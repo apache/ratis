@@ -58,8 +58,11 @@ public interface RaftClient extends Closeable {
   /** Get the {@link GroupManagementApi} for the given server. */
   GroupManagementApi getGroupManagementApi(RaftPeerId server);
 
-  /** Get the {@link SnapshotManagementApi}. */
+  /** Get the {@link SnapshotManagementApi} for the given server. */
   SnapshotManagementApi getSnapshotManagementApi();
+
+  /** Get the {@link SnapshotManagementApi} for the given server. */
+  SnapshotManagementApi getSnapshotManagementApi(RaftPeerId server);
 
   /** @return the {@link BlockingApi}. */
   BlockingApi io();

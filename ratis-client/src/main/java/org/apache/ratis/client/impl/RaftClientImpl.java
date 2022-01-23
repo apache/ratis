@@ -141,7 +141,7 @@ public final class RaftClientImpl implements RaftClient {
 
   private final Supplier<AdminImpl> adminApi;
   private final ConcurrentMap<RaftPeerId, GroupManagementImpl> groupManagmenets = new ConcurrentHashMap<>();
-  private final Supplier<SnapshotManagementApi> snapshotManagemenet;
+  private final ConcurrentMap<RaftPeerId, SnapshotManagementApi> snapshotManagemenet = new ConcurrentHashMap<>();
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primaryDataStreamServer,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
@@ -172,7 +172,6 @@ public final class RaftClientImpl implements RaftClient {
         .setProperties(properties)
         .build());
     this.adminApi = JavaUtils.memoize(() -> new AdminImpl(this));
-    this.snapshotManagemenet= JavaUtils.memoize(() -> new SnapshotManagementImpl(this));
   }
 
   public RaftPeerId getLeaderId() {
@@ -248,7 +247,12 @@ public final class RaftClientImpl implements RaftClient {
 
   @Override
   public SnapshotManagementApi getSnapshotManagementApi() {
-    return snapshotManagemenet.get();
+    return JavaUtils.memoize(() -> new SnapshotManagementImpl(null, this)).get();
+  }
+
+  @Override
+  public SnapshotManagementApi getSnapshotManagementApi(RaftPeerId server) {
+    return snapshotManagemenet.computeIfAbsent(server, id -> new SnapshotManagementImpl(id, this));
   }
 
   @Override

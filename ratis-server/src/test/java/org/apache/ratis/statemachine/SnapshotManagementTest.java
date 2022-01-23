@@ -64,6 +64,7 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
   public void testTakeSnapshot() throws Exception {
     runWithNewCluster(1, this::runTestTakeSnapshot);
     runWithNewCluster(1,this::runTestTakeSnapshotWithConfigurableGap);
+    runWithNewCluster(3,this::runTestTakeSnapshotOnSpecificServer);
   }
 
   void runTestTakeSnapshot(CLUSTER cluster) throws Exception {
@@ -98,7 +99,7 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
       }
       Assert.assertTrue(leader.getStateMachine().getLastAppliedTermIndex().getIndex()
             < RaftServerConfigKeys.Snapshot.creationGap(getProperties()));
-      snapshotReply = client.getSnapshotManagementApi().create(3000);
+      snapshotReply = client.getSnapshotManagementApi(leaderId).create(3000);
       Assert.assertTrue(snapshotReply.isSuccess());
       Assert.assertEquals(0,snapshotReply.getLogIndex());
       for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties())/2-1; i++) {
@@ -107,7 +108,7 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
       }
       final SnapshotManagementRequest r1 = SnapshotManagementRequest.newCreate(client.getId(),
           leaderId, cluster.getGroupId(), CallId.getAndIncrement(), 3000);
-      snapshotReply = client.getSnapshotManagementApi().create(3000);
+      snapshotReply = client.getSnapshotManagementApi(leaderId).create(3000);
     }
     Assert.assertTrue(snapshotReply.isSuccess());
     final long snapshotIndex = snapshotReply.getLogIndex();
@@ -116,6 +117,30 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
     final File snapshotFile = SimpleStateMachine4Testing.get(leader)
         .getStateMachineStorage()
         .getSnapshotFile(leader.getInfo().getCurrentTerm(), snapshotIndex);
+    Assert.assertTrue(snapshotFile.exists());
+  }
+
+  void runTestTakeSnapshotOnSpecificServer(CLUSTER cluster) throws Exception {
+    final RaftClientReply snapshotReply;
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division follower = cluster.getFollowers().get(0);
+    final RaftPeerId followerId = follower.getId();
+    Assert.assertTrue(follower.getInfo().isFollower());
+    try (final RaftClient client = cluster.createClient(followerId)) {
+      for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties()); i++) {
+        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
+      snapshotReply = client.getSnapshotManagementApi(followerId).create(3000);
+    }
+
+    Assert.assertTrue(snapshotReply.isSuccess());
+    final long snapshotIndex = snapshotReply.getLogIndex();
+    LOG.info("snapshotIndex = {} on {} server {}",
+        snapshotIndex, follower.getInfo().getCurrentRole(), follower.getId());
+
+    final File snapshotFile = SimpleStateMachine4Testing.get(follower)
+        .getStateMachineStorage().getSnapshotFile(follower.getInfo().getCurrentTerm(), snapshotIndex);
     Assert.assertTrue(snapshotFile.exists());
   }
 }
