@@ -100,4 +100,18 @@ public interface ConcurrentUtils {
     return cached ? newCachedThreadPool(maximumPoolSize, f)
         : Executors.newFixedThreadPool(maximumPoolSize, f);
   }
+
+  /**
+   * Shutdown the given executor and wait for its termination.
+   *
+   * @param executor The executor to be shut down.
+   */
+  static void shutdownAndWait(ExecutorService executor) {
+    try {
+      executor.shutdown();
+      Preconditions.assertTrue(executor.awaitTermination(1, TimeUnit.DAYS));
+    } catch (InterruptedException ignored) {
+      Thread.currentThread().interrupt();
+    }
+  }
 }
