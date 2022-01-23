@@ -108,7 +108,6 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
       final String message = "log " + entry + " " + log.getLogEntryBodyCase()
           + " " + StringUtils.bytes2HexString(logData)
           + ", expected=" + StringUtils.bytes2HexString(expected);
-      LOG.info(message);
       Assert.assertArrayEquals(message, expected, logData);
       count++;
     }

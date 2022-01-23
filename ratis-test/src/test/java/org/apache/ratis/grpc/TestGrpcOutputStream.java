@@ -34,8 +34,11 @@ import java.io.OutputStream;
 public class TestGrpcOutputStream
     extends OutputStreamBaseTest<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
-  static {
-    Log4jUtils.setLogLevel(GrpcClientStreamer.LOG, Level.ALL);
+
+  {
+    final RaftProperties p = getProperties();
+    GrpcConfigKeys.Server.setAsyncRequestThreadPoolCached(p, false);
+    GrpcConfigKeys.Server.setAsyncRequestThreadPoolSize(p, 8);
   }
 
   @Override
