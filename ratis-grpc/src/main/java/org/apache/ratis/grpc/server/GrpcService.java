@@ -264,8 +264,6 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   @Override
   public void closeImpl() throws IOException {
-    ConcurrentUtils.shutdownAndWait(executor);
-
     for (Server server : servers) {
       final String name = getId() + ": shutdown server with port " + server.getPort();
       LOG.info("{} now", name);
@@ -281,6 +279,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     }
 
     serverInterceptor.close();
+    ConcurrentUtils.shutdownAndWait(executor);
   }
 
   @Override

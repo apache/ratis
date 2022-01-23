@@ -222,7 +222,7 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
     CompletableFuture<Void> processClientRequest(RaftClientRequest request, Consumer<RaftClientReply> replyHandler) {
       try {
-        String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + request.toString() : "";
+        final String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + request : "";
         return protocol.submitClientRequestAsync(request
         ).thenAcceptAsync(replyHandler, executor
         ).exceptionally(exception -> {
