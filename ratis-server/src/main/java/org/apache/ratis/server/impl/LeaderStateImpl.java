@@ -331,7 +331,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void notifySenders() {
-    senders.forEach(a -> a.getEventAwaitForSignal().signal());
+    senders.forEach(LogAppender::notifyLogAppender);
   }
 
   boolean inStagingState() {

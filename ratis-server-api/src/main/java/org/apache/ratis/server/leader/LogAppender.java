@@ -144,6 +144,11 @@ public interface LogAppender {
    */
   AwaitForSignal getEventAwaitForSignal();
 
+  /** The same as getEventAwaitForSignal().signal(). */
+  default void notifyLogAppender() {
+    getEventAwaitForSignal().signal();
+  }
+
   /** Should the leader send appendEntries RPC to the follower? */
   default boolean shouldSendAppendEntries() {
     return hasAppendEntries() || getHeartbeatWaitTimeMs() <= 0;

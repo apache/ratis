@@ -316,7 +316,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         default:
           throw new IllegalStateException("Unexpected reply result: " + reply.getResult());
       }
-      getEventAwaitForSignal().signal();
+      notifyLogAppender();
     }
 
     /**
@@ -388,7 +388,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     void close() {
       done.set(true);
-      getEventAwaitForSignal().signal();
+      notifyLogAppender();
     }
 
     boolean hasAllResponse() {
@@ -519,13 +519,13 @@ public class GrpcLogAppender extends LogAppenderBase {
       return;
     }
 
-      while (isRunning() && !responseHandler.isDone()) {
-        try {
-          getEventAwaitForSignal().await();
-        } catch (InterruptedException ignored) {
-          Thread.currentThread().interrupt();
-        }
+    while (isRunning() && !responseHandler.isDone()) {
+      try {
+        getEventAwaitForSignal().await();
+      } catch (InterruptedException ignored) {
+        Thread.currentThread().interrupt();
       }
+    }
 
     if (responseHandler.hasAllResponse()) {
       getFollower().setSnapshotIndex(snapshot.getTermIndex().getIndex());
@@ -562,13 +562,13 @@ public class GrpcLogAppender extends LogAppenderBase {
       return;
     }
 
-      while (isRunning() && !responseHandler.isDone()) {
-        try {
-          getEventAwaitForSignal().await();
-        } catch (InterruptedException ignored) {
-          Thread.currentThread().interrupt();
-        }
+    while (isRunning() && !responseHandler.isDone()) {
+      try {
+        getEventAwaitForSignal().await();
+      } catch (InterruptedException ignored) {
+        Thread.currentThread().interrupt();
       }
+    }
   }
 
   /**
