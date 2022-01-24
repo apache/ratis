@@ -28,6 +28,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLog.EntryWithData;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.util.AwaitForSignal;
 import org.apache.ratis.util.DataQueue;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -50,6 +51,7 @@ public abstract class LogAppenderBase implements LogAppender {
   private final int snapshotChunkMaxSize;
 
   private final LogAppenderDaemon daemon;
+  private final AwaitForSignal eventAwaitForSignal;
 
   protected LogAppenderBase(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -64,6 +66,12 @@ public abstract class LogAppenderBase implements LogAppender {
     final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
     this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
     this.daemon = new LogAppenderDaemon(this);
+    this.eventAwaitForSignal = new AwaitForSignal(name);
+  }
+
+  @Override
+  public AwaitForSignal getEventAwaitForSignal() {
+    return eventAwaitForSignal;
   }
 
   @Override

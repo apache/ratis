@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.leader;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -27,6 +26,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.util.AwaitForSignal;
 import org.apache.ratis.util.ReflectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,16 +137,16 @@ public interface LogAppender {
   void run() throws InterruptedException, IOException;
 
   /**
-   * Similar to {@link #notify()}, wake up this {@link LogAppender} for an event, which can be:
+   * Get the {@link AwaitForSignal} for events, which can be:
    * (1) new log entries available,
    * (2) log indices changed, or
    * (3) a snapshot installation completed.
    */
-  @SuppressFBWarnings("NN_NAKED_NOTIFY")
+  AwaitForSignal getEventAwaitForSignal();
+
+  /** The same as getEventAwaitForSignal().signal(). */
   default void notifyLogAppender() {
-    synchronized (this) {
-      notify();
-    }
+    getEventAwaitForSignal().signal();
   }
 
   /** Should the leader send appendEntries RPC to the follower? */

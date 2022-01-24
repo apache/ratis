@@ -201,7 +201,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     void forEach(Consumer<LogAppender> action) {
-      senders.parallelStream().forEach(action);
+      senders.forEach(action);
     }
 
     void addAll(Collection<LogAppender> newSenders) {
