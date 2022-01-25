@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class PauseResumeLeaderElection {
   public static final Logger LOG = LoggerFactory.getLogger(TransferLeadership.class);
 
-  class PendingRequest {
+  static class PendingRequest {
     private final PauseLeaderElectionRequest request;
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
 
@@ -68,7 +68,8 @@ public class PauseResumeLeaderElection {
   }
 
   CompletableFuture<RaftClientReply> pauseLeaderElectionAsync(PauseLeaderElectionRequest request) {
-    final MemoizedSupplier<PendingRequest> supplier = JavaUtils.memoize(() -> new PendingRequest(request));
+    final MemoizedSupplier<PendingRequest> supplier = JavaUtils.memoize(() -> new PendingRequest(
+        request));
     final PendingRequest previous = pending.getAndUpdate(f -> f != null? f: supplier.get());
     if (previous != null) {
        if (request.getPausedServer().equals(previous.getRequest().getPausedServer())) {
