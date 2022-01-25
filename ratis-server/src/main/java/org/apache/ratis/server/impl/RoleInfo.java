@@ -124,6 +124,10 @@ class RoleInfo {
     pauseLeaderElection.set(pause);
   }
 
+  boolean getLeaderElectionPauseState() {
+    return pauseLeaderElection.get();
+  }
+
   void shutdownLeaderElection() {
     final LeaderElection election = leaderElection.getAndSet(null);
     if (election != null) {

@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.PauseLeaderElectionRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
@@ -184,5 +185,10 @@ public class RaftServerTestUtil {
   public static CompletableFuture<RaftClientReply> takeSnapshotAsync(RaftServer.Division leader, SnapshotManagementRequest r)
       throws IOException {
     return ((RaftServerImpl)leader).takeSnapshotAsync(r);
+  }
+
+  public static CompletableFuture<RaftClientReply> pauseLeaderElectionAsync(RaftServer.Division server, PauseLeaderElectionRequest r)
+      throws IOException {
+    return ((RaftServerImpl)server).pauseLeaderElectionAsync(r);
   }
 }

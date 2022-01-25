@@ -180,6 +180,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final TransferLeadership transferLeadership;
   private final SnapshotManagementRequestHandler snapshotRequestHandler;
+  private final PauseResumeLeaderElection pauseLeaderElection;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -221,6 +222,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     this.transferLeadership = new TransferLeadership(this);
     this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
+    this.pauseLeaderElection = new PauseResumeLeaderElection(this);
   }
 
   @Override
@@ -622,6 +624,13 @@ class RaftServerImpl implements RaftServer.Division,
         .build();
   }
 
+  RaftClientReply newSuccessReply(RaftClientRequest request, RaftPeerId peerId) {
+    return newReplyBuilder(request)
+        .setSuccess()
+        .setServerId(peerId)
+        .build();
+  }
+
   RaftClientReply newExceptionReply(RaftClientRequest request, RaftException exception) {
     return newReplyBuilder(request)
         .setException(exception)
@@ -1007,6 +1016,20 @@ class RaftServerImpl implements RaftServer.Division,
 
   SnapshotManagementRequestHandler getSnapshotRequestHandler() {
     return snapshotRequestHandler;
+  }
+
+  CompletableFuture<RaftClientReply> pauseLeaderElectionAsync(PauseLeaderElectionRequest request) throws IOException {
+    LOG.info("{} receive pauseLeaderElection {}", getMemberId(), request);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
+    boolean pause = getRole().getLeaderElectionPauseState();
+    if (pause == request.getPause()) {
+      return CompletableFuture.completedFuture(newSuccessReply(request, request.getPausedServer()));
+    }
+    synchronized (this) {
+      return pauseLeaderElection.pauseLeaderElectionAsync(request);
+    }
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
