@@ -24,6 +24,6 @@ public class TestRaftOutputStreamWithGrpc
     implements MiniRaftClusterWithGrpc.FactoryGet {
   @Override
   public int getGlobalTimeoutSeconds() {
-    return 30;
+    return 100;
   }
 }

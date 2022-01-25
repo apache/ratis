@@ -262,7 +262,6 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
   /**
    * Write while leader is killed
    */
-  @Ignore
   @Test
   public void testKillLeader() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::runTestKillLeader);
