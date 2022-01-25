@@ -97,7 +97,6 @@ public class Server extends SubCommandBase {
       NettyConfigKeys.DataStream.setPort(properties, dataStreamport);
       RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
     }
-    properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
     RaftServerConfigKeys.Write.setElementLimit(properties, 40960);
     RaftServerConfigKeys.Write.setByteLimit(properties, SizeInBytes.valueOf("1000MB"));
