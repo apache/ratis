@@ -198,7 +198,7 @@
 
     <shell-executable>bash</shell-executable>
 
-    <hadoop.version>3.1.1</hadoop.version>
+    <hadoop.version>3.3.1</hadoop.version>
     <hadoop-maven-plugins.version>${hadoop.version}</hadoop-maven-plugins.version>
 
     <!-- define the Java language version used by the compiler -->
@@ -456,7 +456,7 @@
       <dependency>
         <groupId>junit</groupId>
         <artifactId>junit</artifactId>
-        <version>4.12</version>
+        <version>4.13.2</version>
       </dependency>
       <dependency>
         <groupId>org.mockito</groupId>
