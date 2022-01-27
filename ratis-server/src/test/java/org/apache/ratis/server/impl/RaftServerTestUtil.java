@@ -20,7 +20,6 @@ package org.apache.ratis.server.impl;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.LeaderElectionRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;

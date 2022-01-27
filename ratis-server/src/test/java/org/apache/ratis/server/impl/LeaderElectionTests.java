@@ -445,7 +445,6 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-
   private static RaftServerImpl createMockServer(boolean alive) {
     final DivisionInfo info = mock(DivisionInfo.class);
     when(info.isAlive()).thenReturn(alive);
