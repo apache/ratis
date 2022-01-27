@@ -537,6 +537,10 @@ class RaftServerProxy implements RaftServer {
     return submitRequest(request.getRaftGroupId(), impl -> impl.takeSnapshotAsync(request));
   }
 
+  public CompletableFuture<RaftClientReply> setLeaderElectionAsync(LeaderElectionRequest request) {
+    return submitRequest(request.getRaftGroupId(), impl -> impl.setLeaderElectionAsync(request));
+  }
+
   @Override
   public GroupListReply getGroupList(GroupListRequest request) {
     return new GroupListReply(request, getGroupIds());

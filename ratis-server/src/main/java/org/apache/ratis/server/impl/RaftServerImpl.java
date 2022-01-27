@@ -1009,6 +1009,25 @@ class RaftServerImpl implements RaftServer.Division,
     return snapshotRequestHandler;
   }
 
+  CompletableFuture<RaftClientReply> setLeaderElectionAsync(LeaderElectionRequest request) throws IOException {
+    LOG.info("{} receive pauseLeaderElection {}", getMemberId(), request);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
+    final LeaderElectionRequest.Pause pause = request.getPause();
+    if (pause != null) {
+      getRole().setLeaderElectionPause(true);
+      return CompletableFuture.completedFuture(newSuccessReply(request));
+    }
+    final LeaderElectionRequest.Resume resume = request.getResume();
+    if (resume != null) {
+      getRole().setLeaderElectionPause(false);
+      return CompletableFuture.completedFuture(newSuccessReply(request));
+    }
+    return JavaUtils.completeExceptionally(new UnsupportedOperationException(
+        getId() + ": Request not supported " + request));
+  }
+
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
     return waitForReply(request, setConfigurationAsync(request));
   }
