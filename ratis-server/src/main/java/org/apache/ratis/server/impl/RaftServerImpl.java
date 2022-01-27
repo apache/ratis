@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ratis.client.RaftClient;
@@ -91,6 +92,7 @@ import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 import com.codahale.metrics.Timer;
+import org.apache.ratis.util.function.CheckedSupplier;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
@@ -181,6 +183,9 @@ class RaftServerImpl implements RaftServer.Division,
   private final TransferLeadership transferLeadership;
   private final SnapshotManagementRequestHandler snapshotRequestHandler;
 
+  private final ExecutorService serverExecutor;
+  private final ExecutorService clientExecutor;
+
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
     LOG.info("{}: new RaftServerImpl for {} with {}", id, group, stateMachine);
@@ -211,16 +216,22 @@ class RaftServerImpl implements RaftServer.Division,
 
     this.startComplete = new AtomicBoolean(false);
 
-    this.raftClient = JavaUtils.memoize(() -> {
-      RaftClient client = RaftClient.newBuilder()
-          .setRaftGroup(group)
-          .setProperties(getRaftServer().getProperties())
-          .build();
-      return client;
-    });
+    this.raftClient = JavaUtils.memoize(() -> RaftClient.newBuilder()
+        .setRaftGroup(group)
+        .setProperties(getRaftServer().getProperties())
+        .build());
 
     this.transferLeadership = new TransferLeadership(this);
     this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
+
+    this.serverExecutor = ConcurrentUtils.newThreadPoolWithMax(
+        RaftServerConfigKeys.ThreadPool.serverCached(properties),
+        RaftServerConfigKeys.ThreadPool.serverSize(properties),
+        id + "-server");
+    this.clientExecutor = ConcurrentUtils.newThreadPoolWithMax(
+        RaftServerConfigKeys.ThreadPool.clientCached(properties),
+        RaftServerConfigKeys.ThreadPool.clientSize(properties),
+        id + "-client");
   }
 
   @Override
@@ -451,6 +462,17 @@ class RaftServerImpl implements RaftServer.Division,
         }
       } catch (Exception ignored) {
         LOG.warn("{}: Failed to close raft client", getMemberId(), ignored);
+      }
+
+      try {
+        ConcurrentUtils.shutdownAndWait(clientExecutor);
+      } catch (Exception ignored) {
+        LOG.warn(getMemberId() + ": Failed to shutdown clientExecutor", ignored);
+      }
+      try {
+        ConcurrentUtils.shutdownAndWait(serverExecutor);
+      } catch (Exception ignored) {
+        LOG.warn(getMemberId() + ": Failed to shutdown serverExecutor", ignored);
       }
     });
   }
@@ -753,6 +775,19 @@ class RaftServerImpl implements RaftServer.Division,
             request.getMessage().getContent().asReadOnlyByteBuffer()));
   }
 
+  <REPLY> CompletableFuture<REPLY> executeSubmitServerRequestAsync(
+      CheckedSupplier<CompletableFuture<REPLY>, IOException> submitFunction) {
+    return CompletableFuture.supplyAsync(
+        () -> JavaUtils.callAsUnchecked(submitFunction, CompletionException::new),
+        serverExecutor).join();
+  }
+
+  CompletableFuture<RaftClientReply> executeSubmitClientRequestAsync(RaftClientRequest request) {
+    return CompletableFuture.supplyAsync(
+        () -> JavaUtils.callAsUnchecked(() -> submitClientRequestAsync(request), CompletionException::new),
+        clientExecutor).join();
+  }
+
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
@@ -972,10 +1007,6 @@ class RaftServerImpl implements RaftServer.Division,
 
       return transferLeadership.start(request);
     }
-  }
-
-  public RaftClientReply takeSnapshot(SnapshotManagementRequest request) throws IOException {
-    return waitForReply(request, takeSnapshotAsync(request));
   }
 
   CompletableFuture<RaftClientReply> takeSnapshotAsync(SnapshotManagementRequest request) throws IOException {
@@ -1412,7 +1443,7 @@ class RaftServerImpl implements RaftServer.Division,
     role.setLeaderElectionPause(pause);
   }
 
-  boolean pause() throws IOException {
+  boolean pause() {
     // TODO: should pause() be limited on only working for a follower?
 
     // Now the state of lifeCycle should be PAUSING, which will prevent future other operations.
@@ -1438,7 +1469,7 @@ class RaftServerImpl implements RaftServer.Division,
       try {
         stateMachine.reinitialize();
       } catch (IOException e) {
-        LOG.warn("Failed to reinitialize statemachine: {}", stateMachine.toString());
+        LOG.warn("Failed to reinitialize statemachine: {}", stateMachine);
         lifeCycle.compareAndTransition(STARTING, EXCEPTION);
         throw e;
       }

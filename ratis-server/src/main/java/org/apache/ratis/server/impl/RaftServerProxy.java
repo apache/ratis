@@ -38,6 +38,7 @@ import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.ServerFactory;
+import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JvmPauseMonitor;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
@@ -48,7 +49,6 @@ import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.Closeable;
 import java.io.File;
@@ -63,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -187,6 +188,7 @@ class RaftServerProxy implements RaftServer {
 
   private final ImplMap impls = new ImplMap();
   private final ExecutorService implExecutor = Executors.newSingleThreadExecutor();
+  private final ExecutorService executor;
 
   private final JvmPauseMonitor pauseMonitor;
 
@@ -205,6 +207,11 @@ class RaftServerProxy implements RaftServer {
 
     this.dataStreamServerRpc = new DataStreamServerImpl(this, parameters).getServerRpc();
 
+    this.executor = ConcurrentUtils.newThreadPoolWithMax(
+        RaftServerConfigKeys.ThreadPool.proxyCached(properties),
+        RaftServerConfigKeys.ThreadPool.proxySize(properties),
+        id + "-impl");
+
     final TimeDuration rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.pauseMonitor = new JvmPauseMonitor(id,
@@ -222,35 +229,36 @@ class RaftServerProxy implements RaftServer {
 
   /** Check the storage dir and add groups*/
   void initGroups(RaftGroup group) {
-
     final Optional<RaftGroup> raftGroup = Optional.ofNullable(group);
-    final Optional<RaftGroupId> raftGroupId = raftGroup.map(RaftGroup::getGroupId);
+    final RaftGroupId raftGroupId = raftGroup.map(RaftGroup::getGroupId).orElse(null);
+    final Predicate<RaftGroupId> shouldAdd = gid -> gid != null && !gid.equals(raftGroupId);
 
-    RaftServerConfigKeys.storageDir(properties).parallelStream()
-        .forEach((dir) -> Optional.ofNullable(dir.listFiles())
+    ConcurrentUtils.parallelForEachAsync(RaftServerConfigKeys.storageDir(properties),
+        dir -> Optional.ofNullable(dir.listFiles())
             .map(Arrays::stream).orElse(Stream.empty())
             .filter(File::isDirectory)
-            .forEach(sub -> {
-              try {
-                LOG.info("{}: found a subdirectory {}", getId(), sub);
-                RaftGroupId groupId = null;
-                try {
-                  groupId = RaftGroupId.valueOf(UUID.fromString(sub.getName()));
-                } catch (Exception e) {
-                  LOG.info("{}: The directory {} is not a group directory;" +
-                      " ignoring it. ", getId(), sub.getAbsolutePath());
-                }
-                if (groupId != null) {
-                  if (!raftGroupId.filter(groupId::equals).isPresent()) {
-                    addGroup(RaftGroup.valueOf(groupId));
-                  }
-                }
-              } catch (Exception e) {
-                LOG.warn(getId() + ": Failed to initialize the group directory "
-                    + sub.getAbsolutePath() + ".  Ignoring it", e);
-              }
-            }));
+            .forEach(sub -> initGroupDir(sub, shouldAdd)),
+        executor).join();
     raftGroup.ifPresent(this::addGroup);
+  }
+
+  private void initGroupDir(File sub, Predicate<RaftGroupId> shouldAdd) {
+    try {
+      LOG.info("{}: found a subdirectory {}", getId(), sub);
+      RaftGroupId groupId = null;
+      try {
+        groupId = RaftGroupId.valueOf(UUID.fromString(sub.getName()));
+      } catch (Exception e) {
+        LOG.info("{}: The directory {} is not a group directory;" +
+            " ignoring it. ", getId(), sub.getAbsolutePath());
+      }
+      if (shouldAdd.test(groupId)) {
+        addGroup(RaftGroup.valueOf(groupId));
+      }
+    } catch (Exception e) {
+      LOG.warn(getId() + ": Failed to initialize the group directory "
+          + sub.getAbsolutePath() + ".  Ignoring it", e);
+    }
   }
 
   void addRaftPeers(Collection<RaftPeer> peers) {
@@ -368,7 +376,7 @@ class RaftServerProxy implements RaftServer {
 
   @Override
   public void start() throws IOException {
-    getImpls().parallelStream().forEach(RaftServerImpl::start);
+    ConcurrentUtils.parallelForEachAsync(getImpls(), RaftServerImpl::start, executor).join();
 
     lifeCycle.startAndTransition(() -> {
       LOG.info("{}: start RPC server", getId());
@@ -381,10 +389,9 @@ class RaftServerProxy implements RaftServer {
   @Override
   public void close() {
     try {
-      implExecutor.shutdown();
-      implExecutor.awaitTermination(1, TimeUnit.DAYS);
-    } catch (Exception e) {
-      LOG.warn(getId() + ": Failed to shutdown " + getRpcType() + " server");
+      ConcurrentUtils.shutdownAndWait(implExecutor);
+    } catch (Exception ignored) {
+      LOG.warn(getId() + ": Failed to shutdown implExecutor", ignored);
     }
 
     lifeCycle.checkStateAndClose(() -> {
@@ -404,17 +411,18 @@ class RaftServerProxy implements RaftServer {
       }
     });
     pauseMonitor.stop();
-  }
 
-  private <REPLY> CompletableFuture<REPLY> submitRequest(RaftGroupId groupId,
-      CheckedFunction<RaftServerImpl, CompletableFuture<REPLY>, IOException> submitFunction) {
-    return getImplFuture(groupId).thenCompose(
-        impl -> JavaUtils.callAsUnchecked(() -> submitFunction.apply(impl), CompletionException::new));
+    try {
+      ConcurrentUtils.shutdownAndWait(executor);
+    } catch (Exception ignored) {
+      LOG.warn(getId() + ": Failed to shutdown executor", ignored);
+    }
   }
 
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) {
-    return submitRequest(request.getRaftGroupId(), impl -> impl.submitClientRequestAsync(request));
+    return getImplFuture(request.getRaftGroupId())
+        .thenCompose(impl -> impl.executeSubmitClientRequestAsync(request));
   }
 
   @Override
@@ -534,11 +542,13 @@ class RaftServerProxy implements RaftServer {
   }
 
   private CompletableFuture<RaftClientReply> createAsync(SnapshotManagementRequest request) {
-    return submitRequest(request.getRaftGroupId(), impl -> impl.takeSnapshotAsync(request));
+    return getImplFuture(request.getRaftGroupId())
+        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.takeSnapshotAsync(request)));
   }
 
   public CompletableFuture<RaftClientReply> setLeaderElectionAsync(LeaderElectionRequest request) {
-    return submitRequest(request.getRaftGroupId(), impl -> impl.setLeaderElectionAsync(request));
+    return getImplFuture(request.getRaftGroupId())
+        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.setLeaderElectionAsync(request)));
   }
 
   @Override
@@ -567,12 +577,14 @@ class RaftServerProxy implements RaftServer {
    */
   @Override
   public CompletableFuture<RaftClientReply> setConfigurationAsync(SetConfigurationRequest request) {
-    return submitRequest(request.getRaftGroupId(), impl -> impl.setConfigurationAsync(request));
+    return getImplFuture(request.getRaftGroupId())
+        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.setConfigurationAsync(request)));
   }
 
   @Override
   public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request) {
-    return submitRequest(request.getRaftGroupId(), impl -> impl.transferLeadershipAsync(request));
+    return getImplFuture(request.getRaftGroupId())
+        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.transferLeadershipAsync(request)));
   }
 
   @Override
@@ -588,7 +600,8 @@ class RaftServerProxy implements RaftServer {
   @Override
   public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request) {
     final RaftGroupId groupId = ProtoUtils.toRaftGroupId(request.getServerRequest().getRaftGroupId());
-    return submitRequest(groupId, impl -> impl.appendEntriesAsync(request));
+    return getImplFuture(groupId)
+        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.appendEntriesAsync(request)));
   }
 
   @Override
