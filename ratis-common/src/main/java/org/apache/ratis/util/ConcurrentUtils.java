@@ -19,6 +19,11 @@ package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.CheckedFunction;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -27,6 +32,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * Utilities related to concurrent programming.
@@ -74,14 +80,17 @@ public interface ConcurrentUtils {
   }
 
   /**
-   * The same as {@link java.util.concurrent.Executors#newCachedThreadPool()}
+   * The same as {@link java.util.concurrent.Executors#newCachedThreadPool(ThreadFactory)}
    * except that this method takes a maximumPoolSize parameter.
    *
    * @param maximumPoolSize the maximum number of threads to allow in the pool.
+   *                        When maximumPoolSize == 0, this method is the same as
+   *                        {@link java.util.concurrent.Executors#newCachedThreadPool(ThreadFactory)}.
    * @return a new {@link ExecutorService}.
    */
   static ExecutorService newCachedThreadPool(int maximumPoolSize, ThreadFactory threadFactory) {
-    return new ThreadPoolExecutor(0, maximumPoolSize, 60L, TimeUnit.SECONDS,
+    return maximumPoolSize == 0? Executors.newCachedThreadPool(threadFactory)
+        : new ThreadPoolExecutor(0, maximumPoolSize, 60L, TimeUnit.SECONDS,
         new LinkedBlockingQueue<>(), threadFactory);
   }
 
@@ -113,5 +122,35 @@ public interface ConcurrentUtils {
     } catch (InterruptedException ignored) {
       Thread.currentThread().interrupt();
     }
+  }
+
+  /**
+   * The same as collection.parallelStream().forEach(action) except that
+   * (1) this method is asynchronous, and
+   * (2) an executor can be passed to this method.
+   *
+   * @param collection The given collection.
+   * @param action To act on each element in the collection.
+   * @param executor To execute the action.
+   * @param <T> The element type.
+   *
+   * @return a {@link CompletableFuture} that is completed
+   *         when the action is completed for each element in the collection.
+   *
+   * @see Collection#parallelStream()
+   * @see java.util.stream.Stream#forEach(Consumer)
+   */
+  static <T> CompletableFuture<Void> parallelForEachAsync(Collection<T> collection, Consumer<? super T> action,
+      Executor executor) {
+    final List<CompletableFuture<T>> futures = new ArrayList<>(collection.size());
+    collection.forEach(element -> {
+      final CompletableFuture<T> f = new CompletableFuture<>();
+      futures.add(f);
+      executor.execute(() -> {
+        action.accept(element);
+        f.complete(element);
+      });
+    });
+    return JavaUtils.allOf(futures);
   }
 }
