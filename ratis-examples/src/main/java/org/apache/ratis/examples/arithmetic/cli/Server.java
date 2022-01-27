@@ -66,7 +66,6 @@ public class Server extends SubCommandBase {
     Optional.ofNullable(getPeer(peerId).getAdminAddress()).ifPresent(address ->
         GrpcConfigKeys.Admin.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
 
-    properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
     RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
     StateMachine stateMachine = new ArithmeticStateMachine();
 
