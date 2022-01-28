@@ -619,6 +619,37 @@ public interface ClientProtoUtils {
     return b.build();
   }
 
+  static LeaderElectionRequest toLeaderElectionRequest(LeaderElectionRequestProto p) {
+    final RaftRpcRequestProto m = p.getRpcRequest();
+    final ClientId clientId = ClientId.valueOf(m.getRequestorId());
+    final RaftPeerId serverId = RaftPeerId.valueOf(m.getReplyId());
+    switch(p.getOpCase()) {
+      case PAUSE:
+        return LeaderElectionRequest.newPause(clientId, serverId,
+            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId(), m.getTimeoutMs());
+      case RESUME:
+        return LeaderElectionRequest.newResume(clientId, serverId,
+            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId(), m.getTimeoutMs());
+      default:
+        throw new IllegalArgumentException("Unexpected op " + p.getOpCase() + " in " + p);
+    }
+  }
+
+  static LeaderElectionRequestProto toLeaderElectionRequestProto(
+      LeaderElectionRequest request) {
+    final LeaderElectionRequestProto.Builder b = LeaderElectionRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    final LeaderElectionRequest.Pause pause = request.getPause();
+    if (pause != null) {
+      b.setPause(LeaderElectionPauseRequestProto.newBuilder().build());
+    }
+    final LeaderElectionRequest.Resume resume = request.getResume();
+    if (resume != null) {
+      b.setResume(LeaderElectionResumeRequestProto.newBuilder().build());
+    }
+    return b.build();
+  }
+
   static GroupInfoRequestProto toGroupInfoRequestProto(
       GroupInfoRequest request) {
     return GroupInfoRequestProto.newBuilder()

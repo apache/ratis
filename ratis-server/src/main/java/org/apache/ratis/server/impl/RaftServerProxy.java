@@ -546,6 +546,15 @@ class RaftServerProxy implements RaftServer {
         .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.takeSnapshotAsync(request)));
   }
 
+  @Override
+  public RaftClientReply setLeaderElection(LeaderElectionRequest request) throws IOException {
+    return RaftServerImpl.waitForReply(getId(), request, setLeaderElectionAsync(request),
+        e -> RaftClientReply.newBuilder()
+            .setRequest(request)
+            .setException(e)
+            .build());
+  }
+
   public CompletableFuture<RaftClientReply> setLeaderElectionAsync(LeaderElectionRequest request) {
     return getImplFuture(request.getRaftGroupId())
         .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.setLeaderElectionAsync(request)));

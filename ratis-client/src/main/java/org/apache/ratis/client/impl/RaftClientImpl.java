@@ -21,6 +21,7 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.api.DataStreamApi;
+import org.apache.ratis.client.api.SetLeaderElectionApi;
 import org.apache.ratis.client.api.SnapshotManagementApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.conf.RaftProperties;
@@ -142,6 +143,7 @@ public final class RaftClientImpl implements RaftClient {
   private final Supplier<AdminImpl> adminApi;
   private final ConcurrentMap<RaftPeerId, GroupManagementImpl> groupManagmenets = new ConcurrentHashMap<>();
   private final ConcurrentMap<RaftPeerId, SnapshotManagementApi> snapshotManagemenet = new ConcurrentHashMap<>();
+  private final ConcurrentMap<RaftPeerId, SetLeaderElectionApi> setLeaderElection = new ConcurrentHashMap<>();
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primaryDataStreamServer,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
@@ -253,6 +255,11 @@ public final class RaftClientImpl implements RaftClient {
   @Override
   public SnapshotManagementApi getSnapshotManagementApi(RaftPeerId server) {
     return snapshotManagemenet.computeIfAbsent(server, id -> new SnapshotManagementImpl(id, this));
+  }
+
+  @Override
+  public SetLeaderElectionApi getSetLeaderElectionApi(RaftPeerId server) {
+    return setLeaderElection.computeIfAbsent(server, id -> new SetLeaderElectionImpl(id, this));
   }
 
   @Override
