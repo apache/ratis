@@ -31,11 +31,11 @@ See the next section for more info.
 # Thirdparty
 
 All bundled thirdparty dependencies are centralized in the *ratis-thirdparty* module
-and the *ratis-thirdparty-hadoop* module.
+and the *ratis-thirdparty-misc* module.
 These modules are located in a separated repository
 but not attached to the core Apache Ratis repository
 as they only need to change when one of these dependencies are changed.
-All dependencies included in ratis-thirdparty/ratis-thirdparty-hadoop
+All dependencies included in ratis-thirdparty/ratis-thirdparty-misc
 must be relocated to a different package to ensure no downstream classpath pollution.
 
 Ratis developers should rely on these relocated thirdparty classes.
@@ -53,7 +53,6 @@ build are limited only to the code in Ratis itself.
 | `com.google.thirdparty.publicsuffix`| `org.apache.ratis.thirdparty.com.google.thirdparty.publicsuffix` |
 | `io.grpc`                           | `org.apache.ratis.thirdparty.io.grpc`                            |
 | `io.netty`                          | `org.apache.ratis.thirdparty.io.netty`                           |
-| `org.apache.hadoop.ipc.protobuf`    | `org.apache.ratis.thirdparty.org.apache.hadoop.ipc.protobuf`     |
 
 All compiled protocol-buffer definitions in `ratis-proto` are stored in the
 `org.apache.ratis.proto` Java package.
