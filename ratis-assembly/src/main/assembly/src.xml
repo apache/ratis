@@ -34,8 +34,6 @@
         <include>org.apache.ratis:ratis-common</include>
         <include>org.apache.ratis:ratis-examples</include>
         <include>org.apache.ratis:ratis-grpc</include>
-        <include>org.apache.ratis:ratis-hadoop</include>
-        <include>org.apache.ratis:ratis-logservice</include>
         <include>org.apache.ratis:ratis-netty</include>
         <include>org.apache.ratis:ratis-proto</include>
         <include>org.apache.ratis:ratis-docs</include>

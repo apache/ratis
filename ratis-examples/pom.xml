@@ -65,18 +65,6 @@
     </dependency>
 
     <dependency>
-      <artifactId>ratis-hadoop</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-hadoop</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <scope>test</scope>
-      <type>test-jar</type>
-    </dependency>
-
-    <dependency>
       <artifactId>ratis-grpc</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
