@@ -117,7 +117,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
           ((SnapshotManagementRequest) request);
       return ClientProtoUtils.toRaftClientReply(proxy.snapshotManagement(proto));
     } else if (request instanceof LeaderElectionManagementRequest) {
-      final LeaderElectionManagementRequestProto proto = ClientProtoUtils.toLeaderElectionRequestProto
+      final LeaderElectionManagementRequestProto proto = ClientProtoUtils.toLeaderElectionManagementRequestProto
           ((LeaderElectionManagementRequest) request);
       return ClientProtoUtils.toRaftClientReply(proxy.leaderElectionManagement(proto));
     } else {

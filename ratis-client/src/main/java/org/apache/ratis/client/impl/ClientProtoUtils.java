@@ -619,7 +619,7 @@ public interface ClientProtoUtils {
     return b.build();
   }
 
-  static LeaderElectionManagementRequest toLeaderElectionRequest(LeaderElectionManagementRequestProto p) {
+  static LeaderElectionManagementRequest toLeaderElectionManagementRequest(LeaderElectionManagementRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final ClientId clientId = ClientId.valueOf(m.getRequestorId());
     final RaftPeerId serverId = RaftPeerId.valueOf(m.getReplyId());
@@ -635,7 +635,7 @@ public interface ClientProtoUtils {
     }
   }
 
-  static LeaderElectionManagementRequestProto toLeaderElectionRequestProto(
+  static LeaderElectionManagementRequestProto toLeaderElectionManagementRequestProto(
       LeaderElectionManagementRequest request) {
     final LeaderElectionManagementRequestProto.Builder b = LeaderElectionManagementRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request));

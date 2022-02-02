@@ -18,7 +18,7 @@
 
 package org.apache.ratis.client.impl;
 
-import org.apache.ratis.client.api.leaderElectionManagementApi;
+import org.apache.ratis.client.api.LeaderElectionManagementApi;
 import org.apache.ratis.protocol.LeaderElectionManagementRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -27,12 +27,12 @@ import org.apache.ratis.rpc.CallId;
 import java.io.IOException;
 import java.util.Objects;
 
-public class leaderElectionManagementImpl implements leaderElectionManagementApi {
+public class LeaderElectionManagementImpl implements LeaderElectionManagementApi {
 
   private final RaftClientImpl client;
   private final RaftPeerId server;
 
-  leaderElectionManagementImpl(RaftPeerId server, RaftClientImpl client) {
+  LeaderElectionManagementImpl(RaftPeerId server, RaftClientImpl client) {
     this.server =  Objects.requireNonNull(server, "server == null");
     this.client = Objects.requireNonNull(client, "client == null");
   }
