@@ -143,7 +143,8 @@ public final class RaftClientImpl implements RaftClient {
   private final Supplier<AdminImpl> adminApi;
   private final ConcurrentMap<RaftPeerId, GroupManagementImpl> groupManagmenets = new ConcurrentHashMap<>();
   private final ConcurrentMap<RaftPeerId, SnapshotManagementApi> snapshotManagemenet = new ConcurrentHashMap<>();
-  private final ConcurrentMap<RaftPeerId, LeaderElectionManagementApi> leaderElectionManagement = new ConcurrentHashMap<>();
+  private final ConcurrentMap<RaftPeerId, LeaderElectionManagementApi>
+      leaderElectionManagement = new ConcurrentHashMap<>();
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primaryDataStreamServer,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {

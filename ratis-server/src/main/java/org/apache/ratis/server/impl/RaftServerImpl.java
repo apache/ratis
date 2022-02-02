@@ -1040,7 +1040,8 @@ class RaftServerImpl implements RaftServer.Division,
     return snapshotRequestHandler;
   }
 
-  CompletableFuture<RaftClientReply> leaderElectionManagementAsync(LeaderElectionManagementRequest request) throws IOException {
+  CompletableFuture<RaftClientReply> leaderElectionManagementAsync(LeaderElectionManagementRequest request)
+      throws IOException {
     LOG.info("{} receive leaderElectionManagement request {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
