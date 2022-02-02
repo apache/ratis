@@ -19,7 +19,7 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.util.JavaUtils;
 
-public final class LeaderElectionRequest extends RaftClientRequest{
+public final class LeaderElectionManagementRequest extends RaftClientRequest{
   public abstract static class Op {
 
   }
@@ -37,23 +37,23 @@ public final class LeaderElectionRequest extends RaftClientRequest{
     }
   }
 
-  public static LeaderElectionRequest newPause(ClientId clientId,
-      RaftPeerId serverId, RaftGroupId groupId, long callId, long timeoutMs) {
-    return new LeaderElectionRequest(clientId,
-        serverId, groupId, callId, timeoutMs,new LeaderElectionRequest.Pause());
+  public static LeaderElectionManagementRequest newPause(ClientId clientId,
+      RaftPeerId serverId, RaftGroupId groupId, long callId) {
+    return new LeaderElectionManagementRequest(clientId,
+        serverId, groupId, callId, new LeaderElectionManagementRequest.Pause());
   }
 
-  public static LeaderElectionRequest newResume(ClientId clientId,
-      RaftPeerId serverId, RaftGroupId groupId, long callId, long timeoutMs) {
-    return new LeaderElectionRequest(clientId,
-        serverId, groupId, callId, timeoutMs,new LeaderElectionRequest.Resume());
+  public static LeaderElectionManagementRequest newResume(ClientId clientId,
+      RaftPeerId serverId, RaftGroupId groupId, long callId) {
+    return new LeaderElectionManagementRequest(clientId,
+        serverId, groupId, callId, new LeaderElectionManagementRequest.Resume());
   }
 
   private final Op op;
 
-  public LeaderElectionRequest(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, long timeoutMs, Op op) {
-    super(clientId, serverId, groupId, callId, readRequestType(), timeoutMs);
+  public LeaderElectionManagementRequest(
+      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Op op) {
+    super(clientId, serverId, groupId, callId, false, readRequestType());
     this.op = op;
   }
 

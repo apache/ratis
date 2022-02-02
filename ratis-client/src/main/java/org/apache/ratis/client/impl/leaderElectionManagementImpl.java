@@ -18,8 +18,8 @@
 
 package org.apache.ratis.client.impl;
 
-import org.apache.ratis.client.api.SetLeaderElectionApi;
-import org.apache.ratis.protocol.LeaderElectionRequest;
+import org.apache.ratis.client.api.leaderElectionManagementApi;
+import org.apache.ratis.protocol.LeaderElectionManagementRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.CallId;
@@ -27,26 +27,26 @@ import org.apache.ratis.rpc.CallId;
 import java.io.IOException;
 import java.util.Objects;
 
-public class SetLeaderElectionImpl implements SetLeaderElectionApi {
+public class leaderElectionManagementImpl implements leaderElectionManagementApi {
 
   private final RaftClientImpl client;
   private final RaftPeerId server;
 
-  SetLeaderElectionImpl(RaftPeerId server, RaftClientImpl client) {
+  leaderElectionManagementImpl(RaftPeerId server, RaftClientImpl client) {
     this.server =  Objects.requireNonNull(server, "server == null");
     this.client = Objects.requireNonNull(client, "client == null");
   }
   @Override
-  public RaftClientReply pause(long timeoutMs) throws IOException {
+  public RaftClientReply pause() throws IOException {
     final long callId = CallId.getAndIncrement();
-    return client.io().sendRequestWithRetry(() -> LeaderElectionRequest.newPause(client.getId(),
-        server, client.getGroupId(), callId, timeoutMs));
+    return client.io().sendRequestWithRetry(() -> LeaderElectionManagementRequest.newPause(client.getId(),
+        server, client.getGroupId(), callId));
   }
 
   @Override
-  public RaftClientReply resume(long timeoutMs) throws IOException {
+  public RaftClientReply resume() throws IOException {
     final long callId = CallId.getAndIncrement();
-    return client.io().sendRequestWithRetry(() -> LeaderElectionRequest.newResume(client.getId(),
-        server, client.getGroupId(), callId, timeoutMs));
+    return client.io().sendRequestWithRetry(() -> LeaderElectionManagementRequest.newResume(client.getId(),
+        server, client.getGroupId(), callId));
   }
 }

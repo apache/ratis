@@ -24,7 +24,7 @@ import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.GroupInfoRequest;
 import org.apache.ratis.protocol.GroupListRequest;
 import org.apache.ratis.protocol.GroupManagementRequest;
-import org.apache.ratis.protocol.LeaderElectionRequest;
+import org.apache.ratis.protocol.LeaderElectionManagementRequest;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
@@ -88,10 +88,10 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
   }
 
   @Override
-  public void setLeaderElection(LeaderElectionRequestProto proto,
+  public void leaderElectionManagement(LeaderElectionManagementRequestProto proto,
       StreamObserver<RaftClientReplyProto> responseObserver) {
-    final LeaderElectionRequest request = ClientProtoUtils.toLeaderElectionRequest(proto);
-    GrpcUtil.asyncCall(responseObserver, () -> protocol.setLeaderElectionAsync(request),
+    final LeaderElectionManagementRequest request = ClientProtoUtils.toLeaderElectionRequest(proto);
+    GrpcUtil.asyncCall(responseObserver, () -> protocol.leaderElectionManagementAsync(request),
         ClientProtoUtils::toRaftClientReplyProto);
   }
 }

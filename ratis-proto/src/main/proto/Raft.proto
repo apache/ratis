@@ -414,7 +414,7 @@ message TransferLeadershipRequestProto {
 }
 
 // leader election request
-message LeaderElectionRequestProto {
+message LeaderElectionManagementRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
 
   oneof Op {

@@ -25,12 +25,12 @@ import java.io.IOException;
  * An API to support control leader election
  * such as pause and resume election
  */
-public interface SetLeaderElectionApi {
+public interface leaderElectionManagementApi {
 
   /** pause leader election. */
-  RaftClientReply pause(long timeoutMs) throws IOException;
+  RaftClientReply pause() throws IOException;
 
   /** resume leader election. */
-  RaftClientReply resume(long timeoutMs) throws IOException;
+  RaftClientReply resume() throws IOException;
 
 }

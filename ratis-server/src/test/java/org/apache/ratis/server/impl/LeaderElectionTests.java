@@ -23,7 +23,6 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.protocol.LeaderElectionRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
@@ -31,7 +30,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
-import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -424,7 +422,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final RaftServerImpl f1 = (RaftServerImpl)followers.get(0);
 
     try (final RaftClient client = cluster.createClient()) {
-      pauseLeaderReply = client.getSetLeaderElectionApi(f1.getId()).pause(3000);
+      pauseLeaderReply = client.leaderElectionManagementApi(f1.getId()).pause();
       Assert.assertTrue(pauseLeaderReply.isSuccess());
       client.io().send(new RaftTestUtil.SimpleMessage("message"));
       RaftServer.Division newLeader = followers.get(0);
@@ -434,7 +432,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       Assert.assertTrue(reply.isSuccess());
       JavaUtils.attempt(() -> Assert.assertEquals(leaderId, leader.getId()),
           20, HUNDRED_MILLIS, "check leader id", LOG);
-      final RaftClientReply resumeLeaderReply = client.getSetLeaderElectionApi(f1.getId()).resume(3000);
+      final RaftClientReply resumeLeaderReply = client.leaderElectionManagementApi(f1.getId()).resume();
       Assert.assertTrue(resumeLeaderReply.isSuccess());
       JavaUtils.attempt(() -> Assert.assertEquals(f1.getId(), cluster.getLeader().getId()),
           20, HUNDRED_MILLIS, "check new leader", LOG);
