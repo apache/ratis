@@ -555,6 +555,7 @@ class RaftServerProxy implements RaftServer {
             .build());
   }
 
+  @Override
   public CompletableFuture<RaftClientReply> leaderElectionManagementAsync(
       LeaderElectionManagementRequest request) {
     return getImplFuture(request.getRaftGroupId())

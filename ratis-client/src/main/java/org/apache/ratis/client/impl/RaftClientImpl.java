@@ -259,7 +259,7 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public LeaderElectionManagementApi leaderElectionManagementApi(RaftPeerId server) {
+  public LeaderElectionManagementApi getLeaderElectionManagementApi(RaftPeerId server) {
     return leaderElectionManagement.computeIfAbsent(server, id -> new LeaderElectionManagementImpl(id, this));
   }
 

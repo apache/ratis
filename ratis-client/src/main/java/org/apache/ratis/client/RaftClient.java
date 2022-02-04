@@ -66,7 +66,7 @@ public interface RaftClient extends Closeable {
   SnapshotManagementApi getSnapshotManagementApi(RaftPeerId server);
 
   /** Get the {@link LeaderElectionManagementApi} for the given server. */
-  LeaderElectionManagementApi leaderElectionManagementApi(RaftPeerId server);
+  LeaderElectionManagementApi getLeaderElectionManagementApi(RaftPeerId server);
 
   /** @return the {@link BlockingApi}. */
   BlockingApi io();
