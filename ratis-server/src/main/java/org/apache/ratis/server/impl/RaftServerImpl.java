@@ -1040,17 +1040,18 @@ class RaftServerImpl implements RaftServer.Division,
     return snapshotRequestHandler;
   }
 
-  CompletableFuture<RaftClientReply> setLeaderElectionAsync(LeaderElectionRequest request) throws IOException {
-    LOG.info("{} receive pauseLeaderElection {}", getMemberId(), request);
+  CompletableFuture<RaftClientReply> leaderElectionManagementAsync(LeaderElectionManagementRequest request)
+      throws IOException {
+    LOG.info("{} receive leaderElectionManagement request {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
-    final LeaderElectionRequest.Pause pause = request.getPause();
+    final LeaderElectionManagementRequest.Pause pause = request.getPause();
     if (pause != null) {
       getRole().setLeaderElectionPause(true);
       return CompletableFuture.completedFuture(newSuccessReply(request));
     }
-    final LeaderElectionRequest.Resume resume = request.getResume();
+    final LeaderElectionManagementRequest.Resume resume = request.getResume();
     if (resume != null) {
       getRole().setLeaderElectionPause(false);
       return CompletableFuture.completedFuture(newSuccessReply(request));

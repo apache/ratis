@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,23 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.client.api;
+
+import org.apache.ratis.protocol.RaftClientReply;
 
 import java.io.IOException;
 
-/** For server administration. */
-public interface AdminProtocol {
-  GroupListReply getGroupList(GroupListRequest request) throws IOException;
+/**
+ * An API to support control leader election
+ * such as pause and resume election
+ */
+public interface LeaderElectionManagementApi {
 
-  GroupInfoReply getGroupInfo(GroupInfoRequest request) throws IOException;
+  /** pause leader election. */
+  RaftClientReply pause() throws IOException;
 
-  RaftClientReply groupManagement(GroupManagementRequest request) throws IOException;
+  /** resume leader election. */
+  RaftClientReply resume() throws IOException;
 
-  RaftClientReply snapshotManagement(SnapshotManagementRequest request) throws IOException;
-
-  RaftClientReply leaderElectionManagement(LeaderElectionManagementRequest request) throws IOException;
-
-  RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException;
-
-  RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException;
 }

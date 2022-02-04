@@ -30,6 +30,8 @@ public interface AdminAsynchronousProtocol {
 
   CompletableFuture<RaftClientReply> snapshotManagementAsync(SnapshotManagementRequest request);
 
+  CompletableFuture<RaftClientReply> leaderElectionManagementAsync(LeaderElectionManagementRequest request);
+
   CompletableFuture<RaftClientReply> setConfigurationAsync(
       SetConfigurationRequest request) throws IOException;
 

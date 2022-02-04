@@ -28,6 +28,7 @@ import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.GroupInfoRequest;
 import org.apache.ratis.protocol.GroupListRequest;
 import org.apache.ratis.protocol.GroupManagementRequest;
+import org.apache.ratis.protocol.LeaderElectionManagementRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
@@ -195,6 +196,8 @@ class SimulatedServerRpc implements RaftServerRpc {
         future = server.transferLeadershipAsync((TransferLeadershipRequest) request);
       } else if (request instanceof SnapshotManagementRequest) {
         future = server.snapshotManagementAsync((SnapshotManagementRequest) request);
+      } else if (request instanceof LeaderElectionManagementRequest) {
+        future = server.leaderElectionManagementAsync((LeaderElectionManagementRequest) request);
       } else {
         future = server.submitClientRequestAsync(request);
       }

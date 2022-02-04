@@ -413,6 +413,24 @@ message TransferLeadershipRequestProto {
   RaftPeerProto newLeader = 2;
 }
 
+// leader election request
+message LeaderElectionManagementRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+
+  oneof Op {
+    LeaderElectionPauseRequestProto pause = 2;
+    LeaderElectionResumeRequestProto resume = 3;
+  }
+}
+
+message LeaderElectionPauseRequestProto {
+
+}
+
+message LeaderElectionResumeRequestProto {
+
+}
+
 // snapshot request
 message SnapshotManagementRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
