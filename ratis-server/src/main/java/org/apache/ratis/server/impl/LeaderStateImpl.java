@@ -536,6 +536,9 @@ class LeaderStateImpl implements LeaderState {
   private void stepDown(long term, StepDownReason reason) {
     try {
       server.changeToFollowerAndPersistMetadata(term, reason);
+      if (reason.equals(StepDownReason.NO_LEADER_MODE)) {
+        server.getStepDownLeader().completeStepDownLeader();
+      }
     } catch(IOException e) {
       final String s = this + ": Failed to persist metadata for term " + term;
       LOG.warn(s, e);
