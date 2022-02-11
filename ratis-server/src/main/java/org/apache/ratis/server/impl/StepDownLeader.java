@@ -18,7 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.StepDownLeaderRequest;
+import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.util.JavaUtils;
@@ -38,14 +38,14 @@ public class StepDownLeader {
   public static final Logger LOG = LoggerFactory.getLogger(StepDownLeader.class);
 
   class PendingRequest {
-    private final StepDownLeaderRequest request;
+    private final TransferLeadershipRequest request;
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
 
-    PendingRequest(StepDownLeaderRequest request) {
+    PendingRequest(TransferLeadershipRequest request) {
       this.request = request;
     }
 
-    StepDownLeaderRequest getRequest() {
+    TransferLeadershipRequest getRequest() {
       return request;
     }
 
@@ -94,7 +94,7 @@ public class StepDownLeader {
     this.server = server;
   }
 
-  CompletableFuture<RaftClientReply> stepDownLeaderAsync(StepDownLeaderRequest request) {
+  CompletableFuture<RaftClientReply> stepDownLeaderAsync(TransferLeadershipRequest request) {
     final MemoizedSupplier<PendingRequest> supplier = JavaUtils.memoize(() -> new PendingRequest(request));
     final PendingRequest previous = pending.getAndUpdate(supplier);
     if (previous != null) {

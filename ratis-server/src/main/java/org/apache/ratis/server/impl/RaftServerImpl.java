@@ -182,7 +182,6 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final TransferLeadership transferLeadership;
   private final SnapshotManagementRequestHandler snapshotRequestHandler;
-  private final StepDownLeader stepDownLeader;
 
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
@@ -224,7 +223,6 @@ class RaftServerImpl implements RaftServer.Division,
 
     this.transferLeadership = new TransferLeadership(this);
     this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
-    this.stepDownLeader = new StepDownLeader(this);
 
     this.serverExecutor = ConcurrentUtils.newThreadPoolWithMax(
         RaftServerConfigKeys.ThreadPool.serverCached(properties),
@@ -1061,7 +1059,7 @@ class RaftServerImpl implements RaftServer.Division,
         getId() + ": Request not supported " + request));
   }
 
-  CompletableFuture<RaftClientReply> stepDownLeaderAsync(StepDownLeaderRequest request) throws IOException {
+  CompletableFuture<RaftClientReply> stepDownLeaderAsync(TransferLeadershipRequest request) throws IOException {
     LOG.info("{} receive stepDown leader request {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
@@ -1075,12 +1073,9 @@ class RaftServerImpl implements RaftServer.Division,
       if (reply != null) {
         return CompletableFuture.completedFuture(newSuccessReply(request));
       }
-      return stepDownLeader.stepDownLeaderAsync(request);
+      final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
+      return leaderState.getStepDownLeader().stepDownLeaderAsync(request);
     }
-  }
-
-  StepDownLeader getStepDownLeader() {
-    return stepDownLeader;
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {

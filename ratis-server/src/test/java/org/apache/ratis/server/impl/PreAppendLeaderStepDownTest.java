@@ -26,7 +26,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.StepDownLeaderRequest;
+import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
@@ -125,8 +125,8 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
     try (RaftClient client = cluster.createClient(leader.getId())) {
       JavaUtils.attempt(() -> Assert.assertEquals(leaderId, leader.getId()),
           20, ONE_SECOND, "check leader id", LOG);
-      StepDownLeaderRequest r =
-          new StepDownLeaderRequest(client.getId(), leaderId, cluster.getGroupId(), CallId.getAndIncrement(), 3000);
+      TransferLeadershipRequest r =
+          new TransferLeadershipRequest(client.getId(), leaderId, cluster.getGroupId(), CallId.getAndIncrement(), null,3000);
       RaftClientReply reply = l.stepDownLeaderAsync(r).join();
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(2, ((RaftServerImpl) leader).getRole().getCurrentRole().getNumber());

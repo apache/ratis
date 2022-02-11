@@ -252,6 +252,7 @@ class LeaderStateImpl implements LeaderState {
   private final RaftServerMetricsImpl raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
   private final long followerMaxGapThreshold;
+  private final StepDownLeader stepDownLeader;
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -290,6 +291,7 @@ class LeaderStateImpl implements LeaderState {
     senders = new SenderList();
     addSenders(others, placeHolderIndex, true);
     voterLists = divideFollowers(conf);
+    this.stepDownLeader = new StepDownLeader(server);
   }
 
   LogEntryProto start() {
@@ -537,7 +539,7 @@ class LeaderStateImpl implements LeaderState {
     try {
       server.changeToFollowerAndPersistMetadata(term, reason);
       if (reason.equals(StepDownReason.NO_LEADER_MODE)) {
-        server.getStepDownLeader().completeStepDownLeader();
+        stepDownLeader.completeStepDownLeader();
       }
     } catch(IOException e) {
       final String s = this + ": Failed to persist metadata for term " + term;
@@ -548,6 +550,10 @@ class LeaderStateImpl implements LeaderState {
         throw new IllegalStateException(s + " and running == true", e);
       }
     }
+  }
+
+  StepDownLeader getStepDownLeader() {
+    return stepDownLeader;
   }
 
   private synchronized void sendStartLeaderElectionToHigherPriorityPeer(RaftPeerId follower, TermIndex lastEntry) {
