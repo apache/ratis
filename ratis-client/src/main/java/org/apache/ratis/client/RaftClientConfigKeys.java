@@ -113,6 +113,16 @@ public interface RaftClientConfigKeys {
     static void setRequestTimeout(RaftProperties properties, TimeDuration timeoutDuration) {
       setTimeDuration(properties::setTimeDuration, REQUEST_TIMEOUT_KEY, timeoutDuration);
     }
+
+    String SEND_REQUEST_WORKERS_KEY = PREFIX + ".send.request.workers";
+    int SEND_REQUEST_WORKERS_DEFAULT = 10;
+    static int sendRequestWorker(RaftProperties properties) {
+      return getInt(properties::getInt, SEND_REQUEST_WORKERS_KEY,
+          SEND_REQUEST_WORKERS_DEFAULT, getDefaultLog(), requireMin(1));
+    }
+    static void setSendRequestWorker(RaftProperties properties, int sendRequestWorkers) {
+      setInt(properties::setInt, SEND_REQUEST_WORKERS_KEY, sendRequestWorkers);
+    }
   }
 
   interface MessageStream {

@@ -28,6 +28,7 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SlidingWindow;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 import java.util.function.LongFunction;
 
@@ -106,11 +108,15 @@ public class OrderedStreamAsync {
   private final Semaphore requestSemaphore;
   private final TimeDuration requestTimeout;
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final Executor sendExecutor;
 
   OrderedStreamAsync(DataStreamClientRpc dataStreamClientRpc, RaftProperties properties){
     this.dataStreamClientRpc = dataStreamClientRpc;
     this.requestSemaphore = new Semaphore(RaftClientConfigKeys.DataStream.outstandingRequestsMax(properties));
     this.requestTimeout = RaftClientConfigKeys.DataStream.requestTimeout(properties);
+
+    this.sendExecutor = ConcurrentUtils.newThreadPoolWithMax(false,
+        RaftClientConfigKeys.DataStream.sendRequestWorker(properties), "stream-async-sender-");
   }
 
   CompletableFuture<DataStreamReply> sendRequest(DataStreamRequestHeader header, Object data,
@@ -147,16 +153,16 @@ public class OrderedStreamAsync {
 
     scheduleWithTimeout(request);
 
-    requestFuture.thenApply(reply -> {
+    requestFuture.thenApplyAsync(reply -> {
       slidingWindow.receiveReply(
           seqNum, reply, r -> sendRequestToNetwork(r, slidingWindow));
       return reply;
-    }).thenAccept(reply -> {
+    }, sendExecutor).thenAcceptAsync(reply -> {
       if (f.isDone()) {
         return;
       }
       f.complete(reply);
-    }).exceptionally(e -> {
+    }, sendExecutor).exceptionally(e -> {
       f.completeExceptionally(e);
       return null;
     });
