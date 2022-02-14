@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutScheduler;
 import org.slf4j.Logger;
@@ -32,10 +33,11 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class StepDownLeader {
-  public static final Logger LOG = LoggerFactory.getLogger(StepDownLeader.class);
+public class PendingStepDown {
+  public static final Logger LOG = LoggerFactory.getLogger(PendingStepDown.class);
 
   class PendingRequest {
     private final TransferLeadershipRequest request;
@@ -45,22 +47,18 @@ public class StepDownLeader {
       this.request = request;
     }
 
-    TransferLeadershipRequest getRequest() {
-      return request;
-    }
-
     CompletableFuture<RaftClientReply> getReplyFuture() {
       return replyFuture;
     }
 
-    void complete() {
-      LOG.info("Successfully step down leader at {} for request {}", server.getMemberId(), request);
-      replyFuture.complete(server.newSuccessReply(request));
+    void complete(Function<TransferLeadershipRequest, RaftClientReply> newSuccessReply) {
+      LOG.info("Successfully step down leader at {} for request {}", leader, request);
+      replyFuture.complete(newSuccessReply.apply(request));
     }
 
     void timeout() {
       replyFuture.completeExceptionally(new TimeoutIOException(
-          ": Failed to step down leader on " +  server.getMemberId() + "request " + request.getTimeoutMs() + "ms"));
+          ": Failed to step down leader on " +  leader + "request " + request.getTimeoutMs() + "ms"));
     }
 
     @Override
@@ -73,10 +71,6 @@ public class StepDownLeader {
   static class PendingRequestReference {
     private final AtomicReference<PendingRequest> ref = new AtomicReference<>();
 
-    Optional<PendingRequest> get() {
-      return Optional.ofNullable(ref.get());
-    }
-
     Optional<PendingRequest> getAndSetNull() {
       return Optional.ofNullable(ref.getAndSet(null));
     }
@@ -86,29 +80,29 @@ public class StepDownLeader {
     }
   }
 
-  private final RaftServerImpl server;
+  private final LeaderStateImpl leader;
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
   private final PendingRequestReference pending = new PendingRequestReference();
 
-  StepDownLeader(RaftServerImpl server) {
-    this.server = server;
+  PendingStepDown(LeaderStateImpl leaderState) {
+    this.leader = leaderState;
   }
 
-  CompletableFuture<RaftClientReply> stepDownLeaderAsync(TransferLeadershipRequest request) {
+  CompletableFuture<RaftClientReply> submitAsync(TransferLeadershipRequest request) {
+    Preconditions.assertNull(request.getNewLeader(), "request.getNewLeader()");
     final MemoizedSupplier<PendingRequest> supplier = JavaUtils.memoize(() -> new PendingRequest(request));
     final PendingRequest previous = pending.getAndUpdate(supplier);
     if (previous != null) {
       return previous.getReplyFuture();
     }
-    server.getRole().getLeaderState()
-        .ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.NO_LEADER_MODE));
+    leader.submitStepDownEvent(LeaderState.StepDownReason.FORCE);
     scheduler.onTimeout(TimeDuration.valueOf(request.getTimeoutMs(), TimeUnit.MILLISECONDS),
         this::timeout, LOG, () -> "Timeout check failed for step down leader request: " + request);
     return supplier.get().getReplyFuture();
   }
 
-  void completeStepDownLeader() {
-    pending.getAndSetNull().ifPresent(PendingRequest::complete);
+  void complete(Function<TransferLeadershipRequest, RaftClientReply> newSuccessReply) {
+    pending.getAndSetNull().ifPresent(p -> p.complete(newSuccessReply));
   }
 
   void timeout() {

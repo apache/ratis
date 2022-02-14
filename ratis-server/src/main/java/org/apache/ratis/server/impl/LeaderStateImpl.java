@@ -31,6 +31,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
@@ -252,7 +253,7 @@ class LeaderStateImpl implements LeaderState {
   private final RaftServerMetricsImpl raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
   private final long followerMaxGapThreshold;
-  private final StepDownLeader stepDownLeader;
+  private final PendingStepDown pendingStepDown;
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -272,6 +273,7 @@ class LeaderStateImpl implements LeaderState {
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
+    this.pendingStepDown = new PendingStepDown(this);
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
     double followerGapRatioMax = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
 
@@ -291,7 +293,6 @@ class LeaderStateImpl implements LeaderState {
     senders = new SenderList();
     addSenders(others, placeHolderIndex, true);
     voterLists = divideFollowers(conf);
-    this.stepDownLeader = new StepDownLeader(server);
   }
 
   LogEntryProto start() {
@@ -538,9 +539,7 @@ class LeaderStateImpl implements LeaderState {
   private void stepDown(long term, StepDownReason reason) {
     try {
       server.changeToFollowerAndPersistMetadata(term, reason);
-      if (reason.equals(StepDownReason.NO_LEADER_MODE)) {
-        stepDownLeader.completeStepDownLeader();
-      }
+      pendingStepDown.complete(server::newSuccessReply);
     } catch(IOException e) {
       final String s = this + ": Failed to persist metadata for term " + term;
       LOG.warn(s, e);
@@ -552,8 +551,8 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  StepDownLeader getStepDownLeader() {
-    return stepDownLeader;
+  CompletableFuture<RaftClientReply> submitStepDownRequestAsync(TransferLeadershipRequest request) {
+    return pendingStepDown.submitAsync(request);
   }
 
   private synchronized void sendStartLeaderElectionToHigherPriorityPeer(RaftPeerId follower, TermIndex lastEntry) {

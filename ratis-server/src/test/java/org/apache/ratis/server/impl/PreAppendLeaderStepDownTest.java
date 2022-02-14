@@ -118,14 +118,14 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
     runWithNewCluster(3, this::runTestLeaderStepDownAsync);
   }
 
-   void runTestLeaderStepDownAsync(CLUSTER cluster) throws IOException, InterruptedException {
+  void runTestLeaderStepDownAsync(CLUSTER cluster) throws IOException, InterruptedException {
     RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     RaftPeerId leaderId = leader.getId();
     RaftServerImpl l = (RaftServerImpl) leader;
     try (RaftClient client = cluster.createClient(leader.getId())) {
       JavaUtils.attempt(() -> Assert.assertEquals(leaderId, leader.getId()),
           20, ONE_SECOND, "check leader id", LOG);
-      TransferLeadershipRequest r =
+      final TransferLeadershipRequest r =
           new TransferLeadershipRequest(client.getId(), leaderId, cluster.getGroupId(), CallId.getAndIncrement(), null,3000);
       RaftClientReply reply = l.stepDownLeaderAsync(r).join();
       Assert.assertTrue(reply.isSuccess());

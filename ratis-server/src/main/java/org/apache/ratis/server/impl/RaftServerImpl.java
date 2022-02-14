@@ -1064,18 +1064,8 @@ class RaftServerImpl implements RaftServer.Division,
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
-    CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, true);
-    if (reply != null) {
-      return CompletableFuture.completedFuture(newSuccessReply(request));
-    }
-    synchronized (this) {
-      reply = checkLeaderState(request, null, false);
-      if (reply != null) {
-        return CompletableFuture.completedFuture(newSuccessReply(request));
-      }
-      final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
-      return leaderState.getStepDownLeader().stepDownLeaderAsync(request);
-    }
+    return role.getLeaderState().map(leader -> leader.submitStepDownRequestAsync(request))
+        .orElseGet(() -> CompletableFuture.completedFuture(newSuccessReply(request)));
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
