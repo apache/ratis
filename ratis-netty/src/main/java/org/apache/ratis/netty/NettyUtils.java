@@ -31,6 +31,7 @@ public interface NettyUtils {
   static EventLoopGroup newEventLoopGroup(String name, int size, boolean useEpoll) {
     if (useEpoll) {
       if (Epoll.isAvailable()) {
+        LOG.info("Create EpollEventLoopGroup for {}; Thread size is {}.", name, size);
         return new EpollEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-"));
       } else {
         LOG.warn("Failed to create EpollEventLoopGroup for " + name + "; fall back on NioEventLoopGroup.",
