@@ -1060,6 +1060,15 @@ class RaftServerImpl implements RaftServer.Division,
         getId() + ": Request not supported " + request));
   }
 
+  CompletableFuture<RaftClientReply> stepDownLeaderAsync(TransferLeadershipRequest request) throws IOException {
+    LOG.info("{} receive stepDown leader request {}", getMemberId(), request);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
+    return role.getLeaderState().map(leader -> leader.submitStepDownRequestAsync(request))
+        .orElseGet(() -> CompletableFuture.completedFuture(newSuccessReply(request)));
+  }
+
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
     return waitForReply(request, setConfigurationAsync(request));
   }

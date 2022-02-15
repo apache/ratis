@@ -25,12 +25,16 @@ import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -106,6 +110,26 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
       }
 
       cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testLeaderStepDownAsync() throws Exception {
+    runWithNewCluster(3, this::runTestLeaderStepDownAsync);
+  }
+
+  void runTestLeaderStepDownAsync(CLUSTER cluster) throws IOException, InterruptedException {
+    RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    RaftPeerId leaderId = leader.getId();
+    RaftServerImpl l = (RaftServerImpl) leader;
+    try (RaftClient client = cluster.createClient(leader.getId())) {
+      JavaUtils.attempt(() -> Assert.assertEquals(leaderId, leader.getId()),
+          20, ONE_SECOND, "check leader id", LOG);
+      final TransferLeadershipRequest r =
+          new TransferLeadershipRequest(client.getId(), leaderId, cluster.getGroupId(), CallId.getAndIncrement(), null,3000);
+      RaftClientReply reply = l.stepDownLeaderAsync(r).join();
+      Assert.assertTrue(reply.isSuccess());
+      Assert.assertEquals(2, ((RaftServerImpl) leader).getRole().getCurrentRole().getNumber());
     }
   }
 }
