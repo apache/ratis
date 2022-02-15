@@ -567,6 +567,18 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, port);
     }
 
+    String START_TRANSACTION_ENABLE = PREFIX + ".start-transaction.enable";
+    boolean START_TRANSACTION_ENABLE_DEFAULT = true;
+
+    static boolean startTransactionEnable(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, START_TRANSACTION_ENABLE,
+          START_TRANSACTION_ENABLE_DEFAULT, getDefaultLog());
+    }
+
+    static void setStartTransactionEnable(RaftProperties properties, boolean enable) {
+      setBoolean(properties::setBoolean, START_TRANSACTION_ENABLE, enable);
+    }
+
     String CLIENT_POOL_SIZE_KEY = PREFIX + ".client.pool.size";
     int CLIENT_POOL_SIZE_DEFAULT = 10;
 

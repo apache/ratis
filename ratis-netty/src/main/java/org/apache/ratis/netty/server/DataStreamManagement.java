@@ -213,6 +213,8 @@ public class DataStreamManagement {
   private final Executor requestExecutor;
   private final Executor writeExecutor;
 
+  private final boolean startTransactionEnable;
+
   DataStreamManagement(RaftServer server) {
     this.server = server;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -225,6 +227,7 @@ public class DataStreamManagement {
     this.writeExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
           RaftServerConfigKeys.DataStream.asyncWriteThreadPoolSize(properties),
           name + "-write-");
+    this.startTransactionEnable = RaftServerConfigKeys.DataStream.startTransactionEnable(properties);
   }
 
   private CompletableFuture<DataStream> computeDataStreamIfAbsent(RaftClientRequest request) throws IOException {
@@ -327,6 +330,12 @@ public class DataStreamManagement {
   private CompletableFuture<RaftClientReply> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
       long bytesWritten, ChannelHandlerContext ctx) {
     try {
+      if (!startTransactionEnable) {
+        RaftClientReply reply = RaftClientReply.newBuilder().setSuccess(true).build();
+        ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply, bytesWritten, info.getCommitInfos()));
+        return null;
+      }
+
       AsyncRpcApi asyncRpcApi = (AsyncRpcApi) (server.getDivision(info.getRequest()
           .getRaftGroupId())
           .getRaftClient()
