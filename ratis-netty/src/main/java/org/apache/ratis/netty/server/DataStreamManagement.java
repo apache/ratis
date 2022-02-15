@@ -110,19 +110,19 @@ public class DataStreamManagement {
     private final boolean primary;
     private final LocalStream local;
     private final Set<RemoteStream> remotes;
-    private final RaftServer server;
+    private final Division division;
     @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     private final AtomicReference<CompletableFuture<Void>> previous
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
-    StreamInfo(RaftClientRequest request, boolean primary, CompletableFuture<DataStream> stream, RaftServer server,
+    StreamInfo(RaftClientRequest request, boolean primary, CompletableFuture<DataStream> stream, Division division,
         CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams)
         throws IOException {
       this.request = request;
       this.primary = primary;
       this.local = new LocalStream(stream);
-      this.server = server;
-      final Set<RaftPeer> successors = getSuccessors(server.getId());
+      this.division = division;
+      final Set<RaftPeer> successors = getSuccessors(division.getId());
       final Set<DataStreamOutputRpc> outs = getStreams.apply(request, successors);
       this.remotes = outs.stream().map(RemoteStream::new).collect(Collectors.toSet());
     }
@@ -135,16 +135,12 @@ public class DataStreamManagement {
       return request;
     }
 
-    Division getDivision() throws IOException {
-      return server.getDivision(request.getRaftGroupId());
+    Division getDivision() {
+      return division;
     }
 
     Collection<CommitInfoProto> getCommitInfos() {
-      try {
-        return getDivision().getCommitInfos();
-      } catch (IOException e) {
-        throw new IllegalStateException(e);
-      }
+      return getDivision().getCommitInfos();
     }
 
     boolean isPrimary() {
@@ -164,7 +160,7 @@ public class DataStreamManagement {
       return JavaUtils.getClassSimpleName(getClass()) + ":" + request;
     }
 
-    private Set<RaftPeer> getSuccessors(RaftPeerId peerId) throws IOException {
+    private Set<RaftPeer> getSuccessors(RaftPeerId peerId) {
       final RaftConfiguration conf = getDivision().getRaftConf();
       final RoutingTable routingTable = request.getRoutingTable();
 
@@ -176,7 +172,7 @@ public class DataStreamManagement {
         // Default start topology
         // get the other peers from the current configuration
         return conf.getCurrentPeers().stream()
-            .filter(p -> !p.getId().equals(server.getId()))
+            .filter(p -> !p.getId().equals(division.getId()))
             .collect(Collectors.toSet());
       }
 
@@ -246,7 +242,8 @@ public class DataStreamManagement {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
       final boolean isPrimary = server.getId().equals(request.getServerId());
-      return new StreamInfo(request, isPrimary, computeDataStreamIfAbsent(request), server, getStreams);
+      final Division division = server.getDivision(request.getRaftGroupId());
+      return new StreamInfo(request, isPrimary, computeDataStreamIfAbsent(request), division, getStreams);
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
@@ -380,7 +377,18 @@ public class DataStreamManagement {
       readImpl(request, ctx, buf, getStreams);
     } catch (Throwable t) {
       buf.release();
+      removeDataStream(ClientInvocationId.valueOf(request.getClientId(), request.getStreamId()), null);
       throw t;
+    }
+  }
+
+  private void removeDataStream(ClientInvocationId invocationId, StreamInfo info) {
+    final StreamInfo removed = streams.remove(invocationId);
+    if (info == null) {
+      info = removed;
+    }
+    if (info != null) {
+      info.getDivision().getDataStreamMap().remove(invocationId);
     }
   }
 
@@ -393,7 +401,6 @@ public class DataStreamManagement {
       final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getStreams));
       info = streams.computeIfAbsent(key, id -> supplier.get());
       if (!supplier.isInitialized()) {
-        streams.remove(key);
         throw new IllegalStateException("Failed to create a new stream for " + request
             + " since a stream already exists Key: " + key + " StreamInfo:" + info);
       }
@@ -402,10 +409,7 @@ public class DataStreamManagement {
           () -> new IllegalStateException("Failed to remove StreamInfo for " + request));
     } else {
       info = Optional.ofNullable(streams.get(key)).orElseThrow(
-          () -> {
-            streams.remove(key);
-            return new IllegalStateException("Failed to get StreamInfo for " + request);
-          });
+          () -> new IllegalStateException("Failed to get StreamInfo for " + request));
     }
 
     final CompletableFuture<Long> localWrite;
@@ -439,7 +443,7 @@ public class DataStreamManagement {
         }, requestExecutor)).whenComplete((v, exception) -> {
       try {
         if (exception != null) {
-          streams.remove(key);
+          removeDataStream(key, info);
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
         }
       } finally {
