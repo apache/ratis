@@ -227,7 +227,7 @@ public class DataStreamManagement {
     this.writeExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
           RaftServerConfigKeys.DataStream.asyncWriteThreadPoolSize(properties),
           name + "-write-");
-    this.startTransactionEnable = RaftServerConfigKeys.DataStream.startTransactionEnable(properties);
+    this.startTransactionEnable = RaftServerConfigKeys.DataStream.raftLogNeed(properties);
   }
 
   private CompletableFuture<DataStream> computeDataStreamIfAbsent(RaftClientRequest request) throws IOException {
