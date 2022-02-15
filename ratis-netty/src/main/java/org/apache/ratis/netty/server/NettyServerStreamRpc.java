@@ -24,6 +24,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyDataStreamUtils;
+import org.apache.ratis.netty.NettyUtils;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
@@ -40,7 +41,8 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelInitializer;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelPipeline;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
-import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
+import org.apache.ratis.thirdparty.io.netty.channel.epoll.EpollEventLoopGroup;
+import org.apache.ratis.thirdparty.io.netty.channel.epoll.EpollServerSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
@@ -108,8 +110,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   }
 
   private final String name;
-  private final EventLoopGroup bossGroup = new NioEventLoopGroup();
-  private final EventLoopGroup workerGroup = new NioEventLoopGroup();
+  private final EventLoopGroup bossGroup;
+  private final EventLoopGroup workerGroup;
   private final ChannelFuture channelFuture;
 
   private final DataStreamManagement requests;
@@ -126,13 +128,21 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       this.proxies.add(new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties))));
     }
 
+    final boolean useEpoll = NettyConfigKeys.DataStream.Server.useEpoll(properties);
+    this.bossGroup = NettyUtils.newEventLoopGroup(name + "-bossGroup",
+        NettyConfigKeys.DataStream.Server.bossGroupSize(properties), useEpoll);
+    this.workerGroup = NettyUtils.newEventLoopGroup(name + "-workerGroup",
+        NettyConfigKeys.DataStream.Server.workerGroupSize(properties), useEpoll);
+
     final int port = NettyConfigKeys.DataStream.port(properties);
     this.channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
-        .channel(NioServerSocketChannel.class)
+        .channel(bossGroup instanceof EpollEventLoopGroup ?
+            EpollServerSocketChannel.class : NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(getInitializer())
         .childOption(ChannelOption.SO_KEEPALIVE, true)
+        .childOption(ChannelOption.TCP_NODELAY, true)
         .bind(port);
   }
 

@@ -106,6 +106,39 @@ public interface NettyConfigKeys {
     static void setClientReplyQueueGracePeriod(RaftProperties properties, TimeDuration timeoutDuration) {
       setTimeDuration(properties::setTimeDuration, CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY, timeoutDuration);
     }
+
+    interface Server {
+      String PREFIX = NettyConfigKeys.PREFIX + ".server";
+
+      String USE_EPOLL_KEY = PREFIX + ".use-epoll";
+      boolean USE_EPOLL_DEFAULT = false;
+      static boolean useEpoll(RaftProperties properties) {
+        return getBoolean(properties::getBoolean, USE_EPOLL_KEY, USE_EPOLL_DEFAULT, getDefaultLog());
+      }
+      static void setUseEpoll(RaftProperties properties, boolean enable) {
+        setBoolean(properties::setBoolean, USE_EPOLL_KEY, enable);
+      }
+
+      String BOSS_GROUP_SIZE_KEY = PREFIX + ".boss-group.size";
+      int BOSS_GROUP_SIZE_DEFAULT = 0;
+      static int bossGroupSize(RaftProperties properties) {
+        return getInt(properties::getInt, BOSS_GROUP_SIZE_KEY, BOSS_GROUP_SIZE_DEFAULT, getDefaultLog(),
+            requireMin(0), requireMax(65536));
+      }
+      static void setBossGroupSize(RaftProperties properties, int num) {
+        setInt(properties::setInt, BOSS_GROUP_SIZE_KEY, num);
+      }
+
+      String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
+      int WORKER_GROUP_SIZE_DEFAULT = 0;
+      static int workerGroupSize(RaftProperties properties) {
+        return getInt(properties::getInt, WORKER_GROUP_SIZE_KEY, WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(),
+            requireMin(0), requireMax(65536));
+      }
+      static void setWorkerGroupSize(RaftProperties properties, int num) {
+        setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, num);
+      }
+    }
   }
 
   static void main(String[] args) {
