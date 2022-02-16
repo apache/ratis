@@ -444,6 +444,12 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
+  public RaftClientReply stepDownLeader(TransferLeadershipRequest request)
+      throws IOException {
+    return getImpl(request.getRaftGroupId()).stepDownLeader(request);
+  }
+
+  @Override
   public RaftClientReply groupManagement(GroupManagementRequest request) throws IOException {
     return RaftServerImpl.waitForReply(getId(), request, groupManagementAsync(request),
         e -> RaftClientReply.newBuilder()
@@ -541,6 +547,8 @@ class RaftServerProxy implements RaftServer {
           getId() + ": Request not supported " + request));
   }
 
+
+
   private CompletableFuture<RaftClientReply> createAsync(SnapshotManagementRequest request) {
     return getImplFuture(request.getRaftGroupId())
         .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.takeSnapshotAsync(request)));
@@ -596,6 +604,12 @@ class RaftServerProxy implements RaftServer {
   public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request) {
     return getImplFuture(request.getRaftGroupId())
         .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.transferLeadershipAsync(request)));
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> stepDownLeaderAsync(TransferLeadershipRequest request) {
+    return getImplFuture(request.getRaftGroupId())
+        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.stepDownLeaderAsync(request)));
   }
 
   @Override

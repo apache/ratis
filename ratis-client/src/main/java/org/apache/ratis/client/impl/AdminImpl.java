@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
+import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.rpc.CallId;
 
 import java.io.IOException;
@@ -50,6 +51,16 @@ class AdminImpl implements AdminApi {
   @Override
   public RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException {
     Objects.requireNonNull(newLeader, "newLeader == null");
+    final long callId = CallId.getAndIncrement();
+    return client.io().sendRequestWithRetry(() -> new TransferLeadershipRequest(
+        client.getId(), client.getLeaderId(), client.getGroupId(), callId, newLeader, timeoutMs));
+  }
+
+  @Override
+  public RaftClientReply stepDownLeader(RaftPeerId newLeader, long timeoutMs) throws IOException {
+    if(newLeader != null) {
+      throw new RaftException("Can't step down leader， newLeader != null");
+    }
     final long callId = CallId.getAndIncrement();
     return client.io().sendRequestWithRetry(() -> new TransferLeadershipRequest(
         client.getId(), client.getLeaderId(), client.getGroupId(), callId, newLeader, timeoutMs));

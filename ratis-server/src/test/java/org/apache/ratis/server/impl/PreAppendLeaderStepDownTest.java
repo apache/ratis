@@ -125,9 +125,7 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
     try (RaftClient client = cluster.createClient(leader.getId())) {
       JavaUtils.attempt(() -> Assert.assertEquals(leaderId, leader.getId()),
           20, ONE_SECOND, "check leader id", LOG);
-      final TransferLeadershipRequest r =
-          new TransferLeadershipRequest(client.getId(), leaderId, cluster.getGroupId(), CallId.getAndIncrement(), null,3000);
-      RaftClientReply reply = l.stepDownLeaderAsync(r).join();
+      RaftClientReply reply = client.admin().stepDownLeader(null, 3000);
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(2, ((RaftServerImpl) leader).getRole().getCurrentRole().getNumber());
     }

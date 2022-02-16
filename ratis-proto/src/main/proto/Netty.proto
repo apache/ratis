@@ -42,6 +42,7 @@ message RaftNettyServerRequestProto {
     ratis.common.StartLeaderElectionRequestProto startLeaderElectionRequest = 10;
     ratis.common.SnapshotManagementRequestProto snapshotManagementRequest = 11;
     ratis.common.LeaderElectionManagementRequestProto leaderElectionManagementRequest = 12;
+    ratis.common.TransferLeadershipRequestProto stepDownLeaderRequest = 13;
   }
 }
 

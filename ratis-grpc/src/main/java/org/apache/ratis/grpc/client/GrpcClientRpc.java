@@ -109,9 +109,14 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
           (GroupInfoRequest) request);
       return ClientProtoUtils.toGroupInfoReply(proxy.groupInfo(proto));
     } else if (request instanceof TransferLeadershipRequest) {
-      final TransferLeadershipRequestProto proto = ClientProtoUtils.toTransferLeadershipRequestProto(
-          (TransferLeadershipRequest) request);
-      return ClientProtoUtils.toRaftClientReply(proxy.transferLeadership(proto));
+      final TransferLeadershipRequestProto proto;
+      if (((TransferLeadershipRequest) request).getNewLeader() != null) {
+        proto = ClientProtoUtils.toTransferLeadershipRequestProto((TransferLeadershipRequest) request);
+        return ClientProtoUtils.toRaftClientReply(proxy.transferLeadership(proto));
+      } else {
+        proto = ClientProtoUtils.toStepDownLeaderRequestProto((TransferLeadershipRequest) request);
+        return ClientProtoUtils.toRaftClientReply(proxy.stepDownLeader(proto));
+      }
     } else if (request instanceof SnapshotManagementRequest) {
       final SnapshotManagementRequestProto proto = ClientProtoUtils.toSnapshotManagementRequestProto
           ((SnapshotManagementRequest) request);
