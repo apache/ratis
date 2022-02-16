@@ -58,9 +58,6 @@ class AdminImpl implements AdminApi {
 
   @Override
   public RaftClientReply stepDownLeader(RaftPeerId newLeader, long timeoutMs) throws IOException {
-    if(newLeader != null) {
-      throw new RaftException("Can't step down leader， newLeader != null");
-    }
     final long callId = CallId.getAndIncrement();
     return client.io().sendRequestWithRetry(() -> new TransferLeadershipRequest(
         client.getId(), client.getLeaderId(), client.getGroupId(), callId, newLeader, timeoutMs));
