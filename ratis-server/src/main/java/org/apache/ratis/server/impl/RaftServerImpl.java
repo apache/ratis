@@ -967,10 +967,6 @@ class RaftServerImpl implements RaftServer.Division,
     transferLeadership.finish(state.getLeaderId(), false);
   }
 
-  public RaftClientReply stepDownLeader(TransferLeadershipRequest request) throws IOException {
-    return waitForReply(request, stepDownLeaderAsync(request));
-  }
-
   CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
       throws IOException {
     if (request.getNewLeader() == null) {
