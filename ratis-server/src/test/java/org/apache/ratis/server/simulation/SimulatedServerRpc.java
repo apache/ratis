@@ -193,11 +193,7 @@ class SimulatedServerRpc implements RaftServerRpc {
       } else if (request instanceof SetConfigurationRequest) {
         future = server.setConfigurationAsync((SetConfigurationRequest) request);
       } else if (request instanceof TransferLeadershipRequest) {
-        if (((TransferLeadershipRequest) request).getNewLeader() != null) {
-          future = server.transferLeadershipAsync((TransferLeadershipRequest) request);
-        } else {
-          future = server.stepDownLeaderAsync((TransferLeadershipRequest) request);
-        }
+        future = server.transferLeadershipAsync((TransferLeadershipRequest) request);
       } else if (request instanceof SnapshotManagementRequest) {
         future = server.snapshotManagementAsync((SnapshotManagementRequest) request);
       } else if (request instanceof LeaderElectionManagementRequest) {

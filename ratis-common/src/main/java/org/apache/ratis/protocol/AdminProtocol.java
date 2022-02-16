@@ -34,6 +34,4 @@ public interface AdminProtocol {
   RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException;
 
   RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException;
-
-  RaftClientReply stepDownLeader(TransferLeadershipRequest request) throws IOException;
 }

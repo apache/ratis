@@ -211,15 +211,6 @@ public class GrpcClientProtocolClient implements Closeable {
         .transferLeadership(request));
   }
 
-  RaftClientReplyProto stepDownLeader(
-      TransferLeadershipRequestProto request) throws IOException {
-    TimeDuration newDuration = requestTimeoutDuration.add(
-        request.getRpcRequest().getTimeoutMs(), TimeUnit.MILLISECONDS);
-    return blockingCall(() -> adminBlockingStub
-        .withDeadlineAfter(newDuration.getDuration(), newDuration.getUnit())
-        .stepDownLeader(request));
-  }
-
   RaftClientReplyProto snapshotManagement(
       SnapshotManagementRequestProto request) throws IOException {
     return blockingCall(() -> adminBlockingStub

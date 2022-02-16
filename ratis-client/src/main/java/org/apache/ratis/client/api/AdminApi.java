@@ -40,7 +40,4 @@ public interface AdminApi {
 
   /** Transfer leadership to the given server.*/
   RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException;
-
-  /** Step down the leader.*/
-  RaftClientReply stepDownLeader(RaftPeerId newLeader, long timeoutMs) throws IOException;
 }

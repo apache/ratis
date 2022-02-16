@@ -80,14 +80,6 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
   }
 
   @Override
-  public void stepDownLeader(TransferLeadershipRequestProto proto,
-      StreamObserver<RaftClientReplyProto> responseObserver) {
-    final TransferLeadershipRequest request = ClientProtoUtils.toStepDownLeaderRequest(proto);
-    GrpcUtil.asyncCall(responseObserver, () -> protocol.stepDownLeaderAsync(request),
-        ClientProtoUtils::toRaftClientReplyProto);
-  }
-
-  @Override
   public void snapshotManagement(SnapshotManagementRequestProto proto,
       StreamObserver<RaftClientReplyProto> responseObserver) {
     final SnapshotManagementRequest request = ClientProtoUtils.toSnapshotManagementRequest(proto);

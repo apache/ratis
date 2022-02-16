@@ -18,6 +18,7 @@
 package org.apache.ratis.client.impl;
 
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -519,41 +520,38 @@ public interface ClientProtoUtils {
   static TransferLeadershipRequest toTransferLeadershipRequest(
       TransferLeadershipRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    final RaftPeer newLeader = ProtoUtils.toRaftPeer(p.getNewLeader());
-    return new TransferLeadershipRequest(
-        ClientId.valueOf(m.getRequestorId()),
-        RaftPeerId.valueOf(m.getReplyId()),
-        ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-        p.getRpcRequest().getCallId(),
-        newLeader.getId(),
-        m.getTimeoutMs());
+    String address = p.getNewLeaderOrBuilder().getAddress();
+    if (!Objects.equals(address, "")) {
+      return new TransferLeadershipRequest(
+          ClientId.valueOf(m.getRequestorId()),
+          RaftPeerId.valueOf(m.getReplyId()),
+          ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
+          p.getRpcRequest().getCallId(),
+          ProtoUtils.toRaftPeer(p.getNewLeader()).getId(),
+          m.getTimeoutMs());
+    } else {
+      return new TransferLeadershipRequest(
+          ClientId.valueOf(m.getRequestorId()),
+          RaftPeerId.valueOf(m.getReplyId()),
+          ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
+          p.getRpcRequest().getCallId(),
+          null,
+          m.getTimeoutMs());
+    }
   }
 
   static TransferLeadershipRequestProto toTransferLeadershipRequestProto(
       TransferLeadershipRequest request) {
-    return TransferLeadershipRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .setNewLeader(RaftPeer.newBuilder().setId(request.getNewLeader()).build().getRaftPeerProto())
-        .build();
-  }
-
-  static TransferLeadershipRequest toStepDownLeaderRequest(
-      TransferLeadershipRequestProto p) {
-    final RaftRpcRequestProto m = p.getRpcRequest();
-    return new TransferLeadershipRequest(
-        ClientId.valueOf(m.getRequestorId()),
-        RaftPeerId.valueOf(m.getReplyId()),
-        ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-        p.getRpcRequest().getCallId(),
-        null,
-        m.getTimeoutMs());
-  }
-
-  static TransferLeadershipRequestProto toStepDownLeaderRequestProto(
-      TransferLeadershipRequest request) {
-    return TransferLeadershipRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .build();
+    if (request.getNewLeader() != null) {
+      return TransferLeadershipRequestProto.newBuilder()
+          .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+          .setNewLeader(RaftPeer.newBuilder().setId(request.getNewLeader()).build().getRaftPeerProto())
+          .build();
+    } else {
+      return TransferLeadershipRequestProto.newBuilder()
+          .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+          .build();
+    }
   }
 
   static GroupManagementRequest toGroupManagementRequest(GroupManagementRequestProto p) {

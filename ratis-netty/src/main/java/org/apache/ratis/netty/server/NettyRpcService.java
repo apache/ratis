@@ -183,14 +183,6 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
           return RaftNettyServerReplyProto.newBuilder()
               .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(transferLeadershipReply))
               .build();
-        case STEPDOWNLEADERREQUEST:
-          final TransferLeadershipRequestProto stepDownLeaderRequest = proto.getStepDownLeaderRequest();
-          rpcRequest = stepDownLeaderRequest.getRpcRequest();
-          final RaftClientReply stepDownLeaderReply = server.stepDownLeader(
-              ClientProtoUtils.toStepDownLeaderRequest(stepDownLeaderRequest));
-          return RaftNettyServerReplyProto.newBuilder()
-              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(stepDownLeaderReply))
-              .build();
 
         case STARTLEADERELECTIONREQUEST:
           final StartLeaderElectionRequestProto startLeaderElectionRequest = proto.getStartLeaderElectionRequest();

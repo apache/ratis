@@ -440,13 +440,11 @@ class RaftServerProxy implements RaftServer {
   @Override
   public RaftClientReply transferLeadership(TransferLeadershipRequest request)
       throws IOException {
-    return getImpl(request.getRaftGroupId()).transferLeadership(request);
-  }
-
-  @Override
-  public RaftClientReply stepDownLeader(TransferLeadershipRequest request)
-      throws IOException {
-    return getImpl(request.getRaftGroupId()).stepDownLeader(request);
+     if (request.getNewLeader() != null) {
+       return getImpl(request.getRaftGroupId()).transferLeadership(request);
+     } else {
+       return getImpl(request.getRaftGroupId()).stepDownLeader(request);
+     }
   }
 
   @Override
@@ -547,8 +545,6 @@ class RaftServerProxy implements RaftServer {
           getId() + ": Request not supported " + request));
   }
 
-
-
   private CompletableFuture<RaftClientReply> createAsync(SnapshotManagementRequest request) {
     return getImplFuture(request.getRaftGroupId())
         .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.takeSnapshotAsync(request)));
@@ -602,14 +598,13 @@ class RaftServerProxy implements RaftServer {
 
   @Override
   public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request) {
-    return getImplFuture(request.getRaftGroupId())
-        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.transferLeadershipAsync(request)));
-  }
-
-  @Override
-  public CompletableFuture<RaftClientReply> stepDownLeaderAsync(TransferLeadershipRequest request) {
-    return getImplFuture(request.getRaftGroupId())
-        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.stepDownLeaderAsync(request)));
+    if (request.getNewLeader() != null) {
+      return getImplFuture(request.getRaftGroupId())
+          .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.transferLeadershipAsync(request)));
+    } else {
+      return getImplFuture(request.getRaftGroupId())
+          .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.stepDownLeaderAsync(request)));
+    }
   }
 
   @Override

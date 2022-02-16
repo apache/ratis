@@ -55,9 +55,6 @@ service AdminProtocolService {
   rpc transferLeadership(ratis.common.TransferLeadershipRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}
 
-  rpc stepDownLeader(ratis.common.TransferLeadershipRequestProto)
-      returns(ratis.common.RaftClientReplyProto) {}
-
   // A client-to-server RPC to add a new group
   rpc groupManagement(ratis.common.GroupManagementRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}
