@@ -598,13 +598,8 @@ class RaftServerProxy implements RaftServer {
 
   @Override
   public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request) {
-    if (request.getNewLeader() != null) {
-      return getImplFuture(request.getRaftGroupId())
-          .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.transferLeadershipAsync(request)));
-    } else {
-      return getImplFuture(request.getRaftGroupId())
-          .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.stepDownLeaderAsync(request)));
-    }
+    return getImplFuture(request.getRaftGroupId())
+        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.transferLeadershipAsync(request)));
   }
 
   @Override

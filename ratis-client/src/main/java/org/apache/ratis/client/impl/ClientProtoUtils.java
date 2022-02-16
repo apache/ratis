@@ -520,39 +520,28 @@ public interface ClientProtoUtils {
   static TransferLeadershipRequest toTransferLeadershipRequest(
       TransferLeadershipRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    String address = p.getNewLeaderOrBuilder().getAddress();
-    if (!Objects.equals(address, "")) {
-      return new TransferLeadershipRequest(
-          ClientId.valueOf(m.getRequestorId()),
-          RaftPeerId.valueOf(m.getReplyId()),
-          ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-          p.getRpcRequest().getCallId(),
-          ProtoUtils.toRaftPeer(p.getNewLeader()).getId(),
-          m.getTimeoutMs());
-    } else {
-      return new TransferLeadershipRequest(
-          ClientId.valueOf(m.getRequestorId()),
-          RaftPeerId.valueOf(m.getReplyId()),
-          ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-          p.getRpcRequest().getCallId(),
-          null,
-          m.getTimeoutMs());
-    }
+    final RaftPeerId newLeader = p.hasNewLeader()? ProtoUtils.toRaftPeer(p.getNewLeader()).getId(): null;
+    return new TransferLeadershipRequest(
+        ClientId.valueOf(m.getRequestorId()),
+        RaftPeerId.valueOf(m.getReplyId()),
+        ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
+        p.getRpcRequest().getCallId(),
+        newLeader,
+        m.getTimeoutMs());
   }
 
   static TransferLeadershipRequestProto toTransferLeadershipRequestProto(
       TransferLeadershipRequest request) {
-    if (request.getNewLeader() != null) {
-      return TransferLeadershipRequestProto.newBuilder()
-          .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-          .setNewLeader(RaftPeer.newBuilder().setId(request.getNewLeader()).build().getRaftPeerProto())
-          .build();
-    } else {
-      return TransferLeadershipRequestProto.newBuilder()
-          .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-          .build();
-    }
+    final TransferLeadershipRequestProto.Builder b = TransferLeadershipRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    Optional.ofNullable(request.getNewLeader())
+        .map(l -> RaftPeer.newBuilder().setId(l).build())
+        .map(RaftPeer::getRaftPeerProto)
+        .ifPresent(b::setNewLeader);
+    return b.build();
   }
+
+
 
   static GroupManagementRequest toGroupManagementRequest(GroupManagementRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();

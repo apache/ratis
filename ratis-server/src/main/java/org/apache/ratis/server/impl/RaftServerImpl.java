@@ -948,7 +948,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  public RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException {
+  RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException {
     return waitForReply(request, transferLeadershipAsync(request));
   }
 
@@ -971,8 +971,12 @@ class RaftServerImpl implements RaftServer.Division,
     return waitForReply(request, stepDownLeaderAsync(request));
   }
 
-  public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
+  CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
       throws IOException {
+    if (request.getNewLeader() == null) {
+      return stepDownLeaderAsync(request);
+    }
+
     LOG.info("{}: receive transferLeadership {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
@@ -1450,11 +1454,6 @@ class RaftServerImpl implements RaftServer.Division,
           ServerStringUtils.toInstallSnapshotReplyString(reply));
     }
     return reply;
-  }
-
-  void setLeaderElectionPause(boolean pause) throws ServerNotReadyException {
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    role.setLeaderElectionPause(pause);
   }
 
   boolean pause() {
