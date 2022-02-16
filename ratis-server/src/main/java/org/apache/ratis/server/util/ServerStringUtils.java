@@ -58,7 +58,8 @@ public final class ServerStringUtils {
         + "-t" + reply.getTerm()
         + "," + reply.getResult()
         + ",nextIndex=" + reply.getNextIndex()
-        + ",followerCommit=" + reply.getFollowerCommit();
+        + ",followerCommit=" + reply.getFollowerCommit()
+        + ",matchIndex=" + reply.getMatchIndex();
   }
 
   public static String toInstallSnapshotRequestString(InstallSnapshotRequestProto request) {

@@ -42,17 +42,33 @@ import java.io.Closeable;
  * ring. The stream implementation utilizes gRPC.
  */
 public class GrpcServerProtocolClient implements Closeable {
+  // Common channel
   private final ManagedChannel channel;
-  private final TimeDuration requestTimeoutDuration;
-  private final RaftServerProtocolServiceBlockingStub blockingStub;
+  // Channel and stub for heartbeat
+  private final ManagedChannel hbChannel;
+  private final RaftServerProtocolServiceStub hbAsyncStub;
   private final RaftServerProtocolServiceStub asyncStub;
+  private final RaftServerProtocolServiceBlockingStub blockingStub;
+
+  private final TimeDuration requestTimeoutDuration;
   private static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolClient.class);
   //visible for using in log / error messages AND to use in instrumented tests
   private final RaftPeerId raftPeerId;
 
   public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
-      TimeDuration requestTimeoutDuration, GrpcTlsConfig tlsConfig) {
+      TimeDuration requestTimeout, GrpcTlsConfig tlsConfig) {
     raftPeerId = target.getId();
+    LOG.info("Build channel for {}", raftPeerId);
+    channel = buildChannel(target, flowControlWindow, tlsConfig);
+    hbChannel = buildChannel(target, flowControlWindow, tlsConfig);
+    blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
+    asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
+    hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
+    requestTimeoutDuration = requestTimeout;
+  }
+
+  private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow,
+      GrpcTlsConfig tlsConfig) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(target.getAddress());
 
@@ -81,14 +97,13 @@ public class GrpcServerProtocolClient implements Closeable {
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
-    channel = channelBuilder.flowControlWindow(flowControlWindow).build();
-    blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
-    asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
-    this.requestTimeoutDuration = requestTimeoutDuration;
+    return channelBuilder.flowControlWindow(flowControlWindow).build();
   }
 
   @Override
   public void close() {
+    LOG.info("Close channel for {}", raftPeerId);
+    GrpcUtil.shutdownManagedChannel(hbChannel);
     GrpcUtil.shutdownManagedChannel(channel);
   }
 
@@ -108,8 +123,12 @@ public class GrpcServerProtocolClient implements Closeable {
   }
 
   StreamObserver<AppendEntriesRequestProto> appendEntries(
-      StreamObserver<AppendEntriesReplyProto> responseHandler) {
-    return asyncStub.appendEntries(responseHandler);
+      StreamObserver<AppendEntriesReplyProto> responseHandler, boolean isHeartbeat) {
+    if (isHeartbeat) {
+      return hbAsyncStub.appendEntries(responseHandler);
+    } else {
+      return asyncStub.appendEntries(responseHandler);
+    }
   }
 
   StreamObserver<InstallSnapshotRequestProto> installSnapshot(
@@ -120,6 +139,7 @@ public class GrpcServerProtocolClient implements Closeable {
 
   // short-circuit the backoff timer and make them reconnect immediately.
   public void resetConnectBackoff() {
+    hbChannel.resetConnectBackoff();
     channel.resetConnectBackoff();
   }
 }
