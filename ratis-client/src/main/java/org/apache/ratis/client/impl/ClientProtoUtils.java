@@ -541,8 +541,6 @@ public interface ClientProtoUtils {
     return b.build();
   }
 
-
-
   static GroupManagementRequest toGroupManagementRequest(GroupManagementRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final ClientId clientId = ClientId.valueOf(m.getRequestorId());

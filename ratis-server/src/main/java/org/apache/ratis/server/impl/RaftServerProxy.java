@@ -440,11 +440,7 @@ class RaftServerProxy implements RaftServer {
   @Override
   public RaftClientReply transferLeadership(TransferLeadershipRequest request)
       throws IOException {
-     if (request.getNewLeader() != null) {
-       return getImpl(request.getRaftGroupId()).transferLeadership(request);
-     } else {
-       return getImpl(request.getRaftGroupId()).stepDownLeader(request);
-     }
+    return getImpl(request.getRaftGroupId()).transferLeadership(request);
   }
 
   @Override
