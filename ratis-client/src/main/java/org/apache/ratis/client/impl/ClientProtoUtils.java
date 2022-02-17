@@ -18,7 +18,6 @@
 package org.apache.ratis.client.impl;
 
 import java.nio.ByteBuffer;
-import java.util.Objects;
 import java.util.Optional;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
