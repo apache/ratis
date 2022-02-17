@@ -311,7 +311,6 @@ class RaftServerImpl implements RaftServer.Division,
       return false;
     }
     final RaftConfigurationImpl conf = getRaftConf();
-
     if (conf != null && conf.containsInBothConfs(getId())) {
       LOG.info("{}: start as a follower, conf={}", getMemberId(), conf);
       startAsFollower();
