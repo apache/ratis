@@ -65,6 +65,10 @@ final class RaftConfigurationImpl implements RaftConfiguration {
       return setConf(new PeerConfiguration(peers));
     }
 
+    Builder setConf(Iterable<RaftPeer> peers, Iterable<RaftPeer> listeners) {
+      return setConf(new PeerConfiguration(peers, listeners));
+    }
+
     Builder setConf(RaftConfigurationImpl transitionalConf) {
       Objects.requireNonNull(transitionalConf);
       Preconditions.assertTrue(transitionalConf.isTransitional());
@@ -145,6 +149,10 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return conf.contains(peerId);
   }
 
+  boolean containsInListenerConf(RaftPeerId peerId) {
+    return conf.containsInListener(peerId);
+  }
+
   boolean isHighestPriority(RaftPeerId peerId) {
     RaftPeer target = getPeer(peerId);
     if (target == null) {
@@ -163,6 +171,10 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return oldConf != null && oldConf.contains(peerId);
   }
 
+  boolean containsInOldListenerConf(RaftPeerId peerId) {
+    return oldConf != null && oldConf.containsInListener(peerId);
+  }
+
   /**
    * @return true iff the given peer is contained in conf and,
    *         if old conf exists, is contained in old conf.
@@ -170,6 +182,11 @@ final class RaftConfigurationImpl implements RaftConfiguration {
   boolean containsInBothConfs(RaftPeerId peerId) {
     return containsInConf(peerId) &&
         (oldConf == null || containsInOldConf(peerId));
+  }
+
+  boolean containsInBothListenerConfs(RaftPeerId peerId) {
+    return containsInListenerConf(peerId) &&
+        (oldConf == null || containsInOldListenerConf(peerId));
   }
 
   @Override
@@ -187,6 +204,20 @@ final class RaftConfigurationImpl implements RaftConfiguration {
   }
 
   @Override
+  public RaftPeer getListener(RaftPeerId id) {
+    if (id == null) {
+      return null;
+    }
+    RaftPeer listener = conf.getListener(id);
+    if (listener != null) {
+      return listener;
+    } else if (oldConf != null) {
+      return oldConf.getListener(id);
+    }
+    return null;
+  }
+
+  @Override
   public Collection<RaftPeer> getAllPeers() {
     final Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers());
     if (oldConf != null) {
@@ -194,6 +225,16 @@ final class RaftConfigurationImpl implements RaftConfiguration {
           .forEach(peers::add);
     }
     return peers;
+  }
+
+  @Override
+  public Collection<RaftPeer> getListeners() {
+    final Collection<RaftPeer> listeners = new ArrayList<>(conf.getListeners());
+    if (oldConf != null) {
+      oldConf.getListeners().stream().filter(p -> !listeners.contains(p))
+          .forEach(listeners::add);
+    }
+    return listeners;
   }
 
   /**

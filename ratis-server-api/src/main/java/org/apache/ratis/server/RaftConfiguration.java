@@ -36,8 +36,17 @@ public interface RaftConfiguration {
    */
   RaftPeer getPeer(RaftPeerId id);
 
+  /**
+   * @return the listener corresponding to the given id;
+   *         or return null if the listener is not in this configuration.
+   */
+  RaftPeer getListener(RaftPeerId id);
+
   /** @return all the peers in the current configuration and the previous configuration. */
   Collection<RaftPeer> getAllPeers();
+
+  /** @return all the listeners in the current configuration and the previous configuration. */
+  Collection<RaftPeer> getListeners();
 
   /** @return all the peers in the current configuration. */
   Collection<RaftPeer> getCurrentPeers();

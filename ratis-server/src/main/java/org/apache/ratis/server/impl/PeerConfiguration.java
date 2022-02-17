@@ -36,21 +36,39 @@ import java.util.Objects;
  */
 class PeerConfiguration {
   private final Map<RaftPeerId, RaftPeer> peers;
+  private final Map<RaftPeerId, RaftPeer> listeners;
 
   PeerConfiguration(Iterable<RaftPeer> peers) {
+    this(peers, Collections.emptyList());
+  }
+
+  PeerConfiguration(Iterable<RaftPeer> peers, Iterable<RaftPeer> listeners) {
     Objects.requireNonNull(peers);
-    Map<RaftPeerId, RaftPeer> map = new HashMap<>();
+    Objects.requireNonNull(listeners);
+    Map<RaftPeerId, RaftPeer> peerMap = new HashMap<>();
     for(RaftPeer p : peers) {
-      final RaftPeer previous = map.putIfAbsent(p.getId(), p);
+      final RaftPeer previous = peerMap.putIfAbsent(p.getId(), p);
       if (previous != null) {
         throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in peers " + peers);
       }
     }
-    this.peers = Collections.unmodifiableMap(map);
+    this.peers = Collections.unmodifiableMap(peerMap);
+    Map<RaftPeerId, RaftPeer> listenerMap = new HashMap<>();
+    for(RaftPeer p : listeners) {
+      final RaftPeer previous = listenerMap.putIfAbsent(p.getId(), p);
+      if (previous != null) {
+        throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in peers " + listeners);
+      }
+    }
+    this.listeners = Collections.unmodifiableMap(listenerMap);
   }
 
   Collection<RaftPeer> getPeers() {
     return Collections.unmodifiableCollection(peers.values());
+  }
+
+  Collection<RaftPeer> getListeners() {
+    return Collections.unmodifiableCollection(listeners.values());
   }
 
   int size() {
@@ -66,8 +84,16 @@ class PeerConfiguration {
     return peers.get(id);
   }
 
+  RaftPeer getListener(RaftPeerId id) {
+    return listeners.get(id);
+  }
+
   boolean contains(RaftPeerId id) {
     return peers.containsKey(id);
+  }
+
+  boolean containsInListener(RaftPeerId id) {
+    return listeners.containsKey(id);
   }
 
   List<RaftPeer> getOtherPeers(RaftPeerId selfId) {
