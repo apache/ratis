@@ -49,7 +49,6 @@ class AdminImpl implements AdminApi {
 
   @Override
   public RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException {
-    Objects.requireNonNull(newLeader, "newLeader == null");
     final long callId = CallId.getAndIncrement();
     return client.io().sendRequestWithRetry(() -> new TransferLeadershipRequest(
         client.getId(), client.getLeaderId(), client.getGroupId(), callId, newLeader, timeoutMs));

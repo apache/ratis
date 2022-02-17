@@ -519,22 +519,25 @@ public interface ClientProtoUtils {
   static TransferLeadershipRequest toTransferLeadershipRequest(
       TransferLeadershipRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    final RaftPeer newLeader = ProtoUtils.toRaftPeer(p.getNewLeader());
+    final RaftPeerId newLeader = p.hasNewLeader()? ProtoUtils.toRaftPeer(p.getNewLeader()).getId(): null;
     return new TransferLeadershipRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
         p.getRpcRequest().getCallId(),
-        newLeader.getId(),
+        newLeader,
         m.getTimeoutMs());
   }
 
   static TransferLeadershipRequestProto toTransferLeadershipRequestProto(
       TransferLeadershipRequest request) {
-    return TransferLeadershipRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .setNewLeader(RaftPeer.newBuilder().setId(request.getNewLeader()).build().getRaftPeerProto())
-        .build();
+    final TransferLeadershipRequestProto.Builder b = TransferLeadershipRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    Optional.ofNullable(request.getNewLeader())
+        .map(l -> RaftPeer.newBuilder().setId(l).build())
+        .map(RaftPeer::getRaftPeerProto)
+        .ifPresent(b::setNewLeader);
+    return b.build();
   }
 
   static GroupManagementRequest toGroupManagementRequest(GroupManagementRequestProto p) {
