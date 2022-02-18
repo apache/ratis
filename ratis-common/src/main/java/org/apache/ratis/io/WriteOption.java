@@ -27,4 +27,8 @@ public interface WriteOption {
 
     return false;
   }
+
+  default boolean isIn(WriteOption... options) {
+    return containsOption(options, this);
+  }
 }
