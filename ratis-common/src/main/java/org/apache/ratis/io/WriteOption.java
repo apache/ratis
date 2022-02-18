@@ -28,7 +28,7 @@ public interface WriteOption {
     return false;
   }
 
-  default boolean isIn(WriteOption... options) {
+  default boolean isOneOf(WriteOption... options) {
     return containsOption(options, this);
   }
 }
