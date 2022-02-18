@@ -35,22 +35,49 @@ import java.util.Objects;
  * The objects of this class are immutable.
  */
 class PeerConfiguration {
+  /**
+   * Peers are voting members such as LEADER, CANDIDATE and FOLLOWER
+   * @see org.apache.ratis.proto.RaftProtos.RaftPeerRole
+   */
   private final Map<RaftPeerId, RaftPeer> peers;
+  /**
+   * Listeners are non-voting members.
+   * @see org.apache.ratis.proto.RaftProtos.RaftPeerRole#LISTENER
+   */
+  private final Map<RaftPeerId, RaftPeer> listeners;
 
-  PeerConfiguration(Iterable<RaftPeer> peers) {
-    Objects.requireNonNull(peers);
-    Map<RaftPeerId, RaftPeer> map = new HashMap<>();
+  static Map<RaftPeerId, RaftPeer> newMap(Iterable<RaftPeer> peers, String name, Map<RaftPeerId, RaftPeer> existing) {
+    Objects.requireNonNull(peers, () -> name + " == null");
+    final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
     for(RaftPeer p : peers) {
+      if (existing.containsKey(p.getId())) {
+        throw new IllegalArgumentException("Failed to initialize " + name
+            + ": Found " + p.getId() + " in existing peers " + existing);
+      }
       final RaftPeer previous = map.putIfAbsent(p.getId(), p);
       if (previous != null) {
-        throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in peers " + peers);
+        throw new IllegalArgumentException("Failed to initialize " + name
+            + ": Found duplicated ids " + p.getId() + " in " + peers);
       }
     }
-    this.peers = Collections.unmodifiableMap(map);
+    return Collections.unmodifiableMap(map);
+  }
+
+  PeerConfiguration(Iterable<RaftPeer> peers) {
+    this(peers, Collections.emptyList());
+  }
+
+  PeerConfiguration(Iterable<RaftPeer> peers, Iterable<RaftPeer> listeners) {
+    this.peers = newMap(peers, "peers", Collections.emptyMap());
+    this.listeners = newMap(listeners, "listeners", this.peers);
   }
 
   Collection<RaftPeer> getPeers() {
     return Collections.unmodifiableCollection(peers.values());
+  }
+
+  Collection<RaftPeer> getListeners() {
+    return Collections.unmodifiableCollection(listeners.values());
   }
 
   int size() {
@@ -66,8 +93,16 @@ class PeerConfiguration {
     return peers.get(id);
   }
 
+  RaftPeer getListener(RaftPeerId id) {
+    return listeners.get(id);
+  }
+
   boolean contains(RaftPeerId id) {
     return peers.containsKey(id);
+  }
+
+  boolean containsListener(RaftPeerId id) {
+    return listeners.containsKey(id);
   }
 
   List<RaftPeer> getOtherPeers(RaftPeerId selfId) {
