@@ -25,9 +25,16 @@ import java.util.Collection;
 /**
  * A configuration is a subset of the members in a {@link org.apache.ratis.protocol.RaftGroup}.
  * The configuration of a cluster may change from time to time.
+ *
+ * In a configuration,
+ * - the peers are voting members such as LEADER, CANDIDATE and FOLLOWER;
+ * - the listeners are non-voting members.
+ *
  * This class captures the current configuration and the previous configuration of a cluster.
  *
  * The objects of this class are immutable.
+ *
+ * @see org.apache.ratis.proto.RaftProtos.RaftPeerRole
  */
 public interface RaftConfiguration {
   /**
@@ -36,8 +43,17 @@ public interface RaftConfiguration {
    */
   RaftPeer getPeer(RaftPeerId id);
 
+  /**
+   * @return the listener corresponding to the given id;
+   *         or return null if the listener is not in this configuration.
+   */
+  RaftPeer getListener(RaftPeerId id);
+
   /** @return all the peers in the current configuration and the previous configuration. */
   Collection<RaftPeer> getAllPeers();
+
+  /** @return all the listeners in the current configuration and the previous configuration. */
+  Collection<RaftPeer> getAllListeners();
 
   /** @return all the peers in the current configuration. */
   Collection<RaftPeer> getCurrentPeers();
