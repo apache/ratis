@@ -314,9 +314,6 @@ class RaftServerImpl implements RaftServer.Division,
     if (conf != null && conf.containsInBothConfs(getId())) {
       LOG.info("{}: start as a follower, conf={}", getMemberId(), conf);
       startAsFollower();
-    } else if (conf != null && conf.containsInBothListenerConfs(getId())) {
-      LOG.info("{}: start as a listener, conf={}", getMemberId(), conf);
-      startAsListener();
     } else {
       LOG.info("{}: start with initializing state, conf={}", getMemberId(), conf);
       startInitializing();
@@ -354,12 +351,6 @@ class RaftServerImpl implements RaftServer.Division,
   private void startInitializing() {
     setRole(RaftPeerRole.FOLLOWER, "startInitializing");
     // do not start FollowerState
-  }
-
-  private void startAsListener() {
-    setRole(RaftPeerRole.LISTENER, "startAsListener");
-    //TODO(codings-dan): ListenerState
-    lifeCycle.transition(RUNNING);
   }
 
   ServerState getState() {

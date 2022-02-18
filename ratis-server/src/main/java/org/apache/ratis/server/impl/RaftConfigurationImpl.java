@@ -28,6 +28,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -149,8 +151,8 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return conf.contains(peerId);
   }
 
-  boolean containsInListenerConf(RaftPeerId peerId) {
-    return conf.containsInListener(peerId);
+  boolean containsListenerInConf(RaftPeerId peerId) {
+    return conf.containsListener(peerId);
   }
 
   boolean isHighestPriority(RaftPeerId peerId) {
@@ -171,8 +173,8 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return oldConf != null && oldConf.contains(peerId);
   }
 
-  boolean containsInOldListenerConf(RaftPeerId peerId) {
-    return oldConf != null && oldConf.containsInListener(peerId);
+  boolean containsListenerInOldConf(RaftPeerId peerId) {
+    return oldConf != null && oldConf.containsListener(peerId);
   }
 
   /**
@@ -184,57 +186,52 @@ final class RaftConfigurationImpl implements RaftConfiguration {
         (oldConf == null || containsInOldConf(peerId));
   }
 
-  boolean containsInBothListenerConfs(RaftPeerId peerId) {
-    return containsInListenerConf(peerId) &&
-        (oldConf == null || containsInOldListenerConf(peerId));
+  boolean containsListenerInBothConfs(RaftPeerId peerId) {
+    return containsListenerInConf(peerId) &&
+        (oldConf == null || containsListenerInOldConf(peerId));
   }
 
   @Override
   public RaftPeer getPeer(RaftPeerId id) {
-    if (id == null) {
-      return null;
-    }
-    RaftPeer peer = conf.getPeer(id);
-    if (peer != null) {
-      return peer;
-    } else if (oldConf != null) {
-      return oldConf.getPeer(id);
-    }
-    return null;
+    return get(id, (c, peerId) -> c.getPeer(id));
   }
 
   @Override
   public RaftPeer getListener(RaftPeerId id) {
+    return get(id, (c, peerId) -> c.getListener(id));
+  }
+
+  private RaftPeer get(RaftPeerId id, BiFunction<PeerConfiguration, RaftPeerId, RaftPeer> getMethod) {
     if (id == null) {
       return null;
     }
-    RaftPeer listener = conf.getListener(id);
-    if (listener != null) {
-      return listener;
+    final RaftPeer peer = getMethod.apply(conf, id);
+    if (peer != null) {
+      return peer;
     } else if (oldConf != null) {
-      return oldConf.getListener(id);
+      return getMethod.apply(oldConf, id);
     }
     return null;
   }
 
   @Override
   public Collection<RaftPeer> getAllPeers() {
-    final Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers());
-    if (oldConf != null) {
-      oldConf.getPeers().stream().filter(p -> !peers.contains(p))
-          .forEach(peers::add);
-    }
-    return peers;
+    return getAll(PeerConfiguration::getPeers);
   }
 
   @Override
-  public Collection<RaftPeer> getListeners() {
-    final Collection<RaftPeer> listeners = new ArrayList<>(conf.getListeners());
+  public Collection<RaftPeer> getAllListeners() {
+    return getAll(PeerConfiguration::getListeners);
+  }
+
+  private Collection<RaftPeer> getAll(Function<PeerConfiguration, Collection<RaftPeer>> getMethod) {
+    final Collection<RaftPeer> peers = new ArrayList<>(getMethod.apply(conf));
     if (oldConf != null) {
-      oldConf.getListeners().stream().filter(p -> !listeners.contains(p))
-          .forEach(listeners::add);
+      getMethod.apply(oldConf).stream()
+          .filter(p -> !peers.contains(p))
+          .forEach(peers::add);
     }
-    return listeners;
+    return peers;
   }
 
   /**

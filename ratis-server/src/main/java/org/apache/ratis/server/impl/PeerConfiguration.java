@@ -35,32 +35,41 @@ import java.util.Objects;
  * The objects of this class are immutable.
  */
 class PeerConfiguration {
+  /**
+   * Peers are voting members such as LEADER, CANDIDATE and FOLLOWER
+   * @see org.apache.ratis.proto.RaftProtos.RaftPeerRole
+   */
   private final Map<RaftPeerId, RaftPeer> peers;
+  /**
+   * Listeners are non-voting members.
+   * @see org.apache.ratis.proto.RaftProtos.RaftPeerRole#LISTENER
+   */
   private final Map<RaftPeerId, RaftPeer> listeners;
+
+  static Map<RaftPeerId, RaftPeer> newMap(Iterable<RaftPeer> peers, String name, Map<RaftPeerId, RaftPeer> existing) {
+    Objects.requireNonNull(peers, () -> name + " == null");
+    final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
+    for(RaftPeer p : peers) {
+      if (existing.containsKey(p.getId())) {
+        throw new IllegalArgumentException("Failed to initialize " + name
+            + ": Found " + p.getId() + " in existing peers " + existing);
+      }
+      final RaftPeer previous = map.putIfAbsent(p.getId(), p);
+      if (previous != null) {
+        throw new IllegalArgumentException("Failed to initialize " + name
+            + ": Found duplicated ids " + p.getId() + " in " + peers);
+      }
+    }
+    return Collections.unmodifiableMap(map);
+  }
 
   PeerConfiguration(Iterable<RaftPeer> peers) {
     this(peers, Collections.emptyList());
   }
 
   PeerConfiguration(Iterable<RaftPeer> peers, Iterable<RaftPeer> listeners) {
-    Objects.requireNonNull(peers);
-    Objects.requireNonNull(listeners);
-    Map<RaftPeerId, RaftPeer> peerMap = new HashMap<>();
-    for(RaftPeer p : peers) {
-      final RaftPeer previous = peerMap.putIfAbsent(p.getId(), p);
-      if (previous != null) {
-        throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in peers " + peers);
-      }
-    }
-    this.peers = Collections.unmodifiableMap(peerMap);
-    Map<RaftPeerId, RaftPeer> listenerMap = new HashMap<>();
-    for(RaftPeer p : listeners) {
-      final RaftPeer previous = listenerMap.putIfAbsent(p.getId(), p);
-      if (previous != null) {
-        throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in peers " + listeners);
-      }
-    }
-    this.listeners = Collections.unmodifiableMap(listenerMap);
+    this.peers = newMap(peers, "peers", Collections.emptyMap());
+    this.listeners = newMap(listeners, "listeners", this.peers);
   }
 
   Collection<RaftPeer> getPeers() {
@@ -92,7 +101,7 @@ class PeerConfiguration {
     return peers.containsKey(id);
   }
 
-  boolean containsInListener(RaftPeerId id) {
+  boolean containsListener(RaftPeerId id) {
     return listeners.containsKey(id);
   }
 
