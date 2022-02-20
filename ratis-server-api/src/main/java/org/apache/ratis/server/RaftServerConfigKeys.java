@@ -567,6 +567,18 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, port);
     }
 
+    String RAFT_LOG_NEED_KEY = PREFIX + ".raft-log.need";
+    boolean RAFT_LOG_NEED_DEFAULT = true;
+
+    static boolean raftLogNeed(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, RAFT_LOG_NEED_KEY,
+          RAFT_LOG_NEED_DEFAULT, getDefaultLog());
+    }
+
+    static void setRaftLogNeed(RaftProperties properties, boolean enable) {
+      setBoolean(properties::setBoolean, RAFT_LOG_NEED_KEY, enable);
+    }
+
     String CLIENT_POOL_SIZE_KEY = PREFIX + ".client.pool.size";
     int CLIENT_POOL_SIZE_DEFAULT = 10;
 
