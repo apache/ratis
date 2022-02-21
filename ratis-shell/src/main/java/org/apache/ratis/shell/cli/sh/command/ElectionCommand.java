@@ -79,12 +79,12 @@ public class ElectionCommand extends AbstractRatisCommand{
   public Options getOptions() {
     return super.getOptions()
         .addOption(
-        Option.builder()
-            .option(ADDRESS_OPTION_NAME)
-            .hasArg()
-            .required()
-            .desc("the server address")
-            .build());
+            Option.builder()
+                .option(ADDRESS_OPTION_NAME)
+                .hasArg()
+                .required()
+                .desc("the server address")
+                .build());
   }
 
   /**
