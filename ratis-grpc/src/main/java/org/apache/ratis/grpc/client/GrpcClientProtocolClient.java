@@ -95,6 +95,7 @@ public class GrpcClientProtocolClient implements Closeable {
 
   private final AtomicReference<AsyncStreamObservers> unorderedStreamObservers = new AtomicReference<>();
   private final MetricClientInterceptor metricClientInterceptor;
+  private final boolean separateAdminChannel;
 
   GrpcClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties,
       GrpcTlsConfig adminTlsConfig, GrpcTlsConfig clientTlsConfig) {
@@ -108,7 +109,7 @@ public class GrpcClientProtocolClient implements Closeable {
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
     final String adminAddress = Optional.ofNullable(target.getAdminAddress())
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
-    final boolean separateAdminChannel = !Objects.equals(clientAddress, adminAddress);
+    separateAdminChannel = !Objects.equals(clientAddress, adminAddress);
 
     clientChannel = buildChannel(clientAddress, clientTlsConfig,
         flowControlWindow, maxMessageSize);
@@ -169,9 +170,17 @@ public class GrpcClientProtocolClient implements Closeable {
   public void close() {
     Optional.ofNullable(orderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
     Optional.ofNullable(unorderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
-    GrpcUtil.shutdownManagedChannel(clientChannel);
-    if (clientChannel != adminChannel) {
-      GrpcUtil.shutdownManagedChannel(adminChannel);
+    LOG.info("{} Shutdown managed channel" + (separateAdminChannel? "s" : ""), this.getName());
+    if (separateAdminChannel) {
+      CompletableFuture<Void> future1 = GrpcUtil.asyncShutdownManagedChannel(clientChannel);
+      CompletableFuture<Void> future2 = GrpcUtil.asyncShutdownManagedChannel(adminChannel);
+      try {
+        CompletableFuture.allOf(future1, future2).get();
+      } catch (Exception e) {
+        LOG.warn("{} Failed to shutdown managed channels", this.getName(), e);
+      }
+    } else {
+      GrpcUtil.shutdownManagedChannel(clientChannel);
     }
     scheduler.close();
     metricClientInterceptor.close();
