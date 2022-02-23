@@ -17,41 +17,35 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
-import org.apache.ratis.shell.cli.sh.snapshot.TakeSnapshotCommand;
+import org.apache.ratis.shell.cli.Command;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
-/**
- * Command for the ratis snapshot
- */
-public class SnapshotCommand extends AbstractParentCommand {
-  private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
-      = Collections.unmodifiableList(Arrays.asList(TakeSnapshotCommand::new));
+public abstract class AbstractParentCommand extends AbstractRatisCommand{
+  private final Map<String, Command> subs;
 
-  /**
-   * @param context command context
-   */
-  public SnapshotCommand(Context context) {
-    super(context, SUB_COMMAND_CONSTRUCTORS);
+  public AbstractParentCommand(Context context, List<Function<Context, AbstractRatisCommand>> subCommandConstructors) {
+    super(context);
+    this.subs = Collections.unmodifiableMap(subCommandConstructors.stream()
+        .map(constructor -> constructor.apply(context))
+        .collect(Collectors.toMap(Command::getCommandName, Function.identity())));
   }
 
   @Override
-  public String getCommandName() {
-    return "snapshot";
+  public final Map<String, Command> getSubCommands() {
+    return subs;
   }
 
   @Override
-  public String getDescription() {
-    return description();
-  }
-
-  /**
-   * @return command's description
-   */
-  public static String description() {
-    return "Manage ratis snapshot; see the sub-commands for the details.";
+  public final String getUsage() {
+    final StringBuilder usage = new StringBuilder(getCommandName());
+    for (String cmd : getSubCommands().keySet()) {
+      usage.append(" [").append(cmd).append("]");
+    }
+    return usage.toString();
   }
 }

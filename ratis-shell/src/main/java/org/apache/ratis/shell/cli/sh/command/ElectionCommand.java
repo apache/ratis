@@ -17,30 +17,30 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
-import org.apache.ratis.shell.cli.sh.snapshot.TakeSnapshotCommand;
+import org.apache.ratis.shell.cli.sh.election.PauseCommand;
+import org.apache.ratis.shell.cli.sh.election.ResumeCommand;
+import org.apache.ratis.shell.cli.sh.election.TransferCommand;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
-/**
- * Command for the ratis snapshot
- */
-public class SnapshotCommand extends AbstractParentCommand {
+public class ElectionCommand extends AbstractParentCommand {
   private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
-      = Collections.unmodifiableList(Arrays.asList(TakeSnapshotCommand::new));
+      = Collections.unmodifiableList(Arrays.asList(
+      TransferCommand::new, PauseCommand::new, ResumeCommand::new));
 
   /**
    * @param context command context
    */
-  public SnapshotCommand(Context context) {
+  public ElectionCommand(Context context) {
     super(context, SUB_COMMAND_CONSTRUCTORS);
   }
 
   @Override
   public String getCommandName() {
-    return "snapshot";
+    return "election";
   }
 
   @Override
@@ -52,6 +52,6 @@ public class SnapshotCommand extends AbstractParentCommand {
    * @return command's description
    */
   public static String description() {
-    return "Manage ratis snapshot; see the sub-commands for the details.";
+    return "Manage ratis leader election; see the sub-commands for the details.";
   }
 }

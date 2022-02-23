@@ -17,38 +17,29 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.sh.peer.AddCommand;
+import org.apache.ratis.shell.cli.sh.peer.RemoveCommand;
+import org.apache.ratis.shell.cli.sh.peer.SetPriorityCommand;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.function.Function;
 
 /**
- * Command for remove and add ratis server.
+ * Command for the ratis peer
  */
-public class PeerCommand extends AbstractRatisCommand {
-  public static final String REMOVE_OPTION_NAME = "remove";
-  public static final String ADD_OPTION_NAME = "add";
+public class PeerCommand extends AbstractParentCommand{
+
+  private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
+      = Collections.unmodifiableList(Arrays.asList(AddCommand::new, RemoveCommand::new,
+      SetPriorityCommand::new));
 
   /**
    * @param context command context
    */
   public PeerCommand(Context context) {
-    super(context);
+    super(context, SUB_COMMAND_CONSTRUCTORS);
   }
 
   @Override
@@ -57,82 +48,14 @@ public class PeerCommand extends AbstractRatisCommand {
   }
 
   @Override
-  public int run(CommandLine cl) throws IOException {
-    super.run(cl);
-    final Map<RaftPeerId, InetSocketAddress> peersInfo = new HashMap<>();
-    final List<RaftPeerId> toRemove = getIds(cl.getOptionValues(REMOVE_OPTION_NAME), (a, b) -> {});
-    final List<RaftPeerId> toAdd = getIds(cl.getOptionValues(ADD_OPTION_NAME), peersInfo::put);
-    if (toRemove.isEmpty() && toAdd.isEmpty()) {
-      throw new IllegalArgumentException(String.format("Both -%s and -%s options are empty",
-          REMOVE_OPTION_NAME, ADD_OPTION_NAME));
-    }
-
-    try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      final Stream<RaftPeer> remaining = getRaftGroup().getPeers().stream()
-          .filter(raftPeer -> !toRemove.contains(raftPeer.getId()))
-          .filter(raftPeer -> !toAdd.contains(raftPeer.getId()));
-      final Stream<RaftPeer> adding = toAdd.stream().map(raftPeerId -> RaftPeer.newBuilder()
-          .setId(raftPeerId)
-          .setAddress(peersInfo.get(raftPeerId))
-          .setPriority(0)
-          .build());
-      final List<RaftPeer> peers = Stream.concat(remaining, adding).collect(Collectors.toList());
-      System.out.println("New peer list: " + peers);
-      RaftClientReply reply = client.admin().setConfiguration(peers);
-      processReply(reply, () -> "failed to change raft peer");
-    }
-    return 0;
-  }
-
-  private static List<RaftPeerId> getIds(String[] optionValues, BiConsumer<RaftPeerId, InetSocketAddress> consumer) {
-    if (optionValues == null) {
-      return Collections.emptyList();
-    }
-    final List<RaftPeerId> ids = new ArrayList<>();
-    for (String address : optionValues) {
-      final InetSocketAddress serverAddress = parseInetSocketAddress(address);
-      final RaftPeerId peerId = RaftUtils.getPeerId(serverAddress);
-      consumer.accept(peerId, serverAddress);
-      ids.add(peerId);
-    }
-    return ids;
-  }
-
-  @Override
-  public String getUsage() {
-    return String.format("%s"
-                    + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-                    + " [-%s <RAFT_GROUP_ID>]"
-                    + " -%s <PEER_HOST:PEER_PORT>"
-                    + " -%s <PEER_HOST:PEER_PORT>",
-            getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME,
-            REMOVE_OPTION_NAME, ADD_OPTION_NAME);
-  }
-
-  @Override
   public String getDescription() {
     return description();
-  }
-
-  @Override
-  public Options getOptions() {
-    return super.getOptions()
-            .addOption(Option.builder()
-                    .option(REMOVE_OPTION_NAME)
-                    .hasArg()
-                    .desc("peer address to be removed")
-                    .build())
-            .addOption(Option.builder()
-                    .option(ADD_OPTION_NAME)
-                    .hasArg()
-                    .desc("peer address to be added")
-                    .build());
   }
 
   /**
    * @return command's description
    */
   public static String description() {
-    return "Remove or Add peers of a ratis group";
+    return "Manage ratis peers; see the sub-commands for the details.";
   }
 }

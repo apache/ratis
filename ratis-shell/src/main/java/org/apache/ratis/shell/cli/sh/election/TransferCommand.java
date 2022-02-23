@@ -15,16 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.shell.cli.sh.command;
+package org.apache.ratis.shell.cli.sh.election;
 
-import org.apache.commons.cli.Option;
-import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
+import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,21 +34,20 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Command for transferring the leadership to another peer.
+ * Command for transferring the ratis leader to specific server.
  */
-public class ElectCommand extends AbstractRatisCommand {
+public class TransferCommand extends AbstractRatisCommand {
   public static final String ADDRESS_OPTION_NAME = "address";
-
   /**
    * @param context command context
    */
-  public ElectCommand(Context context) {
+  public TransferCommand(Context context) {
     super(context);
   }
 
   @Override
   public String getCommandName() {
-    return "elect";
+    return "transfer";
   }
 
   @Override
@@ -98,8 +99,8 @@ public class ElectCommand extends AbstractRatisCommand {
   @Override
   public String getUsage() {
     return String.format("%s -%s <HOSTNAME:PORT>"
-        + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-        + " [-%s <RAFT_GROUP_ID>]",
+            + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
+            + " [-%s <RAFT_GROUP_ID>]",
         getCommandName(), ADDRESS_OPTION_NAME, PEER_OPTION_NAME,
         GROUPID_OPTION_NAME);
   }
