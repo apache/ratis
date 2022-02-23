@@ -128,5 +128,4 @@ public class TransferCommand extends AbstractRatisCommand {
   public static String description() {
     return "Transfers leadership to the <hostname>:<port>";
   }
-
 }

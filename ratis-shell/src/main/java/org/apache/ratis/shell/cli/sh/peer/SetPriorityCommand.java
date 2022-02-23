@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.shell.cli.sh.command;
+package org.apache.ratis.shell.cli.sh.peer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
@@ -24,6 +24,8 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
+import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -31,10 +33,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- *  Command for setting priority of the specific ratis server.
- */
 public class SetPriorityCommand extends AbstractRatisCommand {
+
   public static final String PEER_WITH_NEW_PRIORITY_OPTION_NAME = "addressPriority";
 
   /**
@@ -69,13 +69,13 @@ public class SetPriorityCommand extends AbstractRatisCommand {
           peers.add(RaftPeer.newBuilder(peer).build());
         } else {
           peers.add(RaftPeer.newBuilder(peer)
-                          .setPriority(addressPriorityMap.get(peer.getAddress()))
-                          .build()
+              .setPriority(addressPriorityMap.get(peer.getAddress()))
+              .build()
           );
         }
       }
       RaftClientReply reply = client.admin().setConfiguration(peers);
-      processReply(reply, () -> "failed to set master priorities ");
+      processReply(reply, () -> "Failed to set master priorities ");
     }
     return 0;
   }
@@ -83,10 +83,10 @@ public class SetPriorityCommand extends AbstractRatisCommand {
   @Override
   public String getUsage() {
     return String.format("%s"
-                    + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-                    + " [-%s <RAFT_GROUP_ID>]"
-                    + " -%s <PEER_HOST:PEER_PORT|PRIORITY>",
-            getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, PEER_WITH_NEW_PRIORITY_OPTION_NAME);
+            + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
+            + " [-%s <RAFT_GROUP_ID>]"
+            + " -%s <PEER_HOST:PEER_PORT|PRIORITY>",
+        getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, PEER_WITH_NEW_PRIORITY_OPTION_NAME);
   }
 
   @Override
@@ -97,12 +97,12 @@ public class SetPriorityCommand extends AbstractRatisCommand {
   @Override
   public Options getOptions() {
     return super.getOptions().addOption(
-            Option.builder()
-                 .option(PEER_WITH_NEW_PRIORITY_OPTION_NAME)
-                 .hasArg()
-                 .required()
-                 .desc("Peers information with priority")
-                 .build());
+        Option.builder()
+            .option(PEER_WITH_NEW_PRIORITY_OPTION_NAME)
+            .hasArg()
+            .required()
+            .desc("Peers information with priority")
+            .build());
   }
 
   /**

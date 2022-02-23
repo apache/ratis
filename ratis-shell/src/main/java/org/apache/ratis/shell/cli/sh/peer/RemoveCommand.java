@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.shell.cli.sh.election;
+package org.apache.ratis.shell.cli.sh.peer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
@@ -29,53 +29,49 @@ import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * Command for resuming leader election on specific server
+ * Command for remove ratis server.
  */
-public class ResumeCommand extends AbstractRatisCommand {
+public class RemoveCommand extends AbstractRatisCommand {
 
   public static final String ADDRESS_OPTION_NAME = "address";
   /**
    * @param context command context
    */
-  public ResumeCommand(Context context) {
+  public RemoveCommand(Context context) {
     super(context);
   }
 
   @Override
   public String getCommandName() {
-    return "resume";
+    return "remove";
   }
 
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
-
-    String strAddr = cl.getOptionValue(ADDRESS_OPTION_NAME);
-    final RaftPeerId peerId = getRaftGroup().getPeers().stream()
-        .filter(p -> p.getAddress().equals(strAddr)).findAny()
-        .map(RaftPeer::getId)
-        .orElse(null);
-    if (peerId == null) {
-      printf("Can't find a sever with the address:%s", strAddr);
-      return -1;
-    }
-    try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
-      RaftClientReply reply = raftClient.getLeaderElectionManagementApi(peerId).resume();
-      processReply(reply, () -> String.format("Failed to resume leader election on peer %s", strAddr));
-      printf(String.format("Successful pause leader election on peer %s", strAddr));
+    final List<RaftPeerId> ids =
+        getIds(cl.getOptionValue(ADDRESS_OPTION_NAME).split(","), (a, b) -> {});
+    try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
+      final List<RaftPeer> remaining = getRaftGroup().getPeers().stream()
+          .filter(raftPeer -> !ids.contains(raftPeer.getId())).collect(Collectors.toList());
+      System.out.println("New peer list: " + remaining);
+      RaftClientReply reply = client.admin().setConfiguration(remaining);
+      processReply(reply, () -> "Failed to change raft peer");
     }
     return 0;
   }
 
   @Override
   public String getUsage() {
-    return String.format("%s -%s <HOSTNAME:PORT>"
+    return String.format("%s"
             + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-            + " [-%s <RAFT_GROUP_ID>]",
-        getCommandName(), ADDRESS_OPTION_NAME, PEER_OPTION_NAME,
-        GROUPID_OPTION_NAME);
+            + " [-%s <RAFT_GROUP_ID>]"
+            + " -%s <PEER_HOST:PEER_PORT>",
+        getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, ADDRESS_OPTION_NAME);
   }
 
   @Override
@@ -90,15 +86,14 @@ public class ResumeCommand extends AbstractRatisCommand {
             .option(ADDRESS_OPTION_NAME)
             .hasArg()
             .required()
-            .desc("Server address that will be resumed its leader election")
-            .build()
-    );
+            .desc("The address information of ratis peers")
+            .build());
   }
 
   /**
    * @return command's description
    */
   public static String description() {
-    return "Resume leader election to the server <hostname>:<port>";
+    return "Remove peers to a ratis group";
   }
 }

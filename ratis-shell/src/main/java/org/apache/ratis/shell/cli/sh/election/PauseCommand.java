@@ -29,7 +29,6 @@ import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
-import java.util.Optional;
 
 /**
  * Command for pause leader election on specific server
@@ -54,13 +53,12 @@ public class PauseCommand extends AbstractRatisCommand {
     super.run(cl);
 
     String strAddr = cl.getOptionValue(ADDRESS_OPTION_NAME);
-    final RaftPeerId peerId;
-    Optional<RaftPeer> peer =
-        getRaftGroup().getPeers().stream().filter(p -> p.getAddress().equals(strAddr)).findAny();
-    if (peer.isPresent()) {
-      peerId = peer.get().getId();
-    } else {
-      printf("Can't find a sever with the address:%s", strAddr);
+    final RaftPeerId peerId = getRaftGroup().getPeers().stream()
+        .filter(p -> p.getAddress().equals(strAddr)).findAny()
+        .map(RaftPeer::getId)
+        .orElse(null);
+    if (peerId == null) {
+      printf("Peer not found: %s", strAddr);
       return -1;
     }
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {

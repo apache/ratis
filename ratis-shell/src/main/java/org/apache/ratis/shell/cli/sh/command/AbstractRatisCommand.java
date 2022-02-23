@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -195,5 +196,19 @@ public abstract class AbstractRatisCommand implements Command {
       printf("%s. Error: %s%n", message, e);
       throw new IOException(message, e);
     }
+  }
+
+  protected List<RaftPeerId> getIds(String[] optionValues, BiConsumer<RaftPeerId, InetSocketAddress> consumer) {
+    if (optionValues == null) {
+      return Collections.emptyList();
+    }
+    final List<RaftPeerId> ids = new ArrayList<>();
+    for (String address : optionValues) {
+      final InetSocketAddress serverAddress = parseInetSocketAddress(address);
+      final RaftPeerId peerId = RaftUtils.getPeerId(serverAddress);
+      consumer.accept(peerId, serverAddress);
+      ids.add(peerId);
+    }
+    return ids;
   }
 }

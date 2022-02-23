@@ -17,41 +17,35 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
-import org.apache.ratis.shell.cli.sh.election.PauseCommand;
-import org.apache.ratis.shell.cli.sh.election.ResumeCommand;
-import org.apache.ratis.shell.cli.sh.election.TransferCommand;
+import org.apache.ratis.shell.cli.Command;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
-public class ElectionCommand extends AbstractParentCommand {
-  private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
-      = Collections.unmodifiableList(Arrays.asList(
-      TransferCommand::new, PauseCommand::new, ResumeCommand::new));
+public abstract class AbstractParentCommand extends AbstractRatisCommand{
+  private final Map<String, Command> subs;
 
-  /**
-   * @param context command context
-   */
-  public ElectionCommand(Context context) {
-    super(context, SUB_COMMAND_CONSTRUCTORS);
+  public AbstractParentCommand(Context context, List<Function<Context, AbstractRatisCommand>> subCommandConstructors) {
+    super(context);
+    this.subs = Collections.unmodifiableMap(subCommandConstructors.stream()
+        .map(constructor -> constructor.apply(context))
+        .collect(Collectors.toMap(Command::getCommandName, Function.identity())));
   }
 
   @Override
-  public String getCommandName() {
-    return "election";
+  public final Map<String, Command> getSubCommands() {
+    return subs;
   }
 
   @Override
-  public String getDescription() {
-    return description();
-  }
-
-  /**
-   * @return command's description
-   */
-  public static String description() {
-    return "Manage ratis leader election; see the sub-commands for the details.";
+  public final String getUsage() {
+    final StringBuilder usage = new StringBuilder(getCommandName());
+    for (String cmd : getSubCommands().keySet()) {
+      usage.append(" [").append(cmd).append("]");
+    }
+    return usage.toString();
   }
 }
