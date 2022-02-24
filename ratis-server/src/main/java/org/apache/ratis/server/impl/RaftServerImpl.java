@@ -326,8 +326,8 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   static boolean registerMBean(
-      RaftPeerId id, RaftGroupId groupdId, RaftServerMXBean mBean, JmxRegister jmx) {
-    final String prefix = "Ratis:service=RaftServer,group=" + groupdId + ",id=";
+      RaftPeerId id, RaftGroupId groupId, RaftServerMXBean mBean, JmxRegister jmx) {
+    final String prefix = "Ratis:service=RaftServer,group=" + groupId + ",id=";
     final String registered = jmx.register(mBean, Arrays.asList(
         () -> prefix + id,
         () -> prefix + ObjectName.quote(id.toString())));
