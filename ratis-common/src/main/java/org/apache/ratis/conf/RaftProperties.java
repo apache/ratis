@@ -25,9 +25,9 @@ import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Attr;
-import org.w3c.dom.Element;
-import org.w3c.dom.Document;
 import org.w3c.dom.DOMException;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
@@ -37,24 +37,15 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -112,7 +103,7 @@ public class RaftProperties {
   /**
    * List of configuration resources.
    */
-  private ArrayList<Resource> resources = new ArrayList<>();
+  private final ArrayList<Resource> resources;
 
   /**
    * The value reported as the setting resource when a key is set
@@ -123,10 +114,9 @@ public class RaftProperties {
   /**
    * List of configuration parameters marked <b>final</b>.
    */
-  private Set<String> finalParameters = Collections.newSetFromMap(
-      new ConcurrentHashMap<String, Boolean>());
+  private final Set<String> finalParameters = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-  private boolean loadDefaults = true;
+  private final boolean loadDefaults;
 
   /**
    * Configuration objects
@@ -144,7 +134,7 @@ public class RaftProperties {
    * Stores the mapping of key to the resource which modifies or loads
    * the key most recently
    */
-  private Map<String, String[]> updatingResource;
+  private final Map<String, String[]> updatingResource;
 
   private Properties properties;
   private Properties overlay;
@@ -163,7 +153,8 @@ public class RaftProperties {
    */
   public RaftProperties(boolean loadDefaults) {
     this.loadDefaults = loadDefaults;
-    updatingResource = new ConcurrentHashMap<>();
+    this.resources = new ArrayList<>();
+    this.updatingResource = new ConcurrentHashMap<>();
     synchronized(RaftProperties.class) {
       REGISTRY.put(this, null);
     }
@@ -187,8 +178,6 @@ public class RaftProperties {
       }
 
       this.updatingResource = new ConcurrentHashMap<>(other.updatingResource);
-      this.finalParameters = Collections.newSetFromMap(
-          new ConcurrentHashMap<String, Boolean>());
       this.finalParameters.addAll(other.finalParameters);
     }
 
@@ -611,25 +600,6 @@ public class RaftProperties {
   }
 
   /**
-   * Get the value of the <code>name</code> property as a set of comma-delimited
-   * <code>int</code> values.
-   *
-   * If no such property exists, an empty array is returned.
-   *
-   * @param name property name
-   * @return property value interpreted as an array of comma-delimited
-   *         <code>int</code> values
-   */
-  public int[] getInts(String name) {
-    String[] strings = getTrimmedStrings(name);
-    int[] ints = new int[strings.length];
-    for (int i = 0; i < strings.length; i++) {
-      ints[i] = Integer.parseInt(strings[i]);
-    }
-    return ints;
-  }
-
-  /**
    * Set the value of the <code>name</code> property to an <code>int</code>.
    *
    * @param name property name.
@@ -737,36 +707,6 @@ public class RaftProperties {
    */
   public void setLong(String name, long value) {
     set(name, Long.toString(value));
-  }
-
-  /**
-   * Get the value of the <code>name</code> property as a <code>float</code>.
-   * If no such property exists, the provided default value is returned,
-   * or if the specified value is not a valid <code>float</code>,
-   * then an error is thrown.
-   *
-   * @param name property name.
-   * @param defaultValue default value.
-   * @throws NumberFormatException when the value is invalid
-   * @return property value as a <code>float</code>,
-   *         or <code>defaultValue</code>.
-   */
-  public float getFloat(String name, float defaultValue) {
-    String valueString = getTrimmed(name);
-    if (valueString == null) {
-      return defaultValue;
-    }
-    return Float.parseFloat(valueString);
-  }
-
-  /**
-   * Set the value of the <code>name</code> property to a <code>float</code>.
-   *
-   * @param name property name.
-   * @param value property value.
-   */
-  public void setFloat(String name, float value) {
-    set(name,Float.toString(value));
   }
 
   /**
@@ -1288,96 +1228,6 @@ public class RaftProperties {
     if (finalParameter && attr != null) {
       finalParameters.add(attr);
     }
-  }
-
-  /**
-   * Write out the non-default properties in this configuration to the given
-   * {@link OutputStream} using UTF-8 encoding.
-   *
-   * @param out the output stream to write to.
-   */
-  public void writeXml(OutputStream out) throws IOException {
-    writeXml(new OutputStreamWriter(out, "UTF-8"));
-  }
-
-  /**
-   * Write out the non-default properties in this configuration to the given
-   * {@link Writer}.
-   *
-   * @param out the writer to write to.
-   */
-  public void writeXml(Writer out) throws IOException {
-    Document doc = asXmlDocument();
-
-    try {
-      DOMSource source = new DOMSource(doc);
-      StreamResult result = new StreamResult(out);
-      TransformerFactory transFactory = TransformerFactory.newInstance();
-      transFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-      transFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-      transFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-      Transformer transformer = transFactory.newTransformer();
-
-      // Important to not hold Configuration log while writing result, since
-      // 'out' may be an HDFS stream which needs to lock this configuration
-      // from another thread.
-      transformer.transform(source, result);
-    } catch (TransformerException te) {
-      throw new IOException(te);
-    }
-  }
-
-  /**
-   * Return the XML DOM corresponding to this Configuration.
-   */
-  private synchronized Document asXmlDocument() throws IOException {
-    Document doc;
-    try {
-      DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
-      docBuilderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-      doc = docBuilderFactory.newDocumentBuilder().newDocument();
-    } catch (ParserConfigurationException pe) {
-      throw new IOException(pe);
-    }
-    Element conf = doc.createElement("configuration");
-    doc.appendChild(conf);
-    conf.appendChild(doc.createTextNode("\n"));
-    for (Enumeration<Object> e = properties.keys(); e.hasMoreElements();) {
-      String name = (String)e.nextElement();
-      Object object = properties.get(name);
-      String value;
-      if (object instanceof String) {
-        value = (String) object;
-      }else {
-        continue;
-      }
-      Element propNode = doc.createElement("property");
-      conf.appendChild(propNode);
-
-      Element nameNode = doc.createElement("name");
-      nameNode.appendChild(doc.createTextNode(name));
-      propNode.appendChild(nameNode);
-
-      Element valueNode = doc.createElement("value");
-      valueNode.appendChild(doc.createTextNode(value));
-      propNode.appendChild(valueNode);
-
-      if (updatingResource != null) {
-        String[] sources = updatingResource.get(name);
-        if(sources != null) {
-          for(String s : sources) {
-            Element sourceNode = doc.createElement("source");
-            sourceNode.appendChild(doc.createTextNode(s));
-            propNode.appendChild(sourceNode);
-          }
-        }
-      }
-
-      conf.appendChild(doc.createTextNode("\n"));
-    }
-    return doc;
   }
 
   @Override
