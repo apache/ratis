@@ -176,6 +176,10 @@ class SegmentedRaftLogWorker {
   private final RaftServer.Division server;
   private int flushBatchSize;
 
+  private Timestamp lastFlushTimestamp;
+
+  private boolean asyncFlushEnabled;
+
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
   SegmentedRaftLogWorker(RaftGroupMemberId memberId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
@@ -214,6 +218,8 @@ class SegmentedRaftLogWorker {
 
     final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
+    this.lastFlushTimestamp = Timestamp.currentTime();
+    this.asyncFlushEnabled = RaftServerConfigKeys.Log.asyncFlushEnabled(properties);
   }
 
   void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
@@ -321,6 +327,9 @@ class SegmentedRaftLogWorker {
           }
           task.done();
         }
+        if (asyncFlushEnabled) {
+          flushToPersistentStore();
+        }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         if (running) {
@@ -360,10 +369,12 @@ class SegmentedRaftLogWorker {
         if (stateMachineDataPolicy.isSync()) {
           stateMachineDataPolicy.getFromFuture(f, () -> this + "-flushStateMachineData");
         }
-        final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
-        flushBatchSize = (int)(lastWrittenIndex - flushIndex.get());
-        out.flush();
-        logSyncTimerContext.stop();
+        if (!asyncFlushEnabled) {
+          final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
+          flushBatchSize = (int)(lastWrittenIndex - flushIndex.get());
+          out.flush();
+          logSyncTimerContext.stop();
+        }
         if (!stateMachineDataPolicy.isSync()) {
           IOUtils.getFromFuture(f, () -> this + "-flushStateMachineData");
         }
@@ -371,6 +382,16 @@ class SegmentedRaftLogWorker {
         timerContext.stop();
       }
       updateFlushedIndexIncreasingly();
+    }
+  }
+
+  private void flushToPersistentStore() throws IOException {
+    if (shouldFlush() &&
+            lastFlushTimestamp.elapsedTime().compareTo(TimeDuration.valueOf(3, TimeUnit.SECONDS)) > 0) {
+      this.lastFlushTimestamp = Timestamp.currentTime();
+      final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
+      out.flush();
+      logSyncTimerContext.stop();
     }
   }
 
