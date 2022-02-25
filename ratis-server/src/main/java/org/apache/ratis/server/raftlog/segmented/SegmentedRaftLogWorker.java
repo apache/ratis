@@ -178,8 +178,8 @@ class SegmentedRaftLogWorker {
 
   private Timestamp lastFlushTimestamp;
 
-  private final boolean asyncFlushEnabled;
-  private final TimeDuration asyncFlushInterval;
+  private final boolean allowDelayedFlush;
+  private final TimeDuration flushIntervalMin;
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
@@ -220,8 +220,8 @@ class SegmentedRaftLogWorker {
     final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
     this.lastFlushTimestamp = Timestamp.currentTime();
-    this.asyncFlushEnabled = RaftServerConfigKeys.Log.asyncFlushEnabled(properties);
-    this.asyncFlushInterval = RaftServerConfigKeys.Log.asyncFlushMinimumInterval(properties);
+    this.allowDelayedFlush = RaftServerConfigKeys.Log.allowDelayedFlush(properties);
+    this.flushIntervalMin = RaftServerConfigKeys.Log.flushIntervalMin(properties);
   }
 
   void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
@@ -329,7 +329,7 @@ class SegmentedRaftLogWorker {
           }
           task.done();
         }
-        if (asyncFlushEnabled) {
+        if (allowDelayedFlush) {
           flushToPersistentStore();
         }
       } catch (InterruptedException e) {
@@ -371,7 +371,7 @@ class SegmentedRaftLogWorker {
         if (stateMachineDataPolicy.isSync()) {
           stateMachineDataPolicy.getFromFuture(f, () -> this + "-flushStateMachineData");
         }
-        if (!asyncFlushEnabled) {
+        if (!allowDelayedFlush) {
           final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
           flushBatchSize = (int)(lastWrittenIndex - flushIndex.get());
           out.flush();
@@ -389,7 +389,7 @@ class SegmentedRaftLogWorker {
 
   private void flushToPersistentStore() throws IOException {
     if (shouldFlush() &&
-            lastFlushTimestamp.elapsedTime().compareTo(asyncFlushInterval) > 0) {
+            lastFlushTimestamp.elapsedTime().compareTo(flushIntervalMin) > 0) {
       this.lastFlushTimestamp = Timestamp.currentTime();
       final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
       flushBatchSize = (int)(lastWrittenIndex - flushIndex.get());

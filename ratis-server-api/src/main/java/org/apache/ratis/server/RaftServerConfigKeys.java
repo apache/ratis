@@ -349,24 +349,24 @@ public interface RaftServerConfigKeys {
     }
 
 
-    String ASYNC_FLUSH_ENABLED_KEY = PREFIX + ".async.flush.enabled";
-    boolean ASYNC_FLUSH_ENABLED_DEFAULT = false;
-    static boolean asyncFlushEnabled(RaftProperties properties) {
+    String ALLOW_DELAYED_FLUSH_KEY = PREFIX + ".allow.delayed.flush";
+    boolean ALLOW_DELAYED_FLUSH_DEFAULT = false;
+    static boolean allowDelayedFlush(RaftProperties properties) {
       return getBoolean(properties::getBoolean,
-              ASYNC_FLUSH_ENABLED_KEY, ASYNC_FLUSH_ENABLED_DEFAULT, getDefaultLog());
+              ALLOW_DELAYED_FLUSH_KEY, ALLOW_DELAYED_FLUSH_DEFAULT, getDefaultLog());
     }
     static void setAsyncFlushEnabled(RaftProperties properties, boolean asyncFlush) {
-      setBoolean(properties::setBoolean, ASYNC_FLUSH_ENABLED_KEY, asyncFlush);
+      setBoolean(properties::setBoolean, ALLOW_DELAYED_FLUSH_KEY, asyncFlush);
     }
 
-    String ASYNC_FLUSH_MINIMUM_INTERVAL_KEY = PREFIX + ".async.flush.minimum.interval";
-    TimeDuration ASYNC_FLUSH_MINIMUM_INTERVAL_DEFAULT = TimeDuration.valueOf(3, TimeUnit.SECONDS);;
-    static TimeDuration asyncFlushMinimumInterval(RaftProperties properties) {
-      return getTimeDuration(properties.getTimeDuration(ASYNC_FLUSH_MINIMUM_INTERVAL_DEFAULT.getUnit()),
-              ASYNC_FLUSH_MINIMUM_INTERVAL_KEY, ASYNC_FLUSH_MINIMUM_INTERVAL_DEFAULT, getDefaultLog());
+    String FLUSH_INTERVAL_MIN_KEY = PREFIX + ".flush.interval.min";
+    TimeDuration FLUSH_INTERVAL_MIN_DEFAULT = TimeDuration.valueOf(3, TimeUnit.SECONDS);
+    static TimeDuration flushIntervalMin(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(FLUSH_INTERVAL_MIN_DEFAULT.getUnit()),
+              FLUSH_INTERVAL_MIN_KEY, FLUSH_INTERVAL_MIN_DEFAULT, getDefaultLog());
     }
-    static void setAsyncFlushMinimumInterval(RaftProperties properties, TimeDuration flushTimeInterval) {
-      setTimeDuration(properties::setTimeDuration, ASYNC_FLUSH_MINIMUM_INTERVAL_KEY, flushTimeInterval);
+    static void setFlushIntervalMin(RaftProperties properties, TimeDuration flushTimeInterval) {
+      setTimeDuration(properties::setTimeDuration, FLUSH_INTERVAL_MIN_KEY, flushTimeInterval);
     }
 
     /** The policy to handle corrupted raft log. */
