@@ -20,6 +20,7 @@ package org.apache.ratis.shell.cli.sh.command;
 import org.apache.ratis.shell.cli.Command;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -32,7 +33,10 @@ public abstract class AbstractParentCommand extends AbstractRatisCommand{
     super(context);
     this.subs = Collections.unmodifiableMap(subCommandConstructors.stream()
         .map(constructor -> constructor.apply(context))
-        .collect(Collectors.toMap(Command::getCommandName, Function.identity())));
+        .collect(Collectors.toMap(Command::getCommandName, Function.identity(),
+        (a, b) -> {
+          throw new IllegalStateException("Found duplicated commands: " + a + " and " + b);
+          }, LinkedHashMap::new)));
   }
 
   @Override

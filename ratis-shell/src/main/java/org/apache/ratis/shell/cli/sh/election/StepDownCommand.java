@@ -49,16 +49,13 @@ public class StepDownCommand extends AbstractRatisCommand {
     super.run(cl);
 
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      try {
-        RaftClientReply transferLeadershipReply =
-            client.admin().transferLeadership(null, 60_000);
-        processReply(transferLeadershipReply, () -> "Failed to step down leader");
-      } catch (Throwable t) {
-        printf("caught an error when executing step down leader: %s%n", t.getMessage());
-        return -1;
-      }
-      println("Step down leader successfully");
+      final RaftClientReply transferLeadershipReply = client.admin().transferLeadership(null, 60_000);
+      processReply(transferLeadershipReply, () -> "Failed to step down leader");
+    } catch (Throwable t) {
+      printf("caught an error when executing step down leader: %s%n", t.getMessage());
+      return -1;
     }
+    println("Step down leader successfully");
     return 0;
   }
 
