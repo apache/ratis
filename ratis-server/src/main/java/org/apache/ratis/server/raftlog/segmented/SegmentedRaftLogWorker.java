@@ -178,7 +178,8 @@ class SegmentedRaftLogWorker {
 
   private Timestamp lastFlushTimestamp;
 
-  private boolean asyncFlushEnabled;
+  private final boolean asyncFlushEnabled;
+  private final TimeDuration asyncFlushInterval;
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
@@ -220,6 +221,7 @@ class SegmentedRaftLogWorker {
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
     this.lastFlushTimestamp = Timestamp.currentTime();
     this.asyncFlushEnabled = RaftServerConfigKeys.Log.asyncFlushEnabled(properties);
+    this.asyncFlushInterval = RaftServerConfigKeys.Log.asyncFlushMinimumInterval(properties);
   }
 
   void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
@@ -387,9 +389,10 @@ class SegmentedRaftLogWorker {
 
   private void flushToPersistentStore() throws IOException {
     if (shouldFlush() &&
-            lastFlushTimestamp.elapsedTime().compareTo(TimeDuration.valueOf(3, TimeUnit.SECONDS)) > 0) {
+            lastFlushTimestamp.elapsedTime().compareTo(asyncFlushInterval) > 0) {
       this.lastFlushTimestamp = Timestamp.currentTime();
       final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
+      flushBatchSize = (int)(lastWrittenIndex - flushIndex.get());
       out.flush();
       logSyncTimerContext.stop();
     }
