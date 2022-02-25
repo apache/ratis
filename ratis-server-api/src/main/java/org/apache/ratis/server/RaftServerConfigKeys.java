@@ -349,18 +349,8 @@ public interface RaftServerConfigKeys {
     }
 
 
-    String ALLOW_DELAYED_FLUSH_KEY = PREFIX + ".allow.delayed.flush";
-    boolean ALLOW_DELAYED_FLUSH_DEFAULT = false;
-    static boolean allowDelayedFlush(RaftProperties properties) {
-      return getBoolean(properties::getBoolean,
-              ALLOW_DELAYED_FLUSH_KEY, ALLOW_DELAYED_FLUSH_DEFAULT, getDefaultLog());
-    }
-    static void setAsyncFlushEnabled(RaftProperties properties, boolean asyncFlush) {
-      setBoolean(properties::setBoolean, ALLOW_DELAYED_FLUSH_KEY, asyncFlush);
-    }
-
     String FLUSH_INTERVAL_MIN_KEY = PREFIX + ".flush.interval.min";
-    TimeDuration FLUSH_INTERVAL_MIN_DEFAULT = TimeDuration.valueOf(3, TimeUnit.SECONDS);
+    TimeDuration FLUSH_INTERVAL_MIN_DEFAULT = TimeDuration.ZERO;
     static TimeDuration flushIntervalMin(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(FLUSH_INTERVAL_MIN_DEFAULT.getUnit()),
               FLUSH_INTERVAL_MIN_KEY, FLUSH_INTERVAL_MIN_DEFAULT, getDefaultLog());
