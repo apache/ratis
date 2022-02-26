@@ -99,6 +99,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         try {
           outs.add((DataStreamOutputRpc) map.getProxy(peer.getId()).stream(request));
         } catch (IOException e) {
+          map.handleException(peer.getId(), e, true);
           throw new IOException(map.getName() + ": Failed to getDataStreamOutput for " + peer, e);
         }
       }
