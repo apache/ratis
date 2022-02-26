@@ -176,6 +176,9 @@ class SegmentedRaftLogWorker {
   private final RaftServer.Division server;
   private int flushBatchSize;
 
+  private Timestamp lastFlush;
+  private final TimeDuration flushIntervalMin;
+
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
   SegmentedRaftLogWorker(RaftGroupMemberId memberId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
@@ -214,6 +217,8 @@ class SegmentedRaftLogWorker {
 
     final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
+    this.lastFlush = Timestamp.currentTime();
+    this.flushIntervalMin = RaftServerConfigKeys.Log.flushIntervalMin(properties);
   }
 
   void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
@@ -321,6 +326,7 @@ class SegmentedRaftLogWorker {
           }
           task.done();
         }
+        flushIfNecessary();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         if (running) {
@@ -344,13 +350,18 @@ class SegmentedRaftLogWorker {
   }
 
   private boolean shouldFlush() {
-    return pendingFlushNum >= forceSyncNum ||
-        (pendingFlushNum > 0 && queue.isEmpty());
+    if (out == null) {
+      return false;
+    } else if (pendingFlushNum >= forceSyncNum) {
+      return true;
+    }
+    return pendingFlushNum > 0 && queue.isEmpty() && lastFlush.elapsedTime().compareTo(flushIntervalMin) > 0;
   }
 
   @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
-  private void flushWrites() throws IOException {
-    if (out != null) {
+  private void flushIfNecessary() throws IOException {
+    if (shouldFlush()) {
+      raftLogMetrics.onRaftLogFlush();
       LOG.debug("{}: flush {}", name, out);
       final Timer.Context timerContext = logFlushTimer.time();
       try {
@@ -369,6 +380,7 @@ class SegmentedRaftLogWorker {
         }
       } finally {
         timerContext.stop();
+        lastFlush = Timestamp.currentTime();
       }
       updateFlushedIndexIncreasingly();
     }
@@ -513,10 +525,7 @@ class SegmentedRaftLogWorker {
       out.write(entry);
       lastWrittenIndex = entry.getIndex();
       pendingFlushNum++;
-      if (shouldFlush()) {
-        raftLogMetrics.onRaftLogFlush();
-        flushWrites();
-      }
+      flushIfNecessary();
     }
 
     @Override
