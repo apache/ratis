@@ -326,10 +326,7 @@ class SegmentedRaftLogWorker {
           }
           task.done();
         }
-        if (shouldFlush()) {
-          raftLogMetrics.onRaftLogFlush();
-          flushWrites();
-        }
+        flushIfNecessary();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         if (running) {
@@ -353,13 +350,18 @@ class SegmentedRaftLogWorker {
   }
 
   private boolean shouldFlush() {
-    return pendingFlushNum >= forceSyncNum ||
-        (pendingFlushNum > 0 && queue.isEmpty() && lastFlush.elapsedTime().compareTo(flushIntervalMin) > 0);
+    if (out == null) {
+      return false;
+    } else if (pendingFlushNum >= forceSyncNum) {
+      return true;
+    }
+    return pendingFlushNum > 0 && queue.isEmpty() && lastFlush.elapsedTime().compareTo(flushIntervalMin) > 0;
   }
 
   @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
-  private void flushWrites() throws IOException {
-    if (out != null) {
+  private void flushIfNecessary() throws IOException {
+    if (shouldFlush()) {
+      raftLogMetrics.onRaftLogFlush();
       LOG.debug("{}: flush {}", name, out);
       final Timer.Context timerContext = logFlushTimer.time();
       try {
@@ -523,10 +525,7 @@ class SegmentedRaftLogWorker {
       out.write(entry);
       lastWrittenIndex = entry.getIndex();
       pendingFlushNum++;
-      if (shouldFlush()) {
-        raftLogMetrics.onRaftLogFlush();
-        flushWrites();
-      }
+      flushIfNecessary();
     }
 
     @Override
