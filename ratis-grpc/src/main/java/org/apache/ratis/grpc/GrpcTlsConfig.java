@@ -17,89 +17,100 @@
  */
 package org.apache.ratis.grpc;
 
+import org.apache.ratis.security.TlsConf;
+
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Ratis GRPC TLS configurations.
  */
-public class GrpcTlsConfig {
-  // private key
-  private PrivateKey privateKey;
-  private File privateKeyFile;
-
-  // certificate
-  private X509Certificate certChain;
-  private File certChainFile;
-
-  // ca certificate
-  private List<X509Certificate> trustStore;
-  private File trustStoreFile;
-
-  // mutual TLS enabled
-  private final boolean mTlsEnabled;
-
-  private final boolean fileBasedConfig;
-
+public class GrpcTlsConfig extends TlsConf {
   public boolean isFileBasedConfig() {
-    return fileBasedConfig;
+    return getTrustManager().getTrustCertificates().isFileBased();
   }
 
   public PrivateKey getPrivateKey() {
-    return privateKey;
+    return Optional.ofNullable(getKeyManager())
+        .map(KeyManagerConf::getPrivateKey)
+        .map(PrivateKeyConf::get)
+        .orElse(null);
   }
 
   public File getPrivateKeyFile() {
-    return privateKeyFile;
+    return Optional.ofNullable(getKeyManager())
+        .map(KeyManagerConf::getPrivateKey)
+        .map(PrivateKeyConf::getFile)
+        .orElse(null);
   }
 
   public X509Certificate getCertChain() {
-    return certChain;
+    return Optional.ofNullable(getKeyManager())
+        .map(KeyManagerConf::getKeyCertificates)
+        .map(CertificatesConf::get)
+        .map(Iterable::iterator)
+        .map(Iterator::next)
+        .orElse(null);
   }
 
   public File getCertChainFile() {
-    return certChainFile;
+    return Optional.ofNullable(getKeyManager())
+        .map(KeyManagerConf::getKeyCertificates)
+        .map(CertificatesConf::getFile)
+        .orElse(null);
   }
 
   public List<X509Certificate> getTrustStore() {
-    return trustStore;
+    return (List<X509Certificate>) getTrustManager().getTrustCertificates().get();
   }
 
   public File getTrustStoreFile() {
-    return trustStoreFile;
+    return getTrustManager().getTrustCertificates().getFile();
   }
 
   public boolean getMtlsEnabled() {
-    return mTlsEnabled;
+    return getKeyManager() != null;
   }
 
   public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
       List<X509Certificate> trustStore, boolean mTlsEnabled) {
-    this.privateKey = privateKey;
-    this.certChain = certChain;
-    this.trustStore = trustStore;
-    this.mTlsEnabled = mTlsEnabled;
-    this.fileBasedConfig = false;
+    super(newBuilder(privateKey, certChain, trustStore, mTlsEnabled));
   }
 
   public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
       X509Certificate trustStore, boolean mTlsEnabled) {
-    this.privateKey = privateKey;
-    this.certChain = certChain;
-    this.trustStore = Collections.singletonList(trustStore);
-    this.mTlsEnabled = mTlsEnabled;
-    this.fileBasedConfig = false;
+    this(privateKey, certChain, Collections.singletonList(trustStore), mTlsEnabled);
   }
 
   public GrpcTlsConfig(File privateKeyFile, File certChainFile,
       File trustStoreFile, boolean mTlsEnabled) {
-    this.privateKeyFile = privateKeyFile;
-    this.certChainFile = certChainFile;
-    this.trustStoreFile = trustStoreFile;
-    this.mTlsEnabled = mTlsEnabled;
-    this.fileBasedConfig = true;
+    super(newBuilder(privateKeyFile, certChainFile, trustStoreFile, mTlsEnabled));
+  }
+
+  private static Builder newBuilder(PrivateKey privateKey, X509Certificate certChain,
+      List<X509Certificate> trustStore, boolean mTlsEnabled) {
+    final CertificatesConf trustManager = new CertificatesConf(trustStore);
+    return !mTlsEnabled? newBuilder(trustManager)
+        : newBuilder(trustManager, new PrivateKeyConf(privateKey), new CertificatesConf(certChain));
+  }
+
+  private static Builder newBuilder(File privateKeyFile, File certChainFile, File trustStoreFile, boolean mTlsEnabled) {
+    final CertificatesConf trustManager = new CertificatesConf(trustStoreFile);
+    return !mTlsEnabled? newBuilder(trustManager)
+        : newBuilder(trustManager, new PrivateKeyConf(privateKeyFile), new CertificatesConf(certChainFile));
+  }
+
+  private static Builder newBuilder(CertificatesConf trustManager) {
+    return newBuilder().setTrustCertificates(trustManager);
+  }
+
+  private static Builder newBuilder(CertificatesConf trustManager,
+      PrivateKeyConf privateKey, CertificatesConf certChain) {
+    return newBuilder(trustManager).setPrivateKey(privateKey).setKeyCertificates(certChain);
   }
 }
