@@ -68,13 +68,18 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
     RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
   }
 
-  RaftServer.Division mockDivision(RaftServer server, RaftClient client) {
+  RaftServer.Division mockDivision(RaftServer server, RaftGroupId groupId, RaftClient client) {
     final RaftServer.Division division = mock(RaftServer.Division.class);
     when(division.getRaftServer()).thenReturn(server);
     when(division.getRaftClient()).thenReturn(client);
     when(division.getRaftConf()).thenAnswer(i -> getRaftConf());
 
     final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
+    try {
+      stateMachine.initialize(server, groupId, null);
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     when(division.getStateMachine()).thenReturn(stateMachine);
 
     final DataStreamMap streamMap = RaftServerTestUtil.newDataStreamMap(server.getId());
@@ -110,7 +115,7 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
         AsyncRpcApi asyncRpcApi = Mockito.mock(AsyncRpcApi.class);
         when(client.async()).thenReturn(asyncRpcApi);
 
-        final RaftServer.Division myDivision = mockDivision(raftServer, client);
+        final RaftServer.Division myDivision = mockDivision(raftServer, groupId, client);
         when(raftServer.getDivision(Mockito.any(RaftGroupId.class))).thenReturn(myDivision);
 
         if (submitException != null) {
