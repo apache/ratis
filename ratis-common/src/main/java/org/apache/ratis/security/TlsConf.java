@@ -130,7 +130,7 @@ public class TlsConf {
   private final TrustManagerConf trustManager;
 
   private TlsConf(String name, KeyManagerConf keyManager, TrustManagerConf trustManager) {
-    this.name = JavaUtils.getClassSimpleName(getClass()) + COUNT.getAndIncrement() + "-" + name;
+    this.name = JavaUtils.getClassSimpleName(getClass()) + COUNT.getAndIncrement() + (name == null? "": "-" + name);
     this.keyManager = keyManager;
     this.trustManager = trustManager;
   }
