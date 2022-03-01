@@ -18,6 +18,7 @@
 package org.apache.ratis.security;
 
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
 
 import java.io.File;
 import java.security.PrivateKey;
@@ -66,6 +67,7 @@ public class TlsConf {
   public static class CertificatesConf extends FileBasedValue<Iterable<X509Certificate>> {
     public CertificatesConf(Iterable<X509Certificate> certificates) {
       super(certificates);
+      Preconditions.assertTrue(certificates.iterator().hasNext(), "certificates is empty");
     }
     public CertificatesConf(X509Certificate... certificates) {
       this(Arrays.asList(certificates));
@@ -123,7 +125,7 @@ public class TlsConf {
     }
   }
 
-  static final AtomicInteger COUNT = new AtomicInteger();
+  private static final AtomicInteger COUNT = new AtomicInteger();
 
   private final String name;
   private final KeyManagerConf keyManager;
