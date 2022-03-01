@@ -24,6 +24,7 @@ import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,6 +44,12 @@ public class TlsConf {
     FileBasedValue(V value) {
       this.value = Objects.requireNonNull(value, () -> "value == null in " + getClass());
       this.file = null;
+
+      if (value instanceof Iterable) {
+        final Iterator<?> i = ((Iterable<?>) value).iterator();
+        Preconditions.assertTrue(i.hasNext(), "value is an empty Iterable in " + getClass());
+        Objects.requireNonNull(i.next(), () -> "The first item in value is null in " + getClass());
+      }
     }
 
     FileBasedValue(File file) {
@@ -67,7 +74,6 @@ public class TlsConf {
   public static class CertificatesConf extends FileBasedValue<Iterable<X509Certificate>> {
     public CertificatesConf(Iterable<X509Certificate> certificates) {
       super(certificates);
-      Preconditions.assertTrue(certificates.iterator().hasNext(), "certificates is empty");
     }
     public CertificatesConf(X509Certificate... certificates) {
       this(Arrays.asList(certificates));
