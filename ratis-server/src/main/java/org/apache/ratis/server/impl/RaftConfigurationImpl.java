@@ -88,8 +88,8 @@ final class RaftConfigurationImpl implements RaftConfiguration {
       return this;
     }
 
-    Builder setOldConf(Iterable<RaftPeer> oldPeers) {
-      return setOldConf(new PeerConfiguration(oldPeers));
+    Builder setOldConf(Iterable<RaftPeer> oldPeers, Iterable<RaftPeer> oldListeners) {
+      return setOldConf(new PeerConfiguration(oldPeers, oldListeners));
     }
 
     Builder setOldConf(RaftConfigurationImpl stableConf) {

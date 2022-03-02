@@ -200,8 +200,9 @@ public final class LogProtoUtils {
     Preconditions.assertTrue(entry.hasConfigurationEntry());
     final RaftConfigurationProto proto = entry.getConfigurationEntry();
     final List<RaftPeer> conf = ProtoUtils.toRaftPeers(proto.getPeersList());
-    final List<RaftPeer> oldConf = proto.getOldPeersCount() == 0? null
-        : ProtoUtils.toRaftPeers(proto.getOldPeersList());
-    return ServerImplUtils.newRaftConfiguration(conf, entry.getIndex(), oldConf);
+    final List<RaftPeer> listener = ProtoUtils.toRaftPeers(proto.getListenersList());
+    final List<RaftPeer> oldConf = ProtoUtils.toRaftPeers(proto.getOldPeersList());
+    final List<RaftPeer> oldListener = ProtoUtils.toRaftPeers(proto.getOldListenersList());
+    return ServerImplUtils.newRaftConfiguration(conf, listener, entry.getIndex(), oldConf, oldListener);
   }
 }

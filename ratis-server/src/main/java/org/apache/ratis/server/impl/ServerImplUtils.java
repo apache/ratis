@@ -70,11 +70,14 @@ public final class ServerImplUtils {
     return proxy;
   }
 
-  public static RaftConfiguration newRaftConfiguration(List<RaftPeer> conf, long index, List<RaftPeer> oldConf) {
+  public static RaftConfiguration newRaftConfiguration(List<RaftPeer> conf, List<RaftPeer> listener,
+      long index, List<RaftPeer> oldConf, List<RaftPeer> oldListener) {
     final RaftConfigurationImpl.Builder b = RaftConfigurationImpl.newBuilder()
-        .setConf(conf)
+        .setConf(conf, listener)
         .setLogEntryIndex(index);
-    Optional.ofNullable(oldConf).filter(p -> p.size() > 0).ifPresent(b::setOldConf);
+    if (!oldConf.isEmpty() || !oldListener.isEmpty()) {
+      b.setOldConf(oldConf, oldListener);
+    }
     return b.build();
   }
 

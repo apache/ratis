@@ -51,6 +51,8 @@ message RaftGroupMemberIdProto {
 message RaftConfigurationProto {
   repeated RaftPeerProto peers = 1; // the peers in the current or new conf
   repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
+  repeated RaftPeerProto listeners = 3;
+  repeated RaftPeerProto oldListeners = 4;
 }
 
 message StateMachineEntryProto {
@@ -406,6 +408,7 @@ message RaftClientReplyProto {
 message SetConfigurationRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
   repeated RaftPeerProto peers = 2;
+  repeated RaftPeerProto listeners = 3;
 }
 
 // transfer leadership request
