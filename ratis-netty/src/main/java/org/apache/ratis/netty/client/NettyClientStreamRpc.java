@@ -24,10 +24,12 @@ import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyDataStreamUtils;
+import org.apache.ratis.netty.NettyUtils;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
@@ -36,6 +38,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -129,13 +132,15 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   private final TimeDuration replyQueueGracePeriod;
   private final TimeoutScheduler timeoutScheduler = TimeoutScheduler.getInstance();
 
-  public NettyClientStreamRpc(RaftPeer server, RaftProperties properties){
+  public NettyClientStreamRpc(RaftPeer server, TlsConf tlsConf, RaftProperties properties) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
     this.workerGroup = new WorkerGroupGetter(properties);
+
+    final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
     final ChannelFuture f = new Bootstrap()
         .group(workerGroup.get())
         .channel(NioSocketChannel.class)
-        .handler(getInitializer())
+        .handler(newChannelInitializer(sslContext))
         .option(ChannelOption.SO_KEEPALIVE, true)
         .connect(NetUtils.createSocketAddr(server.getDataStreamAddress()));
     this.channel = JavaUtils.memoize(() -> f.syncUninterruptibly().channel());
@@ -200,11 +205,14 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     };
   }
 
-  private ChannelInitializer<SocketChannel> getInitializer(){
+  private ChannelInitializer<SocketChannel> newChannelInitializer(SslContext sslContext){
     return new ChannelInitializer<SocketChannel>(){
       @Override
       public void initChannel(SocketChannel ch) {
         ChannelPipeline p = ch.pipeline();
+        if (sslContext != null) {
+          p.addLast("ssl", sslContext.newHandler(ch.alloc()));
+        }
         p.addLast(newEncoder());
         p.addLast(newEncoderDataStreamRequestFilePositionCount());
         p.addLast(newDecoder());

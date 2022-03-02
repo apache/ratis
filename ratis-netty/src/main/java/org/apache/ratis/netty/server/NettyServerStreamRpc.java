@@ -29,6 +29,7 @@ import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -50,6 +51,7 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.Preconditions;
@@ -121,7 +123,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private final NettyServerStreamRpcMetrics metrics;
 
-  public NettyServerStreamRpc(RaftServer server) {
+  public NettyServerStreamRpc(RaftServer server, TlsConf tlsConf) {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.metrics = new NettyServerStreamRpcMetrics(this.name);
     this.requests = new DataStreamManagement(server, metrics);
@@ -139,13 +141,14 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     this.workerGroup = NettyUtils.newEventLoopGroup(name + "-workerGroup",
         NettyConfigKeys.DataStream.Server.workerGroupSize(properties), useEpoll);
 
+    final SslContext sslContext = NettyUtils.buildSslContextForServer(tlsConf);
     final int port = NettyConfigKeys.DataStream.port(properties);
     this.channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(bossGroup instanceof EpollEventLoopGroup ?
             EpollServerSocketChannel.class : NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
-        .childHandler(getInitializer())
+        .childHandler(newChannelInitializer(sslContext))
         .childOption(ChannelOption.SO_KEEPALIVE, true)
         .childOption(ChannelOption.TCP_NODELAY, true)
         .bind(port);
@@ -215,11 +218,14 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  private ChannelInitializer<SocketChannel> getInitializer(){
+  private ChannelInitializer<SocketChannel> newChannelInitializer(SslContext sslContext){
     return new ChannelInitializer<SocketChannel>(){
       @Override
       public void initChannel(SocketChannel ch) {
         ChannelPipeline p = ch.pipeline();
+        if (sslContext != null) {
+          p.addLast("ssl", sslContext.newHandler(ch.alloc()));
+        }
         p.addLast(newDecoder());
         p.addLast(newEncoder());
         p.addLast(newChannelInboundHandlerAdapter());

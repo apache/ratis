@@ -118,6 +118,10 @@ public class TlsConf {
     private KeyManagerConf(PrivateKeyConf privateKey, CertificatesConf keyCertificates) {
       this.privateKey = Objects.requireNonNull(privateKey, "privateKey == null");
       this.keyCertificates = Objects.requireNonNull(keyCertificates, "keyCertificates == null");
+      Preconditions.assertTrue(privateKey.isFileBased() == keyCertificates.isFileBased(),
+          () -> "The privateKey (isFileBased? " + privateKey.isFileBased()
+              + ") and the keyCertificates (isFileBased? " + keyCertificates.isFileBased()
+              + ") must be either both file based or both not.");
     }
 
     /** @return the private key. */
@@ -129,6 +133,10 @@ public class TlsConf {
     public CertificatesConf getKeyCertificates() {
       return keyCertificates;
     }
+
+    public boolean isFileBased() {
+      return privateKey.isFileBased();
+    }
   }
 
   private static final AtomicInteger COUNT = new AtomicInteger();
@@ -136,15 +144,17 @@ public class TlsConf {
   private final String name;
   private final KeyManagerConf keyManager;
   private final TrustManagerConf trustManager;
+  private final boolean mutualTls;
 
-  private TlsConf(String name, KeyManagerConf keyManager, TrustManagerConf trustManager) {
+  private TlsConf(String name, KeyManagerConf keyManager, TrustManagerConf trustManager, boolean mutualTls) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + COUNT.getAndIncrement() + (name == null? "": "-" + name);
     this.keyManager = keyManager;
     this.trustManager = trustManager;
+    this.mutualTls = mutualTls;
   }
 
   protected TlsConf(Builder b) {
-    this(b.buildName(), b.buildKeyManagerConf(), b.buildTrustManagerConf());
+    this(b.buildName(), b.buildKeyManagerConf(), b.buildTrustManagerConf(), b.isMutualTls());
   }
 
   /** @return the key manager configuration. */
@@ -155,6 +165,11 @@ public class TlsConf {
   /** @return the trust manager configuration. */
   public TrustManagerConf getTrustManager() {
     return trustManager;
+  }
+
+  /** Is mutual TLS enabled? */
+  public boolean isMutualTls() {
+    return mutualTls;
   }
 
   @Override
@@ -172,6 +187,7 @@ public class TlsConf {
     private CertificatesConf trustCertificates;
     private PrivateKeyConf privateKey;
     private CertificatesConf keyCertificates;
+    private boolean mutualTls;
 
     public Builder setName(String name) {
       this.name = name;
@@ -193,6 +209,15 @@ public class TlsConf {
       return this;
     }
 
+    public Builder setMutualTls(boolean mutualTls) {
+      this.mutualTls = mutualTls;
+      return this;
+    }
+
+    private boolean isMutualTls() {
+      return mutualTls;
+    }
+
     private String buildName() {
       return Optional.ofNullable(name).orElse("");
     }
@@ -207,8 +232,10 @@ public class TlsConf {
       } else if (privateKey != null && keyCertificates != null) {
         return new KeyManagerConf(privateKey, keyCertificates);
       }
-      throw new IllegalStateException("Must be either all null or all non-null: privateKey == null? "
-          + (privateKey == null) + ", keyCertificates == null? " + (keyCertificates == null));
+      throw new IllegalStateException("The privateKey (null? " + (privateKey == null)
+          + ") and the keyCertificates (null? " + (keyCertificates == null)
+          + ") must be either both null or both not.");
+
     }
 
     public TlsConf build() {
