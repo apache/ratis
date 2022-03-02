@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * The peer configuration of a raft cluster.
@@ -69,7 +70,9 @@ class PeerConfiguration {
 
   PeerConfiguration(Iterable<RaftPeer> peers, Iterable<RaftPeer> listeners) {
     this.peers = newMap(peers, "peers", Collections.emptyMap());
-    this.listeners = newMap(listeners, "listeners", this.peers);
+    this.listeners = Optional.ofNullable(listeners)
+        .map(l -> newMap(listeners, "listeners", this.peers))
+        .orElseGet(Collections::emptyMap);
   }
 
   Collection<RaftPeer> getPeers() {

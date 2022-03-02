@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -30,12 +31,24 @@ import java.util.List;
  * such as setting raft configuration and transferring leadership.
  */
 public interface AdminApi {
-  /** Set the configuration request to the raft service. */
-  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf) throws IOException;
+  /** The same as setConfiguration(serversInNewConf, Collections.emptyList()). */
+  default RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf) throws IOException {
+    return setConfiguration(serversInNewConf, Collections.emptyList());
+  }
 
   /** The same as setConfiguration(Arrays.asList(serversInNewConf)). */
   default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException {
     return setConfiguration(Arrays.asList(serversInNewConf));
+  }
+
+  /** Set the configuration request to the raft service. */
+  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf)
+      throws IOException;
+
+  /** The same as setConfiguration(Arrays.asList(serversInNewConf), Arrays.asList(listenersInNewConf)). */
+  default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf, RaftPeer[] listenersInNewConf)
+      throws IOException {
+    return setConfiguration(Arrays.asList(serversInNewConf), Arrays.asList(listenersInNewConf));
   }
 
   /** Transfer leadership to the given server.*/

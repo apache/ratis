@@ -24,16 +24,28 @@ import java.util.List;
 
 public class SetConfigurationRequest extends RaftClientRequest {
   private final List<RaftPeer> peers;
+  private final List<RaftPeer> listeners;
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, List<RaftPeer> peers) {
+    this(clientId, serverId, groupId, callId, peers, Collections.emptyList());
+  }
+
+  public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
+      RaftGroupId groupId, long callId, List<RaftPeer> peers, List<RaftPeer> listeners) {
     super(clientId, serverId, groupId, callId, true, writeRequestType());
     this.peers = peers != null? Collections.unmodifiableList(peers): Collections.emptyList();
+    this.listeners = listeners !=  null? Collections.unmodifiableList(listeners) : Collections.emptyList();
     Preconditions.assertUnique(this.peers);
+    Preconditions.assertUnique(this.listeners);
   }
 
   public List<RaftPeer> getPeersInNewConf() {
     return peers;
+  }
+
+  public List<RaftPeer> getListenersInNewConf() {
+    return listeners;
   }
 
   @Override

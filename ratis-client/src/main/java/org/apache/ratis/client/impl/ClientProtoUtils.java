@@ -501,11 +501,12 @@ public interface ClientProtoUtils {
       SetConfigurationRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final List<RaftPeer> peers = ProtoUtils.toRaftPeers(p.getPeersList());
+    final List<RaftPeer> listeners = ProtoUtils.toRaftPeers(p.getListenersList());
     return new SetConfigurationRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-        p.getRpcRequest().getCallId(), peers);
+        p.getRpcRequest().getCallId(), peers, listeners);
   }
 
   static SetConfigurationRequestProto toSetConfigurationRequestProto(
@@ -513,6 +514,7 @@ public interface ClientProtoUtils {
     return SetConfigurationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(request.getPeersInNewConf()))
+        .addAllListeners(ProtoUtils.toRaftPeerProtos(request.getListenersInNewConf()))
         .build();
   }
 
