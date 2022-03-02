@@ -27,6 +27,11 @@ public class SetConfigurationRequest extends RaftClientRequest {
   private final List<RaftPeer> listeners;
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
+      RaftGroupId groupId, long callId, List<RaftPeer> peers) {
+    this(clientId, serverId, groupId, callId, peers, Collections.emptyList());
+  }
+
+  public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, List<RaftPeer> peers, List<RaftPeer> listeners) {
     super(clientId, serverId, groupId, callId, true, writeRequestType());
     this.peers = peers != null? Collections.unmodifiableList(peers): Collections.emptyList();
