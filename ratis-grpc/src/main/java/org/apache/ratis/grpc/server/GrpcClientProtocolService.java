@@ -48,8 +48,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
-  private static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolService.class);
+public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
+  public static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolService.class);
 
   private static class PendingOrderedRequest implements SlidingWindow.ServerSideRequest<RaftClientReply> {
     private final RaftClientRequest request;
