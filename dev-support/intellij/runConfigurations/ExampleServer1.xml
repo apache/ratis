@@ -12,10 +12,11 @@
   limitations under the License. See accompanying LICENSE file.
 -->
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Server2" type="Application" factoryName="Application" nameIsGenerated="true">
+  <configuration default="false" name="ExampleServer1" type="Application" factoryName="Application" nameIsGenerated="true">
     <option name="MAIN_CLASS_NAME" value="org.apache.ratis.examples.debug.server.Server" />
     <module name="ratis-examples" />
-    <option name="PROGRAM_PARAMETERS" value="127.0.0.1:10124" />
+    <!-- See ratis-examples/src/main/resources/conf.properties raft.server.address.list-->
+    <option name="PROGRAM_PARAMETERS" value="127.0.0.1:10024" />
     <extension name="coverage">
       <pattern>
         <option name="PATTERN" value="org.apache.ratis.examples.debug.server.*" />
