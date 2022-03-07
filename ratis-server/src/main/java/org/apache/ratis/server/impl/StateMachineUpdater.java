@@ -317,7 +317,7 @@ class StateMachineUpdater implements Runnable {
       return getLastAppliedIndex() - snapshotIndex.get() > 0;
     }
     return state == State.RUNNING &&
-        stateMachine.getLastAppliedTermIndex().getIndex() - snapshotIndex.get() >= autoSnapshotThreshold;
+        getStateMachineLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold;
   }
 
   private long getLastAppliedIndex() {
