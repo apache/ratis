@@ -31,7 +31,6 @@ import java.util.Optional;
  * Ratis GRPC TLS configurations.
  */
 public class GrpcTlsConfig extends TlsConf {
-  private final boolean mTlsEnabled;
   private final boolean fileBasedConfig;
 
   public boolean isFileBasedConfig() {
@@ -83,12 +82,12 @@ public class GrpcTlsConfig extends TlsConf {
   }
 
   public boolean getMtlsEnabled() {
-    return mTlsEnabled;
+    return isMutualTls();
   }
 
   public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
       List<X509Certificate> trustStore, boolean mTlsEnabled) {
-    this(newBuilder(privateKey, certChain, trustStore), mTlsEnabled, false);
+    this(newBuilder(privateKey, certChain, trustStore, mTlsEnabled), false);
   }
 
   public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
@@ -98,26 +97,25 @@ public class GrpcTlsConfig extends TlsConf {
 
   public GrpcTlsConfig(File privateKeyFile, File certChainFile,
       File trustStoreFile, boolean mTlsEnabled) {
-    this(newBuilder(privateKeyFile, certChainFile, trustStoreFile), mTlsEnabled, true);
+    this(newBuilder(privateKeyFile, certChainFile, trustStoreFile, mTlsEnabled), true);
   }
 
-  private GrpcTlsConfig(Builder builder, boolean mTlsEnabled, boolean fileBasedConfig) {
+  private GrpcTlsConfig(Builder builder, boolean fileBasedConfig) {
     super(builder);
-    this.mTlsEnabled = mTlsEnabled;
     this.fileBasedConfig = fileBasedConfig;
   }
 
   private static Builder newBuilder(PrivateKey privateKey, X509Certificate certChain,
-      List<X509Certificate> trustStore) {
-    final Builder b = newBuilder();
+      List<X509Certificate> trustStore, boolean mTlsEnabled) {
+    final Builder b = newBuilder().setMutualTls(mTlsEnabled);
     Optional.ofNullable(trustStore).map(CertificatesConf::new).ifPresent(b::setTrustCertificates);
     Optional.ofNullable(privateKey).map(PrivateKeyConf::new).ifPresent(b::setPrivateKey);
     Optional.ofNullable(certChain).map(CertificatesConf::new).ifPresent(b::setKeyCertificates);
     return b;
   }
 
-  private static Builder newBuilder(File privateKeyFile, File certChainFile, File trustStoreFile) {
-    final Builder b = newBuilder();
+  private static Builder newBuilder(File privateKeyFile, File certChainFile, File trustStoreFile, boolean mTlsEnabled) {
+    final Builder b = newBuilder().setMutualTls(mTlsEnabled);
     Optional.ofNullable(trustStoreFile).map(CertificatesConf::new).ifPresent(b::setTrustCertificates);
     Optional.ofNullable(privateKeyFile).map(PrivateKeyConf::new).ifPresent(b::setPrivateKey);
     Optional.ofNullable(certChainFile).map(CertificatesConf::new).ifPresent(b::setKeyCertificates);

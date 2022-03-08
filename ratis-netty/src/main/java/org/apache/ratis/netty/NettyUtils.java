@@ -17,13 +17,22 @@
  */
 package org.apache.ratis.netty;
 
+import org.apache.ratis.security.TlsConf;
+import org.apache.ratis.security.TlsConf.CertificatesConf;
+import org.apache.ratis.security.TlsConf.KeyManagerConf;
+import org.apache.ratis.security.TlsConf.PrivateKeyConf;
+import org.apache.ratis.security.TlsConf.TrustManagerConf;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.epoll.Epoll;
 import org.apache.ratis.thirdparty.io.netty.channel.epoll.EpollEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.ConcurrentUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.function.Function;
 
 public interface NettyUtils {
   Logger LOG = LoggerFactory.getLogger(NettyUtils.class);
@@ -39,5 +48,79 @@ public interface NettyUtils {
       }
     }
     return new NioEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-"));
+  }
+
+  static void setTrustManager(SslContextBuilder b, TrustManagerConf trustManagerConfig) {
+    if (trustManagerConfig == null) {
+      return;
+    }
+    final CertificatesConf certificates = trustManagerConfig.getTrustCertificates();
+    if (certificates.isFileBased()) {
+      b.trustManager(certificates.getFile());
+    } else {
+      b.trustManager(certificates.get());
+    }
+  }
+
+  static void setKeyManager(SslContextBuilder b, KeyManagerConf keyManagerConfig) {
+    if (keyManagerConfig == null) {
+      return;
+    }
+    final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
+    final CertificatesConf certificates = keyManagerConfig.getKeyCertificates();
+
+    if (keyManagerConfig.isFileBased()) {
+      b.keyManager(certificates.getFile(), privateKey.getFile());
+    } else {
+      b.keyManager(privateKey.get(), certificates.get());
+    }
+  }
+
+  static SslContextBuilder initSslContextBuilderForServer(KeyManagerConf keyManagerConfig) {
+    final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
+    final CertificatesConf certificates = keyManagerConfig.getKeyCertificates();
+
+    if (keyManagerConfig.isFileBased()) {
+      return SslContextBuilder.forServer(certificates.getFile(), privateKey.getFile());
+    } else {
+      return SslContextBuilder.forServer(privateKey.get(), certificates.get());
+    }
+  }
+
+  static SslContextBuilder initSslContextBuilderForServer(TlsConf tlsConf) {
+    final SslContextBuilder b = initSslContextBuilderForServer(tlsConf.getKeyManager());
+    if (tlsConf.isMutualTls()) {
+      setTrustManager(b, tlsConf.getTrustManager());
+    }
+    return b;
+  }
+
+  static SslContext buildSslContextForServer(TlsConf tlsConf) {
+    return buildSslContext(tlsConf, true, NettyUtils::initSslContextBuilderForServer);
+  }
+
+  static SslContextBuilder initSslContextBuilderForClient(TlsConf tlsConf) {
+    final SslContextBuilder b = SslContextBuilder.forClient();
+    setTrustManager(b, tlsConf.getTrustManager());
+    if (tlsConf.isMutualTls()) {
+      setKeyManager(b, tlsConf.getKeyManager());
+    }
+    return b;
+  }
+
+  static SslContext buildSslContextForClient(TlsConf tlsConf) {
+    return buildSslContext(tlsConf, false, NettyUtils::initSslContextBuilderForClient);
+  }
+
+  static SslContext buildSslContext(TlsConf tlsConf, boolean isServer, Function<TlsConf, SslContextBuilder> builder) {
+    if (tlsConf == null) {
+      return null;
+    }
+    try {
+      return builder.apply(tlsConf).build();
+    } catch (Exception e) {
+      final String message = "Failed to build a " + (isServer ? "server" : "client") + " SslContext from " + tlsConf;
+      throw new IllegalArgumentException(message, e);
+    }
   }
 }
