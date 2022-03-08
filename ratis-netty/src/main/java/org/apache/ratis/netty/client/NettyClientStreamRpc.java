@@ -64,14 +64,14 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     private static final AtomicReference<EventLoopGroup> SHARED_WORKER_GROUP = new AtomicReference<>();
 
     static EventLoopGroup newWorkerGroup(RaftProperties properties) {
-      return new NioEventLoopGroup(NettyConfigKeys.DataStream.clientWorkerGroupSize(properties));
+      return new NioEventLoopGroup(NettyConfigKeys.DataStream.Client.workerGroupSize(properties));
     }
 
     private final EventLoopGroup workerGroup;
     private final boolean ignoreShutdown;
 
     WorkerGroupGetter(RaftProperties properties) {
-      if (NettyConfigKeys.DataStream.clientWorkerGroupShare(properties)) {
+      if (NettyConfigKeys.DataStream.Client.workerGroupShare(properties)) {
         workerGroup = SHARED_WORKER_GROUP.updateAndGet(g -> g != null? g: newWorkerGroup(properties));
         ignoreShutdown = true;
       } else {
@@ -144,7 +144,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         .option(ChannelOption.SO_KEEPALIVE, true)
         .connect(NetUtils.createSocketAddr(server.getDataStreamAddress()));
     this.channel = JavaUtils.memoize(() -> f.syncUninterruptibly().channel());
-    this.replyQueueGracePeriod = NettyConfigKeys.DataStream.clientReplyQueueGracePeriod(properties);
+    this.replyQueueGracePeriod = NettyConfigKeys.DataStream.Client.replyQueueGracePeriod(properties);
   }
 
   private Channel getChannel() {

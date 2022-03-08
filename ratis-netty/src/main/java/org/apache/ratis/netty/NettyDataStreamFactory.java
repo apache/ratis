@@ -34,8 +34,7 @@ public class NettyDataStreamFactory implements DataStreamServerFactory, DataStre
   private final TlsConf tlsConf;
 
   public NettyDataStreamFactory(Parameters parameters) {
-    //TODO: RATIS-1542: get TlsConf from parameters and add tls tests
-    this((TlsConf) null);
+    this(NettyConfigKeys.DataStream.tlsConf(parameters));
   }
 
   private NettyDataStreamFactory(TlsConf tlsConf) {
