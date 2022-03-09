@@ -348,15 +348,15 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, FORCE_SYNC_NUM_KEY, forceSyncNum);
     }
 
-
-    String FLUSH_INTERVAL_MIN_KEY = PREFIX + ".flush.interval.min";
-    TimeDuration FLUSH_INTERVAL_MIN_DEFAULT = TimeDuration.ZERO;
-    static TimeDuration flushIntervalMin(RaftProperties properties) {
-      return getTimeDuration(properties.getTimeDuration(FLUSH_INTERVAL_MIN_DEFAULT.getUnit()),
-              FLUSH_INTERVAL_MIN_KEY, FLUSH_INTERVAL_MIN_DEFAULT, getDefaultLog());
+    /** Unsafe-flush allow increasing flush index without waiting the actual flush to complete. */
+    String UNSAFE_FLUSH_ENABLED_KEY = PREFIX + ".unsafe-flush.enabled";
+    boolean UNSAFE_FLUSH_ENABLED_DEFAULT = false;
+    static boolean unsafeFlushEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+              UNSAFE_FLUSH_ENABLED_KEY, UNSAFE_FLUSH_ENABLED_DEFAULT, getDefaultLog());
     }
-    static void setFlushIntervalMin(RaftProperties properties, TimeDuration flushTimeInterval) {
-      setTimeDuration(properties::setTimeDuration, FLUSH_INTERVAL_MIN_KEY, flushTimeInterval);
+    static void setUnsafeFlushEnabled(RaftProperties properties, boolean unsafeFlush) {
+      setBoolean(properties::setBoolean, UNSAFE_FLUSH_ENABLED_KEY, unsafeFlush);
     }
 
     /** The policy to handle corrupted raft log. */
