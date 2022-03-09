@@ -32,6 +32,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 
 /** Client utilities for internal use. */
 public interface ClientImplUtils {
+  @SuppressWarnings("checkstyle:ParameterNumber")
   static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
       RaftPeerId leaderId, RaftPeer primaryDataStreamServer, RaftClientRpc clientRpc, RetryPolicy retryPolicy,
       RaftProperties properties, Parameters parameters) {
