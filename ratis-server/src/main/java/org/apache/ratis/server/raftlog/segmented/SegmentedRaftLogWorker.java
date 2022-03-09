@@ -175,8 +175,6 @@ class SegmentedRaftLogWorker {
   private final RaftServer.Division server;
   private int flushBatchSize;
 
-  private Timestamp lastFlush;
-  private final TimeDuration flushIntervalMin;
   private final boolean unsafeFlush;
   private final ExecutorService flushExecutor;
 
@@ -218,8 +216,6 @@ class SegmentedRaftLogWorker {
 
     final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
-    this.lastFlush = Timestamp.currentTime();
-    this.flushIntervalMin = RaftServerConfigKeys.Log.flushIntervalMin(properties);
     this.unsafeFlush = RaftServerConfigKeys.Log.unsafeFlushEnabled(properties);
     this.flushExecutor = !unsafeFlush? null
         : Executors.newSingleThreadExecutor(ConcurrentUtils.newThreadFactory(name + "-flush"));
@@ -365,17 +361,6 @@ class SegmentedRaftLogWorker {
   @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
   private void flushIfNecessary() throws IOException {
     if (shouldFlush()) {
-      if (lastFlush.elapsedTime().compareTo(flushIntervalMin) < 0) {
-        CompletableFuture.runAsync(() -> {
-          try {
-            sleepBeforeFlush();
-            flushIfNecessary();
-          } catch (IOException e) {
-            throw new CompletionException("Failed to flush", e);
-          }
-        }, flushExecutor);
-        return;
-      }
       raftLogMetrics.onRaftLogFlush();
       LOG.debug("{}: flush {}", name, out);
       final Timer.Context timerContext = logFlushTimer.time();
@@ -405,29 +390,15 @@ class SegmentedRaftLogWorker {
 
   private void unsafeFlushOutStream() throws IOException {
     final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
-    out.asyncFlush(flushExecutor).whenComplete((v, e) -> {
-      lastFlush = Timestamp.currentTime();
-      logSyncTimerContext.stop();
-    });
+    out.asyncFlush(flushExecutor).whenComplete((v, e) -> logSyncTimerContext.stop());
   }
 
   private void flushOutStream() throws IOException {
     final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
     try {
       out.flush();
-      lastFlush = Timestamp.currentTime();
     } finally {
       logSyncTimerContext.stop();
-    }
-  }
-
-  private void sleepBeforeFlush() {
-    try {
-      flushIntervalMin.subtract(this.lastFlush.elapsedTime()).sleep();
-    } catch (InterruptedException e) {
-      if (running) {
-        LOG.warn("{}: {} got interrupted while still running", this, Thread.currentThread().getName());
-      }
     }
   }
 
