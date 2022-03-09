@@ -50,10 +50,7 @@ import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -334,7 +331,6 @@ class SegmentedRaftLogWorker {
           }
           task.done();
         }
-        flushIfNecessary();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         if (running) {
@@ -369,6 +365,17 @@ class SegmentedRaftLogWorker {
   @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
   private void flushIfNecessary() throws IOException {
     if (shouldFlush()) {
+      if (lastFlush.elapsedTime().compareTo(flushIntervalMin) < 0) {
+        CompletableFuture.runAsync(() -> {
+          try {
+            sleepBeforeFlush();
+            flushIfNecessary();
+          } catch (IOException e) {
+            throw new CompletionException("Failed to flush", e);
+          }
+        }, flushExecutor);
+        return;
+      }
       raftLogMetrics.onRaftLogFlush();
       LOG.debug("{}: flush {}", name, out);
       final Timer.Context timerContext = logFlushTimer.time();
@@ -397,7 +404,6 @@ class SegmentedRaftLogWorker {
   }
 
   private void unsafeFlushOutStream() throws IOException {
-    sleepBeforeFlush();
     final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
     out.asyncFlush(flushExecutor).whenComplete((v, e) -> {
       lastFlush = Timestamp.currentTime();
@@ -406,7 +412,6 @@ class SegmentedRaftLogWorker {
   }
 
   private void flushOutStream() throws IOException {
-    sleepBeforeFlush();
     final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
     try {
       out.flush();
