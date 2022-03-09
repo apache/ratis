@@ -348,6 +348,17 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, FORCE_SYNC_NUM_KEY, forceSyncNum);
     }
 
+    /** Unsafe-flush allow increasing flush index without waiting the actual flush to complete. */
+    String UNSAFE_FLUSH_ENABLED_KEY = PREFIX + ".unsafe-flush.enabled";
+    boolean UNSAFE_FLUSH_ENABLED_DEFAULT = false;
+    static boolean unsafeFlushEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+              UNSAFE_FLUSH_ENABLED_KEY, UNSAFE_FLUSH_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setUnsafeFlushEnabled(RaftProperties properties, boolean unsafeFlush) {
+      setBoolean(properties::setBoolean, UNSAFE_FLUSH_ENABLED_KEY, unsafeFlush);
+    }
+
 
     String FLUSH_INTERVAL_MIN_KEY = PREFIX + ".flush.interval.min";
     TimeDuration FLUSH_INTERVAL_MIN_DEFAULT = TimeDuration.ZERO;
