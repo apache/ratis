@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.netty;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
@@ -39,7 +38,6 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
-import org.apache.ratis.util.Log4jUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
