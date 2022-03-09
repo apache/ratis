@@ -48,12 +48,14 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -145,10 +147,36 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         .connect(NetUtils.createSocketAddr(server.getDataStreamAddress()));
     this.channel = JavaUtils.memoize(() -> f.syncUninterruptibly().channel());
     this.replyQueueGracePeriod = NettyConfigKeys.DataStream.clientReplyQueueGracePeriod(properties);
+    cleanRepliesInterval();
   }
 
   private Channel getChannel() {
     return channel.get();
+  }
+
+  private void cleanRepliesInterval() {
+    TimeUnit unit = replyQueueGracePeriod.getUnit();
+    this.workerGroup.get().scheduleAtFixedRate(() -> {
+      for (Map.Entry<ClientInvocationId, ReplyQueue> entry : replies.entrySet()) {
+        final ClientInvocationId clientInvocationId = entry.getKey();
+        final ReplyQueue queue = entry.getValue();
+        final Integer emptyId = queue.getEmptyId();
+        if (emptyId != null && queue.size() == 0) {
+          // remove the queue if the same queue has been empty for the entire grace period.
+          replies.computeIfPresent(clientInvocationId,
+              (key, q) -> {
+                if (q == queue && emptyId.equals(q.getEmptyId())) {
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("clean empty queue ClientInvocationId: {} emptyId: {}",
+                        clientInvocationId, emptyId);
+                  }
+                  return null;
+                }
+                return q;
+              });
+        }
+      }
+    }, 200, replyQueueGracePeriod.toLong(unit), unit);
   }
 
   private ChannelInboundHandler getClientHandler(){
@@ -176,15 +204,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
               final IllegalStateException e = new IllegalStateException(
                   this + ": an earlier request failed with " + reply);
               queue.forEach(future -> future.completeExceptionally(e));
-            }
-
-            final Integer emptyId = queue.getEmptyId();
-            if (emptyId != null) {
-              timeoutScheduler.onTimeout(replyQueueGracePeriod,
-                  // remove the queue if the same queue has been empty for the entire grace period.
-                  () -> replies.computeIfPresent(clientInvocationId,
-                      (key, q) -> q == queue && emptyId.equals(q.getEmptyId())? null: q),
-                  LOG, () -> "Timeout check failed, clientInvocationId=" + clientInvocationId);
             }
           }
         }
