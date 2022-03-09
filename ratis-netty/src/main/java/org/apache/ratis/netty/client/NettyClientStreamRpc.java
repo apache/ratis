@@ -46,6 +46,7 @@ import org.apache.ratis.util.TimeoutScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetSocketAddress;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -137,12 +138,13 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     this.workerGroup = new WorkerGroupGetter(properties);
 
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
+    final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final ChannelFuture f = new Bootstrap()
         .group(workerGroup.get())
         .channel(NioSocketChannel.class)
-        .handler(newChannelInitializer(sslContext))
+        .handler(newChannelInitializer(sslContext, address))
         .option(ChannelOption.SO_KEEPALIVE, true)
-        .connect(NetUtils.createSocketAddr(server.getDataStreamAddress()));
+        .connect(address);
     this.channel = JavaUtils.memoize(() -> f.syncUninterruptibly().channel());
     this.replyQueueGracePeriod = NettyConfigKeys.DataStream.Client.replyQueueGracePeriod(properties);
   }
@@ -205,13 +207,13 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     };
   }
 
-  private ChannelInitializer<SocketChannel> newChannelInitializer(SslContext sslContext){
+  private ChannelInitializer<SocketChannel> newChannelInitializer(SslContext sslContext, InetSocketAddress address){
     return new ChannelInitializer<SocketChannel>(){
       @Override
       public void initChannel(SocketChannel ch) {
         ChannelPipeline p = ch.pipeline();
         if (sslContext != null) {
-          p.addLast("ssl", sslContext.newHandler(ch.alloc()));
+          p.addLast("ssl", sslContext.newHandler(ch.alloc(), address.getHostName(), address.getPort()));
         }
         p.addLast(newEncoder());
         p.addLast(newEncoderDataStreamRequestFilePositionCount());

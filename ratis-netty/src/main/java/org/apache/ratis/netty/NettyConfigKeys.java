@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.netty;
 
+import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.security.TlsConf;
@@ -73,17 +74,18 @@ public interface NettyConfigKeys {
       setInt(properties::setInt, PORT_KEY, port);
     }
 
-    String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
-    Class<TlsConf> TLS_CONF_CLASS = TlsConf.class;
-    static TlsConf tlsConf(Parameters parameters) {
-      return parameters != null ? parameters.get(TLS_CONF_PARAMETER, TLS_CONF_CLASS): null;
-    }
-    static void setTlsConf(Parameters parameters, TlsConf conf) {
-      parameters.put(TLS_CONF_PARAMETER, conf, TlsConf.class);
-    }
-
     interface Client {
       String PREFIX = DataStream.PREFIX + ".client";
+
+      String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
+      Class<TlsConf> TLS_CONF_CLASS = TlsConf.class;
+      static TlsConf tlsConf(Parameters parameters) {
+        return getTlsConf(key -> parameters.get(key, TLS_CONF_CLASS), TLS_CONF_PARAMETER, getDefaultLog());
+      }
+      static void setTlsConf(Parameters parameters, TlsConf conf) {
+        LOG.info("setTlsConf " + conf);
+        ConfUtils.setTlsConf((key, value) -> parameters.put(key, value, TLS_CONF_CLASS), TLS_CONF_PARAMETER, conf);
+      }
 
       String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
       int WORKER_GROUP_SIZE_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
@@ -118,6 +120,16 @@ public interface NettyConfigKeys {
 
     interface Server {
       String PREFIX = DataStream.PREFIX + ".server";
+
+      String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
+      Class<TlsConf> TLS_CONF_CLASS = TlsConf.class;
+      static TlsConf tlsConf(Parameters parameters) {
+        return getTlsConf(key -> parameters.get(key, TLS_CONF_CLASS), TLS_CONF_PARAMETER, getDefaultLog());
+      }
+      static void setTlsConf(Parameters parameters, TlsConf conf) {
+        LOG.info("setTlsConf " + conf);
+        ConfUtils.setTlsConf((key, value) -> parameters.put(key, value, TLS_CONF_CLASS), TLS_CONF_PARAMETER, conf);
+      }
 
       String USE_EPOLL_KEY = PREFIX + ".use-epoll";
       boolean USE_EPOLL_DEFAULT = false;

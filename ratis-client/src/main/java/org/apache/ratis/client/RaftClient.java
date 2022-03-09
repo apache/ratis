@@ -118,8 +118,8 @@ public interface RaftClient extends Closeable {
         }
       }
       return ClientImplUtils.newRaftClient(clientId, group, leaderId, primaryDataStreamServer,
-          Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
-          properties, retryPolicy);
+          Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."), retryPolicy,
+          properties, parameters);
     }
 
     /** Set {@link RaftClient} ID. */
