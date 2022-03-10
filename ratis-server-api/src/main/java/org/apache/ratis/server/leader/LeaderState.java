@@ -30,7 +30,7 @@ import java.util.List;
 public interface LeaderState {
   /** The reasons that this leader steps down and becomes a follower. */
   enum StepDownReason {
-    HIGHER_TERM, HIGHER_PRIORITY, LOST_MAJORITY_HEARTBEATS, STATE_MACHINE_EXCEPTION, JVM_PAUSE;
+    HIGHER_TERM, HIGHER_PRIORITY, LOST_MAJORITY_HEARTBEATS, STATE_MACHINE_EXCEPTION, JVM_PAUSE, FORCE;
 
     private final String longName = JavaUtils.getClassSimpleName(getClass()) + ":" + name();
 

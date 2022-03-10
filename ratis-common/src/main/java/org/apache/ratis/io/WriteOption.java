@@ -27,4 +27,8 @@ public interface WriteOption {
 
     return false;
   }
+
+  default boolean isOneOf(WriteOption... options) {
+    return containsOption(options, this);
+  }
 }

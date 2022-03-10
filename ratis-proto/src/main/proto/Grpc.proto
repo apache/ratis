@@ -62,6 +62,9 @@ service AdminProtocolService {
   rpc snapshotManagement(ratis.common.SnapshotManagementRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}
 
+  rpc leaderElectionManagement(ratis.common.LeaderElectionManagementRequestProto)
+      returns(ratis.common.RaftClientReplyProto) {}
+
   rpc groupList(ratis.common.GroupListRequestProto)
       returns(ratis.common.GroupListReplyProto) {}
 

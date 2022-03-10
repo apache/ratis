@@ -25,12 +25,22 @@ import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.netty.client.NettyClientStreamRpc;
 import org.apache.ratis.netty.server.NettyServerStreamRpc;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DataStreamServerFactory;
 import org.apache.ratis.server.RaftServer;
 
 public class NettyDataStreamFactory implements DataStreamServerFactory, DataStreamClientFactory {
-  public NettyDataStreamFactory(Parameters parameters){}
+  private final TlsConf tlsConf;
+
+  public NettyDataStreamFactory(Parameters parameters) {
+    //TODO: RATIS-1542: get TlsConf from parameters and add tls tests
+    this((TlsConf) null);
+  }
+
+  private NettyDataStreamFactory(TlsConf tlsConf) {
+    this.tlsConf = tlsConf;
+  }
 
   @Override
   public SupportedDataStreamType getDataStreamType() {
@@ -39,11 +49,11 @@ public class NettyDataStreamFactory implements DataStreamServerFactory, DataStre
 
   @Override
   public DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties) {
-    return new NettyClientStreamRpc(server, properties);
+    return new NettyClientStreamRpc(server, tlsConf, properties);
   }
 
   @Override
   public DataStreamServerRpc newDataStreamServerRpc(RaftServer server) {
-    return new NettyServerStreamRpc(server);
+    return new NettyServerStreamRpc(server, tlsConf);
   }
 }

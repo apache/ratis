@@ -501,11 +501,12 @@ public interface ClientProtoUtils {
       SetConfigurationRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final List<RaftPeer> peers = ProtoUtils.toRaftPeers(p.getPeersList());
+    final List<RaftPeer> listeners = ProtoUtils.toRaftPeers(p.getListenersList());
     return new SetConfigurationRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-        p.getRpcRequest().getCallId(), peers);
+        p.getRpcRequest().getCallId(), peers, listeners);
   }
 
   static SetConfigurationRequestProto toSetConfigurationRequestProto(
@@ -513,28 +514,32 @@ public interface ClientProtoUtils {
     return SetConfigurationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(request.getPeersInNewConf()))
+        .addAllListeners(ProtoUtils.toRaftPeerProtos(request.getListenersInNewConf()))
         .build();
   }
 
   static TransferLeadershipRequest toTransferLeadershipRequest(
       TransferLeadershipRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    final RaftPeer newLeader = ProtoUtils.toRaftPeer(p.getNewLeader());
+    final RaftPeerId newLeader = p.hasNewLeader()? ProtoUtils.toRaftPeer(p.getNewLeader()).getId(): null;
     return new TransferLeadershipRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
         p.getRpcRequest().getCallId(),
-        newLeader.getId(),
+        newLeader,
         m.getTimeoutMs());
   }
 
   static TransferLeadershipRequestProto toTransferLeadershipRequestProto(
       TransferLeadershipRequest request) {
-    return TransferLeadershipRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .setNewLeader(RaftPeer.newBuilder().setId(request.getNewLeader()).build().getRaftPeerProto())
-        .build();
+    final TransferLeadershipRequestProto.Builder b = TransferLeadershipRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    Optional.ofNullable(request.getNewLeader())
+        .map(l -> RaftPeer.newBuilder().setId(l).build())
+        .map(RaftPeer::getRaftPeerProto)
+        .ifPresent(b::setNewLeader);
+    return b.build();
   }
 
   static GroupManagementRequest toGroupManagementRequest(GroupManagementRequestProto p) {
@@ -615,6 +620,37 @@ public interface ClientProtoUtils {
     final SnapshotManagementRequest.Create create = request.getCreate();
     if (create != null) {
       b.setCreate(SnapshotCreateRequestProto.newBuilder().build());
+    }
+    return b.build();
+  }
+
+  static LeaderElectionManagementRequest toLeaderElectionManagementRequest(LeaderElectionManagementRequestProto p) {
+    final RaftRpcRequestProto m = p.getRpcRequest();
+    final ClientId clientId = ClientId.valueOf(m.getRequestorId());
+    final RaftPeerId serverId = RaftPeerId.valueOf(m.getReplyId());
+    switch(p.getOpCase()) {
+      case PAUSE:
+        return LeaderElectionManagementRequest.newPause(clientId, serverId,
+            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId());
+      case RESUME:
+        return LeaderElectionManagementRequest.newResume(clientId, serverId,
+            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId());
+      default:
+        throw new IllegalArgumentException("Unexpected op " + p.getOpCase() + " in " + p);
+    }
+  }
+
+  static LeaderElectionManagementRequestProto toLeaderElectionManagementRequestProto(
+      LeaderElectionManagementRequest request) {
+    final LeaderElectionManagementRequestProto.Builder b = LeaderElectionManagementRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    final LeaderElectionManagementRequest.Pause pause = request.getPause();
+    if (pause != null) {
+      b.setPause(LeaderElectionPauseRequestProto.newBuilder().build());
+    }
+    final LeaderElectionManagementRequest.Resume resume = request.getResume();
+    if (resume != null) {
+      b.setResume(LeaderElectionResumeRequestProto.newBuilder().build());
     }
     return b.build();
   }

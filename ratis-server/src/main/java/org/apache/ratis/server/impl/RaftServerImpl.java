@@ -315,8 +315,8 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   static boolean registerMBean(
-      RaftPeerId id, RaftGroupId groupdId, RaftServerMXBean mBean, JmxRegister jmx) {
-    final String prefix = "Ratis:service=RaftServer,group=" + groupdId + ",id=";
+      RaftPeerId id, RaftGroupId groupId, RaftServerMXBean mBean, JmxRegister jmx) {
+    final String prefix = "Ratis:service=RaftServer,group=" + groupId + ",id=";
     final String registered = jmx.register(mBean, Arrays.asList(
         () -> prefix + id,
         () -> prefix + ObjectName.quote(id.toString())));
@@ -922,6 +922,10 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
+  RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException {
+    return waitForReply(request, transferLeadershipAsync(request));
+  }
+
   private CompletableFuture<RaftClientReply> logAndReturnTransferLeadershipFail(
       TransferLeadershipRequest request, String msg) {
     LOG.warn(msg);
@@ -937,12 +941,12 @@ class RaftServerImpl implements RaftServer.Division,
     transferLeadership.finish(state.getLeaderId(), false);
   }
 
-  RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException {
-    return waitForReply(request, transferLeadershipAsync(request));
-  }
-
   CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
       throws IOException {
+    if (request.getNewLeader() == null) {
+      return stepDownLeaderAsync(request);
+    }
+
     LOG.info("{}: receive transferLeadership {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
@@ -1014,23 +1018,33 @@ class RaftServerImpl implements RaftServer.Division,
     return snapshotRequestHandler;
   }
 
-  CompletableFuture<RaftClientReply> setLeaderElectionAsync(LeaderElectionRequest request) throws IOException {
-    LOG.info("{} receive pauseLeaderElection {}", getMemberId(), request);
+  CompletableFuture<RaftClientReply> leaderElectionManagementAsync(LeaderElectionManagementRequest request)
+      throws IOException {
+    LOG.info("{} receive leaderElectionManagement request {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
-    final LeaderElectionRequest.Pause pause = request.getPause();
+    final LeaderElectionManagementRequest.Pause pause = request.getPause();
     if (pause != null) {
       getRole().setLeaderElectionPause(true);
       return CompletableFuture.completedFuture(newSuccessReply(request));
     }
-    final LeaderElectionRequest.Resume resume = request.getResume();
+    final LeaderElectionManagementRequest.Resume resume = request.getResume();
     if (resume != null) {
       getRole().setLeaderElectionPause(false);
       return CompletableFuture.completedFuture(newSuccessReply(request));
     }
     return JavaUtils.completeExceptionally(new UnsupportedOperationException(
         getId() + ": Request not supported " + request));
+  }
+
+  CompletableFuture<RaftClientReply> stepDownLeaderAsync(TransferLeadershipRequest request) throws IOException {
+    LOG.info("{} receive stepDown leader request {}", getMemberId(), request);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
+    return role.getLeaderState().map(leader -> leader.submitStepDownRequestAsync(request))
+        .orElseGet(() -> CompletableFuture.completedFuture(newSuccessReply(request)));
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
@@ -1395,11 +1409,6 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {
     return snapshotInstallationHandler.installSnapshot(request);
-  }
-
-  void setLeaderElectionPause(boolean pause) throws ServerNotReadyException {
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    role.setLeaderElectionPause(pause);
   }
 
   boolean pause() {

@@ -78,13 +78,11 @@
     <module>ratis-resource-bundle</module>
     <module>ratis-grpc</module>
     <module>ratis-netty</module>
-    <module>ratis-hadoop</module>
 
     <module>ratis-test</module>
 
     <module>ratis-examples</module>
     <module>ratis-replicated-map</module>
-    <module>ratis-logservice</module>
     <module>ratis-metrics</module>
     <module>ratis-tools</module>
     <module>ratis-shell</module>
@@ -198,9 +196,6 @@
 
     <shell-executable>bash</shell-executable>
 
-    <hadoop.version>3.3.1</hadoop.version>
-    <hadoop-maven-plugins.version>${hadoop.version}</hadoop-maven-plugins.version>
-
     <!-- define the Java language version used by the compiler -->
     <javac.version>1.8</javac.version>
     <java.min.version>${javac.version}</java.min.version>
@@ -212,8 +207,6 @@
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
     <shaded.protobuf.version>3.12.0</shaded.protobuf.version>
     <shaded.grpc.version>1.33.0</shaded.grpc.version>
-
-    <hadoop.protobuf.version>2.5.0</hadoop.protobuf.version>
 
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
@@ -320,18 +313,6 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
-      <dependency>
-        <artifactId>ratis-hadoop</artifactId>
-        <groupId>org.apache.ratis</groupId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <artifactId>ratis-hadoop</artifactId>
-        <groupId>org.apache.ratis</groupId>
-        <version>${project.version}</version>
-        <type>test-jar</type>
-        <scope>test</scope>
-      </dependency>
 
       <dependency>
         <artifactId>ratis-netty</artifactId>
@@ -399,19 +380,6 @@
 
       <dependency>
         <groupId>org.apache.ratis</groupId>
-        <artifactId>ratis-logservice</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <artifactId>ratis-logservice</artifactId>
-        <groupId>org.apache.ratis</groupId>
-        <version>${project.version}</version>
-        <type>test-jar</type>
-        <scope>test</scope>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.ratis</groupId>
         <artifactId>ratis-thirdparty-misc</artifactId>
         <version>${ratis.thirdparty.version}</version>
       </dependency>
@@ -461,14 +429,8 @@
       <dependency>
         <groupId>org.mockito</groupId>
         <artifactId>mockito-core</artifactId>
-        <version>3.5.15</version>
+        <version>4.3.1</version>
       </dependency>
-	    <dependency>
-	      <groupId>org.jline</groupId>
-	      <artifactId>jline</artifactId>
-	      <version>3.9.0</version>
-	    </dependency>
-
       <dependency>
         <groupId>org.apache.tomcat</groupId>
         <artifactId>annotations-api</artifactId>
@@ -559,12 +521,6 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-pdf-plugin</artifactId>
           <version>${maven-pdf-plugin.version}</version>
-        </plugin>
-
-        <plugin>
-          <groupId>org.apache.hadoop</groupId>
-          <artifactId>hadoop-maven-plugins</artifactId>
-          <version>${hadoop-maven-plugins.version}</version>
         </plugin>
 
         <plugin>

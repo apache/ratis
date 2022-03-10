@@ -51,6 +51,8 @@ message RaftGroupMemberIdProto {
 message RaftConfigurationProto {
   repeated RaftPeerProto peers = 1; // the peers in the current or new conf
   repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
+  repeated RaftPeerProto listeners = 3;
+  repeated RaftPeerProto oldListeners = 4;
 }
 
 message StateMachineEntryProto {
@@ -263,6 +265,7 @@ enum RaftPeerRole {
   LEADER = 0;
   CANDIDATE = 1;
   FOLLOWER = 2;
+  LISTENER = 3;
 }
 
 message WriteRequestTypeProto {
@@ -405,12 +408,31 @@ message RaftClientReplyProto {
 message SetConfigurationRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
   repeated RaftPeerProto peers = 2;
+  repeated RaftPeerProto listeners = 3;
 }
 
 // transfer leadership request
 message TransferLeadershipRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
   RaftPeerProto newLeader = 2;
+}
+
+// leader election request
+message LeaderElectionManagementRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+
+  oneof Op {
+    LeaderElectionPauseRequestProto pause = 2;
+    LeaderElectionResumeRequestProto resume = 3;
+  }
+}
+
+message LeaderElectionPauseRequestProto {
+
+}
+
+message LeaderElectionResumeRequestProto {
+
 }
 
 // snapshot request

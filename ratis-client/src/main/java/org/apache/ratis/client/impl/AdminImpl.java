@@ -37,19 +37,19 @@ class AdminImpl implements AdminApi {
   }
 
   @Override
-  public RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf) throws IOException {
+  public RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf, List<RaftPeer> listenersInNewConf)
+      throws IOException {
     Objects.requireNonNull(peersInNewConf, "peersInNewConf == null");
 
     final long callId = CallId.getAndIncrement();
     // also refresh the rpc proxies for these peers
     client.getClientRpc().addRaftPeers(peersInNewConf);
     return client.io().sendRequestWithRetry(() -> new SetConfigurationRequest(
-        client.getId(), client.getLeaderId(), client.getGroupId(), callId, peersInNewConf));
+        client.getId(), client.getLeaderId(), client.getGroupId(), callId, peersInNewConf, listenersInNewConf));
   }
 
   @Override
   public RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException {
-    Objects.requireNonNull(newLeader, "newLeader == null");
     final long callId = CallId.getAndIncrement();
     return client.io().sendRequestWithRetry(() -> new TransferLeadershipRequest(
         client.getId(), client.getLeaderId(), client.getGroupId(), callId, newLeader, timeoutMs));

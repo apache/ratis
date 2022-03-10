@@ -73,6 +73,12 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
           (SnapshotManagementRequest) request);
       b.setSnapshotManagementRequest(proto);
       rpcRequest = proto.getRpcRequest();
+    } else if (request instanceof LeaderElectionManagementRequest) {
+      final RaftProtos.LeaderElectionManagementRequestProto proto =
+          ClientProtoUtils.toLeaderElectionManagementRequestProto(
+          (LeaderElectionManagementRequest) request);
+      b.setLeaderElectionManagementRequest(proto);
+      rpcRequest = proto.getRpcRequest();
     } else {
       final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
       b.setRaftClientRequest(proto);

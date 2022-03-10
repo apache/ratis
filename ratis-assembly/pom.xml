@@ -231,16 +231,6 @@
     </dependency>
 
     <dependency>
-      <artifactId>ratis-hadoop</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-hadoop</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <type>test-jar</type>
-    </dependency>
-
-    <dependency>
       <artifactId>ratis-test</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
@@ -270,15 +260,6 @@
       <type>test-jar</type>
     </dependency>
 
-    <dependency>
-      <artifactId>ratis-logservice</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-logservice</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <type>test-jar</type>
-    </dependency>
     <dependency>
       <groupId>org.apache.ratis</groupId>
       <artifactId>ratis-metrics</artifactId>

@@ -23,6 +23,7 @@ import org.apache.ratis.client.api.AsyncApi;
 import org.apache.ratis.client.api.BlockingApi;
 import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.GroupManagementApi;
+import org.apache.ratis.client.api.LeaderElectionManagementApi;
 import org.apache.ratis.client.api.MessageStreamApi;
 import org.apache.ratis.client.api.SnapshotManagementApi;
 import org.apache.ratis.client.impl.ClientImplUtils;
@@ -63,6 +64,9 @@ public interface RaftClient extends Closeable {
 
   /** Get the {@link SnapshotManagementApi} for the given server. */
   SnapshotManagementApi getSnapshotManagementApi(RaftPeerId server);
+
+  /** Get the {@link LeaderElectionManagementApi} for the given server. */
+  LeaderElectionManagementApi getLeaderElectionManagementApi(RaftPeerId server);
 
   /** @return the {@link BlockingApi}. */
   BlockingApi io();

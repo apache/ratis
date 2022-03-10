@@ -22,7 +22,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.examples.counter.CounterCommon;
+import org.apache.ratis.examples.common.Constants;
 import org.apache.ratis.grpc.GrpcFactory;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
@@ -87,7 +87,7 @@ public final class CounterClient {
     RaftProperties raftProperties = new RaftProperties();
     RaftClient.Builder builder = RaftClient.newBuilder()
         .setProperties(raftProperties)
-        .setRaftGroup(CounterCommon.RAFT_GROUP)
+        .setRaftGroup(Constants.RAFT_GROUP)
         .setClientRpc(
             new GrpcFactory(new Parameters())
                 .newRaftClientRpc(ClientId.randomId(), raftProperties));
