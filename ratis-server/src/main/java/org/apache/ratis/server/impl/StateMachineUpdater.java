@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.Message;
@@ -77,13 +76,15 @@ class StateMachineUpdater implements Runnable {
   private final boolean purgeUptoSnapshotIndex;
 
   private final Thread updater;
+  private final AwaitForSignal awaitForSignal;
+  private final AtomicBoolean signalled = new AtomicBoolean();
+
   private final RaftLogIndex appliedIndex;
   private final RaftLogIndex snapshotIndex;
   private final AtomicReference<Long> stopIndex = new AtomicReference<>();
   private volatile State state = State.RUNNING;
-  private final AtomicBoolean notified = new AtomicBoolean();
 
-  private SnapshotRetentionPolicy snapshotRetentionPolicy;
+  private final SnapshotRetentionPolicy snapshotRetentionPolicy;
   private StateMachineMetrics stateMachineMetrics = null;
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
@@ -111,6 +112,7 @@ class StateMachineUpdater implements Runnable {
     this.purgeUptoSnapshotIndex = RaftServerConfigKeys.Log.purgeUptoSnapshotIndex(properties);
 
     updater = new Daemon(this);
+    this.awaitForSignal = new AwaitForSignal(name);
   }
 
   void start() {
@@ -159,10 +161,9 @@ class StateMachineUpdater implements Runnable {
     notifyUpdater();
   }
 
-  @SuppressFBWarnings("NN_NAKED_NOTIFY")
-  synchronized void notifyUpdater() {
-    notified.set(true);
-    notifyAll();
+  void notifyUpdater() {
+    signalled.set(true);
+    awaitForSignal.signal();
   }
 
   @Override
@@ -199,14 +200,14 @@ class StateMachineUpdater implements Runnable {
     }
   }
 
-  private synchronized void waitForCommit() throws InterruptedException {
+  private void waitForCommit() throws InterruptedException {
     // When a peer starts, the committed is initialized to 0.
     // It will be updated only after the leader contacts other peers.
     // Thus it is possible to have applied > committed initially.
     final long applied = getLastAppliedIndex();
     for(; applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop(); ) {
-      wait();
-      if (notified.getAndSet(false)) {
+      awaitForSignal.await();
+      if (signalled.getAndSet(false)) {
         return;
       }
     }
