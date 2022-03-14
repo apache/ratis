@@ -41,6 +41,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
@@ -202,8 +203,10 @@ class StateMachineUpdater implements Runnable {
     // It will be updated only after the leader contacts other peers.
     // Thus it is possible to have applied > committed initially.
     final long applied = getLastAppliedIndex();
-    if (applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop()) {
-      awaitForSignal.await();
+    for(; applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop(); ) {
+      if (awaitForSignal.await(100, TimeUnit.MILLISECONDS)) {
+        return;
+      }
     }
   }
 
