@@ -206,7 +206,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       if (previous != null) {
         previous.channel().close();
       }
-      return supplier.get();
+      return supplier.isInitialized() ? supplier.get() : null;
     }
 
     void close() {
@@ -372,9 +372,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       if (!future.isSuccess()) {
         final IOException e = new IOException(this + ": Failed to send " + request, future.cause());
         LOG.error("Channel write failed", e);
-        if (!f.isDone()) {
-          f.completeExceptionally(e);
-        }
+        f.completeExceptionally(e);
       }
     });
     return f;
