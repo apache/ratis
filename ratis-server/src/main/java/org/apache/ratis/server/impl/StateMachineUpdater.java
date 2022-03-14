@@ -41,7 +41,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
@@ -77,7 +76,6 @@ class StateMachineUpdater implements Runnable {
 
   private final Thread updater;
   private final AwaitForSignal awaitForSignal;
-  private final AtomicBoolean signalled = new AtomicBoolean();
 
   private final RaftLogIndex appliedIndex;
   private final RaftLogIndex snapshotIndex;
@@ -162,7 +160,6 @@ class StateMachineUpdater implements Runnable {
   }
 
   void notifyUpdater() {
-    signalled.set(true);
     awaitForSignal.signal();
   }
 
@@ -205,11 +202,8 @@ class StateMachineUpdater implements Runnable {
     // It will be updated only after the leader contacts other peers.
     // Thus it is possible to have applied > committed initially.
     final long applied = getLastAppliedIndex();
-    for(; applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop(); ) {
+    if (applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop()) {
       awaitForSignal.await();
-      if (signalled.getAndSet(false)) {
-        return;
-      }
     }
   }
 
