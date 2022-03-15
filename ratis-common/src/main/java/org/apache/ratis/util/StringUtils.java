@@ -24,7 +24,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
@@ -44,7 +44,7 @@ public final class StringUtils {
   static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss_SSS");
 
   public static String currentDateTime() {
-    return LocalDate.now().format(DATE_TIME);
+    return LocalDateTime.now().format(DATE_TIME);
   }
 
   /**

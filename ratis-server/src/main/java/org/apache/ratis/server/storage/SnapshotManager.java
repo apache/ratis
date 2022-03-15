@@ -127,7 +127,7 @@ public class SnapshotManager {
             final File corruptedFile = FileUtils.move(tmpSnapshotFile, CORRUPT + StringUtils.currentDateTime());
             renameMessage = "Renamed temporary snapshot file " + tmpSnapshotFile + " to " + corruptedFile;
           } catch (IOException e) {
-            renameMessage = "Failed to rename temporary snapshot file " + tmpSnapshotFile
+            renameMessage = "Tried but failed to rename temporary snapshot file " + tmpSnapshotFile
                 + " to a " + CORRUPT + " file";
             LOG.warn(renameMessage, e);
             renameMessage += ": " + e;
