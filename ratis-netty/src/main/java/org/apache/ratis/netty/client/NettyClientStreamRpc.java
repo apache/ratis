@@ -77,7 +77,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     private static final AtomicReference<EventLoopGroup> SHARED_WORKER_GROUP = new AtomicReference<>();
 
     static EventLoopGroup newWorkerGroup(RaftProperties properties) {
-      return new NioEventLoopGroup(NettyConfigKeys.DataStream.Client.workerGroupSize(properties));
       return NettyUtils.newEventLoopGroup(
           JavaUtils.getClassSimpleName(NettyClientStreamRpc.class) + "-workerGroup",
           NettyConfigKeys.DataStream.Client.workerGroupSize(properties), false);
@@ -144,14 +143,14 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   static class Connection {
     static final TimeDuration RECONNECT = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
 
-    private final String address;
+    private final InetSocketAddress address;
     private final WorkerGroupGetter workerGroup;
     private final Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier;
 
     /** The {@link ChannelFuture} is null when this connection is closed. */
     private final AtomicReference<ChannelFuture> ref;
 
-    Connection(String address, WorkerGroupGetter workerGroup,
+    Connection(InetSocketAddress address, WorkerGroupGetter workerGroup,
         Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier) {
       this.address = address;
       this.workerGroup = workerGroup;
@@ -181,7 +180,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
           .channel(NioSocketChannel.class)
           .handler(channelInitializerSupplier.get())
           .option(ChannelOption.SO_KEEPALIVE, true)
-          .connect(NetUtils.createSocketAddr(address))
+          .connect(address)
           .addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) {
@@ -240,10 +239,11 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
     this.replyQueueGracePeriod = NettyConfigKeys.DataStream.Client.replyQueueGracePeriod(properties);
 
+    final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
-    this.connection = new Connection(server.getDataStreamAddress(),
+    this.connection = new Connection(address,
         new WorkerGroupGetter(properties),
-        () -> newChannelInitializer(sslContext, getClientHandler()));
+        () -> newChannelInitializer(address, sslContext, getClientHandler()));
   }
 
   private ChannelInboundHandler getClientHandler(){
