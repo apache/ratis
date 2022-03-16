@@ -32,6 +32,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.zip.Checksum;
 
 public class SegmentedRaftLogOutputStream implements Closeable {
@@ -116,6 +118,14 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   public void flush() throws IOException {
     try {
       out.flush();
+    } catch (IOException ioe) {
+      throw new IOException("Failed to flush " + this, ioe);
+    }
+  }
+
+  CompletableFuture<Void> asyncFlush(ExecutorService executor) throws IOException {
+    try {
+      return out.asyncFlush(executor);
     } catch (IOException ioe) {
       throw new IOException("Failed to flush " + this, ioe);
     }

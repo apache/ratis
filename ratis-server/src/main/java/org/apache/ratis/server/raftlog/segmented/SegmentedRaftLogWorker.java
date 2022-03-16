@@ -50,8 +50,7 @@ import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -176,8 +175,8 @@ class SegmentedRaftLogWorker {
   private final RaftServer.Division server;
   private int flushBatchSize;
 
-  private Timestamp lastFlush;
-  private final TimeDuration flushIntervalMin;
+  private final boolean unsafeFlush;
+  private final ExecutorService flushExecutor;
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
@@ -217,8 +216,9 @@ class SegmentedRaftLogWorker {
 
     final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
-    this.lastFlush = Timestamp.currentTime();
-    this.flushIntervalMin = RaftServerConfigKeys.Log.flushIntervalMin(properties);
+    this.unsafeFlush = RaftServerConfigKeys.Log.unsafeFlushEnabled(properties);
+    this.flushExecutor = !unsafeFlush? null
+        : Executors.newSingleThreadExecutor(ConcurrentUtils.newThreadFactory(name + "-flush"));
   }
 
   void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
@@ -236,6 +236,7 @@ class SegmentedRaftLogWorker {
   void close() {
     this.running = false;
     workerThread.interrupt();
+    Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
     try {
       workerThread.join(3000);
     } catch (InterruptedException ignored) {
@@ -326,7 +327,6 @@ class SegmentedRaftLogWorker {
           }
           task.done();
         }
-        flushIfNecessary();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         if (running) {
@@ -355,7 +355,7 @@ class SegmentedRaftLogWorker {
     } else if (pendingFlushNum >= forceSyncNum) {
       return true;
     }
-    return pendingFlushNum > 0 && queue.isEmpty() && lastFlush.elapsedTime().compareTo(flushIntervalMin) > 0;
+    return pendingFlushNum > 0 && queue.isEmpty();
   }
 
   @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
@@ -371,18 +371,34 @@ class SegmentedRaftLogWorker {
         if (stateMachineDataPolicy.isSync()) {
           stateMachineDataPolicy.getFromFuture(f, () -> this + "-flushStateMachineData");
         }
-        final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
         flushBatchSize = (int)(lastWrittenIndex - flushIndex.get());
-        out.flush();
-        logSyncTimerContext.stop();
-        if (!stateMachineDataPolicy.isSync()) {
-          IOUtils.getFromFuture(f, () -> this + "-flushStateMachineData");
+        if (unsafeFlush) {
+          // unsafe-flush: call updateFlushedIndexIncreasingly() without waiting the underlying FileChannel.force(..).
+          unsafeFlushOutStream();
+        } else {
+          flushOutStream();
+          if (!stateMachineDataPolicy.isSync()) {
+            IOUtils.getFromFuture(f, () -> this + "-flushStateMachineData");
+          }
         }
       } finally {
         timerContext.stop();
-        lastFlush = Timestamp.currentTime();
       }
       updateFlushedIndexIncreasingly();
+    }
+  }
+
+  private void unsafeFlushOutStream() throws IOException {
+    final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
+    out.asyncFlush(flushExecutor).whenComplete((v, e) -> logSyncTimerContext.stop());
+  }
+
+  private void flushOutStream() throws IOException {
+    final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
+    try {
+      out.flush();
+    } finally {
+      logSyncTimerContext.stop();
     }
   }
 

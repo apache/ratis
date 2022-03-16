@@ -26,6 +26,9 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Provides a buffering layer in front of a FileChannel for writing.
@@ -86,6 +89,25 @@ class BufferedWriteChannel implements Closeable {
       fileChannel.force(false);
       forced = true;
     }
+  }
+
+  CompletableFuture<Void> asyncFlush(ExecutorService executor) throws IOException {
+    flushBuffer();
+    if (forced) {
+      return CompletableFuture.completedFuture(null);
+    }
+    final CompletableFuture<Void> f = CompletableFuture.supplyAsync(this::fileChannelForce, executor);
+    forced = true;
+    return f;
+  }
+
+  private Void fileChannelForce() {
+    try {
+      fileChannel.force(false);
+    } catch (IOException e) {
+      throw new CompletionException(e);
+    }
+    return null;
   }
 
   /**
