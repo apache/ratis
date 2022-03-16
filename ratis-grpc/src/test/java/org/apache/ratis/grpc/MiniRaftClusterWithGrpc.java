@@ -41,7 +41,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
     @Override
     public MiniRaftClusterWithGrpc newCluster(String[] ids, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.GRPC);
-      return new MiniRaftClusterWithGrpc(ids, prop);
+      return new MiniRaftClusterWithGrpc(ids, prop, null);
     }
   };
 
@@ -55,8 +55,8 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
       new DelayLocalExecutionInjection(GrpcService.GRPC_SEND_SERVER_REQUEST);
 
-  protected MiniRaftClusterWithGrpc(String[] ids, RaftProperties properties) {
-    super(ids, properties, null);
+  protected MiniRaftClusterWithGrpc(String[] ids, RaftProperties properties, Parameters parameters) {
+    super(ids, properties, parameters);
   }
 
   @Override
@@ -66,7 +66,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
         GrpcConfigKeys.Client.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
     Optional.ofNullable(getAddress(id, group, RaftPeer::getAdminAddress)).ifPresent(address ->
         GrpcConfigKeys.Admin.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
-    return null;
+    return parameters;
   }
 
   @Override

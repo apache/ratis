@@ -24,6 +24,7 @@ import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.LeaderElectionManagementApi;
 import org.apache.ratis.client.api.SnapshotManagementApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.ClientId;
@@ -146,8 +147,9 @@ public final class RaftClientImpl implements RaftClient {
   private final ConcurrentMap<RaftPeerId, LeaderElectionManagementApi>
       leaderElectionManagement = new ConcurrentHashMap<>();
 
+  @SuppressWarnings("checkstyle:ParameterNumber")
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId, RaftPeer primaryDataStreamServer,
-      RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
+      RaftClientRpc clientRpc, RetryPolicy retryPolicy, RaftProperties properties, Parameters parameters) {
     this.clientId = clientId;
     this.peers.set(group.getPeers());
     this.groupId = group.getGroupId();
@@ -173,6 +175,7 @@ public final class RaftClientImpl implements RaftClient {
         .setRaftGroupId(groupId)
         .setDataStreamServer(primaryDataStreamServer)
         .setProperties(properties)
+        .setParameters(parameters)
         .build());
     this.adminApi = JavaUtils.memoize(() -> new AdminImpl(this));
   }

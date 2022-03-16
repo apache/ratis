@@ -21,6 +21,7 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -31,11 +32,12 @@ import org.apache.ratis.protocol.RaftPeerId;
 
 /** Client utilities for internal use. */
 public interface ClientImplUtils {
+  @SuppressWarnings("checkstyle:ParameterNumber")
   static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
-      RaftPeerId leaderId, RaftPeer primaryDataStreamServer, RaftClientRpc clientRpc, RaftProperties properties,
-      RetryPolicy retryPolicy) {
-    return new RaftClientImpl(clientId, group, leaderId, primaryDataStreamServer, clientRpc, properties,
-        retryPolicy);
+      RaftPeerId leaderId, RaftPeer primaryDataStreamServer, RaftClientRpc clientRpc, RetryPolicy retryPolicy,
+      RaftProperties properties, Parameters parameters) {
+    return new RaftClientImpl(clientId, group, leaderId, primaryDataStreamServer, clientRpc, retryPolicy,
+        properties, parameters);
   }
 
   static DataStreamClient newDataStreamClient(ClientId clientId, RaftGroupId groupId, RaftPeer primaryDataStreamServer,

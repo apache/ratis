@@ -17,7 +17,10 @@
  */
 package org.apache.ratis.netty;
 
+import org.apache.ratis.conf.ConfUtils;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.thirdparty.io.netty.util.NettyRuntime;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -52,7 +55,7 @@ public interface NettyConfigKeys {
   }
 
   interface DataStream {
-    Logger LOG = LoggerFactory.getLogger(Server.class);
+    Logger LOG = LoggerFactory.getLogger(DataStream.class);
     static Consumer<String> getDefaultLog() {
       return LOG::info;
     }
@@ -71,44 +74,62 @@ public interface NettyConfigKeys {
       setInt(properties::setInt, PORT_KEY, port);
     }
 
-    String CLIENT_WORKER_GROUP_SIZE_KEY = PREFIX + ".client.worker-group.size";
-    int CLIENT_WORKER_GROUP_SIZE_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
+    interface Client {
+      String PREFIX = DataStream.PREFIX + ".client";
 
-    static int clientWorkerGroupSize(RaftProperties properties) {
-      return getInt(properties::getInt, CLIENT_WORKER_GROUP_SIZE_KEY,
-          CLIENT_WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(1), requireMax(65536));
-    }
+      String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
+      Class<TlsConf> TLS_CONF_CLASS = TlsConf.class;
+      static TlsConf tlsConf(Parameters parameters) {
+        return getTlsConf(key -> parameters.get(key, TLS_CONF_CLASS), TLS_CONF_PARAMETER, getDefaultLog());
+      }
+      static void setTlsConf(Parameters parameters, TlsConf conf) {
+        LOG.info("setTlsConf " + conf);
+        ConfUtils.setTlsConf((key, value) -> parameters.put(key, value, TLS_CONF_CLASS), TLS_CONF_PARAMETER, conf);
+      }
 
-    static void setClientWorkerGroupSize(RaftProperties properties, int clientWorkerGroupSize) {
-      setInt(properties::setInt, CLIENT_WORKER_GROUP_SIZE_KEY, clientWorkerGroupSize);
-    }
+      String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
+      int WORKER_GROUP_SIZE_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
+      static int workerGroupSize(RaftProperties properties) {
+        return getInt(properties::getInt, WORKER_GROUP_SIZE_KEY,
+            WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(1), requireMax(65536));
+      }
+      static void setWorkerGroupSize(RaftProperties properties, int clientWorkerGroupSize) {
+        setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, clientWorkerGroupSize);
+      }
 
-    String CLIENT_WORKER_GROUP_SHARE_KEY = PREFIX + ".client.worker-group.share";
-    boolean CLIENT_WORKER_GROUP_SHARE_DEFAULT = false;
+      String WORKER_GROUP_SHARE_KEY = PREFIX + ".worker-group.share";
+      boolean WORKER_GROUP_SHARE_DEFAULT = false;
+      static boolean workerGroupShare(RaftProperties properties) {
+        return getBoolean(properties::getBoolean, WORKER_GROUP_SHARE_KEY,
+            WORKER_GROUP_SHARE_DEFAULT, getDefaultLog());
+      }
+      static void setWorkerGroupShare(RaftProperties properties, boolean clientWorkerGroupShare) {
+        setBoolean(properties::setBoolean, WORKER_GROUP_SHARE_KEY, clientWorkerGroupShare);
+      }
 
-    static boolean clientWorkerGroupShare(RaftProperties properties) {
-      return getBoolean(properties::getBoolean, CLIENT_WORKER_GROUP_SHARE_KEY,
-          CLIENT_WORKER_GROUP_SHARE_DEFAULT, getDefaultLog());
-    }
-
-    static void setClientWorkerGroupShare(RaftProperties properties, boolean clientWorkerGroupShare) {
-      setBoolean(properties::setBoolean, CLIENT_WORKER_GROUP_SHARE_KEY, clientWorkerGroupShare);
-    }
-
-    String CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY = PREFIX + ".client.reply.queue.grace-period";
-    TimeDuration CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT = TimeDuration.ONE_SECOND;
-
-    static TimeDuration clientReplyQueueGracePeriod(RaftProperties properties) {
-      return getTimeDuration(properties.getTimeDuration(CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT.getUnit()),
-          CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY, CLIENT_REPLY_QUEUE_GRACE_PERIOD_DEFAULT, getDefaultLog());
-    }
-
-    static void setClientReplyQueueGracePeriod(RaftProperties properties, TimeDuration timeoutDuration) {
-      setTimeDuration(properties::setTimeDuration, CLIENT_REPLY_QUEUE_GRACE_PERIOD_KEY, timeoutDuration);
+      String REPLY_QUEUE_GRACE_PERIOD_KEY = PREFIX + ".reply.queue.grace-period";
+      TimeDuration REPLY_QUEUE_GRACE_PERIOD_DEFAULT = TimeDuration.ONE_SECOND;
+      static TimeDuration replyQueueGracePeriod(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(REPLY_QUEUE_GRACE_PERIOD_DEFAULT.getUnit()),
+            REPLY_QUEUE_GRACE_PERIOD_KEY, REPLY_QUEUE_GRACE_PERIOD_DEFAULT, getDefaultLog());
+      }
+      static void setReplyQueueGracePeriod(RaftProperties properties, TimeDuration timeoutDuration) {
+        setTimeDuration(properties::setTimeDuration, REPLY_QUEUE_GRACE_PERIOD_KEY, timeoutDuration);
+      }
     }
 
     interface Server {
-      String PREFIX = NettyConfigKeys.PREFIX + ".server";
+      String PREFIX = DataStream.PREFIX + ".server";
+
+      String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
+      Class<TlsConf> TLS_CONF_CLASS = TlsConf.class;
+      static TlsConf tlsConf(Parameters parameters) {
+        return getTlsConf(key -> parameters.get(key, TLS_CONF_CLASS), TLS_CONF_PARAMETER, getDefaultLog());
+      }
+      static void setTlsConf(Parameters parameters, TlsConf conf) {
+        LOG.info("setTlsConf " + conf);
+        ConfUtils.setTlsConf((key, value) -> parameters.put(key, value, TLS_CONF_CLASS), TLS_CONF_PARAMETER, conf);
+      }
 
       String USE_EPOLL_KEY = PREFIX + ".use-epoll";
       boolean USE_EPOLL_DEFAULT = false;

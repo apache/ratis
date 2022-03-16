@@ -57,6 +57,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -78,14 +79,14 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     static EventLoopGroup newWorkerGroup(RaftProperties properties) {
       return NettyUtils.newEventLoopGroup(
           JavaUtils.getClassSimpleName(NettyClientStreamRpc.class) + "-workerGroup",
-          NettyConfigKeys.DataStream.clientWorkerGroupSize(properties), false);
+          NettyConfigKeys.DataStream.Client.workerGroupSize(properties), false);
     }
 
     private final EventLoopGroup workerGroup;
     private final boolean ignoreShutdown;
 
     WorkerGroupGetter(RaftProperties properties) {
-      if (NettyConfigKeys.DataStream.clientWorkerGroupShare(properties)) {
+      if (NettyConfigKeys.DataStream.Client.workerGroupShare(properties)) {
         workerGroup = SHARED_WORKER_GROUP.updateAndGet(g -> g != null? g: newWorkerGroup(properties));
         ignoreShutdown = true;
       } else {
@@ -142,14 +143,14 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   static class Connection {
     static final TimeDuration RECONNECT = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
 
-    private final String address;
+    private final InetSocketAddress address;
     private final WorkerGroupGetter workerGroup;
     private final Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier;
 
     /** The {@link ChannelFuture} is null when this connection is closed. */
     private final AtomicReference<ChannelFuture> ref;
 
-    Connection(String address, WorkerGroupGetter workerGroup,
+    Connection(InetSocketAddress address, WorkerGroupGetter workerGroup,
         Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier) {
       this.address = address;
       this.workerGroup = workerGroup;
@@ -179,7 +180,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
           .channel(NioSocketChannel.class)
           .handler(channelInitializerSupplier.get())
           .option(ChannelOption.SO_KEEPALIVE, true)
-          .connect(NetUtils.createSocketAddr(address))
+          .connect(address)
           .addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) {
@@ -236,12 +237,13 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   public NettyClientStreamRpc(RaftPeer server, TlsConf tlsConf, RaftProperties properties) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
-    this.replyQueueGracePeriod = NettyConfigKeys.DataStream.clientReplyQueueGracePeriod(properties);
+    this.replyQueueGracePeriod = NettyConfigKeys.DataStream.Client.replyQueueGracePeriod(properties);
 
+    final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
-    this.connection = new Connection(server.getDataStreamAddress(),
+    this.connection = new Connection(address,
         new WorkerGroupGetter(properties),
-        () -> newChannelInitializer(sslContext, getClientHandler()));
+        () -> newChannelInitializer(address, sslContext, getClientHandler()));
   }
 
   private ChannelInboundHandler getClientHandler(){
@@ -306,13 +308,14 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     };
   }
 
-  static ChannelInitializer<SocketChannel> newChannelInitializer(SslContext sslContext, ChannelInboundHandler handler) {
+  static ChannelInitializer<SocketChannel> newChannelInitializer(
+      InetSocketAddress address, SslContext sslContext, ChannelInboundHandler handler) {
     return new ChannelInitializer<SocketChannel>(){
       @Override
       public void initChannel(SocketChannel ch) {
         ChannelPipeline p = ch.pipeline();
         if (sslContext != null) {
-          p.addLast("ssl", sslContext.newHandler(ch.alloc()));
+          p.addLast("ssl", sslContext.newHandler(ch.alloc(), address.getHostName(), address.getPort()));
         }
         p.addLast(newEncoder());
         p.addLast(newEncoderDataStreamRequestFilePositionCount());

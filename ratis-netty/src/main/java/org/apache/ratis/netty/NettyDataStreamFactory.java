@@ -17,29 +17,25 @@
  */
 package org.apache.ratis.netty;
 
-import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamClientFactory;
+import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.netty.client.NettyClientStreamRpc;
 import org.apache.ratis.netty.server.NettyServerStreamRpc;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.security.TlsConf;
-import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DataStreamServerFactory;
+import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 
+import java.util.Optional;
+
 public class NettyDataStreamFactory implements DataStreamServerFactory, DataStreamClientFactory {
-  private final TlsConf tlsConf;
+  private final Parameters parameters;
 
   public NettyDataStreamFactory(Parameters parameters) {
-    //TODO: RATIS-1542: get TlsConf from parameters and add tls tests
-    this((TlsConf) null);
-  }
-
-  private NettyDataStreamFactory(TlsConf tlsConf) {
-    this.tlsConf = tlsConf;
+    this.parameters = Optional.ofNullable(parameters).orElseGet(Parameters::new);
   }
 
   @Override
@@ -49,11 +45,11 @@ public class NettyDataStreamFactory implements DataStreamServerFactory, DataStre
 
   @Override
   public DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties) {
-    return new NettyClientStreamRpc(server, tlsConf, properties);
+    return new NettyClientStreamRpc(server, NettyConfigKeys.DataStream.Client.tlsConf(parameters), properties);
   }
 
   @Override
   public DataStreamServerRpc newDataStreamServerRpc(RaftServer server) {
-    return new NettyServerStreamRpc(server, tlsConf);
+    return new NettyServerStreamRpc(server, NettyConfigKeys.DataStream.Server.tlsConf(parameters));
   }
 }

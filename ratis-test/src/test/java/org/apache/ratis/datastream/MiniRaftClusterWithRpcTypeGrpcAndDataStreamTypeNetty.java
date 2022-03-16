@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.datastream;
 
+import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;
@@ -31,25 +32,33 @@ import org.apache.ratis.rpc.SupportedRpcType;
  * A {@link MiniRaftCluster} with {{@link SupportedRpcType#GRPC}} and {@link SupportedDataStreamType#NETTY}.
  */
 public class MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty extends MiniRaftClusterWithGrpc {
-  public static final Factory<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> FACTORY
-      = new Factory<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty>() {
+  static class Factory extends MiniRaftCluster.Factory<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> {
+    private final Parameters parameters;
+
+    Factory(Parameters parameters) {
+      this.parameters = parameters;
+    }
+
     @Override
     public MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty newCluster(String[] ids, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.GRPC);
       RaftConfigKeys.DataStream.setType(prop, SupportedDataStreamType.NETTY);
-      return new MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(ids, prop);
+      return new MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(ids, prop, parameters);
     }
-  };
+  }
 
-  public interface FactoryGet extends Factory.Get<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> {
+  public static final Factory FACTORY = new Factory(null);
+
+  public interface FactoryGet extends MiniRaftCluster.Factory.Get<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> {
     @Override
-    default Factory<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> getFactory() {
+    default MiniRaftCluster.Factory<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> getFactory() {
       return FACTORY;
     }
   }
 
-  private MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(String[] ids, RaftProperties properties) {
-    super(ids, properties);
+  private MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(String[] ids, RaftProperties properties,
+      Parameters parameters) {
+    super(ids, properties, parameters);
   }
 
   @Override

@@ -96,7 +96,7 @@ public interface NettyUtils {
   }
 
   static SslContext buildSslContextForServer(TlsConf tlsConf) {
-    return buildSslContext(tlsConf, true, NettyUtils::initSslContextBuilderForServer);
+    return buildSslContext("server", tlsConf, NettyUtils::initSslContextBuilderForServer);
   }
 
   static SslContextBuilder initSslContextBuilderForClient(TlsConf tlsConf) {
@@ -109,18 +109,21 @@ public interface NettyUtils {
   }
 
   static SslContext buildSslContextForClient(TlsConf tlsConf) {
-    return buildSslContext(tlsConf, false, NettyUtils::initSslContextBuilderForClient);
+    return buildSslContext("client", tlsConf, NettyUtils::initSslContextBuilderForClient);
   }
 
-  static SslContext buildSslContext(TlsConf tlsConf, boolean isServer, Function<TlsConf, SslContextBuilder> builder) {
+  static SslContext buildSslContext(String name, TlsConf tlsConf, Function<TlsConf, SslContextBuilder> builder) {
     if (tlsConf == null) {
       return null;
     }
+    final SslContext sslContext;
     try {
-      return builder.apply(tlsConf).build();
+      sslContext = builder.apply(tlsConf).build();
     } catch (Exception e) {
-      final String message = "Failed to build a " + (isServer ? "server" : "client") + " SslContext from " + tlsConf;
+      final String message = "Failed to buildSslContext for " + name + " from " + tlsConf;
       throw new IllegalArgumentException(message, e);
     }
+    LOG.debug("buildSslContext for {} from {} returns {}", name, tlsConf, sslContext.getClass().getName());
+    return sslContext;
   }
 }

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.conf;
 
+import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.thirdparty.com.google.common.base.Objects;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public interface ConfUtils {
   Logger LOG = LoggerFactory.getLogger(ConfUtils.class);
@@ -198,6 +200,12 @@ public interface ConfUtils {
     return value;
   }
 
+  static TlsConf getTlsConf(
+      Function<String, TlsConf> tlsConfGetter,
+      String key, Consumer<String> logger) {
+    return get((k, d) -> tlsConfGetter.apply(k), key, null, logger);
+  }
+
   @SafeVarargs
   static <T> T get(BiFunction<String, T, T> getter,
       String key, T defaultValue, Consumer<String> logger, BiConsumer<String, T>... assertions) {
@@ -269,6 +277,11 @@ public interface ConfUtils {
       BiConsumer<String, TimeDuration> timeDurationSetter, String key, TimeDuration value,
       BiConsumer<String, TimeDuration>... assertions) {
     set(timeDurationSetter, key, value, assertions);
+  }
+
+  static void setTlsConf(
+      BiConsumer<String, TlsConf> tlsConfSetter, String key, TlsConf value) {
+    set(tlsConfSetter, key, value);
   }
 
   @SafeVarargs
