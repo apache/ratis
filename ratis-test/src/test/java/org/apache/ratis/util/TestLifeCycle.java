@@ -20,9 +20,21 @@ package org.apache.ratis.util;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.ratis.util.LifeCycle.State.*;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
-import java.util.*;
+import static org.apache.ratis.util.LifeCycle.State.CLOSED;
+import static org.apache.ratis.util.LifeCycle.State.CLOSING;
+import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
+import static org.apache.ratis.util.LifeCycle.State.NEW;
+import static org.apache.ratis.util.LifeCycle.State.PAUSED;
+import static org.apache.ratis.util.LifeCycle.State.PAUSING;
+import static org.apache.ratis.util.LifeCycle.State.RUNNING;
+import static org.apache.ratis.util.LifeCycle.State.STARTING;
+import static org.apache.ratis.util.LifeCycle.State.isValid;
+import static org.apache.ratis.util.LifeCycle.State.put;
 
 public class TestLifeCycle {
   /**

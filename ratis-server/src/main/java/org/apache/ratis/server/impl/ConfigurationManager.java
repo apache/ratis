@@ -22,7 +22,9 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.StringUtils;
 
-import java.util.*;
+import java.util.Iterator;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
 /**
  * Maintain the mappings between log index and corresponding raft configuration.

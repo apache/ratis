@@ -17,24 +17,34 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
-import org.apache.commons.cli.Option;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.shell.cli.Command;
-import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.proto.RaftProtos.FollowerInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.protocol.GroupInfoReply;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.shell.cli.Command;
+import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;

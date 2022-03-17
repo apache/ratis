@@ -18,7 +18,6 @@
 package org.apache.ratis.examples.arithmetic;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.ParameterizedBaseTest;
 import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
@@ -26,6 +25,7 @@ import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.examples.arithmetic.expression.NullValue;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.Preconditions;
 import org.junit.Assert;
@@ -35,7 +35,10 @@ import org.junit.runners.Parameterized;
 import java.io.IOException;
 import java.util.Collection;
 
-import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.*;
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.ADD;
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.DIV;
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.MULT;
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.SUBTRACT;
 import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op.SQRT;
 import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op.SQUARE;
 

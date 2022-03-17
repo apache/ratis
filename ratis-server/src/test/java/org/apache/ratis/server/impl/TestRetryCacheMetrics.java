@@ -18,13 +18,10 @@
 
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.*;
-import static org.junit.Assert.assertEquals;
-
 import com.codahale.metrics.Gauge;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -35,6 +32,13 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.Map;
+
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_ENTRY_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_HIT_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_HIT_RATE_METRIC;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_MISS_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_MISS_RATE_METRIC;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Test for metrics of retry cache.
