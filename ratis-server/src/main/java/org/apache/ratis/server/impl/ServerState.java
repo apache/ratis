@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
@@ -43,6 +44,7 @@ import java.io.IOException;
 import java.nio.channels.OverlappingFileLockException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -384,6 +386,10 @@ class ServerState implements Closeable {
   void setRaftConf(RaftConfiguration conf) {
     configurationManager.addConfiguration(conf);
     server.getServerRpc().addRaftPeers(conf.getAllPeers());
+    final Collection<RaftPeer> listeners = conf.getAllPeers(RaftPeerRole.LISTENER);
+    if (!listeners.isEmpty()) {
+      server.getServerRpc().addRaftPeers(listeners);
+    }
     LOG.info("{}: set configuration {}", getMemberId(), conf);
     LOG.trace("{}: {}", getMemberId(), configurationManager);
   }
