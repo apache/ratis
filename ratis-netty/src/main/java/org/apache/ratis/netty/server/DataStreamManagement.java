@@ -73,6 +73,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -293,8 +294,9 @@ public class DataStreamManagement {
     final DataChannel channel = stream.getDataChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
+      final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.wrap(buffer, buf::retain, buf::release);
       try {
-        byteWritten += channel.write(wrap(buffer, buf));
+        byteWritten += channel.write(wrapped);
       } catch (Throwable t) {
         throw new CompletionException(t);
       }
@@ -312,27 +314,6 @@ public class DataStreamManagement {
       close(stream);
     }
     return byteWritten;
-  }
-
-  static ReferenceCountedObject<ByteBuffer> wrap(ByteBuffer buffer, ByteBuf buf) {
-    return new ReferenceCountedObject<ByteBuffer>() {
-      @Override
-      public ByteBuffer get() {
-        buf.readableBytes(); // to trigger IllegalReferenceCountException if the reference count is 0.
-        return buffer;
-      }
-
-      @Override
-      public ByteBuffer retain() {
-        buf.retain();
-        return buffer;
-      }
-
-      @Override
-      public boolean release() {
-        return buf.release();
-      }
-    };
   }
 
   static void close(DataStream stream) {

@@ -253,24 +253,37 @@ public interface StateMachine extends Closeable {
    */
   interface DataChannel extends WritableByteChannel {
     /**
+     * This method is the same as {@link WritableByteChannel#write(ByteBuffer)}.
+     *
+     * If the implementation has overridden {@link #write(ReferenceCountedObject)},
+     * then it does not have to override this method.
+     */
+    @Override
+    default int write(ByteBuffer buffer) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
      * Similar to {@link #write(ByteBuffer)}
      * except that the parameter is a {@link ReferenceCountedObject}.
      *
      * This is an optional method.
-     * The default implementation is the same as write(buffer.get()).
+     * The default implementation is the same as write(referenceCountedBuffer.get()).
      *
      * The implementation may choose to override this method in order to retain the buffer for later use.
      *
      * - If the buffer is retained, it must be released afterward.
-     *   Otherwise, the buffer would not be returned, and it will cause a memory leak.
+     *   Otherwise, the buffer will not be returned, and it will cause a memory leak.
      *
-     * - If the buffer is not retained, it may be allocated for other use.
+     * - If the buffer is retained multiple times, it must be released the same number of time.
+     *
+     * - It is safe to access the buffer before this method returns with or without retaining it.
      *
      * - If the buffer is not retained but is accessed after this method returns,
-     *   the content of the buffer could possibly be changed, and it will cause data corruption.
+     *   the content of the buffer could possibly be changed unexpectedly, and it will cause data corruption.
      */
-    default int write(ReferenceCountedObject<ByteBuffer> buffer) throws IOException {
-      return write(buffer.get());
+    default int write(ReferenceCountedObject<ByteBuffer> referenceCountedBuffer) throws IOException {
+      return write(referenceCountedBuffer.get());
     }
 
     /**
