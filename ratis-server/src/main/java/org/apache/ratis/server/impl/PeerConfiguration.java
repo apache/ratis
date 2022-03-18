@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.Preconditions;
@@ -24,6 +25,7 @@ import org.apache.ratis.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,12 +77,18 @@ class PeerConfiguration {
         .orElseGet(Collections::emptyMap);
   }
 
-  Collection<RaftPeer> getPeers() {
-    return Collections.unmodifiableCollection(peers.values());
+  private Map<RaftPeerId, RaftPeer> getPeerMap(RaftPeerRole r) {
+    if (r == RaftPeerRole.FOLLOWER) {
+      return peers;
+    } else if (r == RaftPeerRole.LISTENER) {
+      return listeners;
+    } else {
+      throw new IllegalArgumentException("Unexpected RaftPeerRole " + r);
+    }
   }
 
-  Collection<RaftPeer> getListeners() {
-    return Collections.unmodifiableCollection(listeners.values());
+  Collection<RaftPeer> getPeers(RaftPeerRole role) {
+    return Collections.unmodifiableCollection(getPeerMap(role).values());
   }
 
   int size() {
@@ -92,20 +100,37 @@ class PeerConfiguration {
     return peers.values().toString();
   }
 
-  RaftPeer getPeer(RaftPeerId id) {
-    return peers.get(id);
-  }
-
-  RaftPeer getListener(RaftPeerId id) {
-    return listeners.get(id);
+  RaftPeer getPeer(RaftPeerId id, RaftPeerRole... roles) {
+    if (roles == null || roles.length == 0) {
+      return peers.get(id);
+    }
+    for(RaftPeerRole r : roles) {
+      final RaftPeer peer = getPeerMap(r).get(id);
+      if (peer != null) {
+        return peer;
+      }
+    }
+    return null;
   }
 
   boolean contains(RaftPeerId id) {
-    return peers.containsKey(id);
+    return contains(id, RaftPeerRole.FOLLOWER);
   }
 
-  boolean containsListener(RaftPeerId id) {
-    return listeners.containsKey(id);
+  boolean contains(RaftPeerId id, RaftPeerRole r) {
+    return getPeerMap(r).containsKey(id);
+  }
+
+  RaftPeerRole contains(RaftPeerId id, EnumSet<RaftPeerRole> roles) {
+    if (roles == null || roles.isEmpty()) {
+      return peers.containsKey(id)? RaftPeerRole.FOLLOWER: null;
+    }
+    for(RaftPeerRole r : roles) {
+      if (getPeerMap(r).containsKey(id)) {
+        return r;
+      }
+    }
+    return null;
   }
 
   List<RaftPeer> getOtherPeers(RaftPeerId selfId) {

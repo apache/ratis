@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 
@@ -41,25 +42,31 @@ public interface RaftConfiguration {
    * @return the peer corresponding to the given id;
    *         or return null if the peer is not in this configuration.
    */
-  RaftPeer getPeer(RaftPeerId id);
+  RaftPeer getPeer(RaftPeerId id, RaftPeerRole... roles);
 
-  /**
-   * @return the listener corresponding to the given id;
-   *         or return null if the listener is not in this configuration.
-   */
-  RaftPeer getListener(RaftPeerId id);
+  /** The same as getAllPeers(RaftPeerRole.FOLLOWER). */
+  default Collection<RaftPeer> getAllPeers() {
+    return getAllPeers(RaftPeerRole.FOLLOWER);
+  }
 
-  /** @return all the peers in the current configuration and the previous configuration. */
-  Collection<RaftPeer> getAllPeers();
+  /** @return all the peers of the given role in the current configuration and the previous configuration. */
+  Collection<RaftPeer> getAllPeers(RaftPeerRole role);
 
-  /** @return all the listeners in the current configuration and the previous configuration. */
-  Collection<RaftPeer> getAllListeners();
+  /** The same as getCurrentPeers(RaftPeerRole.FOLLOWER). */
+  default Collection<RaftPeer> getCurrentPeers() {
+    return getCurrentPeers(RaftPeerRole.FOLLOWER);
+  }
 
-  /** @return all the peers in the current configuration. */
-  Collection<RaftPeer> getCurrentPeers();
+  /** @return all the peers of the given role in the current configuration. */
+  Collection<RaftPeer> getCurrentPeers(RaftPeerRole roles);
 
-  /** @return all the peers in the previous configuration. */
-  Collection<RaftPeer> getPreviousPeers();
+  /** The same as getPreviousPeers(RaftPeerRole.FOLLOWER). */
+  default Collection<RaftPeer> getPreviousPeers() {
+    return getPreviousPeers(RaftPeerRole.FOLLOWER);
+  }
+
+  /** @return all the peers of the given role in the previous configuration. */
+  Collection<RaftPeer> getPreviousPeers(RaftPeerRole roles);
 
   /** @return the index of the corresponding log entry for the current configuration. */
   long getLogEntryIndex();

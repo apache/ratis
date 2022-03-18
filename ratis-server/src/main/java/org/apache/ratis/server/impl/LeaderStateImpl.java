@@ -22,6 +22,7 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
 import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
@@ -291,7 +292,12 @@ class LeaderStateImpl implements LeaderState {
     placeHolderIndex = raftLog.getNextIndex();
 
     senders = new SenderList();
-    addSenders(others, placeHolderIndex, true);
+    addSenders(others, placeHolderIndex, true, RaftPeerRole.FOLLOWER);
+
+    final Collection<RaftPeer> listeners = conf.getAllPeers(RaftPeerRole.LISTENER);
+    if (!listeners.isEmpty()) {
+      addSenders(listeners, placeHolderIndex, false, RaftPeerRole.LISTENER);
+    }
     voterLists = divideFollowers(conf);
   }
 
@@ -362,22 +368,26 @@ class LeaderStateImpl implements LeaderState {
     Preconditions.assertTrue(running && !inStagingState());
 
     final List<RaftPeer> peersInNewConf = request.getPeersInNewConf();
+    final List<RaftPeer> listenersInNewConf = request.getListenersInNewConf();
     final Collection<RaftPeer> peersToBootStrap = server.getRaftConf().filterNotContainedInConf(peersInNewConf);
+    final Collection<RaftPeer> listenersToBootStrap= server.getRaftConf().filterNotContainedInConf(listenersInNewConf);
 
     // add the request to the pending queue
     final PendingRequest pending = pendingRequests.addConfRequest(request);
 
     ConfigurationStagingState configurationStagingState = new ConfigurationStagingState(
-        peersToBootStrap, new PeerConfiguration(peersInNewConf));
+        peersToBootStrap, listenersToBootStrap, new PeerConfiguration(peersInNewConf, listenersInNewConf));
     Collection<RaftPeer> newPeers = configurationStagingState.getNewPeers();
+    Collection<RaftPeer> newListeners = configurationStagingState.getNewListeners();
     // set the staging state
     this.stagingState = configurationStagingState;
 
-    if (newPeers.isEmpty()) {
+    if (newPeers.isEmpty() && newListeners.isEmpty()) {
       applyOldNewConf();
     } else {
       // update the LeaderState's sender list
-      addAndStartSenders(newPeers);
+      addAndStartSenders(newPeers, RaftPeerRole.FOLLOWER);
+      addAndStartSenders(newListeners, RaftPeerRole.LISTENER);
     }
     return pending;
   }
@@ -486,20 +496,24 @@ class LeaderStateImpl implements LeaderState {
   /**
    * Update sender list for setConfiguration request
    */
-  void addAndStartSenders(Collection<RaftPeer> newPeers) {
-    addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false).forEach(LogAppender::start);
+  void addAndStartSenders(Collection<RaftPeer> newPeers, RaftPeerRole role) {
+    if (!newPeers.isEmpty()) {
+      addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false, role).forEach(LogAppender::start);
+    }
   }
 
-  Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote) {
+  Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote,
+      RaftPeerRole role) {
     final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final List<LogAppender> newAppenders = newPeers.stream()
         .map(peer -> {
           final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, t, nextIndex, attendVote);
-          LogAppender logAppender = server.newLogAppender(this, f);
           peerIdFollowerInfoMap.put(peer.getId(), f);
-          raftServerMetrics.addFollower(peer.getId());
-          logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
-          return logAppender;
+          if (role == RaftPeerRole.FOLLOWER) {
+            raftServerMetrics.addFollower(peer.getId());
+            logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
+          }
+          return server.newLogAppender(this, f);
         }).collect(Collectors.toList());
     senders.addAll(newAppenders);
     return newAppenders;
@@ -513,11 +527,17 @@ class LeaderStateImpl implements LeaderState {
 
   @Override
   public void restart(LogAppender sender) {
-    final FollowerInfo follower = sender.getFollower();
-    LOG.info("{}: Restarting {} for {}", this, JavaUtils.getClassSimpleName(sender.getClass()), follower.getName());
+    final FollowerInfo info = sender.getFollower();
+    LOG.info("{}: Restarting {} for {}", this, JavaUtils.getClassSimpleName(sender.getClass()), info.getName());
     sender.stop();
     senders.removeAll(Collections.singleton(sender));
-    addAndStartSenders(Collections.singleton(follower.getPeer()));
+
+    final RaftPeer peer = info.getPeer();
+    if (server.getRaftConf().containsInConf(peer.getId())) {
+      addAndStartSenders(Collections.singleton(peer), RaftPeerRole.FOLLOWER);
+    } else if (server.getRaftConf().containsInConf(peer.getId(), RaftPeerRole.LISTENER)) {
+      addAndStartSenders(Collections.singleton(peer), RaftPeerRole.LISTENER);
+    }
   }
 
   /**
@@ -525,7 +545,7 @@ class LeaderStateImpl implements LeaderState {
    */
   private void updateSenders(RaftConfigurationImpl conf) {
     Preconditions.assertTrue(conf.isStable() && !inStagingState());
-    stopAndRemoveSenders(s -> !conf.containsInConf(s.getFollowerId()));
+    stopAndRemoveSenders(s -> !conf.containsInConf(s.getFollowerId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER));
   }
 
   void submitStepDownEvent(StepDownReason reason) {
@@ -824,7 +844,7 @@ class LeaderStateImpl implements LeaderState {
     } else { // the (new) log entry has been committed
       pendingRequests.replySetConfiguration(server::newSuccessReply);
       // if the leader is not included in the current configuration, step down
-      if (!conf.containsInConf(server.getId())) {
+      if (!conf.containsInConf(server.getId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER)) {
         LOG.info("{} is not included in the new configuration {}. Will shutdown server...", this, conf);
         try {
           // leave some time for all RPC senders to send out new conf entry
@@ -852,7 +872,7 @@ class LeaderStateImpl implements LeaderState {
         .setConf(conf)
         .setLogEntryIndex(raftLog.getNextIndex())
         .build();
-    // stop the LogAppender if the corresponding follower is no longer in the conf
+    // stop the LogAppender if the corresponding follower and listener is no longer in the conf
     updateSenders(newConf);
     long index = raftLog.append(server.getState().getCurrentTerm(), newConf);
     updateConfiguration(index, newConf);
@@ -1016,18 +1036,25 @@ class LeaderStateImpl implements LeaderState {
     return senders.stream().mapToLong(s -> s.getFollower().getNextIndex()).toArray();
   }
 
+  static Map<RaftPeerId, RaftPeer> newMap(Collection<RaftPeer> peers, String str) {
+    Objects.requireNonNull(peers, () -> str + " == null");
+    final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
+    for(RaftPeer p : peers) {
+      map.put(p.getId(), p);
+    }
+    return Collections.unmodifiableMap(map);
+  }
+
   private class ConfigurationStagingState {
     private final String name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
     private final Map<RaftPeerId, RaftPeer> newPeers;
+    private final Map<RaftPeerId, RaftPeer> newListeners;
     private final PeerConfiguration newConf;
 
-    ConfigurationStagingState(Collection<RaftPeer> newPeers,
+    ConfigurationStagingState(Collection<RaftPeer> newPeers, Collection<RaftPeer> newListeners,
         PeerConfiguration newConf) {
-      Map<RaftPeerId, RaftPeer> map = new HashMap<>();
-      for (RaftPeer peer : newPeers) {
-        map.put(peer.getId(), peer);
-      }
-      this.newPeers = Collections.unmodifiableMap(map);
+      this.newPeers = newMap(newPeers, "peer");
+      this.newListeners = newMap(newListeners, "listeners");
       this.newConf = newConf;
     }
 
@@ -1041,6 +1068,10 @@ class LeaderStateImpl implements LeaderState {
 
     Collection<RaftPeer> getNewPeers() {
       return newPeers.values();
+    }
+
+    Collection<RaftPeer> getNewListeners() {
+      return newListeners.values();
     }
 
     boolean contains(RaftPeerId peerId) {

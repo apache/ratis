@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftConfiguration;
@@ -26,10 +27,9 @@ import org.apache.ratis.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -147,13 +147,16 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return oldConf == null;
   }
 
-  boolean containsInConf(RaftPeerId peerId) {
-    return conf.contains(peerId);
+  boolean containsInConf(RaftPeerId peerId, RaftPeerRole... roles) {
+    if (roles == null || roles.length == 0) {
+      return conf.contains(peerId);
+    } else if (roles.length == 1) {
+      return conf.contains(peerId, roles[0]);
+    } else {
+      return conf.contains(peerId, EnumSet.of(roles[0], roles)) != null;
+    }
   }
 
-  boolean containsListenerInConf(RaftPeerId peerId) {
-    return conf.containsListener(peerId);
-  }
 
   boolean isHighestPriority(RaftPeerId peerId) {
     RaftPeer target = getPeer(peerId);
@@ -173,10 +176,6 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return oldConf != null && oldConf.contains(peerId);
   }
 
-  boolean containsListenerInOldConf(RaftPeerId peerId) {
-    return oldConf != null && oldConf.containsListener(peerId);
-  }
-
   /**
    * @return true iff the given peer is contained in conf and,
    *         if old conf exists, is contained in old conf.
@@ -186,48 +185,25 @@ final class RaftConfigurationImpl implements RaftConfiguration {
         (oldConf == null || containsInOldConf(peerId));
   }
 
-  boolean containsListenerInBothConfs(RaftPeerId peerId) {
-    return containsListenerInConf(peerId) &&
-        (oldConf == null || containsListenerInOldConf(peerId));
-  }
-
   @Override
-  public RaftPeer getPeer(RaftPeerId id) {
-    return get(id, (c, peerId) -> c.getPeer(id));
-  }
-
-  @Override
-  public RaftPeer getListener(RaftPeerId id) {
-    return get(id, (c, peerId) -> c.getListener(id));
-  }
-
-  private RaftPeer get(RaftPeerId id, BiFunction<PeerConfiguration, RaftPeerId, RaftPeer> getMethod) {
+  public RaftPeer getPeer(RaftPeerId id, RaftPeerRole... roles) {
     if (id == null) {
       return null;
     }
-    final RaftPeer peer = getMethod.apply(conf, id);
+    final RaftPeer peer = conf.getPeer(id, roles);
     if (peer != null) {
       return peer;
     } else if (oldConf != null) {
-      return getMethod.apply(oldConf, id);
+      return oldConf.getPeer(id, roles);
     }
     return null;
   }
 
   @Override
-  public Collection<RaftPeer> getAllPeers() {
-    return getAll(PeerConfiguration::getPeers);
-  }
-
-  @Override
-  public Collection<RaftPeer> getAllListeners() {
-    return getAll(PeerConfiguration::getListeners);
-  }
-
-  private Collection<RaftPeer> getAll(Function<PeerConfiguration, Collection<RaftPeer>> getMethod) {
-    final Collection<RaftPeer> peers = new ArrayList<>(getMethod.apply(conf));
+  public Collection<RaftPeer> getAllPeers(RaftPeerRole role) {
+    final Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers(role));
     if (oldConf != null) {
-      getMethod.apply(oldConf).stream()
+      oldConf.getPeers(role).stream()
           .filter(p -> !peers.contains(p))
           .forEach(peers::add);
     }
@@ -285,17 +261,19 @@ final class RaftConfigurationImpl implements RaftConfiguration {
 
   /** @return the peers which are not contained in conf. */
   Collection<RaftPeer> filterNotContainedInConf(List<RaftPeer> peers) {
-    return peers.stream().filter(p -> !containsInConf(p.getId())).collect(Collectors.toList());
+    return peers.stream()
+        .filter(p -> !containsInConf(p.getId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER))
+        .collect(Collectors.toList());
   }
 
   @Override
-  public Collection<RaftPeer> getPreviousPeers() {
-    return oldConf != null ? oldConf.getPeers() : Collections.emptyList();
+  public Collection<RaftPeer> getPreviousPeers(RaftPeerRole role) {
+    return oldConf != null ? oldConf.getPeers(role) : Collections.emptyList();
   }
 
   @Override
-  public Collection<RaftPeer> getCurrentPeers() {
-    return conf.getPeers();
+  public Collection<RaftPeer> getCurrentPeers(RaftPeerRole role) {
+    return conf.getPeers(role);
   }
 
   @Override

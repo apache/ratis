@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftConfiguration;
@@ -37,7 +38,8 @@ public class TestRaftConfiguration extends BaseTest {
     Integer node3 = 2;
     PeerConfiguration peerConfig = new PeerConfiguration(raftPeersWithPriority(node1, node2, node3));
     RaftConfiguration config = RaftConfigurationImpl.newBuilder().setConf(peerConfig).build();
-    RaftPeer[] allRaftPeers = peerConfig.getPeers().toArray(new RaftPeer[peerConfig.getPeers().size()]);
+    RaftPeer[] allRaftPeers = peerConfig.getPeers(RaftProtos.RaftPeerRole.FOLLOWER).toArray(new RaftPeer[peerConfig.getPeers(
+        RaftProtos.RaftPeerRole.FOLLOWER).size()]);
 
     // First member should not have highest priority
     Assert.assertFalse(RaftServerTestUtil.isHighestPriority(config,
