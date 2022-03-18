@@ -56,6 +56,7 @@ import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -279,9 +280,7 @@ public class DataStreamManagement {
 
   static <T> CompletableFuture<T> composeAsync(AtomicReference<CompletableFuture<T>> future, Executor executor,
       Function<T, CompletableFuture<T>> function) {
-    final CompletableFuture<T> composed = future.get().thenComposeAsync(function, executor);
-    future.set(composed);
-    return composed;
+    return future.updateAndGet(previous -> previous.thenComposeAsync(function, executor));
   }
 
   static CompletableFuture<Long> writeToAsync(ByteBuf buf, WriteOption[] options, DataStream stream,
@@ -295,7 +294,7 @@ public class DataStreamManagement {
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
       try {
-        byteWritten += channel.write(buffer);
+        byteWritten += channel.write(wrap(buffer, buf));
       } catch (Throwable t) {
         throw new CompletionException(t);
       }
@@ -313,6 +312,27 @@ public class DataStreamManagement {
       close(stream);
     }
     return byteWritten;
+  }
+
+  static ReferenceCountedObject<ByteBuffer> wrap(ByteBuffer buffer, ByteBuf buf) {
+    return new ReferenceCountedObject<ByteBuffer>() {
+      @Override
+      public ByteBuffer get() {
+        buf.readableBytes(); // to trigger IllegalReferenceCountException if the reference count is 0.
+        return buffer;
+      }
+
+      @Override
+      public ByteBuffer retain() {
+        buf.retain();
+        return buffer;
+      }
+
+      @Override
+      public boolean release() {
+        return buf.release();
+      }
+    };
   }
 
   static void close(DataStream stream) {

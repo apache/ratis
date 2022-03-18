@@ -35,11 +35,13 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -250,6 +252,27 @@ public interface StateMachine extends Closeable {
    * For write state machine data.
    */
   interface DataChannel extends WritableByteChannel {
+    /**
+     * Similar to {@link #write(ByteBuffer)}
+     * except that the parameter is a {@link ReferenceCountedObject}.
+     *
+     * This is an optional method.
+     * The default implementation is the same as write(buffer.get()).
+     *
+     * The implementation may choose to override this method in order to retain the buffer for later use.
+     *
+     * - If the buffer is retained, it must be released afterward.
+     *   Otherwise, the buffer would not be returned, and it will cause a memory leak.
+     *
+     * - If the buffer is not retained, it may be allocated for other use.
+     *
+     * - If the buffer is not retained but is accessed after this method returns,
+     *   the content of the buffer could possibly be changed, and it will cause data corruption.
+     */
+    default int write(ReferenceCountedObject<ByteBuffer> buffer) throws IOException {
+      return write(buffer.get());
+    }
+
     /**
      * Similar to {@link java.nio.channels.FileChannel#force(boolean)},
      * the underlying implementation should force writing the data and/or metadata to the underlying storage.
