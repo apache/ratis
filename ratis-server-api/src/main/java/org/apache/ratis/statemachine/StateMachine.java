@@ -35,11 +35,13 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -250,6 +252,40 @@ public interface StateMachine extends Closeable {
    * For write state machine data.
    */
   interface DataChannel extends WritableByteChannel {
+    /**
+     * This method is the same as {@link WritableByteChannel#write(ByteBuffer)}.
+     *
+     * If the implementation has overridden {@link #write(ReferenceCountedObject)},
+     * then it does not have to override this method.
+     */
+    @Override
+    default int write(ByteBuffer buffer) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Similar to {@link #write(ByteBuffer)}
+     * except that the parameter is a {@link ReferenceCountedObject}.
+     *
+     * This is an optional method.
+     * The default implementation is the same as write(referenceCountedBuffer.get()).
+     *
+     * The implementation may choose to override this method in order to retain the buffer for later use.
+     *
+     * - If the buffer is retained, it must be released afterward.
+     *   Otherwise, the buffer will not be returned, and it will cause a memory leak.
+     *
+     * - If the buffer is retained multiple times, it must be released the same number of time.
+     *
+     * - It is safe to access the buffer before this method returns with or without retaining it.
+     *
+     * - If the buffer is not retained but is accessed after this method returns,
+     *   the content of the buffer could possibly be changed unexpectedly, and it will cause data corruption.
+     */
+    default int write(ReferenceCountedObject<ByteBuffer> referenceCountedBuffer) throws IOException {
+      return write(referenceCountedBuffer.get());
+    }
+
     /**
      * Similar to {@link java.nio.channels.FileChannel#force(boolean)},
      * the underlying implementation should force writing the data and/or metadata to the underlying storage.

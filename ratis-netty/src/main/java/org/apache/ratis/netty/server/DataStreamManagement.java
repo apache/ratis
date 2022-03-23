@@ -56,6 +56,7 @@ import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -279,9 +280,7 @@ public class DataStreamManagement {
 
   static <T> CompletableFuture<T> composeAsync(AtomicReference<CompletableFuture<T>> future, Executor executor,
       Function<T, CompletableFuture<T>> function) {
-    final CompletableFuture<T> composed = future.get().thenComposeAsync(function, executor);
-    future.set(composed);
-    return composed;
+    return future.updateAndGet(previous -> previous.thenComposeAsync(function, executor));
   }
 
   static CompletableFuture<Long> writeToAsync(ByteBuf buf, WriteOption[] options, DataStream stream,
@@ -294,8 +293,9 @@ public class DataStreamManagement {
     final DataChannel channel = stream.getDataChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
+      final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.wrap(buffer, buf::retain, buf::release);
       try {
-        byteWritten += channel.write(buffer);
+        byteWritten += channel.write(wrapped);
       } catch (Throwable t) {
         throw new CompletionException(t);
       }
