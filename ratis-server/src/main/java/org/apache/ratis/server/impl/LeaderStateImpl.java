@@ -706,6 +706,7 @@ class LeaderStateImpl implements LeaderState {
         applyOldNewConf();
         senders.stream()
             .map(LogAppender::getFollower)
+            .filter(f -> server.getRaftConf().containsInConf(f.getPeer().getId()))
             .map(FollowerInfoImpl.class::cast)
             .forEach(FollowerInfoImpl::startAttendVote);
       }
@@ -1100,6 +1101,7 @@ class LeaderStateImpl implements LeaderState {
   List<RaftPeer> getFollowers() {
     return Collections.unmodifiableList(senders.stream()
         .map(sender -> sender.getFollower().getPeer())
+        .filter(peer -> server.getRaftConf().containsInConf(peer.getId()))
         .collect(Collectors.toList()));
   }
 

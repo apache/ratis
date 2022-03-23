@@ -112,7 +112,7 @@ class FollowerState extends Daemon {
   @Override
   public  void run() {
     final TimeDuration sleepDeviationThreshold = server.getSleepDeviationThreshold();
-    while (isRunning && server.getInfo().isFollower()) {
+    while (isRunning && (server.getInfo().isFollower() || server.getInfo().isListener())) {
       final TimeDuration electionTimeout = server.getRandomElectionTimeout();
       try {
         final TimeDuration extraSleep = electionTimeout.sleep();
@@ -122,14 +122,14 @@ class FollowerState extends Daemon {
           continue;
         }
 
-        final boolean isFollower = server.getInfo().isFollower();
-        if (!isRunning || !isFollower) {
-          LOG.info("{}: Stopping now (isRunning? {}, isFollower? {})", this, isRunning, isFollower);
+        final boolean isPeer = (server.getInfo().isFollower() || server.getInfo().isListener());
+        if (!isRunning || !isPeer) {
+          LOG.info("{}: Stopping now (isRunning? {}, isPeer? {})", this, isRunning, isPeer);
           break;
         }
         synchronized (server) {
           if (outstandingOp.get() == 0
-              && isRunning
+              && isRunning && server.getInfo().isFollower()
               && lastRpcTime.elapsedTime().compareTo(electionTimeout) >= 0
               && !lostMajorityHeartbeatsRecently()) {
             LOG.info("{}: change to CANDIDATE, lastRpcElapsedTime:{}, electionTimeout:{}",
