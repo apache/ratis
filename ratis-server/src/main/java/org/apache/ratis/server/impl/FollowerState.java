@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
@@ -109,10 +110,19 @@ class FollowerState extends Daemon {
     return true;
   }
 
+  private boolean shouldRun() {
+    final DivisionInfo info = server.getInfo();
+    final boolean run = isRunning && (info.isFollower() || info.isListener());
+    if (!run) {
+      LOG.info("{}: Stopping now (isRunning? {}, role = {})", this, isRunning, info.getCurrentRole());
+    }
+    return run;
+  }
+
   @Override
   public  void run() {
     final TimeDuration sleepDeviationThreshold = server.getSleepDeviationThreshold();
-    while (isRunning && (server.getInfo().isFollower() || server.getInfo().isListener())) {
+    while (shouldRun()) {
       final TimeDuration electionTimeout = server.getRandomElectionTimeout();
       try {
         final TimeDuration extraSleep = electionTimeout.sleep();
@@ -122,9 +132,7 @@ class FollowerState extends Daemon {
           continue;
         }
 
-        final boolean isPeer = (server.getInfo().isFollower() || server.getInfo().isListener());
-        if (!isRunning || !isPeer) {
-          LOG.info("{}: Stopping now (isRunning? {}, isPeer? {})", this, isRunning, isPeer);
+        if (!shouldRun()) {
           break;
         }
         synchronized (server) {

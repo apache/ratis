@@ -340,14 +340,16 @@ class RaftServerImpl implements RaftServer.Division,
   /**
    * The peer belongs to the current configuration, should start as a follower or listener
    */
-  private void startAsPeer(RaftPeerRole roles) {
+  private void startAsPeer(RaftPeerRole newRole) {
     Object reason = "";
-    if (roles.equals(RaftPeerRole.FOLLOWER)) {
+    if (newRole == RaftPeerRole.FOLLOWER) {
       reason = "startAsFollower";
       setRole(RaftPeerRole.FOLLOWER, reason);
-    } else if (roles.equals(RaftPeerRole.LISTENER)) {
+    } else if (newRole == RaftPeerRole.LISTENER) {
       reason = "startAsListener";
       setRole(RaftPeerRole.LISTENER, reason);
+    } else {
+      throw new IllegalArgumentException("Unexpected role " + newRole);
     }
     role.startFollowerState(this, reason);
 
@@ -496,20 +498,18 @@ class RaftServerImpl implements RaftServer.Division,
    */
   private synchronized boolean changeToFollower(long newTerm, boolean force, Object reason) {
     final RaftPeerRole old = role.getCurrentRole();
+    if (old == RaftPeerRole.LISTENER) {
+      throw new IllegalStateException("Unexpected role " + old);
+    }
     final boolean metadataUpdated = state.updateCurrentTerm(newTerm);
 
     if (old != RaftPeerRole.FOLLOWER || force) {
-      if (old != RaftPeerRole.LISTENER) {
-        setRole(RaftPeerRole.FOLLOWER, reason);
-      } else {
-        setRole(RaftPeerRole.LISTENER, reason);
-      }
-
+      setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
         role.shutdownLeaderState(false);
       } else if (old == RaftPeerRole.CANDIDATE) {
         role.shutdownLeaderElection();
-      } else if (old == RaftPeerRole.FOLLOWER || old == RaftPeerRole.LISTENER) {
+      } else if (old == RaftPeerRole.FOLLOWER) {
         role.shutdownFollowerState();
       }
       role.startFollowerState(this, reason);
@@ -1354,7 +1354,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
       followerState = updateLastRpcTime(FollowerState.UpdateType.APPEND_START);
 
-      // Check that the append ents are not inconsistent. There are 3
+      // Check that the append entries are not inconsistent. There are 3
       // scenarios which can result in inconsistency:
       //      1. There is a snapshot installation in progress
       //      2. There is an overlap between the snapshot index and the entries
