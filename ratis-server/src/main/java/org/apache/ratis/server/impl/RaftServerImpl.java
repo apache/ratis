@@ -313,7 +313,10 @@ class RaftServerImpl implements RaftServer.Division,
     final RaftConfigurationImpl conf = getRaftConf();
     if (conf != null && conf.containsInBothConfs(getId())) {
       LOG.info("{}: start as a follower, conf={}", getMemberId(), conf);
-      startAsFollower();
+      startAsPeer(RaftPeerRole.FOLLOWER);
+    } else if (conf != null && conf.containsInConf(getId(), RaftPeerRole.LISTENER)) {
+      LOG.info("{}: start as a listener, conf={}", getMemberId(), conf);
+      startAsPeer(RaftPeerRole.LISTENER);
     } else {
       LOG.info("{}: start with initializing state, conf={}", getMemberId(), conf);
       startInitializing();
@@ -335,11 +338,21 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   /**
-   * The peer belongs to the current configuration, should start as a follower
+   * The peer belongs to the current configuration, should start as a follower or listener
    */
-  private void startAsFollower() {
-    setRole(RaftPeerRole.FOLLOWER, "startAsFollower");
-    role.startFollowerState(this, "startAsFollower");
+  private void startAsPeer(RaftPeerRole newRole) {
+    Object reason = "";
+    if (newRole == RaftPeerRole.FOLLOWER) {
+      reason = "startAsFollower";
+      setRole(RaftPeerRole.FOLLOWER, reason);
+    } else if (newRole == RaftPeerRole.LISTENER) {
+      reason = "startAsListener";
+      setRole(RaftPeerRole.LISTENER, reason);
+    } else {
+      throw new IllegalArgumentException("Unexpected role " + newRole);
+    }
+    role.startFollowerState(this, reason);
+
     lifeCycle.transition(RUNNING);
   }
 
@@ -485,6 +498,9 @@ class RaftServerImpl implements RaftServer.Division,
    */
   private synchronized boolean changeToFollower(long newTerm, boolean force, Object reason) {
     final RaftPeerRole old = role.getCurrentRole();
+    if (old == RaftPeerRole.LISTENER) {
+      throw new IllegalStateException("Unexpected role " + old);
+    }
     final boolean metadataUpdated = state.updateCurrentTerm(newTerm);
 
     if (old != RaftPeerRole.FOLLOWER || force) {

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
@@ -109,10 +110,19 @@ class FollowerState extends Daemon {
     return true;
   }
 
+  private boolean shouldRun() {
+    final DivisionInfo info = server.getInfo();
+    final boolean run = isRunning && (info.isFollower() || info.isListener());
+    if (!run) {
+      LOG.info("{}: Stopping now (isRunning? {}, role = {})", this, isRunning, info.getCurrentRole());
+    }
+    return run;
+  }
+
   @Override
   public  void run() {
     final TimeDuration sleepDeviationThreshold = server.getSleepDeviationThreshold();
-    while (isRunning && server.getInfo().isFollower()) {
+    while (shouldRun()) {
       final TimeDuration electionTimeout = server.getRandomElectionTimeout();
       try {
         final TimeDuration extraSleep = electionTimeout.sleep();
@@ -122,14 +132,12 @@ class FollowerState extends Daemon {
           continue;
         }
 
-        final boolean isFollower = server.getInfo().isFollower();
-        if (!isRunning || !isFollower) {
-          LOG.info("{}: Stopping now (isRunning? {}, isFollower? {})", this, isRunning, isFollower);
+        if (!shouldRun()) {
           break;
         }
         synchronized (server) {
           if (outstandingOp.get() == 0
-              && isRunning
+              && isRunning && server.getInfo().isFollower()
               && lastRpcTime.elapsedTime().compareTo(electionTimeout) >= 0
               && !lostMajorityHeartbeatsRecently()) {
             LOG.info("{}: change to CANDIDATE, lastRpcElapsedTime:{}, electionTimeout:{}",
