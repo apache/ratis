@@ -17,18 +17,32 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.BaseTest;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
 
-/** Test methods of SnapshotManager. */
-public class FileUtilsTest {
+/** Test methods of {@link FileUtils}. */
+public class TestFileUtils extends BaseTest {
 
   @Test
   public void testRenameToCorrupt() throws IOException {
-    File srcFile = File.createTempFile("snapshot.1_20", null);
+    final File dir = getClassTestDir();
+    Assert.assertTrue(dir.mkdirs());
+    try {
+      runTestRenameToCorrupt(dir);
+    } finally {
+      FileUtils.deleteFully(dir);
+    }
+    Assert.assertFalse(dir.exists());
+  }
+
+  static void runTestRenameToCorrupt(File dir) throws IOException {
+    final File srcFile = new File(dir, "snapshot.1_20");
+    Assert.assertFalse(srcFile.exists());
+    Assert.assertTrue(srcFile.createNewFile());
     Assert.assertTrue(srcFile.exists());
 
     final File renamed = FileUtils.move(srcFile, ".corrupt");
