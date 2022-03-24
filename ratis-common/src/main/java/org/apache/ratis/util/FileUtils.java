@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,6 +79,18 @@ public interface FileUtils {
     LogUtils.runAndLog(LOG,
         () -> Files.move(src, dst),
         () -> "Files.move " + src + " to " + dst);
+  }
+
+  /**
+   * Move src to a new path,
+   * where the new path created by appending the given suffix to the src.
+   *
+   * @return the new file if rename succeeded; otherwise, return null.
+   */
+  static File move(File src, String suffix) throws IOException {
+    final File newFile = new File(src.getPath() + suffix);
+    move(src, newFile);
+    return newFile;
   }
 
   /** The same as passing f.toPath() to {@link #delete(Path)}. */
@@ -184,13 +195,5 @@ public interface FileUtils {
         return FileVisitResult.CONTINUE;
       }
     });
-  }
-
-  // Rename a file by appending .corrupt to file name. This function does not guarantee
-  // that the rename operation is successful.
-  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
-  static void renameFileToCorrupt(File tmpSnapshotFile) {
-    File corruptedTempFile = new File(tmpSnapshotFile.getPath() + ".corrupt");
-    tmpSnapshotFile.renameTo(corruptedTempFile);
   }
 }

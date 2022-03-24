@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.UUID;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -35,6 +34,7 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,16 +46,17 @@ import org.slf4j.LoggerFactory;
 public class SnapshotManager {
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotManager.class);
 
+  private static final String CORRUPT = ".corrupt";
+  private static final String TMP = ".tmp";
+
   private final RaftStorage storage;
   private final RaftPeerId selfId;
 
-  public SnapshotManager(RaftStorage storage, RaftPeerId selfId)
-      throws IOException {
+  public SnapshotManager(RaftStorage storage, RaftPeerId selfId) {
     this.storage = storage;
     this.selfId = selfId;
   }
 
-  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
   public void installSnapshot(StateMachine stateMachine,
       InstallSnapshotRequestProto request) throws IOException {
     final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest =
@@ -121,10 +122,18 @@ public class SnapshotManager {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
           // rename the temp snapshot file to .corrupt
-          FileUtils.renameFileToCorrupt(tmpSnapshotFile);
-          throw new CorruptedFileException(
-              tmpSnapshotFile, "MD5 mismatch for snapshot-" + lastIncludedIndex
-              + " installation");
+          String renameMessage;
+          try {
+            final File corruptedFile = FileUtils.move(tmpSnapshotFile, CORRUPT + StringUtils.currentDateTime());
+            renameMessage = "Renamed temporary snapshot file " + tmpSnapshotFile + " to " + corruptedFile;
+          } catch (IOException e) {
+            renameMessage = "Tried but failed to rename temporary snapshot file " + tmpSnapshotFile
+                + " to a " + CORRUPT + " file";
+            LOG.warn(renameMessage, e);
+            renameMessage += ": " + e;
+          }
+          throw new CorruptedFileException(tmpSnapshotFile,
+              "MD5 mismatch for snapshot-" + lastIncludedIndex + " installation.  " + renameMessage);
         } else {
           MD5FileUtil.saveMD5File(tmpSnapshotFile, digest);
         }
@@ -132,10 +141,44 @@ public class SnapshotManager {
     }
 
     if (snapshotChunkRequest.getDone()) {
-      LOG.info("Install snapshot is done, renaming tnp dir:{} to:{}",
-          tmpDir, dir.getStateMachineDir());
-      dir.getStateMachineDir().delete();
-      tmpDir.renameTo(dir.getStateMachineDir());
+      rename(tmpDir, dir.getStateMachineDir());
+    }
+  }
+
+  private static void rename(File tmpDir, File stateMachineDir) throws IOException {
+    LOG.info("Installed snapshot, renaming temporary dir {} to {}", tmpDir, stateMachineDir);
+
+    // rename stateMachineDir to tmp, if it exists.
+    final File existingDir;
+    if (stateMachineDir.exists()) {
+      File moved = null;
+      try {
+        moved = FileUtils.move(stateMachineDir, TMP + StringUtils.currentDateTime());
+      } catch(IOException e) {
+        LOG.warn("Failed to rename state machine directory " + stateMachineDir.getAbsolutePath()
+            + " to a " + TMP + " directory.  Try deleting it directly.", e);
+        FileUtils.deleteFully(stateMachineDir);
+      }
+      existingDir = moved;
+    } else {
+      existingDir = null;
+    }
+
+    // rename tmpDir to stateMachineDir
+    try {
+      FileUtils.move(tmpDir, stateMachineDir);
+    } catch (IOException e) {
+      throw new IOException("Failed to rename temporary director " + tmpDir.getAbsolutePath()
+          + " to " + stateMachineDir.getAbsolutePath(), e);
+    }
+
+    // delete existing dir
+    if (existingDir != null) {
+      try {
+        FileUtils.deleteFully(existingDir);
+      } catch (IOException e) {
+        LOG.warn("Failed to delete existing directory " + existingDir.getAbsolutePath(), e);
+      }
     }
   }
 }

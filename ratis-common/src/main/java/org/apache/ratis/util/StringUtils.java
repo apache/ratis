@@ -24,6 +24,8 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -38,6 +40,12 @@ public final class StringUtils {
 
   /** Retains a weak reference to each string instance it has interned. */
   private static final Interner<String> WEAK_INTERNER = Interners.newWeakInterner();
+
+  static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss_SSS");
+
+  public static String currentDateTime() {
+    return LocalDateTime.now().format(DATE_TIME);
+  }
 
   /**
    * Interns and returns a reference to the representative instance

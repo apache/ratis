@@ -17,25 +17,40 @@
  */
 package org.apache.ratis.util;
 
-import static org.junit.Assert.assertTrue;
+import org.apache.ratis.BaseTest;
+import org.junit.Assert;
+import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import org.junit.Test;
 
-/** Test methods of SnapshotManager. */
-public class FileUtilsTest {
+/** Test methods of {@link FileUtils}. */
+public class TestFileUtils extends BaseTest {
 
   @Test
   public void testRenameToCorrupt() throws IOException {
-    File srcFile = File.createTempFile("snapshot.1_20", null);
-    File corruptFile = new File(srcFile.getPath() + ".corrupt");
-    if (corruptFile.exists()) {
-      FileUtils.deleteFully(corruptFile);
+    final File dir = getClassTestDir();
+    Assert.assertTrue(dir.mkdirs());
+    try {
+      runTestRenameToCorrupt(dir);
+    } finally {
+      FileUtils.deleteFully(dir);
     }
-    FileUtils.renameFileToCorrupt(srcFile);
-    srcFile.deleteOnExit();
-    corruptFile.deleteOnExit();
-    assertTrue(corruptFile.exists());
+    Assert.assertFalse(dir.exists());
+  }
+
+  static void runTestRenameToCorrupt(File dir) throws IOException {
+    final File srcFile = new File(dir, "snapshot.1_20");
+    Assert.assertFalse(srcFile.exists());
+    Assert.assertTrue(srcFile.createNewFile());
+    Assert.assertTrue(srcFile.exists());
+
+    final File renamed = FileUtils.move(srcFile, ".corrupt");
+    Assert.assertNotNull(renamed);
+    Assert.assertTrue(renamed.exists());
+    Assert.assertFalse(srcFile.exists());
+
+    FileUtils.deleteFully(renamed);
+    Assert.assertFalse(renamed.exists());
   }
 }
