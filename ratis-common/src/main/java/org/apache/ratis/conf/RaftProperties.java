@@ -24,41 +24,18 @@ import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.w3c.dom.Attr;
-import org.w3c.dom.DOMException;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.w3c.dom.Text;
-import org.xml.sax.SAXException;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.JarURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
-import java.util.WeakHashMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
@@ -73,91 +50,10 @@ import java.util.stream.Collectors;
 public class RaftProperties {
   private static final Logger LOG = LoggerFactory.getLogger(RaftProperties.class);
 
-  private static class Resource {
-    private final Object resource;
-    private final String name;
-
-    Resource(Object resource) {
-      this(resource, resource.toString());
-    }
-
-    Resource(Object resource, String name) {
-      this.resource = resource;
-      this.name = name;
-    }
-
-    public String getName(){
-      return name;
-    }
-
-    public Object getResource() {
-      return resource;
-    }
-
-    @Override
-    public String toString() {
-      return name;
-    }
-  }
-
-  /**
-   * List of configuration resources.
-   */
-  private final ArrayList<Resource> resources;
-
-  /**
-   * The value reported as the setting resource when a key is set
-   * by code rather than a file resource by dumpConfiguration.
-   */
-  static final String UNKNOWN_RESOURCE = "Unknown";
-
-  /**
-   * List of configuration parameters marked <b>final</b>.
-   */
-  private final Set<String> finalParameters = Collections.newSetFromMap(new ConcurrentHashMap<>());
-
-  private final boolean loadDefaults;
-
-  /**
-   * Configuration objects
-   */
-  private static final WeakHashMap<RaftProperties, Object> REGISTRY = new WeakHashMap<>();
-
-  /**
-   * List of default Resources. Resources are loaded in the order of the list
-   * entries
-   */
-  private static final CopyOnWriteArrayList<String> DEFAULT_RESOURCES =
-    new CopyOnWriteArrayList<>();
-
-  /**
-   * Stores the mapping of key to the resource which modifies or loads
-   * the key most recently
-   */
-  private final Map<String, String[]> updatingResource;
-
   private Properties properties;
-  private Properties overlay;
 
   /** A new configuration. */
   public RaftProperties() {
-    this(true);
-  }
-
-  /** A new configuration where the behavior of reading from the default
-   * resources can be turned off.
-   *
-   * If the parameter {@code loadDefaults} is false, the new instance
-   * will not load resources from the default files.
-   * @param loadDefaults specifies whether to load from the default files
-   */
-  public RaftProperties(boolean loadDefaults) {
-    this.loadDefaults = loadDefaults;
-    this.resources = new ArrayList<>();
-    this.updatingResource = new ConcurrentHashMap<>();
-    synchronized(RaftProperties.class) {
-      REGISTRY.put(this, null);
-    }
   }
 
   /**
@@ -165,120 +61,12 @@ public class RaftProperties {
    *
    * @param other the RaftProperties from which to clone settings.
    */
-  @SuppressWarnings("unchecked")
   public RaftProperties(RaftProperties other) {
-    this.resources = (ArrayList<Resource>) other.resources.clone();
     synchronized(other) {
       if (other.properties != null) {
         this.properties = (Properties)other.properties.clone();
       }
-
-      if (other.overlay!=null) {
-        this.overlay = (Properties)other.overlay.clone();
-      }
-
-      this.updatingResource = new ConcurrentHashMap<>(other.updatingResource);
-      this.finalParameters.addAll(other.finalParameters);
     }
-
-    synchronized(RaftProperties.class) {
-      REGISTRY.put(this, null);
-    }
-    this.loadDefaults = other.loadDefaults;
-  }
-
-  /**
-   * Add a default resource. Resources are loaded in the order of the resources
-   * added.
-   * @param name file name. File should be present in the classpath.
-   */
-  public static synchronized void addDefaultResource(String name) {
-    if(!DEFAULT_RESOURCES.contains(name)) {
-      DEFAULT_RESOURCES.add(name);
-      REGISTRY.keySet().stream().filter(conf -> conf.loadDefaults)
-          .forEach(RaftProperties::reloadConfiguration);
-    }
-  }
-
-  /**
-   * Add a configuration resource.
-   *
-   * The properties of this resource will override properties of previously
-   * added resources, unless they were marked <a href="#Final">final</a>.
-   *
-   * @param name resource to be added, the classpath is examined for a file
-   *             with that name.
-   */
-  public void addResource(String name) {
-    addResourceObject(new Resource(name));
-  }
-
-
-  public void addResource(URL path) {
-    addResourceObject(new Resource(path));
-  }
-
-  /**
-   * Add a configuration resource.
-   *
-   * The properties of this resource will override properties of previously
-   * added resources, unless they were marked <a href="#Final">final</a>.
-   *
-   * WARNING: The contents of the InputStream will be cached, by this method.
-   * So use this sparingly because it does increase the memory consumption.
-   *
-   * @param in InputStream to deserialize the object from. In will be read from
-   * when a get or set is called next.  After it is read the stream will be
-   * closed.
-   */
-  public void addResource(InputStream in) {
-    addResourceObject(new Resource(in));
-  }
-
-  /**
-   * Add a configuration resource.
-   *
-   * The properties of this resource will override properties of previously
-   * added resources, unless they were marked <a href="#Final">final</a>.
-   *
-   * @param in InputStream to deserialize the object from.
-   * @param name the name of the resource because InputStream.toString is not
-   * very descriptive some times.
-   */
-  public void addResource(InputStream in, String name) {
-    addResourceObject(new Resource(in, name));
-  }
-
-  /**
-   * Add a configuration resource.
-   *
-   * The properties of this resource will override properties of previously
-   * added resources, unless they were marked <a href="#Final">final</a>.
-   *
-   * @param conf Configuration object from which to load properties
-   */
-  public void addResource(RaftProperties conf) {
-    addResourceObject(new Resource(conf.getProps()));
-  }
-
-
-
-  /**
-   * Reload configuration from previously added resources.
-   *
-   * This method will clear all the configuration read from the added
-   * resources, and final parameters. This will make the resources to
-   * be read again before accessing the values. Values that are added
-   * via set methods will overlay values read from the resources.
-   */
-  public synchronized void reloadConfiguration() {
-    properties = null;                            // trigger reload
-    finalParameters.clear();                      // clear site-limits
-  }
-
-  private synchronized void addResourceObject(Resource resource) {
-    resources.add(resource);                      // add to resources
-    reloadConfiguration();
   }
 
   private static final int MAX_SUBST = 20;
@@ -523,20 +311,15 @@ public class RaftProperties {
    * @throws IllegalArgumentException when the value or name is null.
    */
   public void set(String name, String value) {
-    final String trimmed = Objects.requireNonNull(name, "Property name must be non-null.");
-    Objects.requireNonNull(value, () -> "The value of property " + trimmed + " must be non-null.");
-    name = trimmed;
-    getProps();
-
-    getOverlay().setProperty(name, value);
-    getProps().setProperty(name, value);
+    final String trimmed = Objects.requireNonNull(name, "name == null").trim();
+    Objects.requireNonNull(value, () -> "value == null for " + trimmed);
+    getProps().setProperty(trimmed, value);
   }
 
   /**
    * Unset a previously set property.
    */
   public synchronized void unset(String name) {
-    getOverlay().remove(name);
     getProps().remove(name);
   }
 
@@ -549,13 +332,6 @@ public class RaftProperties {
     if (get(name) == null) {
       set(name, value);
     }
-  }
-
-  private synchronized Properties getOverlay() {
-    if (overlay == null){
-      overlay = new Properties();
-    }
-    return overlay;
   }
 
   /**
@@ -989,24 +765,7 @@ public class RaftProperties {
     set(name, theClass.getName());
   }
 
-  protected synchronized Properties getProps() {
-    if (properties == null) {
-      properties = new Properties();
-      Map<String, String[]> backup =
-          new ConcurrentHashMap<>(updatingResource);
-      loadResources();
-
-      if (overlay != null) {
-        properties.putAll(overlay);
-        for (Entry<Object,Object> item: overlay.entrySet()) {
-          String key = (String) item.getKey();
-          String[] source = backup.get(key);
-          if(source != null) {
-            updatingResource.put(key, source);
-          }
-        }
-      }
-    }
+  Properties getProps() {
     return properties;
   }
 
@@ -1024,234 +783,13 @@ public class RaftProperties {
    */
   public void clear() {
     getProps().clear();
-    getOverlay().clear();
-  }
-
-  private Document parse(DocumentBuilder builder, URL url)
-      throws IOException, SAXException {
-    LOG.debug("parsing URL " + url);
-    if (url == null) {
-      return null;
-    }
-
-    URLConnection connection = url.openConnection();
-    if (connection instanceof JarURLConnection) {
-      // Disable caching for JarURLConnection to avoid sharing JarFile
-      // with other users.
-      connection.setUseCaches(false);
-    }
-    return parse(builder, connection.getInputStream(), url.toString());
-  }
-
-  private Document parse(DocumentBuilder builder, InputStream is,
-      String systemId) throws IOException, SAXException {
-    LOG.debug("parsing input stream " + is);
-    if (is == null) {
-      return null;
-    }
-    try {
-      return (systemId == null) ? builder.parse(is) : builder.parse(is,
-          systemId);
-    } finally {
-      is.close();
-    }
-  }
-
-  private void loadResources() {
-    if(loadDefaults) {
-      for (String resource : DEFAULT_RESOURCES) {
-        loadResource(properties, new Resource(resource));
-      }
-    }
-
-    for (int i = 0; i < resources.size(); i++) {
-      Resource ret = loadResource(properties, resources.get(i));
-      if (ret != null) {
-        resources.set(i, ret);
-      }
-    }
-  }
-
-  private Resource loadResource(Properties propts, Resource wrapper) {
-    String name = UNKNOWN_RESOURCE;
-    try {
-      Object resource = wrapper.getResource();
-      name = wrapper.getName();
-
-      DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
-      docBuilderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-      //ignore all comments inside the xml file
-      docBuilderFactory.setIgnoringComments(true);
-
-      //allow includes in the xml file
-      docBuilderFactory.setNamespaceAware(true);
-      try {
-          docBuilderFactory.setXIncludeAware(true);
-      } catch (UnsupportedOperationException e) {
-        LOG.error("Failed to set setXIncludeAware(true) for parser " + docBuilderFactory + ":" + e, e);
-      }
-      DocumentBuilder builder = docBuilderFactory.newDocumentBuilder();
-      Document doc = null;
-      Element root = null;
-      boolean returnCachedProperties = false;
-
-      if (resource instanceof URL) { // an URL resource
-        doc = parse(builder, (URL) resource);
-      } else if (resource instanceof String) { // a CLASSPATH resource
-        URL url = ReflectionUtils.getClassLoader().getResource((String)resource);
-        doc = parse(builder, url);
-      } else if (resource instanceof InputStream) {
-        doc = parse(builder, (InputStream) resource, null);
-        returnCachedProperties = true;
-      } else if (resource instanceof Properties) {
-        overlay(propts, (Properties) resource);
-      } else if (resource instanceof Element) {
-        root = (Element) resource;
-      }
-
-      if (root == null) {
-        if (doc == null) {
-          return null;
-        }
-        root = doc.getDocumentElement();
-      }
-      Properties toAddTo = propts;
-      if(returnCachedProperties) {
-        toAddTo = new Properties();
-      }
-      if (!"configuration".equals(root.getTagName())) {
-        LOG.error("bad conf file: top-level element not <configuration>");
-      }
-      NodeList props = root.getChildNodes();
-      for (int i = 0; i < props.getLength(); i++) {
-        Node propNode = props.item(i);
-        if (!(propNode instanceof Element)) {
-          continue;
-        }
-
-        Element prop = (Element)propNode;
-        if ("configuration".equals(prop.getTagName())) {
-          loadResource(toAddTo, new Resource(prop, name));
-          continue;
-        }
-        if (!"property".equals(prop.getTagName())) {
-          LOG.warn("bad conf file: element not <property>");
-        }
-
-        String attr = null;
-        String value = null;
-        boolean finalParameter = false;
-        LinkedList<String> source = new LinkedList<>();
-
-        Attr propAttr = prop.getAttributeNode("name");
-        if (propAttr != null) {
-          attr = StringUtils.weakIntern(propAttr.getValue());
-        }
-        propAttr = prop.getAttributeNode("value");
-        if (propAttr != null) {
-          value = StringUtils.weakIntern(propAttr.getValue());
-        }
-        propAttr = prop.getAttributeNode("final");
-        if (propAttr != null) {
-          finalParameter = "true".equals(propAttr.getValue());
-        }
-        propAttr = prop.getAttributeNode("source");
-        if (propAttr != null) {
-          source.add(StringUtils.weakIntern(propAttr.getValue()));
-        }
-
-        NodeList fields = prop.getChildNodes();
-        for (int j = 0; j < fields.getLength(); j++) {
-          Node fieldNode = fields.item(j);
-          if (!(fieldNode instanceof Element)) {
-            continue;
-          }
-          Element field = (Element)fieldNode;
-          if ("name".equals(field.getTagName()) && field.hasChildNodes()) {
-            attr = StringUtils.weakIntern(
-                ((Text)field.getFirstChild()).getData().trim());
-          }
-          if ("value".equals(field.getTagName()) && field.hasChildNodes()) {
-            value = StringUtils.weakIntern(
-                ((Text)field.getFirstChild()).getData());
-          }
-          if ("final".equals(field.getTagName()) && field.hasChildNodes()) {
-            finalParameter = "true".equals(((Text)field.getFirstChild()).getData());
-          }
-          if ("source".equals(field.getTagName()) && field.hasChildNodes()) {
-            source.add(StringUtils.weakIntern(
-                ((Text)field.getFirstChild()).getData()));
-          }
-        }
-        source.add(name);
-
-        // Ignore this parameter if it has already been marked as 'final'
-        if (attr != null) {
-          loadProperty(toAddTo, name, attr, value, finalParameter,
-              source.toArray(new String[source.size()]));
-        }
-      }
-
-      if (returnCachedProperties) {
-        overlay(propts, toAddTo);
-        return new Resource(toAddTo, name);
-      }
-      return null;
-    } catch (IOException | DOMException | SAXException |
-        ParserConfigurationException e) {
-      LOG.error("error parsing conf " + name, e);
-      throw new RuntimeException(e);
-    }
-  }
-
-  private void overlay(Properties to, Properties from) {
-    for (Entry<Object, Object> entry: from.entrySet()) {
-      to.put(entry.getKey(), entry.getValue());
-    }
-  }
-
-  private void loadProperty(Properties prop, String name, String attr,
-      String value, boolean finalParameter, String[] source) {
-    if (value != null) {
-      if (!finalParameters.contains(attr)) {
-        prop.setProperty(attr, value);
-        if(source != null) {
-          updatingResource.put(attr, source);
-        }
-      } else if (!value.equals(prop.getProperty(attr))) {
-        LOG.warn(name+":an attempt to override final parameter: "+attr
-            +";  Ignoring.");
-      }
-    }
-    if (finalParameter && attr != null) {
-      finalParameters.add(attr);
-    }
   }
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("Configuration: ");
-    if(loadDefaults) {
-      toString(DEFAULT_RESOURCES, sb);
-      if(resources.size()>0) {
-        sb.append(", ");
-      }
-    }
-    toString(resources, sb);
     return sb.toString();
-  }
-
-  private <T> void toString(List<T> res, StringBuilder sb) {
-    ListIterator<T> i = res.listIterator();
-    while (i.hasNext()) {
-      if (i.nextIndex() != 0) {
-        sb.append(", ");
-      }
-      sb.append(i.next());
-    }
   }
 
   /**
