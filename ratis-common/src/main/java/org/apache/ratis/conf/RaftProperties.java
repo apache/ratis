@@ -18,6 +18,7 @@
 
 package org.apache.ratis.conf;
 
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ReflectionUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
@@ -28,19 +29,14 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
 /**
@@ -50,7 +46,7 @@ import java.util.stream.Collectors;
 public class RaftProperties {
   private static final Logger LOG = LoggerFactory.getLogger(RaftProperties.class);
 
-  private Properties properties;
+  private final ConcurrentMap<String, String> properties = new ConcurrentHashMap<>();
 
   /** A new configuration. */
   public RaftProperties() {
@@ -62,11 +58,7 @@ public class RaftProperties {
    * @param other the RaftProperties from which to clone settings.
    */
   public RaftProperties(RaftProperties other) {
-    synchronized(other) {
-      if (other.properties != null) {
-        this.properties = (Properties)other.properties.clone();
-      }
-    }
+    this.properties.putAll(other.properties);
   }
 
   private static final int MAX_SUBST = 20;
@@ -272,21 +264,6 @@ public class RaftProperties {
   }
 
   /**
-   * Get the value of the <code>name</code> property as a trimmed <code>String</code>,
-   * <code>defaultValue</code> if no such property exists.
-   * See @{Configuration#getTrimmed} for more details.
-   *
-   * @param name          the property name.
-   * @param defaultValue  the property default value.
-   * @return              the value of the <code>name</code> or defaultValue
-   *                      if it is not set.
-   */
-  public String getTrimmed(String name, String defaultValue) {
-    String ret = getTrimmed(name);
-    return ret == null ? defaultValue : ret;
-  }
-
-  /**
    * Get the value of the <code>name</code> property, without doing
    * <a href="#VariableExpansion">variable expansion</a>.If the key is
    * deprecated, it returns the value of the first key which replaces
@@ -297,7 +274,7 @@ public class RaftProperties {
    *         its replacing property and null if no such property exists.
    */
   public String getRaw(String name) {
-    return getProps().getProperty(name.trim());
+    return properties.get(Objects.requireNonNull(name, "name == null").trim());
   }
 
   /**
@@ -313,14 +290,14 @@ public class RaftProperties {
   public void set(String name, String value) {
     final String trimmed = Objects.requireNonNull(name, "name == null").trim();
     Objects.requireNonNull(value, () -> "value == null for " + trimmed);
-    getProps().setProperty(trimmed, value);
+    properties.put(trimmed, value);
   }
 
   /**
    * Unset a previously set property.
    */
-  public synchronized void unset(String name) {
-    getProps().remove(name);
+  public void unset(String name) {
+    properties.remove(name);
   }
 
   /**
@@ -347,7 +324,7 @@ public class RaftProperties {
    *         doesn't exist.
    */
   public String get(String name, String defaultValue) {
-    return substituteVars(getProps().getProperty(name, defaultValue));
+    return substituteVars(properties.getOrDefault(name, defaultValue));
   }
 
   /**
@@ -541,15 +518,6 @@ public class RaftProperties {
   }
 
   /**
-   * Set the given property, if it is currently unset.
-   * @param name property name
-   * @param value new value
-   */
-  public void setBooleanIfUnset(String name, boolean value) {
-    setIfUnset(name, Boolean.toString(value));
-  }
-
-  /**
    * Set the value of the <code>name</code> property to the given type. This
    * is equivalent to <code>set(&lt;name&gt;, value.toString())</code>.
    * @param name property name
@@ -608,43 +576,6 @@ public class RaftProperties {
   }
   public BiFunction<String, TimeDuration, TimeDuration> getTimeDuration(TimeUnit defaultUnit) {
     return (key, defaultValue) -> getTimeDuration(key, defaultValue, defaultUnit);
-  }
-
-  /**
-   * Get the value of the <code>name</code> property as a <code>Pattern</code>.
-   * If no such property is specified, or if the specified value is not a valid
-   * <code>Pattern</code>, then <code>DefaultValue</code> is returned.
-   * Note that the returned value is NOT trimmed by this method.
-   *
-   * @param name property name
-   * @param defaultValue default value
-   * @return property value as a compiled Pattern, or defaultValue
-   */
-  public Pattern getPattern(String name, Pattern defaultValue) {
-    String valString = get(name);
-    if (null == valString || valString.isEmpty()) {
-      return defaultValue;
-    }
-    try {
-      return Pattern.compile(valString);
-    } catch (PatternSyntaxException pse) {
-      LOG.warn("Regular expression '" + valString + "' for property '" +
-               name + "' not valid. Using default", pse);
-      return defaultValue;
-    }
-  }
-
-  /**
-   * Set the given property to <code>Pattern</code>.
-   * If the pattern is passed as null, sets the empty pattern which results in
-   * further calls to getPattern(...) returning the default value.
-   *
-   * @param name property name
-   * @param pattern new value
-   */
-  public void setPattern(String name, Pattern pattern) {
-    assert pattern != null : "Pattern cannot be null";
-    set(name, pattern.pattern());
   }
 
   /**
@@ -765,53 +696,20 @@ public class RaftProperties {
     set(name, theClass.getName());
   }
 
-  Properties getProps() {
-    return properties;
-  }
-
-  /**
-   * Return the number of keys in the configuration.
-   *
-   * @return number of keys in the configuration.
-   */
+  /** @return number of keys in the properties. */
   public int size() {
-    return getProps().size();
+    return properties.size();
   }
 
   /**
    * Clears all keys from the configuration.
    */
   public void clear() {
-    getProps().clear();
+    properties.clear();
   }
 
   @Override
   public String toString() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("Configuration: ");
-    return sb.toString();
-  }
-
-  /**
-   * get keys matching the the regex
-   * @return a map with matching keys
-   */
-  public Map<String,String> getValByRegex(String regex) {
-    Pattern p = Pattern.compile(regex);
-
-    Map<String,String> result = new HashMap<>();
-    Matcher m;
-
-    for(Entry<Object,Object> item: getProps().entrySet()) {
-      if (item.getKey() instanceof String &&
-          item.getValue() instanceof String) {
-        m = p.matcher((String)item.getKey());
-        if(m.find()) { // match
-          result.put((String) item.getKey(),
-              substituteVars(getProps().getProperty((String) item.getKey())));
-        }
-      }
-    }
-    return result;
+    return JavaUtils.getClassSimpleName(getClass()) + ":" + size();
   }
 }
