@@ -119,13 +119,13 @@ class SnapshotInstallationHandler {
     if (reply != null) {
       if (request.hasLastRaftConfigurationLogEntryProto()) {
         // Set the configuration included in the snapshot
-        final LogEntryProto newConfLogEntryProto = request.getLastRaftConfigurationLogEntryProto();
-        if (!state.getRaftConf().equals(LogProtoUtils.toRaftConfiguration(newConfLogEntryProto))) {
-          LOG.info("{}: set new configuration {} from snapshot", getMemberId(), newConfLogEntryProto);
-          state.setRaftConf(newConfLogEntryProto);
-          state.writeRaftConfiguration(newConfLogEntryProto);
-          server.getStateMachine().event().notifyConfigurationChanged(newConfLogEntryProto.getTerm(),
-              newConfLogEntryProto.getIndex(), newConfLogEntryProto.getConfigurationEntry());
+        final LogEntryProto proto = request.getLastRaftConfigurationLogEntryProto();
+        if (!state.getRaftConf().equals(LogProtoUtils.toRaftConfiguration(proto))) {
+          LOG.info("{}: set new configuration {} from snapshot", getMemberId(), proto);
+          state.setRaftConf(proto);
+          state.writeRaftConfiguration(proto);
+          server.getStateMachine().event().notifyConfigurationChanged(
+              proto.getTerm(), proto.getIndex(), proto.getConfigurationEntry());
         }
       }
       return reply;
@@ -236,8 +236,8 @@ class SnapshotInstallationHandler {
 
         // For the cases where RaftConf is empty on newly started peer with empty peer list,
         // we retrieve leader info from installSnapShotRequestProto.
-        final RoleInfoProto roleInfoProto = leaderProto == null || server.getRaftConf().getPeer(state.
-            getLeaderId()) != null? server.getRoleInfoProto(): getRoleInfoProto(ProtoUtils.toRaftPeer(leaderProto));
+        final RoleInfoProto proto = leaderProto == null || server.getRaftConf().getPeer(state.getLeaderId()) != null?
+            server.getRoleInfoProto(): getRoleInfoProto(ProtoUtils.toRaftPeer(leaderProto));
         // This is the first installSnapshot notify request for this term and
         // index. Notify the state machine to install the snapshot.
         LOG.info("{}: notifyInstallSnapshot: nextIndex is {} but the leader's first available index is {}.",
@@ -253,8 +253,7 @@ class SnapshotInstallationHandler {
         // is updated when state.reloadStateMachine. We shall keep this index upgraded synchronously with main thread,
         // otherwise leader could get this follower's latest nextIndex from appendEntries instead of after
         // acknowledging the SNAPSHOT_INSTALLED.
-        server.getStateMachine().followerEvent()
-            .notifyInstallSnapshotFromLeader(roleInfoProto, firstAvailableLogTermIndex)
+        server.getStateMachine().followerEvent().notifyInstallSnapshotFromLeader(proto, firstAvailableLogTermIndex)
             .whenComplete((reply, exception) -> {
               if (exception != null) {
                 LOG.error("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
@@ -301,9 +300,9 @@ class SnapshotInstallationHandler {
 
       // If a snapshot has been installed, return SNAPSHOT_INSTALLED with the installed snapshot index and reset
       // installedSnapshotIndex to (0,0).
-      final TermIndex latestInstalledSnapshotTermIndex = this.installedSnapshotTermIndex.get();
+      final TermIndex latestInstalledSnapshotTermIndex = this.installedSnapshotTermIndex
+          .getAndSet(TermIndex.valueOf(0,0));
       if (latestInstalledSnapshotTermIndex.getIndex() > 0) {
-        this.installedSnapshotTermIndex.set(TermIndex.valueOf(0,0));
         server.getStateMachine().pause();
         state.updateInstalledSnapshotIndex(latestInstalledSnapshotTermIndex);
         state.reloadStateMachine(latestInstalledSnapshotTermIndex.getIndex());
