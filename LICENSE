@@ -270,10 +270,10 @@ THE SOFTWARE.
 
 --
 
-JQuery v3.4.1
+JQuery v3.5.1
 ------
 The product bundles JQuery in
-ratis-docs/themes/ratisdoc/static/js/jquery-3.4.1.min.js
+ratis-docs/themes/ratisdoc/static/js/jquery-3.5.1.min.js
 which is licensed under MIT
 
 Copyright JS Foundation and other contributors, https://js.foundation/
