@@ -470,7 +470,7 @@ class ServerState implements Closeable {
 
   long getNextIndex() {
     final long logNextIndex = log.getNextIndex();
-    final long snapshotNextIndex = getSnapshotIndex() + 1;
+    final long snapshotNextIndex = log.getSnapshotIndex() + 1;
     return Math.max(logNextIndex, snapshotNextIndex);
   }
 
