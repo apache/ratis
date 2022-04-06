@@ -665,7 +665,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     testFailureCase("testSegmentedRaftLogFormatInternalHeader",
         () -> SegmentedRaftLogFormat.applyHeaderTo(header -> {
           LOG.info("header  = " + new String(header, StandardCharsets.UTF_8));
-          header[0] += 1; // try changing the internal header
+          header[0]++; // try changing the internal header
           LOG.info("header' = " + new String(header, StandardCharsets.UTF_8));
           return null;
         }), IllegalStateException.class);

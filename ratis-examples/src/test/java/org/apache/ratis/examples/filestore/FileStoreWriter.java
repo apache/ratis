@@ -130,7 +130,7 @@ class FileStoreWriter implements Closeable {
           fileName, offset, length, close);
       final long written = client.write(fileName, offset, close, b, sync);
       Assert.assertEquals(length, written);
-      offset += written;
+      offset += length;
     }
     return this;
   }

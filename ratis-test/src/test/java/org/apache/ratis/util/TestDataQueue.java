@@ -43,7 +43,7 @@ public class TestDataQueue {
 
   final SizeInBytes byteLimit = SizeInBytes.valueOf(100);
   final int elementLimit = 5;
-  final DataQueue<Long> q = new DataQueue<Long>(null, byteLimit, elementLimit, Long::longValue);
+  final DataQueue<Long> q = new DataQueue<>(null, byteLimit, elementLimit, Long::longValue);
 
   @Test(timeout = 1000)
   public void testElementLimit() {
@@ -54,7 +54,7 @@ public class TestDataQueue {
     assertSizes(0, 0, q);
 
     final int elementLimit = q.getElementLimit();
-    int numBytes = 0;
+    long numBytes = 0;
     for (long i = 0; i < elementLimit; i++) {
       Assert.assertEquals(i, q.getNumElements());
       Assert.assertEquals(numBytes, q.getNumBytes());
@@ -146,7 +146,7 @@ public class TestDataQueue {
 
     final int elementLimit = q.getElementLimit();
     int numElements = 0;
-    int numBytes = 0;
+    long numBytes = 0;
     for(long i = 0; i < elementLimit; i++) {
       final boolean offered = q.offer(i);
       Assert.assertTrue(offered);
@@ -184,7 +184,7 @@ public class TestDataQueue {
   public void testTimeout() {
     assertSizes(0, 0, q);
 
-    int numBytes = 0;
+    long numBytes = 0;
     for (long i = 0; i < elementLimit; i++) {
       Assert.assertEquals(i, q.getNumElements());
       Assert.assertEquals(numBytes, q.getNumBytes());
