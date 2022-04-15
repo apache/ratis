@@ -55,6 +55,7 @@ public final class MetricsReporting {
       JmxReporter.Builder builder =
           JmxReporter.forRegistry(registry.getDropWizardMetricRegistry());
       builder.inDomain(registry.getMetricRegistryInfo().getApplicationName());
+      builder.createsObjectNamesWith(new RatisObjectNameFactory());
       JmxReporter reporter = builder.build();
       reporter.start();
 
