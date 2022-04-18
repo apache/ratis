@@ -218,7 +218,7 @@
 
     <!--metrics-->
     <dropwizard.version>4.2.9</dropwizard.version>
-    <dropwizard.ganglia.version>3.2.5</dropwizard.ganglia.version>
+    <dropwizard.ganglia.version>3.2.6</dropwizard.ganglia.version>
   </properties>
 
   <dependencyManagement>
