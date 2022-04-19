@@ -42,6 +42,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
   public static final TimeDuration ONE_MILLISECOND = TimeDuration.valueOf(1, TimeUnit.MILLISECONDS);
   public static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
   public static final TimeDuration ONE_MINUTE = TimeDuration.valueOf(1, TimeUnit.MINUTES);
+  public static final TimeDuration ONE_DAY = TimeDuration.valueOf(1, TimeUnit.DAYS);
 
   static final double ERROR_THRESHOLD = 0.001; // accept 0.1% error
 

@@ -116,11 +116,23 @@ public interface ConcurrentUtils {
    * @param executor The executor to be shut down.
    */
   static void shutdownAndWait(ExecutorService executor) {
+    shutdownAndWait(TimeDuration.ONE_DAY, executor, timeout -> {
+      throw new IllegalStateException(executor.getClass().getName() + " shutdown timeout in " + timeout);
+    });
+  }
+
+  static void shutdownAndWait(TimeDuration waitTime, ExecutorService executor, Consumer<TimeDuration> timoutHandler) {
+    executor.shutdown();
     try {
-      executor.shutdown();
-      Preconditions.assertTrue(executor.awaitTermination(1, TimeUnit.DAYS));
+      if (executor.awaitTermination(waitTime.getDuration(), waitTime.getUnit())) {
+        return;
+      }
     } catch (InterruptedException ignored) {
       Thread.currentThread().interrupt();
+      return;
+    }
+    if (timoutHandler != null) {
+      timoutHandler.accept(waitTime);
     }
   }
 

@@ -21,6 +21,7 @@ import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.function.CheckedFunction;
+import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,8 +122,16 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
     }
   }
 
-  public void computeIfAbsent(RaftPeer p) {
-    peers.computeIfAbsent(p.getId(), k -> new PeerAndProxy(p));
+  /**
+   * This method is similar to {@link Map#computeIfAbsent(Object, java.util.function.Function)}
+   * except that this method does not require a mapping function.
+   *
+   * @param peer the peer for retrieving/building a proxy.
+   * @return a supplier of the proxy for the given peer.
+   */
+  public CheckedSupplier<PROXY, IOException> computeIfAbsent(RaftPeer peer) {
+    final PeerAndProxy peerAndProxy = peers.computeIfAbsent(peer.getId(), k -> new PeerAndProxy(peer));
+    return peerAndProxy::getProxy;
   }
 
   public void resetProxy(RaftPeerId id) {
