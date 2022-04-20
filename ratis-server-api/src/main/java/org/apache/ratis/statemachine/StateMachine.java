@@ -74,9 +74,8 @@ public interface StateMachine extends Closeable {
      *
      * @return a future for the read task.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<ByteString> read(LogEntryProto entry) {
-      return CompletableFuture.completedFuture(null);
+      throw new UnsupportedOperationException("This method is NOT supported.");
     }
 
     /**

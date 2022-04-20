@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
@@ -295,7 +296,7 @@ public class SegmentedRaftLog extends RaftLogBase {
       if (stateMachine != null) {
         future = stateMachine.data().read(entry).exceptionally(ex -> {
           stateMachine.event().notifyLogFailed(ex, entry);
-          return null;
+          throw new CompletionException("Failed to read state machine data for log entry " + entry, ex);
         });
       }
       return newEntryWithData(entry, future);
