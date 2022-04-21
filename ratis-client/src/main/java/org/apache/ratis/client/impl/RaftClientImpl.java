@@ -170,9 +170,7 @@ public final class RaftClientImpl implements RaftClient {
     this.messageStreamApi = JavaUtils.memoize(() -> MessageStreamImpl.newInstance(this, properties));
     this.asyncApi = JavaUtils.memoize(() -> new AsyncImpl(this));
     this.blockingApi = JavaUtils.memoize(() -> new BlockingImpl(this));
-    this.dataStreamApi = JavaUtils.memoize(() -> DataStreamClient.newBuilder()
-        .setClientId(clientId)
-        .setRaftGroupId(groupId)
+    this.dataStreamApi = JavaUtils.memoize(() -> DataStreamClient.newBuilder(this)
         .setDataStreamServer(primaryDataStreamServer)
         .setProperties(properties)
         .setParameters(parameters)
@@ -180,11 +178,13 @@ public final class RaftClientImpl implements RaftClient {
     this.adminApi = JavaUtils.memoize(() -> new AdminImpl(this));
   }
 
+  @Override
   public RaftPeerId getLeaderId() {
     return leaderId;
   }
 
-  RaftGroupId getGroupId() {
+  @Override
+  public RaftGroupId getGroupId() {
     return groupId;
   }
 

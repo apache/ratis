@@ -42,7 +42,11 @@ public interface DataStreamClient extends DataStreamRpcApi, Closeable {
   DataStreamClientRpc getClientRpc();
 
   static Builder newBuilder() {
-    return new Builder();
+    return newBuilder(null);
+  }
+
+  static Builder newBuilder(RaftClient client) {
+    return new Builder(client);
   }
 
   /** To build {@link DataStreamClient} objects */
@@ -51,10 +55,14 @@ public interface DataStreamClient extends DataStreamRpcApi, Closeable {
     private DataStreamClientRpc dataStreamClientRpc;
     private RaftProperties properties;
     private Parameters parameters;
-    private RaftGroupId raftGroupId;
+    private RaftGroupId groupId;
     private ClientId clientId;
 
-    private Builder() {}
+    private final RaftClient client;
+
+    private Builder(RaftClient client) {
+      this.client = client;
+    }
 
     public DataStreamClient build() {
       Objects.requireNonNull(dataStreamServer, "The 'dataStreamServer' field is not initialized.");
@@ -65,9 +73,13 @@ public interface DataStreamClient extends DataStreamRpcApi, Closeable {
               .newDataStreamClientRpc(dataStreamServer, properties);
         }
       }
+      if (client != null) {
+        return ClientImplUtils.newDataStreamClient(
+            client, dataStreamServer, dataStreamClientRpc, properties);
+      }
       return ClientImplUtils.newDataStreamClient(
           Optional.ofNullable(clientId).orElseGet(ClientId::randomId),
-          raftGroupId, dataStreamServer, dataStreamClientRpc, properties);
+          groupId, dataStreamServer, dataStreamClientRpc, properties);
     }
 
     public Builder setClientId(ClientId clientId) {
@@ -75,8 +87,8 @@ public interface DataStreamClient extends DataStreamRpcApi, Closeable {
       return this;
     }
 
-    public Builder setRaftGroupId(RaftGroupId raftGroupId) {
-      this.raftGroupId = raftGroupId;
+    public Builder setGroupId(RaftGroupId groupId) {
+      this.groupId = groupId;
       return this;
     }
 

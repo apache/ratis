@@ -44,4 +44,9 @@ public interface ClientImplUtils {
       DataStreamClientRpc dataStreamClientRpc, RaftProperties properties) {
     return new DataStreamClientImpl(clientId, groupId, primaryDataStreamServer, dataStreamClientRpc, properties);
   }
+
+  static DataStreamClient newDataStreamClient(RaftClient client, RaftPeer primaryDataStreamServer,
+      DataStreamClientRpc dataStreamClientRpc, RaftProperties properties) {
+    return new DataStreamClientImpl(client, primaryDataStreamServer, dataStreamClientRpc, properties);
+  }
 }
