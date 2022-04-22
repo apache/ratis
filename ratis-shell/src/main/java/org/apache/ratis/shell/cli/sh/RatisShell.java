@@ -23,6 +23,7 @@ import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.util.ReflectionUtils;
 import org.reflections.Reflections;
 
+import java.io.PrintStream;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,8 +39,12 @@ public class RatisShell extends AbstractShell {
    * @param args array of arguments given by the user's input from the terminal
    */
   public static void main(String[] args) {
-    RatisShell extensionShell = new RatisShell();
-    System.exit(extensionShell.run(args));
+    final RatisShell shell = new RatisShell(System.out);
+    System.exit(shell.run(args));
+  }
+
+  public RatisShell(PrintStream out) {
+    super(new Context(out));
   }
 
   @Override
@@ -48,11 +53,10 @@ public class RatisShell extends AbstractShell {
   }
 
   @Override
-  protected Map<String, Command> loadCommands() {
-    Context adminContext = new Context(System.out);
+  protected Map<String, Command> loadCommands(Context context) {
     return loadCommands(RatisShell.class.getPackage().getName(),
         new Class[] {Context.class},
-        new Object[] {getCloser().register(adminContext)});
+        new Object[] {getCloser().register(context)});
   }
 
   /**
@@ -64,7 +68,7 @@ public class RatisShell extends AbstractShell {
    * @param objectArgs args to instantiate the class
    * @return a mapping from command name to command instance
    */
-  public static Map<String, Command> loadCommands(String pkgName, Class[] classArgs,
+  private Map<String, Command> loadCommands(String pkgName, Class[] classArgs,
       Object[] objectArgs) {
     Map<String, Command> commandsMap = new HashMap<>();
     Reflections reflections = new Reflections(pkgName);

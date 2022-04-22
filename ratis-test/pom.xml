@@ -105,5 +105,10 @@
       <artifactId>metrics-jvm</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-shell</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>
