@@ -53,6 +53,7 @@ public class TestLeaderElectionMetrics extends BaseTest {
 
   @Test
   public void testOnLeaderElectionCompletion() throws Exception {
+    leaderElectionMetrics.onNewLeaderElectionCompletion();
     final SortedMap<String, Gauge> gauges = ratisMetricRegistry.getGauges(
         (s, metric) -> s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME));
     LOG.info("{} gauges: {}", LAST_LEADER_ELECTION_ELAPSED_TIME, gauges);
