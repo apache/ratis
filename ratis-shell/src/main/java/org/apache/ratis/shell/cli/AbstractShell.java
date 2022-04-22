@@ -18,6 +18,7 @@
 package org.apache.ratis.shell.cli;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.thirdparty.com.google.common.io.Closer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,9 +43,9 @@ public abstract class AbstractShell implements Closeable {
   /**
    * Creates a new instance of {@link AbstractShell}.
    */
-  public AbstractShell() {
+  public AbstractShell(Context context) {
     closer = Closer.create();
-    mCommands = loadCommands();
+    mCommands = loadCommands(context);
     // Register all loaded commands under closer.
     mCommands.values().forEach(closer::register);
   }
@@ -130,7 +131,7 @@ public abstract class AbstractShell implements Closeable {
    *
    * @return a set of commands which can be executed under this shell
    */
-  protected abstract Map<String, Command> loadCommands();
+  protected abstract Map<String, Command> loadCommands(Context context);
 
   protected Closer getCloser() {
     return closer;

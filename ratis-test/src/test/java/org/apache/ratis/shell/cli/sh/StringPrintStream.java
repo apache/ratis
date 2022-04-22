@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,11 +15,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc;
+package org.apache.ratis.shell.cli.sh;
 
-import org.apache.ratis.client.cli.GroupCommandIntegrationTest;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
-public class TestGroupCommandIntegrationWithGrpc
-    extends GroupCommandIntegrationTest<MiniRaftClusterWithGrpc>
-    implements MiniRaftClusterWithGrpc.FactoryGet{
+class StringPrintStream {
+  private Charset encoding = StandardCharsets.UTF_8;
+  private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+  private final PrintStream printStream;
+
+  StringPrintStream() {
+    try {
+      printStream = new PrintStream(bytes, true, encoding.name());
+    } catch (UnsupportedEncodingException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public PrintStream getPrintStream() {
+    return printStream;
+  }
+
+  @Override
+  public String toString() {
+    return bytes.toString();
+  }
 }

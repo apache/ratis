@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.cli;
+package org.apache.ratis.shell.cli.sh;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
@@ -26,7 +26,6 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.shell.cli.sh.RatisShell;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.Log4jUtils;
@@ -34,7 +33,6 @@ import org.apache.ratis.util.SizeInBytes;
 
 import org.junit.Assert;
 import org.junit.Test;
-
 
 public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -46,6 +44,7 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
   }
 
   static final int NUM_SERVERS = 3;
+  static final String NEW_LINE = System.lineSeparator();
 
   {
     final RaftProperties prop = getProperties();
@@ -55,8 +54,7 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
   }
 
   @Test
-  public void testRestartFollower() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::runTestGroupInfoCommand);
+  public void testGroupListCommand() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::runTestGroupListCommand);
   }
 
@@ -69,22 +67,41 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
       sb.append(",");
     }
     sb.append(address);
-    RatisShell shell = new RatisShell();
-    int ret = shell.run(new String[]{"group", "list", "-peers", sb.toString(), "-peerId", leader.getPeer().getId().toString()});
+    final StringPrintStream out = new StringPrintStream();
+    RatisShell shell = new RatisShell(out.getPrintStream());
+    int ret = shell.run("group", "list", "-peers", sb.toString(), "-peerId",
+        leader.getPeer().getId().toString());
     Assert.assertEquals(0, ret);
+    String info = out.toString().trim();
+    String expected = String.format("The peerId %s (server %s) is in 1 groups, and the groupIds is: [%s]",
+        leader.getId(), leader.getPeer().getAddress(), leader.getGroup().getGroupId());
+    Assert.assertEquals(expected, info);
+  }
+
+  @Test
+  public void testGroupInfoCommand() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestGroupInfoCommand);
   }
 
   void runTestGroupInfoCommand(MiniRaftCluster cluster) throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
-    String address = cluster.getLeader().getPeer().getAdminAddress();
+    final String address = cluster.getLeader().getPeer().getAdminAddress();
     StringBuffer sb = new StringBuffer();
     for (RaftServer.Division division : cluster.getFollowers()) {
       sb.append(division.getPeer().getAdminAddress());
       sb.append(",");
     }
     sb.append(address);
-    RatisShell shell = new RatisShell();
-    int ret = shell.run(new String[]{"group", "info", "-peers", sb.toString()});
+
+    final StringPrintStream out = new StringPrintStream();
+    RatisShell shell = new RatisShell(out.getPrintStream());
+    int ret = shell.run("group", "info", "-peers", sb.toString());
     Assert.assertEquals(0 , ret);
+    String result = out.toString().trim();
+    String hearder = String.format("group id: %s%sleader info: %s(%s)%s%s",
+        cluster.getGroupId().getUuid(), NEW_LINE, leader.getId(),
+        cluster.getLeader().getPeer().getAddress(), NEW_LINE, NEW_LINE);
+    String info = result.substring(0, hearder.length());
+    Assert.assertEquals(hearder, info);
   }
 }
