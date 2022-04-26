@@ -52,9 +52,11 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncode
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
+import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,7 +102,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         throws IOException {
       for (RaftPeer peer : peers) {
         try {
-          outs.add((DataStreamOutputRpc) map.getProxy(peer.getId()).stream(request));
+          outs.add((DataStreamOutputRpc) map.computeIfAbsent(peer).get().stream(request));
         } catch (IOException e) {
           map.handleException(peer.getId(), e, true);
           throw new IOException(map.getName() + ": Failed to getDataStreamOutput for " + peer, e);
@@ -164,9 +166,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   @Override
   public void addRaftPeers(Collection<RaftPeer> newPeers) {
-    for (int i = 0; i < proxies.size(); i ++) {
-      proxies.get(i).addPeers(newPeers);
-    }
+    proxies.forEach(proxy -> proxy.addPeers(newPeers));
   }
 
   static class RequestRef {
@@ -272,15 +272,15 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       channelFuture.channel().close().sync();
       bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
       workerGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
-      bossGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
-      workerGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
+      ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, bossGroup,
+          timeout -> LOG.warn("{}: bossGroup shutdown timeout in " + timeout, this));
+      ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, workerGroup,
+          timeout -> LOG.warn("{}: workerGroup shutdown timeout in " + timeout, this));
     } catch (InterruptedException e) {
       LOG.error(this + ": Interrupted close()", e);
     }
 
-    for (int i = 0; i < proxies.size(); i ++) {
-      proxies.get(i).close();
-    }
+    proxies.forEach(Proxies::close);
   }
 
   @Override
