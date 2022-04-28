@@ -375,7 +375,14 @@ public abstract class RaftLogBase implements RaftLog {
 
     EntryWithDataImpl(LogEntryProto logEntry, CompletableFuture<ByteString> future) {
       this.logEntry = logEntry;
-      this.future = future;
+      this.future = future == null? null: future.thenApply(this::checkStateMachineData);
+    }
+
+    private ByteString checkStateMachineData(ByteString data) {
+      if (data == null) {
+        throw new IllegalStateException("State machine data is null for log entry " + logEntry);
+      }
+      return data;
     }
 
     @Override
