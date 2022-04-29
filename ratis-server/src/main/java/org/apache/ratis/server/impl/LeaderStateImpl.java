@@ -1117,7 +1117,7 @@ class LeaderStateImpl implements LeaderState {
   public void checkHealth(FollowerInfo follower) {
     final TimeDuration elapsedTime = follower.getLastRpcResponseTime().elapsedTime();
     if (elapsedTime.compareTo(server.properties().rpcSlownessTimeout()) > 0) {
-      server.getStateMachine().leaderEvent().notifyFollowerSlowness(server.getInfo().getRoleInfoProto());
+      server.getStateMachine().leaderEvent().notifyFollowerSlowness(server.getInfo().getRoleInfoProto(), follower.getPeer());
     }
     final RaftPeerId followerId = follower.getPeer().getId();
     raftServerMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime.toLong(TimeUnit.NANOSECONDS));

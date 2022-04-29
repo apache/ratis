@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServer;
@@ -416,8 +417,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public void notifyFollowerSlowness(RoleInfoProto roleInfoProto) {
-    LOG.info("{}: notifySlowness {}, {}", this, groupId, roleInfoProto);
+  public void notifyFollowerSlowness(RoleInfoProto roleInfoProto, RaftPeer slowFollower) {
+    LOG.info("{}: notifySlowness {}, {}, {}", this, groupId, roleInfoProto, slowFollower);
     slownessInfo = roleInfoProto;
   }
 

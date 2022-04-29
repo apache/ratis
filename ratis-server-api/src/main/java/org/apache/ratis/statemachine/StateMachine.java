@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -207,7 +208,7 @@ public interface StateMachine extends Closeable {
      *
      * @see org.apache.ratis.server.RaftServerConfigKeys.Rpc#SLOWNESS_TIMEOUT_KEY
      */
-    default void notifyFollowerSlowness(RoleInfoProto roleInfoProto) {}
+    default void notifyFollowerSlowness(RoleInfoProto roleInfoProto, RaftPeer slowFollower) {}
 
     /**
      * Notify {@link StateMachine} that this server is no longer the leader.
