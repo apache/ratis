@@ -417,9 +417,15 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public void notifyFollowerSlowness(RoleInfoProto roleInfoProto, RaftPeer slowFollower) {
-    LOG.info("{}: notifySlowness {}, {}, {}", this, groupId, roleInfoProto, slowFollower);
-    slownessInfo = roleInfoProto;
+  public void notifyFollowerSlowness(RoleInfoProto leaderInfo) {
+    LOG.info("{}: notifySlowness {}, {}", this, groupId, leaderInfo);
+    slownessInfo = leaderInfo;
+  }
+
+  @Override
+  public void notifyFollowerSlowness(RoleInfoProto leaderInfo, RaftPeer slowFollower) {
+    LOG.info("{}: notifySlowness {}, {}, {}", this, groupId, leaderInfo, slowFollower);
+    slownessInfo = leaderInfo;
   }
 
   @Override
