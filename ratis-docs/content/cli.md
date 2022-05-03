@@ -1,8 +1,3 @@
----
-title: Ratis-shell
-menu: main
-weight: -10
----
 <!---
   Licensed to the Apache Software Foundation (ASF) under one or more
   contributor license agreements.  See the NOTICE file distributed with
@@ -20,72 +15,46 @@ weight: -10
   limitations under the License.
 -->
 
-# Ratis-shell 
-Ratis's commad line interface provides operations to manage the ratis server. You can invoke the following command line 
-utility to get all the subcommands:
+# Ratis-shell
+Ratis-shell is the command line interface of Ratis.
+The following command can be invoked in order to get the basic usage:
 
 ```shell
-$ cd $PATH_TO_RATIS/ratis-assembly/target/apache-ratis-$version-SNAPSHOT
-$ ./bin/ratis sh
+$ ratis sh
 Usage: ratis sh [generic options]
-         [election [transfer] [stepDown] [pause] [resume]]         
-         [group [info] [list]]                                     
-         [peer [add] [remove] [setPriority]]                       
-         [snapshot [create]]  
+         [election [transfer] [stepDown] [pause] [resume]]
+         [group [info] [list]]
+         [peer [add] [remove] [setPriority]]
+         [snapshot [create]]
+```
+Note: Ratis-shell is currently only experimental, and compatibility story is not considered for the time being
+
+## election
+The `election` command manages leader election.
+It has the following subcommands:
+`transfer`, `stepDown`, `pause`, `resume`
+
+### election transfer
+Transfer a group leader to the specified server.
+```
+$ ratis sh election transfer -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> -address <HOSTNAME:PORT> [-groupid <RAFT_GROUP_ID>]
 ```
 
-## Operations:
-
-### election
-
-The `election` command manage ratis leader election, it has four subcommands：`transfer`、`stepDown`、`pause`、`resume`
-
+### election stepDown
+Make a group leader of the given group step down its leadership.
 ```
-# Switch the ratis leader to the specified ratis server(its address is <HOSTNAME:PORT>).
-$ ./bin/ratis sh election transfer -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> -address <HOSTNAME:PORT> [-groupid <RAFT_GROUP_ID>]
-
-# Make the leader node of the current Ratis cluster lose their leadership
-$ ./bin/ratis sh election stepDown -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> [-groupid <RAFT_GROUP_ID>]
-
-# Forbid the specified ratis server(its address is <HOSTNAME:PORT>) Leader election
-$ ./bin/ratis sh election pause -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> -address <HOSTNAME:PORT> [-groupid <RAFT_GROUP_ID>] 
-
-# Resume the specified ratis server Leader election
-$ ./bin/ratis sh election resume -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> -address <HOSTNAME:PORT> [-groupid <RAFT_GROUP_ID>] 
+$ ratis sh election stepDown -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [-groupid <RAFT_GROUP_ID>]
 ```
 
-### group
-
-The `group` command manage ratis group, it has two subcommands：`info`、`list`
-
+### election pause
+Pause leader election at the specified server.
+Then, the specified server would not start a leader election.
 ```
-# Display the information of a specific ratis group
-$ ./bin/ratis sh group info transfer -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> [-groupid <RAFT_GROUP_ID>]
-
-# Display the group information of a specific ratis server(its address is <PEER0_HOST:PEER0_PORT>)
-$ ./bin/ratis sh group list -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> [-groupid <RAFT_GROUP_ID>] <[-serverAddress <PEER0_HOST:PEER0_PORT>]|[-peerId <peerId>]>
+$ ratis sh election pause -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> -address <HOSTNAME:PORT> [-groupid <RAFT_GROUP_ID>]
 ```
 
-### peer
-
-The `peer` command manage ratis peer, it has three subcommands：`add`、`remove`、`setPriority`
-
+### election resume
+Resume leader election at the specified server.
 ```
-# Add peer to a ratis group
-$ ./bin/ratis sh peer add -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> [-groupid <RAFT_GROUP_ID>] -address <PEER_HOST:PEER_PORT>
-
-# Remove peers from a ratis group
-$ ./bin/ratis sh group list -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> [-groupid <RAFT_GROUP_ID>] <[-serverAddress <PEER0_HOST:PEER0_PORT>]|[-peerId <peerId>]>
-
-# Set the specific ratis server's, the priority will affect the strategy of ratis group leader election
-$ ./bin/ratis sh setPriority -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> [-groupid <RAFT_GROUP_ID>] -addressPriority <PEER_HOST:PEER_PORT|PRIORITY>
-
-```
-### snapshot
-
-The `snapshot` command manage ratis snapshot, it has one subcommands：`create`
-
-```
-# Make specific ratis server generate snpshot file
-$ ./bin/ratis sh snapshit create -peers <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT> [-groupid <RAFT_GROUP_ID>] -peerId <peerId>
+$ ratis sh election resume -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> -address <HOSTNAME:PORT> [-groupid <RAFT_GROUP_ID>]
 ```
