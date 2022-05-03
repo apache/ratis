@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -202,11 +203,16 @@ public interface StateMachine extends Closeable {
      * Notify the {@link StateMachine} that the given follower is slow.
      * This notification is based on "raft.server.rpc.slowness.timeout".
      *
-     * @param roleInfoProto information about the current node role and rpc delay information
+     * @param leaderInfo information about the current node role and rpc delay information
+     * @param slowFollower The follower being slow.
      *
      * @see org.apache.ratis.server.RaftServerConfigKeys.Rpc#SLOWNESS_TIMEOUT_KEY
      */
-    default void notifyFollowerSlowness(RoleInfoProto roleInfoProto) {}
+    default void notifyFollowerSlowness(RoleInfoProto leaderInfo, RaftPeer slowFollower) {}
+
+    /** @deprecated Use {@link #notifyFollowerSlowness(RoleInfoProto, RaftPeer)}. */
+    @Deprecated
+    default void notifyFollowerSlowness(RoleInfoProto leaderInfo) {}
 
     /**
      * Notify {@link StateMachine} that this server is no longer the leader.
