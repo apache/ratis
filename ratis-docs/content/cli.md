@@ -16,7 +16,13 @@
 -->
 
 # Ratis-shell
+
 Ratis-shell is the command line interface of Ratis.
+
+> **Note**:
+> Ratis-shell is currently only **experimental**.
+> The compatibility story is not considered for the time being.
+
 The following command can be invoked in order to get the basic usage:
 
 ```shell
@@ -27,7 +33,6 @@ Usage: ratis sh [generic options]
          [peer [add] [remove] [setPriority]]
          [snapshot [create]]
 ```
-Note: Ratis-shell is currently only experimental, and compatibility story is not considered for the time being
 
 ## election
 The `election` command manages leader election.
