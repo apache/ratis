@@ -8,6 +8,7 @@
 *.sdf
 *.suo
 *.vcxproj.user
+.hugo_build.lock
 .idea
 .classpath
 .project
