@@ -114,13 +114,13 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     @Override
-    public RaftPeer getCurrentLeader() {
-      return getRaftConf().getPeer(getState().getLeaderId());
+    public RaftPeerId getLeaderId() {
+      return getState().getLeaderId();
     }
 
     @Override
     public LifeCycle.State getLifeCycleState() {
-      return getLifeCycle().getCurrentState();
+      return lifeCycle.getCurrentState();
     }
 
     @Override
@@ -140,7 +140,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     @Override
     public long[] getFollowerNextIndices() {
-      return getRole().getLeaderState()
+      return role.getLeaderState()
           .filter(leader -> isLeader())
           .map(LeaderStateImpl::getFollowerNextIndices)
           .orElse(null);
@@ -376,10 +376,6 @@ class RaftServerImpl implements RaftServer.Division,
 
   RoleInfo getRole() {
     return role;
-  }
-
-  public LifeCycle getLifeCycle() {
-    return lifeCycle;
   }
 
   @Override

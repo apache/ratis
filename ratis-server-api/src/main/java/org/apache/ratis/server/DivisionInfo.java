@@ -21,6 +21,7 @@ package org.apache.ratis.server;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.LifeCycle;
 
 /**
@@ -52,9 +53,11 @@ public interface DivisionInfo {
   /** Is this server division currently the leader and ready? */
   boolean isLeaderReady();
 
-  /** @return the current leader of this server division, null means either there is
-   * no leader for this term yet or this server division does not know who it is yet */
-  RaftPeer getCurrentLeader();
+  /**
+   * @return return the id of the current leader if the leader is known to this server division;
+   *         otherwise, return null.
+   */
+  RaftPeerId getLeaderId();
 
   /** @return the life cycle state of this server division. */
   LifeCycle.State getLifeCycleState();
