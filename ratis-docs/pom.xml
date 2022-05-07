@@ -64,6 +64,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
             </exclude>
             <exclude>themes/ratisdoc/layouts/index.html</exclude>
             <exclude>themes/ratisdoc/theme.toml</exclude>
+            <exclude>.hugo_build.lock</exclude>
           </excludes>
         </configuration>
       </plugin>

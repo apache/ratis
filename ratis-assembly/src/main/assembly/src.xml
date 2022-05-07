@@ -56,6 +56,7 @@
               <exclude>target/</exclude>
               <exclude>test/</exclude>
               <exclude>.classpath</exclude>
+              <exclude>.hugo_build.lock</exclude>
               <exclude>.project</exclude>
               <exclude>.settings/</exclude>
               <exclude>*.iml/</exclude>
