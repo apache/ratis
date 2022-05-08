@@ -20,7 +20,6 @@ package org.apache.ratis.server;
 
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.LifeCycle;
 
@@ -54,7 +53,7 @@ public interface DivisionInfo {
   boolean isLeaderReady();
 
   /**
-   * @return return the id of the current leader if the leader is known to this server division;
+   * @return the id of the current leader if the leader is known to this server division;
    *         otherwise, return null.
    */
   RaftPeerId getLeaderId();
