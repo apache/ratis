@@ -82,6 +82,7 @@ import java.util.stream.Collectors;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
+import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
 import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
 import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.PAUSED;
@@ -1020,7 +1021,7 @@ class RaftServerImpl implements RaftServer.Division,
     synchronized (this) {
       final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
       // check snapshot install/load
-      if (installSnapshot != 0) {
+      if (installSnapshot != INVALID_LOG_INDEX) {
         String msg = String.format("%s: Failed do snapshot as snapshot (%s) installation is in progress",
             getMemberId(), installSnapshot);
         LOG.warn(msg);
@@ -1309,7 +1310,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
             leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(), NOT_LEADER, callId,
-            RaftLog.INVALID_LOG_INDEX, isHeartbeat);
+            INVALID_LOG_INDEX, isHeartbeat);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
               getMemberId(), leaderId, leaderTerm, state, ServerStringUtils.toAppendEntriesReplyString(reply));
@@ -1363,7 +1364,7 @@ class RaftServerImpl implements RaftServer.Division,
         updateCommitInfoCache();
         final long n = isHeartbeat? state.getLog().getNextIndex(): entries[entries.length - 1].getIndex() + 1;
         final long matchIndex = entries.length != 0 ? entries[entries.length - 1].getIndex() :
-            RaftLog.INVALID_LOG_INDEX;
+            INVALID_LOG_INDEX;
         reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getMemberId(), currentTerm,
             state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex,
             isHeartbeat);
@@ -1384,7 +1385,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
         leaderId, getMemberId(), currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId,
-        RaftLog.INVALID_LOG_INDEX, isHeartbeat);
+        INVALID_LOG_INDEX, isHeartbeat);
     LOG.info("{}: inconsistency entries. Reply:{}", getMemberId(), ServerStringUtils.toAppendEntriesReplyString(reply));
     return reply;
   }
@@ -1392,7 +1393,7 @@ class RaftServerImpl implements RaftServer.Division,
   private long checkInconsistentAppendEntries(TermIndex previous, LogEntryProto... entries) {
     // Check if a snapshot installation through state machine is in progress.
     final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
-    if (installSnapshot != 0) {
+    if (installSnapshot != INVALID_LOG_INDEX) {
       LOG.info("{}: Failed appendEntries as snapshot ({}) installation is in progress", getMemberId(), installSnapshot);
       return state.getNextIndex();
     }
@@ -1404,7 +1405,7 @@ class RaftServerImpl implements RaftServer.Division,
       final long snapshotIndex = state.getSnapshotIndex();
       final long commitIndex =  state.getLog().getLastCommittedIndex();
       final long nextIndex = Math.max(snapshotIndex, commitIndex);
-      if (nextIndex > 0 && nextIndex >= firstEntryIndex) {
+      if (nextIndex > INVALID_LOG_INDEX && nextIndex >= firstEntryIndex) {
         LOG.info("{}: Failed appendEntries as the first entry (index {})" +
                 " already exists (snapshotIndex: {}, commitIndex: {})",
             getMemberId(), firstEntryIndex, snapshotIndex, commitIndex);
