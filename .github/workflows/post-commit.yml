@@ -31,7 +31,7 @@ jobs:
             maven-repo-${{ hashFiles('**/pom.xml') }}
             maven-repo-
       - name: Run a full build
-        run: ./dev-support/checks/build.sh -Prelease -Papache-release assembly:single
+        run: ./dev-support/checks/build.sh -Prelease assembly:single
       - name: Store source tarball for compilation
         uses: actions/upload-artifact@v2
         with:
