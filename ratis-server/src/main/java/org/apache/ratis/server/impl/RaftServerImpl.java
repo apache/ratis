@@ -114,6 +114,11 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     @Override
+    public RaftPeerId getLeaderId() {
+      return getState().getLeaderId();
+    }
+
+    @Override
     public LifeCycle.State getLifeCycleState() {
       return lifeCycle.getCurrentState();
     }
