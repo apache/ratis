@@ -74,6 +74,19 @@
       <outputDirectory>dev-support</outputDirectory>
       <fileMode>0644</fileMode>
       <directoryMode>0755</directoryMode>
+      <excludes>
+        <exclude>**/*.sh</exclude>
+      </excludes>
+    </fileSet>
+    <!-- Ensure shell scripts are executable -->
+    <fileSet>
+      <directory>${project.basedir}/../dev-support</directory>
+      <outputDirectory>dev-support</outputDirectory>
+      <fileMode>0755</fileMode>
+      <directoryMode>0755</directoryMode>
+      <includes>
+        <include>**/*.sh</include>
+      </includes>
     </fileSet>
     <!-- Include files in root dir -->
     <fileSet>
