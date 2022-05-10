@@ -49,15 +49,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
+
 class SnapshotInstallationHandler {
   static final Logger LOG = LoggerFactory.getLogger(SnapshotInstallationHandler.class);
+
+  static final TermIndex INVALID_TERM_INDEX = TermIndex.valueOf(0, INVALID_LOG_INDEX);
 
   private final RaftServerImpl server;
   private final ServerState state;
 
   private final boolean installSnapshotEnabled;
-  private final AtomicLong inProgressInstallSnapshotIndex = new AtomicLong();
-  private final AtomicReference<TermIndex> installedSnapshotTermIndex = new AtomicReference<>(TermIndex.valueOf(0,0));
+  private final AtomicLong inProgressInstallSnapshotIndex = new AtomicLong(INVALID_LOG_INDEX);
+  private final AtomicReference<TermIndex> installedSnapshotTermIndex =
+    new AtomicReference<>(INVALID_TERM_INDEX);
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
@@ -206,16 +211,16 @@ class SnapshotInstallationHandler {
       state.setLeader(leaderId, "installSnapshot");
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
 
-      if (inProgressInstallSnapshotIndex.compareAndSet(0, firstAvailableLogIndex)) {
+      if (inProgressInstallSnapshotIndex.compareAndSet(INVALID_LOG_INDEX, firstAvailableLogIndex)) {
         LOG.info("{}: Received notification to install snapshot at index {}", getMemberId(), firstAvailableLogIndex);
         // Check if snapshot index is already at par or ahead of the first
         // available log index of the Leader.
         final long snapshotIndex = state.getLog().getSnapshotIndex();
-        if (snapshotIndex + 1 >= firstAvailableLogIndex && firstAvailableLogIndex > 0) {
+        if (snapshotIndex + 1 >= firstAvailableLogIndex && firstAvailableLogIndex > INVALID_LOG_INDEX) {
           // State Machine has already installed the snapshot. Return the
           // latest snapshot index to the Leader.
 
-          inProgressInstallSnapshotIndex.compareAndSet(firstAvailableLogIndex, 0);
+          inProgressInstallSnapshotIndex.compareAndSet(firstAvailableLogIndex, INVALID_LOG_INDEX);
           LOG.info("{}: InstallSnapshot notification result: {}, current snapshot index: {}", getMemberId(),
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
           return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(), currentTerm,
@@ -258,7 +263,7 @@ class SnapshotInstallationHandler {
               if (exception != null) {
                 LOG.error("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
                     getMemberId(), exception.getMessage());
-                inProgressInstallSnapshotIndex.compareAndSet(firstAvailableLogIndex, 0);
+                inProgressInstallSnapshotIndex.compareAndSet(firstAvailableLogIndex, INVALID_LOG_INDEX);
                 return;
               }
 
@@ -284,8 +289,8 @@ class SnapshotInstallationHandler {
       }
 
       final long inProgressInstallSnapshotIndexValue = getInProgressInstallSnapshotIndex();
-      Preconditions.assertTrue(
-          inProgressInstallSnapshotIndexValue <= firstAvailableLogIndex && inProgressInstallSnapshotIndexValue > 0,
+      Preconditions.assertTrue(inProgressInstallSnapshotIndexValue <= firstAvailableLogIndex
+              && inProgressInstallSnapshotIndexValue > INVALID_LOG_INDEX,
           "inProgressInstallSnapshotRequest: %s is not eligible, firstAvailableLogIndex: %s",
           getInProgressInstallSnapshotIndex(), firstAvailableLogIndex);
 
@@ -293,22 +298,22 @@ class SnapshotInstallationHandler {
       if (isSnapshotNull.compareAndSet(true, false)) {
         LOG.info("{}: InstallSnapshot notification result: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
-        inProgressInstallSnapshotIndex.set(0);
+        inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, -1);
       }
 
       // If a snapshot has been installed, return SNAPSHOT_INSTALLED with the installed snapshot index and reset
-      // installedSnapshotIndex to (0,0).
+      // installedSnapshotIndex to (0,-1).
       final TermIndex latestInstalledSnapshotTermIndex = this.installedSnapshotTermIndex
-          .getAndSet(TermIndex.valueOf(0,0));
-      if (latestInstalledSnapshotTermIndex.getIndex() > 0) {
+          .getAndSet(INVALID_TERM_INDEX);
+      if (latestInstalledSnapshotTermIndex.getIndex() > INVALID_LOG_INDEX) {
         server.getStateMachine().pause();
         state.updateInstalledSnapshotIndex(latestInstalledSnapshotTermIndex);
         state.reloadStateMachine(latestInstalledSnapshotTermIndex.getIndex());
         LOG.info("{}: InstallSnapshot notification result: {}, at index: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex);
-        inProgressInstallSnapshotIndex.set(0);
+        inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex.getIndex());
       }
