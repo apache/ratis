@@ -54,13 +54,15 @@ import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
 class SnapshotInstallationHandler {
   static final Logger LOG = LoggerFactory.getLogger(SnapshotInstallationHandler.class);
 
+  static final TermIndex INVALID_TERM_INDEX = TermIndex.valueOf(0, INVALID_LOG_INDEX);
+
   private final RaftServerImpl server;
   private final ServerState state;
 
   private final boolean installSnapshotEnabled;
   private final AtomicLong inProgressInstallSnapshotIndex = new AtomicLong(INVALID_LOG_INDEX);
   private final AtomicReference<TermIndex> installedSnapshotTermIndex =
-    new AtomicReference<>(TermIndex.valueOf(0, INVALID_LOG_INDEX));
+    new AtomicReference<>(INVALID_TERM_INDEX);
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
@@ -304,7 +306,7 @@ class SnapshotInstallationHandler {
       // If a snapshot has been installed, return SNAPSHOT_INSTALLED with the installed snapshot index and reset
       // installedSnapshotIndex to (0,-1).
       final TermIndex latestInstalledSnapshotTermIndex = this.installedSnapshotTermIndex
-          .getAndSet(TermIndex.valueOf(0, INVALID_LOG_INDEX));
+          .getAndSet(INVALID_TERM_INDEX);
       if (latestInstalledSnapshotTermIndex.getIndex() > INVALID_LOG_INDEX) {
         server.getStateMachine().pause();
         state.updateInstalledSnapshotIndex(latestInstalledSnapshotTermIndex);
