@@ -30,6 +30,10 @@ jobs:
           restore-keys: |
             maven-repo-${{ hashFiles('**/pom.xml') }}
             maven-repo-
+      - name: Setup java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 8
       - name: Run a full build
         run: ./dev-support/checks/build.sh -Prelease assembly:single
       - name: Store source tarball for compilation
@@ -47,7 +51,7 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        java: [ 8, 11 ]
+        java: [ 11 ]
       fail-fast: false
     steps:
       - name: Download source tarball
