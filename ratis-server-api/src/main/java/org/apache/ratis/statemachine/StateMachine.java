@@ -189,6 +189,12 @@ public interface StateMachine extends Closeable {
      * @param failedEntry The failed log entry, if there is any.
      */
     default void notifyLogFailed(Throwable cause, LogEntryProto failedEntry) {}
+
+    /**
+     * Notify the {@link StateMachine} that the progress of install snapshot is
+     * completely done. Could trigger the cleanup of snapshots.
+     */
+    default void notifyInstallSnapshotFinished() {}
   }
 
   /**

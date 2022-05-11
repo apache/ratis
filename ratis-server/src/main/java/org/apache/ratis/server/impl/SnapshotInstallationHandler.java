@@ -64,6 +64,7 @@ class SnapshotInstallationHandler {
   private final AtomicReference<TermIndex> installedSnapshotTermIndex =
     new AtomicReference<>(INVALID_TERM_INDEX);
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
+  private final AtomicBoolean successInstalledSnapshot = new AtomicBoolean();
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
@@ -73,6 +74,10 @@ class SnapshotInstallationHandler {
 
   RaftGroupMemberId getMemberId() {
     return state.getMemberId();
+  }
+
+  boolean checkSuccessInstalledSnapshot() {
+    return successInstalledSnapshot.compareAndSet(true, false);
   }
 
   long getInProgressInstallSnapshotIndex() {
@@ -299,6 +304,7 @@ class SnapshotInstallationHandler {
         LOG.info("{}: InstallSnapshot notification result: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
+        server.getStateMachine().event().notifyInstallSnapshotFinished();
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, -1);
       }
@@ -314,6 +320,7 @@ class SnapshotInstallationHandler {
         LOG.info("{}: InstallSnapshot notification result: {}, at index: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex);
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
+        successInstalledSnapshot.set(true);
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex.getIndex());
       }

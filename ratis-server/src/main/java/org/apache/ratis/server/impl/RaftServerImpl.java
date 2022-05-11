@@ -1358,6 +1358,11 @@ class RaftServerImpl implements RaftServer.Division,
 
     if (!isHeartbeat) {
       CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);
+      boolean successInstalledSnapshot = snapshotInstallationHandler.checkSuccessInstalledSnapshot();
+      if (successInstalledSnapshot) {
+        LOG.info("{}: Follower has completed install the snapshot, notify InstallSnapshotFinished.", this);
+        stateMachine.event().notifyInstallSnapshotFinished();
+      }
     }
     return JavaUtils.allOf(futures).whenCompleteAsync(
         (r, t) -> followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE))
