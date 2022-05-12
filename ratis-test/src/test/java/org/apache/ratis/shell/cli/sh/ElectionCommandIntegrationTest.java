@@ -27,17 +27,17 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.SizeInBytes;
-
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 
-public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluster>
-    extends AbstractCommandIntegrationTestWithGrpc
-    implements MiniRaftCluster.Factory.Get<CLUSTER> {
+import java.util.concurrent.TimeUnit;
 
-  static final String NEW_LINE = System.lineSeparator();
+public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCluster>
+    extends AbstractCommandIntegrationTestWithGrpc implements MiniRaftCluster.Factory.Get<CLUSTER>{
 
   {
     Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.WARN);
@@ -53,41 +53,56 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
   }
 
   @Test
-  public void testGroupListCommand() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::runTestGroupListCommand);
+  public void testElectionTransferCommand() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestElectionTransferCommand);
   }
 
-  void runTestGroupListCommand(MiniRaftCluster cluster) throws Exception {
+  void runTestElectionTransferCommand(MiniRaftCluster cluster) throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
-    final String address = getClusterAddress(cluster);
+    String address = getClusterAddress(cluster);
+    RaftServer.Division newLeader = cluster.getFollowers().get(0);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    int ret = shell.run("group", "list", "-peers", address, "-peerId",
-        leader.getPeer().getId().toString());
+    Assert.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
+    int ret = shell.run("election", "transfer", "-peers", address, "-address",
+        newLeader.getPeer().getAddress());
+
     Assert.assertEquals(0, ret);
-    String info = out.toString().trim();
-    String expected = String.format("The peerId %s (server %s) is in 1 groups, and the groupIds is: [%s]",
-        leader.getId(), leader.getPeer().getAddress(), leader.getGroup().getGroupId());
-    Assert.assertEquals(expected, info);
+    JavaUtils.attempt(() -> {
+      Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
+    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferCommand", LOG);
   }
 
   @Test
-  public void testGroupInfoCommand() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::runTestGroupInfoCommand);
+  public void testElectionPauseResumeCommand() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestElectionPauseResumeCommand);
   }
 
-  void runTestGroupInfoCommand(MiniRaftCluster cluster) throws Exception {
+  void runTestElectionPauseResumeCommand(MiniRaftCluster cluster) throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
-    final String address = getClusterAddress(cluster);
+    String sb = getClusterAddress(cluster);
+    RaftServer.Division newLeader = cluster.getFollowers().get(0);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    int ret = shell.run("group", "info", "-peers", address);
-    Assert.assertEquals(0 , ret);
-    String result = out.toString().trim();
-    String hearder = String.format("group id: %s%sleader info: %s(%s)%s%s",
-        cluster.getGroupId().getUuid(), NEW_LINE, leader.getId(),
-        cluster.getLeader().getPeer().getAddress(), NEW_LINE, NEW_LINE);
-    String info = result.substring(0, hearder.length());
-    Assert.assertEquals(hearder, info);
+    Assert.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
+    int ret = shell.run("election", "pause", "-peers", sb.toString(), "-address",
+        newLeader.getPeer().getAddress());
+
+    Assert.assertEquals(0, ret);
+    ret = shell.run("peer", "setPriority", "-peers", sb.toString(), "-addressPriority",
+        newLeader.getPeer().getAddress() + "|" + 2);
+    Assert.assertEquals(0, ret);
+
+    JavaUtils.attempt(() -> {
+      Assert.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
+    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionPauseResumeCommand", LOG);
+
+    ret = shell.run("election", "resume", "-peers", sb.toString(), "-address",
+        newLeader.getPeer().getAddress());
+    Assert.assertEquals(0, ret);
+
+    JavaUtils.attempt(() -> {
+      Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
+    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionPauseResumeCommand", LOG);
   }
 }

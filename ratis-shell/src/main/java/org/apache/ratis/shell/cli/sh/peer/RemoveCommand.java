@@ -29,6 +29,7 @@ import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 public class RemoveCommand extends AbstractRatisCommand {
 
   public static final String ADDRESS_OPTION_NAME = "address";
+  public static final String PEER_ID_OPTION_NAME = "peerId";
   /**
    * @param context command context
    */
@@ -53,8 +55,16 @@ public class RemoveCommand extends AbstractRatisCommand {
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
-    final List<RaftPeerId> ids =
-        getIds(cl.getOptionValue(ADDRESS_OPTION_NAME).split(","), (a, b) -> {});
+    final List<RaftPeerId> ids;
+    if (cl.hasOption(PEER_ID_OPTION_NAME)) {
+      ids = Arrays.stream(cl.getOptionValue(PEER_ID_OPTION_NAME).split(","))
+          .map(RaftPeerId::getRaftPeerId).collect(Collectors.toList());
+    } else if (cl.hasOption(ADDRESS_OPTION_NAME)) {
+      ids = getIds(cl.getOptionValue(ADDRESS_OPTION_NAME).split(","), (a, b) -> {});
+    } else {
+      throw new IllegalArgumentException(
+          "Both " + PEER_ID_OPTION_NAME + " and " + ADDRESS_OPTION_NAME + " options are missing.");
+    }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
       final List<RaftPeer> remaining = getRaftGroup().getPeers().stream()
           .filter(raftPeer -> !ids.contains(raftPeer.getId())).collect(Collectors.toList());
@@ -70,8 +80,9 @@ public class RemoveCommand extends AbstractRatisCommand {
     return String.format("%s"
             + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
             + " [-%s <RAFT_GROUP_ID>]"
-            + " -%s <PEER_HOST:PEER_PORT>",
-        getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, ADDRESS_OPTION_NAME);
+            + " <[-%s <PEER0_HOST:PEER0_PORT>]|[-%s <peerId>]>",
+        getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME,
+        ADDRESS_OPTION_NAME, PEER_ID_OPTION_NAME);
   }
 
   @Override
@@ -81,12 +92,15 @@ public class RemoveCommand extends AbstractRatisCommand {
 
   @Override
   public Options getOptions() {
-    return super.getOptions().addOption(
-        Option.builder()
+    return super.getOptions()
+        .addOption(Option.builder()
             .option(ADDRESS_OPTION_NAME)
             .hasArg()
-            .required()
             .desc("The address information of ratis peers")
+            .build())
+        .addOption(Option.builder()
+            .option(PEER_ID_OPTION_NAME).hasArg()
+            .desc("The peer id of ratis peers")
             .build());
   }
 
