@@ -18,7 +18,6 @@
 package org.apache.ratis.shell.cli.sh;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
@@ -38,15 +37,14 @@ import org.junit.Test;
 import java.io.File;
 
 public abstract class SnapshotCommandIntegrationTest <CLUSTER extends MiniRaftCluster>
-    extends BaseTest
+    extends AbstractCommandIntegrationTestWithGrpc
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
+
   {
     Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.WARN);
     Log4jUtils.setLogLevel(RaftLog.LOG, Level.WARN);
     Log4jUtils.setLogLevel(RaftClient.LOG, Level.WARN);
   }
-
-  static final int NUM_SERVERS = 3;
 
   {
     final RaftProperties prop = getProperties();
@@ -72,16 +70,10 @@ public abstract class SnapshotCommandIntegrationTest <CLUSTER extends MiniRaftCl
         Assert.assertTrue(reply.isSuccess());
       }
     }
-    String address = cluster.getLeader().getPeer().getAdminAddress();
-    StringBuffer sb = new StringBuffer();
-    for (RaftServer.Division division : cluster.getFollowers()) {
-      sb.append(division.getPeer().getAdminAddress());
-      sb.append(",");
-    }
-    sb.append(address);
+    final String address = getClusterAddress(cluster);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    int ret = shell.run("snapshot", "create", "-peers", sb.toString(), "-peerId",
+    int ret = shell.run("snapshot", "create", "-peers", address, "-peerId",
         leader.getPeer().getId().toString());
     Assert.assertEquals(0, ret);
     String[] str = out.toString().trim().split(" ");
@@ -102,17 +94,11 @@ public abstract class SnapshotCommandIntegrationTest <CLUSTER extends MiniRaftCl
         Assert.assertTrue(reply.isSuccess());
       }
     }
-    String address = cluster.getLeader().getPeer().getAdminAddress();
-    StringBuffer sb = new StringBuffer();
-    for (RaftServer.Division division : cluster.getFollowers()) {
-      sb.append(division.getPeer().getAdminAddress());
-      sb.append(",");
-    }
-    sb.append(address);
+    final String address = getClusterAddress(cluster);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
     Assert.assertEquals(2, cluster.getFollowers().size());
-    int ret = shell.run("snapshot", "create", "-peers", sb.toString(), "-peerId",
+    int ret = shell.run("snapshot", "create", "-peers", address, "-peerId",
         cluster.getFollowers().get(0).getId().toString());
     Assert.assertEquals(0, ret);
     String[] str = out.toString().trim().split(" ");
