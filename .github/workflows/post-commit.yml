@@ -18,15 +18,49 @@ on:
   - pull_request
 jobs:
   build:
-    name: compile
     runs-on: ubuntu-18.04
-    strategy:
-      matrix:
-        java: [ 8, 11 ]
-      fail-fast: false
     steps:
       - name: Checkout project
         uses: actions/checkout@v2
+      - name: Cache for maven dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+          restore-keys: |
+            maven-repo-${{ hashFiles('**/pom.xml') }}
+            maven-repo-
+      - name: Setup java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Run a full build
+        run: ./dev-support/checks/build.sh -Prelease assembly:single
+      - name: Store source tarball for compilation
+        uses: actions/upload-artifact@v2
+        with:
+          name: ratis-src
+          path: ratis-assembly/target/apache-ratis-*-src.tar.gz
+          retention-days: 1
+      - name: Delete temporary build artifacts
+        run: rm -rf ~/.m2/repository/org/apache/ratis
+        if: always()
+  compile:
+    needs:
+      - build
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        java: [ 11 ]
+      fail-fast: false
+    steps:
+      - name: Download source tarball
+        uses: actions/download-artifact@v2
+        with:
+          name: ratis-src
+      - name: Untar sources
+        run: |
+          tar --strip-components 1 -xzvf apache-ratis-*-src.tar.gz
       - name: Cache for maven dependencies
         uses: actions/cache@v2
         with:
