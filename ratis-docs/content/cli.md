@@ -24,21 +24,34 @@ Ratis-shell is the command line interface of Ratis.
 > The compatibility story is not considered for the time being.
 
 
-Get the ratis-shell source and Configure environment variables
+## Get the ratis-shell source 
+
+>Mention: Ratis shell is available starting from Apache Ratis 2.3.0.
+
+### Build `ratis-shell` from src tarball
+Get the ratis src tarball from [Ratis Source Download](https://ratis.apache.org/downloads.html)
 
 ```
+$ tar -C <DST_DIR> -zxvf apache-ratis-*-src.tar.gz
+
+$ cd <DST_DIR>/apache-ratis-*-src
+
 $ mvn -DskipTests -Prelease -Papache-release clean package assembly:single
 ...
 [INFO] BUILD SUCCESS
 
-$ tar -C /tmp -xzf ratis-assembly/target/apache-ratis-2.3.0-SNAPSHOT-src.tar.gz
+$ tar -C <DST_DIR>/ratis-shell -xzf ratis-assembly/target/apache-ratis-2.3.0-SNAPSHOT-src.tar.gz
 
-$ cd /tmp/apache-ratis-2.3.0-SNAPSHOT
+$ cd <DST_DIR>/ratis-shell/apache-ratis-2.3.0-SNAPSHOT
+```
+TODO(codings-dan): Get `ratis-shell` from bin tarball directly
 
+## Configure environment variables
+
+```
 Add the following command to the user's profile
 
 $ export RATIS_SHELL=/tmp/apache-ratis-2.3.0-SNAPSHOT/bin
-
 ```
 
 The following command can be invoked in order to get the basic usage:
