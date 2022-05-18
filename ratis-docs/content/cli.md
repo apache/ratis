@@ -23,35 +23,31 @@ Ratis-shell is the command line interface of Ratis.
 > Ratis-shell is currently only **experimental**.
 > The compatibility story is not considered for the time being.
 
+## Setting up the ratis-shell
 
-## Get the ratis-shell source 
-
->Mention: Ratis shell is available starting from Apache Ratis 2.3.0.
-
-### Build `ratis-shell` from src tarball
-Get the ratis src tarball from [Ratis Source Download](https://ratis.apache.org/downloads.html)
+Download the Ratis source tarball from https://ratis.apache.org/downloads.html .
+Note that ratis-shell is available starting from version 2.3.0.
+Extract the source tarball to a destination directory `<DST_DIR>`
+and then build the ratis-shell tarball.
 
 ```
-$ tar -C <DST_DIR> -zxvf apache-ratis-*-src.tar.gz
-
-$ cd <DST_DIR>/apache-ratis-*-src
-
+$ tar -C <DST_DIR> -zxvf apache-ratis-<VERSION>-src.tar.gz
+$ cd <DST_DIR>/apache-ratis-<VERSION>-src
 $ mvn -DskipTests -Prelease -Papache-release clean package assembly:single
-...
+[INFO] Scanning for projects...
+ ...
 [INFO] BUILD SUCCESS
-
-$ tar -C <DST_DIR>/ratis-shell -xzf ratis-assembly/target/apache-ratis-2.3.0-SNAPSHOT-src.tar.gz
-
-$ cd <DST_DIR>/ratis-shell/apache-ratis-2.3.0-SNAPSHOT
 ```
-TODO(codings-dan): Get `ratis-shell` from bin tarball directly
 
-## Configure environment variables
-
+Extract the ratis-shell tarball.
 ```
-Add the following command to the user's profile
+$ tar -C <DST_DIR>/ratis-shell -xzf ratis-assembly/target/apache-ratis-<VERSION>-shell.tar.gz
+```
 
-$ export RATIS_SHELL=/tmp/apache-ratis-2.3.0-SNAPSHOT/bin
+Export the `RATIS_SHELL_HOME` environment variable and add the bin directory to the `$PATH`.
+```
+$ export RATIS_SHELL_HOME=<DST_DIR>/ratis-shell/apache-ratis-<VERSION>
+$ export PATH=${RATIS_SHELL_HOME}/bin:$PATH
 ```
 
 The following command can be invoked in order to get the basic usage:
