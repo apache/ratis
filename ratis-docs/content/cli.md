@@ -23,6 +23,33 @@ Ratis-shell is the command line interface of Ratis.
 > Ratis-shell is currently only **experimental**.
 > The compatibility story is not considered for the time being.
 
+## Setting up the ratis-shell
+
+Download the Ratis source tarball from https://ratis.apache.org/downloads.html .
+Note that ratis-shell is available starting from version 2.3.0.
+Extract the source tarball to a destination directory `<DST_DIR>`
+and then build the ratis-shell tarball.
+
+```
+$ tar -C <DST_DIR> -zxvf apache-ratis-<VERSION>-src.tar.gz
+$ cd <DST_DIR>/apache-ratis-<VERSION>-src
+$ mvn -DskipTests -Prelease -Papache-release clean package assembly:single
+[INFO] Scanning for projects...
+ ...
+[INFO] BUILD SUCCESS
+```
+
+Extract the ratis-shell tarball.
+```
+$ tar -C <DST_DIR>/ratis-shell -xzf ratis-assembly/target/apache-ratis-<VERSION>-shell.tar.gz
+```
+
+Export the `RATIS_SHELL_HOME` environment variable and add the bin directory to the `$PATH`.
+```
+$ export RATIS_SHELL_HOME=<DST_DIR>/ratis-shell/apache-ratis-<VERSION>
+$ export PATH=${RATIS_SHELL_HOME}/bin:$PATH
+```
+
 The following command can be invoked in order to get the basic usage:
 
 ```shell
@@ -62,4 +89,55 @@ $ ratis sh election pause -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_POR
 Resume leader election at the specified server.
 ```
 $ ratis sh election resume -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> -address <HOSTNAME:PORT> [-groupid <RAFT_GROUP_ID>]
+```
+
+## group
+The `group` command manages ratis groups.
+It has the following subcommands:
+`info`, `list`
+
+### group info
+Display the information of a specific raft group.
+```
+$ ratis sh group info -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [-groupid <RAFT_GROUP_ID>]
+```
+
+### group list
+Display the group information of a specific raft server
+```
+$ ratis sh group list -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [-groupid <RAFT_GROUP_ID>]  <[-serverAddress <P0_HOST:P0_PORT>]|[-peerId <peerId0>]>
+```
+
+## peer
+The `peer` command manages ratis cluster peers.
+It has the following subcommands:
+`add`, `remove`, `setPriority`
+
+### peer add
+Add peers to a ratis group.
+```
+$ ratis sh peer add -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [-groupid <RAFT_GROUP_ID>] -address <P4_HOST:P4_PORT,...,PN_HOST:PN_PORT>
+```
+
+### peer remove
+Remove peers to from a ratis group.
+```
+$ ratis sh peer remove -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [-groupid <RAFT_GROUP_ID>] -address <P0_HOST:P0_PORT,...>
+```
+
+### peer setPriority
+Set priority to ratis peers.
+The priority of ratis peer can affect the leader election, the server with the highest priority will eventually become the leader of the cluster.
+```
+$ ratis sh peer setPriority -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [-groupid <RAFT_GROUP_ID>] -addressPriority <P0_HOST:P0_PORT|PRIORITY>
+```
+## snapshot
+The `snapshot` command manages ratis snapshot.
+It has the following subcommands:
+`create`
+
+### snapshot create
+Trigger the specified server take snapshot.
+```
+$ ratis sh snapshot create -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> -peerId <peerId0> [-groupid <RAFT_GROUP_ID>]
 ```
