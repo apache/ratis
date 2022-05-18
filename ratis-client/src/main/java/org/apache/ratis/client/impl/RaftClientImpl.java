@@ -46,6 +46,7 @@ import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutScheduler;
 
@@ -121,6 +122,7 @@ public final class RaftClientImpl implements RaftClient {
     }
 
     void set(Collection<RaftPeer> newPeers) {
+      Preconditions.assertTrue(!newPeers.isEmpty(), "newPeers is empty.");
       list.set(Collections.unmodifiableList(new ArrayList<>(newPeers)));
     }
   }
@@ -154,13 +156,8 @@ public final class RaftClientImpl implements RaftClient {
     this.peers.set(group.getPeers());
     this.groupId = group.getGroupId();
 
-    if (leaderId == null) {
-      final RaftPeerId cached = LEADER_CACHE.getIfPresent(groupId);
-      if (cached != null && group.getPeer(cached) != null) {
-        leaderId = cached;
-      }
-    }
-    this.leaderId = leaderId != null? leaderId : getHighestPriorityPeerId();
+    this.leaderId = Objects.requireNonNull(computeLeaderId(leaderId, group),
+        () -> "this.leaderId is set to null, leaderId=" + leaderId + ", group=" + group);
     this.retryPolicy = Objects.requireNonNull(retryPolicy, "retry policy can't be null");
 
     clientRpc.addRaftPeers(group.getPeers());
@@ -180,6 +177,7 @@ public final class RaftClientImpl implements RaftClient {
     this.adminApi = JavaUtils.memoize(() -> new AdminImpl(this));
   }
 
+  @Override
   public RaftPeerId getLeaderId() {
     return leaderId;
   }
@@ -188,17 +186,31 @@ public final class RaftClientImpl implements RaftClient {
     return groupId;
   }
 
-  private RaftPeerId getHighestPriorityPeerId() {
-    int maxPriority = Integer.MIN_VALUE;
-    RaftPeerId highestPriorityPeerId = null;
-    for (RaftPeer peer : peers) {
-      if (maxPriority < peer.getPriority()) {
-        maxPriority = peer.getPriority();
-        highestPriorityPeerId = peer.getId();
-      }
+  private static RaftPeerId computeLeaderId(RaftPeerId leaderId, RaftGroup group) {
+    if (leaderId != null) {
+      return leaderId;
+    }
+    final RaftPeerId cached = LEADER_CACHE.getIfPresent(group.getGroupId());
+    if (cached != null && group.getPeer(cached) != null) {
+      return cached;
+    }
+    return getHighestPriorityPeer(group).getId();
+  }
+
+  private static RaftPeer getHighestPriorityPeer(RaftGroup group) {
+    final Iterator<RaftPeer> i = group.getPeers().iterator();
+    if (!i.hasNext()) {
+      throw new IllegalArgumentException("Group peers is empty in " + group);
     }
 
-    return highestPriorityPeerId;
+    RaftPeer highest = i.next();
+    for(; i.hasNext(); ) {
+      final RaftPeer peer = i.next();
+      if (peer.getPriority() > highest.getPriority()) {
+        highest = peer;
+      }
+    }
+    return highest;
   }
 
   @Override
@@ -230,7 +242,7 @@ public final class RaftClientImpl implements RaftClient {
     if (server != null) {
       b.setServerId(server);
     } else {
-      b.setLeaderId(leaderId);
+      b.setLeaderId(getLeaderId());
     }
     return b.setClientId(clientId)
         .setGroupId(groupId)
@@ -365,7 +377,7 @@ public final class RaftClientImpl implements RaftClient {
     }
 
     final RaftPeerId oldLeader = request.getServerId();
-    final RaftPeerId curLeader = leaderId;
+    final RaftPeerId curLeader = getLeaderId();
     final boolean stillLeader = oldLeader.equals(curLeader);
     if (newLeader == null && stillLeader) {
       newLeader = CollectionUtils.random(oldLeader,
@@ -376,7 +388,7 @@ public final class RaftClientImpl implements RaftClient {
     final boolean changeLeader = newLeader != null && stillLeader;
     final boolean reconnect = changeLeader || clientRpc.shouldReconnect(ioe);
     if (reconnect) {
-      if (changeLeader && oldLeader.equals(leaderId)) {
+      if (changeLeader && oldLeader.equals(getLeaderId())) {
         LOG.debug("{} {}: client change Leader from {} to {} ex={}", groupId,
             clientId, oldLeader, newLeader, ioe.getClass().getName());
         this.leaderId = newLeader;
