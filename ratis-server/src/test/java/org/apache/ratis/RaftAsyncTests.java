@@ -25,6 +25,8 @@ import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -87,8 +89,9 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     LOG.info("Running testAsyncConfiguration");
     final RaftProperties properties = new RaftProperties();
     RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(properties, false);
+    final RaftPeer server = RaftPeer.newBuilder().setId("s0").build();
     RaftClient.Builder clientBuilder = RaftClient.newBuilder()
-        .setRaftGroup(RaftGroup.emptyGroup())
+        .setRaftGroup(RaftGroup.valueOf(RaftGroupId.randomId(), server))
         .setProperties(properties);
     int maxOutstandingRequests = RaftClientConfigKeys.Async.OUTSTANDING_REQUESTS_MAX_DEFAULT;
     try(RaftClient client = clientBuilder.build()) {
