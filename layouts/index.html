@@ -84,7 +84,7 @@
         <div class="row header">
             <h2>Latest news</h2>
             {{ range where .Data.Pages "Section" "post" }}
-            <div class="panel-heading clearfix"><a class="pull-left" href="{{.URL}}">{{.Title}}</a>
+            <div class="panel-heading clearfix"><a class="pull-left" href="{{.RelPermalink}}">{{.Title}}</a>
                 <small class="pull-right">{{dateFormat "2006 Jan 2 " .Date}}</small>
             </div>
             {{end}}
