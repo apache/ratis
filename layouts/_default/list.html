@@ -20,7 +20,7 @@
     <h1 id="title">{{ .Title }} Archive</h1>
         <ul id="list">
             {{ range $paginator.Pages }}
-            <h1><a href="{{.URL}}">{{.Title}}</a></h1>
+            <h1><a href="{{.RelPermalink}}">{{.Title}}</a></h1>
             <p><small>{{dateFormat "2006 Jan 2 " .Date}}</small></p>
 
             {{.Content}}
