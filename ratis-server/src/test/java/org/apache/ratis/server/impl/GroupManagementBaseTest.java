@@ -276,7 +276,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
 
       LOG.info(i + ") starting " + groups[i]);
       for(RaftPeer p : peers) {
-        try(final RaftClient client = cluster.createClient(p.getId(), emptyGroup)) {
+        try(final RaftClient client = cluster.createClient(p.getId(), groups[i])) {
           client.getGroupManagementApi(p.getId()).add(groups[i]);
         }
       }

@@ -272,7 +272,7 @@ public final class OrderedAsync {
   }
 
   void assertRequestSemaphore(int expectedAvailablePermits, int expectedQueueLength) {
-    Preconditions.assertTrue(requestSemaphore.availablePermits() == expectedAvailablePermits);
-    Preconditions.assertTrue(requestSemaphore.getQueueLength() == expectedQueueLength);
+    Preconditions.assertSame(expectedAvailablePermits, requestSemaphore.availablePermits(), "availablePermits");
+    Preconditions.assertSame(expectedQueueLength, requestSemaphore.getQueueLength(), "queueLength");
   }
 }
