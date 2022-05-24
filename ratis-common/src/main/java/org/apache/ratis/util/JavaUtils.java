@@ -25,6 +25,8 @@ import org.slf4j.LoggerFactory;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
@@ -49,7 +51,7 @@ import java.util.function.Supplier;
 public interface JavaUtils {
   Logger LOG = LoggerFactory.getLogger(JavaUtils.class);
 
-  CompletableFuture[] EMPTY_COMPLETABLE_FUTURE_ARRAY = {};
+  CompletableFuture<?>[] EMPTY_COMPLETABLE_FUTURE_ARRAY = {};
 
   ConcurrentMap<Class<?>, String> CLASS_SIMPLE_NAMES = new ConcurrentHashMap<>();
   static String getClassSimpleName(Class<?> clazz) {
@@ -118,6 +120,49 @@ public interface JavaUtils {
     } catch(Throwable t) {
       throw converter.apply(cast(t));
     }
+  }
+
+  static <T> T doPrivileged(Supplier<T> action, Function<SecurityException, T> exceptionHandler) {
+    try {
+      return System.getSecurityManager() == null? action.get()
+          : AccessController.doPrivileged((PrivilegedAction<T>) action::get);
+    } catch (SecurityException e) {
+      return exceptionHandler.apply(e);
+    }
+  }
+
+  static <T> T doPrivileged(Supplier<T> action, Supplier<String> name) {
+    return doPrivileged(action, e -> {
+      LOG.warn("Failed to " + name.get(), e);
+      return null;
+    });
+  }
+
+  /**
+   * Similar to {@link System#getProperty(String)}
+   * except that this method may invoke {@link AccessController#doPrivileged(PrivilegedAction)}
+   * if there is a {@link SecurityManager}.
+   *
+   * @return null if either the property is not set or there is a {@link SecurityException};
+   *         otherwise, return system property value.
+   */
+  static String getSystemProperty(final String key) {
+    Preconditions.assertNotNull(key, "key");
+    Preconditions.assertTrue(!key.isEmpty(), "key is empty.");
+    return doPrivileged(() -> System.getProperty(key), () -> "get system property " + key);
+  }
+
+  /**
+   * Similar to {@link System#setProperty(String, String)}
+   * except that this method may invoke {@link AccessController#doPrivileged(PrivilegedAction)}
+   * if there is a {@link SecurityManager}.
+   * When there is a {@link SecurityException}, this becomes a NOOP.
+   */
+  static void setSystemProperty(String key, String value) {
+    Preconditions.assertNotNull(key, "key");
+    Preconditions.assertTrue(!key.isEmpty(), "key is empty.");
+    Preconditions.assertNotNull(value, "value");
+    doPrivileged(() -> System.setProperty(key, value), () -> "set system property " + key + " to " + value);
   }
 
   /**
