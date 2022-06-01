@@ -19,6 +19,7 @@ package org.apache.ratis.server.storage;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftConfiguration;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
@@ -46,6 +47,10 @@ public class RaftStorageImpl implements RaftStorage {
   private final StorageState state;
   private final CorruptionPolicy logCorruptionPolicy;
   private volatile RaftStorageMetadataFileImpl metaFile;
+
+  public RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy) throws IOException {
+    this(dir, logCorruptionPolicy, null, RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT.getSize());
+  }
 
   public RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy,
       long storageFeeSpaceMin) throws IOException {
