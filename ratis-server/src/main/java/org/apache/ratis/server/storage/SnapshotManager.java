@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
-import java.util.UUID;
 
 import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.io.MD5Hash;
@@ -65,7 +64,7 @@ public class SnapshotManager {
     final RaftStorageDirectory dir = storage.getStorageDir();
 
     // create a unique temporary directory
-    final File tmpDir =  new File(dir.getTmpDir(), UUID.randomUUID().toString());
+    final File tmpDir = new File(dir.getTmpDir(), "snapshot-" + snapshotChunkRequest.getRequestId());
     FileUtils.createDirectories(tmpDir);
     tmpDir.deleteOnExit();
 
@@ -82,10 +81,11 @@ public class SnapshotManager {
             + " with endIndex >= lastIncludedIndex " + lastIncludedIndex);
       }
 
-      String fileName = chunk.getFilename(); // this is relative to the root dir
-      // TODO: assumes flat layout inside SM dir
-      File tmpSnapshotFile = new File(tmpDir,
-          new File(dir.getRoot(), fileName).getName());
+      String fileNameToRoot = chunk.getFilename(); // this is relative to the root dir
+      String fileName = fileNameToRoot.substring(
+              (dir.STATE_MACHINE_DIR_NAME + File.separator).length()); // this is relative to the statemachine dir
+      final File tmpSnapshotFile = new File(tmpDir, fileName);
+      FileUtils.createDirectories(tmpSnapshotFile);
 
       FileOutputStream out = null;
       try {
