@@ -23,6 +23,8 @@ import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECT
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.codahale.metrics.Gauge;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
@@ -30,10 +32,12 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.SortedMap;
+
 /**
  * Test for LeaderElectionMetrics.
  */
-public class TestLeaderElectionMetrics {
+public class TestLeaderElectionMetrics extends BaseTest {
 
   private static LeaderElectionMetrics leaderElectionMetrics;
   private static RatisMetricRegistry ratisMetricRegistry;
@@ -50,9 +54,11 @@ public class TestLeaderElectionMetrics {
   @Test
   public void testOnLeaderElectionCompletion() throws Exception {
     leaderElectionMetrics.onNewLeaderElectionCompletion();
-    Long leaderElectionLatency = (Long) ratisMetricRegistry.getGauges((s, metric) ->
-        s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME)).values().iterator().next().getValue();
-    assertTrue(leaderElectionLatency > 0L);
+    final SortedMap<String, Gauge> gauges = ratisMetricRegistry.getGauges(
+        (s, metric) -> s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME));
+    LOG.info("{} gauges: {}", LAST_LEADER_ELECTION_ELAPSED_TIME, gauges);
+    final Long leaderElectionLatency = (Long)gauges.values().iterator().next().getValue();
+    assertTrue("leaderElectionLatency = " + leaderElectionLatency, leaderElectionLatency > 0L);
   }
 
   @Test
