@@ -22,6 +22,7 @@ import static org.apache.ratis.statemachine.impl.SimpleStateMachineStorage.SNAPS
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
@@ -47,7 +48,10 @@ import java.util.regex.Matcher;
  */
 public class TestRaftStorage extends BaseTest {
   static RaftStorageImpl newRaftStorage(File dir) throws IOException {
-    return new RaftStorageImpl(dir, null);
+    return RaftStorageImpl.newBuilder()
+        .setDir(dir)
+        .setStorageFeeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT.getSize())
+        .build();
   }
 
   private File storageDir;
@@ -65,7 +69,11 @@ public class TestRaftStorage extends BaseTest {
   }
 
   static RaftStorageImpl formatRaftStorage(File dir) throws IOException {
-    return new RaftStorageImpl(dir, null, RaftStorageImpl.StartupOption.FORMAT, 0);
+    return RaftStorageImpl.newBuilder()
+        .setDir(dir)
+        .setOption(RaftStorageImpl.StartupOption.FORMAT)
+        .setStorageFeeSpaceMin(0)
+        .build();
   }
 
   @Test

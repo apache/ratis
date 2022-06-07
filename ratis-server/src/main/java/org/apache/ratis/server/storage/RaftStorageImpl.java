@@ -19,7 +19,6 @@ package org.apache.ratis.server.storage;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftConfiguration;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
@@ -42,15 +41,46 @@ public class RaftStorageImpl implements RaftStorage {
     FORMAT
   }
 
+  public static Builder newBuilder() {
+    return new RaftStorageImpl.Builder();
+  }
+
+  public static class Builder {
+    private File dir;
+    private CorruptionPolicy logCorruptionPolicy;
+    private StartupOption option;
+    private long storageFeeSpaceMin;
+
+    public Builder setDir(File dir) {
+      this.dir = dir;
+      return this;
+    }
+
+    public Builder setLogCorruptionPolicy(CorruptionPolicy logCorruptionPolicy) {
+      this.logCorruptionPolicy = logCorruptionPolicy;
+      return this;
+    }
+
+    public Builder setOption(StartupOption option) {
+      this.option = option;
+      return this;
+    }
+
+    public Builder setStorageFeeSpaceMin(long storageFeeSpaceMin) {
+      this.storageFeeSpaceMin = storageFeeSpaceMin;
+      return this;
+    }
+
+    public RaftStorageImpl build() throws IOException {
+      return new RaftStorageImpl(dir, logCorruptionPolicy, option, storageFeeSpaceMin);
+    }
+  }
+
   // TODO support multiple storage directories
   private final RaftStorageDirectoryImpl storageDir;
   private final StorageState state;
   private final CorruptionPolicy logCorruptionPolicy;
   private volatile RaftStorageMetadataFileImpl metaFile;
-
-  public RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy) throws IOException {
-    this(dir, logCorruptionPolicy, null, RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT.getSize());
-  }
 
   public RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy,
       long storageFeeSpaceMin) throws IOException {
