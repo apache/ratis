@@ -1,3 +1,20 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.ratis;
 
 import org.apache.ratis.client.RaftClient;
@@ -67,7 +84,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
             }
 
             final SnapshotInfo snapshot = cluster.getLeader().getStateMachine().getLatestSnapshot();
-            Assert.assertEquals(2, snapshot.getFiles().size());
+            Assert.assertEquals(3, snapshot.getFiles().size());
 
             // add two more peers
             final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
@@ -81,7 +98,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
             // Check the installed snapshot file number on each Follower matches with the
             // leader snapshot.
             for (RaftServer.Division follower : cluster.getFollowers()) {
-                Assert.assertEquals(follower.getStateMachine().getLatestSnapshot().getFiles().size(), 2);
+                Assert.assertEquals(follower.getStateMachine().getLatestSnapshot().getFiles().size(), 3);
             }
         } finally {
             cluster.shutdown();
@@ -113,21 +130,21 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
 
             final long endIndex = termIndex.getIndex();
             try {
-                if (snapshotRoot.exists()) {
-                    return endIndex;
+                if (!snapshotRoot.exists()) {
+                    FileUtils.createDirectories(snapshotRoot);
+                    FileUtils.createDirectories(file1.getParentFile());
+                    FileUtils.createDirectories(file2.getParentFile());
+                    FileUtils.createNewFile(file1.toPath());
+                    FileUtils.createNewFile(file2.toPath());
                 }
-                FileUtils.createDirectories(snapshotRoot);
-                FileUtils.createDirectories(file1.getParentFile());
-                FileUtils.createDirectories(file2.getParentFile());
-                FileUtils.createNewFile(file1.toPath());
-                FileUtils.createNewFile(file2.toPath());
+
             } catch (IOException ioException) {
                 return RaftLog.INVALID_LOG_INDEX;
             }
 
             Assert.assertTrue(file1.exists());
             Assert.assertTrue(file2.exists());
-            return endIndex;
+            return super.takeSnapshot();
         }
 
         @Override
@@ -146,9 +163,13 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
             } catch (IOException ignored) {}
             Assert.assertEquals(files.size(), 2);
 
-            TermIndex lastAppliedTermIndex = getLastAppliedTermIndex();
+            SnapshotInfo info = super.getLatestSnapshot();
+            if (info == null) {
+                return null;
+            }
+            files.add(info.getFiles().get(0));
             return new FileListSnapshotInfo(files,
-                    lastAppliedTermIndex.getTerm(), lastAppliedTermIndex.getIndex());
+                    info.getTerm(), info.getIndex());
         }
     }
 }
