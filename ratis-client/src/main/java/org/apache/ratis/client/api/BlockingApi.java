@@ -66,6 +66,9 @@ public interface BlockingApi {
    * @param index The log index to be watched.
    * @param replication The replication level required.
    * @return the reply.
+   *         When {@link RaftClientReply#isSuccess()} == true,
+   *         the reply index (i.e. {@link RaftClientReply#getLogIndex()}) is the log index satisfying the request,
+   *         where reply index >= watch index.
    */
   RaftClientReply watch(long index, ReplicationLevel replication) throws IOException;
 }

@@ -208,6 +208,9 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
         throw e;
       }
       log.info("{}-Watch({}) returns {}", name, logIndex, reply);
+
+      Assert.assertTrue(reply.isSuccess());
+      Assert.assertTrue(reply.getLogIndex() >= logIndex);
       return reply;
     }
   }
@@ -272,10 +275,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
       Assert.assertEquals(logIndex, watchReplies.logIndex);
       final RaftClientReply watchMajorityReply = watchReplies.getMajority();
-      Assert.assertTrue(watchMajorityReply.isSuccess());
 
       final RaftClientReply watchMajorityCommittedReply = watchReplies.getMajorityCommitted();
-      Assert.assertTrue(watchMajorityCommittedReply.isSuccess());
       { // check commit infos
         final Collection<CommitInfoProto> commitInfos = watchMajorityCommittedReply.getCommitInfos();
         final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
@@ -299,10 +300,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       final long logIndex = watchReplies.logIndex;
       LOG.info("checkAll {}: logIndex={}", i, logIndex);
       final RaftClientReply watchAllReply = watchReplies.getAll();
-      Assert.assertTrue(watchAllReply.isSuccess());
 
       final RaftClientReply watchAllCommittedReply = watchReplies.getAllCommitted();
-      Assert.assertTrue(watchAllCommittedReply.isSuccess());
       { // check commit infos
         final Collection<CommitInfoProto> commitInfos = watchAllCommittedReply.getCommitInfos();
         final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);

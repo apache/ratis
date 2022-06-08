@@ -82,7 +82,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
       // Reuse the same grpc stream for all async calls.
       return proxy.getUnorderedAsyncStreamObservers().onNext(request);
     } catch (Exception e) {
-      LOG.error(clientId + ": XXX Failed " + request, e);
+      LOG.error(clientId + ": Failed " + request, e);
       return JavaUtils.completeExceptionally(e);
     }
   }

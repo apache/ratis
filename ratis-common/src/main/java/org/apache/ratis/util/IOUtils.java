@@ -214,12 +214,25 @@ public interface IOUtils {
     return readObject(new ByteArrayInputStream(bytes), clazz);
   }
 
+  /**
+   * Read an object from the given input stream.
+   *
+   * @param in input stream to read from.
+   * @param clazz the class of the object.
+   * @return the object read from the stream.
+   *
+   * @param <T> The class type.
+   */
   static <T> T readObject(InputStream in, Class<T> clazz) {
-    Object obj = null;
+    final Object obj;
     try(ObjectInputStream oin = new ObjectInputStream(in)) {
       obj = oin.readObject();
-      return clazz.cast(obj);
     } catch (IOException | ClassNotFoundException e) {
+      throw new IllegalStateException("Failed to readObject for class " + clazz, e);
+    }
+    try {
+      return clazz.cast(obj);
+    } catch (ClassCastException e) {
       throw new IllegalStateException("Failed to cast to " + clazz + ", object="
               + (obj instanceof Throwable? StringUtils.stringifyException((Throwable) obj): obj), e);
     }
