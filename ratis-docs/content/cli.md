@@ -41,7 +41,8 @@ $ mvn -DskipTests -Prelease -Papache-release clean package assembly:single
 
 Extract the ratis-shell tarball.
 ```
-$ tar -C <DST_DIR>/ratis-shell -xzf ratis-assembly/target/apache-ratis-<VERSION>-shell.tar.gz
+$ mkdir <DST_DIR>/ratis-shell
+$ tar -C <DST_DIR>/ratis-shell -xzf ratis-assembly/target/apache-ratis-<VERSION>-shell.tar.gz --strip-component 1
 ```
 
 You can get the ratis-shell from bin tarball as well: 
@@ -55,7 +56,7 @@ $ cp -r <DST_DIR>/apache-ratis-<VERSION>/ratis-shell <DST_DIR>
 
 Export the `RATIS_SHELL_HOME` environment variable and add the bin directory to the `$PATH`.
 ```
-$ export RATIS_SHELL_HOME=<DST_DIR>/ratis-shell/apache-ratis-<VERSION>
+$ export RATIS_SHELL_HOME=<DST_DIR>/ratis-shell
 $ export PATH=${RATIS_SHELL_HOME}/bin:$PATH
 ```
 
