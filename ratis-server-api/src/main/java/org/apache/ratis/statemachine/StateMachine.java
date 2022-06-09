@@ -18,10 +18,7 @@
 package org.apache.ratis.statemachine;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
-import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -157,9 +154,9 @@ public interface StateMachine extends Closeable {
 
     /**
      * Notify the {@link StateMachine} a term-index update event.
-     * This method will be invoked when a {@link RaftProtos.MetadataProto}
-     * or {@link RaftProtos.RaftConfigurationProto} is processed.
-     * For {@link RaftProtos.StateMachineLogEntryProto}, this method will not be invoked.
+     * This method will be invoked when a {@link MetadataProto}
+     * or {@link RaftConfigurationProto} is processed.
+     * For {@link StateMachineLogEntryProto}, this method will not be invoked.
      *
      * @param term The term of the log entry
      * @param index The index of the log entry
@@ -168,7 +165,7 @@ public interface StateMachine extends Closeable {
 
     /**
      * Notify the {@link StateMachine} a configuration change.
-     * This method will be invoked when a {@link RaftProtos.RaftConfigurationProto} is processed.
+     * This method will be invoked when a {@link RaftConfigurationProto} is processed.
      *
      * @param term term of the current log entry
      * @param index index which is being updated
@@ -189,6 +186,12 @@ public interface StateMachine extends Closeable {
      * @param failedEntry The failed log entry, if there is any.
      */
     default void notifyLogFailed(Throwable cause, LogEntryProto failedEntry) {}
+
+    /**
+     * Notify the {@link StateMachine} that the progress of install snapshot is
+     * completely done. Could trigger the cleanup of snapshots.
+     */
+    default void notifySnapshotInstalled(InstallSnapshotResult result, long snapshotIndex) {}
   }
 
   /**
@@ -517,7 +520,7 @@ public interface StateMachine extends Closeable {
    * @param proto state machine proto
    * @return the string representation of the proto.
    */
-  default String toStateMachineLogEntryString(RaftProtos.StateMachineLogEntryProto proto) {
+  default String toStateMachineLogEntryString(StateMachineLogEntryProto proto) {
     return JavaUtils.getClassSimpleName(proto.getClass()) +  ":" + ClientInvocationId.valueOf(proto);
   }
 }
