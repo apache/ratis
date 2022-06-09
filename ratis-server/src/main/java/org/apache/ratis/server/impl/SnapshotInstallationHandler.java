@@ -64,7 +64,7 @@ class SnapshotInstallationHandler {
   private final AtomicReference<TermIndex> installedSnapshotTermIndex =
     new AtomicReference<>(INVALID_TERM_INDEX);
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
-  private final AtomicLong installedIndex = new AtomicLong();
+  private final AtomicLong installedIndex = new AtomicLong(INVALID_LOG_INDEX);
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
