@@ -123,21 +123,25 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     }
 
     @Override
-    public void notifyInstallSnapshotFinished() {
+    public void notifyInstallSnapshotFinished(RaftProtos.InstallSnapshotResult result) {
+      if (result != RaftProtos.InstallSnapshotResult.SUCCESS &&
+          result != RaftProtos.InstallSnapshotResult.SNAPSHOT_UNAVAILABLE) {
+        return;
+      }
       numNotifyInstallSnapshotFinished.incrementAndGet();
       final SingleFileSnapshotInfo leaderSnapshotInfo = (SingleFileSnapshotInfo) leaderSnapshotInfoRef.get();
       File leaderSnapshotFile = leaderSnapshotInfo.getFile().getPath().toFile();
       synchronized (this) {
         try {
           if (getServer().get().getDivision(this.getGroupId()).getInfo().isLeader()) {
-            LOG.info("Receive the notification to clean up snapshot as leader");
+            LOG.info("Receive the notification to clean up snapshot as leader for {}", result);
             if (leaderSnapshotFile.exists()) {
               // For test purpose, we do not delete the leader's snapshot actually, which could be
               // sent to more than one peer during the test
               LOG.info("leader snapshot {} existed", leaderSnapshotFile);
             }
           } else {
-            LOG.info("Receive the notification to clean up snapshot as follower");
+            LOG.info("Receive the notification to clean up snapshot as follower for {}", result);
             File followerSnapshotFile = new File(getSMdir(), leaderSnapshotFile.getName());
             if (followerSnapshotFile.exists()) {
               FileUtils.deleteFile(followerSnapshotFile);

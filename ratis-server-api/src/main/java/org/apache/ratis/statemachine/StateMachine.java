@@ -194,7 +194,7 @@ public interface StateMachine extends Closeable {
      * Notify the {@link StateMachine} that the progress of install snapshot is
      * completely done. Could trigger the cleanup of snapshots.
      */
-    default void notifyInstallSnapshotFinished() {}
+    default void notifyInstallSnapshotFinished(RaftProtos.InstallSnapshotResult result) {}
   }
 
   /**

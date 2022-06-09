@@ -304,7 +304,7 @@ class SnapshotInstallationHandler {
         LOG.info("{}: InstallSnapshot notification result: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
-        server.getStateMachine().event().notifyInstallSnapshotFinished();
+        server.getStateMachine().event().notifyInstallSnapshotFinished(InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, -1);
       }

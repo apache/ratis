@@ -1361,7 +1361,7 @@ class RaftServerImpl implements RaftServer.Division,
       boolean successInstalledSnapshot = snapshotInstallationHandler.checkSuccessInstalledSnapshot();
       if (successInstalledSnapshot) {
         LOG.info("{}: Follower has completed install the snapshot, notify InstallSnapshotFinished.", this);
-        stateMachine.event().notifyInstallSnapshotFinished();
+        stateMachine.event().notifyInstallSnapshotFinished(InstallSnapshotResult.SUCCESS);
       }
     }
     return JavaUtils.allOf(futures).whenCompleteAsync(
