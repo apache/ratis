@@ -123,7 +123,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     }
 
     @Override
-    public void notifyInstallSnapshotFinished(RaftProtos.InstallSnapshotResult result) {
+    public void notifySnapshotInstalled(RaftProtos.InstallSnapshotResult result, long installIndex) {
       if (result != RaftProtos.InstallSnapshotResult.SUCCESS &&
           result != RaftProtos.InstallSnapshotResult.SNAPSHOT_UNAVAILABLE) {
         return;

@@ -64,7 +64,7 @@ class SnapshotInstallationHandler {
   private final AtomicReference<TermIndex> installedSnapshotTermIndex =
     new AtomicReference<>(INVALID_TERM_INDEX);
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
-  private final AtomicBoolean successInstalledSnapshot = new AtomicBoolean();
+  private final AtomicLong installedIndex = new AtomicLong();
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
@@ -76,8 +76,8 @@ class SnapshotInstallationHandler {
     return state.getMemberId();
   }
 
-  boolean checkSuccessInstalledSnapshot() {
-    return successInstalledSnapshot.compareAndSet(true, false);
+  long getInstalledIndex() {
+    return installedIndex.getAndSet(INVALID_LOG_INDEX);
   }
 
   long getInProgressInstallSnapshotIndex() {
@@ -304,7 +304,8 @@ class SnapshotInstallationHandler {
         LOG.info("{}: InstallSnapshot notification result: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
-        server.getStateMachine().event().notifyInstallSnapshotFinished(InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
+        server.getStateMachine().event().notifySnapshotInstalled(
+            InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, INVALID_LOG_INDEX);
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, -1);
       }
@@ -320,7 +321,10 @@ class SnapshotInstallationHandler {
         LOG.info("{}: InstallSnapshot notification result: {}, at index: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex);
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
-        successInstalledSnapshot.set(true);
+        final long latestInstalledIndex = latestInstalledSnapshotTermIndex.getIndex();
+        server.getStateMachine().event().notifySnapshotInstalled(
+            InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledIndex);
+        installedIndex.set(latestInstalledIndex);
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex.getIndex());
       }
