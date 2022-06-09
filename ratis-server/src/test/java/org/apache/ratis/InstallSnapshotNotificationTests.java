@@ -81,6 +81,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   private static final AtomicReference<SnapshotInfo> leaderSnapshotInfoRef = new AtomicReference<>();
 
   private static final AtomicInteger numSnapshotRequests = new AtomicInteger();
+  private static final AtomicInteger numNotifyInstallSnapshotFinished = new AtomicInteger();
 
   private static class StateMachine4InstallSnapshotNotificationTests extends SimpleStateMachine4Testing {
     @Override
@@ -120,6 +121,39 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       return CompletableFuture.supplyAsync(supplier);
     }
+
+    @Override
+    public void notifySnapshotInstalled(RaftProtos.InstallSnapshotResult result, long installIndex) {
+      if (result != RaftProtos.InstallSnapshotResult.SUCCESS &&
+          result != RaftProtos.InstallSnapshotResult.SNAPSHOT_UNAVAILABLE) {
+        return;
+      }
+      numNotifyInstallSnapshotFinished.incrementAndGet();
+      final SingleFileSnapshotInfo leaderSnapshotInfo = (SingleFileSnapshotInfo) leaderSnapshotInfoRef.get();
+      File leaderSnapshotFile = leaderSnapshotInfo.getFile().getPath().toFile();
+      synchronized (this) {
+        try {
+          if (getServer().get().getDivision(this.getGroupId()).getInfo().isLeader()) {
+            LOG.info("Receive the notification to clean up snapshot as leader for {}", result);
+            if (leaderSnapshotFile.exists()) {
+              // For test purpose, we do not delete the leader's snapshot actually, which could be
+              // sent to more than one peer during the test
+              LOG.info("leader snapshot {} existed", leaderSnapshotFile);
+            }
+          } else {
+            LOG.info("Receive the notification to clean up snapshot as follower for {}", result);
+            File followerSnapshotFile = new File(getSMdir(), leaderSnapshotFile.getName());
+            if (followerSnapshotFile.exists()) {
+              FileUtils.deleteFile(followerSnapshotFile);
+              LOG.info("follower snapshot {} deleted", followerSnapshotFile);
+            }
+          }
+        } catch (Exception ex) {
+          LOG.error("Failed to notify installSnapshot Finished", ex);
+        }
+      }
+    }
+
   }
 
   /**
@@ -182,6 +216,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
+      LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
       final boolean set = leaderSnapshotInfoRef.compareAndSet(null, leaderSnapshotInfo);
       Assert.assertTrue(set);
 
@@ -361,7 +396,99 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       cluster.shutdown();
     }
   }
-  
+
+  @Test
+  public void testInstallSnapshotFinishedEvent() throws Exception{
+    runWithNewCluster(1, this::testInstallSnapshotFinishedEvent);
+  }
+
+  private void testInstallSnapshotFinishedEvent(CLUSTER cluster) throws Exception{
+    leaderSnapshotInfoRef.set(null);
+    numNotifyInstallSnapshotFinished.set(0);
+    final List<LogSegmentPath> logs;
+    int i = 0;
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+
+      try(final RaftClient client = cluster.createClient(leaderId)) {
+        for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+          RaftClientReply
+              reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+          Assert.assertTrue(reply.isSuccess());
+        }
+      }
+
+      // wait for the snapshot to be done
+      final RaftServer.Division leader = cluster.getLeader();
+      final long nextIndex = leader.getRaftLog().getNextIndex();
+      LOG.info("nextIndex = {}", nextIndex);
+      final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
+          nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
+      JavaUtils.attemptRepeatedly(() -> {
+        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        return null;
+      }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
+      logs = LogSegmentPath.getLogSegmentPaths(leader.getRaftStorage());
+    } finally {
+      cluster.shutdown();
+    }
+
+    // delete the log segments from the leader
+    LOG.info("Delete logs {}", logs);
+    for (LogSegmentPath path : logs) {
+      FileUtils.deleteFully(path.getPath()); // the log may be already puged
+    }
+
+    // restart the peer
+    LOG.info("Restarting the cluster");
+    cluster.restart(false);
+    try {
+      RaftSnapshotBaseTest.assertLeaderContent(cluster);
+
+      // generate some more traffic
+      try(final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
+        Assert.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
+      }
+
+      final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
+      LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
+      final boolean set = leaderSnapshotInfoRef.compareAndSet(null, leaderSnapshotInfo);
+      Assert.assertTrue(set);
+
+      // add one new peer
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
+      // trigger setConfiguration
+      cluster.setConfiguration(change.allPeersInNewConf);
+
+      RaftServerTestUtil
+          .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+
+      // Check the installed snapshot index on each Follower matches with the
+      // leader snapshot.
+      for (RaftServer.Division follower : cluster.getFollowers()) {
+        Assert.assertEquals(leaderSnapshotInfo.getIndex(),
+            RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
+      }
+
+      // notification should be sent to both the leader and the follower
+      File leaderSnapshotFile = leaderSnapshotInfo.getFiles().get(0).getPath().toFile();
+      SimpleStateMachine4Testing followerStateMachine =
+          (SimpleStateMachine4Testing) cluster.getFollowers().get(0).getStateMachine();
+      File followerSnapshotFile = new File(followerStateMachine.getStateMachineStorage().getSmDir(),
+          leaderSnapshotFile.getName());
+      Assert.assertEquals(numNotifyInstallSnapshotFinished.get(), 2);
+      Assert.assertTrue(leaderSnapshotFile.exists());
+      Assert.assertFalse(followerSnapshotFile.exists());
+
+      // restart the peer and check if it can correctly handle conf change
+      cluster.restartServer(cluster.getLeader().getId(), false);
+      RaftSnapshotBaseTest.assertLeaderContent(cluster);
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
   /**
    * Test for install snapshot during a peer bootstrap: start a one node cluster
    * (disable install snapshot option) and let it generate a snapshot. Add
