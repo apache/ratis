@@ -419,7 +419,7 @@ class LeaderStateImpl implements LeaderState {
   CompletableFuture<RaftClientReply> addWatchReqeust(RaftClientRequest request) {
     LOG.debug("{}: addWatchRequest {}", this, request);
     return watchRequests.add(request)
-        .thenApply(v -> server.newSuccessReply(request))
+        .thenApply(logIndex -> server.newSuccessReply(request, logIndex))
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
