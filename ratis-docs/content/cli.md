@@ -23,6 +23,13 @@ Ratis-shell is the command line interface of Ratis.
 > Ratis-shell is currently only **experimental**.
 > The compatibility story is not considered for the time being.
 
+## Availability
+| Version  | Available in src tarball? | Available in bin tarball? |
+| :------: | :-----------------------: | :-----------------------: |
+| < 2.3.0  | No                        | No                        |
+| 2.3.0    | Yes                       | No                        |
+| \> 2.3.0 | Yes                       | Yes                       |
+
 ## Setting up the ratis-shell
 
 ### Setting up from a source tarball
@@ -48,7 +55,8 @@ $ tar -C <DST_DIR>/ratis-shell -xzf ratis-assembly/target/apache-ratis-<VERSION>
 
 ### Setting up from a binary tarball
 Download the Ratis bin tarball from https://ratis.apache.org/downloads.html .
-Note that ratis-shell is available starting from version 2.3.0 (already released) does not have ratis-shell bin.
+Note that the bin tarball of Ratis version 2.3.0 or earlier does not contain ratis-shell.
+The bin tarball of later versions will contain ratis-shell.
 Extract the bin tarball to a destination directory `<DST_DIR>`
 ```
 $ tar -C <DST_DIR> -zxvf apache-ratis-<VERSION>-bin.tar.gz apache-ratis-<VERSION>/ratis-shell
