@@ -34,9 +34,10 @@ import java.util.function.Consumer;
 
 public interface RaftStorageTestUtils {
   static RaftStorage newRaftStorage(File dir) throws IOException {
-    return RaftStorageImpl.newBuilder()
-        .setDir(dir)
-        .setStorageFeeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT.getSize())
+    return RaftStorage.newBuilder()
+        .setDirectory(dir)
+        .setOption(RaftStorage.StartupOption.RECOVER)
+        .setStorageFreeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT.getSize())
         .build();
   }
 
