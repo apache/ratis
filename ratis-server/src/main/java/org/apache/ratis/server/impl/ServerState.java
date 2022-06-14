@@ -114,6 +114,7 @@ class ServerState implements Closeable {
       try {
         storage = (RaftStorageImpl) RaftStorage.newBuilder()
             .setDirectory(dir)
+            .setOption(RaftStorage.StartupOption.RECOVER)
             .setLogCorruptionPolicy(RaftServerConfigKeys.Log.corruptionPolicy(prop))
             .setStorageFreeSpaceMin(RaftServerConfigKeys.storageFreeSpaceMin(prop).getSize())
             .build();

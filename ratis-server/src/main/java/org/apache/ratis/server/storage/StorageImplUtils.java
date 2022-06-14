@@ -43,7 +43,7 @@ public final class StorageImplUtils {
       // attempt multiple times to avoid temporary bind exception
       raftStorage = JavaUtils.attemptRepeatedly(
           () -> new RaftStorageImpl(dir, logCorruptionPolicy, option, storageFeeSpaceMin),
-          5, sleepTime, "new RaftServerProxy", RaftStorage.LOG);
+          5, sleepTime, "new RaftStorageImpl", RaftStorage.LOG);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException(

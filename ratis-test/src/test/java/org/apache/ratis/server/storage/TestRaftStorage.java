@@ -72,7 +72,7 @@ public class TestRaftStorage extends BaseTest {
   static RaftStorageImpl formatRaftStorage(File dir) throws IOException {
     return (RaftStorageImpl) RaftStorage.newBuilder()
         .setDirectory(dir)
-        .setOption(RaftStorageImpl.StartupOption.FORMAT)
+        .setOption(RaftStorage.StartupOption.FORMAT)
         .setStorageFreeSpaceMin(0)
         .build();
   }
