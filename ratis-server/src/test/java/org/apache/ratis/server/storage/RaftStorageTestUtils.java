@@ -37,7 +37,7 @@ public interface RaftStorageTestUtils {
     return RaftStorage.newBuilder()
         .setDirectory(dir)
         .setOption(RaftStorage.StartupOption.RECOVER)
-        .setStorageFreeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT.getSize())
+        .setStorageFreeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT)
         .build();
   }
 

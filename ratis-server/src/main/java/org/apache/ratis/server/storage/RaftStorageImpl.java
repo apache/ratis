@@ -42,11 +42,6 @@ public class RaftStorageImpl implements RaftStorage {
   private final CorruptionPolicy logCorruptionPolicy;
   private volatile RaftStorageMetadataFileImpl metaFile;
 
-  public RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy,
-      long storageFeeSpaceMin) throws IOException {
-    this(dir, logCorruptionPolicy, null, storageFeeSpaceMin);
-  }
-
   RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy, StartupOption option,
       long storageFeeSpaceMin) throws IOException {
     this.storageDir = new RaftStorageDirectoryImpl(dir, storageFeeSpaceMin);

@@ -116,7 +116,7 @@ class ServerState implements Closeable {
             .setDirectory(dir)
             .setOption(RaftStorage.StartupOption.RECOVER)
             .setLogCorruptionPolicy(RaftServerConfigKeys.Log.corruptionPolicy(prop))
-            .setStorageFreeSpaceMin(RaftServerConfigKeys.storageFreeSpaceMin(prop).getSize())
+            .setStorageFreeSpaceMin(RaftServerConfigKeys.storageFreeSpaceMin(prop))
             .build();
         storageFound = true;
         break;

@@ -20,6 +20,7 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.ReflectionUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.channels.OverlappingFileLockException;
 
 /** The storage of a raft server. */
 public interface RaftStorage extends Closeable {
@@ -69,13 +71,17 @@ public interface RaftStorage extends Closeable {
     }
 
     private static RaftStorage newRaftStorage(File dir, CorruptionPolicy logCorruptionPolicy,
-        StartupOption option, long storageFreeSpaceMin) throws IOException {
+        StartupOption option, SizeInBytes storageFreeSpaceMin) throws IOException {
       try {
         return (RaftStorage) NEW_RAFT_STORAGE_METHOD.invoke(null,
-            dir, logCorruptionPolicy, option, storageFreeSpaceMin);
+            dir, logCorruptionPolicy, option, storageFreeSpaceMin.getSize());
       } catch (IllegalAccessException e) {
         throw new IllegalStateException("Failed to build " + dir, e);
       } catch (InvocationTargetException e) {
+        Throwable t = e.getTargetException();
+        if (t.getCause() instanceof IOException) {
+          throw IOUtils.asIOException(t.getCause().getCause());
+        }
         throw IOUtils.asIOException(e.getCause());
       }
     }
@@ -84,7 +90,7 @@ public interface RaftStorage extends Closeable {
     private File directory;
     private CorruptionPolicy logCorruptionPolicy;
     private StartupOption option;
-    private long storageFreeSpaceMin;
+    private SizeInBytes storageFreeSpaceMin;
 
     public Builder setDirectory(File directory) {
       this.directory = directory;
@@ -101,7 +107,7 @@ public interface RaftStorage extends Closeable {
       return this;
     }
 
-    public Builder setStorageFreeSpaceMin(long storageFreeSpaceMin) {
+    public Builder setStorageFreeSpaceMin(SizeInBytes storageFreeSpaceMin) {
       this.storageFreeSpaceMin = storageFreeSpaceMin;
       return this;
     }

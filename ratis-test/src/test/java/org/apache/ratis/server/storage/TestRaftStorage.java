@@ -28,6 +28,7 @@ import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -51,7 +52,7 @@ public class TestRaftStorage extends BaseTest {
     return (RaftStorageImpl) RaftStorage.newBuilder()
         .setDirectory(dir)
         .setOption(RaftStorage.StartupOption.RECOVER)
-        .setStorageFreeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT.getSize())
+        .setStorageFreeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT)
         .build();
   }
 
@@ -73,7 +74,7 @@ public class TestRaftStorage extends BaseTest {
     return (RaftStorageImpl) RaftStorage.newBuilder()
         .setDirectory(dir)
         .setOption(RaftStorage.StartupOption.FORMAT)
-        .setStorageFreeSpaceMin(0)
+        .setStorageFreeSpaceMin(SizeInBytes.valueOf(0))
         .build();
   }
 
