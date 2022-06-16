@@ -29,7 +29,6 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.channels.OverlappingFileLockException;
 
 /** The storage of a raft server. */
 public interface RaftStorage extends Closeable {
