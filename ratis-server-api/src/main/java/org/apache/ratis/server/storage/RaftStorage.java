@@ -79,7 +79,7 @@ public interface RaftStorage extends Closeable {
       } catch (InvocationTargetException e) {
         Throwable t = e.getTargetException();
         if (t.getCause() instanceof IOException) {
-          throw IOUtils.asIOException(t.getCause().getCause());
+          throw IOUtils.asIOException(t.getCause());
         }
         throw IOUtils.asIOException(e.getCause());
       }
