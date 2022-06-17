@@ -36,21 +36,11 @@ import java.util.Optional;
 /** The storage of a {@link org.apache.ratis.server.RaftServer}. */
 public class RaftStorageImpl implements RaftStorage {
 
-  public enum StartupOption {
-    /** Format the storage. */
-    FORMAT
-  }
-
   // TODO support multiple storage directories
   private final RaftStorageDirectoryImpl storageDir;
   private final StorageState state;
   private final CorruptionPolicy logCorruptionPolicy;
   private volatile RaftStorageMetadataFileImpl metaFile;
-
-  public RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy,
-      long storageFeeSpaceMin) throws IOException {
-    this(dir, logCorruptionPolicy, null, storageFeeSpaceMin);
-  }
 
   RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy, StartupOption option,
       long storageFeeSpaceMin) throws IOException {
