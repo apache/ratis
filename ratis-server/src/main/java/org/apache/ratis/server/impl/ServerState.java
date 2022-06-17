@@ -112,8 +112,12 @@ class ServerState implements Closeable {
       // use full uuid string to create a subdirectory
       File dir = chooseStorageDir(directories, group.getGroupId().getUuid().toString());
       try {
-        storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop),
-            RaftServerConfigKeys.storageFreeSpaceMin(prop).getSize());
+        storage = (RaftStorageImpl) RaftStorage.newBuilder()
+            .setDirectory(dir)
+            .setOption(RaftStorage.StartupOption.RECOVER)
+            .setLogCorruptionPolicy(RaftServerConfigKeys.Log.corruptionPolicy(prop))
+            .setStorageFreeSpaceMin(RaftServerConfigKeys.storageFreeSpaceMin(prop))
+            .build();
         storageFound = true;
         break;
       } catch (IOException e) {

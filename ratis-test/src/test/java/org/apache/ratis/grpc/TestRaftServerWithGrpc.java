@@ -125,9 +125,13 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // the raft server proxy created earlier. Raft server proxy should close
     // the rpc server on failure.
     RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
-    testFailureCase("start a new server with the same address",
-        () -> newRaftServer(cluster, leaderId, stateMachine, p).start(),
-        IOException.class, OverlappingFileLockException.class);
+    try {
+      LOG.info("start a new server with the same address");
+      newRaftServer(cluster, leaderId, stateMachine, p).start();
+    } catch (IOException e) {
+      Assert.assertTrue(e.getCause() instanceof OverlappingFileLockException);
+      Assert.assertTrue(e.getMessage().contains("directory is already locked"));
+    }
     // Try to start a raft server rpc at the leader address.
     cluster.getServerFactory(leaderId).newRaftServerRpc(cluster.getServer(leaderId));
   }

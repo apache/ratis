@@ -21,6 +21,7 @@ import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_F
 import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RATIS_LOG_WORKER_METRICS;
 
 import org.apache.ratis.metrics.RatisMetrics;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogBase;
@@ -33,7 +34,11 @@ import java.util.function.Consumer;
 
 public interface RaftStorageTestUtils {
   static RaftStorage newRaftStorage(File dir) throws IOException {
-    return new RaftStorageImpl(dir, null, 0L);
+    return RaftStorage.newBuilder()
+        .setDirectory(dir)
+        .setOption(RaftStorage.StartupOption.RECOVER)
+        .setStorageFreeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT)
+        .build();
   }
 
   static String getLogFlushTimeMetric(String memberId) {
