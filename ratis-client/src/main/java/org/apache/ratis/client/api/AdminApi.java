@@ -20,6 +20,7 @@ package org.apache.ratis.client.api;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -41,9 +42,15 @@ public interface AdminApi {
     return setConfiguration(Arrays.asList(serversInNewConf));
   }
 
+  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf, SetConfigurationRequest.Mode mode)
+      throws IOException;
+
   /** Set the configuration request to the raft service. */
   RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf)
       throws IOException;
+
+  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf,
+      SetConfigurationRequest.Mode mode) throws IOException;
 
   /** The same as setConfiguration(Arrays.asList(serversInNewConf), Arrays.asList(listenersInNewConf)). */
   default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf, RaftPeer[] listenersInNewConf)

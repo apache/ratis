@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.rpc.CallId;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -37,15 +38,27 @@ class AdminImpl implements AdminApi {
   }
 
   @Override
+  public RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf, SetConfigurationRequest.Mode mode)
+      throws IOException {
+    return setConfiguration(peersInNewConf, Collections.emptyList(), mode);
+  }
+
+  @Override
   public RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf, List<RaftPeer> listenersInNewConf)
       throws IOException {
+    return setConfiguration(peersInNewConf, listenersInNewConf, SetConfigurationRequest.Mode.NORMAL);
+  }
+
+  @Override
+  public RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf, List<RaftPeer> listenersInNewConf,
+      SetConfigurationRequest.Mode mode) throws IOException {
     Objects.requireNonNull(peersInNewConf, "peersInNewConf == null");
 
     final long callId = CallId.getAndIncrement();
     // also refresh the rpc proxies for these peers
     client.getClientRpc().addRaftPeers(peersInNewConf);
     return client.io().sendRequestWithRetry(() -> new SetConfigurationRequest(
-        client.getId(), client.getLeaderId(), client.getGroupId(), callId, peersInNewConf, listenersInNewConf));
+        client.getId(), client.getLeaderId(), client.getGroupId(), callId, peersInNewConf, listenersInNewConf, mode));
   }
 
   @Override

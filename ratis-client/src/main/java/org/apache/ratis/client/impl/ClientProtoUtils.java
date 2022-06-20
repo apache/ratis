@@ -506,7 +506,19 @@ public interface ClientProtoUtils {
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-        p.getRpcRequest().getCallId(), peers, listeners);
+        p.getRpcRequest().getCallId(), peers, listeners, toSetConfigurationMode(p.getMode()));
+  }
+
+  static SetConfigurationRequest.Mode toSetConfigurationMode(
+      SetConfigurationRequestProto.RaftConfigurationMode p) {
+    switch (p) {
+      case NORMAL:
+        return SetConfigurationRequest.Mode.NORMAL;
+      case ADD:
+        return SetConfigurationRequest.Mode.ADD;
+      default:
+        throw new IllegalArgumentException("Unexpected mode " + p);
+    }
   }
 
   static SetConfigurationRequestProto toSetConfigurationRequestProto(
@@ -515,6 +527,7 @@ public interface ClientProtoUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(request.getPeersInNewConf()))
         .addAllListeners(ProtoUtils.toRaftPeerProtos(request.getListenersInNewConf()))
+        .setMode(SetConfigurationRequestProto.RaftConfigurationMode.valueOf(request.getMode().name()))
         .build();
   }
 

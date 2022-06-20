@@ -78,6 +78,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
@@ -1109,10 +1110,21 @@ class RaftServerImpl implements RaftServer.Division,
         return pending.getFuture();
       }
 
-      getRaftServer().addRaftPeers(peersInNewConf);
-      // add staging state into the leaderState
-      pending = leaderState.startSetConfiguration(request);
+      if(request.getMode() == SetConfigurationRequest.Mode.ADD) {
+         List<RaftPeer> peers = Stream.of(peersInNewConf, new ArrayList<>(current.getAllPeers()))
+            .flatMap(List :: stream).distinct().collect(Collectors.toList());
+         return getSetConfigurationReplyFuture(request, peers, leaderState);
+      } else {
+        return getSetConfigurationReplyFuture(request, peersInNewConf, leaderState);
+      }
     }
+  }
+
+  private CompletableFuture<RaftClientReply> getSetConfigurationReplyFuture(
+      SetConfigurationRequest request, List<RaftPeer> peersInNewConf, LeaderStateImpl leaderState) {
+    final PendingRequest pending;
+    getRaftServer().addRaftPeers(peersInNewConf);
+    pending = leaderState.startSetConfiguration(request, peersInNewConf);
     return pending.getFuture();
   }
 

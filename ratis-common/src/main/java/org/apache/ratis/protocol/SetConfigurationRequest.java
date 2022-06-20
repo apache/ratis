@@ -23,19 +23,26 @@ import java.util.Collections;
 import java.util.List;
 
 public class SetConfigurationRequest extends RaftClientRequest {
+
+  public enum Mode {
+    NORMAL,
+    ADD
+  }
   private final List<RaftPeer> peers;
   private final List<RaftPeer> listeners;
+  private Mode mode;
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, List<RaftPeer> peers) {
-    this(clientId, serverId, groupId, callId, peers, Collections.emptyList());
+    this(clientId, serverId, groupId, callId, peers, Collections.emptyList(), Mode.NORMAL);
   }
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId, List<RaftPeer> peers, List<RaftPeer> listeners) {
+      RaftGroupId groupId, long callId, List<RaftPeer> peers, List<RaftPeer> listeners, Mode mode) {
     super(clientId, serverId, groupId, callId, true, writeRequestType());
     this.peers = peers != null? Collections.unmodifiableList(peers): Collections.emptyList();
     this.listeners = listeners !=  null? Collections.unmodifiableList(listeners) : Collections.emptyList();
+    this.mode = mode;
     Preconditions.assertUnique(this.peers);
     Preconditions.assertUnique(this.listeners);
   }
@@ -46,6 +53,10 @@ public class SetConfigurationRequest extends RaftClientRequest {
 
   public List<RaftPeer> getListenersInNewConf() {
     return listeners;
+  }
+
+  public Mode getMode() {
+    return mode;
   }
 
   @Override
