@@ -17,11 +17,14 @@
 */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.AsyncRpcApi;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamOutputRpc;
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
@@ -54,6 +57,7 @@ import java.util.concurrent.CompletableFuture;
  * allows client to create streams and send asynchronously.
  */
 public class DataStreamClientImpl implements DataStreamClient {
+  private final RaftClient client;
   private final ClientId clientId;
   private final RaftGroupId groupId;
 
@@ -63,8 +67,19 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   DataStreamClientImpl(ClientId clientId, RaftGroupId groupId, RaftPeer dataStreamServer,
       DataStreamClientRpc dataStreamClientRpc, RaftProperties properties) {
+    this.client = null;
     this.clientId = clientId;
     this.groupId = groupId;
+    this.dataStreamServer = dataStreamServer;
+    this.dataStreamClientRpc = dataStreamClientRpc;
+    this.orderedStreamAsync = new OrderedStreamAsync(dataStreamClientRpc, properties);
+  }
+
+  DataStreamClientImpl(RaftClient client, RaftPeer dataStreamServer,
+      DataStreamClientRpc dataStreamClientRpc, RaftProperties properties) {
+    this.client = client;
+    this.clientId = client.getId();
+    this.groupId = client.getGroupId();
     this.dataStreamServer = dataStreamServer;
     this.dataStreamClientRpc = dataStreamClientRpc;
     this.orderedStreamAsync = new OrderedStreamAsync(dataStreamClientRpc, properties);
@@ -127,7 +142,7 @@ public class DataStreamClientImpl implements DataStreamClient {
       }
       final CompletableFuture<DataStreamReply> f = combineHeader(send(Type.STREAM_DATA, data, length, options));
       if (WriteOption.containsOption(options, StandardWriteOption.CLOSE)) {
-        closeFuture = f;
+        closeFuture = client != null? f.thenCompose(this::sendForward): f;
         f.thenApply(ClientProtoUtils::getRaftClientReply).whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
       }
       streamOffset += length;
@@ -171,6 +186,23 @@ public class DataStreamClientImpl implements DataStreamClient {
     @Override
     public WritableByteChannel getWritableByteChannel() {
       return writableByteChannelSupplier.get();
+    }
+
+    private CompletableFuture<DataStreamReply> sendForward(DataStreamReply writeReply) {
+      if (!writeReply.isSuccess()) {
+        return CompletableFuture.completedFuture(writeReply);
+      }
+      final AsyncRpcApi asyncRpc = (AsyncRpcApi) client.async();
+      return asyncRpc.sendForward(header).thenApply(clientReply -> DataStreamReplyByteBuffer.newBuilder()
+          .setClientId(clientId)
+          .setType(writeReply.getType())
+          .setStreamId(writeReply.getStreamId())
+          .setStreamOffset(writeReply.getStreamOffset())
+          .setBuffer(ClientProtoUtils.toRaftClientReplyProto(clientReply).toByteString().asReadOnlyByteBuffer())
+          .setSuccess(clientReply.isSuccess())
+          .setBytesWritten(writeReply.getBytesWritten())
+          .setCommitInfos(clientReply.getCommitInfos())
+          .build());
     }
   }
 

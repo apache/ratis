@@ -19,7 +19,6 @@
 package org.apache.ratis.netty.server;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.ratis.client.AsyncRpcApi;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
@@ -324,14 +323,12 @@ public class DataStreamManagement {
   }
 
   static DataStreamReplyByteBuffer newDataStreamReplyByteBuffer(DataStreamRequestByteBuf request,
-      RaftClientReply reply, long bytesWritten, Collection<CommitInfoProto> commitInfos) {
+      RaftClientReply reply) {
     final ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
     return DataStreamReplyByteBuffer.newBuilder()
         .setDataStreamPacket(request)
         .setBuffer(buffer)
         .setSuccess(reply.isSuccess())
-        .setBytesWritten(bytesWritten)
-        .setCommitInfos(commitInfos)
         .build();
   }
 
@@ -347,28 +344,6 @@ public class DataStreamManagement {
       builder.setBytesWritten(bytesWritten);
     }
     ctx.writeAndFlush(builder.build());
-  }
-
-  private CompletableFuture<RaftClientReply> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
-      long bytesWritten, ChannelHandlerContext ctx) {
-    final RequestMetrics metrics = getMetrics().newRequestMetrics(RequestType.START_TRANSACTION);
-    final RequestContext context = metrics.start();
-    try {
-      AsyncRpcApi asyncRpcApi = (AsyncRpcApi) (server.getDivision(info.getRequest()
-          .getRaftGroupId())
-          .getRaftClient()
-          .async());
-      return asyncRpcApi.sendForward(info.request).whenCompleteAsync((reply, e) -> {
-        metrics.stop(context, e == null);
-        if (e != null) {
-          replyDataStreamException(server, e, info.getRequest(), request, ctx);
-        } else {
-          ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply, bytesWritten, info.getCommitInfos()));
-        }
-      }, requestExecutor);
-    } catch (IOException e) {
-      throw new CompletionException(e);
-    }
   }
 
   static void replyDataStreamException(RaftServer server, Throwable cause, RaftClientRequest raftClientRequest,
@@ -394,7 +369,7 @@ public class DataStreamManagement {
       ChannelHandlerContext ctx) {
     LOG.warn("Failed to process {}",  request, throwable);
     try {
-      ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply, 0, null));
+      ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
     } catch (Throwable t) {
       LOG.warn("Failed to sendDataStreamException {} for {}", throwable, request, t);
     }
@@ -452,15 +427,9 @@ public class DataStreamManagement {
     composeAsync(info.getPrevious(), requestExecutor, n -> JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           if (request.getType() == Type.STREAM_HEADER
-              || (request.getType() == Type.STREAM_DATA && !close)) {
+              || request.getType() == Type.STREAM_DATA
+              || close) {
             sendReply(remoteWrites, request, bytesWritten, info.getCommitInfos(), ctx);
-          } else if (close) {
-            if (info.isPrimary()) {
-              // after all server close stream, primary server start transaction
-              startTransaction(info, request, bytesWritten, ctx);
-            } else {
-              sendReply(remoteWrites, request, bytesWritten, info.getCommitInfos(), ctx);
-            }
           } else {
             throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
           }
