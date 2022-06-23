@@ -1113,7 +1113,13 @@ class RaftServerImpl implements RaftServer.Division,
       if(request.getMode() == SetConfigurationRequest.Mode.ADD) {
          List<RaftPeer> peers = Stream.of(peersInNewConf, new ArrayList<>(current.getAllPeers()))
             .flatMap(List :: stream).distinct().collect(Collectors.toList());
-         return getSetConfigurationReplyFuture(request, peers, leaderState);
+        if (current.hasNoChange(peers)) {
+          pending = new PendingRequest(request);
+          pending.setReply(newSuccessReply(request));
+          return pending.getFuture();
+        } else {
+          return getSetConfigurationReplyFuture(request, peers, leaderState);
+        }
       } else {
         return getSetConfigurationReplyFuture(request, peersInNewConf, leaderState);
       }
