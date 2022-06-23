@@ -32,30 +32,88 @@ import java.util.List;
  * such as setting raft configuration and transferring leadership.
  */
 public interface AdminApi {
+
+  class SetConfigurationArguments {
+    private List<RaftPeer> serversInNewConf;
+    private List<RaftPeer> listenersInNewConf;
+    private SetConfigurationRequest.Mode mode;
+
+    private SetConfigurationArguments(List<RaftPeer> serversInNewConf,
+        List<RaftPeer> listenersInNewConf, SetConfigurationRequest.Mode mode) {
+      this.serversInNewConf = serversInNewConf;
+      this.listenersInNewConf = listenersInNewConf;
+      this.mode = mode;
+    }
+
+    public List<RaftPeer> getServersInNewConf() {
+      return serversInNewConf;
+    }
+
+    public List<RaftPeer> getListenersInNewConf() {
+      return listenersInNewConf;
+    }
+
+    public SetConfigurationRequest.Mode getMode() {
+      return mode;
+    }
+
+    public static Builder newBuilder() {
+      return new Builder();
+    }
+
+    public static class Builder {
+      private List<RaftPeer> serversInNewConf;
+      private List<RaftPeer> listenersInNewConf = Collections.emptyList();
+      private SetConfigurationRequest.Mode mode = SetConfigurationRequest.Mode.SET_UNCONDITIONALLY;
+
+      public Builder setServersInNewConf(List<RaftPeer> serversInNewConf) {
+        this.serversInNewConf = serversInNewConf;
+        return this;
+      }
+
+      public Builder setListenersInNewConf(List<RaftPeer> listenersInNewConf) {
+        this.listenersInNewConf = listenersInNewConf;
+        return this;
+      }
+
+      public Builder setServersInNewConfArray(RaftPeer[] serversInNewConfArray) {
+        this.serversInNewConf = Arrays.asList(serversInNewConfArray);
+        return this;
+      }
+
+      public Builder setListenersInNewConfArray(RaftPeer[] listenersInNewConfArray) {
+        this.listenersInNewConf = Arrays.asList(listenersInNewConfArray);
+        return this;
+      }
+
+      public Builder setMode(SetConfigurationRequest.Mode mode) {
+        this.mode = mode;
+        return this;
+      }
+
+      public SetConfigurationArguments build() {
+        return new SetConfigurationArguments(serversInNewConf, listenersInNewConf, mode);
+      }
+    }
+  }
+
+  RaftClientReply setConfiguration(SetConfigurationArguments arguments)
+      throws IOException;
+
   /** The same as setConfiguration(serversInNewConf, Collections.emptyList()). */
   default RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf) throws IOException {
-    return setConfiguration(serversInNewConf, Collections.emptyList());
+    return setConfiguration(SetConfigurationArguments
+            .newBuilder()
+            .setServersInNewConf(serversInNewConf)
+            .build());
   }
 
   /** The same as setConfiguration(Arrays.asList(serversInNewConf)). */
   default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException {
-    return setConfiguration(Arrays.asList(serversInNewConf));
-  }
-
-  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf, SetConfigurationRequest.Mode mode)
-      throws IOException;
-
-  /** Set the configuration request to the raft service. */
-  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf)
-      throws IOException;
-
-  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf,
-      SetConfigurationRequest.Mode mode) throws IOException;
-
-  /** The same as setConfiguration(Arrays.asList(serversInNewConf), Arrays.asList(listenersInNewConf)). */
-  default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf, RaftPeer[] listenersInNewConf)
-      throws IOException {
-    return setConfiguration(Arrays.asList(serversInNewConf), Arrays.asList(listenersInNewConf));
+    return setConfiguration(SetConfigurationArguments
+            .newBuilder()
+            .setServersInNewConfArray(serversInNewConf)
+            .build());
   }
 
   /** Transfer leadership to the given server.*/

@@ -25,7 +25,7 @@ import java.util.List;
 public class SetConfigurationRequest extends RaftClientRequest {
 
   public enum Mode {
-    NORMAL,
+    SET_UNCONDITIONALLY,
     ADD
   }
   private final List<RaftPeer> peers;
@@ -34,7 +34,7 @@ public class SetConfigurationRequest extends RaftClientRequest {
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, List<RaftPeer> peers) {
-    this(clientId, serverId, groupId, callId, peers, Collections.emptyList(), Mode.NORMAL);
+    this(clientId, serverId, groupId, callId, peers, Collections.emptyList(), Mode.SET_UNCONDITIONALLY);
   }
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,

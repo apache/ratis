@@ -406,15 +406,14 @@ message RaftClientReplyProto {
 
 // setConfiguration request
 message SetConfigurationRequestProto {
+  enum Mode {
+    SET_UNCONDITIONALLY = 0;
+    ADD = 1;
+  }
   RaftRpcRequestProto rpcRequest = 1;
   repeated RaftPeerProto peers = 2;
   repeated RaftPeerProto listeners = 3;
-  enum RaftConfigurationMode {
-    NORMAL = 0;
-    ADD = 1;
-  }
-
-  optional RaftConfigurationMode mode = 4;
+  optional Mode mode = 4;
 }
 
 // transfer leadership request

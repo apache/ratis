@@ -510,10 +510,10 @@ public interface ClientProtoUtils {
   }
 
   static SetConfigurationRequest.Mode toSetConfigurationMode(
-      SetConfigurationRequestProto.RaftConfigurationMode p) {
+      SetConfigurationRequestProto.Mode p) {
     switch (p) {
-      case NORMAL:
-        return SetConfigurationRequest.Mode.NORMAL;
+      case SET_UNCONDITIONALLY:
+        return SetConfigurationRequest.Mode.SET_UNCONDITIONALLY;
       case ADD:
         return SetConfigurationRequest.Mode.ADD;
       default:
@@ -527,7 +527,7 @@ public interface ClientProtoUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(request.getPeersInNewConf()))
         .addAllListeners(ProtoUtils.toRaftPeerProtos(request.getListenersInNewConf()))
-        .setMode(SetConfigurationRequestProto.RaftConfigurationMode.valueOf(request.getMode().name()))
+        .setMode(SetConfigurationRequestProto.Mode.valueOf(request.getMode().name()))
         .build();
   }
 

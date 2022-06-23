@@ -23,6 +23,7 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.client.api.AdminApi;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -206,7 +207,10 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
-      RaftClientReply reply = client.admin().setConfiguration(peers, SetConfigurationRequest.Mode.ADD);
+      RaftClientReply reply = client.admin().setConfiguration(
+          AdminApi.SetConfigurationArguments.newBuilder()
+          .setServersInNewConf(peers)
+          .setMode(SetConfigurationRequest.Mode.ADD).build());
       Assert.assertTrue(reply.isSuccess());
       waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
     }

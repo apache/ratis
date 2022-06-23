@@ -26,7 +26,6 @@ import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.rpc.CallId;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -37,20 +36,12 @@ class AdminImpl implements AdminApi {
     this.client = Objects.requireNonNull(client, "client == null");
   }
 
-  @Override
-  public RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf, SetConfigurationRequest.Mode mode)
+  public RaftClientReply setConfiguration(SetConfigurationArguments arguments)
       throws IOException {
-    return setConfiguration(peersInNewConf, Collections.emptyList(), mode);
+    return setConfiguration(arguments.getServersInNewConf(), arguments.getListenersInNewConf(), arguments.getMode());
   }
 
-  @Override
-  public RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf, List<RaftPeer> listenersInNewConf)
-      throws IOException {
-    return setConfiguration(peersInNewConf, listenersInNewConf, SetConfigurationRequest.Mode.NORMAL);
-  }
-
-  @Override
-  public RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf, List<RaftPeer> listenersInNewConf,
+  private RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf, List<RaftPeer> listenersInNewConf,
       SetConfigurationRequest.Mode mode) throws IOException {
     Objects.requireNonNull(peersInNewConf, "peersInNewConf == null");
 
