@@ -124,10 +124,6 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
-  ClientId getPrimaryClientId() throws IOException {
-    return getPrimaryServer().raftServer.getDivision(raftGroup.getGroupId()).getRaftClient().getId();
-  }
-
   void runTestMockCluster(ClientId clientId, int bufferSize, int bufferNum,
       Exception expectedException, Exception headerException)
       throws IOException {
@@ -145,7 +141,7 @@ abstract class DataStreamBaseTest extends BaseTest {
 
       final RaftClientReply clientReply = DataStreamTestUtils.writeAndCloseAndAssertReplies(
           CollectionUtils.as(servers, Server::getRaftServer), null, out, bufferSize, bufferNum,
-          getPrimaryClientId(), client.getId(), false).join();
+          client.getId(), false).join();
       if (expectedException != null) {
         Assert.assertFalse(clientReply.isSuccess());
         Assert.assertTrue(clientReply.getException().getMessage().contains(

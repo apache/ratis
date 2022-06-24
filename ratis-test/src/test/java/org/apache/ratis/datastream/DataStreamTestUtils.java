@@ -307,7 +307,7 @@ public interface DataStreamTestUtils {
 
   static CompletableFuture<RaftClientReply> writeAndCloseAndAssertReplies(
       Iterable<RaftServer> servers, RaftPeerId leader, DataStreamOutputImpl out, int bufferSize, int bufferNum,
-      ClientId primaryClientId, ClientId clientId, boolean stepDownLeader) {
+      ClientId clientId, boolean stepDownLeader) {
     LOG.info("start Stream{}", out.getHeader().getCallId());
     final int bytesWritten = writeAndAssertReplies(out, bufferSize, bufferNum);
     try {
@@ -320,7 +320,7 @@ public interface DataStreamTestUtils {
     LOG.info("Stream{}: bytesWritten={}", out.getHeader().getCallId(), bytesWritten);
 
     return out.closeAsync().thenCompose(
-        reply -> assertCloseReply(out, reply, bytesWritten, leader, primaryClientId, clientId, stepDownLeader));
+        reply -> assertCloseReply(out, reply, bytesWritten, leader, clientId, stepDownLeader));
   }
 
   static void assertHeader(RaftServer server, RaftClientRequest header, int dataSize, boolean stepDownLeader)
@@ -342,7 +342,7 @@ public interface DataStreamTestUtils {
   }
 
   static CompletableFuture<RaftClientReply> assertCloseReply(DataStreamOutputImpl out, DataStreamReply dataStreamReply,
-      long bytesWritten, RaftPeerId leader, ClientId primaryClientId, ClientId clientId, boolean stepDownLeader) {
+      long bytesWritten, RaftPeerId leader, ClientId clientId, boolean stepDownLeader) {
     // Test close idempotent
     Assert.assertSame(dataStreamReply, out.closeAsync().join());
     Assert.assertEquals(dataStreamReply.getClientId(), clientId);
@@ -353,7 +353,7 @@ public interface DataStreamTestUtils {
     final DataStreamReplyByteBuffer buffer = (DataStreamReplyByteBuffer) dataStreamReply;
     try {
       final RaftClientReply reply = ClientProtoUtils.toRaftClientReply(buffer.slice());
-      assertRaftClientMessage(out.getHeader(), leader, reply, primaryClientId, stepDownLeader);
+      assertRaftClientMessage(out.getHeader(), leader, reply, clientId, stepDownLeader);
       if (reply.isSuccess()) {
         final ByteString bytes = reply.getMessage().getContent();
         if (!bytes.equals(MOCK)) {

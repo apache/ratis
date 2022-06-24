@@ -49,6 +49,7 @@ import org.apache.ratis.util.SlidingWindow;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -143,7 +144,8 @@ public class DataStreamClientImpl implements DataStreamClient {
       final CompletableFuture<DataStreamReply> f = combineHeader(send(Type.STREAM_DATA, data, length, options));
       if (WriteOption.containsOption(options, StandardWriteOption.CLOSE)) {
         closeFuture = client != null? f.thenCompose(this::sendForward): f;
-        f.thenApply(ClientProtoUtils::getRaftClientReply).whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
+        closeFuture.thenApply(ClientProtoUtils::getRaftClientReply)
+            .whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
       }
       streamOffset += length;
       return f;
@@ -165,8 +167,10 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     @Override
     public CompletableFuture<DataStreamReply> closeAsync() {
-      return isClosed() ? closeFuture :
-          writeAsync(DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER, StandardWriteOption.CLOSE);
+      if (!isClosed()) {
+        writeAsync(DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER, StandardWriteOption.CLOSE);
+      }
+      return Objects.requireNonNull(closeFuture, "closeFuture == null");
     }
 
     public RaftClientRequest getHeader() {
@@ -189,6 +193,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     }
 
     private CompletableFuture<DataStreamReply> sendForward(DataStreamReply writeReply) {
+      LOG.debug("sendForward {}", writeReply);
       if (!writeReply.isSuccess()) {
         return CompletableFuture.completedFuture(writeReply);
       }
