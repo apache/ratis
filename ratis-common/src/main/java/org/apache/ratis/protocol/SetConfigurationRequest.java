@@ -30,7 +30,7 @@ public class SetConfigurationRequest extends RaftClientRequest {
   }
   private final List<RaftPeer> peers;
   private final List<RaftPeer> listeners;
-  private Mode mode;
+  private final Mode mode;
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, List<RaftPeer> peers) {

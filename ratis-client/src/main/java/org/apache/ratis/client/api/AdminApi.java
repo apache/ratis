@@ -116,6 +116,26 @@ public interface AdminApi {
             .build());
   }
 
+  /** Set the configuration request to the raft service. */
+  default RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf)
+      throws IOException {
+    return setConfiguration(SetConfigurationArguments
+        .newBuilder()
+        .setServersInNewConf(serversInNewConf)
+        .setListenersInNewConf(listenersInNewConf)
+        .build());
+  }
+
+  /** The same as setConfiguration(Arrays.asList(serversInNewConf), Arrays.asList(listenersInNewConf)). */
+  default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf, RaftPeer[] listenersInNewConf)
+      throws IOException {
+    return setConfiguration(SetConfigurationArguments
+        .newBuilder()
+        .setListenersInNewConfArray(serversInNewConf)
+        .setListenersInNewConfArray(listenersInNewConf)
+        .build());
+  }
+
   /** Transfer leadership to the given server.*/
   RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException;
 }
