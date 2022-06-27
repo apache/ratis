@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.grpc.server;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -46,10 +47,11 @@ public class GrpcServerProtocolClient implements Closeable {
   // Common channel
   private final ManagedChannel channel;
   // Channel and stub for heartbeat
-  private final ManagedChannel hbChannel;
-  private final RaftServerProtocolServiceStub hbAsyncStub;
+  private ManagedChannel hbChannel;
+  private RaftServerProtocolServiceStub hbAsyncStub;
   private final RaftServerProtocolServiceStub asyncStub;
   private final RaftServerProtocolServiceBlockingStub blockingStub;
+  private final boolean useSeparateHBChannel;
 
   private final TimeDuration requestTimeoutDuration;
   private static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolClient.class);
@@ -57,14 +59,17 @@ public class GrpcServerProtocolClient implements Closeable {
   private final RaftPeerId raftPeerId;
 
   public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
-      TimeDuration requestTimeout, GrpcTlsConfig tlsConfig) {
+      TimeDuration requestTimeout, GrpcTlsConfig tlsConfig, boolean separateHBChannel) {
     raftPeerId = target.getId();
     LOG.info("Build channel for {}", raftPeerId);
+    useSeparateHBChannel = separateHBChannel;
     channel = buildChannel(target, flowControlWindow, tlsConfig);
-    hbChannel = buildChannel(target, flowControlWindow, tlsConfig);
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
-    hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
+    if (useSeparateHBChannel) {
+      hbChannel = buildChannel(target, flowControlWindow, tlsConfig);
+      hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
+    }
     requestTimeoutDuration = requestTimeout;
   }
 
@@ -104,7 +109,12 @@ public class GrpcServerProtocolClient implements Closeable {
   @Override
   public void close() {
     LOG.info("{} Close channels", raftPeerId);
-    CompletableFuture<Void> future1 = GrpcUtil.asyncShutdownManagedChannel(hbChannel);
+    CompletableFuture<Void> future1;
+    if (useSeparateHBChannel) {
+      future1 = GrpcUtil.asyncShutdownManagedChannel(hbChannel);
+    } else {
+      future1 = new CompletableFuture();
+    }
     CompletableFuture<Void> future2 = GrpcUtil.asyncShutdownManagedChannel(channel);
     try {
       CompletableFuture.allOf(future1, future2).get();
@@ -130,7 +140,7 @@ public class GrpcServerProtocolClient implements Closeable {
 
   StreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseHandler, boolean isHeartbeat) {
-    if (isHeartbeat) {
+    if (isHeartbeat && useSeparateHBChannel) {
       return hbAsyncStub.appendEntries(responseHandler);
     } else {
       return asyncStub.appendEntries(responseHandler);
@@ -145,7 +155,9 @@ public class GrpcServerProtocolClient implements Closeable {
 
   // short-circuit the backoff timer and make them reconnect immediately.
   public void resetConnectBackoff() {
-    hbChannel.resetConnectBackoff();
+    if (useSeparateHBChannel) {
+      hbChannel.resetConnectBackoff();
+    }
     channel.resetConnectBackoff();
   }
 }

@@ -66,6 +66,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
   private volatile StreamObserver<AppendEntriesRequestProto> heartbeatRequestObserver;
+  private final boolean useSeparateHBChannel;
   private final AppendLogResponseHandler appendLogResponseHandler;
 
   private final GrpcServerMetrics grpcServerMetrics;
@@ -82,6 +83,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     this.maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(properties);
     this.requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(properties);
     this.installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
+    this.useSeparateHBChannel = RaftServerConfigKeys.Log.Appender.heartbeatChannel(properties);
 
     grpcServerMetrics = new GrpcServerMetrics(server.getMemberId().toString());
     grpcServerMetrics.addPendingRequestsCount(getFollowerId().toString(), pendingRequests::logRequestsSize);
@@ -195,7 +197,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   @Override
   public boolean shouldSendAppendEntries() {
-    return appendLogRequestObserver == null || heartbeatRequestObserver == null ||
+    return appendLogRequestObserver == null || (heartbeatRequestObserver == null && useSeparateHBChannel) ||
         super.shouldSendAppendEntries();
   }
 
@@ -235,7 +237,7 @@ public class GrpcLogAppender extends LogAppenderBase {
             getClient().appendEntries(appendLogResponseHandler, false);
       }
 
-      if (heartbeatRequestObserver == null) {
+      if (heartbeatRequestObserver == null && useSeparateHBChannel) {
         heartbeatRequestObserver =
             getClient().appendEntries(appendLogResponseHandler, true);
       }
@@ -251,7 +253,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         getServer().getId(), null, proto);
     request.startRequestTimer();
     boolean sent = false;
-    if (request.isHeartbeat()) {
+    if (request.isHeartbeat() && useSeparateHBChannel) {
       // NPE throw out when observer is closed in resetClient
       Optional.ofNullable(heartbeatRequestObserver).ifPresent(observer -> observer.onNext(proto));
       sent = true;
