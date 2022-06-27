@@ -360,7 +360,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     try {
       subject.shutdown();
       subject.startInForeground();
-      assertEquals(LifeCycle.State.CLOSED, subject.getCurrentState());
+      assertEquals(LifeCycle.State.CLOSING, subject.getCurrentState());
     } catch (Exception e) {
       LOG.info("Error starting LeaderElection", e);
       fail(e.getMessage());

@@ -432,11 +432,10 @@ public abstract class MiniRaftCluster implements Closeable {
     // create and add new RaftServers
     final Collection<RaftServer> newServers = putNewServers(peerIds, true, raftGroup);
 
-    startServers(newServers);
-    if (!startNewPeer) {
-      // start and then close, in order to bind the port
+    if (startNewPeer) {
+      // start the server
       for(RaftServer s : newServers) {
-        s.close();
+        s.start();
       }
     }
 
