@@ -22,7 +22,6 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -78,7 +77,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
   {
     RaftServerConfigKeys.setStagingCatchupGap(getProperties(), STAGING_CATCHUP_GAP);
-    RaftClientConfigKeys.Rpc.setRequestTimeout(getProperties(), TimeDuration.valueOf(6, TimeUnit.SECONDS));
   }
 
   private void checkPriority(CLUSTER cluster, RaftGroupId groupId, List<RaftPeer> peersWithPriority)
@@ -493,6 +491,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       // (3) new current conf entry  (4) a metadata entry
       {
         final RaftLog leaderLog = cluster.getLeader().getRaftLog();
+
         for(LogEntryProto e : RaftTestUtil.getLogEntryProtos(leaderLog)) {
           LOG.info("{}", LogProtoUtils.toLogEntryString(e));
         }

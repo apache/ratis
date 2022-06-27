@@ -34,7 +34,7 @@ public class TestLifeCycle {
   public void testIsValid() throws Exception {
     final Map<LifeCycle.State, List<LifeCycle.State>> successors
         = new EnumMap<>(LifeCycle.State.class);
-    put(NEW,       successors, STARTING, CLOSED);
+    put(NEW,       successors, STARTING, CLOSING);
     put(STARTING,  successors, NEW, RUNNING, CLOSING, EXCEPTION);
     put(RUNNING,   successors, CLOSING, PAUSING, EXCEPTION);
     put(PAUSING,   successors, PAUSED, CLOSING, EXCEPTION);

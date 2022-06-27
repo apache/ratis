@@ -66,7 +66,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
   static final RaftProperties prop = new RaftProperties();
 
   static {
-    // avoid flaky behaviour in CI environment and dev's local test environment
+    // avoid flaky behaviour in CI environment
     RaftServerConfigKeys.Rpc.setTimeoutMin(prop, TimeDuration.valueOf(1500, TimeUnit.MILLISECONDS));
     RaftServerConfigKeys.Rpc.setTimeoutMax(prop, TimeDuration.valueOf(2000, TimeUnit.MILLISECONDS));
     // it takes 5s+ to finish the blocking group add call
@@ -187,6 +187,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     cluster.start();
 
     // Make sure that there are no leaders.
+    TimeUnit.SECONDS.sleep(1);
     LOG.info("start: " + cluster.printServers());
     Assert.assertNull(cluster.getLeader());
 
@@ -194,28 +195,19 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     final RaftGroup newGroup = RaftGroup.valueOf(RaftGroupId.randomId(), cluster.getPeers());
     LOG.info("add new group: " + newGroup);
     try (final RaftClient client = cluster.createClient(newGroup)) {
-      newGroup.getPeers().forEach(p -> {
-        try {
-          client.getGroupManagementApi(p.getId()).add(newGroup);
-        } catch (IOException e) {
-          Assert.fail("Failed to add group");
-        }
-      });
+      for (RaftPeer p : newGroup.getPeers()) {
+        client.getGroupManagementApi(p.getId()).add(newGroup);
+      }
     }
-    TimeUnit.SECONDS.sleep(10);
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
+    TimeUnit.SECONDS.sleep(1);
 
     // restart the servers with null group
     LOG.info("restart servers");
-    newGroup.getPeers().forEach(p -> {
-      try {
-        cluster.restartServer(p.getId(), null, false);
-      } catch (IOException e) {
-        Assert.fail("Failed to restart server");
-      }
-    });
-    // it takes a lot of time for a success election
-    TimeUnit.SECONDS.sleep(10);
+    for(RaftPeer p : newGroup.getPeers()) {
+      cluster.restartServer(p.getId(), null, false);
+    }
+
     // the servers should retrieve the conf from the log.
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
 

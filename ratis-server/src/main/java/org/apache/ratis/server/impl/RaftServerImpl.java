@@ -1412,7 +1412,6 @@ class RaftServerImpl implements RaftServer.Division,
         stateMachine.event().notifySnapshotInstalled(InstallSnapshotResult.SUCCESS, installedIndex);
       }
     }
-
     return JavaUtils.allOf(futures).whenCompleteAsync(
         (r, t) -> followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE))
     ).thenApply(v -> {

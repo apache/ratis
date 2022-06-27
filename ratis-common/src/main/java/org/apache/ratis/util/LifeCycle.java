@@ -100,8 +100,8 @@ public class LifeCycle {
       put(PAUSING,   predecessors, RUNNING);
       put(PAUSED,    predecessors, PAUSING);
       put(EXCEPTION, predecessors, STARTING, PAUSING, RUNNING);
-      put(CLOSING,   predecessors, STARTING, RUNNING, PAUSING, PAUSED, EXCEPTION);
-      put(CLOSED,    predecessors, NEW, CLOSING);
+      put(CLOSING,   predecessors, NEW, STARTING, RUNNING, PAUSING, PAUSED, EXCEPTION);
+      put(CLOSED,    predecessors, CLOSING);
 
       PREDECESSORS = Collections.unmodifiableMap(predecessors);
     }
@@ -305,10 +305,6 @@ public class LifeCycle {
   }
 
   private <T extends Throwable> State checkStateAndClose(CheckedSupplier<State, T> closeMethod) throws T {
-    if (compareAndTransition(State.NEW, State.CLOSED)) {
-      return State.CLOSED;
-    }
-
     for(;;) {
       final State c = getCurrentState();
       if (c.isClosingOrClosed()) {

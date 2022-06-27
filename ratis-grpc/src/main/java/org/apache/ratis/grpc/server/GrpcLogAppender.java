@@ -242,25 +242,31 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
 
     if (isRunning()) {
-      sendRequest(request, pending, appendLogRequestObserver, heartbeatRequestObserver);
+      sendRequest(request, pending);
     }
   }
 
-  private void sendRequest(AppendEntriesRequest request, AppendEntriesRequestProto proto,
-        StreamObserver<AppendEntriesRequestProto> appendEntriesObserver,
-        StreamObserver<AppendEntriesRequestProto> heartbeatObserver) {
+  private void sendRequest(AppendEntriesRequest request, AppendEntriesRequestProto proto) {
     CodeInjectionForTesting.execute(GrpcService.GRPC_SEND_SERVER_REQUEST,
         getServer().getId(), null, proto);
     request.startRequestTimer();
+    boolean sent = false;
     if (request.isHeartbeat()) {
-      heartbeatObserver.onNext(proto);
+      // NPE throw out when observer is closed in resetClient
+      Optional.ofNullable(heartbeatRequestObserver).ifPresent(observer -> observer.onNext(proto));
+      sent = true;
     } else {
-      appendEntriesObserver.onNext(proto);
+      Optional.ofNullable(appendLogRequestObserver).ifPresent(observer -> observer.onNext(proto));
+      sent = true;
     }
-    scheduler.onTimeout(requestTimeoutDuration,
-        () -> timeoutAppendRequest(request.getCallId(), request.isHeartbeat()),
-        LOG, () -> "Timeout check failed for append entry request: " + request);
-    getFollower().updateLastRpcSendTime(request.isHeartbeat());
+    if (sent) {
+      scheduler.onTimeout(requestTimeoutDuration,
+          () -> timeoutAppendRequest(request.getCallId(), request.isHeartbeat()),
+          LOG, () -> "Timeout check failed for append entry request: " + request);
+      getFollower().updateLastRpcSendTime(request.isHeartbeat());
+    } else {
+      request.stopRequestTimer();
+    }
   }
 
   private void timeoutAppendRequest(long cid, boolean heartbeat) {
