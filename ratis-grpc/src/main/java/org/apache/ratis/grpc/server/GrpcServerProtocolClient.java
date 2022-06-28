@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.grpc.server;
 
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
