@@ -208,7 +208,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         Assert.assertTrue(reply.isSuccess());
       }
       RaftClientReply reply = client.admin().setConfiguration(
-          AdminApi.SetConfigurationArguments.newBuilder()
+          SetConfigurationRequest.Arguments.newBuilder()
           .setServersInNewConf(peers)
           .setMode(SetConfigurationRequest.Mode.ADD).build());
       Assert.assertTrue(reply.isSuccess());

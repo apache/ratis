@@ -368,7 +368,7 @@ class LeaderStateImpl implements LeaderState {
     LOG.info("{}: startSetConfiguration {}", this, request);
     Preconditions.assertTrue(running && !inStagingState());
 
-    final List<RaftPeer> listenersInNewConf = request.getListenersInNewConf();
+    final List<RaftPeer> listenersInNewConf = request.getArguments().getPeersInNewConf(RaftPeerRole.LISTENER);
     final Collection<RaftPeer> peersToBootStrap = server.getRaftConf().filterNotContainedInConf(peersInNewConf);
     final Collection<RaftPeer> listenersToBootStrap= server.getRaftConf().filterNotContainedInConf(listenersInNewConf);
 
