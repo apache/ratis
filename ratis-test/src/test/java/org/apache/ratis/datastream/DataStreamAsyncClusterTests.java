@@ -149,12 +149,11 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
     final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
     try(RaftClient client = cluster.createClient(primaryServer)) {
-      ClientId primaryClientId = getPrimaryClientId(cluster, primaryServer);
       for (int i = 0; i < numStreams; i++) {
         final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
             .stream(null, getRoutingTable(cluster.getGroup().getPeers(), primaryServer));
         futures.add(CompletableFuture.supplyAsync(() -> DataStreamTestUtils.writeAndCloseAndAssertReplies(
-            servers, leader, out, bufferSize, bufferNum, primaryClientId, client.getId(), stepDownLeader).join(), executor));
+            servers, leader, out, bufferSize, bufferNum, client.getId(), stepDownLeader).join(), executor));
       }
       Assert.assertEquals(numStreams, futures.size());
       return futures.stream()

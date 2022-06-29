@@ -37,6 +37,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.NetUtils;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
@@ -51,6 +52,7 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@Ignore
 public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
   static RaftPeer newRaftPeer(RaftServer server) {
     final InetSocketAddress rpc = NetUtils.createLocalServerAddress();
