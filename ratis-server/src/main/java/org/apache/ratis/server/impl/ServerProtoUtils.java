@@ -90,7 +90,8 @@ final class ServerProtoUtils {
       RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, InstallSnapshotResult result, long installedSnapshotIndex) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, result == InstallSnapshotResult.SUCCESS);
+        replyId, result == InstallSnapshotResult.SUCCESS ||
+            result == InstallSnapshotResult.SNAPSHOT_INSTALLED);
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result);
     if (installedSnapshotIndex > 0) {
