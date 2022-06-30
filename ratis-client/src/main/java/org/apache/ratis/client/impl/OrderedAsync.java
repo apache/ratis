@@ -179,6 +179,10 @@ public final class OrderedAsync {
   }
 
   private void sendRequestWithRetry(PendingOrderedRequest pending) {
+    if (pending == null) {
+      return;
+    }
+
     final CompletableFuture<RaftClientReply> f = pending.getReplyFuture();
     if (f.isDone()) {
       return;
