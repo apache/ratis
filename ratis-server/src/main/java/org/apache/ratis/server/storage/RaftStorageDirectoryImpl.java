@@ -39,6 +39,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   private static final String IN_USE_LOCK_NAME = "in_use.lock";
   private static final String META_FILE_NAME = "raft-meta";
   private static final String CONF_EXTENSION = ".conf";
+  private static final String JVM_NAME = ManagementFactory.getRuntimeMXBean().getName();
 
   enum StorageState {
     NON_EXISTENT,
@@ -218,7 +219,6 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
       deletionHookAdded = true;
     }
     RandomAccessFile file = new RandomAccessFile(lockF, "rws");
-    String jvmName = ManagementFactory.getRuntimeMXBean().getName();
     FileLock res;
     try {
       res = file.getChannel().tryLock();
@@ -226,8 +226,8 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
         LOG.error("Unable to acquire file lock on path " + lockF.toString());
         throw new OverlappingFileLockException();
       }
-      file.write(jvmName.getBytes(StandardCharsets.UTF_8));
-      LOG.info("Lock on " + lockF + " acquired by nodename " + jvmName);
+      file.write(JVM_NAME.getBytes(StandardCharsets.UTF_8));
+      LOG.info("Lock on " + lockF + " acquired by nodename " + JVM_NAME);
     } catch (OverlappingFileLockException oe) {
       // Cannot read from the locked file on Windows.
       LOG.error("It appears that another process "
