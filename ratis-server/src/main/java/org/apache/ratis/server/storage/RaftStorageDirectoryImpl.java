@@ -219,7 +219,6 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
       deletionHookAdded = true;
     }
     RandomAccessFile file = new RandomAccessFile(lockF, "rws");
-    String jvmName = ManagementFactory.getRuntimeMXBean().getName();
     FileLock res;
     try {
       res = file.getChannel().tryLock();
