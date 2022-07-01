@@ -301,16 +301,11 @@ class RaftServerImpl implements RaftServer.Division,
     this.role.transitionRole(newRole);
   }
 
-  boolean start() {
+  boolean start() throws IOException {
     if (!lifeCycle.compareAndTransition(NEW, STARTING)) {
       return false;
     }
-    try {
-      state.initialize(stateMachine);
-    } catch (IOException e) {
-      LOG.error(getMemberId() + ": Failed to init storage.", e);
-      return false;
-    }
+    state.initialize(stateMachine);
 
     final RaftConfigurationImpl conf = getRaftConf();
     if (conf != null && conf.containsInBothConfs(getId())) {
