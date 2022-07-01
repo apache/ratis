@@ -305,6 +305,13 @@ class RaftServerImpl implements RaftServer.Division,
     if (!lifeCycle.compareAndTransition(NEW, STARTING)) {
       return false;
     }
+    try {
+      state.initialize(stateMachine);
+    } catch (IOException e) {
+      LOG.error(getMemberId() + ": Failed to init storage.", e);
+      return false;
+    }
+
     final RaftConfigurationImpl conf = getRaftConf();
     if (conf != null && conf.containsInBothConfs(getId())) {
       LOG.info("{}: start as a follower, conf={}", getMemberId(), conf);

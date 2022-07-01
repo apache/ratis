@@ -34,11 +34,13 @@ import java.util.function.Consumer;
 
 public interface RaftStorageTestUtils {
   static RaftStorage newRaftStorage(File dir) throws IOException {
-    return RaftStorage.newBuilder()
+    final RaftStorage storage = RaftStorage.newBuilder()
         .setDirectory(dir)
         .setOption(RaftStorage.StartupOption.RECOVER)
         .setStorageFreeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT)
         .build();
+    storage.initialize();
+    return storage;
   }
 
   static String getLogFlushTimeMetric(String memberId) {
