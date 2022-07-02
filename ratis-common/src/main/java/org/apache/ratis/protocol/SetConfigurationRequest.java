@@ -33,9 +33,9 @@ public class SetConfigurationRequest extends RaftClientRequest {
   }
 
   public static final class Arguments {
-    private List<RaftPeer> serversInNewConf;
-    private List<RaftPeer> listenersInNewConf;
-    private Mode mode;
+    private final List<RaftPeer> serversInNewConf;
+    private final List<RaftPeer> listenersInNewConf;
+    private final Mode mode;
 
     private Arguments(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf,Mode mode) {
       this.serversInNewConf = Optional.ofNullable(serversInNewConf)
