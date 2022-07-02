@@ -22,6 +22,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.util.function.Supplier;
 
 import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.io.MD5Hash;
@@ -32,6 +35,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.StringUtils;
@@ -51,6 +55,7 @@ public class SnapshotManager {
 
   private final RaftStorage storage;
   private final RaftPeerId selfId;
+  private final Supplier<MessageDigest> digester = JavaUtils.memoize(MD5Hash::getDigester);
 
   public SnapshotManager(RaftStorage storage, RaftPeerId selfId) {
     this.storage = storage;
@@ -106,7 +111,9 @@ public class SnapshotManager {
         }
 
         // write data to the file
-        out.write(chunk.getData().toByteArray());
+        try (DigestOutputStream digestOut = new DigestOutputStream(out, digester.get())) {
+          digestOut.write(chunk.getData().toByteArray());
+        }
       } finally {
         IOUtils.cleanup(null, out);
       }
@@ -118,7 +125,7 @@ public class SnapshotManager {
             new MD5Hash(chunk.getFileDigest().toByteArray());
         // calculate the checksum of the snapshot file and compare it with the
         // file digest in the request
-        MD5Hash digest = MD5FileUtil.computeMd5ForFile(tmpSnapshotFile);
+        final MD5Hash digest = new MD5Hash(digester.get().digest());
         if (!digest.equals(expectedDigest)) {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
