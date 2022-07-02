@@ -70,6 +70,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -125,13 +126,10 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // the raft server proxy created earlier. Raft server proxy should close
     // the rpc server on failure.
     RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
-    try {
-      LOG.info("start a new server with the same address");
-      newRaftServer(cluster, leaderId, stateMachine, p).start();
-    } catch (IOException e) {
-      Assert.assertTrue(e.getCause() instanceof OverlappingFileLockException);
-      Assert.assertTrue(e.getMessage().contains("directory is already locked"));
-    }
+    testFailureCase("Starting a new server with the same address should fail",
+        () -> newRaftServer(cluster, leaderId, stateMachine, p).start(),
+        CompletionException.class, LOG, IOException.class, OverlappingFileLockException.class);
+
     // Try to start a raft server rpc at the leader address.
     cluster.getServerFactory(leaderId).newRaftServerRpc(cluster.getServer(leaderId));
   }
