@@ -153,14 +153,12 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
                 return null;
             }
             List<FileInfo> files = new ArrayList<>();
-            try {
-                files.add(new FileInfo(
-                        file1.toPath(),
-                        MD5FileUtil.computeMd5ForFile(file1)));
-                files.add(new FileInfo(
-                        file2.toPath(),
-                        MD5FileUtil.computeMd5ForFile(file2)));
-            } catch (IOException ignored) {}
+            files.add(new FileInfo(
+                    file1.toPath(),
+                    null));
+            files.add(new FileInfo(
+                    file2.toPath(),
+                    null));
             Assert.assertEquals(files.size(), 2);
 
             SnapshotInfo info = super.getLatestSnapshot();
