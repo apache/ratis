@@ -196,7 +196,7 @@ public interface StateMachine extends Closeable {
     /**
      * Notify the {@link StateMachine} that a raft server has step down.
      */
-    default void notifyServerStepDown() {}
+    default void notifyServerShutdown(RoleInfoProto roleInfo) {}
   }
 
   /**
