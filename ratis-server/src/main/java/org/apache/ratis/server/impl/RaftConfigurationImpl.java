@@ -249,13 +249,19 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     }
     for (RaftPeer peer : newMembers) {
       final RaftPeer inConf = conf.getPeer(peer.getId());
-      if (inConf != null && !inConf.getRaftPeerProto().equals(peer.getRaftPeerProto())) {
+      if (inConf == null) {
+        return false;
+      }
+      if (!inConf.getRaftPeerProto().equals(peer.getRaftPeerProto())) {
         return false;
       }
     }
     for (RaftPeer peer : newListeners) {
       final RaftPeer inConf = conf.getPeer(peer.getId(), RaftPeerRole.LISTENER);
-      if (inConf != null && !inConf.getRaftPeerProto().equals(peer.getRaftPeerProto())) {
+      if (inConf == null) {
+        return false;
+      }
+      if (!inConf.getRaftPeerProto().equals(peer.getRaftPeerProto())) {
         return false;
       }
     }
