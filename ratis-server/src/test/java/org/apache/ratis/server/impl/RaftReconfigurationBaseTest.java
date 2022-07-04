@@ -190,6 +190,34 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       waitAndCheckNewConf(cluster, allPeers, 2, null);
   }
 
+  @Test
+  public void testSetConfigurationInAddMode() throws Exception {
+    runWithNewCluster(2, this::runTestSetConfigurationInAddMode);
+  }
+
+  private void runTestSetConfigurationInAddMode(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+
+    PeerChanges change = cluster.addNewPeers(1, true);
+    List<RaftPeer> peers = Arrays.asList(change.newPeers);
+
+    try (final RaftClient client = cluster.createClient(leader.getId())) {
+      for (int i = 0; i < 10; i++) {
+        RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
+      RaftClientReply reply = client.admin().setConfiguration(
+          SetConfigurationRequest.Arguments.newBuilder()
+          .setServersInNewConf(peers)
+          .setMode(SetConfigurationRequest.Mode.ADD).build());
+      Assert.assertTrue(reply.isSuccess());
+      waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+    }
+    cluster.close();
+  }
+
+
+
   @Test(timeout = 30000)
   public void testReconfTwice() throws Exception {
     runWithNewCluster(3, this::runTestReconfTwice);

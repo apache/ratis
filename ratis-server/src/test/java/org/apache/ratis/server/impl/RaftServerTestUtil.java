@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -99,7 +100,7 @@ public class RaftServerTestUtil {
       if (current.containsInConf(server.getId())) {
         numIncluded++;
         Assert.assertTrue(conf.isStable());
-        Assert.assertTrue(conf.hasNoChange(peers));
+        Assert.assertTrue(conf.hasNoChange(peers, Collections.emptyList()));
       } else if (server.getInfo().isAlive()) {
         // The server is successfully removed from the conf
         // It may not be shutdown since it may not be able to talk to the new leader (who is not in its conf).
