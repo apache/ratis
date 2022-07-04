@@ -192,6 +192,11 @@ public interface StateMachine extends Closeable {
      * completely done. Could trigger the cleanup of snapshots.
      */
     default void notifySnapshotInstalled(InstallSnapshotResult result, long snapshotIndex) {}
+
+    /**
+     * Notify the {@link StateMachine} that a raft server has step down.
+     */
+    default void notifyServerShutdown(RoleInfoProto roleInfo) {}
   }
 
   /**
