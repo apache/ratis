@@ -78,6 +78,11 @@ public interface Preconditions {
         () -> name + ": expected == " + expected + " but computed == " + computed);
   }
 
+  static void assertSame(Object expected, Object computed, String name) {
+    assertTrue(expected == computed,
+        () -> name + ": expected == " + expected + " but computed == " + computed);
+  }
+
   static void assertNull(Object object, Supplier<String> message) {
     assertTrue(object == null, message);
   }
