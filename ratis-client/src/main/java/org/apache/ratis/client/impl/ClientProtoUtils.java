@@ -499,22 +499,39 @@ public interface ClientProtoUtils {
 
   static SetConfigurationRequest toSetConfigurationRequest(
       SetConfigurationRequestProto p) {
+    final SetConfigurationRequest.Arguments arguments = SetConfigurationRequest.Arguments.newBuilder()
+        .setServersInNewConf(ProtoUtils.toRaftPeers(p.getPeersList()))
+        .setListenersInNewConf(ProtoUtils.toRaftPeers(p.getListenersList()))
+        .setMode(toSetConfigurationMode(p.getMode()))
+        .build();
     final RaftRpcRequestProto m = p.getRpcRequest();
-    final List<RaftPeer> peers = ProtoUtils.toRaftPeers(p.getPeersList());
-    final List<RaftPeer> listeners = ProtoUtils.toRaftPeers(p.getListenersList());
     return new SetConfigurationRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-        p.getRpcRequest().getCallId(), peers, listeners);
+        p.getRpcRequest().getCallId(), arguments);
+  }
+
+  static SetConfigurationRequest.Mode toSetConfigurationMode(
+      SetConfigurationRequestProto.Mode p) {
+    switch (p) {
+      case SET_UNCONDITIONALLY:
+        return SetConfigurationRequest.Mode.SET_UNCONDITIONALLY;
+      case ADD:
+        return SetConfigurationRequest.Mode.ADD;
+      default:
+        throw new IllegalArgumentException("Unexpected mode " + p);
+    }
   }
 
   static SetConfigurationRequestProto toSetConfigurationRequestProto(
       SetConfigurationRequest request) {
+    final SetConfigurationRequest.Arguments arguments = request.getArguments();
     return SetConfigurationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .addAllPeers(ProtoUtils.toRaftPeerProtos(request.getPeersInNewConf()))
-        .addAllListeners(ProtoUtils.toRaftPeerProtos(request.getListenersInNewConf()))
+        .addAllPeers(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER)))
+        .addAllListeners(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.LISTENER)))
+        .setMode(SetConfigurationRequestProto.Mode.valueOf(arguments.getMode().name()))
         .build();
   }
 

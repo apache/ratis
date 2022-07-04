@@ -17,39 +17,116 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.util.Preconditions;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 public class SetConfigurationRequest extends RaftClientRequest {
-  private final List<RaftPeer> peers;
-  private final List<RaftPeer> listeners;
 
-  public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId, List<RaftPeer> peers) {
-    this(clientId, serverId, groupId, callId, peers, Collections.emptyList());
+  public enum Mode {
+    SET_UNCONDITIONALLY,
+    ADD
   }
 
+  public static final class Arguments {
+    private final List<RaftPeer> serversInNewConf;
+    private final List<RaftPeer> listenersInNewConf;
+    private final Mode mode;
+
+    private Arguments(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf,Mode mode) {
+      this.serversInNewConf = Optional.ofNullable(serversInNewConf)
+          .map(Collections::unmodifiableList)
+          .orElseGet(Collections::emptyList);
+      this.listenersInNewConf = Optional.ofNullable(listenersInNewConf)
+          .map(Collections::unmodifiableList)
+          .orElseGet(Collections::emptyList);
+      this.mode = mode;
+
+      Preconditions.assertUnique(serversInNewConf);
+      Preconditions.assertUnique(listenersInNewConf);
+    }
+
+    public List<RaftPeer> getPeersInNewConf(RaftProtos.RaftPeerRole role) {
+      switch (role) {
+        case FOLLOWER: return serversInNewConf;
+        case LISTENER: return listenersInNewConf;
+        default:
+          throw new IllegalArgumentException("Unexpected role " + role);
+      }
+    }
+
+    public List<RaftPeer> getServersInNewConf() {
+      return serversInNewConf;
+    }
+
+    public Mode getMode() {
+      return mode;
+    }
+    @Override
+    public String toString() {
+      return getMode()
+          + ", servers:" + getPeersInNewConf(RaftProtos.RaftPeerRole.FOLLOWER)
+          + ", listeners:" + getPeersInNewConf(RaftProtos.RaftPeerRole.LISTENER);
+
+    }
+
+    public static Builder newBuilder() {
+      return new Builder();
+    }
+
+    public static class Builder {
+      private List<RaftPeer> serversInNewConf;
+      private List<RaftPeer> listenersInNewConf = Collections.emptyList();
+      private Mode mode = Mode.SET_UNCONDITIONALLY;
+
+      public Builder setServersInNewConf(List<RaftPeer> serversInNewConf) {
+        this.serversInNewConf = serversInNewConf;
+        return this;
+      }
+
+      public Builder setListenersInNewConf(List<RaftPeer> listenersInNewConf) {
+        this.listenersInNewConf = listenersInNewConf;
+        return this;
+      }
+
+      public Builder setServersInNewConf(RaftPeer[] serversInNewConfArray) {
+        this.serversInNewConf = Arrays.asList(serversInNewConfArray);
+        return this;
+      }
+
+      public Builder setListenersInNewConf(RaftPeer[] listenersInNewConfArray) {
+        this.listenersInNewConf = Arrays.asList(listenersInNewConfArray);
+        return this;
+      }
+
+      public Builder setMode(Mode mode) {
+        this.mode = mode;
+        return this;
+      }
+
+      public Arguments build() {
+        return new Arguments(serversInNewConf, listenersInNewConf, mode);
+      }
+    }
+  }
+  private final Arguments arguments;
+
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId, List<RaftPeer> peers, List<RaftPeer> listeners) {
+      RaftGroupId groupId, long callId, Arguments arguments) {
     super(clientId, serverId, groupId, callId, true, writeRequestType());
-    this.peers = peers != null? Collections.unmodifiableList(peers): Collections.emptyList();
-    this.listeners = listeners !=  null? Collections.unmodifiableList(listeners) : Collections.emptyList();
-    Preconditions.assertUnique(this.peers);
-    Preconditions.assertUnique(this.listeners);
+    this.arguments = arguments;
   }
 
-  public List<RaftPeer> getPeersInNewConf() {
-    return peers;
-  }
-
-  public List<RaftPeer> getListenersInNewConf() {
-    return listeners;
+  public Arguments getArguments() {
+    return arguments;
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", peers:" + getPeersInNewConf();
+    return super.toString() + ", " + getArguments();
   }
 }
