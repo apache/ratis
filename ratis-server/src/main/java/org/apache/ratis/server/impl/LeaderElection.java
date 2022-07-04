@@ -322,6 +322,7 @@ class LeaderElection implements Runnable {
           case NOT_IN_CONF:
           case SHUTDOWN:
             server.getRaftServer().close();
+            server.getStateMachine().event().notifyServerShutdown(server.getRoleInfoProto());
             return false;
           case TIMEOUT:
             continue; // should retry
