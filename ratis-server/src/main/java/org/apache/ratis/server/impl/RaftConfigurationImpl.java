@@ -252,7 +252,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
       if (inConf == null) {
         return false;
       }
-      if (!inConf.getRaftPeerProto().equals(peer.getRaftPeerProto())) {
+      if (inConf.getPriority() != peer.getPriority()) {
         return false;
       }
     }
@@ -261,7 +261,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
       if (inConf == null) {
         return false;
       }
-      if (!inConf.getRaftPeerProto().equals(peer.getRaftPeerProto())) {
+      if (inConf.getPriority() != peer.getPriority()) {
         return false;
       }
     }
