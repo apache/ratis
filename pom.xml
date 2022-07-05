@@ -204,7 +204,7 @@
     <maven.min.version>3.3.9</maven.min.version>
 
     <!-- Contains all shaded thirdparty dependencies -->
-    <ratis.thirdparty.version>1.0.0</ratis.thirdparty.version>
+    <ratis.thirdparty.version>1.0.1</ratis.thirdparty.version>
 
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
     <shaded.protobuf.version>3.19.2</shaded.protobuf.version>
@@ -217,8 +217,8 @@
     <testsThreadCount>4</testsThreadCount>
 
     <!--metrics-->
-    <dropwizard.version>4.2.9</dropwizard.version>
-    <dropwizard.ganglia.version>3.2.6</dropwizard.ganglia.version>
+    <shaded.dropwizard.version>4.2.9</shaded.dropwizard.version>
+    <shaded.dropwizard.ganglia.version>3.2.6</shaded.dropwizard.ganglia.version>
   </properties>
 
   <dependencyManagement>
@@ -407,25 +407,25 @@
       <dependency>
         <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-core</artifactId>
-        <version>${dropwizard.version}</version>
+        <version>${shaded.dropwizard.version}</version>
       </dependency>
 
       <dependency>
         <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-jvm</artifactId>
-        <version>${dropwizard.version}</version>
+        <version>${shaded.dropwizard.version}</version>
       </dependency>
 
       <dependency>
         <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-jmx</artifactId>
-        <version>${dropwizard.version}</version>
+        <version>${shaded.dropwizard.version}</version>
       </dependency>
 
       <dependency>
         <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-ganglia</artifactId>
-        <version>${dropwizard.ganglia.version}</version>
+        <version>${shaded.dropwizard.ganglia.version}</version>
       </dependency>
 
       <dependency>
