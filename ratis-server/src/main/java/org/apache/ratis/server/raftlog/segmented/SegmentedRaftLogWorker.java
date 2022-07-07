@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;

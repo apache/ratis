@@ -17,13 +17,13 @@
  */
 package org.apache.ratis.grpc.metrics;
 
-import com.codahale.metrics.Gauge;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 public class GrpcServerMetrics extends RatisMetrics {
   private static final String RATIS_GRPC_METRICS_APP_NAME = "ratis_grpc";

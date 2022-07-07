@@ -44,7 +44,7 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
 
-import com.codahale.metrics.Gauge;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 
 /**
  * Test Raft Server Slowness detection and notification to Leader's statemachine.

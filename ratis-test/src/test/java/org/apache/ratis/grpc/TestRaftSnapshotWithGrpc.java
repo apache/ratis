@@ -27,7 +27,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
 import org.junit.Assert;
 
-import com.codahale.metrics.Counter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
 
 public class TestRaftSnapshotWithGrpc extends RaftSnapshotBaseTest {
   @Override
