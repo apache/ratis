@@ -41,8 +41,19 @@ public interface NettyConfigKeys {
 
     String PREFIX = NettyConfigKeys.PREFIX + ".server";
 
+    String HOST_KEY = PREFIX + ".host";
+    String HOST_DEFAULT = null;
+
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = 0;
+
+    static String host(RaftProperties properties) {
+      return get(properties::get, HOST_KEY, HOST_DEFAULT, getDefaultLog());
+    }
+
+    static void setHost(RaftProperties properties, String host) {
+      set(properties::set, HOST_KEY, host);
+    }
 
     static int port(RaftProperties properties) {
       return getInt(properties::getInt,
@@ -62,8 +73,19 @@ public interface NettyConfigKeys {
 
     String PREFIX = NettyConfigKeys.PREFIX + ".dataStream";
 
+    String HOST_KEY = PREFIX + ".host";
+    String HOST_DEFAULT = null;
+
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = 0;
+
+    static String host(RaftProperties properties) {
+      return get(properties::get, HOST_KEY, HOST_DEFAULT, getDefaultLog());
+    }
+
+    static void setHost(RaftProperties properties, String host) {
+      set(properties::set, HOST_KEY, host);
+    }
 
     static int port(RaftProperties properties) {
       return getInt(properties::getInt,
