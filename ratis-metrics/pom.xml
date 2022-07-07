@@ -55,30 +55,5 @@
       <artifactId>mockito-core</artifactId>
       <scope>test</scope>
     </dependency>
-
-    <dependency>
-      <groupId>io.dropwizard.metrics</groupId>
-      <artifactId>metrics-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.dropwizard.metrics</groupId>
-      <artifactId>metrics-jvm</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.dropwizard.metrics</groupId>
-      <artifactId>metrics-jmx</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.dropwizard.metrics</groupId>
-      <artifactId>metrics-ganglia</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>org.acplt</groupId>
-          <artifactId>oncrpc</artifactId>
-        </exclusion>
-      </exclusions>
-      <optional>true</optional>
-    </dependency>
   </dependencies>
 </project>

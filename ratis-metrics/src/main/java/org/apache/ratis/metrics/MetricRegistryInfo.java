@@ -21,7 +21,7 @@ package org.apache.ratis.metrics;
 
 import java.util.Objects;
 
-import com.codahale.metrics.MetricRegistry;
+import org.apache.ratis.thirdparty.com.codahale.metrics.*;
 
 /**
  *

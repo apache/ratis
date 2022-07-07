@@ -61,8 +61,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 public abstract class RaftSnapshotBaseTest extends BaseTest {
   {

@@ -17,10 +17,10 @@
  */
 package org.apache.ratis.metrics;
 
-import com.codahale.metrics.jvm.ClassLoadingGaugeSet;
-import com.codahale.metrics.jvm.GarbageCollectorMetricSet;
-import com.codahale.metrics.jvm.MemoryUsageGaugeSet;
-import com.codahale.metrics.jvm.ThreadStatesGaugeSet;
+import org.apache.ratis.thirdparty.com.codahale.metrics.jvm.ClassLoadingGaugeSet;
+import org.apache.ratis.thirdparty.com.codahale.metrics.jvm.GarbageCollectorMetricSet;
+import org.apache.ratis.thirdparty.com.codahale.metrics.jvm.MemoryUsageGaugeSet;
+import org.apache.ratis.thirdparty.com.codahale.metrics.jvm.ThreadStatesGaugeSet;
 import org.apache.ratis.util.TimeDuration;
 
 /**

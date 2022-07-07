@@ -26,7 +26,7 @@ import org.apache.ratis.statemachine.StateMachine;
 
 import java.util.function.LongSupplier;
 
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 /**
  * Metrics Registry for the State Machine Updater. One instance per group.

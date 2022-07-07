@@ -18,8 +18,8 @@
 
 package org.apache.ratis.metrics;
 
-import com.codahale.metrics.jmx.JmxReporter;
-import com.codahale.metrics.jmx.ObjectNameFactory;
+import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.ObjectNameFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

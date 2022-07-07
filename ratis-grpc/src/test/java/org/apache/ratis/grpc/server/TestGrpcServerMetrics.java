@@ -30,7 +30,7 @@ import static org.mockito.Mockito.when;
 import java.util.SortedMap;
 import java.util.function.Consumer;
 
-import com.codahale.metrics.Gauge;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;

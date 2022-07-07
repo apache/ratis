@@ -65,7 +65,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest

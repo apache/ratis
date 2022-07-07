@@ -20,20 +20,10 @@ package org.apache.ratis.metrics.impl;
 import java.util.Map;
 import java.util.SortedMap;
 
-import com.codahale.metrics.ConsoleReporter;
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.Metric;
-import com.codahale.metrics.MetricFilter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.MetricRegistry.MetricSupplier;
-import com.codahale.metrics.MetricSet;
-import com.codahale.metrics.Timer;
-import com.codahale.metrics.jmx.JmxReporter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.*;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 /**
@@ -67,11 +57,11 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     return metricRegistry.remove(getMetricName(name));
   }
 
-  @Override public Gauge gauge(String name, MetricSupplier<Gauge> supplier) {
+  @Override public Gauge gauge(String name, MetricRegistry.MetricSupplier<Gauge> supplier) {
     return metricRegistry.gauge(getMetricName(name), supplier);
   }
 
-  @Override public Timer timer(String name, MetricSupplier<Timer> supplier) {
+  @Override public Timer timer(String name, MetricRegistry.MetricSupplier<Timer> supplier) {
     return metricRegistry.timer(getMetricName(name), supplier);
   }
 
@@ -79,7 +69,7 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     return metricRegistry.getGauges(filter);
   }
 
-  @Override public Counter counter(String name, MetricSupplier<Counter> supplier) {
+  @Override public Counter counter(String name, MetricRegistry.MetricSupplier<Counter> supplier) {
     return metricRegistry.counter(getMetricName(name), supplier);
   }
 
@@ -91,7 +81,7 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     return metricRegistry.meter(getMetricName(name));
   }
 
-  @Override public Meter meter(String name, MetricSupplier<Meter> supplier) {
+  @Override public Meter meter(String name, MetricRegistry.MetricSupplier<Meter> supplier) {
     return metricRegistry.meter(getMetricName(name), supplier);
   }
 

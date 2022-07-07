@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.codahale.metrics.Gauge;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 
 public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest

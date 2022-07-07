@@ -52,7 +52,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
 import static org.apache.ratis.server.raftlog.segmented.LogSegment.getEntrySize;
 
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 /**
  * Test basic functionality of {@link LogSegment}
