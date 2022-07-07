@@ -521,30 +521,38 @@ public class SegmentedRaftLogCache {
   }
 
   long getStartIndex() {
-    if (closedSegments.isEmpty()) {
-      return Optional.ofNullable(openSegment).map(LogSegment::getStartIndex).orElse(RaftLog.INVALID_LOG_INDEX);
-    } else {
-      return closedSegments.get(0).getStartIndex();
+    try (AutoCloseableLock readLock = closedSegments.readLock()) {
+      if (closedSegments.isEmpty()) {
+        return Optional.ofNullable(openSegment).map(LogSegment::getStartIndex).orElse(RaftLog.INVALID_LOG_INDEX);
+      } else {
+        return closedSegments.get(0).getStartIndex();
+      }
     }
   }
 
   long getEndIndex() {
-    return openSegment != null ? openSegment.getEndIndex() :
-        (closedSegments.isEmpty() ?
-            RaftLog.INVALID_LOG_INDEX:
-            closedSegments.get(closedSegments.size() - 1).getEndIndex());
+    try (AutoCloseableLock readLock = closedSegments.readLock()) {
+      return openSegment != null ? openSegment.getEndIndex() :
+          (closedSegments.isEmpty() ?
+              RaftLog.INVALID_LOG_INDEX:
+              closedSegments.get(closedSegments.size() - 1).getEndIndex());
+    }
   }
 
   long getLastIndexInClosedSegments() {
-    return (closedSegments.isEmpty() ? RaftLog.INVALID_LOG_INDEX :
-        closedSegments.get(closedSegments.size() - 1).getEndIndex());
+    try (AutoCloseableLock readLock = closedSegments.readLock()) {
+      return (closedSegments.isEmpty() ? RaftLog.INVALID_LOG_INDEX :
+          closedSegments.get(closedSegments.size() - 1).getEndIndex());
+    }
   }
 
   TermIndex getLastTermIndex() {
-    return (openSegment != null && openSegment.numOfEntries() > 0) ?
-        openSegment.getLastTermIndex() :
-        (closedSegments.isEmpty() ? null :
-            closedSegments.get(closedSegments.size() - 1).getLastTermIndex());
+    try (AutoCloseableLock readLock = closedSegments.readLock()) {
+      return (openSegment != null && openSegment.numOfEntries() > 0) ?
+          openSegment.getLastTermIndex() :
+          (closedSegments.isEmpty() ? null :
+              closedSegments.get(closedSegments.size() - 1).getLastTermIndex());
+    }
   }
 
   void appendEntry(LogEntryProto entry, LogSegment.Op op) {
