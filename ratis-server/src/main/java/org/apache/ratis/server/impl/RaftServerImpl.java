@@ -494,10 +494,10 @@ class RaftServerImpl implements RaftServer.Division,
    */
   private synchronized boolean changeToFollower(long newTerm, boolean force, Object reason) {
     final RaftPeerRole old = role.getCurrentRole();
-    if (old == RaftPeerRole.LISTENER) {
-      throw new IllegalStateException("Unexpected role " + old);
-    }
     final boolean metadataUpdated = state.updateCurrentTerm(newTerm);
+    if (old == RaftPeerRole.LISTENER) {
+      return metadataUpdated;
+    }
 
     if (old != RaftPeerRole.FOLLOWER || force) {
       setRole(RaftPeerRole.FOLLOWER, reason);
