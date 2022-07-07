@@ -79,7 +79,7 @@ final class ServerProtoUtils {
       RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, int requestIndex, InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, result == InstallSnapshotResult.SUCCESS);
+        replyId, isSuccess(result));
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result)
         .setRequestIndex(requestIndex);
@@ -90,7 +90,7 @@ final class ServerProtoUtils {
       RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, InstallSnapshotResult result, long installedSnapshotIndex) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, result == InstallSnapshotResult.SUCCESS);
+        replyId, isSuccess(result));
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result);
     if (installedSnapshotIndex > 0) {
@@ -103,7 +103,7 @@ final class ServerProtoUtils {
       RaftPeerId requestorId, RaftGroupMemberId replyId,
       InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, result == InstallSnapshotResult.SUCCESS);
+        replyId, isSuccess(result));
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setResult(result);
     return builder.build();
@@ -159,5 +159,16 @@ final class ServerProtoUtils {
         .setId(peer.getRaftPeerProto())
         .setLastRpcElapsedTimeMs(delay)
         .build();
+  }
+
+  static boolean isSuccess(InstallSnapshotResult result) {
+    switch (result) {
+      case SUCCESS:
+      case SNAPSHOT_INSTALLED:
+      case ALREADY_INSTALLED:
+        return true;
+      default:
+        return false;
+    }
   }
 }

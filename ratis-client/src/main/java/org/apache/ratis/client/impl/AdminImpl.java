@@ -36,16 +36,15 @@ class AdminImpl implements AdminApi {
     this.client = Objects.requireNonNull(client, "client == null");
   }
 
-  @Override
-  public RaftClientReply setConfiguration(List<RaftPeer> peersInNewConf, List<RaftPeer> listenersInNewConf)
-      throws IOException {
+  public RaftClientReply setConfiguration(SetConfigurationRequest.Arguments arguments) throws IOException {
+    List<RaftPeer> peersInNewConf = arguments.getServersInNewConf();
     Objects.requireNonNull(peersInNewConf, "peersInNewConf == null");
 
     final long callId = CallId.getAndIncrement();
     // also refresh the rpc proxies for these peers
     client.getClientRpc().addRaftPeers(peersInNewConf);
     return client.io().sendRequestWithRetry(() -> new SetConfigurationRequest(
-        client.getId(), client.getLeaderId(), client.getGroupId(), callId, peersInNewConf, listenersInNewConf));
+        client.getId(), client.getLeaderId(), client.getGroupId(), callId, arguments));
   }
 
   @Override

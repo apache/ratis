@@ -364,12 +364,11 @@ class LeaderStateImpl implements LeaderState {
   /**
    * Start bootstrapping new peers
    */
-  PendingRequest startSetConfiguration(SetConfigurationRequest request) {
+  PendingRequest startSetConfiguration(SetConfigurationRequest request, List<RaftPeer> peersInNewConf) {
     LOG.info("{}: startSetConfiguration {}", this, request);
     Preconditions.assertTrue(running && !inStagingState());
 
-    final List<RaftPeer> peersInNewConf = request.getPeersInNewConf();
-    final List<RaftPeer> listenersInNewConf = request.getListenersInNewConf();
+    final List<RaftPeer> listenersInNewConf = request.getArguments().getPeersInNewConf(RaftPeerRole.LISTENER);
     final Collection<RaftPeer> peersToBootStrap = server.getRaftConf().filterNotContainedInConf(peersInNewConf);
     final Collection<RaftPeer> listenersToBootStrap= server.getRaftConf().filterNotContainedInConf(listenersInNewConf);
 

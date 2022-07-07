@@ -78,6 +78,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
@@ -1086,7 +1087,7 @@ class RaftServerImpl implements RaftServer.Division,
       return reply;
     }
 
-    final List<RaftPeer> peersInNewConf = request.getPeersInNewConf();
+    final SetConfigurationRequest.Arguments arguments = request.getArguments();
     final PendingRequest pending;
     synchronized (this) {
       reply = checkLeaderState(request, null, false);
@@ -1102,18 +1103,38 @@ class RaftServerImpl implements RaftServer.Division,
             "Reconfiguration is already in progress: " + current);
       }
 
+      final List<RaftPeer> serversInNewConf;
+      final List<RaftPeer> listenersInNewConf;
+      if (arguments.getMode() == SetConfigurationRequest.Mode.ADD) {
+        serversInNewConf = add(RaftPeerRole.FOLLOWER, current, arguments);
+        listenersInNewConf = add(RaftPeerRole.LISTENER, current, arguments);
+      } else {
+        serversInNewConf = arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER);
+        listenersInNewConf = arguments.getPeersInNewConf(RaftPeerRole.LISTENER);
+      }
+
       // return success with a null message if the new conf is the same as the current
-      if (current.hasNoChange(peersInNewConf)) {
+      if (current.hasNoChange(serversInNewConf, listenersInNewConf)) {
         pending = new PendingRequest(request);
         pending.setReply(newSuccessReply(request));
         return pending.getFuture();
       }
 
-      getRaftServer().addRaftPeers(peersInNewConf);
+      getRaftServer().addRaftPeers(serversInNewConf);
       // add staging state into the leaderState
-      pending = leaderState.startSetConfiguration(request);
+      pending = leaderState.startSetConfiguration(request, serversInNewConf);
     }
     return pending.getFuture();
+  }
+
+  static List<RaftPeer> add(RaftPeerRole role, RaftConfigurationImpl conf, SetConfigurationRequest.Arguments args) {
+    final Map<RaftPeerId, RaftPeer> inConfs = conf.getAllPeers(role).stream()
+        .collect(Collectors.toMap(RaftPeer::getId, Function.identity()));
+
+    final List<RaftPeer> toAdds = args.getPeersInNewConf(role);
+    toAdds.stream().map(RaftPeer::getId).forEach(inConfs::remove);
+
+    return Stream.concat(toAdds.stream(), inConfs.values().stream()).collect(Collectors.toList());
   }
 
   /**

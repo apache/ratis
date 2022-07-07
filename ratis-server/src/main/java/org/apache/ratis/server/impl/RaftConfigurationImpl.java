@@ -242,12 +242,26 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return logEntryIndex + ": " + conf + ", old=" + oldConf;
   }
 
-  boolean hasNoChange(Collection<RaftPeer> newMembers) {
-    if (!isStable() || conf.size() != newMembers.size()) {
+  boolean hasNoChange(Collection<RaftPeer> newMembers, Collection<RaftPeer> newListeners) {
+    if (!isStable() || conf.size() != newMembers.size()
+        || conf.getPeers(RaftPeerRole.LISTENER).size() != newListeners.size()) {
       return false;
     }
     for (RaftPeer peer : newMembers) {
-      if (!conf.contains(peer.getId()) || conf.getPeer(peer.getId()).getPriority() != peer.getPriority()) {
+      final RaftPeer inConf = conf.getPeer(peer.getId());
+      if (inConf == null) {
+        return false;
+      }
+      if (inConf.getPriority() != peer.getPriority()) {
+        return false;
+      }
+    }
+    for (RaftPeer peer : newListeners) {
+      final RaftPeer inConf = conf.getPeer(peer.getId(), RaftPeerRole.LISTENER);
+      if (inConf == null) {
+        return false;
+      }
+      if (inConf.getPriority() != peer.getPriority()) {
         return false;
       }
     }
