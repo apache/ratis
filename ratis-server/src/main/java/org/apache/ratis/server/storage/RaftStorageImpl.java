@@ -51,20 +51,33 @@ public class RaftStorageImpl implements RaftStorage {
 
   @Override
   public void initialize() throws IOException {
-    if (startupOption == StartupOption.FORMAT) {
-      if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
-        throw new IOException("Cannot format " + storageDir);
+    try {
+      if (startupOption == StartupOption.FORMAT) {
+        if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
+          throw new IOException("Cannot format " + storageDir);
+        }
+        storageDir.lock();
+        format();
+        state = storageDir.analyzeStorage(false);
+      } else {
+        state = analyzeAndRecoverStorage(true); // metaFile is initialized here
       }
-      storageDir.lock();
-      format();
-      state = storageDir.analyzeStorage(false);
-    } else {
-      state = analyzeAndRecoverStorage(true); // metaFile is initialized here
+    } catch (Throwable t) {
+      unlockOnFailure(storageDir);
+      throw t;
     }
 
     if (state != StorageState.NORMAL) {
-      storageDir.unlock();
+      unlockOnFailure(storageDir);
       throw new IOException("Failed to load " + storageDir + ": " + state);
+    }
+  }
+
+  static void unlockOnFailure(RaftStorageDirectoryImpl dir) {
+    try {
+      dir.unlock();
+    } catch (Throwable t) {
+      LOG.warn("Failed to unlock " + dir, t);
     }
   }
 
