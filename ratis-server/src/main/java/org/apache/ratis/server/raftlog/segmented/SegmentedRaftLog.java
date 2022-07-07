@@ -50,7 +50,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 /**
  * The RaftLog implementation that writes log entries into segmented files in

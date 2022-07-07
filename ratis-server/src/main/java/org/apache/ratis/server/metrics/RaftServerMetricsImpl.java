@@ -26,9 +26,9 @@ import java.util.SortedMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;

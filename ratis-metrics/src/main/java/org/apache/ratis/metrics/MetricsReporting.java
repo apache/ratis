@@ -20,8 +20,8 @@ package org.apache.ratis.metrics;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import com.codahale.metrics.ConsoleReporter;
-import com.codahale.metrics.jmx.JmxReporter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.*;
+import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

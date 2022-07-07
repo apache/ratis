@@ -21,7 +21,7 @@ package org.apache.ratis.server.impl;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.*;
 import static org.junit.Assert.assertEquals;
 
-import com.codahale.metrics.Gauge;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.ClientId;
