@@ -202,7 +202,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       getWorkerGroup().schedule(this::reconnect, RECONNECT.getDuration(), RECONNECT.getUnit());
     }
 
-    synchronized private ChannelFuture reconnect() {
+    private synchronized ChannelFuture reconnect() {
       // concurrent reconnect double check
       ChannelFuture channelFuture = ref.get();
       if (channelFuture != null) {
