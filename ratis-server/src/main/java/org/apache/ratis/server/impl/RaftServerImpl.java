@@ -569,6 +569,7 @@ class RaftServerImpl implements RaftServer.Division,
       roleInfo.setCandidateInfo(candidate);
       break;
 
+    case LISTENER:
     case FOLLOWER:
       final Optional<FollowerState> fs = role.getFollowerState();
       final ServerRpcProto leaderInfo = ServerProtoUtils.toServerRpcProto(
