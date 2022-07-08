@@ -118,6 +118,7 @@ public interface ProtoUtils {
         .setClientAddress(p.getClientAddress())
         .setAdminAddress(p.getAdminAddress())
         .setPriority(p.getPriority())
+        .setStartupRole(p.getStartupRole())
         .build();
   }
 

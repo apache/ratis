@@ -17,9 +17,11 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Description of a raft group, which has a unique {@link RaftGroupId} and a collection of {@link RaftPeer}.
@@ -43,28 +45,17 @@ public final class RaftGroup {
     return new RaftGroup(groupId, peers);
   }
 
-  public static RaftGroup valueOf(RaftGroupId groupId, Collection<RaftPeer> peers,
-                                  Collection<RaftPeer> listeners) {
-    return new RaftGroup(groupId, peers, listeners);
-  }
-
   /** The group id */
   private final RaftGroupId groupId;
   /** The group of raft peers */
   private final Map<RaftPeerId, RaftPeer> peers;
-  private final Map<RaftPeerId, RaftPeer> listeners;
 
   private RaftGroup() {
     this.groupId = RaftGroupId.emptyGroupId();
     this.peers = Collections.emptyMap();
-    this.listeners = Collections.emptyMap();
   }
 
   private RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers) {
-    this(groupId, peers, Collections.emptyList());
-  }
-
-  private RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers,Collection<RaftPeer> listeners){
     this.groupId = Objects.requireNonNull(groupId, "groupId == null");
     Preconditions.assertTrue(!groupId.equals(EMPTY_GROUP.getGroupId()),
         () -> "Group Id " + groupId + " is reserved for the empty group.");
@@ -76,13 +67,6 @@ public final class RaftGroup {
       peers.forEach(p -> map.put(p.getId(), p));
       this.peers = Collections.unmodifiableMap(map);
     }
-    if (listeners == null || listeners.isEmpty()) {
-      this.listeners = Collections.emptyMap();
-    } else {
-      final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
-      listeners.forEach(p -> map.put(p.getId(), p));
-      this.listeners = Collections.unmodifiableMap(map);
-    }
   }
 
   public RaftGroupId getGroupId() {
@@ -93,8 +77,11 @@ public final class RaftGroup {
     return peers.values();
   }
 
-  public Collection<RaftPeer> getListeners() {
-    return listeners.values();
+  public Collection<RaftPeer> getPeers(RaftProtos.RaftPeerRole role) {
+    return peers.values()
+        .stream()
+        .filter(peer -> peer.getStartupRole() == role)
+        .collect(Collectors.toList());
   }
 
   /** @return the peer with the given id if it is in this group; otherwise, return null. */

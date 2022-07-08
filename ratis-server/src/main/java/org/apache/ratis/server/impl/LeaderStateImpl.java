@@ -951,7 +951,7 @@ class LeaderStateImpl implements LeaderState {
     for (LogAppender logAppender : senders.getSenders()) {
       final FollowerInfo followerInfo = logAppender.getFollower();
       final RaftPeerId followerID = followerInfo.getPeer().getId();
-      final RaftPeer follower = conf.getPeer(followerID);
+      final RaftPeer follower = conf.getPeer(followerID, RaftPeerRole.FOLLOWER);
       if (follower == null) {
         if (conf.getPeer(followerID, RaftPeerRole.LISTENER) == null) {
           LOG.error("{} the follower {} is not in the conf {}", this, server.getId(), conf);
