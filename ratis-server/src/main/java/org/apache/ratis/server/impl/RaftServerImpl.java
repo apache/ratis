@@ -302,10 +302,12 @@ class RaftServerImpl implements RaftServer.Division,
     this.role.transitionRole(newRole);
   }
 
-  boolean start() {
+  boolean start() throws IOException {
     if (!lifeCycle.compareAndTransition(NEW, STARTING)) {
       return false;
     }
+    state.initialize(stateMachine);
+
     final RaftConfigurationImpl conf = getRaftConf();
     if (conf != null && conf.containsInBothConfs(getId())) {
       LOG.info("{}: start as a follower, conf={}", getMemberId(), conf);

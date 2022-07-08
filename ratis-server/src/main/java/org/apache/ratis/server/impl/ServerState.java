@@ -35,6 +35,8 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 
@@ -64,11 +66,11 @@ class ServerState implements Closeable {
   private final RaftGroupMemberId memberId;
   private final RaftServerImpl server;
   /** Raft log */
-  private final RaftLog log;
+  private final MemoizedSupplier<RaftLog> log;
   /** Raft configuration */
   private final ConfigurationManager configurationManager;
   /** The thread that applies committed log entries to the state machine */
-  private final StateMachineUpdater stateMachineUpdater;
+  private final MemoizedSupplier<StateMachineUpdater> stateMachineUpdater;
   /** local storage for log and snapshot */
   private RaftStorageImpl storage;
   private final SnapshotManager snapshotManager;
@@ -137,12 +139,8 @@ class ServerState implements Closeable {
 
     snapshotManager = new SnapshotManager(storage, id);
 
-    stateMachine.initialize(server.getRaftServer(), group.getGroupId(), storage);
-    // read configuration from the storage
-    Optional.ofNullable(storage.readRaftConfiguration()).ifPresent(this::setRaftConf);
-
     // On start the leader is null, start the clock now
-    leaderId = null;
+    this.leaderId = null;
     this.lastNoLeaderTime = Timestamp.currentTime();
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
 
@@ -150,16 +148,23 @@ class ServerState implements Closeable {
         .map(SnapshotInfo::getIndex)
         .filter(i -> i >= 0)
         .orElse(RaftLog.INVALID_LOG_INDEX);
+    this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
+    this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
+        stateMachine, server, this, getLog().getSnapshotIndex(), prop));
+  }
+
+  void initialize(StateMachine stateMachine) throws IOException {
+    storage.initialize();
+    // read configuration from the storage
+    Optional.ofNullable(storage.readRaftConfiguration()).ifPresent(this::setRaftConf);
+
+    stateMachine.initialize(server.getRaftServer(), getMemberId().getGroupId(), storage);
 
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
-    this.log = initRaftLog(getMemberId(), server, storage, this::setRaftConf, getSnapshotIndexFromStateMachine, prop);
-
-    final RaftStorageMetadata metadata = log.loadMetadata();
+    final RaftStorageMetadata metadata = log.get().loadMetadata();
     currentTerm.set(metadata.getTerm());
     votedFor = metadata.getVotedFor();
-
-    stateMachineUpdater = new StateMachineUpdater(stateMachine, server, this, log.getSnapshotIndex(), prop);
   }
 
   RaftGroupMemberId getMemberId() {
@@ -195,7 +200,15 @@ class ServerState implements Closeable {
   }
 
   void start() {
-    stateMachineUpdater.start();
+    stateMachineUpdater.get().start();
+  }
+
+  private RaftLog initRaftLog(LongSupplier getSnapshotIndexFromStateMachine, RaftProperties prop) {
+    try {
+      return initRaftLog(getMemberId(), server, storage, this::setRaftConf, getSnapshotIndexFromStateMachine, prop);
+    } catch (IOException e) {
+      throw new IllegalStateException(getMemberId() + ": Failed to initRaftLog.", e);
+    }
   }
 
   private static RaftLog initRaftLog(RaftGroupMemberId memberId, RaftServerImpl server, RaftStorage storage,
@@ -260,7 +273,7 @@ class ServerState implements Closeable {
   }
 
   void persistMetadata() throws IOException {
-    log.persistMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
+    getLog().persistMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
   }
 
   RaftPeerId getVotedFor() {
@@ -312,8 +325,18 @@ class ServerState implements Closeable {
     setLeader(getMemberId().getPeerId(), "becomeLeader");
   }
 
+  StateMachineUpdater getStateMachineUpdater() {
+    if (!stateMachineUpdater.isInitialized()) {
+      throw new IllegalStateException(getMemberId() + ": stateMachineUpdater is uninitialized.");
+    }
+    return stateMachineUpdater.get();
+  }
+
   RaftLog getLog() {
-    return log;
+    if (!log.isInitialized()) {
+      throw new IllegalStateException(getMemberId() + ": log is uninitialized.");
+    }
+    return log.get();
   }
 
   TermIndex getLastEntry() {
@@ -330,7 +353,7 @@ class ServerState implements Closeable {
   }
 
   void appendLog(TransactionContext operation) throws StateMachineException {
-    log.append(currentTerm.get(), operation);
+    getLog().append(currentTerm.get(), operation);
     Objects.requireNonNull(operation.getLogEntry());
   }
 
@@ -406,33 +429,33 @@ class ServerState implements Closeable {
   }
 
   boolean updateCommitIndex(long majorityIndex, long curTerm, boolean isLeader) {
-    if (log.updateCommitIndex(majorityIndex, curTerm, isLeader)) {
-      stateMachineUpdater.notifyUpdater();
+    if (getLog().updateCommitIndex(majorityIndex, curTerm, isLeader)) {
+      getStateMachineUpdater().notifyUpdater();
       return true;
     }
     return false;
   }
 
   void notifyStateMachineUpdater() {
-    stateMachineUpdater.notifyUpdater();
+    getStateMachineUpdater().notifyUpdater();
   }
 
   void reloadStateMachine(long lastIndexInSnapshot) {
-    log.updateSnapshotIndex(lastIndexInSnapshot);
-    stateMachineUpdater.reloadStateMachine();
+    getLog().updateSnapshotIndex(lastIndexInSnapshot);
+    getStateMachineUpdater().reloadStateMachine();
   }
 
   @Override
   public void close() throws IOException {
     try {
-      stateMachineUpdater.stopAndJoin();
+      getStateMachineUpdater().stopAndJoin();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       LOG.warn("{}: Interrupted when joining stateMachineUpdater", getMemberId(), e);
     }
     LOG.info("{}: closes. applyIndex: {}", getMemberId(), getLastAppliedIndex());
 
-    log.close();
+    getLog().close();
     storage.close();
   }
 
@@ -449,7 +472,7 @@ class ServerState implements Closeable {
   }
 
   void updateInstalledSnapshotIndex(TermIndex lastTermIndexInSnapshot) {
-    log.onSnapshotInstalled(lastTermIndexInSnapshot.getIndex());
+    getLog().onSnapshotInstalled(lastTermIndexInSnapshot.getIndex());
     latestInstalledSnapshot.set(lastTermIndexInSnapshot);
   }
 
@@ -473,13 +496,13 @@ class ServerState implements Closeable {
   }
 
   long getNextIndex() {
-    final long logNextIndex = log.getNextIndex();
-    final long snapshotNextIndex = log.getSnapshotIndex() + 1;
+    final long logNextIndex = getLog().getNextIndex();
+    final long snapshotNextIndex = getLog().getSnapshotIndex() + 1;
     return Math.max(logNextIndex, snapshotNextIndex);
   }
 
   long getLastAppliedIndex() {
-    return stateMachineUpdater.getStateMachineLastAppliedIndex();
+    return getStateMachineUpdater().getStateMachineLastAppliedIndex();
   }
 
   boolean containsTermIndex(TermIndex ti) {
@@ -491,6 +514,6 @@ class ServerState implements Closeable {
     if (Optional.ofNullable(getLatestSnapshot()).map(SnapshotInfo::getTermIndex).filter(ti::equals).isPresent()) {
       return true;
     }
-    return log.contains(ti);
+    return getLog().contains(ti);
   }
 }

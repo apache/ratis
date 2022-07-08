@@ -376,13 +376,16 @@ class RaftServerProxy implements RaftServer {
 
   @Override
   public void start() throws IOException {
+    lifeCycle.startAndTransition(this::startImpl, IOException.class);
+  }
+
+  private void startImpl() throws IOException {
     ConcurrentUtils.parallelForEachAsync(getImpls(), RaftServerImpl::start, executor).join();
 
-    lifeCycle.startAndTransition(() -> {
-      LOG.info("{}: start RPC server", getId());
-      getServerRpc().start();
-      getDataStreamServerRpc().start();
-    }, IOException.class);
+    LOG.info("{}: start RPC server", getId());
+    getServerRpc().start();
+    getDataStreamServerRpc().start();
+
     pauseMonitor.start();
   }
 
@@ -480,8 +483,12 @@ class RaftServerProxy implements RaftServer {
     return impls.addNew(newGroup)
         .thenApplyAsync(newImpl -> {
           LOG.debug("{}: newImpl = {}", getId(), newImpl);
-          final boolean started = newImpl.start();
-          Preconditions.assertTrue(started, () -> getId()+ ": failed to start a new impl: " + newImpl);
+          try {
+            final boolean started = newImpl.start();
+            Preconditions.assertTrue(started, () -> getId()+ ": failed to start a new impl: " + newImpl);
+          } catch (IOException e) {
+            throw new CompletionException(e);
+          }
           return newImpl.newSuccessReply(request);
         }, implExecutor)
         .whenComplete((raftClientReply, throwable) -> {

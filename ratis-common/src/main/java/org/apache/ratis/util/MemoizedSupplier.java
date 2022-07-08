@@ -71,4 +71,9 @@ public final class MemoizedSupplier<T> implements Supplier<T> {
   public boolean isInitialized() {
     return value != null;
   }
+
+  @Override
+  public String toString() {
+    return isInitialized()? "Memoized:" + get(): "UNINITIALIZED";
+  }
 }

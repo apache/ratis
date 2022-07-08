@@ -34,6 +34,9 @@ import java.lang.reflect.Method;
 public interface RaftStorage extends Closeable {
   Logger LOG = LoggerFactory.getLogger(RaftStorage.class);
 
+  /** Initialize the storage. */
+  void initialize() throws IOException;
+
   /** @return the storage directory. */
   RaftStorageDirectory getStorageDir();
 
@@ -43,7 +46,7 @@ public interface RaftStorage extends Closeable {
   /** @return the corruption policy for raft log. */
   CorruptionPolicy getLogCorruptionPolicy();
 
-   static Builder newBuilder() {
+  static Builder newBuilder() {
     return new Builder();
   }
 

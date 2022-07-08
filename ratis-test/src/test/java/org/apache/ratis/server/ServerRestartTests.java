@@ -231,7 +231,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   }
 
   void runTestRestartCommitIndex(MiniRaftCluster cluster) throws Exception {
-    final SimpleMessage[] messages = SimpleMessage.create(100);
+    final SimpleMessage[] messages = SimpleMessage.create(10);
     final List<CompletableFuture<Void>> futures = new ArrayList<>(messages.length);
     for(int i = 0; i < messages.length; i++) {
       final CompletableFuture<Void> f = new CompletableFuture<>();
@@ -248,6 +248,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       }).start();
     }
     JavaUtils.allOf(futures).get();
+    LOG.info("sent {} messages.", messages.length);
 
     final List<RaftPeerId> ids = new ArrayList<>();
     final RaftServer.Division leader = cluster.getLeader();
@@ -343,7 +344,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
     testFailureCase("restart-fail-ChecksumException",
         () -> runWithNewCluster(1, this::runTestRestartWithCorruptedLogEntry),
-        CompletionException.class, ChecksumException.class);
+        CompletionException.class, IllegalStateException.class, ChecksumException.class);
 
     Log.setCorruptionPolicy(p, policy);
   }
@@ -354,7 +355,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final RaftPeerId id = leader.getId();
 
     // send a few messages
-    final SimpleMessage[] messages = SimpleMessage.create(10);
+    final SimpleMessage[] messages = SimpleMessage.create(100);
     final SimpleMessage lastMessage = messages[messages.length - 1];
     try (final RaftClient client = cluster.createClient()) {
       for (SimpleMessage m : messages) {

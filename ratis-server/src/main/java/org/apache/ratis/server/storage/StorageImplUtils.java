@@ -48,8 +48,6 @@ public final class StorageImplUtils {
       Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException(
           "Interrupted when creating RaftStorage " + dir, e);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
     return raftStorage;
   }

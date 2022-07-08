@@ -23,7 +23,6 @@ import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Preconditions;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -38,30 +37,48 @@ public class RaftStorageImpl implements RaftStorage {
 
   // TODO support multiple storage directories
   private final RaftStorageDirectoryImpl storageDir;
-  private final StorageState state;
+  private final StartupOption startupOption;
   private final CorruptionPolicy logCorruptionPolicy;
+  private volatile StorageState state = StorageState.UNINITIALIZED;
   private volatile RaftStorageMetadataFileImpl metaFile;
 
   RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy, StartupOption option,
-      long storageFeeSpaceMin) throws IOException {
+      long storageFeeSpaceMin) {
     this.storageDir = new RaftStorageDirectoryImpl(dir, storageFeeSpaceMin);
-    if (option == StartupOption.FORMAT) {
-      if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
-        throw new IOException("Cannot format " + storageDir);
-      }
-      storageDir.lock();
-      format();
-      state = storageDir.analyzeStorage(false);
-      Preconditions.assertTrue(state == StorageState.NORMAL);
-    } else {
-      state = analyzeAndRecoverStorage(true); // metaFile is initialized here
-      if (state != StorageState.NORMAL) {
-        storageDir.unlock();
-        throw new IOException("Cannot load " + storageDir
-            + ". Its state: " + state);
-      }
-    }
     this.logCorruptionPolicy = Optional.ofNullable(logCorruptionPolicy).orElseGet(CorruptionPolicy::getDefault);
+    this.startupOption = option;
+  }
+
+  @Override
+  public void initialize() throws IOException {
+    try {
+      if (startupOption == StartupOption.FORMAT) {
+        if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
+          throw new IOException("Cannot format " + storageDir);
+        }
+        storageDir.lock();
+        format();
+        state = storageDir.analyzeStorage(false);
+      } else {
+        state = analyzeAndRecoverStorage(true); // metaFile is initialized here
+      }
+    } catch (Throwable t) {
+      unlockOnFailure(storageDir);
+      throw t;
+    }
+
+    if (state != StorageState.NORMAL) {
+      unlockOnFailure(storageDir);
+      throw new IOException("Failed to load " + storageDir + ": " + state);
+    }
+  }
+
+  static void unlockOnFailure(RaftStorageDirectoryImpl dir) {
+    try {
+      dir.unlock();
+    } catch (Throwable t) {
+      LOG.warn("Failed to unlock " + dir, t);
+    }
   }
 
   StorageState getState() {
