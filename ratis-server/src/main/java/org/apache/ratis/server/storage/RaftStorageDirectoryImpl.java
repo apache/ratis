@@ -42,6 +42,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   private static final String JVM_NAME = ManagementFactory.getRuntimeMXBean().getName();
 
   enum StorageState {
+    UNINITIALIZED,
     NON_EXISTENT,
     NOT_FORMATTED,
     NO_SPACE,

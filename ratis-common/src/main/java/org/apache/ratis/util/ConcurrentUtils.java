@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedConsumer;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.util.ArrayList;
@@ -138,31 +139,41 @@ public interface ConcurrentUtils {
 
   /**
    * The same as collection.parallelStream().forEach(action) except that
-   * (1) this method is asynchronous, and
-   * (2) an executor can be passed to this method.
+   * (1) this method is asynchronous,
+   * (2) an executor can be passed to this method, and
+   * (3) the action can throw a checked exception.
    *
    * @param collection The given collection.
    * @param action To act on each element in the collection.
    * @param executor To execute the action.
-   * @param <T> The element type.
+   * @param <E> The element type.
+   * @param <THROWABLE> the exception type.
    *
    * @return a {@link CompletableFuture} that is completed
    *         when the action is completed for each element in the collection.
+   *         When the action throws an exception, the future will be completed exceptionally.
    *
    * @see Collection#parallelStream()
    * @see java.util.stream.Stream#forEach(Consumer)
    */
-  static <T> CompletableFuture<Void> parallelForEachAsync(Collection<T> collection, Consumer<? super T> action,
-      Executor executor) {
-    final List<CompletableFuture<T>> futures = new ArrayList<>(collection.size());
+  static <E, THROWABLE extends Throwable> CompletableFuture<Void> parallelForEachAsync(
+      Collection<E> collection, CheckedConsumer<? super E, THROWABLE> action, Executor executor) {
+    final List<CompletableFuture<E>> futures = new ArrayList<>(collection.size());
     collection.forEach(element -> {
-      final CompletableFuture<T> f = new CompletableFuture<>();
+      final CompletableFuture<E> f = new CompletableFuture<>();
       futures.add(f);
-      executor.execute(() -> {
-        action.accept(element);
-        f.complete(element);
-      });
+      executor.execute(() -> accept(action, element, f));
     });
     return JavaUtils.allOf(futures);
+  }
+
+  static <E, THROWABLE extends Throwable> void accept(
+      CheckedConsumer<? super E, THROWABLE> action, E element, CompletableFuture<E> f) {
+    try {
+      action.accept(element);
+      f.complete(element);
+    } catch (Throwable t) {
+      f.completeExceptionally(t);
+    }
   }
 }

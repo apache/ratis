@@ -49,11 +49,13 @@ import java.util.regex.Matcher;
  */
 public class TestRaftStorage extends BaseTest {
   static RaftStorageImpl newRaftStorage(File dir) throws IOException {
-    return (RaftStorageImpl) RaftStorage.newBuilder()
+    final RaftStorageImpl impl = (RaftStorageImpl) RaftStorage.newBuilder()
         .setDirectory(dir)
         .setOption(RaftStorage.StartupOption.RECOVER)
         .setStorageFreeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT)
         .build();
+    impl.initialize();
+    return impl;
   }
 
   private File storageDir;
@@ -71,11 +73,13 @@ public class TestRaftStorage extends BaseTest {
   }
 
   static RaftStorageImpl formatRaftStorage(File dir) throws IOException {
-    return (RaftStorageImpl) RaftStorage.newBuilder()
+    final RaftStorageImpl impl = (RaftStorageImpl) RaftStorage.newBuilder()
         .setDirectory(dir)
         .setOption(RaftStorage.StartupOption.FORMAT)
         .setStorageFreeSpaceMin(SizeInBytes.valueOf(0))
         .build();
+    impl.initialize();
+    return impl;
   }
 
   @Test
