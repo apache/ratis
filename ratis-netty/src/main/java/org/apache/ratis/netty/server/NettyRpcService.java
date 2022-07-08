@@ -116,13 +116,16 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
       }
     };
 
+    final String host = NettyConfigKeys.Server.host(server.getProperties());
     final int port = NettyConfigKeys.Server.port(server.getProperties());
+    InetSocketAddress socketAddress =
+            host == null || host.isEmpty() ? new InetSocketAddress(port) : new InetSocketAddress(host, port);
     this.channel = JavaUtils.memoize(() -> new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(initializer)
-        .bind(port));
+        .bind(socketAddress));
   }
 
   @Override

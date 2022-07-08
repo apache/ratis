@@ -170,7 +170,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         NettyConfigKeys.DataStream.Server.workerGroupSize(properties), useEpoll);
 
     final SslContext sslContext = NettyUtils.buildSslContextForServer(tlsConf);
+    final String host = NettyConfigKeys.DataStream.host(server.getProperties());
     final int port = NettyConfigKeys.DataStream.port(properties);
+    InetSocketAddress socketAddress =
+            host == null || host.isEmpty() ? new InetSocketAddress(port) : new InetSocketAddress(host, port);
     this.channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(bossGroup instanceof EpollEventLoopGroup ?
@@ -179,7 +182,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .childHandler(newChannelInitializer(sslContext))
         .childOption(ChannelOption.SO_KEEPALIVE, true)
         .childOption(ChannelOption.TCP_NODELAY, true)
-        .bind(port);
+        .bind(socketAddress);
   }
 
   static DataStreamClient newClient(RaftPeer peer, RaftProperties properties) {
