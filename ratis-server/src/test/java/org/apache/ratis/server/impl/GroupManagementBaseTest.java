@@ -247,13 +247,10 @@ public abstract class GroupManagementBaseTest extends BaseTest {
         + Arrays.toString(idIndex) + "chosen=" + chosen;
     LOG.info("\n\nrunMultiGroupTest with " + type + ": " + cluster.printServers());
 
-    // Start server with an empty conf
-    final RaftGroup emptyGroup = RaftGroup.valueOf(cluster.getGroupId());
-
     final List<RaftPeerId> ids = Arrays.stream(MiniRaftCluster.generateIds(idIndex[idIndex.length - 1], 0))
         .map(RaftPeerId::valueOf).collect(Collectors.toList());
     LOG.info("ids: " + ids);
-    ids.forEach(id -> cluster.putNewServer(id, emptyGroup, true));
+    ids.forEach(id -> cluster.putNewServer(id, null, true));
     LOG.info("putNewServer: " + cluster.printServers());
 
     TimeUnit.SECONDS.sleep(1);
