@@ -51,7 +51,7 @@ public final class ServerImplUtils {
       RaftProperties properties, Parameters parameters) throws IOException {
     RaftServer.LOG.debug("newRaftServer: {}, {}", id, group);
 
-    if (group != null) {
+    if (group != null && !group.getPeers().isEmpty()) {
       final Set<RaftPeerId> ids = group.getPeers().stream().map(RaftPeer::getId).collect(Collectors.toSet());
       Preconditions.assertTrue(ids.contains(id), "RaftPeerId %s is not in RaftGroup %s", id, group);
     }
