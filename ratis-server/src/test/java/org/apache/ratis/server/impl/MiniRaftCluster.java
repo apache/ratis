@@ -426,9 +426,16 @@ public abstract class MiniRaftCluster implements Closeable {
       boolean emptyPeer) throws IOException {
     LOG.info("Add new peers {}", Arrays.asList(ids));
 
+    final Iterable<RaftPeerId> peerIds = CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf);
+    final Collection<RaftPeer> dummyPeers = StreamSupport.stream(peerIds.spliterator(), false)
+        .map(id -> RaftPeer.newBuilder().setId(id).build())
+        .collect(Collectors.toSet());
+    final Collection<RaftPeer> oldPeers = group.getPeers();
+    dummyPeers.addAll(oldPeers);
+    group = RaftGroup.valueOf(group.getGroupId(), dummyPeers);
+
     // create and add new RaftServers
-    final Collection<RaftServer> newServers = putNewServers(
-        CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf), true, emptyPeer);
+    final Collection<RaftServer> newServers = putNewServers(peerIds, true, emptyPeer);
 
     startServers(newServers);
     if (!startNewPeer) {
@@ -440,7 +447,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
     final Collection<RaftPeer> newPeers = toRaftPeers(newServers);
     final RaftPeer[] np = newPeers.toArray(RaftPeer.emptyArray());
-    newPeers.addAll(group.getPeers());
+    newPeers.addAll(oldPeers);
     RaftPeer[] p = newPeers.toArray(RaftPeer.emptyArray());
     group = RaftGroup.valueOf(group.getGroupId(), p);
     return new PeerChanges(p, np, RaftPeer.emptyArray());
