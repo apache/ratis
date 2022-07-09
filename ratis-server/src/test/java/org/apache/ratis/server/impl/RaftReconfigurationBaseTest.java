@@ -240,7 +240,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         CountDownLatch latch = new CountDownLatch(1);
         Thread clientThread = new Thread(() -> {
           try {
-            PeerChanges c1 = cluster.addNewPeers(2, true);
+            PeerChanges c1 = cluster.addNewPeers(2, true, true);
             LOG.info("Start changing the configuration: {}",
                     asList(c1.allPeersInNewConf));
 
