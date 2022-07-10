@@ -102,6 +102,11 @@ public interface Preconditions {
         + name + " = " + object + " == null, class = " + object.getClass());
   }
 
+  static <T> T assertNotNull(T object, String format, Object... args) {
+    assertTrue(object != null, format, args);
+    return object;
+  }
+
   static <T> T assertInstanceOf(Object object, Class<T> clazz) {
     assertTrue(clazz.isInstance(object),
         () -> "Required instance of " + clazz + " but object.getClass() is " + object.getClass());

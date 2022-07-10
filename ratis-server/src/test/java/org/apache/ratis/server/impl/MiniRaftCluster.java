@@ -283,8 +283,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public MiniRaftCluster initServers() {
     LOG.info("servers = " + servers);
     if (servers.isEmpty()) {
-      putNewServers(CollectionUtils.as(group.getPeers(), RaftPeer::getId),
-          true, false);
+      putNewServers(CollectionUtils.as(group.getPeers(), RaftPeer::getId), true, group);
     }
     return this;
   }
@@ -295,18 +294,10 @@ public abstract class MiniRaftCluster implements Closeable {
     return s;
   }
 
-  private Collection<RaftServer> putNewServers(
-      Iterable<RaftPeerId> peers, boolean format, boolean emptyPeer) {
-    if (emptyPeer) {
-      final RaftGroup raftGroup = RaftGroup.valueOf(group.getGroupId(), Collections.emptyList());
+  private Collection<RaftServer> putNewServers(Iterable<RaftPeerId> peers, boolean format, RaftGroup raftGroup) {
       return StreamSupport.stream(peers.spliterator(), false)
           .map(id -> putNewServer(id, raftGroup, format))
           .collect(Collectors.toList());
-    } else {
-      return StreamSupport.stream(peers.spliterator(), false)
-          .map(id -> putNewServer(id, group, format))
-          .collect(Collectors.toList());
-    }
   }
 
   public void start() throws IOException {
@@ -345,7 +336,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
     List<RaftPeerId> idList = new ArrayList<>(servers.keySet());
     servers.clear();
-    putNewServers(idList, format, false);
+    putNewServers(idList, format, group);
     start();
   }
 
@@ -426,9 +417,20 @@ public abstract class MiniRaftCluster implements Closeable {
       boolean emptyPeer) throws IOException {
     LOG.info("Add new peers {}", Arrays.asList(ids));
 
+    final Iterable<RaftPeerId> peerIds = CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf);
+    final RaftGroup raftGroup;
+    if (emptyPeer) {
+      raftGroup = RaftGroup.valueOf(group.getGroupId(), Collections.emptyList());
+    } else {
+      final Collection<RaftPeer> newPeers = StreamSupport.stream(peerIds.spliterator(), false)
+          .map(id -> RaftPeer.newBuilder().setId(id).build())
+          .collect(Collectors.toSet());
+      newPeers.addAll(group.getPeers());
+      raftGroup = RaftGroup.valueOf(group.getGroupId(), newPeers);
+    }
+
     // create and add new RaftServers
-    final Collection<RaftServer> newServers = putNewServers(
-        CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf), true, emptyPeer);
+    final Collection<RaftServer> newServers = putNewServers(peerIds, true, raftGroup);
 
     startServers(newServers);
     if (!startNewPeer) {

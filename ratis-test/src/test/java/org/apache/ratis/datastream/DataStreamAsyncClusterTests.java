@@ -145,7 +145,12 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
 
   long runTestDataStream(CLUSTER cluster, int numStreams, int bufferSize, int bufferNum, boolean stepDownLeader) {
     final Iterable<RaftServer> servers = CollectionUtils.as(cluster.getServers(), s -> s);
-    final RaftPeerId leader = cluster.getLeader().getId();
+    final RaftPeerId leader;
+    try {
+      leader = RaftTestUtil.waitForLeader(cluster).getId();
+    } catch (InterruptedException e) {
+      throw new CompletionException(e);
+    }
     final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
     final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
     try(RaftClient client = cluster.createClient(primaryServer)) {
