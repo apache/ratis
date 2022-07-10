@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
@@ -50,12 +48,18 @@ public final class ServerImplUtils {
       RaftPeerId id, RaftGroup group, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters) throws IOException {
     RaftServer.LOG.debug("newRaftServer: {}, {}", id, group);
-
     if (group != null && !group.getPeers().isEmpty()) {
-      final Set<RaftPeerId> ids = group.getPeers().stream().map(RaftPeer::getId).collect(Collectors.toSet());
-      Preconditions.assertTrue(ids.contains(id), "RaftPeerId %s is not in RaftGroup %s", id, group);
+      Preconditions.assertNotNull(id, "RaftPeerId %s is not in RaftGroup %s", id, group);
+      Preconditions.assertNotNull(group.getPeer(id), "RaftPeerId %s is not in RaftGroup %s", id, group);
     }
+    final RaftServerProxy proxy = newRaftServer(id, stateMachineRegistry, properties, parameters);
+    proxy.initGroups(group);
+    return proxy;
+  }
 
+  private static RaftServerProxy newRaftServer(
+      RaftPeerId id, StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
+      throws IOException {
     final TimeDuration sleepTime = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);
     final RaftServerProxy proxy;
     try {
@@ -68,7 +72,6 @@ public final class ServerImplUtils {
       throw IOUtils.toInterruptedIOException(
           "Interrupted when creating RaftServer " + id, e);
     }
-    proxy.initGroups(group);
     return proxy;
   }
 
