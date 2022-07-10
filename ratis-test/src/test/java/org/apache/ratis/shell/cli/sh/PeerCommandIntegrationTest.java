@@ -79,11 +79,12 @@ public abstract class PeerCommandIntegrationTest <CLUSTER extends MiniRaftCluste
   void runTestPeerAddCommand(MiniRaftCluster cluster) throws Exception {
     LOG.info("Start testMultiGroup" + cluster.printServers());
 
-    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    RaftTestUtil.waitForLeader(cluster);
     RaftPeer[] peers = cluster.getPeers().toArray(new RaftPeer[0]);
-    RaftPeer[] newPeers = cluster.addNewPeers(1, true).newPeers;
+    RaftPeer[] newPeers = cluster.addNewPeers(1, true, true).newPeers;
+
     RaftServerTestUtil.waitAndCheckNewConf(cluster, peers, 0, null);
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     for (RaftPeer peer : peers) {
       sb.append(peer.getAdminAddress());
       sb.append(",");
