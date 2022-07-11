@@ -217,8 +217,7 @@
     <testsThreadCount>4</testsThreadCount>
 
     <!--metrics-->
-    <dropwizard.version>4.2.9</dropwizard.version>
-    <dropwizard.ganglia.version>3.2.6</dropwizard.ganglia.version>
+    <dropwizard.version>3.2.5</dropwizard.version>
   </properties>
 
   <dependencyManagement>
@@ -418,14 +417,8 @@
 
       <dependency>
         <groupId>io.dropwizard.metrics</groupId>
-        <artifactId>metrics-jmx</artifactId>
-        <version>${dropwizard.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-ganglia</artifactId>
-        <version>${dropwizard.ganglia.version}</version>
+        <version>${dropwizard.version}</version>
       </dependency>
 
       <dependency>
