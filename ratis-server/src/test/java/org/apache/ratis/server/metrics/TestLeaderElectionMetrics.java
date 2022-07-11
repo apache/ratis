@@ -58,7 +58,7 @@ public class TestLeaderElectionMetrics extends BaseTest {
         (s, metric) -> s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME));
     LOG.info("{} gauges: {}", LAST_LEADER_ELECTION_ELAPSED_TIME, gauges);
     final Long leaderElectionLatency = (Long)gauges.values().iterator().next().getValue();
-    assertTrue("leaderElectionLatency = " + leaderElectionLatency, leaderElectionLatency > 0L);
+    assertTrue("leaderElectionLatency = " + leaderElectionLatency, leaderElectionLatency >= 0L);
   }
 
   @Test
