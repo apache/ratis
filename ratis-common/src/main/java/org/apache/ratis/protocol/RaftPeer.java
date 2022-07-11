@@ -77,7 +77,7 @@ public final class RaftPeer {
     private String clientAddress;
     private String dataStreamAddress;
     private int priority;
-    private RaftProtos.RaftPeerRole startupRole;
+    private RaftProtos.RaftPeerRole startupRole = RaftProtos.RaftPeerRole.FOLLOWER;
 
     public Builder setId(RaftPeerId id) {
       this.id = id;
@@ -148,9 +148,6 @@ public final class RaftPeer {
     }
 
     public RaftPeer build() {
-      if (startupRole == null) {
-        startupRole = RaftProtos.RaftPeerRole.FOLLOWER;
-      }
       return new RaftPeer(
           Objects.requireNonNull(id, "The 'id' field is not initialized."),
           address, adminAddress, clientAddress, dataStreamAddress, priority, startupRole);
@@ -246,8 +243,8 @@ public final class RaftPeer {
         ? "|client:" + clientAddress : "";
     final String data = dataStreamAddress != null? "|dataStream:" + dataStreamAddress: "";
     final String p = "|priority:" + priority;
-    final String l = "|startupRole:" + startupRole;
-    return id + rpc + admin + client + data + p + l;
+    final String role = "|startupRole:" + startupRole;
+    return id + rpc + admin + client + data + p + role;
   }
 
   @Override

@@ -77,13 +77,6 @@ public final class RaftGroup {
     return peers.values();
   }
 
-  public Collection<RaftPeer> getPeers(RaftProtos.RaftPeerRole role) {
-    return peers.values()
-        .stream()
-        .filter(peer -> peer.getStartupRole() == role)
-        .collect(Collectors.toList());
-  }
-
   /** @return the peer with the given id if it is in this group; otherwise, return null. */
   public RaftPeer getPeer(RaftPeerId id) {
     return peers.get(Objects.requireNonNull(id, "id == null"));

@@ -54,6 +54,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.RaftServer.Division.LOG;
 
@@ -102,8 +103,14 @@ class ServerState implements Closeable {
       throws IOException {
     this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId());
     this.server = server;
+    Collection<RaftPeer> followerPeers = group.getPeers().stream()
+        .filter(peer -> peer.getStartupRole() == RaftPeerRole.FOLLOWER)
+        .collect(Collectors.toList());
+    Collection<RaftPeer> listenerPeers = group.getPeers().stream()
+        .filter(peer -> peer.getStartupRole() == RaftPeerRole.LISTENER)
+        .collect(Collectors.toList());
     final RaftConfigurationImpl initialConf = RaftConfigurationImpl.newBuilder()
-        .setConf(group.getPeers(RaftPeerRole.FOLLOWER), group.getPeers(RaftPeerRole.LISTENER))
+        .setConf(followerPeers, listenerPeers)
         .build();
     configurationManager = new ConfigurationManager(initialConf);
     LOG.info("{}: {}", getMemberId(), configurationManager);
