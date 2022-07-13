@@ -67,9 +67,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link RaftPeer} for this division. */
     default RaftPeer getPeer() {
-      return Optional.ofNullable(getGroup())
-          .map(g -> g.getPeer(getId()))
-          .orElseGet(() -> getRaftServer().getPeer());
+      return getRaftConf().getPeer(getId());
     }
 
     /** @return the information about this division. */
