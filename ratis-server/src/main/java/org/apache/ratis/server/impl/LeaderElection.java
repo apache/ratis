@@ -329,7 +329,7 @@ class LeaderElection implements Runnable {
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:
             final long term = r.maxTerm(server.getState().getCurrentTerm());
-            server.changeToFollowerAndPersistMetadata(term, r);
+            server.changeToFollowerAndPersistMetadata(term, false, r);
             return false;
           default: throw new IllegalArgumentException("Unable to process result " + r.result);
         }

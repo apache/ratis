@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
@@ -77,7 +77,7 @@ public final class RaftPeer {
     private String clientAddress;
     private String dataStreamAddress;
     private int priority;
-    private RaftProtos.RaftPeerRole startupRole = RaftProtos.RaftPeerRole.FOLLOWER;
+    private RaftPeerRole startupRole = RaftPeerRole.FOLLOWER;
 
     public Builder setId(RaftPeerId id) {
       this.id = id;
@@ -136,9 +136,9 @@ public final class RaftPeer {
       return this;
     }
 
-    public Builder setStartupRole(RaftProtos.RaftPeerRole startupRole) {
-      if (startupRole != RaftProtos.RaftPeerRole.FOLLOWER
-          && startupRole != RaftProtos.RaftPeerRole.LISTENER) {
+    public Builder setStartupRole(RaftPeerRole startupRole) {
+      if (startupRole != RaftPeerRole.FOLLOWER
+          && startupRole != RaftPeerRole.LISTENER) {
         throw new IllegalArgumentException(
             "At startup the role can only be set to FOLLOWER or LISTENER, the current value is " +
                 startupRole);
@@ -165,13 +165,13 @@ public final class RaftPeer {
   /** The priority of the peer. */
   private final int priority;
 
-  private final RaftProtos.RaftPeerRole startupRole;
+  private final RaftPeerRole startupRole;
 
   private final Supplier<RaftPeerProto> raftPeerProto;
 
   private RaftPeer(RaftPeerId id,
       String address, String adminAddress, String clientAddress, String dataStreamAddress,
-      int priority, RaftProtos.RaftPeerRole startupRole) {
+      int priority, RaftPeerRole startupRole) {
     this.id = Objects.requireNonNull(id, "id == null");
     this.address = address;
     this.dataStreamAddress = dataStreamAddress;
@@ -226,7 +226,7 @@ public final class RaftPeer {
     return priority;
   }
 
-  public RaftProtos.RaftPeerRole getStartupRole() {
+  public RaftPeerRole getStartupRole() {
     return startupRole;
   }
 

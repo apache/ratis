@@ -17,11 +17,9 @@
  */
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Description of a raft group, which has a unique {@link RaftGroupId} and a collection of {@link RaftPeer}.
@@ -41,7 +39,7 @@ public final class RaftGroup {
   }
 
   /** @return a group with the given id and peers. */
-  public static RaftGroup valueOf(RaftGroupId groupId, Collection<RaftPeer> peers) {
+  public static RaftGroup valueOf(RaftGroupId groupId, Iterable<RaftPeer> peers) {
     return new RaftGroup(groupId, peers);
   }
 
@@ -55,12 +53,12 @@ public final class RaftGroup {
     this.peers = Collections.emptyMap();
   }
 
-  private RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers) {
+  private RaftGroup(RaftGroupId groupId, Iterable<RaftPeer> peers) {
     this.groupId = Objects.requireNonNull(groupId, "groupId == null");
     Preconditions.assertTrue(!groupId.equals(EMPTY_GROUP.getGroupId()),
         () -> "Group Id " + groupId + " is reserved for the empty group.");
 
-    if (peers == null || peers.isEmpty()) {
+    if (peers == null || !peers.iterator().hasNext()) {
       this.peers = Collections.emptyMap();
     } else {
       final Map<RaftPeerId, RaftPeer> map = new HashMap<>();

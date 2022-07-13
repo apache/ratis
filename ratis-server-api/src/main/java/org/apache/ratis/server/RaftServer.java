@@ -31,7 +31,6 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.common.collect.Iterables;
-import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ReflectionUtils;
@@ -85,9 +84,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
       Collection<RaftPeer> allListenerPeers =
           getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
       Iterable<RaftPeer> peers = Iterables.concat(allFollowerPeers, allListenerPeers);
-      return RaftGroup.valueOf(
-          getMemberId().getGroupId(),
-          Lists.newArrayList(peers));
+      return RaftGroup.valueOf(getMemberId().getGroupId(), peers);
     }
 
     /** @return the current {@link RaftConfiguration} for this division. */

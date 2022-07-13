@@ -492,11 +492,15 @@ class RaftServerImpl implements RaftServer.Division,
    * @param force Force to start a new {@link FollowerState} even if this server is already a follower.
    * @return if the term/votedFor should be updated to the new term
    */
-  private synchronized boolean changeToFollower(long newTerm, boolean force, Object reason) {
+  private synchronized boolean changeToFollower(
+      long newTerm,
+      boolean force,
+      boolean allowListener,
+      Object reason) {
     final RaftPeerRole old = role.getCurrentRole();
     final boolean metadataUpdated = state.updateCurrentTerm(newTerm);
-    if (old == RaftPeerRole.LISTENER) {
-      return metadataUpdated;
+    if (old == RaftPeerRole.LISTENER && !allowListener) {
+      throw new IllegalStateException("Unexpected role " + old);
     }
 
     if (old != RaftPeerRole.FOLLOWER || force) {
@@ -513,8 +517,11 @@ class RaftServerImpl implements RaftServer.Division,
     return metadataUpdated;
   }
 
-  synchronized void changeToFollowerAndPersistMetadata(long newTerm, Object reason) throws IOException {
-    if (changeToFollower(newTerm, false, reason)) {
+  synchronized void changeToFollowerAndPersistMetadata(
+      long newTerm,
+      boolean allowListener,
+      Object reason) throws IOException {
+    if (changeToFollower(newTerm, false, allowListener, reason)) {
       state.persistMetadata();
     }
   }
@@ -1187,7 +1194,8 @@ class RaftServerImpl implements RaftServer.Division,
       final boolean voteGranted = context.decideVote(candidate, candidateLastEntry);
       if (candidate != null && phase == Phase.ELECTION) {
         // change server state in the ELECTION phase
-        final boolean termUpdated = changeToFollower(candidateTerm, true, "candidate:" + candidateId);
+        final boolean termUpdated =
+            changeToFollower(candidateTerm, true, false, "candidate:" + candidateId);
         if (voteGranted) {
           state.grantVote(candidate.getId());
         }
@@ -1345,7 +1353,7 @@ class RaftServerImpl implements RaftServer.Division,
         return CompletableFuture.completedFuture(reply);
       }
       try {
-        changeToFollowerAndPersistMetadata(leaderTerm, "appendEntries");
+        changeToFollowerAndPersistMetadata(leaderTerm, true, "appendEntries");
       } catch (IOException e) {
         return JavaUtils.completeExceptionally(e);
       }

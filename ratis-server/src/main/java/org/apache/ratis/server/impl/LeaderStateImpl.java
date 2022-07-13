@@ -49,6 +49,7 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.Daemon;
@@ -558,7 +559,7 @@ class LeaderStateImpl implements LeaderState {
 
   private void stepDown(long term, StepDownReason reason) {
     try {
-      server.changeToFollowerAndPersistMetadata(term, reason);
+      server.changeToFollowerAndPersistMetadata(term, false, reason);
       pendingStepDown.complete(server::newSuccessReply);
     } catch(IOException e) {
       final String s = this + ": Failed to persist metadata for term " + term;
@@ -951,10 +952,10 @@ class LeaderStateImpl implements LeaderState {
     for (LogAppender logAppender : senders.getSenders()) {
       final FollowerInfo followerInfo = logAppender.getFollower();
       final RaftPeerId followerID = followerInfo.getPeer().getId();
-      final RaftPeer follower = conf.getPeer(followerID, RaftPeerRole.FOLLOWER);
+      final RaftPeer follower = conf.getPeer(followerID);
       if (follower == null) {
         if (conf.getPeer(followerID, RaftPeerRole.LISTENER) == null) {
-          LOG.error("{} the follower {} is not in the conf {}", this, server.getId(), conf);
+          LOG.error("{} the follower {} is not in the conf {}", this, followerID, conf);
         }
         continue;
       }
