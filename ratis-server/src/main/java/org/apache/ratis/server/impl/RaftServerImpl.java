@@ -503,7 +503,7 @@ class RaftServerImpl implements RaftServer.Division,
       throw new IllegalStateException("Unexpected role " + old);
     }
 
-    if (old != RaftPeerRole.FOLLOWER || force) {
+    if ((old != RaftPeerRole.FOLLOWER && old != RaftPeerRole.LISTENER) || force) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
         role.shutdownLeaderState(false);
