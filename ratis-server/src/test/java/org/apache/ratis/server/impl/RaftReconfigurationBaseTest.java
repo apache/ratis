@@ -462,7 +462,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       Assert.assertEquals(leaderId, killed);
       final RaftPeerId newLeaderId = RaftTestUtil.waitForLeader(cluster).getId();
       LOG.info("newLeaderId: {}", newLeaderId);
-      ONE_SECOND.sleep();
+      TimeDuration.valueOf(500, TimeUnit.MILLISECONDS).sleep();
 
       LOG.info("start new peers: {}", Arrays.asList(c1.newPeers));
       for (RaftPeer np : c1.newPeers) {
