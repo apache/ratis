@@ -21,6 +21,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
@@ -41,6 +42,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Objects;
+import java.util.Optional;
 
 /** Raft server interface */
 public interface RaftServer extends Closeable, RpcType.Get,
@@ -66,7 +68,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link RaftPeer} for this division. */
     default RaftPeer getPeer() {
-      return getRaftConf().getPeer(getId());
+      return Optional.ofNullable(getRaftConf().getPeer(getId()))
+        .orElseGet(() -> getRaftServer().getPeer());
     }
 
     /** @return the information about this division. */
