@@ -208,7 +208,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       if (channelFuture != null) {
         Channel channel = channelFuture.syncUninterruptibly().channel();
         if (channel.isActive()) {
-          LOG.info("{} is already connect use exists channel {}", this, channel);
           return channelFuture;
         }
       }
@@ -226,8 +225,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       if (previous != null) {
         // wait channel closed, do shutdown workerGroup
         previous.channel().close().addListener((future) -> workerGroup.shutdownGracefully());
-      } else {
-        workerGroup.shutdownGracefully();
       }
     }
 
