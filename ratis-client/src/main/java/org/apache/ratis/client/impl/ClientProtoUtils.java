@@ -500,8 +500,10 @@ public interface ClientProtoUtils {
   static SetConfigurationRequest toSetConfigurationRequest(
       SetConfigurationRequestProto p) {
     final SetConfigurationRequest.Arguments arguments = SetConfigurationRequest.Arguments.newBuilder()
-        .setServersInNewConf(ProtoUtils.toRaftPeers(p.getPeersList()))
-        .setListenersInNewConf(ProtoUtils.toRaftPeers(p.getListenersList()))
+        .setServersInNewConf(ProtoUtils.toRaftPeers(p.getServers().getNewPeersList()))
+        .setListenersInNewConf(ProtoUtils.toRaftPeers(p.getServers().getNewListenersList()))
+        .setServersInCurConf(ProtoUtils.toRaftPeers(p.getServers().getCurPeersList()))
+        .setListenersInCurConf(ProtoUtils.toRaftPeers(p.getServers().getCurListenersList()))
         .setMode(toSetConfigurationMode(p.getMode()))
         .build();
     final RaftRpcRequestProto m = p.getRpcRequest();
@@ -519,6 +521,8 @@ public interface ClientProtoUtils {
         return SetConfigurationRequest.Mode.SET_UNCONDITIONALLY;
       case ADD:
         return SetConfigurationRequest.Mode.ADD;
+      case CAS:
+        return SetConfigurationRequest.Mode.CAS;
       default:
         throw new IllegalArgumentException("Unexpected mode " + p);
     }
@@ -529,9 +533,20 @@ public interface ClientProtoUtils {
     final SetConfigurationRequest.Arguments arguments = request.getArguments();
     return SetConfigurationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .addAllPeers(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER)))
-        .addAllListeners(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.LISTENER)))
+        .setServers(toSetConfigurationSevers(request))
         .setMode(SetConfigurationRequestProto.Mode.valueOf(arguments.getMode().name()))
+        .build();
+  }
+
+  static SetConfigurationSevers toSetConfigurationSevers(
+      SetConfigurationRequest request) {
+    final SetConfigurationRequest.Arguments arguments = request.getArguments();
+
+    return SetConfigurationSevers.newBuilder()
+        .addAllNewPeers(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER)))
+        .addAllNewListeners(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.LISTENER)))
+        .addAllCurPeers(ProtoUtils.toRaftPeerProtos(arguments.getServersInCurConf()))
+        .addAllCurListeners(ProtoUtils.toRaftPeerProtos(arguments.getListenersInCurConf()))
         .build();
   }
 

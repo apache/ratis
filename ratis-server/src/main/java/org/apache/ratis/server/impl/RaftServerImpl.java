@@ -23,6 +23,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.exceptions.SetConfigurationCasModeException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
@@ -1108,6 +1109,17 @@ class RaftServerImpl implements RaftServer.Division,
       if (arguments.getMode() == SetConfigurationRequest.Mode.ADD) {
         serversInNewConf = add(RaftPeerRole.FOLLOWER, current, arguments);
         listenersInNewConf = add(RaftPeerRole.LISTENER, current, arguments);
+      } else if (arguments.getMode() == SetConfigurationRequest.Mode.CAS) {
+        List<RaftPeer> serversInCurConf = arguments.getServersInCurConf();
+        List<RaftPeer> listenersInCurConf = arguments.getListenersInCurConf();
+        if (serversInCurConf.equals(current.getAllPeers(RaftPeerRole.FOLLOWER))
+            && listenersInCurConf.equals(current.getAllPeers(RaftPeerRole.LISTENER))) {
+          serversInNewConf = arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER);
+          listenersInNewConf = arguments.getPeersInNewConf(RaftPeerRole.LISTENER);
+        } else {
+          String msg = String.format("Failed set configuration in CAS mode, actual conf is different from expected.");
+          throw new SetConfigurationCasModeException(msg);
+        }
       } else {
         serversInNewConf = arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER);
         listenersInNewConf = arguments.getPeersInNewConf(RaftPeerRole.LISTENER);
