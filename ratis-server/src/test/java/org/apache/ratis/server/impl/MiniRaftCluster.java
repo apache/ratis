@@ -290,6 +290,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public RaftServerProxy putNewServer(RaftPeerId id, RaftGroup group, boolean format) {
     final RaftServerProxy s = newRaftServer(id, group, format);
+    peers.put(s.getId(), s.getPeer());
     Preconditions.assertTrue(servers.put(id, s) == null);
     return s;
   }
@@ -327,7 +328,6 @@ public abstract class MiniRaftCluster implements Closeable {
 
     final RaftServer proxy = putNewServer(serverId, group, format);
     proxy.start();
-    peers.put(proxy.getId(), proxy.getPeer());
     return group == null? null: proxy.getDivision(group.getGroupId());
   }
 
