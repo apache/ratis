@@ -160,7 +160,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       return getHeartbeatWaitTimeMs(); // Should wait for a short time
     } else if (shouldSendAppendEntries() && !isSlowFollower()) {
       // For normal nodes, new entries should be sent ASAP
-      // however for slow followers (eapecially when the follower is down),
+      // however for slow followers (especially when the follower is down),
       // keep sending without any wait time only ends up in high CPU load
       return 0L;
     }

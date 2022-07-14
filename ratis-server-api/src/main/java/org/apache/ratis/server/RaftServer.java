@@ -41,7 +41,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Objects;
-import java.util.Optional;
 
 /** Raft server interface */
 public interface RaftServer extends Closeable, RpcType.Get,
