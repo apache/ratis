@@ -92,7 +92,6 @@ public class RaftServerTestUtil {
     JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, Arrays.asList(peers), deadPeers),
         10, sleepTime, "waitAndCheckNewConf", LOG);
   }
-
   private static void waitAndCheckNewConf(MiniRaftCluster cluster,
       Collection<RaftPeer> peers, Collection<RaftPeerId> deadPeers) {
     LOG.info("waitAndCheckNewConf: peers={}, deadPeers={}, {}", peers, deadPeers, cluster.printServers());
