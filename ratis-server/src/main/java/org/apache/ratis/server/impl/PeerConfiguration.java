@@ -97,7 +97,7 @@ class PeerConfiguration {
 
   @Override
   public String toString() {
-    return peers.values().toString();
+    return "peers:" + peers.values() + "|listeners:" + listeners.values();
   }
 
   RaftPeer getPeer(RaftPeerId id, RaftPeerRole... roles) {

@@ -20,6 +20,7 @@ package org.apache.ratis.server;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
@@ -29,6 +30,7 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.thirdparty.com.google.common.collect.Iterables;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ReflectionUtils;
@@ -77,7 +79,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link RaftGroup} for this division. */
     default RaftGroup getGroup() {
-      return RaftGroup.valueOf(getMemberId().getGroupId(), getRaftConf().getAllPeers());
+      Collection<RaftPeer> allFollowerPeers =
+          getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.FOLLOWER);
+      Collection<RaftPeer> allListenerPeers =
+          getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
+      Iterable<RaftPeer> peers = Iterables.concat(allFollowerPeers, allListenerPeers);
+      return RaftGroup.valueOf(getMemberId().getGroupId(), peers);
     }
 
     /** @return the current {@link RaftConfiguration} for this division. */

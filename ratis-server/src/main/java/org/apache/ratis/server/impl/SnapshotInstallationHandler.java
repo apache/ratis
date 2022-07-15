@@ -165,7 +165,7 @@ class SnapshotInstallationHandler {
         LOG.warn("{}: Failed to recognize leader for installSnapshot chunk.", getMemberId());
         return reply;
       }
-      server.changeToFollowerAndPersistMetadata(leaderTerm, "installSnapshot");
+      server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
       state.setLeader(leaderId, "installSnapshot");
 
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
@@ -212,7 +212,7 @@ class SnapshotInstallationHandler {
         LOG.warn("{}: Failed to recognize leader for installSnapshot notification.", getMemberId());
         return reply;
       }
-      server.changeToFollowerAndPersistMetadata(leaderTerm, "installSnapshot");
+      server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
       state.setLeader(leaderId, "installSnapshot");
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
 

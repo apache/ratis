@@ -85,7 +85,10 @@ public final class LogProtoUtils {
   private static RaftConfigurationProto.Builder toRaftConfigurationProtoBuilder(RaftConfiguration conf) {
     return RaftConfigurationProto.newBuilder()
         .addAllPeers(ProtoUtils.toRaftPeerProtos(conf.getCurrentPeers()))
-        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers()));
+        .addAllListeners(ProtoUtils.toRaftPeerProtos(conf.getCurrentPeers(RaftPeerRole.LISTENER)))
+        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers()))
+        .addAllOldListeners(
+            ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers(RaftPeerRole.LISTENER)));
   }
 
   public static LogEntryProto toLogEntryProto(StateMachineLogEntryProto proto, long term, long index) {
