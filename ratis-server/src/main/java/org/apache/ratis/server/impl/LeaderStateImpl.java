@@ -658,7 +658,8 @@ class LeaderStateImpl implements LeaderState {
     final Timestamp progressTime = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-3L * server.getMaxTimeoutMs());
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
-      LOG.debug("{} detects a follower {} timeout ({}) for bootstrapping", this, follower, timeoutTime);
+      LOG.debug("{} detects a follower {} timeout ({}ms) for bootstrapping", this, follower,
+          follower.getLastRpcResponseTime().elapsedTimeMs());
       return BootStrapProgress.NOPROGRESS;
     } else if (follower.getMatchIndex() + stagingCatchupGap > committed
         && follower.getLastRpcResponseTime().compareTo(progressTime) > 0
