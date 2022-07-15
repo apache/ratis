@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.RaftPeerIdProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RouteProto;
@@ -118,6 +119,7 @@ public interface ProtoUtils {
         .setClientAddress(p.getClientAddress())
         .setAdminAddress(p.getAdminAddress())
         .setPriority(p.getPriority())
+        .setStartupRole(p.hasStartupRole() ? p.getStartupRole() : RaftProtos.RaftPeerRole.FOLLOWER)
         .build();
   }
 
