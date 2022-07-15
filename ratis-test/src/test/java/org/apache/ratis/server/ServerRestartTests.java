@@ -161,7 +161,9 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
   static void assertTruncatedLog(RaftPeerId id, File openLogFile, long lastIndex, MiniRaftCluster cluster) throws Exception {
     // truncate log
-    FileUtils.truncateFile(openLogFile, openLogFile.length() - 1);
+    if (openLogFile.length() > 0) {
+      FileUtils.truncateFile(openLogFile, openLogFile.length() - 1);
+    }
     final RaftServer.Division server = cluster.restartServer(id, false);
     // the last index should be one less than before
     Assert.assertEquals(lastIndex - 1, server.getRaftLog().getLastEntryTermIndex().getIndex());

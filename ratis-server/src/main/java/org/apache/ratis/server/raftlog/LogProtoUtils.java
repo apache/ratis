@@ -51,6 +51,10 @@ public final class LogProtoUtils {
     } else if (entry.hasMetadataEntry()) {
       final MetadataProto metadata = entry.getMetadataEntry();
       s = "(c:" + metadata.getCommitIndex() + ")";
+    } else if (entry.hasConfigurationEntry()) {
+      final RaftConfigurationProto config = entry.getConfigurationEntry();
+      s = "(current:" + config.getPeersList().stream().map(p -> p.toString()).collect(Collectors.joining(",")) +
+          ", old:" + config.getOldPeersList().stream().map(p -> p.toString()).collect(Collectors.joining(",")) + ")";
     } else {
       s = "";
     }

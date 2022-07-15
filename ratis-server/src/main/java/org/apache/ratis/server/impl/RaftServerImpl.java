@@ -1388,8 +1388,8 @@ class RaftServerImpl implements RaftServer.Division,
         : state.getLog().append(entries);
     commitInfos.forEach(commitInfoCache::update);
 
+    CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);
     if (!isHeartbeat) {
-      CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);
       final long installedIndex = snapshotInstallationHandler.getInstalledIndex();
       if (installedIndex >= RaftLog.LEAST_VALID_LOG_INDEX) {
         LOG.info("{}: Follower has completed install the snapshot {}.", this, installedIndex);
