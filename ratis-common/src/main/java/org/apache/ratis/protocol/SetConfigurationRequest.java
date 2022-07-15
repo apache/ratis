@@ -36,7 +36,6 @@ public class SetConfigurationRequest extends RaftClientRequest {
   public static final class Arguments {
     private final List<RaftPeer> serversInNewConf;
     private final List<RaftPeer> listenersInNewConf;
-
     private final List<RaftPeer> serversInCurConf;
     private final List<RaftPeer> listenersInCurConf;
     private final Mode mode;
@@ -106,7 +105,6 @@ public class SetConfigurationRequest extends RaftClientRequest {
     public static class Builder {
       private List<RaftPeer> serversInNewConf;
       private List<RaftPeer> listenersInNewConf = Collections.emptyList();
-
       private List<RaftPeer> serversInCurConf = Collections.emptyList();
       private List<RaftPeer> listenersInCurConf = Collections.emptyList();
       private Mode mode = Mode.SET_UNCONDITIONALLY;

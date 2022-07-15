@@ -235,7 +235,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         Assert.assertTrue(reply.isSuccess());
       }
 
-
       testFailureCase("Can't set configuration in CAS mode ",
           () -> client.admin().setConfiguration(SetConfigurationRequest.Arguments.newBuilder()
               .setServersInNewConf(peers)
