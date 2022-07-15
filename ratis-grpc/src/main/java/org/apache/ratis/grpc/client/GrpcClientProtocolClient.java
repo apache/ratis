@@ -382,7 +382,7 @@ public class GrpcClientProtocolClient implements Closeable {
 
     private void timeoutCheck(long callId, TimeDuration timeOutDuration) {
       handleReplyFuture(callId, f -> f.completeExceptionally(
-          new TimeoutIOException("Request #" + callId + " timeout " + timeOutDuration)));
+          new TimeoutIOException(getName() + " request #" + callId + " timeout " + timeOutDuration)));
     }
 
     private void handleReplyFuture(long callId, Consumer<CompletableFuture<RaftClientReply>> handler) {

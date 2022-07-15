@@ -17,7 +17,12 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.log4j.Appender;
+import org.apache.log4j.Layout;
 import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.PatternLayout;
+import org.apache.log4j.WriterAppender;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -44,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -69,6 +75,14 @@ public class RaftServerTestUtil {
   }
   public static void setPendingRequestsLogLevel(Level level) {
     Log4jUtils.setLogLevel(PendingRequests.LOG, level);
+  }
+
+  public static void waitAndCheckNewConf(MiniRaftCluster cluster,
+      RaftPeer[] peers, int numOfNewPeers, int numOfRemovedPeers, Collection<RaftPeerId> deadPeers)
+      throws Exception {
+    final TimeDuration sleepTime = cluster.getTimeoutMax().apply(n -> n * (numOfRemovedPeers + numOfNewPeers + 2));
+    JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, Arrays.asList(peers), deadPeers),
+        10, sleepTime, "waitAndCheckNewConf", LOG);
   }
 
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
@@ -185,5 +199,54 @@ public class RaftServerTestUtil {
   public static CompletableFuture<RaftClientReply> takeSnapshotAsync(RaftServer.Division leader, SnapshotManagementRequest r)
       throws IOException {
     return ((RaftServerImpl)leader).takeSnapshotAsync(r);
+  }
+
+  /**
+   * Class to capture logs for doing assertions.
+   */
+  public static final class LogCapturer {
+    private StringWriter sw = new StringWriter();
+    private WriterAppender appender;
+    private org.apache.log4j.Logger logger;
+
+    public static LogCapturer captureLogs(org.slf4j.Logger logger) {
+      return new LogCapturer(toLog4j(logger), getDefaultLayout());
+    }
+
+    public static LogCapturer captureLogs(org.slf4j.Logger logger, Layout layout) {
+      return new LogCapturer(toLog4j(logger), layout);
+    }
+
+    private static Layout getDefaultLayout() {
+      Appender defaultAppender = org.apache.log4j.Logger.getRootLogger().getAppender("stdout");
+      if (defaultAppender == null) {
+        defaultAppender = org.apache.log4j.Logger.getRootLogger().getAppender("console");
+      }
+      return (defaultAppender == null) ? new PatternLayout() :
+          defaultAppender.getLayout();
+    }
+
+    private LogCapturer(org.apache.log4j.Logger logger, Layout layout) {
+      this.logger = logger;
+      this.appender = new WriterAppender(layout, sw);
+      logger.addAppender(this.appender);
+    }
+
+    public String getOutput() {
+      return sw.toString();
+    }
+
+    public void stopCapturing() {
+      logger.removeAppender(appender);
+    }
+
+    public void clearOutput() {
+      sw.getBuffer().setLength(0);
+    }
+  }
+
+  @Deprecated
+  public static org.apache.log4j.Logger toLog4j(org.slf4j.Logger logger) {
+    return LogManager.getLogger(logger.getName());
   }
 }

@@ -23,10 +23,6 @@
   <artifactId>ratis-shell</artifactId>
   <name>Apache Ratis Shell</name>
 
-  <properties>
-    <guava.version>29.0-jre</guava.version>
-  </properties>
-
   <dependencies>
     <dependency>
       <artifactId>ratis-client</artifactId>
@@ -34,18 +30,6 @@
     </dependency>
     <dependency>
       <artifactId>ratis-common</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-grpc</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-metrics</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-server-api</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
 
@@ -57,11 +41,6 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.reflections</groupId>

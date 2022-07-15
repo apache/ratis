@@ -28,6 +28,7 @@ message RaftPeerProto {
   string dataStreamAddress = 4; // address of the data stream server
   string clientAddress = 5; // address of the client RPC server
   string adminAddress = 6; // address of the admin RPC server
+  optional RaftPeerRole startupRole = 7; // peer start up role
 }
 
 message RaftPeerIdProto {
