@@ -19,13 +19,13 @@ package org.apache.ratis.protocol.exceptions;
 
 import java.io.IOException;
 
-public class SetConfigurationCasModeException extends IOException {
+public class SetConfigurationException extends RaftException {
 
-  public SetConfigurationCasModeException(String message) {
+  public SetConfigurationException(String message) {
     super(message);
   }
 
-  public SetConfigurationCasModeException(String message, Throwable t) {
+  public SetConfigurationException(String message, Throwable t) {
     super(message, t);
   }
 }

@@ -31,7 +31,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.protocol.exceptions.SetConfigurationCasModeException;
+import org.apache.ratis.protocol.exceptions.SetConfigurationException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
@@ -238,15 +238,16 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       testFailureCase("Can't set configuration in CAS mode ",
           () -> client.admin().setConfiguration(SetConfigurationRequest.Arguments.newBuilder()
               .setServersInNewConf(peers)
-              .setServersInCurConf(peers)
-              .setMode(SetConfigurationRequest.Mode.CAS)
-              .build()), SetConfigurationCasModeException.class);
+              .setServersInCurrentConf(peers)
+              .setMode(SetConfigurationRequest.Mode.COMPARE_AND_SET)
+              .build()), SetConfigurationException.class);
 
+      Collections.shuffle(oldPeers);
       RaftClientReply reply = client.admin().setConfiguration(
           SetConfigurationRequest.Arguments.newBuilder()
               .setServersInNewConf(peers)
-              .setServersInCurConf(oldPeers)
-              .setMode(SetConfigurationRequest.Mode.CAS)
+              .setServersInCurrentConf(oldPeers)
+              .setMode(SetConfigurationRequest.Mode.COMPARE_AND_SET)
               .build());
       Assert.assertTrue(reply.isSuccess());
       waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);

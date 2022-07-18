@@ -23,7 +23,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.*;
-import org.apache.ratis.protocol.exceptions.SetConfigurationCasModeException;
+import org.apache.ratis.protocol.exceptions.SetConfigurationException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
@@ -1109,16 +1109,18 @@ class RaftServerImpl implements RaftServer.Division,
       if (arguments.getMode() == SetConfigurationRequest.Mode.ADD) {
         serversInNewConf = add(RaftPeerRole.FOLLOWER, current, arguments);
         listenersInNewConf = add(RaftPeerRole.LISTENER, current, arguments);
-      } else if (arguments.getMode() == SetConfigurationRequest.Mode.CAS) {
-        List<RaftPeer> serversInCurConf = arguments.getServersInCurConf();
-        List<RaftPeer> listenersInCurConf = arguments.getListenersInCurConf();
-        if (serversInCurConf.equals(current.getAllPeers(RaftPeerRole.FOLLOWER))
-            && listenersInCurConf.equals(current.getAllPeers(RaftPeerRole.LISTENER))) {
+      } else if (arguments.getMode() == SetConfigurationRequest.Mode.COMPARE_AND_SET) {
+        final Comparator<RaftPeer> comparator = Comparator.comparing(RaftPeer::getId,
+            Comparator.comparing(RaftPeerId::toString));
+        if (CollectionUtils.equalsIgnoreOrder(arguments.getServersInCurrentConf(),
+            current.getAllPeers(RaftPeerRole.FOLLOWER), comparator)
+            && CollectionUtils.equalsIgnoreOrder(arguments.getListenersInCurrentConf(),
+            current.getAllPeers(RaftPeerRole.LISTENER), comparator)) {
           serversInNewConf = arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER);
           listenersInNewConf = arguments.getPeersInNewConf(RaftPeerRole.LISTENER);
         } else {
-          String msg = String.format("Failed set configuration in CAS mode, actual conf is different from expected.");
-          throw new SetConfigurationCasModeException(msg);
+          throw new SetConfigurationException("Failed to set configuration: current configuration "
+              + current + " is different than the request " + request);
         }
       } else {
         serversInNewConf = arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER);

@@ -140,4 +140,22 @@ public interface CollectionUtils {
     return computeIfAbsent(map, key, supplier, () -> {
     });
   }
+
+  static <V> boolean equalsIgnoreOrder(List<V> left, List<V> right, Comparator<V> comparator) {
+    if (left == right) {
+      return true;
+    } else if (left == null || right == null) {
+      // only one of them is null (cannot be both null since they are unequal)
+      return false;
+    }
+    final int n = right.size();
+    if (left.size() != n) {
+      return false;
+    }
+    left = new ArrayList<>(left);
+    left.sort(comparator);
+    right = new ArrayList<>(right);
+    right.sort(comparator);
+    return left.equals(right);
+  }
 }
