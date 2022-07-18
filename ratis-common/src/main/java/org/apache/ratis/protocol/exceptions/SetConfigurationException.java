@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
-import java.io.IOException;
-
 public class SetConfigurationException extends RaftException {
 
   public SetConfigurationException(String message) {

@@ -40,8 +40,8 @@ public class SetConfigurationRequest extends RaftClientRequest {
     private final List<RaftPeer> listenersInCurrentConf;
     private final Mode mode;
 
-    private Arguments(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf,
-        List<RaftPeer> serversInCurrentConf, List<RaftPeer> listenersInCurrentConf, Mode mode) {
+    private Arguments(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf, Mode mode,
+        List<RaftPeer> serversInCurrentConf, List<RaftPeer> listenersInCurrentConf) {
       this.serversInNewConf = Optional.ofNullable(serversInNewConf)
           .map(Collections::unmodifiableList)
           .orElseGet(Collections::emptyList);
@@ -141,8 +141,8 @@ public class SetConfigurationRequest extends RaftClientRequest {
       }
 
       public Arguments build() {
-        return new Arguments(serversInNewConf, listenersInNewConf, serversInCurrentConf,
-            listenersInCurrentConf, mode);
+        return new Arguments(serversInNewConf, listenersInNewConf, mode, serversInCurrentConf,
+            listenersInCurrentConf);
       }
     }
   }
