@@ -1131,6 +1131,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       getRaftServer().addRaftPeers(serversInNewConf);
+      getRaftServer().addRaftPeers(listenersInNewConf);
       // add staging state into the leaderState
       pending = leaderState.startSetConfiguration(request, serversInNewConf);
     }
