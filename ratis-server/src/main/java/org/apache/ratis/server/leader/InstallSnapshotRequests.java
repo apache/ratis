@@ -51,6 +51,8 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
 
   /** Maximum chunk size. */
   private final int snapshotChunkMaxSize;
+  /** The total size of snapshot files. */
+  private final long totalSize;
 
   /** The index of the current request. */
   private int requestIndex = 0;
@@ -67,6 +69,8 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
     this.requestId = requestId;
     this.snapshot = snapshot;
     this.snapshotChunkMaxSize = snapshotChunkMaxSize;
+    this.totalSize = snapshot.getFiles().stream().mapToLong(FileInfo::getFileSize).reduce(Long::sum).orElseThrow(
+            () -> new IllegalStateException("Failed to compute total size for snapshot " + snapshot));
   }
 
   @Override
@@ -117,8 +121,6 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
   }
 
   private InstallSnapshotRequestProto newInstallSnapshotRequest(FileChunkProto chunk, boolean done) {
-    final long totalSize = snapshot.getFiles().stream().mapToLong(FileInfo::getFileSize).reduce(Long::sum).orElseThrow(
-        () -> new IllegalStateException("Failed to compute total size for snapshot " + snapshot));
     synchronized (server) {
       final SnapshotChunkProto.Builder b = LeaderProtoUtils.toSnapshotChunkProtoBuilder(
           requestId, requestIndex++, snapshot.getTermIndex(), chunk, totalSize, done);
