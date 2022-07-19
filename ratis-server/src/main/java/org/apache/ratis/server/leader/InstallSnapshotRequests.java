@@ -51,6 +51,8 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
 
   /** Maximum chunk size. */
   private final int snapshotChunkMaxSize;
+  /** The total size of snapshot files. */
+  private final long totalSize;
 
   /** The index of the current request. */
   private int requestIndex = 0;
@@ -59,8 +61,6 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
   private int fileIndex = 0;
   /** The current file. */
   private FileChunkReader current;
-  /** The total size of snapshot files. */
-  private long totalSize;
 
   InstallSnapshotRequests(RaftServer.Division server, RaftPeerId followerId,
       String requestId, SnapshotInfo snapshot, int snapshotChunkMaxSize) {
