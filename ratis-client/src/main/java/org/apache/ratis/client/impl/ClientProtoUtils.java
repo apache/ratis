@@ -502,6 +502,8 @@ public interface ClientProtoUtils {
     final SetConfigurationRequest.Arguments arguments = SetConfigurationRequest.Arguments.newBuilder()
         .setServersInNewConf(ProtoUtils.toRaftPeers(p.getPeersList()))
         .setListenersInNewConf(ProtoUtils.toRaftPeers(p.getListenersList()))
+        .setServersInCurrentConf(ProtoUtils.toRaftPeers(p.getCurrentPeersList()))
+        .setListenersInCurrentConf(ProtoUtils.toRaftPeers(p.getCurrentListenersList()))
         .setMode(toSetConfigurationMode(p.getMode()))
         .build();
     final RaftRpcRequestProto m = p.getRpcRequest();
@@ -519,6 +521,8 @@ public interface ClientProtoUtils {
         return SetConfigurationRequest.Mode.SET_UNCONDITIONALLY;
       case ADD:
         return SetConfigurationRequest.Mode.ADD;
+      case COMPARE_AND_SET:
+        return SetConfigurationRequest.Mode.COMPARE_AND_SET;
       default:
         throw new IllegalArgumentException("Unexpected mode " + p);
     }
@@ -531,6 +535,8 @@ public interface ClientProtoUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER)))
         .addAllListeners(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.LISTENER)))
+        .addAllCurrentPeers(ProtoUtils.toRaftPeerProtos(arguments.getServersInCurrentConf()))
+        .addAllCurrentListeners(ProtoUtils.toRaftPeerProtos(arguments.getListenersInCurrentConf()))
         .setMode(SetConfigurationRequestProto.Mode.valueOf(arguments.getMode().name()))
         .build();
   }

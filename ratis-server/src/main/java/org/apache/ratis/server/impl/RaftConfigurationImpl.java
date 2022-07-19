@@ -200,8 +200,8 @@ final class RaftConfigurationImpl implements RaftConfiguration {
   }
 
   @Override
-  public Collection<RaftPeer> getAllPeers(RaftPeerRole role) {
-    final Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers(role));
+  public List<RaftPeer> getAllPeers(RaftPeerRole role) {
+    final List<RaftPeer> peers = new ArrayList<>(conf.getPeers(role));
     if (oldConf != null) {
       oldConf.getPeers(role).stream()
           .filter(p -> !peers.contains(p))

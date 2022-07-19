@@ -410,11 +410,14 @@ message SetConfigurationRequestProto {
   enum Mode {
     SET_UNCONDITIONALLY = 0;
     ADD = 1;
+    COMPARE_AND_SET = 2;
   }
   RaftRpcRequestProto rpcRequest = 1;
   repeated RaftPeerProto peers = 2;
   repeated RaftPeerProto listeners = 3;
   optional Mode mode = 4;
+  repeated RaftPeerProto currentPeers = 5;
+  repeated RaftPeerProto currentListeners = 6;
 }
 
 // transfer leadership request
