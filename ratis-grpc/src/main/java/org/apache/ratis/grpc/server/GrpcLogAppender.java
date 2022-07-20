@@ -66,7 +66,6 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private volatile StreamObservers appendLogRequestObserver;
   private final boolean useSeparateHBChannel;
-  private final AppendLogResponseHandler appendLogResponseHandler;
 
   private final GrpcServerMetrics grpcServerMetrics;
 
@@ -89,7 +88,6 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     lock = new AutoCloseableReadWriteLock(this);
     caller = LOG.isTraceEnabled()? JavaUtils.getCallerStackTraceElement(): null;
-    appendLogResponseHandler = new AppendLogResponseHandler();
   }
 
   @Override
@@ -252,7 +250,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       pendingRequests.put(request);
       increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
-        appendLogRequestObserver = new StreamObservers(getClient(), appendLogResponseHandler, useSeparateHBChannel);
+        appendLogRequestObserver = new StreamObservers(getClient(), new AppendLogResponseHandler(), useSeparateHBChannel);
       }
     }
 
