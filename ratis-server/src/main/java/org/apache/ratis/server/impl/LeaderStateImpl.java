@@ -1079,7 +1079,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     boolean contains(RaftPeerId peerId) {
-      return newPeers.containsKey(peerId);
+      return newPeers.containsKey(peerId) || newListeners.containsKey(peerId);
     }
 
     void fail(BootStrapProgress progress) {
