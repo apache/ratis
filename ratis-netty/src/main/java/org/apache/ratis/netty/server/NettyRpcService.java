@@ -86,6 +86,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final MemoizedSupplier<ChannelFuture> channel;
+  private final InetSocketAddress socketAddress;
 
   @ChannelHandler.Sharable
   class InboundHandler extends SimpleChannelInboundHandler<RaftNettyServerRequestProto> {
@@ -118,7 +119,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
 
     final String host = NettyConfigKeys.Server.host(server.getProperties());
     final int port = NettyConfigKeys.Server.port(server.getProperties());
-    InetSocketAddress socketAddress =
+    socketAddress =
             host == null || host.isEmpty() ? new InetSocketAddress(port) : new InetSocketAddress(host, port);
     this.channel = JavaUtils.memoize(() -> new ServerBootstrap()
         .group(bossGroup, workerGroup)
@@ -167,7 +168,14 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
 
   @Override
   public InetSocketAddress getInetSocketAddress() {
-    return (InetSocketAddress)getChannel().localAddress();
+    try {
+      return (InetSocketAddress) getChannel().localAddress();
+    } catch (IllegalStateException e) {
+      if (socketAddress.getPort() != NettyConfigKeys.Server.PORT_DEFAULT) {
+        return socketAddress;
+      }
+      throw e;
+    }
   }
 
   RaftNettyServerReplyProto handle(RaftNettyServerRequestProto proto) {

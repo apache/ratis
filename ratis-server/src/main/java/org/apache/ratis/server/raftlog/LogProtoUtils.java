@@ -51,6 +51,10 @@ public final class LogProtoUtils {
     } else if (entry.hasMetadataEntry()) {
       final MetadataProto metadata = entry.getMetadataEntry();
       s = "(c:" + metadata.getCommitIndex() + ")";
+    } else if (entry.hasConfigurationEntry()) {
+      final RaftConfigurationProto config = entry.getConfigurationEntry();
+      s = "(current:" + config.getPeersList().stream().map(p -> p.toString()).collect(Collectors.joining(",")) +
+          ", old:" + config.getOldPeersList().stream().map(p -> p.toString()).collect(Collectors.joining(",")) + ")";
     } else {
       s = "";
     }
@@ -85,7 +89,10 @@ public final class LogProtoUtils {
   private static RaftConfigurationProto.Builder toRaftConfigurationProtoBuilder(RaftConfiguration conf) {
     return RaftConfigurationProto.newBuilder()
         .addAllPeers(ProtoUtils.toRaftPeerProtos(conf.getCurrentPeers()))
-        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers()));
+        .addAllListeners(ProtoUtils.toRaftPeerProtos(conf.getCurrentPeers(RaftPeerRole.LISTENER)))
+        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers()))
+        .addAllOldListeners(
+            ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers(RaftPeerRole.LISTENER)));
   }
 
   public static LogEntryProto toLogEntryProto(StateMachineLogEntryProto proto, long term, long index) {

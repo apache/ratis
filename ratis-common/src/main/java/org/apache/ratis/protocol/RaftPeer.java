@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
@@ -65,7 +66,8 @@ public final class RaftPeer {
         .setAdminAddress(peer.getAdminAddress())
         .setClientAddress(peer.getClientAddress())
         .setDataStreamAddress(peer.getDataStreamAddress())
-        .setPriority(peer.getPriority());
+        .setPriority(peer.getPriority())
+        .setStartupRole(peer.getStartupRole());
   }
 
   public static class Builder {
@@ -75,6 +77,7 @@ public final class RaftPeer {
     private String clientAddress;
     private String dataStreamAddress;
     private int priority;
+    private RaftPeerRole startupRole = RaftPeerRole.FOLLOWER;
 
     public Builder setId(RaftPeerId id) {
       this.id = id;
@@ -133,10 +136,21 @@ public final class RaftPeer {
       return this;
     }
 
+    public Builder setStartupRole(RaftPeerRole startupRole) {
+      if (startupRole != RaftPeerRole.FOLLOWER
+          && startupRole != RaftPeerRole.LISTENER) {
+        throw new IllegalArgumentException(
+            "At startup the role can only be set to FOLLOWER or LISTENER, the current value is " +
+                startupRole);
+      }
+      this.startupRole = startupRole;
+      return this;
+    }
+
     public RaftPeer build() {
       return new RaftPeer(
           Objects.requireNonNull(id, "The 'id' field is not initialized."),
-          address, adminAddress, clientAddress, dataStreamAddress, priority);
+          address, adminAddress, clientAddress, dataStreamAddress, priority, startupRole);
     }
   }
 
@@ -151,17 +165,20 @@ public final class RaftPeer {
   /** The priority of the peer. */
   private final int priority;
 
+  private final RaftPeerRole startupRole;
+
   private final Supplier<RaftPeerProto> raftPeerProto;
 
   private RaftPeer(RaftPeerId id,
       String address, String adminAddress, String clientAddress, String dataStreamAddress,
-      int priority) {
+      int priority, RaftPeerRole startupRole) {
     this.id = Objects.requireNonNull(id, "id == null");
     this.address = address;
     this.dataStreamAddress = dataStreamAddress;
     this.adminAddress = adminAddress;
     this.clientAddress = clientAddress;
     this.priority = priority;
+    this.startupRole = startupRole;
     this.raftPeerProto = JavaUtils.memoize(this::buildRaftPeerProto);
   }
 
@@ -173,6 +190,7 @@ public final class RaftPeer {
     Optional.ofNullable(getClientAddress()).ifPresent(builder::setClientAddress);
     Optional.ofNullable(getAdminAddress()).ifPresent(builder::setAdminAddress);
     builder.setPriority(priority);
+    builder.setStartupRole(startupRole);
     return builder.build();
   }
 
@@ -208,6 +226,10 @@ public final class RaftPeer {
     return priority;
   }
 
+  public RaftPeerRole getStartupRole() {
+    return startupRole;
+  }
+
   public RaftPeerProto getRaftPeerProto() {
     return raftPeerProto.get();
   }
@@ -220,8 +242,9 @@ public final class RaftPeer {
     final String client = clientAddress != null && !Objects.equals(address, clientAddress)
         ? "|client:" + clientAddress : "";
     final String data = dataStreamAddress != null? "|dataStream:" + dataStreamAddress: "";
-    final String p = "|priority:" +  priority;
-    return id + rpc + admin + client + data + p;
+    final String p = "|priority:" + priority;
+    final String role = "|startupRole:" + startupRole;
+    return id + rpc + admin + client + data + p + role;
   }
 
   @Override
