@@ -43,6 +43,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
@@ -458,19 +459,40 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       final RaftPeerId newLeaderId = RaftTestUtil.waitForLeader(cluster).getId();
       LOG.info("newLeaderId: {}", newLeaderId);
 
-      LOG.info("start new peers: {}", Arrays.asList(c1.newPeers));
-      for (RaftPeer np : c1.newPeers) {
-        cluster.restartServer(np.getId(), false);
-      }
+      for(int i = 0; i < 5; i++) {
+        LOG.info("start new peers: {}, attempt {}/5", Arrays.asList(c1.newPeers), (i+1));
+        for (RaftPeer np : c1.newPeers) {
+          cluster.restartServer(np.getId(), false);
+        }
 
-      try {
-        setConf.get(10, TimeUnit.SECONDS);
-      } catch(TimeoutException ignored) {
-      }
+        try {
+          setConf.get(10, TimeUnit.SECONDS);
+        } catch(TimeoutException ignored) {
+        }
 
-      // the client fails with the first leader, and then retry the same setConfiguration request
-      waitAndCheckNewConf(cluster, c2.allPeersInNewConf, 2, Collections.singletonList(leaderId));
-      setConf.get(1, TimeUnit.SECONDS);
+        // if setConf success, then verify the results
+        // otherwise there's a chance that new servers received shutdown command from leader
+        // thus setConf won't success. In that case, simply start new servers and try again.
+        if(setConf.isDone() && !setConf.isCompletedExceptionally()) {
+          waitAndCheckNewConf(cluster, c2.allPeersInNewConf, 1, Collections.singletonList(leaderId));
+          break;
+        } else {
+          boolean hasClosedNewServer = false;
+          for (RaftPeer np : c1.newPeers) {
+            RaftServerProxy newServer = cluster.getServer(np.getId());
+            if (newServer.getLifeCycleState() == LifeCycle.State.CLOSED) {
+              hasClosedNewServer = true;
+              break;
+            }
+          }
+
+          // if setConf timeout but new servers are normal, then it's possibily a bug
+          if(!hasClosedNewServer) {
+            Assert.fail("setConf timeout abnormally");
+            break;
+          }
+        }
+      }  
     } finally {
       if (clientThread != null) {
         clientRunning.set(false);
