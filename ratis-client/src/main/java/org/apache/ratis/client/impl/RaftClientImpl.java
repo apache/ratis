@@ -48,7 +48,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutScheduler;
+import org.apache.ratis.util.TimeoutExecutor;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -135,7 +135,7 @@ public final class RaftClientImpl implements RaftClient {
 
   private volatile RaftPeerId leaderId;
 
-  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
   private final Supplier<OrderedAsync> orderedAsync;
   private final Supplier<AsyncImpl> asyncApi;
@@ -226,7 +226,7 @@ public final class RaftClientImpl implements RaftClient {
         TimeDuration.ZERO : sleepDefault;
   }
 
-  TimeoutScheduler getScheduler() {
+  TimeoutExecutor getScheduler() {
     return scheduler;
   }
 
@@ -403,7 +403,6 @@ public final class RaftClientImpl implements RaftClient {
 
   @Override
   public void close() throws IOException {
-    scheduler.close();
     clientRpc.close();
     if (dataStreamApi.isInitialized()) {
       dataStreamApi.get().close();
