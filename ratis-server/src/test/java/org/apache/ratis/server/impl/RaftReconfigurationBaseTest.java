@@ -57,6 +57,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
@@ -459,7 +460,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       final RaftPeerId newLeaderId = RaftTestUtil.waitForLeader(cluster).getId();
       LOG.info("newLeaderId: {}", newLeaderId);
 
-      for(int i = 0; i < 5; i++) {
+      boolean hasClosedNewServer = true;
+      for(int i = 0; hasClosedNewServer && i < 5; i++) {
         LOG.info("start new peers: {}, attempt {}/5", Arrays.asList(c1.newPeers), (i+1));
         for (RaftPeer np : c1.newPeers) {
           cluster.restartServer(np.getId(), false);
@@ -475,24 +477,14 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         // thus setConf won't success. In that case, simply start new servers and try again.
         if(setConf.isDone() && !setConf.isCompletedExceptionally()) {
           waitAndCheckNewConf(cluster, c2.allPeersInNewConf, 1, Collections.singletonList(leaderId));
-          break;
+          return;
         } else {
-          boolean hasClosedNewServer = false;
-          for (RaftPeer np : c1.newPeers) {
-            RaftServerProxy newServer = cluster.getServer(np.getId());
-            if (newServer.getLifeCycleState() == LifeCycle.State.CLOSED) {
-              hasClosedNewServer = true;
-              break;
-            }
-          }
-
-          // if setConf timeout but new servers are normal, then it's possibily a bug
-          if(!hasClosedNewServer) {
-            Assert.fail("setConf timeout abnormally");
-            break;
-          }
+          hasClosedNewServer = Stream.of(c1.newPeers)
+            .anyMatch(np -> cluster.getServer(np.getId()).getLifeCycleState() == LifeCycle.State.CLOSED);
         }
-      }  
+      }
+      // if setConf timeout but new servers are normal, then it's possibily a bug
+      Assert.fail("setConf timeout abnormally");
     } finally {
       if (clientThread != null) {
         clientRunning.set(false);
