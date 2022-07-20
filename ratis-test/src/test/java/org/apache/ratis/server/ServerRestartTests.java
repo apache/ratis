@@ -379,7 +379,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       final long mid = size / 2;
       raf.seek(mid);
       for (long i = mid; i < size; i++) {
-        raf.write(0);
+        raf.write(-1);
       }
     }
 
