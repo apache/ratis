@@ -232,12 +232,4 @@ public interface GrpcUtil {
       }
     }
   }
-
-  /**
-   * Tries to gracefully shut down the managed channel with call back. Falls back to forceful shutdown if
-   * graceful shutdown times out.
-   */
-  static CompletableFuture<Void> asyncShutdownManagedChannel(ManagedChannel channel) {
-    return CompletableFuture.runAsync(() -> shutdownManagedChannel(channel));
-  }
 }

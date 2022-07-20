@@ -110,16 +110,9 @@ public class GrpcServerProtocolClient implements Closeable {
     LOG.info("{} Close channels", raftPeerId);
     CompletableFuture<Void> future1;
     if (useSeparateHBChannel) {
-      future1 = GrpcUtil.asyncShutdownManagedChannel(hbChannel);
-    } else {
-      future1 = new CompletableFuture();
+      GrpcUtil.shutdownManagedChannel(hbChannel);
     }
-    CompletableFuture<Void> future2 = GrpcUtil.asyncShutdownManagedChannel(channel);
-    try {
-      CompletableFuture.allOf(future1, future2).get();
-    } catch (Exception e) {
-      LOG.warn("{} Close channels failed", raftPeerId, e);
-    }
+    GrpcUtil.shutdownManagedChannel(channel);
   }
 
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) {

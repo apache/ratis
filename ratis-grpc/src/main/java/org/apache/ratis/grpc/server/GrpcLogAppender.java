@@ -64,8 +64,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   private final TimeDuration requestTimeoutDuration;
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
-  private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
-  private volatile StreamObserver<AppendEntriesRequestProto> heartbeatRequestObserver;
+  private volatile StreamObservers appendLogRequestObserver;
   private final boolean useSeparateHBChannel;
   private final AppendLogResponseHandler appendLogResponseHandler;
 
@@ -83,7 +82,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     this.maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(properties);
     this.requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(properties);
     this.installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
-    this.useSeparateHBChannel = RaftServerConfigKeys.Log.Appender.heartbeatChannel(properties);
+    this.useSeparateHBChannel = GrpcConfigKeys.Server.heartbeatChannel(properties);
 
     grpcServerMetrics = new GrpcServerMetrics(server.getMemberId().toString());
     grpcServerMetrics.addPendingRequestsCount(getFollowerId().toString(), pendingRequests::logRequestsSize);
@@ -102,11 +101,10 @@ public class GrpcLogAppender extends LogAppenderBase {
     return getServerRpc().getProxies().getProxy(getFollowerId());
   }
 
-  private void resetClient(AppendEntriesRequest request, Throwable throwable) {
+  private void resetClient(AppendEntriesRequest request, boolean onError) {
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       getClient().resetConnectBackoff();
       appendLogRequestObserver = null;
-      heartbeatRequestObserver = null;
       firstResponseReceived = false;
       // clear the pending requests queue and reset the next index of follower
       pendingRequests.clear();
@@ -114,7 +112,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           .map(AppendEntriesRequest::getPreviousLog)
           .map(TermIndex::getIndex)
           .orElseGet(getFollower()::getMatchIndex);
-      if (throwable != null && getFollower().getMatchIndex() == 0 && request == null) {
+      if (onError && getFollower().getMatchIndex() == 0 && request == null) {
         LOG.warn("{}: Leader has not got in touch with Follower {} yet, " +
           "just keep nextIndex unchanged and retry.", this, getFollower());
         return;
@@ -158,8 +156,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       getLeaderState().checkHealth(getFollower());
     }
 
-    Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObserver::onCompleted);
-    Optional.ofNullable(heartbeatRequestObserver).ifPresent(StreamObserver::onCompleted);
+    Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObservers::onCompleted);
   }
 
   public long getWaitTimeMs() {
@@ -197,8 +194,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   @Override
   public boolean shouldSendAppendEntries() {
-    return appendLogRequestObserver == null || (heartbeatRequestObserver == null && useSeparateHBChannel) ||
-        super.shouldSendAppendEntries();
+    return appendLogRequestObserver == null || super.shouldSendAppendEntries();
   }
 
   @Override
@@ -217,6 +213,29 @@ public class GrpcLogAppender extends LogAppenderBase {
     return !firstResponseReceived || size >= maxPendingRequestsNum;
   }
 
+  static class StreamObservers {
+    private final StreamObserver<AppendEntriesRequestProto> appendLog;
+    private final StreamObserver<AppendEntriesRequestProto> heartbeat;
+
+    StreamObservers(GrpcServerProtocolClient client, AppendLogResponseHandler handler, boolean separateHeartbeat) {
+      this.appendLog = client.appendEntries(handler, false);
+      this.heartbeat = separateHeartbeat? client.appendEntries(handler, true): null;
+    }
+
+    void onNext(AppendEntriesRequestProto proto) {
+      if (heartbeat != null && proto.getEntriesCount() == 0) {
+        heartbeat.onNext(proto);
+      } else {
+        appendLog.onNext(proto);
+      }
+    }
+
+    void onCompleted() {
+      appendLog.onCompleted();
+      Optional.ofNullable(heartbeat).ifPresent(StreamObserver::onCompleted);
+    }
+  }
+
   private void appendLog(boolean excludeLogEntries) throws IOException {
     final AppendEntriesRequestProto pending;
     final AppendEntriesRequest request;
@@ -233,13 +252,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       pendingRequests.put(request);
       increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
-        appendLogRequestObserver =
-            getClient().appendEntries(appendLogResponseHandler, false);
-      }
-
-      if (heartbeatRequestObserver == null && useSeparateHBChannel) {
-        heartbeatRequestObserver =
-            getClient().appendEntries(appendLogResponseHandler, true);
+        appendLogRequestObserver = new StreamObservers(getClient(), appendLogResponseHandler, useSeparateHBChannel);
       }
     }
 
@@ -252,15 +265,10 @@ public class GrpcLogAppender extends LogAppenderBase {
     CodeInjectionForTesting.execute(GrpcService.GRPC_SEND_SERVER_REQUEST,
         getServer().getId(), null, proto);
     request.startRequestTimer();
-    boolean sent = false;
-    if (request.isHeartbeat() && useSeparateHBChannel) {
-      // NPE throw out when observer is closed in resetClient
-      Optional.ofNullable(heartbeatRequestObserver).ifPresent(observer -> observer.onNext(proto));
-      sent = true;
-    } else {
-      Optional.ofNullable(appendLogRequestObserver).ifPresent(observer -> observer.onNext(proto));
-      sent = true;
-    }
+    boolean sent = Optional.ofNullable(appendLogRequestObserver).map(observer -> {
+        observer.onNext(proto);
+        return true;}).isPresent();
+
     if (sent) {
       scheduler.onTimeout(requestTimeoutDuration,
           () -> timeoutAppendRequest(request.getCallId(), request.isHeartbeat()),
@@ -370,13 +378,13 @@ public class GrpcLogAppender extends LogAppenderBase {
       GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
       AppendEntriesRequest request = pendingRequests.remove(GrpcUtil.getCallId(t), GrpcUtil.isHeartbeat(t));
-      resetClient(request, t);
+      resetClient(request, true);
     }
 
     @Override
     public void onCompleted() {
       LOG.info("{}: follower responses appendEntries COMPLETED", this);
-      resetClient(null, null);
+      resetClient(null, false);
     }
 
     @Override
@@ -525,7 +533,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       }
       GrpcUtil.warn(LOG, () -> this + ": Failed InstallSnapshot", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
-      resetClient(null, t);
+      resetClient(null, true);
       close();
     }
 

@@ -127,7 +127,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         RaftServerConfigKeys.Log.Appender.bufferByteLimit(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()),
-        RaftServerConfigKeys.Log.Appender.heartbeatChannel(server.getProperties()));
+        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()));
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber") // private constructor

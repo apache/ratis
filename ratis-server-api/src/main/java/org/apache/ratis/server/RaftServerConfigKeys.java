@@ -486,16 +486,6 @@ public interface RaftServerConfigKeys {
       static void setInstallSnapshotEnabled(RaftProperties properties, boolean shouldInstallSnapshot) {
         setBoolean(properties::setBoolean, INSTALL_SNAPSHOT_ENABLED_KEY, shouldInstallSnapshot);
       }
-
-      String HEARTBEAT_CHANNEL_KEY = PREFIX + ".heartbeat.channel";
-      boolean HEARTBEAT_CHANNEL_DEFAULT = true;
-      static boolean heartbeatChannel(RaftProperties properties) {
-        return getBoolean(properties::getBoolean, HEARTBEAT_CHANNEL_KEY,
-            HEARTBEAT_CHANNEL_DEFAULT, getDefaultLog());
-      }
-      static void setHeartbeatChannel(RaftProperties properties, boolean useCached) {
-        setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useCached);
-      }
     }
   }
 

@@ -18,7 +18,23 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.InstallSnapshotFromLeaderTests;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
+
+@RunWith(Parameterized.class)
 public class TestLeaderInstallSnapshot
 extends InstallSnapshotFromLeaderTests<MiniRaftClusterWithGrpc>
-implements MiniRaftClusterWithGrpc.FactoryGet {}
+implements MiniRaftClusterWithGrpc.FactoryGet {
+
+    public TestLeaderInstallSnapshot(Boolean separateHeartbeat) {
+        GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    }
+
+    @Parameterized.Parameters
+    public static Collection<Boolean[]> data() {
+        return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+    }
+}

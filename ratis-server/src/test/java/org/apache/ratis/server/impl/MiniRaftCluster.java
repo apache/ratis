@@ -344,10 +344,6 @@ public abstract class MiniRaftCluster implements Closeable {
     return RaftServerConfigKeys.Rpc.timeoutMax(properties);
   }
 
-  public TimeDuration getRequestTimeout() {
-    return RaftServerConfigKeys.Rpc.requestTimeout(properties);
-  }
-
   private RaftServerProxy newRaftServer(RaftPeerId id, RaftGroup group, boolean format) {
     LOG.info("newRaftServer: {}, {}, format? {}", id, group, format);
     try {
