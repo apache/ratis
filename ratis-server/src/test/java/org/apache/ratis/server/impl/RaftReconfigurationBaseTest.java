@@ -426,13 +426,11 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       final CompletableFuture<Void> setConf = new CompletableFuture<>();
       clientThread = new Thread(() -> {
         try(final RaftClient client = cluster.createClient(leaderId)) {
-          for(int i = 0; clientRunning.get() && !setConf.isDone(); i++) {
-            final RaftClientReply reply = client.admin().setConfiguration(c2.allPeersInNewConf);
-            if (reply.isSuccess()) {
-              setConf.complete(null);
-            }
-            LOG.info("setConf attempt #{} failed, {}", i, cluster.printServers());
+          final RaftClientReply reply = client.admin().setConfiguration(c2.allPeersInNewConf);
+          if (reply.isSuccess()) {
+            setConf.complete(null);
           }
+          LOG.info("setConf failed, {}", cluster.printServers());
         } catch(Exception e) {
           LOG.error("Failed to setConf", e);
           setConf.completeExceptionally(e);
