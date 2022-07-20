@@ -86,7 +86,6 @@ public final class TimeoutScheduler implements TimeoutExecutor {
       LOG.debug("new ScheduledThreadPoolExecutor");
       final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1, (ThreadFactory) Daemon::new);
       e.setRemoveOnCancelPolicy(true);
-      e.setMaximumPoolSize(MAXIMUM_POOL_SIZE);
       return e;
     }
 
