@@ -74,6 +74,7 @@ class StateMachineUpdater implements Runnable {
 
   private final Long autoSnapshotThreshold;
   private final boolean purgeUptoSnapshotIndex;
+  private final long purgePreserveLogNum;
 
   private final Thread updater;
   private final AwaitForSignal awaitForSignal;
@@ -109,6 +110,7 @@ class StateMachineUpdater implements Runnable {
       }
     };
     this.purgeUptoSnapshotIndex = RaftServerConfigKeys.Log.purgeUptoSnapshotIndex(properties);
+    this.purgePreserveLogNum = RaftServerConfigKeys.Log.purgePreserveLogNum(properties);
 
     updater = new Daemon(this);
     this.awaitForSignal = new AwaitForSignal(name);
@@ -297,7 +299,8 @@ class StateMachineUpdater implements Runnable {
             CommitInfoProto::getCommitIndex);
         purgeIndex = LongStream.concat(LongStream.of(i), commitIndexStream).min().orElse(i);
       }
-      raftLog.purge(purgeIndex);
+      final long purgeIndexWithPreserve = Math.max(0L, purgeIndex - purgePreserveLogNum);
+      raftLog.purge(purgeIndexWithPreserve);
     }
   }
 
