@@ -22,6 +22,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -123,7 +124,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     }
 
     @Override
-    public void notifySnapshotInstalled(RaftProtos.InstallSnapshotResult result, long installIndex) {
+    public void notifySnapshotInstalled(RaftProtos.InstallSnapshotResult result, long installIndex, RaftPeer peer) {
       if (result != RaftProtos.InstallSnapshotResult.SUCCESS &&
           result != RaftProtos.InstallSnapshotResult.SNAPSHOT_UNAVAILABLE) {
         return;
@@ -134,14 +135,14 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       synchronized (this) {
         try {
           if (getServer().get().getDivision(this.getGroupId()).getInfo().isLeader()) {
-            LOG.info("Receive the notification to clean up snapshot as leader for {}", result);
+            LOG.info("Receive the notification to clean up snapshot as leader for {}, result: {}", peer, result);
             if (leaderSnapshotFile.exists()) {
               // For test purpose, we do not delete the leader's snapshot actually, which could be
               // sent to more than one peer during the test
               LOG.info("leader snapshot {} existed", leaderSnapshotFile);
             }
           } else {
-            LOG.info("Receive the notification to clean up snapshot as follower for {}", result);
+            LOG.info("Receive the notification to clean up snapshot as follower for {}, result: {}", peer, result);
             File followerSnapshotFile = new File(getSMdir(), leaderSnapshotFile.getName());
             if (followerSnapshotFile.exists()) {
               FileUtils.deleteFile(followerSnapshotFile);
@@ -398,11 +399,11 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   }
 
   @Test
-  public void testInstallSnapshotFinishedEvent() throws Exception{
-    runWithNewCluster(1, this::testInstallSnapshotFinishedEvent);
+  public void testInstallSnapshotInstalledEvent() throws Exception{
+    runWithNewCluster(1, this::testInstallSnapshotInstalledEvent);
   }
 
-  private void testInstallSnapshotFinishedEvent(CLUSTER cluster) throws Exception{
+  private void testInstallSnapshotInstalledEvent(CLUSTER cluster) throws Exception{
     leaderSnapshotInfoRef.set(null);
     numNotifyInstallSnapshotFinished.set(0);
     final List<LogSegmentPath> logs;

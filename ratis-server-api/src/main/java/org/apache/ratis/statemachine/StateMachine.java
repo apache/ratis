@@ -190,8 +190,12 @@ public interface StateMachine extends Closeable {
     /**
      * Notify the {@link StateMachine} that the progress of install snapshot is
      * completely done. Could trigger the cleanup of snapshots.
+     *
+     * @param result {@link InstallSnapshotResult}
+     * @param snapshotIndex the index of installed snapshot
+     * @param peer the peer who installed the snapshot
      */
-    default void notifySnapshotInstalled(InstallSnapshotResult result, long snapshotIndex) {}
+    default void notifySnapshotInstalled(InstallSnapshotResult result, long snapshotIndex,  RaftPeer peer) {}
 
     /**
      * Notify the {@link StateMachine} that a raft server has step down.
