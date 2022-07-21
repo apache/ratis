@@ -1347,7 +1347,8 @@ class RaftServerImpl implements RaftServer.Division,
     logAppendEntries(isHeartbeat,
         () -> getMemberId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
             + previous + ", " + leaderCommit + ", " + initializing
-            + ", commits" + ProtoUtils.toString(commitInfos)
+            + ", commits:" + ProtoUtils.toString(commitInfos)
+            + ", cId:" + callId
             + ", entries: " + LogProtoUtils.toLogEntriesString(entries));
 
     final long currentTerm;

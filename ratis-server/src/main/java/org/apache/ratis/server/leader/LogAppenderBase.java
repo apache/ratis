@@ -109,6 +109,10 @@ public abstract class LogAppenderBase implements LogAppender {
     return leaderState;
   }
 
+  public boolean hasPendingDataRequests() {
+    return false;
+  }
+
   private TermIndex getPrevious(long nextIndex) {
     if (nextIndex == RaftLog.LEAST_VALID_LOG_INDEX) {
       return null;
@@ -132,17 +136,19 @@ public abstract class LogAppenderBase implements LogAppender {
   }
 
   @Override
-  public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat) throws RaftLogIOException {
-    final TermIndex previous = getPrevious(follower.getNextIndex());
-    final long snapshotIndex = follower.getSnapshotIndex();
+  public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat)
+      throws RaftLogIOException {
     final long heartbeatWaitTimeMs = getHeartbeatWaitTimeMs();
+    final TermIndex previous = getPrevious(follower.getNextIndex());
     if (heartbeatWaitTimeMs <= 0L || heartbeat) {
       // heartbeat
-      return leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(), previous, callId);
+      return leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(),
+          hasPendingDataRequests()? null : previous, callId);
     }
 
     Preconditions.assertTrue(buffer.isEmpty(), () -> "buffer has " + buffer.getNumElements() + " elements.");
 
+    final long snapshotIndex = follower.getSnapshotIndex();
     final long leaderNext = getRaftLog().getNextIndex();
     final long followerNext = follower.getNextIndex();
     final long halfMs = heartbeatWaitTimeMs/2;
