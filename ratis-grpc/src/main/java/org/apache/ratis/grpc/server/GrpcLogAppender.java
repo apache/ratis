@@ -22,6 +22,7 @@ import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -435,12 +436,12 @@ public class GrpcLogAppender extends LogAppenderBase {
       if (followerNextIndex >= leaderStartIndex) {
         LOG.info("{}: Follower can catch up leader after install the snapshot, as leader's start index is {}",
             this, followerNextIndex);
-        notifyInstallSnapshotFinished(InstallSnapshotResult.SUCCESS, followerSnapshotIndex);
+        notifyInstallSnapshotFinished(InstallSnapshotResult.SUCCESS, followerSnapshotIndex, getFollower().getPeer());
       }
     }
 
-    void notifyInstallSnapshotFinished(InstallSnapshotResult result, long snapshotIndex) {
-      getServer().getStateMachine().event().notifySnapshotInstalled(result, snapshotIndex);
+    void notifyInstallSnapshotFinished(InstallSnapshotResult result, long snapshotIndex, RaftPeer peer) {
+      getServer().getStateMachine().event().notifySnapshotInstalled(result, snapshotIndex, peer);
     }
 
     boolean isDone() {
@@ -512,7 +513,8 @@ public class GrpcLogAppender extends LogAppenderBase {
         case SNAPSHOT_UNAVAILABLE:
           LOG.info("{}: Follower could not install snapshot as it is not available.", this);
           getFollower().setAttemptedToInstallSnapshot();
-          notifyInstallSnapshotFinished(InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, RaftLog.INVALID_LOG_INDEX);
+          notifyInstallSnapshotFinished(InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, RaftLog.INVALID_LOG_INDEX,
+              getFollower().getPeer());
           removePending(reply);
           break;
         case UNRECOGNIZED:
