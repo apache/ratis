@@ -14,27 +14,25 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
+# Concepts
+TODO: complete this section
+## RaftServer
 
+## RaftPeer and RaftPeerId
 
-<div class="col-sm-6">
+## RaftGroup
 
-    <div class="media">
-        {{with .Get "image"}}
-        <div class="media-left media-top">
-            <img src="{{.}}"></img>
-        </div>
-        {{end}}
-        <div class="media-body">
-            <h4 class="media-title">
-                {{ if .Get "icon" }}
-                   <span class="glyphicon glyphicon-{{ .Get "icon"}}"></span>
-                {{end}}
-                {{ .Get "title" }}
-            </h4>
-            {{  .Inner }}
-            {{ if .Get "link" }}
-            <p><a href="{{ .Get "link" | ref .}}" class=" btn btn-primary btn-lg">{{.Get "link-text" }}</a></p>
-            {{end}}
-        </div>
-    </div>
-</div>
+## Transport (gRPC,Netty ...)
+
+## Raft Log
+
+## StateMachine
+A StateMachine is the abstraction point for user-code
+
+## Snapshot
+
+## TermIndex
+
+## Transaction (as in applyTransaction or startTransaction in StateMachine)
+
+## StateMachineStorage

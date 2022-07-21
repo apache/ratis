@@ -14,24 +14,13 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-{{ partial "header.html" . }}
 
-  <body>
+# Getting Started
+TODO: complete this section
+### Add the dependency
 
-{{ partial "navbar.html" . }}
+### Create Your StateMachine
 
-    <div class="container-fluid">
-      <div class="row">
-        {{ partial "sidebar.html" . }}
-        <div class="col-sm-10 col-sm-offset-2 col-md-10 col-md-offset-2 main">
-            {{ partial "languages.html" .}}
+### Build and Start a RaftServer
 
-            {{ .Content }}
-        </div>
-      </div>
-    </div>
-
-{{ partial "footer.html" . }}
-
-  </body>
-</html>
+### Configuration
