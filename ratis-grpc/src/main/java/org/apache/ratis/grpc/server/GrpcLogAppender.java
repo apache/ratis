@@ -250,7 +250,8 @@ public class GrpcLogAppender extends LogAppenderBase {
       pendingRequests.put(request);
       increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
-        appendLogRequestObserver = new StreamObservers(getClient(), new AppendLogResponseHandler(), useSeparateHBChannel);
+        appendLogRequestObserver = new StreamObservers(
+            getClient(), new AppendLogResponseHandler(), useSeparateHBChannel);
       }
     }
 
