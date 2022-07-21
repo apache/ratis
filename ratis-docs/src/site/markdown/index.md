@@ -1,11 +1,3 @@
----
-title: Getting Started
-name: Getting Started
-identifier: Starting
-menu: main
-weight: 1
-cards: "false"
----
 <!---
   Licensed to the Apache Software Foundation (ASF) under one or more
   contributor license agreements.  See the NOTICE file distributed with
@@ -23,12 +15,14 @@ cards: "false"
   limitations under the License.
 -->
 
-# Getting Started
+# Apache Ratis
+Apache Ratis is a highly customizable Raft protocol implementation in Java.
+Raft is a easily understandable consensus algorithm to manage replicated state.
+Apache Ratis could be used in any Java application where state should be replicated between multiple instances.
+
+## Ratis Features
 TODO: complete this section
-### Add the dependency
-
-### Create Your StateMachine
-
-### Build and Start a RaftServer
-
-### Configuration
+#### Multi-group servers
+TODO: complete this section
+#### Separate RAFT log storage from actual data (client-data)
+TODO: complete this section
