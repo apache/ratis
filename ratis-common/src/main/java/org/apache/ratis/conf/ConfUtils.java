@@ -227,12 +227,9 @@ public interface ConfUtils {
   static <T> T get(BiFunction<String, T, T> getter,
       String key, T defaultValue, T fallbackValue,
       Consumer<String> logger, BiConsumer<String, T>... assertions) {
-    T value = getter.apply(key, defaultValue);
+    T value = get(getter, key, defaultValue, null, assertions);
     value = value != defaultValue ? value : fallbackValue;
     logGet(key, value, defaultValue, logger);
-
-    T finalValue = value;
-    Arrays.asList(assertions).forEach(a -> a.accept(key, finalValue));
     return value;
   }
 
