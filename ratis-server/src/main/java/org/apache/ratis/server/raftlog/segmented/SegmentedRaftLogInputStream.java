@@ -90,13 +90,16 @@ public class SegmentedRaftLogInputStream implements Closeable {
 
   private void init() throws IOException {
     state.open();
+    boolean initSuccess = false;
     try {
-      final SegmentedRaftLogReader r = new SegmentedRaftLogReader(logFile, raftLogMetrics);
-      if (r.verifyHeader()) {
-        reader = r;
-      }
+      reader = new SegmentedRaftLogReader(logFile, raftLogMetrics);
+      initSuccess = reader.verifyHeader();
     } finally {
-      if (reader == null) {
+      if (!initSuccess) {
+        if(reader != null) {
+          reader.close();
+          reader = null;
+        }
         state.close();
       }
     }
