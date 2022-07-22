@@ -40,10 +40,11 @@ public class MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty extends MiniRa
     }
 
     @Override
-    public MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty newCluster(String[] ids, RaftProperties prop) {
+    public MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty newCluster(String[] ids,
+        String[] ids1, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.GRPC);
       RaftConfigKeys.DataStream.setType(prop, SupportedDataStreamType.NETTY);
-      return new MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(ids, prop, parameters);
+      return new MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(ids, ids1, prop, parameters);
     }
   }
 
@@ -56,9 +57,9 @@ public class MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty extends MiniRa
     }
   }
 
-  private MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(String[] ids, RaftProperties properties,
+  private MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(String[] ids, String[] ids1, RaftProperties properties,
       Parameters parameters) {
-    super(ids, properties, parameters);
+    super(ids, ids1, properties, parameters);
   }
 
   @Override
