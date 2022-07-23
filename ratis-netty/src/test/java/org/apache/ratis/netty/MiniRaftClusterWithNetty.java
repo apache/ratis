@@ -35,9 +35,9 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithNetty> FACTORY
       = new Factory<MiniRaftClusterWithNetty>() {
     @Override
-    public MiniRaftClusterWithNetty newCluster(String[] ids, String[] ids1, RaftProperties prop) {
+    public MiniRaftClusterWithNetty newCluster(String[] ids, String[] listenerIds, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.NETTY);
-      return new MiniRaftClusterWithNetty(ids, ids1, prop);
+      return new MiniRaftClusterWithNetty(ids, listenerIds, prop);
     }
   };
 
@@ -51,8 +51,8 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   public static final DelayLocalExecutionInjection sendServerRequest
       = new DelayLocalExecutionInjection(NettyRpcService.SEND_SERVER_REQUEST);
 
-  protected MiniRaftClusterWithNetty(String[] ids, String[] ids1, RaftProperties properties) {
-    super(ids, ids1, properties, null);
+  protected MiniRaftClusterWithNetty(String[] ids, String[] listenerIds, RaftProperties properties) {
+    super(ids, listenerIds, properties, null);
   }
 
   @Override

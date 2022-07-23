@@ -185,7 +185,7 @@ public abstract class MiniRaftCluster implements Closeable {
     }
 
     public abstract CLUSTER newCluster(
-        String[] ids, String[] ids1, RaftProperties prop);
+        String[] ids, String[] listenerIds, RaftProperties prop);
 
     public CLUSTER newCluster(int numServer, RaftProperties prop) {
       return newCluster(numServer, 0, prop);
@@ -197,8 +197,8 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public static abstract class RpcBase extends MiniRaftCluster {
-    public RpcBase(String[] ids, String[] ids1, RaftProperties properties, Parameters parameters) {
-      super(ids, ids1, properties, parameters);
+    public RpcBase(String[] ids, String[] listenerIds, RaftProperties properties, Parameters parameters) {
+      super(ids, listenerIds, properties, parameters);
     }
 
     @Override
@@ -244,8 +244,8 @@ public abstract class MiniRaftCluster implements Closeable {
     }
   }
 
-  public static RaftGroup initRaftGroup(Collection<String> ids, Collection<String> ids1) {
-    Iterator<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(4 * (ids.size() + ids1.size())).iterator();
+  public static RaftGroup initRaftGroup(Collection<String> ids, Collection<String> listenerIds) {
+    Iterator<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(4 * (ids.size() + listenerIds.size())).iterator();
     Stream<RaftPeer> peer = ids.stream()
             .map(RaftPeerId::valueOf)
             .map(id -> RaftPeer.newBuilder().setId(id)
@@ -254,7 +254,7 @@ public abstract class MiniRaftCluster implements Closeable {
                 .setClientAddress(addresses.next())
                 .setDataStreamAddress(addresses.next())
                 .build());
-    Stream<RaftPeer> listener = ids1.stream()
+    Stream<RaftPeer> listener = listenerIds.stream()
             .map(RaftPeerId::valueOf)
             .map(id -> RaftPeer.newBuilder().setId(id)
                 .setAddress(addresses.next())
@@ -298,8 +298,8 @@ public abstract class MiniRaftCluster implements Closeable {
 
   private final AtomicReference<Timer> timer = new AtomicReference<>();
 
-  protected MiniRaftCluster(String[] ids, String[] ids1, RaftProperties properties, Parameters parameters) {
-    this.group = initRaftGroup(Arrays.asList(ids), Arrays.asList(ids1));
+  protected MiniRaftCluster(String[] ids, String[] listenerIds, RaftProperties properties, Parameters parameters) {
+    this.group = initRaftGroup(Arrays.asList(ids), Arrays.asList(listenerIds));
     LOG.info("new {} with {}", JavaUtils.getClassSimpleName(getClass()), group);
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
@@ -441,21 +441,22 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer,
       boolean emptyPeer) throws IOException {
-    return addNewPeers(generateIds(number, servers.size()), startNewPeer, emptyPeer, false);
+    return addNewPeers(generateIds(number, servers.size()), startNewPeer, emptyPeer,
+        RaftProtos.RaftPeerRole.FOLLOWER);
   }
 
   public PeerChanges addNewPeers(String[] ids, boolean startNewPeer,
       boolean emptyPeer) throws IOException {
-    return addNewPeers(ids, startNewPeer, emptyPeer, false);
+    return addNewPeers(ids, startNewPeer, emptyPeer, RaftProtos.RaftPeerRole.FOLLOWER);
   }
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer,
-      boolean emptyPeer, boolean isListener) throws IOException {
-    return addNewPeers(generateIds(number, servers.size()), startNewPeer, emptyPeer, isListener);
+      boolean emptyPeer, RaftProtos.RaftPeerRole startRole) throws IOException {
+    return addNewPeers(generateIds(number, servers.size()), startNewPeer, emptyPeer, startRole);
   }
 
   public PeerChanges addNewPeers(String[] ids, boolean startNewPeer,
-      boolean emptyPeer, boolean isListener) throws IOException {
+      boolean emptyPeer, RaftProtos.RaftPeerRole startRole) throws IOException {
     LOG.info("Add new peers {}", Arrays.asList(ids));
 
     final Iterable<RaftPeerId> peerIds = CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf);
@@ -465,7 +466,7 @@ public abstract class MiniRaftCluster implements Closeable {
     } else {
       final Collection<RaftPeer> newPeers = StreamSupport.stream(peerIds.spliterator(), false)
           .map(id -> RaftPeer.newBuilder().setId(id)
-              .setStartupRole(isListener ? RaftProtos.RaftPeerRole.LISTENER: RaftProtos.RaftPeerRole.FOLLOWER)
+              .setStartupRole(startRole)
               .build()).collect(Collectors.toSet());
       newPeers.addAll(group.getPeers());
       raftGroup = RaftGroup.valueOf(group.getGroupId(), newPeers);
