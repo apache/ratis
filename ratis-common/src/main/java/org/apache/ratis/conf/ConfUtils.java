@@ -154,6 +154,14 @@ public interface ConfUtils {
   }
 
   @SafeVarargs
+  static int getInt(
+      BiFunction<String, Integer, Integer> integerGetter,
+      String key, int defaultValue, int fallbackValue,
+      Consumer<String> logger, BiConsumer<String, Integer>... assertions) {
+    return get(integerGetter, key, defaultValue, fallbackValue, logger, assertions);
+  }
+
+  @SafeVarargs
   static long getLong(
       BiFunction<String, Long, Long> longGetter,
       String key, long defaultValue, Consumer<String> logger, BiConsumer<String, Long>... assertions) {
@@ -212,6 +220,16 @@ public interface ConfUtils {
     final T value = getter.apply(key, defaultValue);
     logGet(key, value, defaultValue, logger);
     Arrays.asList(assertions).forEach(a -> a.accept(key, value));
+    return value;
+  }
+
+  @SafeVarargs
+  static <T> T get(BiFunction<String, T, T> getter,
+      String key, T defaultValue, T fallbackValue,
+      Consumer<String> logger, BiConsumer<String, T>... assertions) {
+    T value = get(getter, key, defaultValue, null, assertions);
+    value = value != defaultValue ? value : fallbackValue;
+    logGet(key, value, defaultValue, logger);
     return value;
   }
 

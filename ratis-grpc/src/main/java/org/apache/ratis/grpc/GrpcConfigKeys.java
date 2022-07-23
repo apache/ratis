@@ -100,9 +100,9 @@ public interface GrpcConfigKeys {
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = -1;
     static int port(RaftProperties properties) {
-      final int port = getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(-1), requireMax(65536));
-      return port != PORT_DEFAULT ? port : Server.port(properties);
+      final int fallbackServerPort = Server.port(properties, null);
+      return getInt(properties::getInt,
+          PORT_KEY, PORT_DEFAULT, fallbackServerPort, getDefaultLog(), requireMin(-1), requireMax(65536));
     }
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
@@ -124,9 +124,9 @@ public interface GrpcConfigKeys {
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = -1;
     static int port(RaftProperties properties) {
-      final int port = getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(-1), requireMax(65536));
-      return port != PORT_DEFAULT ? port : Server.port(properties);
+      final int fallbackServerPort = Server.port(properties, null);
+      return getInt(properties::getInt,
+          PORT_KEY, PORT_DEFAULT, fallbackServerPort, getDefaultLog(), requireMin(-1), requireMax(65536));
     }
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
@@ -148,9 +148,14 @@ public interface GrpcConfigKeys {
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = 0;
     static int port(RaftProperties properties) {
-      return getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
+      return port(properties, getDefaultLog());
     }
+
+    static int port(RaftProperties properties, Consumer<String> logger) {
+      return getInt(properties::getInt,
+          PORT_KEY, PORT_DEFAULT, logger, requireMin(0), requireMax(65536));
+    }
+
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
     }
