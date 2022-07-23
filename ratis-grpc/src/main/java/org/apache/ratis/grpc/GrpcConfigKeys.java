@@ -101,8 +101,8 @@ public interface GrpcConfigKeys {
     int PORT_DEFAULT = -1;
     static int port(RaftProperties properties) {
       final int fallbackServerPort = Server.port(properties, null);
-      return getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, fallbackServerPort, getDefaultLog(), requireMin(-1), requireMax(65536));
+      return getInt(properties::getInt, PORT_KEY, PORT_DEFAULT, Server.PORT_KEY, fallbackServerPort,
+          getDefaultLog(), requireMin(-1), requireMax(65536));
     }
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
@@ -125,8 +125,8 @@ public interface GrpcConfigKeys {
     int PORT_DEFAULT = -1;
     static int port(RaftProperties properties) {
       final int fallbackServerPort = Server.port(properties, null);
-      return getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, fallbackServerPort, getDefaultLog(), requireMin(-1), requireMax(65536));
+      return getInt(properties::getInt, PORT_KEY, PORT_DEFAULT, Server.PORT_KEY, fallbackServerPort,
+          getDefaultLog(), requireMin(-1), requireMax(65536));
     }
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
