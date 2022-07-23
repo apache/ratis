@@ -77,7 +77,7 @@ public abstract class ParameterizedBaseTest extends BaseTest {
   private static void add(
       Collection<Object[]> clusters, MiniRaftCluster.Factory factory,
       String[] ids, RaftProperties properties) {
-    clusters.add(new Object[]{factory.newCluster(ids, properties)});
+    clusters.add(new Object[]{factory.newCluster(ids, new String[] {}, properties)});
   }
 
   public static Collection<Object[]> getMiniRaftClusters(
