@@ -330,8 +330,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
   void runTestReconfTimeout(CLUSTER cluster) throws Exception {
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
-    RaftServerTestUtil.LogCapturer logCapture =
-        RaftServerTestUtil.LogCapturer.captureLogs(RaftServer.Division.LOG);
 
     try (final RaftClient client = cluster.createClient(leaderId)) {
       PeerChanges c1 = cluster.addNewPeers(2, false);
@@ -345,7 +343,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           client.getId(), leaderId, c1.allPeersInNewConf);
       try {
         RaftClientReply reply = sender.sendRequest(request);
-        Assert.fail("did not get expected exception " + reply.toString() + " [" + logCapture.getOutput() + "]");
+        Assert.fail("did not get expected exception " + reply.toString());
       } catch (IOException e) {
         Assert.assertTrue("Got exception " + e,
             e instanceof ReconfigurationTimeoutException);

@@ -123,7 +123,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
           .map(PendingServerRequest::getFuture)
           .orElse(CompletableFuture.completedFuture(null));
       try {
-        process(request).thenCombine(previousFuture, (reply, v) -> {
+        process(request).exceptionally(e -> {
+          // Handle cases, such as RaftServer is paused
+          handleError(e, request);
+          current.getFuture().completeExceptionally(e);
+          return null;
+        }).thenCombine(previousFuture, (reply, v) -> {
           handleReply(reply);
           current.getFuture().complete(null);
           return null;
