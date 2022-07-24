@@ -287,11 +287,11 @@ public interface RaftServerConfigKeys {
 
     String PURGE_PRESERVATION_LOG_NUM_KEY = PREFIX + ".purge.preservation.log.num";
     long PURGE_PRESERVATION_LOG_NUM_DEFAULT = 0L;
-    static long purgePreserveLogNum(RaftProperties properties) {
+    static long purgePreservationLogNum(RaftProperties properties) {
       return getLong(properties::getLong, PURGE_PRESERVATION_LOG_NUM_KEY,
               PURGE_PRESERVATION_LOG_NUM_DEFAULT, getDefaultLog());
     }
-    static void setPurgePreserveLogNum(RaftProperties properties, long purgePreserveLogNum) {
+    static void setPurgePreservationLogNum(RaftProperties properties, long purgePreserveLogNum) {
       setLong(properties::setLong, PURGE_PRESERVATION_LOG_NUM_KEY, purgePreserveLogNum);
     }
 
