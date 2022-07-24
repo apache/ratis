@@ -285,6 +285,16 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, PURGE_UPTO_SNAPSHOT_INDEX_KEY, shouldPurgeUptoSnapshotIndex);
     }
 
+    String PURGE_PRESERVATION_LOG_NUM_KEY = PREFIX + ".purge.preservation.log.num";
+    long PURGE_PRESERVATION_LOG_NUM_DEFAULT = 0L;
+    static long purgePreservationLogNum(RaftProperties properties) {
+      return getLong(properties::getLong, PURGE_PRESERVATION_LOG_NUM_KEY,
+              PURGE_PRESERVATION_LOG_NUM_DEFAULT, getDefaultLog());
+    }
+    static void setPurgePreservationLogNum(RaftProperties properties, long purgePreserveLogNum) {
+      setLong(properties::setLong, PURGE_PRESERVATION_LOG_NUM_KEY, purgePreserveLogNum);
+    }
+
     String SEGMENT_SIZE_MAX_KEY = PREFIX + ".segment.size.max";
     SizeInBytes SEGMENT_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("8MB");
     static SizeInBytes segmentSizeMax(RaftProperties properties) {
