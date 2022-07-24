@@ -76,6 +76,7 @@ public abstract class RaftLogBase implements RaftLog {
   private final OpenCloseState state;
   private final LongSupplier getSnapshotIndexFromStateMachine;
   private final TimeDuration stateMachineDataReadTimeout;
+  private final long purgePreservation;
 
   private volatile LogEntryProto lastMetadataEntry = null;
 
@@ -93,6 +94,7 @@ public abstract class RaftLogBase implements RaftLog {
     this.state = new OpenCloseState(getName());
     this.getSnapshotIndexFromStateMachine = getSnapshotIndexFromStateMachine;
     this.stateMachineDataReadTimeout = RaftServerConfigKeys.Log.StateMachineData.readTimeout(properties);
+    this.purgePreservation = RaftServerConfigKeys.Log.purgePreservationLogNum(properties);
   }
 
   @Override
@@ -301,17 +303,22 @@ public abstract class RaftLogBase implements RaftLog {
 
   @Override
   public final CompletableFuture<Long> purge(long suggestedIndex) {
+    if (purgePreservation > 0) {
+      final long currentIndex = getNextIndex() - 1;
+      suggestedIndex = Math.min(suggestedIndex, currentIndex - purgePreservation);
+    }
     final long lastPurge = purgeIndex.get();
     if (suggestedIndex - lastPurge < purgeGap) {
       return CompletableFuture.completedFuture(lastPurge);
     }
     LOG.info("{}: purge {}", getName(), suggestedIndex);
+    final long finalSuggestedIndex = suggestedIndex;
     return purgeImpl(suggestedIndex).whenComplete((purged, e) -> {
       if (purged != null) {
         purgeIndex.updateToMax(purged, infoIndexChange);
       }
       if (e != null) {
-        LOG.warn(getName() + ": Failed to purge " + suggestedIndex, e);
+        LOG.warn(getName() + ": Failed to purge " + finalSuggestedIndex, e);
       }
     });
   }
