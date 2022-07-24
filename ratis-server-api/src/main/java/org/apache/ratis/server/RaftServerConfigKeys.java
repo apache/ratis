@@ -285,13 +285,14 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, PURGE_UPTO_SNAPSHOT_INDEX_KEY, shouldPurgeUptoSnapshotIndex);
     }
 
-    String PURGE_PRESERVE_LOG_NUM_KEY = PREFIX + "purge.preserve.log.num";
-    long PURGE_PRESERVE_LOG_NUM_DEFAULT = 0L;
+    String PURGE_PRESERVATION_LOG_NUM_KEY = PREFIX + ".purge.preservation.log.num";
+    long PURGE_PRESERVATION_LOG_NUM_DEFAULT = 0L;
     static long purgePreserveLogNum(RaftProperties properties) {
-      return getLong(properties::getLong, PURGE_PRESERVE_LOG_NUM_KEY, PURGE_PRESERVE_LOG_NUM_DEFAULT, getDefaultLog());
+      return getLong(properties::getLong, PURGE_PRESERVATION_LOG_NUM_KEY,
+              PURGE_PRESERVATION_LOG_NUM_DEFAULT, getDefaultLog());
     }
-    static void setPurgePreserveLogNum(RaftProperties properties, int purgePreserveLogNum) {
-      setInt(properties::setInt, PURGE_PRESERVE_LOG_NUM_KEY, purgePreserveLogNum);
+    static void setPurgePreserveLogNum(RaftProperties properties, long purgePreserveLogNum) {
+      setLong(properties::setLong, PURGE_PRESERVATION_LOG_NUM_KEY, purgePreserveLogNum);
     }
 
     String SEGMENT_SIZE_MAX_KEY = PREFIX + ".segment.size.max";
