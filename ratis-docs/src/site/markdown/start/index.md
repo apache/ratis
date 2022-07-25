@@ -19,9 +19,9 @@
 Let's get started to use Raft in your application. To demonstrate how to use Ratis, we'll implement a simple counter service, which maintains a counter value across a cluster. The client could send the following types of commands to the cluster:
 
 * `INCREMENT`: increase the counter value
-* `GET`: query the current value of the counter
+* `GET`: query the current value of the counter, we call such kind of commands as read-only commands
 
-Note: The full source could be found at [Ratis examples](https://github.com/apache/ratis/tree/master/ratis-examples). This article is mainly intended to show the steps of integrating of Ratis ,if you wish to run this example or find more examples, please refer to [the README](https://github.com/apache/ratis/tree/master/ratis-examples#example-3-counter).
+Note: The full source could be found at [Ratis examples](https://github.com/apache/ratis/tree/master/ratis-examples). This article is mainly intended to show the steps of integration of Ratis ,if you wish to run this example or find more examples, please refer to [the README](https://github.com/apache/ratis/tree/master/ratis-examples#example-3-counter).
 
 ## Add the dependency
 
@@ -35,6 +35,7 @@ First, we need to add Ratis dependencies into the project, it's available in mav
 ```
 
 Also, one of the following transports need to be added:
+
 * grpc
 * netty
 * hadoop
@@ -74,7 +75,7 @@ public class CounterStateMachine extends BaseStateMachine {
 
 ### Apply Raft Log Item
 
-Once the raft log is committed, Ratis will notify statemachine by invoking the `public CompletableFuture<Message> applyTransaction(TransactionContext trx)` method, and we need override this method to decode the message and apply it. 
+Once the raft log is committed, Ratis will notify statemachine by invoking the `public CompletableFuture<Message> applyTransaction(TransactionContext trx)` method, and we need to override this method to decode the message and apply it. 
 
 First, get the log content and decode it:
 
