@@ -17,12 +17,27 @@
 
 # Apache Ratis
 Apache Ratis is a highly customizable Raft protocol implementation in Java.
-Raft is a easily understandable consensus algorithm to manage replicated state.
-Apache Ratis could be used in any Java application where state should be replicated between multiple instances.
+[Raft](https://raft.github.io/) is an easily understandable consensus algorithm to manage replicated state. 
+
+The Ratis project was started at 2017 as an incubator project, and has graduated at Feb 17, 2021. Originally, Ratis is built for using Raft in [Apache Ozone](https://ozone.apache.org) where Ratis is used to replicate raw data and to provide high availability, and the correctness and performance of Ratis has been heavily tested with Ozone. 
+
+Unlike many other raft implementations, Ratis is designed to be pluggable, it could be used in any Java application where state should be replicated between multiple instances.
 
 ## Ratis Features
-TODO: complete this section
-#### Multi-group servers
-TODO: complete this section
-#### Separate RAFT log storage from actual data (client-data)
-TODO: complete this section
+
+Since Ratis is designed to be pluggable in any Java applications, Ratis provides abstractions over Raft protocol for users, which make Raft library fully decoupled from your application. The key features of Raft are described below.
+
+### Pluggable transport
+Ratis provides a pluggable transport layer. By default gRPC, Netty+Protobuf and Apache Hadoop RPC based transports are provided.
+
+### Pluggable state machine
+Ratis supports a log and state machine. State machine typically contains the data that you want to make highly available. Ratis makes it easy to use your own state machine.
+
+### Pluggable raft log
+Raft log is also pluggable, users can provide their own log implementation. The default implementation stores log in local files.
+
+Application can define the policies of how to write data and where it should be written easily.
+
+### Log service
+
+Ratis provides a log service recipe provides StateMachines to implement a distributed log service with a focused client API. For more information, please read the [LogService documentation](https://ratis.apache.org/logservice).
