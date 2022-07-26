@@ -656,6 +656,12 @@ public abstract class MiniRaftCluster implements Closeable {
         .collect(Collectors.toList());
   }
 
+  public List<RaftServer.Division> getListeners() {
+    return getServerAliveStream()
+        .filter(server -> server.getInfo().isListener())
+        .collect(Collectors.toList());
+  }
+
   public int getNumServers() {
     return servers.size();
   }
