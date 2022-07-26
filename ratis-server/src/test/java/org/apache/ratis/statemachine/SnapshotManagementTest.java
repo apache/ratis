@@ -143,4 +143,34 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
         .getStateMachineStorage().getSnapshotFile(follower.getInfo().getCurrentTerm(), snapshotIndex);
     Assert.assertTrue(snapshotFile.exists());
   }
+
+
+  @Test
+  public void testReceiveLogAndTakeSnapshotOnListener() throws Exception {
+    runWithNewCluster(2, 1, this::runTestReceiveLogAndTakeSnapshotOnListener);
+  }
+
+  void runTestReceiveLogAndTakeSnapshotOnListener(CLUSTER cluster) throws Exception {
+    final RaftClientReply snapshotReply;
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division listener = cluster.getListeners().get(0);
+    final RaftPeerId listenerId = listener.getId();
+    Assert.assertTrue(listener.getInfo().isListener());
+    try (final RaftClient client = cluster.createClient(listenerId)) {
+      for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties()); i++) {
+        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
+      snapshotReply = client.getSnapshotManagementApi(listenerId).create(3000);
+    }
+
+    Assert.assertTrue(snapshotReply.isSuccess());
+    final long snapshotIndex = snapshotReply.getLogIndex();
+    LOG.info("snapshotIndex = {} on {} server {}",
+        snapshotIndex, listener.getInfo().getCurrentRole(), listener.getId());
+
+    final File snapshotFile = SimpleStateMachine4Testing.get(listener)
+        .getStateMachineStorage().getSnapshotFile(listener.getInfo().getCurrentTerm(), snapshotIndex);
+    Assert.assertTrue(snapshotFile.exists());
+  }
 }
