@@ -16,16 +16,25 @@
 -->
 
 # Getting Started
-Let's get started to use Raft in your application. To demonstrate how to use Ratis, we'll implement a simple counter service, which maintains a counter value across a cluster. The client could send the following types of commands to the cluster:
+Let's get started to use Raft in your application.
+To demonstrate how to use Ratis,
+we'll implement a simple counter service,
+which maintains a counter value across a cluster.
+The client could send the following types of commands to the cluster:
 
 * `INCREMENT`: increase the counter value
-* `GET`: query the current value of the counter, we call such kind of commands as read-only commands
+* `GET`: query the current value of the counter,
+we call such kind of commands as read-only commands
 
-Note: The full source could be found at [Ratis examples](https://github.com/apache/ratis/tree/master/ratis-examples). This article is mainly intended to show the steps of integration of Ratis ,if you wish to run this example or find more examples, please refer to [the README](https://github.com/apache/ratis/tree/master/ratis-examples#example-3-counter).
+Note: The full source could be found at [Ratis examples](https://github.com/apache/ratis/tree/master/ratis-examples).
+This article is mainly intended to show the steps of integration of Ratis,
+if you wish to run this example or find more examples,
+please refer to [the README](https://github.com/apache/ratis/tree/master/ratis-examples#example-3-counter).
 
 ## Add the dependency
 
-First, we need to add Ratis dependencies into the project, it's available in maven central:
+First, we need to add Ratis dependencies into the project,
+it's available in maven central:
 
 ```xml
 <dependency>
@@ -49,20 +58,32 @@ For example, let's use grpc transport:
 </dependency>
 ```
 
-Please note that Apache Hadoop dependencies are shaded, so it’s safe to use hadoop transport with different versions of Hadoop.
+Please note that Apache Hadoop dependencies are shaded,
+so it’s safe to use hadoop transport with different versions of Hadoop.
 
 ## Create the StateMachine
-A state machine is used to maintain the current state of the raft node, the state machine is responsible for:
+A state machine is used to maintain the current state of the raft node,
+the state machine is responsible for:
 
-* Execute raft logs to get the state. In this example, when a `INCREMENT` log is executed, the counter value will be increased by 1. And a `GET` log does not affect the state but only returns the current counter value to the client.
-* Managing snapshots loading/saving. Snapshots are used to speed the log execution, the state machine could start from a snapshot point and only execute newer logs.
+* Execute raft logs to get the state. In this example, when a `INCREMENT` log is executed, 
+the counter value will be increased by 1.
+And a `GET` log does not affect the state but only returns the current counter value to the client.
+* Managing snapshots loading/saving.
+Snapshots are used to speed the log execution,
+the state machine could start from a snapshot point and only execute newer logs.
 
 ### Define the StateMachine
-To define our state machine, we can extend from the base class `BaseStateMachine`.
+To define our state machine,
+we can extend a class from the base class `BaseStateMachine`.
 
-Also, a storage is needed to store snapshots, and we'll use the build-in `SimpleStateMachineStorage`, which is a file-based storage implementation.
+Also, a storage is needed to store snapshots,
+and we'll use the build-in `SimpleStateMachineStorage`,
+which is a file-based storage implementation.
 
-Since we're going to implement a count server, the `counter` instance is defined in the state machine, represents the current value. Below is the declaration of the state machine: 
+Since we're going to implement a count server,
+the `counter` instance is defined in the state machine,
+represents the current value.
+Below is the declaration of the state machine: 
 
 ```java
 public class CounterStateMachine extends BaseStateMachine {
@@ -75,7 +96,9 @@ public class CounterStateMachine extends BaseStateMachine {
 
 ### Apply Raft Log Item
 
-Once the raft log is committed, Ratis will notify statemachine by invoking the `public CompletableFuture<Message> applyTransaction(TransactionContext trx)` method, and we need to override this method to decode the message and apply it. 
+Once the raft log is committed,
+Ratis will notify state machine by invoking the `public CompletableFuture<Message> applyTransaction(TransactionContext trx)` method,
+and we need to override this method to decode the message and apply it. 
 
 First, get the log content and decode it:
 
@@ -95,7 +118,9 @@ public class CounterStateMachine extends BaseStateMachine {
 }
 ```
 
-After that, if the log is valid, we could apply it by increasing the counter value. Remember that we also need to update the committed indexes:
+After that, if the log is valid,
+we could apply it by increasing the counter value.
+Remember that we also need to update the committed indexes:
 
 ```java
 public class CounterStateMachine extends BaseStateMachine {
@@ -117,7 +142,10 @@ public class CounterStateMachine extends BaseStateMachine {
 ```
 
 ### Handle Readonly Command
-Note that we only handled `INCREMENT` command, what about the `GET` command? The `GET` command is implemented as a readonly command, so we need to implement `public CompletableFuture<Message> query(Message request)` instead of `applyTransaction`.
+Note that we only handled `INCREMENT` command,
+what about the `GET` command?
+The `GET` command is implemented as a readonly command,
+so we'll need to implement `public CompletableFuture<Message> query(Message request)` instead of `applyTransaction`.
 
 ```java
 public class CounterStateMachine extends BaseStateMachine {
@@ -136,7 +164,12 @@ public class CounterStateMachine extends BaseStateMachine {
 ```
 
 ### Save and Load Snapshots
-When taking a snapshot, we persist every state in the state machine, and the value could be loaded directly to the state in the future. In this example, the only state is the counter value, we're going to use `ObjectOutputStream` to write it to a snapshot file:
+When taking a snapshot,
+we persist every state in the state machine,
+and the value could be loaded directly to the state in the future.
+In this example,
+the only state is the counter value,
+we're going to use `ObjectOutputStream` to write it to a snapshot file:
 
 ```java
 public class CounterStateMachine extends BaseStateMachine {
@@ -165,18 +198,32 @@ public class CounterStateMachine extends BaseStateMachine {
 }
 ```
 
-When loading it, we could use `ObjectInputStream` to deserialize it. Remember that we also need to implement `initialize` and `reinitialize` method, so that the state machine will be correctly initialized.
+When loading it,
+we could use `ObjectInputStream` to deserialize it.
+Remember that we also need to implement `initialize` and `reinitialize` method,
+so that the state machine will be correctly initialized.
 
 ## Build and Start a RaftServer
-In order to build a raft cluster, each node must start a `RaftServer` instance, which is responsible for communicating to each other through Raft protocol.
+In order to build a raft cluster,
+each node must start a `RaftServer` instance,
+which is responsible for communicating to each other through Raft protocol.
 
-It's important to keep in mind that, each raft server knows exactly how many raft peers are in the cluster, and what are the addresses of them. In this example, we'll set a 3 node cluster. For simplicity, each peer listens to specific port on the same machine, and we can define the addresses of the cluster in a configuration file:
+It's important to keep in mind that,
+each raft server knows exactly how many raft peers are in the cluster,
+and what are the addresses of them.
+In this example, we'll set a 3 node cluster.
+For simplicity,
+each peer listens to specific port on the same machine,
+and we can define the addresses of the cluster in a configuration file:
 
 ```properties
 raft.server.address.list=127.0.0.1:10024,127.0.0.1:10124,127.0.0.1:11124
 ```
 
-We name those peers as 'n-0', 'n-1' and 'n-2', and then we can create a `RaftGroup` instance representing them. Since they are immutable, we'll put them in the `Constant` class:
+We name those peers as 'n-0', 'n-1' and 'n-2',
+and then we will create a `RaftGroup` instance representing them.
+Since they are immutable,
+we'll put them in the `Constant` class:
 
 ```java
 public final class Constants {
@@ -199,7 +246,11 @@ public final class Constants {
 }
 ```
 
-Except for the cluster info, another important thing is that we need to know the information of the current peer. To achieve this, we could pass the current peer's id as a program argument, and then the raft server could be created:
+Except for the cluster info,
+another important thing is that we need to know the information of the current peer.
+To achieve this,
+we could pass the current peer's id as a program argument,
+and then the raft server could be created:
 
 ```java
 public final class CounterServer implements Closeable {
@@ -225,7 +276,9 @@ public final class CounterServer implements Closeable {
 }
 ```
 
-Each `RaftServer` will own a `CounterStateMachine` instance, as previously defined by us. After that, all we need to do is to start it along with our application:
+Each `RaftServer` will own a `CounterStateMachine` instance,
+as previously defined by us.
+After that, all we need to do is to start it along with our application:
 
 ```java
 public final class CounterServer implements Closeable {
@@ -245,11 +298,15 @@ public final class CounterServer implements Closeable {
 }
 ```
 
-After the server is started, it will try to communicate with other peers in the cluster, and perform raft actions like leader election, append log entries, etc.
+After the server is started,
+it will try to communicate with other peers in the cluster,
+and perform raft actions like leader election, append log entries, etc.
 
 ## Build Raft Client
 
-To send commands to the cluster, we need to use a `RaftClient` instance. All we need to know is the peers in the cluster, ie. the raft group. 
+To send commands to the cluster,
+we need to use a `RaftClient` instance.
+All we need to know is the peers in the cluster, ie. the raft group. 
 
 ```java
 public final class CounterClient {
@@ -267,7 +324,12 @@ public final class CounterClient {
 }
 ```
 
-With this raft client, we can then send commands by `raftClient.io().send` method, and use `raftClient.io().sendReadonly` method for read only commands. In this example, to send `INCREMENT` and `GET` command, we can do it like this:
+With this raft client,
+we can then send commands by `raftClient.io().send` method,
+and use `raftClient.io().sendReadonly` method for read only commands.
+In this example,
+to send `INCREMENT` and `GET` command,
+we can do it like this:
 
 ```java
 raftClient.io().send(Message.valueOf("INCREMENT")));
@@ -282,6 +344,11 @@ System.out.println(response);
 ```
 
 ## Summary
-It might seem a little complicated for beginners, but since Raft itself is a hard topic, this is already the simplest example we've found as a 'Hello World' for Ratis. After you have a basic understanding of Ratis, you'll find it really easy to be integrated into any projects. 
+It might seem a little complicated for beginners,
+but since Raft itself is a hard topic,
+this is already the simplest example we've found as a 'Hello World' for Ratis.
+After you have a basic understanding of Ratis,
+you'll find it really easy to be integrated into any projects. 
 
-Next, you can take a look at other [examples](https://github.com/apache/ratis/tree/master/ratis-examples), to know more about the features of Ratis.
+Next, you can take a look at other [examples](https://github.com/apache/ratis/tree/master/ratis-examples),
+to know more about the features of Ratis.
