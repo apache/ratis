@@ -29,7 +29,6 @@ import org.junit.Test;
 import org.junit.runners.Parameterized;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.util.Collection;
 
 public class TestCounter extends ParameterizedBaseTest {
@@ -50,20 +49,17 @@ public class TestCounter extends ParameterizedBaseTest {
         client.io().send(Message.valueOf("INCREMENT"));
       }
       RaftClientReply reply1 = client.io().sendReadOnly(Message.valueOf("GET"));
-      Assert.assertEquals("10",
-          reply1.getMessage().getContent().toString(Charset.defaultCharset()));
+      Assert.assertEquals("10", reply1.getMessage().getContent().toStringUtf8());
       for (int i = 0; i < 10; i++) {
         client.io().send(Message.valueOf("INCREMENT"));
       }
       RaftClientReply reply2 = client.io().sendReadOnly(Message.valueOf("GET"));
-      Assert.assertEquals("20",
-          reply2.getMessage().getContent().toString(Charset.defaultCharset()));
+      Assert.assertEquals("20", reply2.getMessage().getContent().toStringUtf8());
       for (int i = 0; i < 10; i++) {
         client.io().send(Message.valueOf("INCREMENT"));
       }
       RaftClientReply reply3 = client.io().sendReadOnly(Message.valueOf("GET"));
-      Assert.assertEquals("30",
-          reply3.getMessage().getContent().toString(Charset.defaultCharset()));
+      Assert.assertEquals("30", reply3.getMessage().getContent().toStringUtf8());
     }
   }
 }

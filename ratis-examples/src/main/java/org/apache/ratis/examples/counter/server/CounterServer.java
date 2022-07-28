@@ -32,8 +32,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Scanner;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 /**
  * Simplest Ratis server, use a simple state machine {@link CounterStateMachine}
  * which maintain a counter across multi server.
@@ -112,7 +110,7 @@ public final class CounterServer implements Closeable {
       counterServer.start();
 
       //exit when any input entered
-      new Scanner(System.in, UTF_8.name()).nextLine();
+      new Scanner(System.in).nextLine();
     }
   }
 }

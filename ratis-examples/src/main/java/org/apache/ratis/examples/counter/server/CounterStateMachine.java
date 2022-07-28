@@ -38,7 +38,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
@@ -187,7 +186,7 @@ public class CounterStateMachine extends BaseStateMachine {
    */
   @Override
   public CompletableFuture<Message> query(Message request) {
-    final String command = request.getContent().toString(Charset.defaultCharset());
+    final String command = request.getContent().toStringUtf8();
     if (!CounterCommand.GET.matches(command)) {
       return JavaUtils.completeExceptionally(new IllegalArgumentException("Invalid Command: " + command));
     }
@@ -205,7 +204,7 @@ public class CounterStateMachine extends BaseStateMachine {
     final LogEntryProto entry = trx.getLogEntry();
 
     //check if the command is valid
-    final String command = entry.getStateMachineLogEntry().getLogData().toString(Charset.defaultCharset());
+    final String command = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
     if (!CounterCommand.INCREMENT.matches(command)) {
       return JavaUtils.completeExceptionally(new IllegalArgumentException("Invalid Command: " + command));
     }
