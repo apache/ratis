@@ -61,7 +61,8 @@ public final class CounterClient implements Closeable {
       // use BlockingApi
       final ExecutorService executor = Executors.newFixedThreadPool(10);
       for (int i = 0; i < increment; i++) {
-        final Future<RaftClientReply> f = executor.submit(() -> client.io().send(CounterCommand.INCREMENT.getMessage()));
+        final Future<RaftClientReply> f = executor.submit(
+            () -> client.io().send(CounterCommand.INCREMENT.getMessage()));
         futures.add(f);
       }
       executor.shutdown();
