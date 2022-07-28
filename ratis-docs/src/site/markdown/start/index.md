@@ -505,15 +505,21 @@ public final class CounterClient implements Closeable {
 With this raft client,
 we can then send commands using the `BlockingApi` returned by `RaftClient.io()`,
 or the `AsyncApi` returned by `RaftClient.async()`.
-The `send` method in the `BlockingApi` is used to send the `INCREMENT` command as below.
+The `send` method in the `BlockingApi`/`AsyncApi` is used to send the `INCREMENT` command as below.
 ```java
 client.io().send(CounterCommand.INCREMENT.getMessage());
 ```
-The `sendReadonly` method in the `BlockingApi` is used to send the `GET` command as below.
+or
 ```java
-final RaftClientReply reply = client.io().sendReadOnly(CounterCommand.GET.getMessage());
-final String count = reply.getMessage().getContent().toString(Charset.defaultCharset());
-System.out.println("Current counter value: " + count);
+client.async().send(CounterCommand.INCREMENT.getMessage());
+```
+The `sendReadonly` method in the `BlockingApi`/`AsyncApi` is used to send the `GET` command as below.
+```java
+client.io().sendReadOnly(CounterCommand.GET.getMessage());
+```
+or
+```java
+client.async().sendReadOnly(CounterCommand.GET.getMessage());
 ```
 For more details, see
 [CounterClient.java](https://github.com/apache/ratis/blob/master/ratis-examples/src/main/java/org/apache/ratis/examples/counter/client/CounterClient.java).

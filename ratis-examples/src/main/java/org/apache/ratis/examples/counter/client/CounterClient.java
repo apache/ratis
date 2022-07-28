@@ -25,11 +25,13 @@ import org.apache.ratis.protocol.RaftClientReply;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
 
 /**
  * Counter client application, this application sends specific number of
@@ -50,23 +52,41 @@ public final class CounterClient implements Closeable {
     client.close();
   }
 
-  private void run(int increment) throws Exception {
+  private void run(int increment, boolean blocking) throws Exception {
     //send INCREMENT commands concurrently
     System.out.printf("Sending %d increment command...%n", increment);
-    final ExecutorService executor = Executors.newFixedThreadPool(10);
-    for (int i = 0; i < increment; i++) {
-      executor.submit(() -> client.io().send(CounterCommand.INCREMENT.getMessage()));
+    final List<Future<RaftClientReply>> futures = new ArrayList<>(increment);
+
+    if (blocking) {
+      // use BlockingApi
+      final ExecutorService executor = Executors.newFixedThreadPool(10);
+      for (int i = 0; i < increment; i++) {
+        final Future<RaftClientReply> f = executor.submit(() -> client.io().send(CounterCommand.INCREMENT.getMessage()));
+        futures.add(f);
+      }
+      executor.shutdown();
+    } else {
+      // use AsyncApi
+      for (int i = 0; i < increment; i++) {
+        final Future<RaftClientReply> f = client.async().send(CounterCommand.INCREMENT.getMessage());
+        futures.add(f);
+      }
     }
 
-    //shut down the executor and wait.
-    executor.shutdown();
-    for (int i = 1; executor.awaitTermination(increment * 500L, TimeUnit.MILLISECONDS); i++) {
-      System.out.println("Waiting the executor to terminate ... " + i);
+    //wait for the futures
+    for (Future<RaftClientReply> f : futures) {
+      final RaftClientReply reply = f.get();
+      if (reply.isSuccess()) {
+        final String count = reply.getMessage().getContent().toString(StandardCharsets.UTF_8);
+        System.out.println("Counter is incremented to " + count);
+      } else {
+        System.err.println("Failed " + reply);
+      }
     }
 
     //send GET command and print the reply
     final RaftClientReply reply = client.io().sendReadOnly(CounterCommand.GET.getMessage());
-    final String count = reply.getMessage().getContent().toString(Charset.defaultCharset());
+    final String count = reply.getMessage().getContent().toString(StandardCharsets.UTF_8);
     System.out.println("Current counter value: " + count);
   }
 
@@ -75,15 +95,18 @@ public final class CounterClient implements Closeable {
     try(CounterClient client = new CounterClient()) {
       //the number of INCREMENT commands, default is 10
       final int increment = args.length > 0 ? Integer.parseInt(args[0]) : 10;
-      client.run(increment);
+      final boolean io = args.length > 1 && "io".equalsIgnoreCase(args[1]);
+      client.run(increment, io);
     } catch (Throwable e) {
       e.printStackTrace();
       System.err.println();
       System.err.println("args = " + Arrays.toString(args));
       System.err.println();
-      System.err.println("Usage: java org.apache.ratis.examples.counter.client.CounterClient [increment]");
+      System.err.println("Usage: java org.apache.ratis.examples.counter.client.CounterClient [increment] [async|io]");
       System.err.println();
-      System.err.println("       increment is the number of INCREMENT commands to be sent, where the default is 10.");
+      System.err.println("       increment: the number of INCREMENT commands to be sent (default is 10)");
+      System.err.println("       async    : use the AsyncApi (default)");
+      System.err.println("       io       : use the BlockingApi");
       System.exit(1);
     }
   }
