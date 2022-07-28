@@ -25,7 +25,6 @@ import org.apache.ratis.protocol.RaftClientReply;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -42,6 +41,7 @@ import java.util.concurrent.Future;
  * parameter found, application use default value which is 10
  */
 public final class CounterClient implements Closeable {
+  //build the client
   private final RaftClient client = RaftClient.newBuilder()
       .setProperties(new RaftProperties())
       .setRaftGroup(Constants.RAFT_GROUP)
@@ -53,10 +53,11 @@ public final class CounterClient implements Closeable {
   }
 
   private void run(int increment, boolean blocking) throws Exception {
-    //send INCREMENT commands concurrently
-    System.out.printf("Sending %d increment command...%n", increment);
+    System.out.printf("Sending %d %s command(s) using the %s ...%n",
+        increment, CounterCommand.INCREMENT, blocking? "BlockingApi": "AsyncApi");
     final List<Future<RaftClientReply>> futures = new ArrayList<>(increment);
 
+    //send INCREMENT command(s)
     if (blocking) {
       // use BlockingApi
       final ExecutorService executor = Executors.newFixedThreadPool(10);
@@ -78,21 +79,20 @@ public final class CounterClient implements Closeable {
     for (Future<RaftClientReply> f : futures) {
       final RaftClientReply reply = f.get();
       if (reply.isSuccess()) {
-        final String count = reply.getMessage().getContent().toString(StandardCharsets.UTF_8);
+        final String count = reply.getMessage().getContent().toStringUtf8();
         System.out.println("Counter is incremented to " + count);
       } else {
         System.err.println("Failed " + reply);
       }
     }
 
-    //send GET command and print the reply
+    //send a GET command and print the reply
     final RaftClientReply reply = client.io().sendReadOnly(CounterCommand.GET.getMessage());
-    final String count = reply.getMessage().getContent().toString(StandardCharsets.UTF_8);
+    final String count = reply.getMessage().getContent().toStringUtf8();
     System.out.println("Current counter value: " + count);
   }
 
   public static void main(String[] args) {
-    //build the counter cluster client
     try(CounterClient client = new CounterClient()) {
       //the number of INCREMENT commands, default is 10
       final int increment = args.length > 0 ? Integer.parseInt(args[0]) : 10;
