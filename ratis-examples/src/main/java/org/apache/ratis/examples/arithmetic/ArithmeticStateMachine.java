@@ -42,6 +42,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -114,7 +115,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
       LOG.warn("The snapshot info is null.");
       return RaftLog.INVALID_LOG_INDEX;
     }
-    final File snapshotFile = snapshot.getFile().getPath().toFile();
+    final Path snapshotFile = snapshot.getFile().getPath().toFile();
     if (!snapshotFile.exists()) {
       LOG.warn("The snapshot file {} does not exist for snapshot {}", snapshotFile, snapshot);
       return RaftLog.INVALID_LOG_INDEX;

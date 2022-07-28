@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,21 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.examples.counter.client;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.common.Constants;
-import org.apache.ratis.grpc.GrpcFactory;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.Message;
+import org.apache.ratis.examples.counter.CounterCommand;
 import org.apache.ratis.protocol.RaftClientReply;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -42,55 +39,52 @@ import java.util.concurrent.TimeUnit;
  * Parameter to this application indicate the number of INCREMENT command, if no
  * parameter found, application use default value which is 10
  */
-public final class CounterClient {
+public final class CounterClient implements Closeable {
+  private final RaftClient client = RaftClient.newBuilder()
+      .setProperties(new RaftProperties())
+      .setRaftGroup(Constants.RAFT_GROUP)
+      .build();
 
-  private CounterClient(){
+  @Override
+  public void close() throws IOException {
+    client.close();
   }
 
-  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
-  public static void main(String[] args)
-      throws IOException, InterruptedException {
-    //indicate the number of INCREMENT command, set 10 if no parameter passed
-    int increment = args.length > 0 ? Integer.parseInt(args[0]) : 10;
-
-    //build the counter cluster client
-    RaftClient raftClient = buildClient();
-
-    //use a executor service with 10 thread to send INCREMENT commands
-    // concurrently
-    ExecutorService executorService = Executors.newFixedThreadPool(10);
-
+  private void run(int increment) throws Exception {
     //send INCREMENT commands concurrently
     System.out.printf("Sending %d increment command...%n", increment);
+    final ExecutorService executor = Executors.newFixedThreadPool(10);
     for (int i = 0; i < increment; i++) {
-      executorService.submit(() ->
-          raftClient.io().send(Message.valueOf("INCREMENT")));
+      executor.submit(() -> client.io().send(CounterCommand.INCREMENT.getMessage()));
     }
 
-    //shutdown the executor service and wait until they finish their work
-    executorService.shutdown();
-    executorService.awaitTermination(increment * 500L, TimeUnit.MILLISECONDS);
+    //shut down the executor and wait.
+    executor.shutdown();
+    for (int i = 1; executor.awaitTermination(increment * 500L, TimeUnit.MILLISECONDS); i++) {
+      System.out.println("Waiting the executor to terminate ... " + i);
+    }
 
-    //send GET command and print the response
-    RaftClientReply count = raftClient.io().sendReadOnly(Message.valueOf("GET"));
-    String response = count.getMessage().getContent().toString(Charset.defaultCharset());
-    System.out.println(response);
+    //send GET command and print the reply
+    final RaftClientReply reply = client.io().sendReadOnly(CounterCommand.GET.getMessage());
+    final String count = reply.getMessage().getContent().toString(Charset.defaultCharset());
+    System.out.println("Current counter value: " + count);
   }
 
-  /**
-   * build the RaftClient instance which is used to communicate to
-   * Counter cluster
-   *
-   * @return the created client of Counter cluster
-   */
-  private static RaftClient buildClient() {
-    RaftProperties raftProperties = new RaftProperties();
-    RaftClient.Builder builder = RaftClient.newBuilder()
-        .setProperties(raftProperties)
-        .setRaftGroup(Constants.RAFT_GROUP)
-        .setClientRpc(
-            new GrpcFactory(new Parameters())
-                .newRaftClientRpc(ClientId.randomId(), raftProperties));
-    return builder.build();
+  public static void main(String[] args) {
+    //build the counter cluster client
+    try(CounterClient client = new CounterClient()) {
+      //the number of INCREMENT commands, default is 10
+      final int increment = args.length > 0 ? Integer.parseInt(args[0]) : 10;
+      client.run(increment);
+    } catch (Throwable e) {
+      e.printStackTrace();
+      System.err.println();
+      System.err.println("args = " + Arrays.toString(args));
+      System.err.println();
+      System.err.println("Usage: java org.apache.ratis.examples.counter.client.CounterClient [increment]");
+      System.err.println();
+      System.err.println("       increment is the number of INCREMENT commands to be sent, where the default is 10.");
+      System.exit(1);
+    }
   }
 }
