@@ -442,7 +442,9 @@ class LeaderStateImpl implements LeaderState {
     final long readIndex = server.getRaftLog().getLastCommittedIndex();
 
     return broadcastHeartbeats().thenCompose(majoritySuccess -> {
-      if (majoritySuccess) return CompletableFuture.completedFuture(readIndex);
+      if (majoritySuccess) {
+        return CompletableFuture.completedFuture(readIndex);
+      }
       else {
         CompletableFuture<Long> notLeader = new CompletableFuture<>();
         notLeader.completeExceptionally(server.generateNotLeaderException());
@@ -525,7 +527,7 @@ class LeaderStateImpl implements LeaderState {
 
   private CompletableFuture<Boolean> broadcastHeartbeats() {
     ReadOnlyRequests.ReadIndexHeartbeatWatcher watcher =
-            new ReadOnlyRequests.ReadIndexHeartbeatWatcher(server.getGroup().getPeers().size());
+            new ReadOnlyRequests.ReadIndexHeartbeatWatcher(server);
     senders.stream().forEach(logAppender -> {
       logAppender.registerAppendEntriesWatcher(watcher);
       logAppender.notifyLogAppender();

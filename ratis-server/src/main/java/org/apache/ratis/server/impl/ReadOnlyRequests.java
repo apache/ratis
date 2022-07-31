@@ -42,14 +42,16 @@ public class ReadOnlyRequests {
     }
 
     public static class ReadIndexHeartbeatWatcher implements Consumer<RaftProtos.AppendEntriesReplyProto> {
+        private final RaftServerImpl server;
         private final int confPeerCount;
         private final CompletableFuture<Boolean> result;
-        private volatile int successCount;
-        private volatile int failCount;
+        private int successCount;
+        private int failCount;
         private volatile boolean done;
 
-        public ReadIndexHeartbeatWatcher(int confPeers) {
-            this.confPeerCount = confPeers;
+        public ReadIndexHeartbeatWatcher(RaftServerImpl server) {
+            this.server = server;
+            this.confPeerCount = server.getGroup().getPeers().size();
             this.successCount = 0;
             this.failCount = 0;
             this.done = false;
@@ -72,7 +74,7 @@ public class ReadOnlyRequests {
                 done = true;
             }
             if (hasMajorityFail()) {
-                result.completeExceptionally(null);
+                result.completeExceptionally(server.generateNotLeaderException());
                 done = true;
             }
         }

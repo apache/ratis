@@ -57,7 +57,7 @@ public abstract class LogAppenderBase implements LogAppender {
   private final LogAppenderDaemon daemon;
   private final AwaitForSignal eventAwaitForSignal;
 
-  protected final BlockingQueue<Consumer<AppendEntriesReplyProto>> watcherList;
+  private final BlockingQueue<Consumer<AppendEntriesReplyProto>> watcherList;
 
   protected LogAppenderBase(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -209,13 +209,13 @@ public abstract class LogAppenderBase implements LogAppender {
 
   @Override
   public void registerAppendEntriesWatcher(Consumer<AppendEntriesReplyProto> watcher) {
-    synchronized (watcherList) {
+    synchronized (this) {
       watcherList.add(watcher);
     }
   }
 
   protected void notifyAppendEntriesWatcher(AppendEntriesReplyProto reply) {
-    synchronized (watcherList) {
+    synchronized (this) {
         watcherList.parallelStream().forEach(watcher -> watcher.accept(reply));
         watcherList.clear();
       }
