@@ -25,7 +25,6 @@ import java.util.function.Supplier;
 
 import org.apache.ratis.client.api.BlockingApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
