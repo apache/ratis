@@ -162,7 +162,7 @@ class ServerState implements Closeable {
     this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
         stateMachine, server, this, getLog().getSnapshotIndex(), prop));
-    this.readOnlyRequests = new ReadOnlyRequests(stateMachine);
+    this.readOnlyRequests = new ReadOnlyRequests(stateMachine, prop);
   }
 
   void initialize(StateMachine stateMachine) throws IOException {

@@ -722,6 +722,21 @@ public interface RaftServerConfigKeys {
     }
   }
 
+  interface ReadOnly {
+    String PREFIX = RaftServerConfigKeys.PREFIX
+            + "." + JavaUtils.getClassSimpleName(ReadOnly.class).toLowerCase();
+
+    String TIMEOUT_KEY = PREFIX + ".timeout";
+    TimeDuration TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+    static TimeDuration timeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(TIMEOUT_DEFAULT.getUnit()),
+          TIMEOUT_KEY, TIMEOUT_DEFAULT, getDefaultLog(), requirePositive());
+    }
+    static void setTimeout(RaftProperties properties, TimeDuration readOnlyTimeout) {
+      setTimeDuration(properties::setTimeDuration, TIMEOUT_KEY, readOnlyTimeout);
+    }
+  }
+
   static void main(String[] args) {
     printAll(RaftServerConfigKeys.class);
   }

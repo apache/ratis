@@ -247,7 +247,6 @@ class LeaderStateImpl implements LeaderState {
   private final EventProcessor processor;
   private final PendingRequests pendingRequests;
   private final WatchRequests watchRequests;
-  private final ReadOnlyRequests readOnlyRequests;
   private final MessageStreamRequests messageStreamRequests;
   private volatile boolean running = true;
 
@@ -276,7 +275,6 @@ class LeaderStateImpl implements LeaderState {
     logAppenderMetrics = new LogAppenderMetrics(server.getMemberId());
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
-    this.readOnlyRequests = new ReadOnlyRequests(server.getStateMachine());
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
     this.pendingStepDown = new PendingStepDown(this);
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
@@ -444,8 +442,7 @@ class LeaderStateImpl implements LeaderState {
     return broadcastHeartbeats().thenCompose(majoritySuccess -> {
       if (majoritySuccess) {
         return CompletableFuture.completedFuture(readIndex);
-      }
-      else {
+      } else {
         CompletableFuture<Long> notLeader = new CompletableFuture<>();
         notLeader.completeExceptionally(server.generateNotLeaderException());
         return notLeader;
