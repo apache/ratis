@@ -19,7 +19,6 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
@@ -41,7 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class ReadOnlyRequests {
-    private final static Logger LOG = LoggerFactory.getLogger(ReadOnlyRequests.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyRequests.class);
     private final StateMachine stateMachine;
     private final ReadIndexQueue readIndexQueue;
 
