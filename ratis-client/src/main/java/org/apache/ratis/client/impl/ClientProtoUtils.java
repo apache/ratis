@@ -129,8 +129,6 @@ public interface ClientProtoUtils {
         return RaftClientRequest.Type.valueOf(p.getStaleRead());
       case WATCH:
         return RaftClientRequest.Type.valueOf(p.getWatch());
-      case READINDEX:
-        return RaftClientRequest.Type.valueOf(p.getReadIndex());
       default:
         throw new IllegalArgumentException("Unexpected request type: " + p.getTypeCase()
             + " in request proto " + p);
@@ -209,9 +207,6 @@ public interface ClientProtoUtils {
         break;
       case WATCH:
         b.setWatch(type.getWatch());
-        break;
-      case READINDEX:
-        b.setReadIndex(type.getReadIndex());
         break;
       default:
         throw new IllegalArgumentException("Unexpected request type: " + request.getType()

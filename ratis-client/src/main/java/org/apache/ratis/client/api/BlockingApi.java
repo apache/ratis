@@ -19,7 +19,6 @@ package org.apache.ratis.client.api;
 
 import java.io.IOException;
 
-import org.apache.ratis.proto.RaftProtos.ReadOnlyOption;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -62,8 +61,6 @@ public interface BlockingApi {
    */
   RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server) throws IOException;
 
-
-  RaftClientReply sendReadIndex(Message message, ReadOnlyOption option, RaftPeerId server) throws IOException;
 
   /**
    * Watch the given index to satisfy the given replication level.

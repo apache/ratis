@@ -834,8 +834,6 @@ class RaftServerImpl implements RaftServer.Division,
         // TODO: We might not be the leader anymore by the time this completes.
         // See the RAFT paper section 8 (last part)
         replyFuture = processQueryFuture(stateMachine.query(request.getMessage()), request);
-      } else if (type.is(TypeCase.READINDEX)) {
-        replyFuture = readIndexAsync(request);
       } else if (type.is(TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
       } else if (type.is(TypeCase.MESSAGESTREAM)) {
