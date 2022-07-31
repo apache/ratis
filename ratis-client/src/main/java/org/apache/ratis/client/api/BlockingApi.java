@@ -18,7 +18,6 @@
 package org.apache.ratis.client.api;
 
 import java.io.IOException;
-
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -60,7 +59,6 @@ public interface BlockingApi {
    * @return the reply.
    */
   RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server) throws IOException;
-
 
   /**
    * Watch the given index to satisfy the given replication level.

@@ -75,7 +75,6 @@ public class RaftClientRequest extends RaftClientMessage {
     return new Type(WatchRequestTypeProto.newBuilder().setIndex(index).setReplication(replication).build());
   }
 
-
   /** The type of a request (oneof write, read, staleRead, watch; see the message RaftClientRequestProto). */
   public static final class Type {
     public static Type valueOf(WriteRequestTypeProto write) {
@@ -106,7 +105,6 @@ public class RaftClientRequest extends RaftClientMessage {
       return messageStreamRequestType(
           messageStream.getStreamId(), messageStream.getMessageId(), messageStream.getEndOfRequest());
     }
-
 
     /**
      * The type case of the proto.
@@ -148,7 +146,6 @@ public class RaftClientRequest extends RaftClientMessage {
     private Type(WatchRequestTypeProto watch) {
       this(WATCH, watch);
     }
-
 
     public boolean is(RaftClientRequestProto.TypeCase tCase) {
       return getTypeCase().equals(tCase);
