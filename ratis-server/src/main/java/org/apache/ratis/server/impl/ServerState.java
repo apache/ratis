@@ -100,6 +100,8 @@ class ServerState implements Closeable {
    */
   private final AtomicReference<TermIndex> latestInstalledSnapshot = new AtomicReference<>();
 
+  private final ReadOnlyRequests readOnlyRequests;
+
   ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
               RaftServerImpl server, StateMachine stateMachine)
       throws IOException {
@@ -160,6 +162,7 @@ class ServerState implements Closeable {
     this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
         stateMachine, server, this, getLog().getSnapshotIndex(), prop));
+    this.readOnlyRequests = new ReadOnlyRequests(stateMachine);
   }
 
   void initialize(StateMachine stateMachine) throws IOException {
@@ -524,5 +527,9 @@ class ServerState implements Closeable {
       return true;
     }
     return getLog().contains(ti);
+  }
+
+  ReadOnlyRequests getReadOnlyRequests() {
+    return readOnlyRequests;
   }
 }

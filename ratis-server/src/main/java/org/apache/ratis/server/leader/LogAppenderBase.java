@@ -18,6 +18,7 @@
 package org.apache.ratis.server.leader;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -36,7 +37,12 @@ import org.apache.ratis.util.SizeInBytes;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 
 /**
  * An abstract implementation of {@link LogAppender}.
@@ -53,6 +59,9 @@ public abstract class LogAppenderBase implements LogAppender {
   private final LogAppenderDaemon daemon;
   private final AwaitForSignal eventAwaitForSignal;
 
+  protected final BlockingQueue<Consumer<AppendEntriesReplyProto>> watcherList;
+  protected final Map<Long, Consumer<AppendEntriesReplyProto>> watcherMap;
+
   protected LogAppenderBase(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
     this.name = follower.getName() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -67,6 +76,8 @@ public abstract class LogAppenderBase implements LogAppender {
     this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
     this.daemon = new LogAppenderDaemon(this);
     this.eventAwaitForSignal = new AwaitForSignal(name);
+    this.watcherList = new LinkedBlockingQueue<>();
+    this.watcherMap = new TreeMap<>();
   }
 
   @Override
@@ -198,5 +209,10 @@ public abstract class LogAppenderBase implements LogAppender {
   @Override
   public Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId, SnapshotInfo snapshot) {
     return new InstallSnapshotRequests(server, getFollowerId(), requestId, snapshot, snapshotChunkMaxSize);
+  }
+
+  @Override
+  public void registerAppendEntriesWatcher(Consumer<AppendEntriesReplyProto> watcher) {
+    watcherList.add(watcher);
   }
 }

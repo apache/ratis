@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 
 import org.apache.ratis.client.api.BlockingApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
@@ -67,7 +68,12 @@ class BlockingImpl implements BlockingApi {
   @Override
   public RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server)
       throws IOException {
-    return send(RaftClientRequest.staleReadRequestType(minIndex), message, server);
+    return send(RaftClientRequest.staleReadRequestType(minIndex), message, null);
+  }
+
+  @Override
+  public RaftClientReply sendReadIndex(Message message, RaftProtos.ReadOnlyOption option, RaftPeerId server) throws IOException {
+    return send(RaftClientRequest.readIndexRequestType(option), message, server);
   }
 
   @Override

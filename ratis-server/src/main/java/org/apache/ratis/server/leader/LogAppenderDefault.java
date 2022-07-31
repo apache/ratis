@@ -30,8 +30,10 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * The default implementation of {@link LogAppender}
@@ -51,7 +53,12 @@ class LogAppenderDefault extends LogAppenderBase {
     while (isRunning()) { // keep retrying for IOException
       try {
         if (request == null || request.getEntriesCount() == 0) {
-          request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
+          Consumer<AppendEntriesReplyProto> watcher = watcherList.poll();
+          boolean isHeartbeat = watcher != null;
+          request = newAppendEntriesRequest(CallId.getAndIncrement(), isHeartbeat);
+          if (watcher != null) {
+            watcherMap.put(request.getServerRequest().getCallId(), watcher);
+          }
         }
 
         if (request == null) {
@@ -182,6 +189,8 @@ class LogAppenderDefault extends LogAppenderBase {
           break;
         default: throw new IllegalArgumentException("Unable to process result " + reply.getResult());
       }
+      Optional.ofNullable(watcherMap.remove(reply.getServerReply().getCallId()))
+              .ifPresent(watcher -> watcher.accept(reply));
     }
   }
 

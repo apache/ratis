@@ -247,6 +247,7 @@ class LeaderStateImpl implements LeaderState {
   private final EventProcessor processor;
   private final PendingRequests pendingRequests;
   private final WatchRequests watchRequests;
+  private final ReadOnlyRequests readOnlyRequests;
   private final MessageStreamRequests messageStreamRequests;
   private volatile boolean running = true;
 
@@ -256,6 +257,7 @@ class LeaderStateImpl implements LeaderState {
   private final LogAppenderMetrics logAppenderMetrics;
   private final long followerMaxGapThreshold;
   private final PendingStepDown pendingStepDown;
+
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -274,6 +276,7 @@ class LeaderStateImpl implements LeaderState {
     logAppenderMetrics = new LogAppenderMetrics(server.getMemberId());
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
+    this.readOnlyRequests = new ReadOnlyRequests(server.getStateMachine());
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
     this.pendingStepDown = new PendingStepDown(this);
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
@@ -422,6 +425,45 @@ class LeaderStateImpl implements LeaderState {
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
+  CompletableFuture<RaftClientReply> addReadIndexRequest(long readIndex, RaftClientRequest request) {
+    LOG.debug("{}: addReadIndexRequest {}", this, request);
+
+    // broadcast heartbeats to all followers
+    ReadOnlyRequests.ReadIndexHeartbeatWatcher watcher = new ReadOnlyRequests.ReadIndexHeartbeatWatcher(3);
+
+    CompletableFuture<Boolean> heartbeatDone = watcher.getFuture();
+    return heartbeatDone
+            .thenCompose(success -> server.processQueryFuture(readOnlyRequests.add(readIndex), request))
+            .exceptionally(e -> exception2RaftClientReply(request, server.generateNotLeaderException()));
+
+  }
+
+  @Override
+  public CompletableFuture<Long> getReadIndex() {
+    // if group contains only one member, fast path
+    if (server.getGroup().getPeers().size() == 1) {
+      return CompletableFuture.completedFuture(server.getRaftLog().getLastCommittedIndex());
+    }
+
+    // leader has not committed any entry in this term, reject
+    if (server.getRaftLog().getLastEntryTermIndex().getTerm() != server.getState().getCurrentTerm()) {
+      CompletableFuture<Long> leaderNotReady = new CompletableFuture<>();
+      leaderNotReady.completeExceptionally(new LeaderNotReadyException(server.getMemberId()));
+      return leaderNotReady;
+    }
+
+    final long readIndex = server.getRaftLog().getLastCommittedIndex();
+
+    return broadcastHeartbeats().thenCompose(majoritySuccess -> {
+      if (majoritySuccess) return CompletableFuture.completedFuture(readIndex);
+      else {
+        CompletableFuture<Long> notLeader = new CompletableFuture<>();
+        notLeader.completeExceptionally(server.generateNotLeaderException());
+        return notLeader;
+      }
+    });
+  }
+
   private RaftClientReply exception2RaftClientReply(RaftClientRequest request, Throwable e) {
     e = JavaUtils.unwrapCompletionException(e);
     if (e instanceof NotReplicatedException) {
@@ -491,6 +533,16 @@ class LeaderStateImpl implements LeaderState {
     return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, currentTerm, entries,
         ServerImplUtils.effectiveCommitIndex(raftLog.getLastCommittedIndex(), previous, entries.size()),
         initializing, previous, server.getCommitInfos(), callId);
+  }
+
+
+  private CompletableFuture<Boolean> broadcastHeartbeats() {
+    ReadOnlyRequests.ReadIndexHeartbeatWatcher watcher = new ReadOnlyRequests.ReadIndexHeartbeatWatcher(3);
+    senders.stream().forEach(logAppender -> {
+      logAppender.registerAppendEntriesWatcher(watcher);
+      logAppender.notifyLogAppender();
+    });
+    return watcher.getFuture();
   }
 
   /**

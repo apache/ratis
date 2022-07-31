@@ -40,6 +40,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -86,6 +88,8 @@ class StateMachineUpdater implements Runnable {
   private final SnapshotRetentionPolicy snapshotRetentionPolicy;
   private StateMachineMetrics stateMachineMetrics = null;
 
+  private final List<Consumer<Long>> appliedIndexListeners;
+
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
       ServerState serverState, long lastAppliedIndex, RaftProperties properties) {
     this.name = serverState.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -98,6 +102,7 @@ class StateMachineUpdater implements Runnable {
 
     this.appliedIndex = new RaftLogIndex("appliedIndex", lastAppliedIndex);
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", lastAppliedIndex);
+    this.appliedIndexListeners = new CopyOnWriteArrayList<>();
 
     final boolean autoSnapshot = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties);
     this.autoSnapshotThreshold = autoSnapshot? RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties): null;
@@ -220,6 +225,7 @@ class StateMachineUpdater implements Runnable {
     final long i = snapshot.getIndex();
     snapshotIndex.setUnconditionally(i, infoIndexChange);
     appliedIndex.setUnconditionally(i, infoIndexChange);
+    notifyAppliedIndexListeners();
     state = State.RUNNING;
   }
 
@@ -241,6 +247,7 @@ class StateMachineUpdater implements Runnable {
           futures.get().add(f);
         }
         final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
+        notifyAppliedIndexListeners();
         Preconditions.assertTrue(incremented == nextIndex);
       } else {
         LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
@@ -324,5 +331,16 @@ class StateMachineUpdater implements Runnable {
 
   long getStateMachineLastAppliedIndex() {
     return stateMachine.getLastAppliedTermIndex().getIndex();
+  }
+
+  void registerAppliedIndexListener(Consumer<Long> listener) {
+    appliedIndexListeners.add(listener);
+    listener.accept(getLastAppliedIndex());
+  }
+
+  private void notifyAppliedIndexListeners() {
+    for (Consumer<Long> listener: appliedIndexListeners) {
+      listener.accept(getLastAppliedIndex());
+    }
   }
 }

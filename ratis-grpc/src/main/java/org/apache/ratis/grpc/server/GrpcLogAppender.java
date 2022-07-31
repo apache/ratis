@@ -47,6 +47,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
@@ -239,16 +240,21 @@ public class GrpcLogAppender extends LogAppenderBase {
     final AppendEntriesRequestProto pending;
     final AppendEntriesRequest request;
     final StreamObserver<AppendEntriesRequestProto> s;
+    final Consumer<AppendEntriesReplyProto> watcher = watcherList.poll();
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       // prepare and enqueue the append request. note changes on follower's
       // nextIndex and ops on pendingRequests should always be associated
       // together and protected by the lock
+      if (watcher != null) {
+        excludeLogEntries = true;
+      }
       pending = newAppendEntriesRequest(callId++, excludeLogEntries);
       if (pending == null) {
         return;
       }
       request = new AppendEntriesRequest(pending, getFollowerId(), grpcServerMetrics);
       pendingRequests.put(request);
+      Optional.ofNullable(watcher).ifPresent(consumer -> watcherMap.put(request.getCallId(), consumer));
       increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
         appendLogRequestObserver = new StreamObservers(
@@ -364,6 +370,8 @@ public class GrpcLogAppender extends LogAppenderBase {
           throw new IllegalStateException("Unexpected reply result: " + reply.getResult());
       }
       notifyLogAppender();
+      Optional.ofNullable(watcherMap.get(reply.getServerReply().getCallId()))
+              .ifPresent(watcher -> watcher.accept(reply));
     }
 
     /**

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -74,6 +75,10 @@ public class RaftClientRequest extends RaftClientMessage {
     return new Type(WatchRequestTypeProto.newBuilder().setIndex(index).setReplication(replication).build());
   }
 
+  public static Type readIndexRequestType(ReadOnlyOption option) {
+    return new Type(ReadIndexRequestTypeProto.newBuilder().setReadOnlyOption(option).build());
+  }
+
   /** The type of a request (oneof write, read, staleRead, watch; see the message RaftClientRequestProto). */
   public static final class Type {
     public static Type valueOf(WriteRequestTypeProto write) {
@@ -103,6 +108,10 @@ public class RaftClientRequest extends RaftClientMessage {
     public static Type valueOf(MessageStreamRequestTypeProto messageStream) {
       return messageStreamRequestType(
           messageStream.getStreamId(), messageStream.getMessageId(), messageStream.getEndOfRequest());
+    }
+
+    public static Type valueOf(ReadIndexRequestTypeProto readIndex) {
+      return readIndexRequestType(readIndex.getReadOnlyOption());
     }
 
     /**
@@ -145,6 +154,8 @@ public class RaftClientRequest extends RaftClientMessage {
     private Type(WatchRequestTypeProto watch) {
       this(WATCH, watch);
     }
+
+    private Type(ReadIndexRequestTypeProto readIndex) { this(READINDEX, readIndex); }
 
     public boolean is(RaftClientRequestProto.TypeCase tCase) {
       return getTypeCase().equals(tCase);
@@ -189,6 +200,11 @@ public class RaftClientRequest extends RaftClientMessage {
       return (WatchRequestTypeProto)proto;
     }
 
+    public ReadIndexRequestTypeProto getReadIndex() {
+      Preconditions.assertTrue(is(READINDEX));
+      return (ReadIndexRequestTypeProto) proto;
+    }
+
     public static String toString(ReplicationLevel replication) {
       return replication == ReplicationLevel.MAJORITY? "": "-" + replication;
     }
@@ -199,6 +215,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
     public static String toString(MessageStreamRequestTypeProto s) {
       return "MessageStream" + s.getStreamId() + "-" + s.getMessageId() + (s.getEndOfRequest()? "-eor": "");
+    }
+
+    public static String toString(ReadIndexRequestTypeProto ri) {
+      return "ReadIndex-" + ri.getReadOnlyOption();
     }
 
     @Override
@@ -218,6 +238,8 @@ public class RaftClientRequest extends RaftClientMessage {
           return "StaleRead(" + getStaleRead().getMinIndex() + ")";
         case WATCH:
           return toString(getWatch());
+        case READINDEX:
+          return toString(getReadIndex());
         default:
           throw new IllegalStateException("Unexpected request type: " + typeCase);
       }

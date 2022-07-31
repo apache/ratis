@@ -284,6 +284,15 @@ message DataStreamRequestTypeProto {
 message ForwardRequestTypeProto {
 }
 
+enum ReadOnlyOption {
+  ReadOnlySafe = 0;
+  ReadOnlyLeaderLease = 1;
+}
+
+message ReadIndexRequestTypeProto {
+  ReadOnlyOption readOnlyOption = 1;
+}
+
 message ReadRequestTypeProto {
 }
 
@@ -318,6 +327,7 @@ message RaftClientRequestProto {
     MessageStreamRequestTypeProto messageStream = 7;
     DataStreamRequestTypeProto dataStream = 8;
     ForwardRequestTypeProto forward = 9;
+    ReadIndexRequestTypeProto readIndex = 10;
   }
 }
 

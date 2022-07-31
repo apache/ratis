@@ -17,12 +17,16 @@
  */
 package org.apache.ratis.server.leader;
 
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.util.JavaUtils;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * States for leader only.
@@ -46,6 +50,10 @@ public interface LeaderState {
   /** @return a new {@link AppendEntriesRequestProto} object. */
   AppendEntriesRequestProto newAppendEntriesRequestProto(FollowerInfo follower,
       List<LogEntryProto> entries, TermIndex previous, long callId);
+
+  /** obtain current read index by broadcasting heartbeats and maintain authority
+   * @return readIndex, or exception if anything wrong */
+  CompletableFuture<Long> getReadIndex();
 
   /** Check if the follower is healthy. */
   void checkHealth(FollowerInfo follower);

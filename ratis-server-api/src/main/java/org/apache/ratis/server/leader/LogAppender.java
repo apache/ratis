@@ -18,6 +18,7 @@
 package org.apache.ratis.server.leader;
 
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
@@ -32,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.function.Consumer;
 
 /**
  * A {@link LogAppender} is for the leader to send appendEntries to a particular follower.
@@ -135,6 +137,11 @@ public interface LogAppender {
 
   /** Define how this {@link LogAppender} should run. */
   void run() throws InterruptedException, IOException;
+
+  /**
+   * Register a one-time watcher for next append entry RPC
+   */
+  void registerAppendEntriesWatcher(Consumer<AppendEntriesReplyProto> watcher);
 
   /**
    * Get the {@link AwaitForSignal} for events, which can be:

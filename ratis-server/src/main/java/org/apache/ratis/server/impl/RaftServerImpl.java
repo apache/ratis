@@ -69,6 +69,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.*;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -76,6 +77,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -832,6 +834,8 @@ class RaftServerImpl implements RaftServer.Division,
         // TODO: We might not be the leader anymore by the time this completes.
         // See the RAFT paper section 8 (last part)
         replyFuture = processQueryFuture(stateMachine.query(request.getMessage()), request);
+      } else if (type.is(TypeCase.READINDEX)) {
+        replyFuture = readIndexAsync(request);
       } else if (type.is(TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
       } else if (type.is(TypeCase.MESSAGESTREAM)) {
@@ -891,6 +895,16 @@ class RaftServerImpl implements RaftServer.Division,
           newExceptionReply(request, new StateMachineException(getMemberId(), e)));
     }
     return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
+  }
+
+  private CompletableFuture<RaftClientReply> readIndexAsync(RaftClientRequest request) throws IOException {
+    LeaderState leaderState = role.getLeaderStateNonNull();
+    return leaderState.getReadIndex()
+
+            .thenApply(index -> state.getReadOnlyRequests().add(index))
+            .thenCompose(fuck -> processQueryFuture(stateMachine.query(request.getMessage()), request))
+            .exceptionally(ex -> { ex.printStackTrace();
+              return newExceptionReply(request, (RaftException) ex);});
   }
 
   private CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
