@@ -833,7 +833,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (type.is(TypeCase.READ)) {
         // TODO: We might not be the leader anymore by the time this completes.
         // See the RAFT paper section 8 (last part)
-        replyFuture = processQueryFuture(stateMachine.query(request.getMessage()), request);
+        replyFuture = readOnlyAsync(request);
       } else if (type.is(TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
       } else if (type.is(TypeCase.MESSAGESTREAM)) {
@@ -895,14 +895,11 @@ class RaftServerImpl implements RaftServer.Division,
     return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
   }
 
-  private CompletableFuture<RaftClientReply> readIndexAsync(RaftClientRequest request) throws IOException {
+  private CompletableFuture<RaftClientReply> readOnlyAsync(RaftClientRequest request) throws IOException {
     LeaderState leaderState = role.getLeaderStateNonNull();
     return leaderState.getReadIndex()
-
             .thenApply(index -> state.getReadOnlyRequests().add(index))
-            .thenCompose(fuck -> processQueryFuture(stateMachine.query(request.getMessage()), request))
-            .exceptionally(ex -> { ex.printStackTrace();
-              return newExceptionReply(request, (RaftException) ex);});
+            .thenCompose(fuck -> processQueryFuture(stateMachine.query(request.getMessage()), request));
   }
 
   private CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {

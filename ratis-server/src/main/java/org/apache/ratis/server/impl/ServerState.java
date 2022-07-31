@@ -212,6 +212,7 @@ class ServerState implements Closeable {
   }
 
   void start() {
+    stateMachineUpdater.get().registerAppliedIndexListener(readOnlyRequests.getAppliedIndexListener());
     stateMachineUpdater.get().start();
   }
 

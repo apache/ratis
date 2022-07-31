@@ -59,6 +59,8 @@ public abstract class ReadIndexRequestTests<CLUSTER extends MiniRaftCluster>
                             client.io().send(new RaftTestUtil.SimpleMessage("a=" + i));
                     Assert.assertTrue(reply.isSuccess());
                 }
+                RaftClientReply reply = client.io().sendReadOnly(new RaftTestUtil.SimpleMessage("a"));
+                Assert.assertEquals(reply.getMessage().getContent().toString(StandardCharsets.UTF_8), "9");
             }
         } finally {
             cluster.shutdown();

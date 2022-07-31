@@ -425,19 +425,6 @@ class LeaderStateImpl implements LeaderState {
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
-  CompletableFuture<RaftClientReply> addReadIndexRequest(long readIndex, RaftClientRequest request) {
-    LOG.debug("{}: addReadIndexRequest {}", this, request);
-
-    // broadcast heartbeats to all followers
-    ReadOnlyRequests.ReadIndexHeartbeatWatcher watcher = new ReadOnlyRequests.ReadIndexHeartbeatWatcher(3);
-
-    CompletableFuture<Boolean> heartbeatDone = watcher.getFuture();
-    return heartbeatDone
-            .thenCompose(success -> server.processQueryFuture(readOnlyRequests.add(readIndex), request))
-            .exceptionally(e -> exception2RaftClientReply(request, server.generateNotLeaderException()));
-
-  }
-
   @Override
   public CompletableFuture<Long> getReadIndex() {
     // if group contains only one member, fast path

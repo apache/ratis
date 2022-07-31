@@ -1,15 +1,13 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.Timestamp;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -20,6 +18,10 @@ public class ReadOnlyRequests {
     public ReadOnlyRequests(StateMachine stateMachine) {
         this.stateMachine = stateMachine;
         this.readIndexQueue = new ReadIndexQueue();
+    }
+
+    public Consumer<Long> getAppliedIndexListener() {
+        return this.readIndexQueue;
     }
 
     public static class ReadIndexHeartbeatWatcher implements Consumer<RaftProtos.AppendEntriesReplyProto> {
@@ -85,17 +87,35 @@ public class ReadOnlyRequests {
         }
     }
 
-    private class ReadIndexQueue {
+    private static class ReadIndexQueue implements Consumer<Long>{
         private  SortedMap<Long, List<PendingReadIndex>> q;
 
-        public CompletableFuture<Message> addRequest(PendingReadIndex readIndex) {
-            return null;
+        public ReadIndexQueue() {
+            this.q = new TreeMap<>();
+        }
+
+        public CompletableFuture<Long> addPendingReadIndex(long readIndex) {
+            PendingReadIndex pendingReadIndex = new PendingReadIndex(readIndex);
+            synchronized (this) {
+                q.putIfAbsent(readIndex, new ArrayList<>(10));
+                q.get(readIndex).add(pendingReadIndex);
+            }
+
+            return pendingReadIndex.getFuture();
+        }
+
+        @Override
+        public synchronized void accept(Long appliedIndex) {
+            Optional.ofNullable(q.get(appliedIndex)).ifPresent(
+                    list -> list.forEach(pi -> pi.getFuture().complete(appliedIndex)));
+            q.remove(appliedIndex);
         }
     }
 
-    CompletableFuture<Message> add(long readIndex) {
-        CompletableFuture<Message> future = new CompletableFuture<Message>();
-        future.completeExceptionally(new Exception("FUCK"));
-        return future;
+    CompletableFuture<Long> add(long readIndex) {
+        if (stateMachine.getLastAppliedTermIndex().getIndex() >= readIndex) {
+            return CompletableFuture.completedFuture(readIndex);
+        }
+        return readIndexQueue.addPendingReadIndex(readIndex);
     }
 }
