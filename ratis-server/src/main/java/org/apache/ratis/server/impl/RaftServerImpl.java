@@ -895,11 +895,12 @@ class RaftServerImpl implements RaftServer.Division,
     return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
   }
 
-  private CompletableFuture<RaftClientReply> readOnlyAsync(RaftClientRequest request) throws IOException {
+  private CompletableFuture<RaftClientReply> readOnlyAsync(RaftClientRequest request) {
     LeaderState leaderState = role.getLeaderStateNonNull();
     return leaderState.getReadIndex()
-            .thenApply(index -> state.getReadOnlyRequests().add(index))
-            .thenCompose(fuck -> processQueryFuture(stateMachine.query(request.getMessage()), request));
+            .thenCompose(index -> state.getReadOnlyRequests().add(index))
+            .thenCompose(index -> processQueryFuture(stateMachine.query(request.getMessage()), request))
+            .exceptionally(ex -> newExceptionReply(request, (RaftException) ex.getCause()));
   }
 
   private CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {

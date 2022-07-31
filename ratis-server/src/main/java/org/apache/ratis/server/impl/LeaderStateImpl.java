@@ -524,7 +524,8 @@ class LeaderStateImpl implements LeaderState {
 
 
   private CompletableFuture<Boolean> broadcastHeartbeats() {
-    ReadOnlyRequests.ReadIndexHeartbeatWatcher watcher = new ReadOnlyRequests.ReadIndexHeartbeatWatcher(3);
+    ReadOnlyRequests.ReadIndexHeartbeatWatcher watcher =
+            new ReadOnlyRequests.ReadIndexHeartbeatWatcher(server.getGroup().getPeers().size());
     senders.stream().forEach(logAppender -> {
       logAppender.registerAppendEntriesWatcher(watcher);
       logAppender.notifyLogAppender();

@@ -53,12 +53,7 @@ class LogAppenderDefault extends LogAppenderBase {
     while (isRunning()) { // keep retrying for IOException
       try {
         if (request == null || request.getEntriesCount() == 0) {
-          Consumer<AppendEntriesReplyProto> watcher = watcherList.poll();
-          boolean isHeartbeat = watcher != null;
-          request = newAppendEntriesRequest(CallId.getAndIncrement(), isHeartbeat);
-          if (watcher != null) {
-            watcherMap.put(request.getServerRequest().getCallId(), watcher);
-          }
+          request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
         }
 
         if (request == null) {
@@ -189,8 +184,7 @@ class LogAppenderDefault extends LogAppenderBase {
           break;
         default: throw new IllegalArgumentException("Unable to process result " + reply.getResult());
       }
-      Optional.ofNullable(watcherMap.remove(reply.getServerReply().getCallId()))
-              .ifPresent(watcher -> watcher.accept(reply));
+      notifyAppendEntriesWatcher(reply);
     }
   }
 

@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-public abstract class ReadIndexRequestTests<CLUSTER extends MiniRaftCluster>
+public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
 
@@ -38,10 +38,10 @@ public abstract class ReadIndexRequestTests<CLUSTER extends MiniRaftCluster>
         final RaftProperties p = getProperties();
         p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
                 VersionedStateMachine.class, StateMachine.class);
-        RaftServerConfigKeys.Rpc.setTimeoutMin(properties.get(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
-        RaftServerConfigKeys.Rpc.setTimeoutMax(properties.get(), TimeDuration.valueOf(20, TimeUnit.SECONDS));
-        RaftServerConfigKeys.Rpc.setRequestTimeout(properties.get(), TimeDuration.valueOf(50, TimeUnit.SECONDS));
-        RaftClientConfigKeys.Rpc.setRequestTimeout(properties.get(), TimeDuration.valueOf(50, TimeUnit.SECONDS));
+//        RaftServerConfigKeys.Rpc.setTimeoutMin(properties.get(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
+//        RaftServerConfigKeys.Rpc.setTimeoutMax(properties.get(), TimeDuration.valueOf(20, TimeUnit.SECONDS));
+//        RaftServerConfigKeys.Rpc.setRequestTimeout(properties.get(), TimeDuration.valueOf(50, TimeUnit.SECONDS));
+//        RaftClientConfigKeys.Rpc.setRequestTimeout(properties.get(), TimeDuration.valueOf(50, TimeUnit.SECONDS));
     }
 
     @Test

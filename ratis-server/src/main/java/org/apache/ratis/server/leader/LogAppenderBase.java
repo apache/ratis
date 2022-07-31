@@ -60,7 +60,6 @@ public abstract class LogAppenderBase implements LogAppender {
   private final AwaitForSignal eventAwaitForSignal;
 
   protected final BlockingQueue<Consumer<AppendEntriesReplyProto>> watcherList;
-  protected final Map<Long, Consumer<AppendEntriesReplyProto>> watcherMap;
 
   protected LogAppenderBase(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -77,7 +76,6 @@ public abstract class LogAppenderBase implements LogAppender {
     this.daemon = new LogAppenderDaemon(this);
     this.eventAwaitForSignal = new AwaitForSignal(name);
     this.watcherList = new LinkedBlockingQueue<>();
-    this.watcherMap = new TreeMap<>();
   }
 
   @Override
@@ -213,6 +211,15 @@ public abstract class LogAppenderBase implements LogAppender {
 
   @Override
   public void registerAppendEntriesWatcher(Consumer<AppendEntriesReplyProto> watcher) {
-    watcherList.add(watcher);
+    synchronized (watcherList) {
+      watcherList.add(watcher);
+    }
+  }
+
+  protected void notifyAppendEntriesWatcher(AppendEntriesReplyProto reply) {
+    synchronized (watcherList) {
+        watcherList.parallelStream().forEach(watcher -> watcher.accept(reply));
+        watcherList.clear();
+      }
   }
 }
