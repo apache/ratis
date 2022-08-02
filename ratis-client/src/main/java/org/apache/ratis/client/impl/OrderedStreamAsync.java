@@ -171,7 +171,7 @@ public class OrderedStreamAsync {
     scheduler.onTimeout(timeout, () -> {
       if (!request.getReplyFuture().isDone()) {
         request.getReplyFuture().completeExceptionally(
-            new TimeoutIOException("Timeout " + requestTimeout + ": Failed to send " + request));
+            new TimeoutIOException("Timeout " + timeout + ": Failed to send " + request));
       }
     }, LOG, () -> "Failed to completeExceptionally for " + request);
   }
