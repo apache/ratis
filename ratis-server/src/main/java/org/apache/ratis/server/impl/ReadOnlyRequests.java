@@ -40,134 +40,134 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class ReadOnlyRequests {
-    private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyRequests.class);
-    private final StateMachine stateMachine;
-    private final ReadIndexQueue readIndexQueue;
+  private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyRequests.class);
+  private final StateMachine stateMachine;
+  private final ReadIndexQueue readIndexQueue;
 
-    private final TimeDuration readOnlyTimeoutNanos;
-    private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final TimeDuration readOnlyTimeoutNanos;
+  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
-    public ReadOnlyRequests(StateMachine stateMachine, RaftProperties properties) {
-        this.stateMachine = stateMachine;
-        this.readIndexQueue = new ReadIndexQueue();
-        final TimeDuration readOnlyTimeout = RaftServerConfigKeys.ReadOnly.timeout(properties);
-        this.readOnlyTimeoutNanos = readOnlyTimeout.to(TimeUnit.NANOSECONDS);
+  public ReadOnlyRequests(StateMachine stateMachine, RaftProperties properties) {
+    this.stateMachine = stateMachine;
+    this.readIndexQueue = new ReadIndexQueue();
+    final TimeDuration readOnlyTimeout = RaftServerConfigKeys.Read.timeout(properties);
+    this.readOnlyTimeoutNanos = readOnlyTimeout.to(TimeUnit.NANOSECONDS);
+  }
+
+  public Consumer<Long> getAppliedIndexListener() {
+    return this.readIndexQueue;
+  }
+
+  public static class ReadIndexHeartbeatWatcher implements Consumer<RaftProtos.AppendEntriesReplyProto> {
+    private final RaftServerImpl server;
+    private final int confPeerCount;
+    private final CompletableFuture<Boolean> result;
+    private int successCount;
+    private int failCount;
+    private volatile boolean done;
+
+    public ReadIndexHeartbeatWatcher(RaftServerImpl server) {
+      this.server = server;
+      this.confPeerCount = server.getGroup().getPeers().size();
+      this.successCount = 0;
+      this.failCount = 0;
+      this.done = false;
+      this.result = new CompletableFuture<>();
     }
 
-    public Consumer<Long> getAppliedIndexListener() {
-        return this.readIndexQueue;
+    @Override
+    public synchronized void accept(RaftProtos.AppendEntriesReplyProto reply) {
+      if (done) {
+        return;
+      }
+      if (reply.getResult() == RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+
+      if (hasMajorityAck()) {
+        result.complete(true);
+        done = true;
+      }
+      if (hasMajorityFail()) {
+        result.completeExceptionally(server.generateNotLeaderException());
+        done = true;
+      }
     }
 
-    public static class ReadIndexHeartbeatWatcher implements Consumer<RaftProtos.AppendEntriesReplyProto> {
-        private final RaftServerImpl server;
-        private final int confPeerCount;
-        private final CompletableFuture<Boolean> result;
-        private int successCount;
-        private int failCount;
-        private volatile boolean done;
-
-        public ReadIndexHeartbeatWatcher(RaftServerImpl server) {
-            this.server = server;
-            this.confPeerCount = server.getGroup().getPeers().size();
-            this.successCount = 0;
-            this.failCount = 0;
-            this.done = false;
-            this.result = new CompletableFuture<>();
-        }
-
-        @Override
-        public synchronized void accept(RaftProtos.AppendEntriesReplyProto reply) {
-            if (done) {
-                return;
-            }
-            if (reply.getResult() == RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS) {
-                successCount++;
-            } else {
-                failCount++;
-            }
-
-            if (hasMajorityAck()) {
-                result.complete(true);
-                done = true;
-            }
-            if (hasMajorityFail()) {
-                result.completeExceptionally(server.generateNotLeaderException());
-                done = true;
-            }
-        }
-
-        public CompletableFuture<Boolean> getFuture() {
-            return result;
-        }
-
-        private synchronized boolean hasMajorityAck() {
-            return successCount + 1 > confPeerCount / 2;
-        }
-
-        private synchronized boolean hasMajorityFail() {
-            return failCount > confPeerCount / 2;
-        }
+    public CompletableFuture<Boolean> getFuture() {
+      return result;
     }
 
-    static class PendingReadIndex {
-        private final Supplier<CompletableFuture<Long>> future = JavaUtils.memoize(CompletableFuture::new);
-        private final Timestamp creationTime;
-        private final long readIndex;
-
-        PendingReadIndex(long readIndex, Timestamp creationTime) {
-            this.readIndex = readIndex;
-            this.creationTime = creationTime;
-        }
-
-        public CompletableFuture<Long> getFuture() {
-            return future.get();
-        }
+    private synchronized boolean hasMajorityAck() {
+      return successCount + 1 > confPeerCount / 2;
     }
 
-    private class ReadIndexQueue implements Consumer<Long>{
-        private  SortedMap<Long, List<PendingReadIndex>> q;
+    private synchronized boolean hasMajorityFail() {
+      return failCount > confPeerCount / 2;
+    }
+  }
 
-        public ReadIndexQueue() {
-            this.q = new TreeMap<>();
-        }
+  static class PendingReadIndex {
+    private final Supplier<CompletableFuture<Long>> future = JavaUtils.memoize(CompletableFuture::new);
+    private final Timestamp creationTime;
+    private final long readIndex;
 
-        public CompletableFuture<Long> addPendingReadIndex(long readIndex) {
-            final long currentTime = Timestamp.currentTimeNanos();
-            PendingReadIndex pendingReadIndex = new PendingReadIndex(readIndex, Timestamp.valueOf(currentTime));
-            synchronized (this) {
-                q.putIfAbsent(readIndex, new ArrayList<>(10));
-                q.get(readIndex).add(pendingReadIndex);
-            }
-
-            scheduler.onTimeout(readOnlyTimeoutNanos, () -> handleTimeout(readIndex),
-                    LOG, () -> "read only request timeout on " + readIndex);
-            return pendingReadIndex.getFuture();
-        }
-
-        void handleTimeout(long readIndex) {
-            List<PendingReadIndex> pendingReadIndexList = removePendingRequestsOn(readIndex);
-            pendingReadIndexList.forEach(pendingReadIndex -> {
-                // TODO add a proper exception
-                pendingReadIndex.getFuture().completeExceptionally(new ResourceUnavailableException(""));
-            });
-        }
-
-        synchronized List<PendingReadIndex> removePendingRequestsOn(long readIndex) {
-            return q.remove(readIndex);
-        }
-
-        @Override
-        public synchronized void accept(Long appliedIndex) {
-            Optional.ofNullable(q.get(appliedIndex)).ifPresent(
-                    list -> list.forEach(pi -> pi.getFuture().complete(appliedIndex)));
-            q.remove(appliedIndex);
-        }
+    PendingReadIndex(long readIndex, Timestamp creationTime) {
+      this.readIndex = readIndex;
+      this.creationTime = creationTime;
     }
 
-    CompletableFuture<Long> add(long readIndex) {
-        if (stateMachine.getLastAppliedTermIndex().getIndex() >= readIndex) {
-            return CompletableFuture.completedFuture(readIndex);
-        }
-        return readIndexQueue.addPendingReadIndex(readIndex);
+    public CompletableFuture<Long> getFuture() {
+      return future.get();
     }
+  }
+
+  private class ReadIndexQueue implements Consumer<Long> {
+    private SortedMap<Long, List<PendingReadIndex>> q;
+
+    public ReadIndexQueue() {
+      this.q = new TreeMap<>();
+    }
+
+    public CompletableFuture<Long> addPendingReadIndex(long readIndex) {
+      final long currentTime = Timestamp.currentTimeNanos();
+      PendingReadIndex pendingReadIndex = new PendingReadIndex(readIndex, Timestamp.valueOf(currentTime));
+      synchronized (this) {
+        q.putIfAbsent(readIndex, new ArrayList<>(10));
+        q.get(readIndex).add(pendingReadIndex);
+      }
+
+      scheduler.onTimeout(readOnlyTimeoutNanos, () -> handleTimeout(readIndex),
+          LOG, () -> "read only request timeout on " + readIndex);
+      return pendingReadIndex.getFuture();
+    }
+
+    void handleTimeout(long readIndex) {
+      List<PendingReadIndex> pendingReadIndexList = removePendingRequestsOn(readIndex);
+      pendingReadIndexList.forEach(pendingReadIndex -> {
+        // TODO add a proper exception
+        pendingReadIndex.getFuture().completeExceptionally(new ResourceUnavailableException(""));
+      });
+    }
+
+    synchronized List<PendingReadIndex> removePendingRequestsOn(long readIndex) {
+      return q.remove(readIndex);
+    }
+
+    @Override
+    public synchronized void accept(Long appliedIndex) {
+      Optional.ofNullable(q.get(appliedIndex)).ifPresent(
+          list -> list.forEach(pi -> pi.getFuture().complete(appliedIndex)));
+      q.remove(appliedIndex);
+    }
+  }
+
+  CompletableFuture<Long> waitToAdvance(long readIndex) {
+    if (stateMachine.getLastAppliedTermIndex().getIndex() >= readIndex) {
+      return CompletableFuture.completedFuture(readIndex);
+    }
+    return readIndexQueue.addPendingReadIndex(readIndex);
+  }
 }

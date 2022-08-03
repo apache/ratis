@@ -423,7 +423,14 @@ class LeaderStateImpl implements LeaderState {
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
-  @Override
+  /**
+   * Obtain the current readIndex for read only requests. See Raft paper section 6.4.
+   * 1. Leader makes sure at least one log from current term is committed.
+   * 2. Leader record last committed index as readIndex.
+   * 3. Leader broadcast heartbeats to followers and waits for acknowledgements.
+   * 4. If majority respond success, returns readIndex.
+   * @return current readIndex.
+   */
   public CompletableFuture<Long> getReadIndex() {
     // if group contains only one member, fast path
     if (server.getGroup().getPeers().size() == 1) {

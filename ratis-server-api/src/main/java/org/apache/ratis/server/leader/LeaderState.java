@@ -48,10 +48,6 @@ public interface LeaderState {
   AppendEntriesRequestProto newAppendEntriesRequestProto(FollowerInfo follower,
       List<LogEntryProto> entries, TermIndex previous, long callId);
 
-  /** obtain current read index by broadcasting heartbeats and maintain authority
-   * @return readIndex, or exception if anything wrong */
-  CompletableFuture<Long> getReadIndex();
-
   /** Check if the follower is healthy. */
   void checkHealth(FollowerInfo follower);
 

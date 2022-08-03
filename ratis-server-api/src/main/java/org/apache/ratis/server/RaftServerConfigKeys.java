@@ -157,6 +157,40 @@ public interface RaftServerConfigKeys {
     }
   }
 
+  interface Read {
+    String PREFIX = RaftServerConfigKeys.PREFIX
+            + "." + JavaUtils.getClassSimpleName(Read.class).toLowerCase();
+
+    String TIMEOUT_KEY = PREFIX + ".timeout";
+    TimeDuration TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+    static TimeDuration timeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(TIMEOUT_DEFAULT.getUnit()),
+          TIMEOUT_KEY, TIMEOUT_DEFAULT, getDefaultLog(), requirePositive());
+    }
+    static void setTimeout(RaftProperties properties, TimeDuration readOnlyTimeout) {
+      setTimeDuration(properties::setTimeDuration, TIMEOUT_KEY, readOnlyTimeout);
+    }
+
+    enum ReadOption {
+      /** Directly query the statemachine. Efficient but may undermine linearizability */
+      DEFAULT,
+      /** Use ReadIndex (see Raft section 6.4), strictly linearizable */
+      SAFE;
+      // TODO LEADER_LEASE
+
+      public static ReadOption getDefault() { return DEFAULT; }
+    }
+
+    String READ_OPTION_KEY = ".read.option";
+    ReadOption READ_OPTION_DEFAULT = ReadOption.getDefault();
+    static ReadOption readOption(RaftProperties properties) {
+      return get(properties::getEnum, READ_OPTION_KEY, READ_OPTION_DEFAULT, getDefaultLog());
+    }
+    static void setReadOption(RaftProperties properties, ReadOption readOption) {
+      set(properties::setEnum, READ_OPTION_KEY, readOption);
+    }
+  }
+
   interface Write {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".write";
 
@@ -719,21 +753,6 @@ public interface RaftServerConfigKeys {
 
     static void setPreVote(RaftProperties properties, boolean enablePreVote) {
       setBoolean(properties::setBoolean, PRE_VOTE_KEY, enablePreVote);
-    }
-  }
-
-  interface ReadOnly {
-    String PREFIX = RaftServerConfigKeys.PREFIX
-            + "." + JavaUtils.getClassSimpleName(ReadOnly.class).toLowerCase();
-
-    String TIMEOUT_KEY = PREFIX + ".timeout";
-    TimeDuration TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
-    static TimeDuration timeout(RaftProperties properties) {
-      return getTimeDuration(properties.getTimeDuration(TIMEOUT_DEFAULT.getUnit()),
-          TIMEOUT_KEY, TIMEOUT_DEFAULT, getDefaultLog(), requirePositive());
-    }
-    static void setTimeout(RaftProperties properties, TimeDuration readOnlyTimeout) {
-      setTimeDuration(properties::setTimeDuration, TIMEOUT_KEY, readOnlyTimeout);
     }
   }
 

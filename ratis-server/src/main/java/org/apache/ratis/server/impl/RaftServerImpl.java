@@ -187,6 +187,8 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
 
+  private final RaftServerConfigKeys.Read.ReadOption readOption;
+
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
     LOG.info("{}: new RaftServerImpl for {} with {}", id, group, stateMachine);
@@ -229,6 +231,8 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientCached(properties),
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
+
+    this.readOption = RaftServerConfigKeys.Read.readOption(properties);
   }
 
   @Override
@@ -894,11 +898,20 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> readOnlyAsync(RaftClientRequest request) {
-    LeaderState leaderState = role.getLeaderStateNonNull();
-    return leaderState.getReadIndex()
-            .thenCompose(index -> state.getReadOnlyRequests().add(index))
-            .thenCompose(index -> processQueryFuture(stateMachine.query(request.getMessage()), request))
+    if (readOption == RaftServerConfigKeys.Read.ReadOption.DEFAULT) {
+      return processQueryFuture(stateMachine.query(request.getMessage()), request);
+    } else { // readOption.SAFE
+      /*
+        See Raft paper section 6.4.
+        1. First obtain readIndex from leader.
+        2. Then waits for statemachine to advance at least as far as readIndex.
+        3. Finally, query the statemachine and return the result.
+       */
+      return role.getLeaderStateNonNull().getReadIndex()
+            .thenCompose(readIndex -> state.getReadOnlyRequests().waitToAdvance(readIndex))
+            .thenCompose(readIndex -> processQueryFuture(stateMachine.query(request.getMessage()), request))
             .exceptionally(ex -> newExceptionReply(request, (RaftException) ex.getCause()));
+    }
   }
 
   private CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {

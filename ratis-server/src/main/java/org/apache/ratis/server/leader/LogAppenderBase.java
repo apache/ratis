@@ -35,6 +35,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -57,7 +58,7 @@ public abstract class LogAppenderBase implements LogAppender {
   private final LogAppenderDaemon daemon;
   private final AwaitForSignal eventAwaitForSignal;
 
-  private final BlockingQueue<Consumer<AppendEntriesReplyProto>> watcherList;
+  private final List<Consumer<AppendEntriesReplyProto>> watcherList;
 
   protected LogAppenderBase(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -73,7 +74,7 @@ public abstract class LogAppenderBase implements LogAppender {
     this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
     this.daemon = new LogAppenderDaemon(this);
     this.eventAwaitForSignal = new AwaitForSignal(name);
-    this.watcherList = new LinkedBlockingQueue<>();
+    this.watcherList = new ArrayList<>();
   }
 
   @Override
