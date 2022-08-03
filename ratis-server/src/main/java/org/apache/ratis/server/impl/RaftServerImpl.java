@@ -1413,7 +1413,7 @@ class RaftServerImpl implements RaftServer.Division,
             getRaftServer().getPeer());
       }
     }
-    return JavaUtils.allOf(futures).whenCompleteAsync(
+    return JavaUtils.allOf(futures).whenComplete(
         (r, t) -> followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE))
     ).thenApply(v -> {
       final AppendEntriesReplyProto reply;
