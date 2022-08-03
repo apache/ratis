@@ -127,7 +127,7 @@ interface RaftLogSequentialOps {
    * If an existing entry conflicts with a new one (same index but different terms),
    * delete the existing entry and all entries that follow it (§5.3).
    */
-  List<CompletableFuture<Long>> append(LogEntryProto... entries);
+  List<CompletableFuture<Long>> append(List<LogEntryProto> entries);
 
   /**
    * Truncate asynchronously the log entries till the given index (inclusively).

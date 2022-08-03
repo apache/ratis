@@ -65,11 +65,9 @@ public final class LogProtoUtils {
     return toLogEntryString(entry, null);
   }
 
-  public static String toLogEntriesString(LogEntryProto... entries) {
+  public static String toLogEntriesString(List<LogEntryProto> entries) {
     return entries == null ? null
-        : entries.length == 0 ? "[]"
-        : entries.length == 1 ? toLogEntryString(entries[0])
-        : "" + Arrays.stream(entries).map(LogProtoUtils::toLogEntryString).collect(Collectors.toList());
+        : entries.stream().map(LogProtoUtils::toLogEntryString).collect(Collectors.toList()).toString();
   }
 
   public static String toLogEntriesShortString(List<LogEntryProto> entries) {

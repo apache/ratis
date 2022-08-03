@@ -310,7 +310,7 @@ class LeaderStateImpl implements LeaderState {
         server.getRaftConf(), server.getState().getCurrentTerm(), raftLog.getNextIndex());
     CodeInjectionForTesting.execute(APPEND_PLACEHOLDER,
         server.getId().toString(), null);
-    raftLog.append(placeHolder);
+    raftLog.appendEntry(placeHolder);
     processor.start();
     senders.forEach(LogAppender::start);
     return placeHolder;

@@ -333,11 +333,11 @@ public abstract class RaftLogBase implements RaftLog {
   protected abstract CompletableFuture<Long> appendEntryImpl(LogEntryProto entry);
 
   @Override
-  public final List<CompletableFuture<Long>> append(LogEntryProto... entries) {
+  public final List<CompletableFuture<Long>> append(List<LogEntryProto> entries) {
     return runner.runSequentially(() -> appendImpl(entries));
   }
 
-  protected abstract List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries);
+  protected abstract List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> entries);
 
   @Override
   public String toString() {

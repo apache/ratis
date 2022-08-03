@@ -19,6 +19,8 @@ package org.apache.ratis.server.raftlog.memory;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
@@ -52,20 +54,20 @@ public class MemoryRaftLogTest extends BaseTest {
 
     MemoryRaftLog raftLog = new MemoryRaftLog(memberId, () -> -1, prop);
     raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
-    LogEntryProto[] entries1 = new LogEntryProto[2];
-    entries1[0] = LogEntryProto.newBuilder().setIndex(0).setTerm(0).build();
-    entries1[1] = LogEntryProto.newBuilder().setIndex(1).setTerm(0).build();
+    List<LogEntryProto> entries1 = new ArrayList<>();
+    entries1.add(LogEntryProto.newBuilder().setIndex(0).setTerm(0).build());
+    entries1.add(LogEntryProto.newBuilder().setIndex(1).setTerm(0).build());
     raftLog.append(entries1).forEach(CompletableFuture::join);
 
-    LogEntryProto[] entries2 = new LogEntryProto[1];
-    entries2[0] = LogEntryProto.newBuilder().setIndex(0).setTerm(0).build();
+    List<LogEntryProto> entries2 = new ArrayList<>();
+    entries2.add(LogEntryProto.newBuilder().setIndex(0).setTerm(0).build());
     raftLog.append(entries2).forEach(CompletableFuture::join);
 
     final LogEntryHeader[] termIndices = raftLog.getEntries(0, 10);
     assertEquals(2, termIndices.length);
     for (int i = 0; i < 2; i++) {
-      assertEquals(entries1[i].getIndex(), termIndices[i].getIndex());
-      assertEquals(entries1[i].getTerm(), termIndices[i].getTerm());
+      assertEquals(entries1.get(i).getIndex(), termIndices[i].getIndex());
+      assertEquals(entries1.get(i).getTerm(), termIndices[i].getTerm());
     }
   }
 
@@ -80,18 +82,18 @@ public class MemoryRaftLogTest extends BaseTest {
 
     MemoryRaftLog raftLog = new MemoryRaftLog(memberId, () -> -1, prop);
     raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
-    LogEntryProto[] entries1 = new LogEntryProto[2];
-    entries1[0] = LogEntryProto.newBuilder().setIndex(0).setTerm(0).build();
-    entries1[1] = LogEntryProto.newBuilder().setIndex(1).setTerm(0).build();
+    List<LogEntryProto> entries1 = new ArrayList<>();
+    entries1.add(LogEntryProto.newBuilder().setIndex(0).setTerm(0).build());
+    entries1.add(LogEntryProto.newBuilder().setIndex(1).setTerm(0).build());
     raftLog.append(entries1).forEach(CompletableFuture::join);
 
-    LogEntryProto[] entries2 = new LogEntryProto[1];
-    entries2[0] = LogEntryProto.newBuilder().setIndex(0).setTerm(2).build();
+    List<LogEntryProto> entries2 = new ArrayList<>();
+    entries2.add(LogEntryProto.newBuilder().setIndex(0).setTerm(2).build());
     raftLog.append(entries2).forEach(CompletableFuture::join);
 
     final LogEntryHeader[] termIndices = raftLog.getEntries(0, 10);
     assertEquals(1, termIndices.length);
-    assertEquals(entries2[0].getIndex(), termIndices[0].getIndex());
-    assertEquals(entries2[0].getTerm(), termIndices[0].getTerm());
+    assertEquals(entries2.get(0).getIndex(), termIndices[0].getIndex());
+    assertEquals(entries2.get(0).getTerm(), termIndices[0].getTerm());
   }
 }
