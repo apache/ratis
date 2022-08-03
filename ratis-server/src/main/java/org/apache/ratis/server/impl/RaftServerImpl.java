@@ -40,6 +40,7 @@ import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadOption;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
@@ -187,7 +188,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
 
-  private final RaftServerConfigKeys.Read.ReadOption readOption;
+  private final ReadOption readOption;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -898,7 +899,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> readOnlyAsync(RaftClientRequest request) {
-    if (readOption == RaftServerConfigKeys.Read.ReadOption.DEFAULT) {
+    if (readOption == ReadOption.DEFAULT) {
       return processQueryFuture(stateMachine.query(request.getMessage()), request);
     } else { // readOption.SAFE
       /*

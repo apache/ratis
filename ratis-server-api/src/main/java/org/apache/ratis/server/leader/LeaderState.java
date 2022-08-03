@@ -23,7 +23,6 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.util.JavaUtils;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * States for leader only.

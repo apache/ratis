@@ -178,7 +178,9 @@ public interface RaftServerConfigKeys {
       SAFE;
       // TODO LEADER_LEASE
 
-      public static ReadOption getDefault() { return DEFAULT; }
+      public static ReadOption getDefault() {
+        return DEFAULT;
+      }
     }
 
     String READ_OPTION_KEY = ".read.option";
