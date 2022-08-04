@@ -22,7 +22,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -194,11 +196,10 @@ public interface SlidingWindow {
       return sorted.containsKey(seqNum);
     }
 
-    synchronized void acceptAllAndClear(Consumer<Long> consumer) {
-      for (Long seqNum : sorted.keySet()) {
-        consumer.accept(seqNum);
-      }
+    synchronized List<Long> getAllAndClear() {
+      final List<Long> keys = new ArrayList<>(sorted.keySet());
       sorted.clear();
+      return keys;
     }
 
     synchronized Long remove(long seqNum) {
@@ -357,7 +358,7 @@ public interface SlidingWindow {
     private void trySendDelayed(Consumer<REQUEST> sendMethod) {
       if (firstReplied) {
         // after first received, all other requests can be submitted (out-of-order)
-        delayedRequests.acceptAllAndClear(
+        delayedRequests.getAllAndClear().forEach(
             seqNum -> sendMethod.accept(requests.getNonRepliedRequest(seqNum, "trySendDelayed")));
       } else {
         // Otherwise, submit the first only if it is a delayed request
