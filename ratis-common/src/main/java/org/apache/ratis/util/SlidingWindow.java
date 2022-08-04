@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,14 +62,13 @@ public interface SlidingWindow {
 
   /** A seqNum-to-request map, sorted by seqNum. */
   class RequestMap<REQUEST extends Request<REPLY>, REPLY> implements Iterable<REQUEST> {
-    private static boolean logRepeatedly = false;
     private final Object name;
     /** Request map: seqNum -> request */
     private final SortedMap<Long, REQUEST> requests = new ConcurrentSkipListMap<>();
 
     RequestMap(Object name) {
       this.name = name;
-      if (logRepeatedly && LOG.isDebugEnabled()) {
+      if (LOG.isDebugEnabled()) {
         JavaUtils.runRepeatedly(this::log, 5, 10, TimeUnit.SECONDS);
       }
     }
@@ -185,6 +183,34 @@ public interface SlidingWindow {
     }
   }
 
+  class DelayedRequests {
+    private final SortedMap<Long, Long> sorted = new TreeMap<>();
+
+    synchronized Long put(Long seqNum) {
+      return sorted.put(seqNum, seqNum);
+    }
+
+    synchronized boolean containsKey(long seqNum) {
+      return sorted.containsKey(seqNum);
+    }
+
+    synchronized void acceptAllAndClear(Consumer<Long> consumer) {
+      for (Long seqNum : sorted.keySet()) {
+        consumer.accept(seqNum);
+      }
+      sorted.clear();
+    }
+
+    synchronized Long remove(long seqNum) {
+      return sorted.remove(seqNum);
+    }
+
+    @Override
+    public synchronized String toString() {
+      return "" + sorted.keySet();
+    }
+  }
+
   /**
    * Client side sliding window.
    * A client may
@@ -200,7 +226,7 @@ public interface SlidingWindow {
     /** The requests in the sliding window. */
     private final RequestMap<REQUEST, REPLY> requests;
     /** Delayed requests. */
-    private final SortedMap<Long, Long> delayedRequests = new TreeMap<>();
+    private final DelayedRequests delayedRequests = new DelayedRequests();
 
     /** The seqNum for the next new request. */
     private long nextSeqNum = 1;
@@ -214,9 +240,14 @@ public interface SlidingWindow {
     public Client(Object name) {
       this.requests = new RequestMap<REQUEST, REPLY>(getName(getClass(), name)) {
         @Override
-        @SuppressFBWarnings("IA_AMBIGUOUS_INVOCATION_OF_INHERITED_OR_OUTER_METHOD")
-        synchronized void log() {
-          LOG.debug(toString());
+        void log() {
+          if (LOG.isDebugEnabled()) {
+            logDebug();
+          }
+        }
+
+        synchronized void logDebug() {
+          LOG.debug(super.toString());
           for (REQUEST r : requests) {
             LOG.debug("  {}: {}", r.getSeqNum(), r.hasReply() ? "replied"
                 : delayedRequests.containsKey(r.getSeqNum()) ? "delayed" : "submitted");
@@ -229,7 +260,7 @@ public interface SlidingWindow {
     public synchronized String toString() {
       return requests + ", nextSeqNum=" + nextSeqNum
           + ", firstSubmitted=" + firstSeqNum + ", replied? " + firstReplied
-          + ", delayed=" + delayedRequests.keySet();
+          + ", delayed=" + delayedRequests;
     }
 
     /**
@@ -282,7 +313,7 @@ public interface SlidingWindow {
       }
 
       // delay other requests
-      CollectionUtils.putNew(seqNum, seqNum, delayedRequests, () -> requests.getName() + ":delayedRequests");
+      CollectionUtils.putNew(seqNum, delayedRequests::put, () -> requests.getName() + ":delayedRequests");
       return false;
     }
 
@@ -326,12 +357,8 @@ public interface SlidingWindow {
     private void trySendDelayed(Consumer<REQUEST> sendMethod) {
       if (firstReplied) {
         // after first received, all other requests can be submitted (out-of-order)
-        if (!delayedRequests.isEmpty()) {
-          for (Long seqNum : delayedRequests.keySet()) {
-            sendMethod.accept(requests.getNonRepliedRequest(seqNum, "trySendDelayed"));
-          }
-          delayedRequests.clear();
-        }
+        delayedRequests.acceptAllAndClear(
+            seqNum -> sendMethod.accept(requests.getNonRepliedRequest(seqNum, "trySendDelayed")));
       } else {
         // Otherwise, submit the first only if it is a delayed request
         final Iterator<REQUEST> i = requests.iterator();
