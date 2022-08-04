@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 
@@ -26,9 +27,11 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 /**
  * Provides a buffering layer in front of a FileChannel for writing.
@@ -36,7 +39,8 @@ import java.util.concurrent.ExecutorService;
  * This class is NOT threadsafe.
  */
 class BufferedWriteChannel implements Closeable {
-  static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
+  static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer, Supplier closeCallback)
+      throws IOException {
     final RandomAccessFile raf = new RandomAccessFile(file, "rw");
     final FileChannel fc = raf.getChannel();
     if (append) {
@@ -45,16 +49,18 @@ class BufferedWriteChannel implements Closeable {
       fc.truncate(0);
     }
     Preconditions.assertSame(fc.size(), fc.position(), "fc.position");
-    return new BufferedWriteChannel(fc, buffer);
+    return new BufferedWriteChannel(fc, buffer, closeCallback);
   }
 
   private final FileChannel fileChannel;
   private final ByteBuffer writeBuffer;
   private boolean forced = true;
+  private final Supplier callback;
 
-  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer) {
+  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer, Supplier closeCallback) {
     this.fileChannel = fileChannel;
     this.writeBuffer = byteBuffer;
+    this.callback = closeCallback;
   }
 
   void write(byte[] b) throws IOException {
@@ -91,23 +97,25 @@ class BufferedWriteChannel implements Closeable {
     }
   }
 
-  CompletableFuture<Void> asyncFlush(ExecutorService executor) throws IOException {
+  CompletableFuture<Long> asyncFlush(ExecutorService executor, Long writtenIndex) throws IOException {
     flushBuffer();
     if (forced) {
       return CompletableFuture.completedFuture(null);
     }
-    final CompletableFuture<Void> f = CompletableFuture.supplyAsync(this::fileChannelForce, executor);
+    final CompletableFuture<Long> f =  new CompletableFuture();
+    executor.execute(() -> fileChannelForce(writtenIndex, f));
     forced = true;
+
     return f;
   }
 
-  private Void fileChannelForce() {
+  private void fileChannelForce(Long lastWrittenIndex, CompletableFuture future) {
     try {
       fileChannel.force(false);
+      future.complete(lastWrittenIndex);
     } catch (IOException e) {
       throw new CompletionException(e);
     }
-    return null;
   }
 
   /**
@@ -133,6 +141,7 @@ class BufferedWriteChannel implements Closeable {
   }
 
   @Override
+  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT")
   public void close() throws IOException {
     if (!isOpen()) {
       return;
@@ -140,6 +149,7 @@ class BufferedWriteChannel implements Closeable {
 
     try {
       fileChannel.truncate(fileChannel.position());
+      Optional.ofNullable(callback).map(c -> c.get()).isPresent();
     } finally {
       fileChannel.close();
     }

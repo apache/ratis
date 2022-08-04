@@ -108,7 +108,7 @@ public class TestRaftLogReadWrite extends BaseTest {
 
     final LogEntryProto[] entries = new LogEntryProto[100];
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
-        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null)) {
       size += writeMessages(entries, out);
     } finally {
       storage.close();
@@ -126,7 +126,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     final File openSegment = LogSegmentStartEnd.valueOf(0).getFile(storage);
     LogEntryProto[] entries = new LogEntryProto[200];
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
-        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null)) {
       for (int i = 0; i < 100; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
         entries[i] = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
@@ -135,7 +135,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     }
 
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, true,
-        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null)) {
       for (int i = 100; i < 200; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
         entries[i] = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
@@ -161,7 +161,7 @@ public class TestRaftLogReadWrite extends BaseTest {
 
     LogEntryProto[] entries = new LogEntryProto[100];
     final SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
-        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize));
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null);
     size += writeMessages(entries, out);
     out.flush();
 
@@ -189,7 +189,7 @@ public class TestRaftLogReadWrite extends BaseTest {
 
     LogEntryProto[] entries = new LogEntryProto[10];
     final SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
-        16 * 1024 * 1024, 4 * 1024 * 1024, ByteBuffer.allocateDirect(bufferSize));
+        16 * 1024 * 1024, 4 * 1024 * 1024, ByteBuffer.allocateDirect(bufferSize), null);
     for (int i = 0; i < 10; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
       entries[i] = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
@@ -236,7 +236,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final File openSegment = LogSegmentStartEnd.valueOf(0).getFile(storage);
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
-        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null)) {
       for (int i = 0; i < 100; i++) {
         LogEntryProto entry = LogProtoUtils.toLogEntryProto(
             new SimpleOperation("m" + i).getLogEntryContent(), 0, i);
