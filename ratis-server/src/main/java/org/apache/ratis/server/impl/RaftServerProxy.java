@@ -115,7 +115,9 @@ class RaftServerProxy implements RaftServer {
         return;
       }
       isClosed = true;
-      map.entrySet().parallelStream().forEach(entry -> close(entry.getKey(), entry.getValue()));
+      ConcurrentUtils.parallelForEachAsync(map.entrySet(),
+          entry -> close(entry.getKey(), entry.getValue()),
+          executor);
     }
 
     private void close(RaftGroupId groupId, CompletableFuture<RaftServerImpl> future) {
