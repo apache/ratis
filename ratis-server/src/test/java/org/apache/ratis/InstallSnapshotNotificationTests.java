@@ -51,6 +51,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -85,6 +87,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   private static final AtomicInteger numNotifyInstallSnapshotFinished = new AtomicInteger();
 
   private static class StateMachine4InstallSnapshotNotificationTests extends SimpleStateMachine4Testing {
+
+    private final Executor stateMachineExecutor = Executors.newSingleThreadExecutor();
+
     @Override
     public CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
         RaftProtos.RoleInfoProto roleInfoProto,
@@ -120,7 +125,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         return leaderSnapshotInfo.getTermIndex();
       };
 
-      return CompletableFuture.supplyAsync(supplier);
+      return CompletableFuture.supplyAsync(supplier, stateMachineExecutor);
     }
 
     @Override
