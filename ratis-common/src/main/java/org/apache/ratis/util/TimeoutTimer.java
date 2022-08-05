@@ -78,7 +78,7 @@ public final class TimeoutTimer implements TimeoutExecutor {
   }
 
   @Override
-  public int getQueueSize() {
+  public int getTaskCount() {
     return numTasks.get();
   }
 

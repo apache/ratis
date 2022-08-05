@@ -31,7 +31,7 @@ public interface TimeoutExecutor {
   }
 
   /** @return the number of scheduled but not completed timeout tasks. */
-  int getQueueSize();
+  int getTaskCount();
 
   /**
    * Schedule a timeout task.

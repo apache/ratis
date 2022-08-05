@@ -110,7 +110,7 @@ public final class TimeoutScheduler implements TimeoutExecutor {
   }
 
   @Override
-  public int getQueueSize() {
+  public int getTaskCount() {
     return scheduler.getQueueSize();
   }
 
