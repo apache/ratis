@@ -183,13 +183,13 @@ public interface RaftServerConfigKeys {
       }
     }
 
-    String READ_OPTION_KEY = ".option";
-    Option READ_OPTION_DEFAULT = Option.getDefault();
-    static Option readOption(RaftProperties properties) {
-      return get(properties::getEnum, READ_OPTION_KEY, READ_OPTION_DEFAULT, getDefaultLog());
+    String OPTION_KEY = ".option";
+    Option OPTION_DEFAULT = Option.getDefault();
+    static Option option(RaftProperties properties) {
+      return get(properties::getEnum, OPTION_KEY, OPTION_DEFAULT, getDefaultLog());
     }
-    static void setReadOption(RaftProperties properties, Option readOption) {
-      set(properties::setEnum, READ_OPTION_KEY, readOption);
+    static void setOption(RaftProperties properties, Option readOption) {
+      set(properties::setEnum, OPTION_KEY, readOption);
     }
   }
 

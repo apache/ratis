@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerConfigKeys.Read.Option;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
@@ -164,7 +165,7 @@ class ServerState implements Closeable {
         stateMachine, server, this, getLog().getSnapshotIndex(), prop));
 
     this.readOnlyRequests = (
-        RaftServerConfigKeys.Read.readOption(prop).equals(RaftServerConfigKeys.Read.Option.LINEARIZABLE)) ?
+        RaftServerConfigKeys.Read.option(prop).equals(Option.LINEARIZABLE)) ?
         new ReadOnlyRequests(stateMachine, prop) : null;
   }
 

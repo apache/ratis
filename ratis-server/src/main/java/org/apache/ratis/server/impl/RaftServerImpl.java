@@ -233,7 +233,7 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
 
-    this.readOption = RaftServerConfigKeys.Read.readOption(properties);
+    this.readOption = RaftServerConfigKeys.Read.option(properties);
   }
 
   @Override

@@ -124,7 +124,7 @@ class ReadOnlyRequests {
     }
   }
 
-  private class ReadIndexQueue implements Consumer<Long> {
+  private final class ReadIndexQueue implements Consumer<Long> {
     private SortedMap<Long, List<PendingReadIndex>> q;
 
     private ReadIndexQueue() {
