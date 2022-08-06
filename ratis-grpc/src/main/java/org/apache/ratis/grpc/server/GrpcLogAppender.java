@@ -364,7 +364,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           throw new IllegalStateException("Unexpected reply result: " + reply.getResult());
       }
       notifyLogAppender();
-      notifyAppendEntriesWatcher(reply);
+      notifyAppendEntriesListener(reply);
     }
 
     /**

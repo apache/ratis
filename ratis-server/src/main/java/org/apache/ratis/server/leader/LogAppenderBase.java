@@ -213,7 +213,7 @@ public abstract class LogAppenderBase implements LogAppender {
     }
   }
 
-  protected void notifyAppendEntriesWatcher(AppendEntriesReplyProto reply) {
+  protected void notifyAppendEntriesListener(AppendEntriesReplyProto reply) {
     synchronized (this) {
         watcherList.parallelStream().forEach(watcher -> watcher.accept(reply));
         watcherList.clear();
