@@ -171,24 +171,24 @@ public interface RaftServerConfigKeys {
       setTimeDuration(properties::setTimeDuration, TIMEOUT_KEY, readOnlyTimeout);
     }
 
-    enum ReadOption {
+    enum Option {
       /** Directly query the statemachine. Efficient but may undermine linearizability */
       DEFAULT,
       /** Use ReadIndex (see Raft section 6.4), strictly linearizable */
-      SAFE;
+      LINEARIZABLE;
       // TODO LEADER_LEASE
 
-      public static ReadOption getDefault() {
+      public static Option getDefault() {
         return DEFAULT;
       }
     }
 
-    String READ_OPTION_KEY = ".read.option";
-    ReadOption READ_OPTION_DEFAULT = ReadOption.getDefault();
-    static ReadOption readOption(RaftProperties properties) {
+    String READ_OPTION_KEY = ".option";
+    Option READ_OPTION_DEFAULT = Option.getDefault();
+    static Option readOption(RaftProperties properties) {
       return get(properties::getEnum, READ_OPTION_KEY, READ_OPTION_DEFAULT, getDefaultLog());
     }
-    static void setReadOption(RaftProperties properties, ReadOption readOption) {
+    static void setReadOption(RaftProperties properties, Option readOption) {
       set(properties::setEnum, READ_OPTION_KEY, readOption);
     }
   }

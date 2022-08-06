@@ -141,7 +141,7 @@ public interface LogAppender {
   /**
    * Register a one-time watcher for next append entry RPC
    */
-  void registerAppendEntriesWatcher(Consumer<AppendEntriesReplyProto> watcher);
+  void registerAppendEntriesListener(Consumer<AppendEntriesReplyProto> watcher);
 
   /**
    * Get the {@link AwaitForSignal} for events, which can be:

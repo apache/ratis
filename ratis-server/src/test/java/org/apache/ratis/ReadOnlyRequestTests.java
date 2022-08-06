@@ -41,59 +41,59 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
 
 
-    static final int NUM_SERVERS = 3;
+  static final int NUM_SERVERS = 3;
 
-    @Before
-    public void setup() {
-        final RaftProperties p = getProperties();
-        p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-                VersionedStateMachine.class, StateMachine.class);
-    }
+  @Before
+  public void setup() {
+    final RaftProperties p = getProperties();
+    p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        VersionedStateMachine.class, StateMachine.class);
+  }
 
-    @Test
-    public void testReadIndex() throws Exception {
-        runWithNewCluster(NUM_SERVERS, this::testReadIndexImpl);
-    }
+  @Test
+  public void testReadIndex() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::testReadIndexImpl);
+  }
 
-    private void testReadIndexImpl(CLUSTER cluster) throws Exception {
-        try {
-            RaftTestUtil.waitForLeader(cluster);
-            final RaftPeerId leaderId = cluster.getLeader().getId();
-            try (final RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
-                for (int i = 0; i < 10; i++) {
-                    RaftClientReply reply =
-                            client.io().send(new RaftTestUtil.SimpleMessage("a=" + i));
-                    Assert.assertTrue(reply.isSuccess());
-                }
-                RaftClientReply reply = client.io().sendReadOnly(new RaftTestUtil.SimpleMessage("a"));
-                Assert.assertEquals(reply.getMessage().getContent().toString(StandardCharsets.UTF_8), "9");
-            }
-        } finally {
-            cluster.shutdown();
+  private void testReadIndexImpl(CLUSTER cluster) throws Exception {
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+      try (final RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
+        for (int i = 0; i < 10; i++) {
+          RaftClientReply reply =
+              client.io().send(new RaftTestUtil.SimpleMessage("a=" + i));
+          Assert.assertTrue(reply.isSuccess());
         }
+        RaftClientReply reply = client.io().sendReadOnly(new RaftTestUtil.SimpleMessage("a"));
+        Assert.assertEquals(reply.getMessage().getContent().toString(StandardCharsets.UTF_8), "9");
+      }
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  static class VersionedStateMachine extends BaseStateMachine {
+    private Map<String, Integer> data = new ConcurrentHashMap<>();
+
+    @Override
+    public CompletableFuture<Message> query(Message request) {
+      return CompletableFuture.completedFuture(
+          Message.valueOf(Integer.toString(
+              data.get(request.getContent().toString(StandardCharsets.UTF_8)))));
     }
 
-    static class VersionedStateMachine extends BaseStateMachine {
-        private Map<String, Integer> data = new ConcurrentHashMap<>();
+    @Override
+    public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
+      System.out.println("index is " + trx.getLogEntry().getIndex());
+      updateLastAppliedTermIndex(trx.getLogEntry().getTerm(), trx.getLogEntry().getIndex());
 
-        @Override
-        public CompletableFuture<Message> query(Message request) {
-            return CompletableFuture.completedFuture(
-                    Message.valueOf(Integer.toString(
-                            data.get(request.getContent().toString(StandardCharsets.UTF_8)))));
-        }
-
-        @Override
-        public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-            System.out.println("index is " + trx.getLogEntry().getIndex());
-            updateLastAppliedTermIndex(trx.getLogEntry().getTerm(), trx.getLogEntry().getIndex());
-
-            String content = trx.getLogEntry().getStateMachineLogEntry().getLogData().toString(StandardCharsets.UTF_8);
-            String[] kv = content.split("=");
-            data.put(kv[0], Integer.parseInt(kv[1]));
-            return CompletableFuture.completedFuture(
-                    Message.valueOf(trx.getLogEntry().getIndex() + " OK"));
-        }
+      String content = trx.getLogEntry().getStateMachineLogEntry().getLogData().toString(StandardCharsets.UTF_8);
+      String[] kv = content.split("=");
+      data.put(kv[0], Integer.parseInt(kv[1]));
+      return CompletableFuture.completedFuture(
+          Message.valueOf(trx.getLogEntry().getIndex() + " OK"));
     }
+  }
 }
 

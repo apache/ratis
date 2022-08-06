@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-public class ReadOnlyRequests {
+class ReadOnlyRequests {
   private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyRequests.class);
   private final StateMachine stateMachine;
   private final ReadIndexQueue readIndexQueue;
@@ -47,18 +47,18 @@ public class ReadOnlyRequests {
   private final TimeDuration readOnlyTimeoutNanos;
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
-  public ReadOnlyRequests(StateMachine stateMachine, RaftProperties properties) {
+  ReadOnlyRequests(StateMachine stateMachine, RaftProperties properties) {
     this.stateMachine = stateMachine;
     this.readIndexQueue = new ReadIndexQueue();
     final TimeDuration readOnlyTimeout = RaftServerConfigKeys.Read.timeout(properties);
     this.readOnlyTimeoutNanos = readOnlyTimeout.to(TimeUnit.NANOSECONDS);
   }
 
-  public Consumer<Long> getAppliedIndexListener() {
+  Consumer<Long> getAppliedIndexListener() {
     return this.readIndexQueue;
   }
 
-  public static class ReadIndexHeartbeatWatcher implements Consumer<RaftProtos.AppendEntriesReplyProto> {
+  static class ReadIndexHeartbeatListener implements Consumer<RaftProtos.AppendEntriesReplyProto> {
     private final RaftServerImpl server;
     private final int confPeerCount;
     private final CompletableFuture<Boolean> result;
@@ -66,7 +66,7 @@ public class ReadOnlyRequests {
     private int failCount;
     private volatile boolean done;
 
-    public ReadIndexHeartbeatWatcher(RaftServerImpl server) {
+    ReadIndexHeartbeatListener(RaftServerImpl server) {
       this.server = server;
       this.confPeerCount = server.getGroup().getPeers().size();
       this.successCount = 0;
@@ -96,7 +96,7 @@ public class ReadOnlyRequests {
       }
     }
 
-    public CompletableFuture<Boolean> getFuture() {
+    CompletableFuture<Boolean> getFuture() {
       return result;
     }
 
@@ -119,7 +119,7 @@ public class ReadOnlyRequests {
       this.creationTime = creationTime;
     }
 
-    public CompletableFuture<Long> getFuture() {
+    private CompletableFuture<Long> getFuture() {
       return future.get();
     }
   }
@@ -127,11 +127,11 @@ public class ReadOnlyRequests {
   private class ReadIndexQueue implements Consumer<Long> {
     private SortedMap<Long, List<PendingReadIndex>> q;
 
-    public ReadIndexQueue() {
+    private ReadIndexQueue() {
       this.q = new TreeMap<>();
     }
 
-    public CompletableFuture<Long> addPendingReadIndex(long readIndex) {
+    private CompletableFuture<Long> addPendingReadIndex(long readIndex) {
       final long currentTime = Timestamp.currentTimeNanos();
       PendingReadIndex pendingReadIndex = new PendingReadIndex(readIndex, Timestamp.valueOf(currentTime));
       synchronized (this) {
@@ -144,7 +144,7 @@ public class ReadOnlyRequests {
       return pendingReadIndex.getFuture();
     }
 
-    void handleTimeout(long readIndex) {
+    private void handleTimeout(long readIndex) {
       List<PendingReadIndex> pendingReadIndexList = removePendingRequestsOn(readIndex);
       pendingReadIndexList.forEach(pendingReadIndex -> {
         // TODO add a proper exception

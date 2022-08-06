@@ -426,14 +426,14 @@ class LeaderStateImpl implements LeaderState {
   /**
    * Obtain the current readIndex for read only requests. See Raft paper section 6.4.
    * 1. Leader makes sure at least one log from current term is committed.
-   * 2. Leader record last committed index as readIndex.
-   * 3. Leader broadcast heartbeats to followers and waits for acknowledgements.
+   * 2. Leader records last committed index as readIndex.
+   * 3. Leader broadcasts heartbeats to followers and waits for acknowledgements.
    * 4. If majority respond success, returns readIndex.
    * @return current readIndex.
    */
-  public CompletableFuture<Long> getReadIndex() {
+  CompletableFuture<Long> getReadIndex() {
     // if group contains only one member, fast path
-    if (server.getGroup().getPeers().size() == 1) {
+    if (server.getRaftConf().getCurrentPeers().size() == 1) {
       return CompletableFuture.completedFuture(server.getRaftLog().getLastCommittedIndex());
     }
 
@@ -530,10 +530,10 @@ class LeaderStateImpl implements LeaderState {
 
 
   private CompletableFuture<Boolean> broadcastHeartbeats() {
-    ReadOnlyRequests.ReadIndexHeartbeatWatcher watcher =
-            new ReadOnlyRequests.ReadIndexHeartbeatWatcher(server);
+    ReadOnlyRequests.ReadIndexHeartbeatListener watcher =
+            new ReadOnlyRequests.ReadIndexHeartbeatListener(server);
     senders.stream().forEach(logAppender -> {
-      logAppender.registerAppendEntriesWatcher(watcher);
+      logAppender.registerAppendEntriesListener(watcher);
       logAppender.notifyLogAppender();
     });
     return watcher.getFuture();

@@ -162,7 +162,10 @@ class ServerState implements Closeable {
     this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
         stateMachine, server, this, getLog().getSnapshotIndex(), prop));
-    this.readOnlyRequests = new ReadOnlyRequests(stateMachine, prop);
+
+    this.readOnlyRequests = (
+        RaftServerConfigKeys.Read.readOption(prop).equals(RaftServerConfigKeys.Read.Option.LINEARIZABLE)) ?
+        new ReadOnlyRequests(stateMachine, prop) : null;
   }
 
   void initialize(StateMachine stateMachine) throws IOException {
@@ -212,7 +215,9 @@ class ServerState implements Closeable {
   }
 
   void start() {
-    stateMachineUpdater.get().registerAppliedIndexListener(readOnlyRequests.getAppliedIndexListener());
+    Optional.ofNullable(readOnlyRequests).ifPresent(ro -> {
+      stateMachineUpdater.get().registerAppliedIndexListener(ro.getAppliedIndexListener());
+    });
     stateMachineUpdater.get().start();
   }
 

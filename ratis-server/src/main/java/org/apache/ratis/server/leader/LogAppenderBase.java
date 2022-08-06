@@ -207,7 +207,7 @@ public abstract class LogAppenderBase implements LogAppender {
   }
 
   @Override
-  public void registerAppendEntriesWatcher(Consumer<AppendEntriesReplyProto> watcher) {
+  public void registerAppendEntriesListener(Consumer<AppendEntriesReplyProto> watcher) {
     synchronized (this) {
       watcherList.add(watcher);
     }
