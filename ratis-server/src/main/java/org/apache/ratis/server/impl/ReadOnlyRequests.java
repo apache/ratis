@@ -68,7 +68,7 @@ class ReadOnlyRequests {
 
     ReadIndexHeartbeatListener(RaftServerImpl server) {
       this.server = server;
-      this.confPeerCount = server.getGroup().getPeers().size();
+      this.confPeerCount = server.getRaftConf().getCurrentPeers().size();
       this.successCount = 0;
       this.failCount = 0;
       this.done = false;

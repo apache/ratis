@@ -901,7 +901,7 @@ class RaftServerImpl implements RaftServer.Division,
   private CompletableFuture<RaftClientReply> readOnlyAsync(RaftClientRequest request) {
     if (readOption == Option.DEFAULT) {
       return processQueryFuture(stateMachine.query(request.getMessage()), request);
-    } else { // readOption.SAFE
+    } else { // readOption.LINEARIZABLE
       /*
         See Raft paper section 6.4.
         1. First obtain readIndex from leader.
