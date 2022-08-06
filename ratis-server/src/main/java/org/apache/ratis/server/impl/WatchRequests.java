@@ -169,7 +169,7 @@ class WatchRequests {
 
   private final TimeDuration watchTimeoutNanos;
   private final TimeDuration watchTimeoutDenominationNanos;
-  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
   WatchRequests(Object name, RaftProperties properties) {
     this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
