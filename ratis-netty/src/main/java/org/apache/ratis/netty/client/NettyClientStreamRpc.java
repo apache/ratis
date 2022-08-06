@@ -52,7 +52,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutScheduler;
+import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -243,7 +243,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   private final ConcurrentMap<ClientInvocationId, ReplyQueue> replies = new ConcurrentHashMap<>();
   private final TimeDuration replyQueueGracePeriod;
-  private final TimeoutScheduler timeoutScheduler = TimeoutScheduler.getInstance();
+  private final TimeoutExecutor timeoutScheduler = TimeoutExecutor.getInstance();
 
   public NettyClientStreamRpc(RaftPeer server, TlsConf tlsConf, RaftProperties properties) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;

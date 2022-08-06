@@ -21,7 +21,6 @@ import org.apache.ratis.util.function.CheckedRunnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
@@ -32,7 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-public final class TimeoutScheduler implements Closeable {
+public final class TimeoutScheduler implements TimeoutExecutor {
   public static final Logger LOG = LoggerFactory.getLogger(TimeoutScheduler.class);
 
   static final TimeDuration DEFAULT_GRACE_PERIOD = TimeDuration.valueOf(1, TimeUnit.MINUTES);
@@ -110,7 +109,8 @@ public final class TimeoutScheduler implements Closeable {
   private TimeoutScheduler() {
   }
 
-  int getQueueSize() {
+  @Override
+  public int getTaskCount() {
     return scheduler.getQueueSize();
   }
 
@@ -126,13 +126,7 @@ public final class TimeoutScheduler implements Closeable {
     return scheduler.hasExecutor();
   }
 
-  /**
-   * Schedule a timeout task.
-   *
-   * @param timeout the timeout value.
-   * @param task the task to run when timeout.
-   * @param errorHandler to handle the error, if there is any.
-   */
+  @Override
   public <THROWABLE extends Throwable> void onTimeout(
       TimeDuration timeout, CheckedRunnable<THROWABLE> task, Consumer<THROWABLE> errorHandler) {
     onTimeout(timeout, sid -> {
@@ -186,13 +180,7 @@ public final class TimeoutScheduler implements Closeable {
     }
   }
 
-  /** When timeout, run the task.  Log the error, if there is any. */
-  public void onTimeout(TimeDuration timeout, CheckedRunnable<?> task, Logger log, Supplier<String> errorMessage) {
-    onTimeout(timeout, task, t -> log.error(errorMessage.get(), t));
-  }
-
-  @Override
-  public synchronized void close() {
+  public synchronized void tryShutdownScheduler() {
     tryShutdownScheduler(scheduleID);
   }
 }

@@ -23,7 +23,7 @@ import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutScheduler;
+import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +89,7 @@ class SnapshotManagementRequestHandler {
   }
 
   private final RaftServerImpl server;
-  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
   private final PendingRequestReference pending = new PendingRequestReference();
 
   SnapshotManagementRequestHandler(RaftServerImpl server) {

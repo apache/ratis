@@ -24,7 +24,7 @@ import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutScheduler;
+import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,7 +74,7 @@ public class TransferLeadership {
   }
 
   private final RaftServerImpl server;
-  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
   private final AtomicReference<PendingRequest> pending = new AtomicReference<>();
 
   TransferLeadership(RaftServerImpl server) {
