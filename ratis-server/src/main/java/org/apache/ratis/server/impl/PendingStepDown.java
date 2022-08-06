@@ -25,7 +25,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutScheduler;
+import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +81,7 @@ public class PendingStepDown {
   }
 
   private final LeaderStateImpl leader;
-  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
   private final PendingRequestReference pending = new PendingRequestReference();
 
   PendingStepDown(LeaderStateImpl leaderState) {
