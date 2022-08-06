@@ -33,7 +33,7 @@ import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SlidingWindow;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutScheduler;
+import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,7 +107,7 @@ public class OrderedStreamAsync {
   private final Semaphore requestSemaphore;
   private final TimeDuration requestTimeout;
   private final TimeDuration closeTimeout;
-  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
   OrderedStreamAsync(DataStreamClientRpc dataStreamClientRpc, RaftProperties properties){
     this.dataStreamClientRpc = dataStreamClientRpc;
@@ -171,7 +171,7 @@ public class OrderedStreamAsync {
     scheduler.onTimeout(timeout, () -> {
       if (!request.getReplyFuture().isDone()) {
         request.getReplyFuture().completeExceptionally(
-            new TimeoutIOException("Timeout " + requestTimeout + ": Failed to send " + request));
+            new TimeoutIOException("Timeout " + timeout + ": Failed to send " + request));
       }
     }, LOG, () -> "Failed to completeExceptionally for " + request);
   }

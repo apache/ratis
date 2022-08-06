@@ -20,6 +20,7 @@ package org.apache.ratis.util;
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -103,8 +104,17 @@ public interface CollectionUtils {
   }
 
   static <K, V> V putNew(K key, V value, Map<K, V> map, Supplier<Object> name) {
-    final V returned = map.put(key, value);
-    Preconditions.assertTrue(returned == null,
+    return putNew(key, value, map::put, name);
+  }
+
+  /** For the case that key and value are the same object. */
+  static <K> void putNew(K key, Function<K, K> putMethod, Supplier<Object> name) {
+    putNew(key, key, (k, v) -> putMethod.apply(k), name);
+  }
+
+  static <K, V> V putNew(K key, V value, BiFunction<K, V, V> putMethod, Supplier<Object> name) {
+    final V returned = putMethod.apply(key, value);
+    Preconditions.assertNull(returned,
         () -> "Entry already exists for key " + key + " in map " + name.get());
     return value;
   }
