@@ -85,7 +85,7 @@ public interface LogAppender {
   /** @return the call id for the next {@link AppendEntriesRequestProto}. */
   long getCallId();
 
-  /** @return the a {@link Comparator} for compparing call ids. */
+  /** @return the a {@link Comparator} for comparing call ids. */
   Comparator<Long> getCallIdComparator();
 
   /**

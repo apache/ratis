@@ -57,7 +57,11 @@ import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 public class GrpcLogAppender extends LogAppenderBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcLogAppender.class);
 
-  private static final Comparator<Long> CALL_ID_COMPARATOR = Comparator.comparingLong(Long::longValue);
+  private static final Comparator<Long> CALL_ID_COMPARATOR = (left, right) -> {
+    // calculate diff in order to take care the possibility of numerical overflow,
+    final long diff = left - right;
+    return diff == 0? 0: diff > 0? 1: -1;
+  };
 
   private final AtomicLong callId = new AtomicLong();
 
