@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.leader;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
@@ -30,6 +29,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.util.Comparator;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -42,12 +42,22 @@ class LogAppenderDefault extends LogAppenderBase {
     super(server, leaderState, f);
   }
 
+  @Override
+  public long getCallId() {
+    return CallId.get();
+  }
+
+  @Override
+  public Comparator<Long> getCallIdComparator() {
+    return CallId.getComparator();
+  }
+
   /** Send an appendEntries RPC; retry indefinitely. */
-  @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
   private AppendEntriesReplyProto sendAppendEntriesWithRetries()
       throws InterruptedException, InterruptedIOException, RaftLogIOException {
     int retry = 0;
-    AppendEntriesRequestProto request = null;
+
+    AppendEntriesRequestProto request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
     while (isRunning()) { // keep retrying for IOException
       try {
         if (request == null || request.getEntriesCount() == 0) {

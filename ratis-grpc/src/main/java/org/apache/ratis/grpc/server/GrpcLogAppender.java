@@ -47,6 +47,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
@@ -56,9 +57,12 @@ import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 public class GrpcLogAppender extends LogAppenderBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcLogAppender.class);
 
+  private static final Comparator<Long> CALL_ID_COMPARATOR = Comparator.comparingLong(Long::longValue);
+
+  private final AtomicLong callId = new AtomicLong();
+
   private final RequestMap pendingRequests = new RequestMap();
   private final int maxPendingRequestsNum;
-  private long callId = 0;
   private volatile boolean firstResponseReceived = false;
   private final boolean installSnapshotEnabled;
 
@@ -235,15 +239,23 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
   }
 
+  @Override
+  public long getCallId() {
+    return callId.get();
+  }
+
+  @Override
+  public Comparator<Long> getCallIdComparator() {
+    return CALL_ID_COMPARATOR;
+  }
+
   private void appendLog(boolean excludeLogEntries) throws IOException {
     final AppendEntriesRequestProto pending;
     final AppendEntriesRequest request;
-    final StreamObserver<AppendEntriesRequestProto> s;
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
-      // prepare and enqueue the append request. note changes on follower's
-      // nextIndex and ops on pendingRequests should always be associated
-      // together and protected by the lock
-      pending = newAppendEntriesRequest(callId++, excludeLogEntries);
+      // Prepare and send the append request.
+      // Note changes on follower's nextIndex and ops on pendingRequests should always be done under the write-lock
+      pending = newAppendEntriesRequest(callId.getAndIncrement(), excludeLogEntries);
       if (pending == null) {
         return;
       }
