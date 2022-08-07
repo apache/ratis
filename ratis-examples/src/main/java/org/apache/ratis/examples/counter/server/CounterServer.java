@@ -81,7 +81,7 @@ public final class CounterServer implements Closeable {
   public static void main(String[] args) {
     try {
       //get peerIndex from the arguments
-      if (args.length == 1) {
+      if (args.length != 1) {
         throw new IllegalArgumentException("Invalid argument number: expected to be 1 but actual is " + args.length);
       }
       final int peerIndex = Integer.parseInt(args[0]);
