@@ -1421,10 +1421,16 @@ class RaftServerImpl implements RaftServer.Division,
         final long commitIndex = ServerImplUtils.effectiveCommitIndex(leaderCommit, previous, entries.size());
         state.updateCommitIndex(commitIndex, currentTerm, false);
         updateCommitInfoCache();
-        LogEntryProto requestLastEntry = entries.get(entries.size() - 1);
-        final long n = isHeartbeat? state.getLog().getNextIndex(): requestLastEntry.getIndex() + 1;
-        final long matchIndex = entries.size() != 0 ? requestLastEntry.getIndex() :
-            INVALID_LOG_INDEX;
+        final long n;
+        final long matchIndex;
+        if (!isHeartbeat) {
+          LogEntryProto requestLastEntry = entries.get(entries.size() - 1);
+          n = requestLastEntry.getIndex() + 1;
+          matchIndex = requestLastEntry.getIndex();
+        } else {
+          n = state.getLog().getNextIndex();
+          matchIndex = INVALID_LOG_INDEX;
+        }
         reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getMemberId(), currentTerm,
             state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex,
             isHeartbeat);
