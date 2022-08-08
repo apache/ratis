@@ -58,7 +58,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private final long preallocatedSize;
 
   public SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
-      long preallocatedSize, ByteBuffer byteBuffer, Supplier closeCallback) throws IOException {
+      long preallocatedSize, ByteBuffer byteBuffer, Supplier<CompletableFuture> closeCallback) throws IOException {
     this.file = file;
     this.checksum = new PureJavaCrc32C();
     this.segmentMaxSize = segmentMaxSize;

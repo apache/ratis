@@ -51,6 +51,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -178,6 +179,8 @@ class SegmentedRaftLogWorker {
   private final boolean asyncFlush;
   private final boolean unsafeFlush;
   private final ExecutorService flushExecutor;
+  private final AtomicReference<CompletableFuture<Long>> flushFuture
+      = new AtomicReference<>(CompletableFuture.completedFuture(-1L));
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
@@ -404,9 +407,11 @@ class SegmentedRaftLogWorker {
 
   private void asyncFlushOutStream(CompletableFuture<Void> stateMachineFlush) throws IOException {
     final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
-    out.asyncFlush(flushExecutor, lastWrittenIndex).thenCombine(stateMachineFlush, (async, sm) -> async)
+    final CompletableFuture<Long> f = out.asyncFlush(flushExecutor, lastWrittenIndex)
+        .thenCombine(stateMachineFlush, (async, sm) -> async);
+    flushFuture.updateAndGet(previous -> f.thenCombine(previous, (current, prev) -> current))
         .whenComplete((v, e) -> {
-          updateFlushedIndex(v);
+          updateFlushedIndexIncreasingly(v);
           logSyncTimerContext.stop();
         });
   }
@@ -438,21 +443,18 @@ class SegmentedRaftLogWorker {
   }
 
   private void updateFlushedIndexIncreasingly() {
-    final long i = lastWrittenIndex;
-    flushIndex.updateIncreasingly(i, traceIndexChange);
-    postUpdateFlushedIndex(0);
-    writeTasks.updateIndex(i);
+    updateFlushedIndexIncreasingly(lastWrittenIndex);
   }
 
-  private void updateFlushedIndex(long index) {
+  private void updateFlushedIndexIncreasingly(long index) {
     final long i = index;
-    flushIndex.updateToMax(i, traceIndexChange);
-    postUpdateFlushedIndex(lastWrittenIndex - index);
+    flushIndex.updateIncreasingly(i, traceIndexChange);
+    postUpdateFlushedIndex(Math.toIntExact(lastWrittenIndex - index));
     writeTasks.updateIndex(i);
   }
 
-  private void postUpdateFlushedIndex(long count) {
-    pendingFlushNum = (int)count;
+  private void postUpdateFlushedIndex(int count) {
+    pendingFlushNum = count;
     Optional.ofNullable(submitUpdateCommitEvent).ifPresent(Runnable::run);
   }
 
@@ -769,6 +771,6 @@ class SegmentedRaftLogWorker {
   private void allocateSegmentedRaftLogOutputStream(File file, boolean append) throws IOException {
     Preconditions.assertTrue(out == null && writeBuffer.position() == 0);
     out = new SegmentedRaftLogOutputStream(file, append, segmentMaxSize,
-            preallocatedSize, writeBuffer, this::waitAllFlushComplete);
+            preallocatedSize, writeBuffer, flushFuture::get);
   }
 }

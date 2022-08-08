@@ -18,6 +18,7 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 
@@ -27,9 +28,9 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
@@ -39,8 +40,8 @@ import java.util.function.Supplier;
  * This class is NOT threadsafe.
  */
 class BufferedWriteChannel implements Closeable {
-  static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer, Supplier closeCallback)
-      throws IOException {
+  static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer,
+      Supplier<CompletableFuture> closeCallback) throws IOException {
     final RandomAccessFile raf = new RandomAccessFile(file, "rw");
     final FileChannel fc = raf.getChannel();
     if (append) {
@@ -55,9 +56,9 @@ class BufferedWriteChannel implements Closeable {
   private final FileChannel fileChannel;
   private final ByteBuffer writeBuffer;
   private boolean forced = true;
-  private final Supplier callback;
+  private final Supplier<CompletableFuture> callback;
 
-  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer, Supplier closeCallback) {
+  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer, Supplier<CompletableFuture> closeCallback) {
     this.fileChannel = fileChannel;
     this.writeBuffer = byteBuffer;
     this.callback = closeCallback;
@@ -114,6 +115,7 @@ class BufferedWriteChannel implements Closeable {
       fileChannel.force(false);
       future.complete(lastWrittenIndex);
     } catch (IOException e) {
+      LogSegment.LOG.error("Flush failure writtenIndex = {}", lastWrittenIndex);
       throw new CompletionException(e);
     }
   }
@@ -149,7 +151,11 @@ class BufferedWriteChannel implements Closeable {
 
     try {
       fileChannel.truncate(fileChannel.position());
-      Optional.ofNullable(callback).map(c -> c.get()).isPresent();
+      callback.get().get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException e) {
+      IOUtils.toIOException(e);
     } finally {
       fileChannel.close();
     }
