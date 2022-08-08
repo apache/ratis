@@ -416,23 +416,6 @@ class SegmentedRaftLogWorker {
         });
   }
 
-  Object waitAllFlushComplete() {
-    if (flushExecutor == null) {
-      return null;
-    }
-
-    CompletableFuture f = new CompletableFuture();
-    try {
-      flushExecutor.submit(() -> f.complete(null));
-      return f.get();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    } catch (ExecutionException e) {
-      ExitUtils.terminate(1, "Failed to wait all flush complete failure", e, LOG);
-    }
-    return null;
-  }
-
   private void flushOutStream() throws IOException {
     final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
     try {
