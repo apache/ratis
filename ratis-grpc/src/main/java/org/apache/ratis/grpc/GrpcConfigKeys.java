@@ -97,6 +97,16 @@ public interface GrpcConfigKeys {
   interface Admin {
     String PREFIX = GrpcConfigKeys.PREFIX + ".admin";
 
+    String HOST_KEY = PREFIX + ".host";
+    String HOST_DEFAULT = null;
+    static String host(RaftProperties properties) {
+      final String fallbackServerHost = Server.host(properties, null);
+      return get(properties::get, HOST_KEY, HOST_DEFAULT, Server.HOST_KEY, fallbackServerHost, getDefaultLog());
+    }
+    static void setHost(RaftProperties properties, String host) {
+      set(properties::set, HOST_KEY, host);
+    }
+
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = -1;
     static int port(RaftProperties properties) {
@@ -121,6 +131,16 @@ public interface GrpcConfigKeys {
   interface Client {
     String PREFIX = GrpcConfigKeys.PREFIX + ".client";
 
+    String HOST_KEY = PREFIX + ".host";
+    String HOST_DEFAULT = null;
+    static String host(RaftProperties properties) {
+      final String fallbackServerHost = Server.host(properties, null);
+      return get(properties::get, HOST_KEY, HOST_DEFAULT, Server.HOST_KEY, fallbackServerHost, getDefaultLog());
+    }
+    static void setHost(RaftProperties properties, String host) {
+      set(properties::set, HOST_KEY, host);
+    }
+
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = -1;
     static int port(RaftProperties properties) {
@@ -144,6 +164,20 @@ public interface GrpcConfigKeys {
 
   interface Server {
     String PREFIX = GrpcConfigKeys.PREFIX + ".server";
+
+    String HOST_KEY = PREFIX + ".host";
+    String HOST_DEFAULT = null;
+    static String host(RaftProperties properties) {
+      return host(properties, getDefaultLog());
+    }
+
+    static String host(RaftProperties properties, Consumer<String> logger) {
+      return get(properties::get, HOST_KEY, HOST_DEFAULT, logger);
+    }
+
+    static void setHost(RaftProperties properties, String host) {
+      set(properties::set, HOST_KEY, host);
+    }
 
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = 0;

@@ -120,9 +120,15 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   private GrpcService(RaftServer server,
       GrpcTlsConfig adminTlsConfig, GrpcTlsConfig clientTlsConfig, GrpcTlsConfig serverTlsConfig) {
     this(server, server::getId,
-        GrpcConfigKeys.Admin.port(server.getProperties()), adminTlsConfig,
-        GrpcConfigKeys.Client.port(server.getProperties()), clientTlsConfig,
-        GrpcConfigKeys.Server.port(server.getProperties()), serverTlsConfig,
+        GrpcConfigKeys.Admin.host(server.getProperties()),
+        GrpcConfigKeys.Admin.port(server.getProperties()),
+        adminTlsConfig,
+        GrpcConfigKeys.Client.host(server.getProperties()),
+        GrpcConfigKeys.Client.port(server.getProperties()),
+        clientTlsConfig,
+        GrpcConfigKeys.Server.host(server.getProperties()),
+        GrpcConfigKeys.Server.port(server.getProperties()),
+        serverTlsConfig,
         GrpcConfigKeys.messageSizeMax(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Log.Appender.bufferByteLimit(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
@@ -132,9 +138,9 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   @SuppressWarnings("checkstyle:ParameterNumber") // private constructor
   private GrpcService(RaftServer raftServer, Supplier<RaftPeerId> idSupplier,
-      int adminPort, GrpcTlsConfig adminTlsConfig,
-      int clientPort, GrpcTlsConfig clientTlsConfig,
-      int serverPort, GrpcTlsConfig serverTlsConfig,
+      String adminHost, int adminPort, GrpcTlsConfig adminTlsConfig,
+      String clientHost, int clientPort, GrpcTlsConfig clientTlsConfig,
+      String serverHost, int serverPort, GrpcTlsConfig serverTlsConfig,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
       SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration,
       boolean useSeparateHBChannel) {
@@ -163,7 +169,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     final boolean separateClientServer = clientPort != serverPort && clientPort > 0;
 
     final NettyServerBuilder serverBuilder =
-        startBuildingNettyServer(serverPort, serverTlsConfig, grpcMessageSizeMax, flowControlWindow);
+        startBuildingNettyServer(serverHost, serverPort, serverTlsConfig, grpcMessageSizeMax, flowControlWindow);
     serverBuilder.addService(ServerInterceptors.intercept(
         new GrpcServerProtocolService(idSupplier, raftServer), serverInterceptor));
     if (!separateAdminServer) {
@@ -179,7 +185,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     if (separateAdminServer) {
       final NettyServerBuilder builder =
-          startBuildingNettyServer(adminPort, adminTlsConfig, grpcMessageSizeMax, flowControlWindow);
+          startBuildingNettyServer(adminHost, adminPort, adminTlsConfig, grpcMessageSizeMax, flowControlWindow);
       addAdminService(raftServer, builder);
       final Server adminServer = builder.build();
       servers.put(GrpcAdminProtocolService.class.getName(), adminServer);
@@ -190,7 +196,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     if (separateClientServer) {
       final NettyServerBuilder builder =
-          startBuildingNettyServer(clientPort, clientTlsConfig, grpcMessageSizeMax, flowControlWindow);
+          startBuildingNettyServer(clientHost, clientPort, clientTlsConfig, grpcMessageSizeMax, flowControlWindow);
       addClientService(builder);
       final Server clientServer = builder.build();
       servers.put(GrpcClientProtocolService.class.getName(), clientServer);
@@ -214,9 +220,11 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
           serverInterceptor));
   }
 
-  private static NettyServerBuilder startBuildingNettyServer(int port, GrpcTlsConfig tlsConfig,
+  private static NettyServerBuilder startBuildingNettyServer(String hostname, int port, GrpcTlsConfig tlsConfig,
       SizeInBytes grpcMessageSizeMax, SizeInBytes flowControlWindow) {
-    NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
+    InetSocketAddress address = hostname == null || hostname.isEmpty() ?
+        new InetSocketAddress(port) : new InetSocketAddress(hostname, port);
+    NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forAddress(address)
         .withChildOption(ChannelOption.SO_REUSEADDR, true)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt());
