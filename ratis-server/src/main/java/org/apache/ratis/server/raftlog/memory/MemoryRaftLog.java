@@ -180,9 +180,9 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public List<CompletableFuture<Long>> appendImpl(LogEntryProto... logEntryProtos) {
+  public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> logEntryProtos) {
     checkLogState();
-    if (logEntryProtos == null || logEntryProtos.length == 0) {
+    if (logEntryProtos == null || logEntryProtos.isEmpty()) {
       return Collections.emptyList();
     }
     try(AutoCloseableLock writeLock = writeLock()) {
@@ -194,26 +194,27 @@ public class MemoryRaftLog extends RaftLogBase {
       // been committed but in the system the entry has not been committed to
       // the quorum of peers' disks.
       boolean toTruncate = false;
-      int truncateIndex = (int) logEntryProtos[0].getIndex();
+      int truncateIndex = (int) logEntryProtos.get(0).getIndex();
       int index = 0;
-      for (; truncateIndex < getNextIndex() && index < logEntryProtos.length;
+      for (; truncateIndex < getNextIndex() && index < logEntryProtos.size();
            index++, truncateIndex++) {
         if (this.entries.get(truncateIndex).getTerm() !=
-            logEntryProtos[index].getTerm()) {
+            logEntryProtos.get(index).getTerm()) {
           toTruncate = true;
           break;
         }
       }
       final List<CompletableFuture<Long>> futures;
       if (toTruncate) {
-        futures = new ArrayList<>(logEntryProtos.length - index + 1);
+        futures = new ArrayList<>(logEntryProtos.size() - index + 1);
         futures.add(truncate(truncateIndex));
       } else {
-        futures = new ArrayList<>(logEntryProtos.length - index);
+        futures = new ArrayList<>(logEntryProtos.size() - index);
       }
-      for (int i = index; i < logEntryProtos.length; i++) {
-        this.entries.add(logEntryProtos[i]);
-        futures.add(CompletableFuture.completedFuture(logEntryProtos[i].getIndex()));
+      for (int i = index; i < logEntryProtos.size(); i++) {
+        LogEntryProto logEntryProto = logEntryProtos.get(i);
+        this.entries.add(logEntryProto);
+        futures.add(CompletableFuture.completedFuture(logEntryProto.getIndex()));
       }
       return futures;
     }

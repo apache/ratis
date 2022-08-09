@@ -595,25 +595,26 @@ public class SegmentedRaftLogCache {
     }
   }
 
-  TruncateIndices computeTruncateIndices(Consumer<TermIndex> failClientRequest, LogEntryProto... entries) {
+  TruncateIndices computeTruncateIndices(Consumer<TermIndex> failClientRequest, List<LogEntryProto> entries) {
     int arrayIndex = 0;
     long truncateIndex = -1;
 
     try(AutoCloseableLock readLock = closedSegments.readLock()) {
-      final Iterator<TermIndex> i = iterator(entries[0].getIndex());
-      for(; i.hasNext() && arrayIndex < entries.length; arrayIndex++) {
+      final Iterator<TermIndex> i = iterator(entries.get(0).getIndex());
+      for(; i.hasNext() && arrayIndex < entries.size(); arrayIndex++) {
         final TermIndex storedEntry = i.next();
-        Preconditions.assertTrue(storedEntry.getIndex() == entries[arrayIndex].getIndex(),
+        LogEntryProto logEntryProto = entries.get(arrayIndex);
+        Preconditions.assertTrue(storedEntry.getIndex() == logEntryProto.getIndex(),
             "The stored entry's index %s is not consistent with the received entries[%s]'s index %s",
-            storedEntry.getIndex(), arrayIndex, entries[arrayIndex].getIndex());
+            storedEntry.getIndex(), arrayIndex, logEntryProto.getIndex());
 
-        if (storedEntry.getTerm() != entries[arrayIndex].getTerm()) {
+        if (storedEntry.getTerm() != logEntryProto.getTerm()) {
           // we should truncate from the storedEntry's arrayIndex
           truncateIndex = storedEntry.getIndex();
           if (LOG.isTraceEnabled()) {
             LOG.trace("{}: truncate to {}, arrayIndex={}, ti={}, storedEntry={}, entries={}",
                 name, truncateIndex, arrayIndex,
-                TermIndex.valueOf(entries[arrayIndex]), storedEntry,
+                TermIndex.valueOf(logEntryProto), storedEntry,
                 LogProtoUtils.toLogEntriesString(entries));
           }
 

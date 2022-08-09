@@ -435,9 +435,9 @@ public class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  public List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries) {
+  public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> entries) {
     checkLogState();
-    if (entries == null || entries.length == 0) {
+    if (entries == null || entries.isEmpty()) {
       return Collections.emptyList();
     }
     try(AutoCloseableLock writeLock = writeLock()) {
@@ -448,13 +448,13 @@ public class SegmentedRaftLog extends RaftLogBase {
 
       final List<CompletableFuture<Long>> futures;
       if (truncateIndex != -1) {
-        futures = new ArrayList<>(entries.length - index + 1);
+        futures = new ArrayList<>(entries.size() - index + 1);
         futures.add(truncate(truncateIndex));
       } else {
-        futures = new ArrayList<>(entries.length - index);
+        futures = new ArrayList<>(entries.size() - index);
       }
-      for (int i = index; i < entries.length; i++) {
-        futures.add(appendEntry(entries[i]));
+      for (int i = index; i < entries.size(); i++) {
+        futures.add(appendEntry(entries.get(i)));
       }
       return futures;
     }

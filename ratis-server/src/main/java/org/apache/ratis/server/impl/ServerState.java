@@ -430,10 +430,10 @@ class ServerState implements Closeable {
     LOG.trace("{}: {}", getMemberId(), configurationManager);
   }
 
-  void updateConfiguration(LogEntryProto[] entries) {
-    if (entries != null && entries.length > 0) {
-      configurationManager.removeConfigurations(entries[0].getIndex());
-      Arrays.stream(entries).forEach(this::setRaftConf);
+  void updateConfiguration(List<LogEntryProto> entries) {
+    if (entries != null && !entries.isEmpty()) {
+      configurationManager.removeConfigurations(entries.get(0).getIndex());
+      entries.stream().forEach(this::setRaftConf);
     }
   }
 

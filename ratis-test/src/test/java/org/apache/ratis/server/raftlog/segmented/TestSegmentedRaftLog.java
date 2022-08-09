@@ -523,7 +523,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       LOG.info("newEntries[0] = {}", newEntries.get(0));
       final int last = newEntries.size() - 1;
       LOG.info("newEntries[{}] = {}", last, newEntries.get(last));
-      raftLog.append(newEntries.toArray(new LogEntryProto[0])).forEach(CompletableFuture::join);
+      raftLog.append(newEntries).forEach(CompletableFuture::join);
 
       checkFailedEntries(entries, 650, retryCache);
       checkEntries(raftLog, entries, 0, 650);

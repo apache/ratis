@@ -25,6 +25,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.function.CheckedSupplier;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -121,13 +122,23 @@ interface RaftLogSequentialOps {
   CompletableFuture<Long> appendEntry(LogEntryProto entry);
 
   /**
+   * The same as append(Arrays.asList(entries)).
+   *
+   * @deprecated use {@link #append(List)}
+   */
+  @Deprecated
+  default List<CompletableFuture<Long>> append(LogEntryProto... entries) {
+    return append(Arrays.asList(entries));
+  }
+
+  /**
    * Append asynchronously all the given log entries.
    * Used by the followers.
    *
    * If an existing entry conflicts with a new one (same index but different terms),
    * delete the existing entry and all entries that follow it (§5.3).
    */
-  List<CompletableFuture<Long>> append(LogEntryProto... entries);
+  List<CompletableFuture<Long>> append(List<LogEntryProto> entries);
 
   /**
    * Truncate asynchronously the log entries till the given index (inclusively).
