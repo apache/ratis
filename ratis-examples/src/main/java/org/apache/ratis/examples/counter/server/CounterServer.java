@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.examples.counter.server;
 
 import org.apache.ratis.conf.RaftProperties;
@@ -29,6 +28,7 @@ import org.apache.ratis.util.NetUtils;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Scanner;
 
@@ -48,19 +48,19 @@ public final class CounterServer implements Closeable {
 
   public CounterServer(RaftPeer peer, File storageDir) throws IOException {
     //create a property object
-    RaftProperties properties = new RaftProperties();
+    final RaftProperties properties = new RaftProperties();
 
-    //set the storage directory (different for each peer) in RaftProperty object
+    //set the storage directory (different for each peer) in the RaftProperty object
     RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
 
-    //set the port which server listen to in RaftProperty object
+    //set the port (different for each peer) in RaftProperty object
     final int port = NetUtils.createSocketAddr(peer.getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
 
-    //create the counter state machine which hold the counter value
-    CounterStateMachine counterStateMachine = new CounterStateMachine();
+    //create the counter state machine which holds the counter value
+    final CounterStateMachine counterStateMachine = new CounterStateMachine();
 
-    //create and start the Raft server
+    //build the Raft server
     this.server = RaftServer.newBuilder()
         .setGroup(Constants.RAFT_GROUP)
         .setProperties(properties)
@@ -78,24 +78,41 @@ public final class CounterServer implements Closeable {
     server.close();
   }
 
-  public static void main(String[] args) throws IOException {
-    if (args.length < 1) {
-      System.err.println("Usage: java -cp *.jar org.apache.ratis.examples.counter.server.CounterServer {serverIndex}");
-      System.err.println("{serverIndex} could be 1, 2 or 3");
+  public static void main(String[] args) {
+    try {
+      //get peerIndex from the arguments
+      if (args.length != 1) {
+        throw new IllegalArgumentException("Invalid argument number: expected to be 1 but actual is " + args.length);
+      }
+      final int peerIndex = Integer.parseInt(args[0]);
+      if (peerIndex < 0 || peerIndex > 2) {
+        throw new IllegalArgumentException("The server index must be 0, 1 or 2: peerIndex=" + peerIndex);
+      }
+
+      startServer(peerIndex);
+    } catch(Throwable e) {
+      e.printStackTrace();
+      System.err.println();
+      System.err.println("args = " + Arrays.toString(args));
+      System.err.println();
+      System.err.println("Usage: java org.apache.ratis.examples.counter.server.CounterServer peer_index");
+      System.err.println();
+      System.err.println("       peer_index must be 0, 1 or 2");
       System.exit(1);
     }
+  }
 
-    //find current peer object based on application parameter
-    final RaftPeer currentPeer = Constants.PEERS.get(Integer.parseInt(args[0]) - 1);
+  private static void startServer(int peerIndex) throws IOException {
+    //get peer and define storage dir
+    final RaftPeer currentPeer = Constants.PEERS.get(peerIndex);
+    final File storageDir = new File("./" + currentPeer.getId());
 
     //start a counter server
-    final File storageDir = new File("./" + currentPeer.getId());
-    final CounterServer counterServer = new CounterServer(currentPeer, storageDir);
-    counterServer.start();
+    try(CounterServer counterServer = new CounterServer(currentPeer, storageDir)) {
+      counterServer.start();
 
-    //exit when any input entered
-    Scanner scanner = new Scanner(System.in, UTF_8.name());
-    scanner.nextLine();
-    counterServer.close();
+      //exit when any input entered
+      new Scanner(System.in, UTF_8.name()).nextLine();
+    }
   }
 }

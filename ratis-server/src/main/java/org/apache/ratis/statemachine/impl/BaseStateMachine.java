@@ -132,9 +132,12 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     updateLastAppliedTermIndex(term, index);
   }
 
-  @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
   protected boolean updateLastAppliedTermIndex(long term, long index) {
-    final TermIndex newTI = TermIndex.valueOf(term, index);
+    return updateLastAppliedTermIndex(TermIndex.valueOf(term, index));
+  }
+
+  protected boolean updateLastAppliedTermIndex(TermIndex newTI) {
+    Objects.requireNonNull(newTI, "newTI == null");
     final TermIndex oldTI = lastAppliedTermIndex.getAndSet(newTI);
     if (!newTI.equals(oldTI)) {
       LOG.trace("{}: update lastAppliedTermIndex from {} to {}", getId(), oldTI, newTI);
@@ -147,7 +150,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     }
 
     synchronized (transactionFutures) {
-      for(long i; !transactionFutures.isEmpty() && (i = transactionFutures.firstKey()) <= index; ) {
+      for(long i; !transactionFutures.isEmpty() && (i = transactionFutures.firstKey()) <= newTI.getIndex(); ) {
         transactionFutures.remove(i).complete(null);
       }
     }
