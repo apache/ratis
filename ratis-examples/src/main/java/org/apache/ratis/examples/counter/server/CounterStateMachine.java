@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,10 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.examples.counter.server;
 
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.examples.counter.CounterCommand;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
@@ -34,52 +35,81 @@ import org.apache.ratis.util.JavaUtils;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * State machine implementation for Counter server application. This class
- * maintain a {@link AtomicInteger} object as a state and accept two commands:
- * GET and INCREMENT, GET is a ReadOnly command which will be handled by
- * {@code query} method however INCREMENT is a transactional command which
- * will be handled by {@code applyTransaction}.
+ * A {@link org.apache.ratis.statemachine.StateMachine} implementation for the {@link CounterServer}.
+ * This class maintain a {@link AtomicInteger} object as a state and accept two commands:
+ *
+ * - {@link CounterCommand#GET} is a readonly command
+ *   which is handled by the {@link #query(Message)} method.
+ *
+ * - {@link CounterCommand#INCREMENT} is a transactional command
+ *   which is handled by the {@link #applyTransaction(TransactionContext)} method.
  */
 public class CounterStateMachine extends BaseStateMachine {
-  private final SimpleStateMachineStorage storage =
-      new SimpleStateMachineStorage();
-  private AtomicInteger counter = new AtomicInteger(0);
+  /** The state of the {@link CounterStateMachine}. */
+  static class CounterState {
+    private final TermIndex applied;
+    private final int counter;
 
-  /**
-   * initialize the state machine by initilize the state machine storage and
-   * calling the load method which reads the last applied command and restore it
-   * in counter object)
-   *
-   * @param server      the current server information
-   * @param groupId     the cluster groupId
-   * @param raftStorage the raft storage which is used to keep raft related
-   *                    stuff
-   * @throws IOException if any error happens during load state
-   */
-  @Override
-  public void initialize(RaftServer server, RaftGroupId groupId,
-                         RaftStorage raftStorage) throws IOException {
-    super.initialize(server, groupId, raftStorage);
-    this.storage.init(raftStorage);
-    load(storage.getLatestSnapshot());
+    CounterState(TermIndex applied, int counter) {
+      this.applied = applied;
+      this.counter = counter;
+    }
+
+    TermIndex getApplied() {
+      return applied;
+    }
+
+    int getCounter() {
+      return counter;
+    }
+  }
+
+  private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
+  private final AtomicInteger counter = new AtomicInteger(0);
+
+  /** @return the current state. */
+  private synchronized CounterState getState() {
+    return new CounterState(getLastAppliedTermIndex(), counter.get());
+  }
+
+  private synchronized void updateState(TermIndex applied, int counterValue) {
+    updateLastAppliedTermIndex(applied);
+    counter.set(counterValue);
+  }
+
+  private synchronized int incrementCounter(TermIndex termIndex) {
+    updateLastAppliedTermIndex(termIndex);
+    return counter.incrementAndGet();
   }
 
   /**
-   * very similar to initialize method, but doesn't initialize the storage
-   * system because the state machine reinitialized from the PAUSE state and
-   * storage system initialized before.
+   * Initialize the state machine storage and then load the state.
    *
-   * @throws IOException if any error happens during load state
+   * @param server  the server running this state machine
+   * @param groupId the id of the {@link org.apache.ratis.protocol.RaftGroup}
+   * @param raftStorage the storage of the server
+   * @throws IOException if it fails to load the state.
+   */
+  @Override
+  public void initialize(RaftServer server, RaftGroupId groupId, RaftStorage raftStorage) throws IOException {
+    super.initialize(server, groupId, raftStorage);
+    storage.init(raftStorage);
+    reinitialize();
+  }
+
+  /**
+   * Simply load the latest snapshot.
+   *
+   * @throws IOException if it fails to load the state.
    */
   @Override
   public void reinitialize() throws IOException {
@@ -87,124 +117,107 @@ public class CounterStateMachine extends BaseStateMachine {
   }
 
   /**
-   * Store the current state as an snapshot file in the stateMachineStorage.
+   * Store the current state as a snapshot file in the {@link #storage}.
    *
    * @return the index of the snapshot
    */
   @Override
   public long takeSnapshot() {
-    //get the last applied index
-    final TermIndex last = getLastAppliedTermIndex();
+    //get the current state
+    final CounterState state = getState();
+    final long index = state.getApplied().getIndex();
 
     //create a file with a proper name to store the snapshot
-    final File snapshotFile =
-        storage.getSnapshotFile(last.getTerm(), last.getIndex());
+    final File snapshotFile = storage.getSnapshotFile(state.getApplied().getTerm(), index);
 
-    //serialize the counter object and write it into the snapshot file
-    try (ObjectOutputStream out = new ObjectOutputStream(
-        new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
-      out.writeObject(counter);
+    //write the counter value into the snapshot file
+    try (ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(
+        Files.newOutputStream(snapshotFile.toPath())))) {
+      out.writeInt(state.getCounter());
     } catch (IOException ioe) {
       LOG.warn("Failed to write snapshot file \"" + snapshotFile
-          + "\", last applied index=" + last);
+          + "\", last applied index=" + state.getApplied());
     }
 
     //return the index of the stored snapshot (which is the last applied one)
-    return last.getIndex();
+    return index;
   }
 
   /**
-   * Load the state of the state machine from the storage.
+   * Load the state of the state machine from the {@link #storage}.
    *
-   * @param snapshot to load
+   * @param snapshot the information of the snapshot being loaded
    * @return the index of the snapshot or -1 if snapshot is invalid
-   * @throws IOException if any error happens during read from storage
+   * @throws IOException if it failed to read from storage
    */
   private long load(SingleFileSnapshotInfo snapshot) throws IOException {
-    //check the snapshot nullity
+    //check null
     if (snapshot == null) {
       LOG.warn("The snapshot info is null.");
       return RaftLog.INVALID_LOG_INDEX;
     }
-
-    //check the existance of the snapshot file
-    final File snapshotFile = snapshot.getFile().getPath().toFile();
-    if (!snapshotFile.exists()) {
-      LOG.warn("The snapshot file {} does not exist for snapshot {}",
-          snapshotFile, snapshot);
+    //check if the snapshot file exists.
+    final Path snapshotPath = snapshot.getFile().getPath();
+    if (!Files.exists(snapshotPath)) {
+      LOG.warn("The snapshot file {} does not exist for snapshot {}", snapshotPath, snapshot);
       return RaftLog.INVALID_LOG_INDEX;
     }
 
-    //load the TermIndex object for the snapshot using the file name pattern of
-    // the snapshot
-    final TermIndex last =
-        SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
+    //read the TermIndex from the snapshot file name
+    final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotPath.toFile());
 
-    //read the file and cast it to the AtomicInteger and set the counter
-    try (ObjectInputStream in = new ObjectInputStream(
-        new BufferedInputStream(new FileInputStream(snapshotFile)))) {
-      //set the last applied termIndex to the termIndex of the snapshot
-      setLastAppliedTermIndex(last);
-
-      //read, cast and set the counter
-      counter = JavaUtils.cast(in.readObject());
-    } catch (ClassNotFoundException e) {
-      throw new IllegalStateException(e);
+    //read the counter value from the snapshot file
+    final int counterValue;
+    try (ObjectInputStream in = new ObjectInputStream(new BufferedInputStream(Files.newInputStream(snapshotPath)))) {
+      counterValue = in.readInt();
     }
+
+    //update state
+    updateState(last, counterValue);
 
     return last.getIndex();
   }
 
   /**
-   * Handle GET command, which used by clients to get the counter value.
+   * Process {@link CounterCommand#GET}, which gets the counter value.
    *
-   * @param request the GET message
-   * @return the Message containing the current counter value
+   * @param request the GET request
+   * @return a {@link Message} containing the current counter value as a {@link String}.
    */
   @Override
   public CompletableFuture<Message> query(Message request) {
-    String msg = request.getContent().toString(Charset.defaultCharset());
-    if (!msg.equals("GET")) {
-      return CompletableFuture.completedFuture(
-          Message.valueOf("Invalid Command"));
+    final String command = request.getContent().toStringUtf8();
+    if (!CounterCommand.GET.matches(command)) {
+      return JavaUtils.completeExceptionally(new IllegalArgumentException("Invalid Command: " + command));
     }
-    return CompletableFuture.completedFuture(
-        Message.valueOf(counter.toString()));
+    return CompletableFuture.completedFuture(Message.valueOf(counter.toString()));
   }
 
   /**
-   * Apply the INCREMENT command by incrementing the counter object.
+   * Apply the {@link CounterCommand#INCREMENT} by incrementing the counter object.
    *
    * @param trx the transaction context
    * @return the message containing the updated counter value
    */
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    final RaftProtos.LogEntryProto entry = trx.getLogEntry();
+    final LogEntryProto entry = trx.getLogEntry();
 
     //check if the command is valid
-    String logData = entry.getStateMachineLogEntry().getLogData()
-        .toString(Charset.defaultCharset());
-    if (!logData.equals("INCREMENT")) {
-      return CompletableFuture.completedFuture(
-          Message.valueOf("Invalid Command"));
+    final String command = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
+    if (!CounterCommand.INCREMENT.matches(command)) {
+      return JavaUtils.completeExceptionally(new IllegalArgumentException("Invalid Command: " + command));
     }
-    //update the last applied term and index
-    final long index = entry.getIndex();
-    updateLastAppliedTermIndex(entry.getTerm(), index);
+    //increment the counter and update term-index
+    final TermIndex termIndex = TermIndex.valueOf(entry);
+    final long incremented = incrementCounter(termIndex);
 
-    //actual execution of the command: increment the counter
-    counter.incrementAndGet();
+    //if leader, log the incremented value and the term-index
+    if (trx.getServerRole() == RaftPeerRole.LEADER) {
+      LOG.info("{}: Increment to {}", termIndex, incremented);
+    }
 
     //return the new value of the counter to the client
-    final CompletableFuture<Message> f =
-        CompletableFuture.completedFuture(Message.valueOf(counter.toString()));
-
-    //if leader, log the incremented value and it's log index
-    if (trx.getServerRole() == RaftProtos.RaftPeerRole.LEADER) {
-      LOG.info("{}: Increment to {}", index, counter.toString());
-    }
-
-    return f;
+    return CompletableFuture.completedFuture(Message.valueOf(String.valueOf(incremented)));
   }
 }
