@@ -22,6 +22,7 @@ import org.apache.ratis.server.leader.LogAppender;
 
 /** For supporting linearizable read. */
 class ReadRequests {
+  /** The acknowledgement from a {@link LogAppender} of a heartbeat for a particular call id. */
   static class HeartbeatAck {
     private final LogAppender appender;
     private final long minCallId;
@@ -32,11 +33,15 @@ class ReadRequests {
       this.minCallId = appender.getCallId();
     }
 
+    /** Is the heartbeat (for a particular call id) acknowledged? */
     boolean isAcknowledged() {
       return acknowledged;
     }
 
-    /** @return true if acknowledged is set from false to true. */
+    /**
+     * @return true if the acknowledged state is changed from false to true;
+     *         otherwise, the acknowledged state remains unchanged, return false.
+     */
     boolean receive(AppendEntriesReplyProto reply) {
       if (acknowledged) {
         return false;

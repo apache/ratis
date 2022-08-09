@@ -30,7 +30,7 @@ public final class CallId {
 
   private static final Comparator<Long> COMPARATOR = (left, right) -> {
     final long diff = left - right;
-    // check diff < Long.MAX_VALUE/2 for the possibility of numerical overflow.
+    // check diff < Long.MAX_VALUE/2 for the possibility of numerical overflow
     return diff == 0? 0: diff > 0 && diff < Long.MAX_VALUE/2? 1: -1;
   };
 
