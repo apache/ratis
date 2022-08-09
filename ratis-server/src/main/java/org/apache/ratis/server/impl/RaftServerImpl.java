@@ -1237,7 +1237,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private void validateEntries(long expectedTerm, TermIndex previous,
       List<LogEntryProto> entries) {
-    if (entries != null && entries.size() > 0) {
+    if (entries != null && !entries.isEmpty()) {
       final long index0 = entries.get(0).getIndex();
 
       if (previous == null || previous.getTerm() == 0) {
@@ -1342,7 +1342,7 @@ class RaftServerImpl implements RaftServer.Division,
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
       List<CommitInfoProto> commitInfos, List<LogEntryProto> entries) throws IOException {
-    final boolean isHeartbeat = entries.size() == 0;
+    final boolean isHeartbeat = entries.isEmpty();
     logAppendEntries(isHeartbeat,
         () -> getMemberId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
             + previous + ", " + leaderCommit + ", " + initializing
@@ -1399,7 +1399,7 @@ class RaftServerImpl implements RaftServer.Division,
       state.updateConfiguration(entries);
     }
 
-    final List<CompletableFuture<Long>> futures = entries.size() == 0 ? Collections.emptyList()
+    final List<CompletableFuture<Long>> futures = entries.isEmpty() ? Collections.emptyList()
         : state.getLog().append(entries);
     commitInfos.forEach(commitInfoCache::update);
 
@@ -1466,7 +1466,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     // Check that the first log entry is greater than the snapshot index in the latest snapshot and follower's last
     // committed index. If not, reply to the leader the new next index.
-    if (entries != null && entries.size() > 0) {
+    if (entries != null && !entries.isEmpty()) {
       final long firstEntryIndex = entries.get(0).getIndex();
       final long snapshotIndex = state.getSnapshotIndex();
       final long commitIndex =  state.getLog().getLastCommittedIndex();

@@ -49,7 +49,6 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.Daemon;
@@ -311,7 +310,7 @@ class LeaderStateImpl implements LeaderState {
         server.getRaftConf(), server.getState().getCurrentTerm(), raftLog.getNextIndex());
     CodeInjectionForTesting.execute(APPEND_PLACEHOLDER,
         server.getId().toString(), null);
-    raftLog.append(Lists.newArrayList(placeHolder));
+    raftLog.append(Collections.singletonList(placeHolder));
     processor.start();
     senders.forEach(LogAppender::start);
     return placeHolder;

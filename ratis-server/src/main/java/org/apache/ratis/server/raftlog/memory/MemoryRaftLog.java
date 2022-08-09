@@ -182,7 +182,7 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> logEntryProtos) {
     checkLogState();
-    if (logEntryProtos == null || logEntryProtos.size() == 0) {
+    if (logEntryProtos == null || logEntryProtos.isEmpty()) {
       return Collections.emptyList();
     }
     try(AutoCloseableLock writeLock = writeLock()) {

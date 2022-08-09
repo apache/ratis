@@ -437,7 +437,7 @@ public class SegmentedRaftLog extends RaftLogBase {
   @Override
   public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> entries) {
     checkLogState();
-    if (entries == null || entries.size() == 0) {
+    if (entries == null || entries.isEmpty()) {
       return Collections.emptyList();
     }
     try(AutoCloseableLock writeLock = writeLock()) {

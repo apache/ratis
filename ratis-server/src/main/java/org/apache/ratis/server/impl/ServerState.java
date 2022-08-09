@@ -431,7 +431,7 @@ class ServerState implements Closeable {
   }
 
   void updateConfiguration(List<LogEntryProto> entries) {
-    if (entries != null && entries.size() > 0) {
+    if (entries != null && !entries.isEmpty()) {
       configurationManager.removeConfigurations(entries.get(0).getIndex());
       entries.stream().forEach(this::setRaftConf);
     }
