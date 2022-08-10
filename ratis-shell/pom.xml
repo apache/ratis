@@ -27,10 +27,12 @@
     <dependency>
       <artifactId>ratis-client</artifactId>
       <groupId>org.apache.ratis</groupId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <artifactId>ratis-common</artifactId>
       <groupId>org.apache.ratis</groupId>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
@@ -43,6 +45,10 @@
       <artifactId>slf4j-api</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.reflections</groupId>
       <artifactId>reflections</artifactId>
       <version>0.10.2</version>
@@ -52,7 +58,28 @@
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>
+                ${project.build.directory}/lib
+              </outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
+        <configuration>
+          <createDependencyReducedPom>false</createDependencyReducedPom>
+        </configuration>
         <executions>
           <execution>
             <phase>package</phase>
@@ -60,7 +87,7 @@
               <goal>shade</goal>
             </goals>
             <configuration>
-              <finalName>${project.artifactId}-${project.version}-jar-with-dependencies</finalName>
+              <finalName>${project.artifactId}-${project.version}</finalName>
 
               <filters>
                 <filter>
@@ -71,9 +98,9 @@
                     <exclude>META-INF/*.DSA</exclude>
                     <exclude>META-INF/*.RSA</exclude>
                     <exclude>**/org/apache/log4j/chainsaw/**</exclude>
-                    <exclude>**/org/apache/log4j/jdbc/JDBCAppender.class</exclude>
-                    <exclude>**/org/apache/log4j/net/JMSAppender.class</exclude>
-                    <exclude>**/org/apache/log4j/net/JMSSink.class</exclude>
+                    <exclude>**/org/apache/log4j/jdbc/**</exclude>
+                    <exclude>**/org/apache/log4j/net/**</exclude>
+                    <exclude>**/org/slf4j/**</exclude>
                   </excludes>
                 </filter>
               </filters>

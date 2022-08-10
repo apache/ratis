@@ -147,9 +147,8 @@
                     <exclude>META-INF/*.DSA</exclude>
                     <exclude>META-INF/*.RSA</exclude>
                     <exclude>**/org/apache/log4j/chainsaw/**</exclude>
-                    <exclude>**/org/apache/log4j/jdbc/JDBCAppender.class</exclude>
-                    <exclude>**/org/apache/log4j/net/JMSAppender.class</exclude>
-                    <exclude>**/org/apache/log4j/net/JMSSink.class</exclude>
+                    <exclude>**/org/apache/log4j/jdbc/**</exclude>
+                    <exclude>**/org/apache/log4j/net/**</exclude>
                   </excludes>
                 </filter>
               </filters>
