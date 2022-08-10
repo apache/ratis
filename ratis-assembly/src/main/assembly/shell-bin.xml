@@ -17,7 +17,7 @@
           xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
   <id>shell</id>
   <formats>
-    <format>tar.gz</format>
+    <format>dir</format>
   </formats>
   <fileSets>
     <fileSet>
