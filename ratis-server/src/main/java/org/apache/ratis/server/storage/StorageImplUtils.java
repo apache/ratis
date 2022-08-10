@@ -17,38 +17,110 @@
  */
 package org.apache.ratis.server.storage;
 
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.util.IOUtils;
-import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.server.RaftServerConfigKeys.Log;
+import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.apache.ratis.server.RaftServer.Division.LOG;
+import static org.apache.ratis.server.storage.RaftStorage.StartupOption.RECOVER;
 
 public final class StorageImplUtils {
+  private static final File[] EMPTY_FILE_ARRAY = {};
 
   private StorageImplUtils() {
     //Never constructed
   }
 
-  /** Create a {@link RaftStorageImpl}. */
-  public static RaftStorageImpl newRaftStorage(File dir, RaftServerConfigKeys.Log.CorruptionPolicy logCorruptionPolicy,
-      RaftStorage.StartupOption option, long storageFeeSpaceMin) throws IOException {
-    RaftStorage.LOG.debug("newRaftStorage: {}, {}, {}, {}",dir, logCorruptionPolicy, option, storageFeeSpaceMin);
+  public static SnapshotManager newSnapshotManager(RaftPeerId id) {
+    return new SnapshotManager(id);
+  }
 
-    final TimeDuration sleepTime = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);
-    final RaftStorageImpl raftStorage;
-    try {
-      // attempt multiple times to avoid temporary bind exception
-      raftStorage = JavaUtils.attemptRepeatedly(
-          () -> new RaftStorageImpl(dir, logCorruptionPolicy, option, storageFeeSpaceMin),
-          5, sleepTime, "new RaftStorageImpl", RaftStorage.LOG);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw IOUtils.toInterruptedIOException(
-          "Interrupted when creating RaftStorage " + dir, e);
+  /** Create a {@link RaftStorageImpl}. */
+  public static RaftStorageImpl newRaftStorage(File dir, SizeInBytes freeSpaceMin,
+      RaftStorage.StartupOption option, Log.CorruptionPolicy logCorruptionPolicy) {
+    return new RaftStorageImpl(dir, freeSpaceMin, option, logCorruptionPolicy);
+  }
+
+  static File chooseExistingStorageDir(List<File> volumes, String targetSubDir, Map<File, Integer> numDirsPerVolume) {
+    final List<File> matchedSubDirs = new ArrayList<>();
+    volumes.stream().flatMap(volume -> {
+          final File[] dirs = Optional.ofNullable(volume.listFiles()).orElse(EMPTY_FILE_ARRAY);
+          Optional.ofNullable(numDirsPerVolume).ifPresent(map -> map.put(volume, dirs.length));
+          return Arrays.stream(dirs);
+        }).filter(dir -> targetSubDir.equals(dir.getName()))
+        .forEach(matchedSubDirs::add);
+
+    final int size = matchedSubDirs.size();
+    if (size > 1) {
+      throw new IllegalStateException("More than one directories found for " + targetSubDir + ": " + matchedSubDirs);
     }
-    return raftStorage;
+    return size == 1 ? matchedSubDirs.get(0) : null;
+  }
+
+  static File chooseStorageDir(File existing, String targetSubDir, Map<File, Integer> numDirsPerVolume) {
+    if (existing != null) {
+      return existing;
+    }
+    // return a volume with the min dirs
+    return numDirsPerVolume.entrySet().stream()
+        .min(Map.Entry.comparingByValue())
+        .map(e -> new File(e.getKey(), targetSubDir))
+        .orElseThrow(() -> new IllegalStateException("No storage directory found."));
+  }
+
+  /**
+   * Choose a {@link RaftStorage} for the given storage directory name from the given configuration properties
+   * and then try to call {@link RaftStorage#initialize()}.
+   *
+   * Failure handling:
+   * - When there are more than one existing directories, throw an exception.
+   * - When there is an existing directory, if it fails, throw an exception but not try to initialize a new directory.
+   * - When there is no existing directory, try to initialize a new directory from the list specified
+   *   in the configuration properties until a directory succeeded or all directories failed.
+   *
+   * @param storageDirName the storage directory name
+   * @param properties the configuration properties
+   * @return the chosen storage, which is initialized successfully.
+   */
+  public static RaftStorageImpl chooseRaftStorage(String storageDirName, RaftProperties properties) {
+    final SizeInBytes freeSpaceMin = RaftServerConfigKeys.storageFreeSpaceMin(properties);
+    final Log.CorruptionPolicy logCorruptionPolicy = RaftServerConfigKeys.Log.corruptionPolicy(properties);
+    final List<File> dirsInConf = RaftServerConfigKeys.storageDir(properties);
+
+    final Map<File, Integer> numDirsPerVolume = new HashMap<>();
+    final File existing = chooseExistingStorageDir(dirsInConf, storageDirName, numDirsPerVolume);
+
+    for(List<File> volumes = new ArrayList<>(dirsInConf); !volumes.isEmpty(); ) {
+      final File dir = chooseStorageDir(existing, storageDirName, numDirsPerVolume);
+      try {
+        final RaftStorageImpl storage = newRaftStorage(dir, freeSpaceMin, RECOVER, logCorruptionPolicy);
+        storage.initialize();
+        return storage;
+      } catch (Throwable e) {
+        if (existing != null) {
+          throw new IllegalStateException(
+              "Failed to initialize the existing directory " + existing.getAbsolutePath(), e);
+        }
+
+        LOG.warn("Failed to initialize a new directory " + dir.getAbsolutePath(), e);
+        final String parent = dir.getParentFile().getAbsolutePath();
+        volumes.removeIf(v -> v.getAbsolutePath().equals(parent));
+        if (!volumes.isEmpty()) {
+          LOG.warn("Retry other directories " + volumes, e);
+        }
+      }
+    }
+
+    throw new IllegalStateException("No healthy directories found among " + dirsInConf);
   }
 }
