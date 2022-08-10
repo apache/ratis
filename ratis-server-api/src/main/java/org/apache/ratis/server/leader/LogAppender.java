@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Comparator;
 
 /**
  * A {@link LogAppender} is for the leader to send appendEntries to a particular follower.
@@ -80,6 +81,12 @@ public interface LogAppender {
   default RaftPeerId getFollowerId() {
     return getFollower().getPeer().getId();
   }
+
+  /** @return the call id for the next {@link AppendEntriesRequestProto}. */
+  long getCallId();
+
+  /** @return the a {@link Comparator} for comparing call ids. */
+  Comparator<Long> getCallIdComparator();
 
   /**
    * Create a {@link AppendEntriesRequestProto} object using the {@link FollowerInfo} of this {@link LogAppender}.
