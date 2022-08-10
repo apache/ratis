@@ -23,7 +23,7 @@
   -->
   <id>examples-bin</id>
   <formats>
-    <format>tar.gz</format>
+    <format>dir</format>
   </formats>
   <dependencySets>
     <dependencySet>
@@ -68,12 +68,12 @@
       <fileMode>755</fileMode>
     </fileSet>
     <!-- Include dev support tools -->
-    <fileSet>
-      <directory>${project.basedir}/../dev-support</directory>
-      <outputDirectory>dev-support</outputDirectory>
-      <fileMode>0644</fileMode>
-      <directoryMode>0755</directoryMode>
-    </fileSet>
+<!--    <fileSet>-->
+<!--      <directory>${project.basedir}/../dev-support</directory>-->
+<!--      <outputDirectory>dev-support</outputDirectory>-->
+<!--      <fileMode>0644</fileMode>-->
+<!--      <directoryMode>0755</directoryMode>-->
+<!--    </fileSet>-->
     <fileSet>
       <directory>${project.basedir}/../ratis-examples/src/main/resources</directory>
       <outputDirectory>examples/conf</outputDirectory>
