@@ -24,6 +24,7 @@ import org.apache.ratis.server.RaftServerConfigKeys.Log;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -51,7 +52,8 @@ public final class StorageImplUtils {
     return new RaftStorageImpl(dir, freeSpaceMin, option, logCorruptionPolicy);
   }
 
-  static File chooseExistingStorageDir(List<File> volumes, String targetSubDir, Map<File, Integer> numDirsPerVolume) {
+  static File chooseExistingStorageDir(List<File> volumes, String targetSubDir, Map<File, Integer> numDirsPerVolume)
+      throws IOException {
     final List<File> matchedSubDirs = new ArrayList<>();
     volumes.stream().flatMap(volume -> {
           final File[] dirs = Optional.ofNullable(volume.listFiles()).orElse(EMPTY_FILE_ARRAY);
@@ -62,12 +64,13 @@ public final class StorageImplUtils {
 
     final int size = matchedSubDirs.size();
     if (size > 1) {
-      throw new IllegalStateException("More than one directories found for " + targetSubDir + ": " + matchedSubDirs);
+      throw new IOException("More than one directories found for " + targetSubDir + ": " + matchedSubDirs);
     }
     return size == 1 ? matchedSubDirs.get(0) : null;
   }
 
-  static File chooseStorageDir(File existing, String targetSubDir, Map<File, Integer> numDirsPerVolume) {
+  static File chooseStorageDir(File existing, String targetSubDir, Map<File, Integer> numDirsPerVolume)
+      throws IOException {
     if (existing != null) {
       return existing;
     }
@@ -75,7 +78,7 @@ public final class StorageImplUtils {
     return numDirsPerVolume.entrySet().stream()
         .min(Map.Entry.comparingByValue())
         .map(e -> new File(e.getKey(), targetSubDir))
-        .orElseThrow(() -> new IllegalStateException("No storage directory found."));
+        .orElseThrow(() -> new IOException("No storage directory found."));
   }
 
   /**
@@ -92,7 +95,7 @@ public final class StorageImplUtils {
    * @param properties the configuration properties
    * @return the chosen storage, which is initialized successfully.
    */
-  public static RaftStorageImpl chooseRaftStorage(String storageDirName, RaftProperties properties) {
+  public static RaftStorageImpl chooseRaftStorage(String storageDirName, RaftProperties properties) throws IOException {
     final SizeInBytes freeSpaceMin = RaftServerConfigKeys.storageFreeSpaceMin(properties);
     final Log.CorruptionPolicy logCorruptionPolicy = RaftServerConfigKeys.Log.corruptionPolicy(properties);
     final List<File> dirsInConf = RaftServerConfigKeys.storageDir(properties);
@@ -108,8 +111,10 @@ public final class StorageImplUtils {
         return storage;
       } catch (Throwable e) {
         if (existing != null) {
-          throw new IllegalStateException(
-              "Failed to initialize the existing directory " + existing.getAbsolutePath(), e);
+          if (e instanceof IOException) {
+            throw e;
+          }
+          throw new IOException("Failed to initialize the existing directory " + existing.getAbsolutePath(), e);
         }
 
         LOG.warn("Failed to initialize a new directory " + dir.getAbsolutePath(), e);
@@ -121,6 +126,6 @@ public final class StorageImplUtils {
       }
     }
 
-    throw new IllegalStateException("No healthy directories found among " + dirsInConf);
+    throw new IOException("No healthy directories found among " + dirsInConf);
   }
 }

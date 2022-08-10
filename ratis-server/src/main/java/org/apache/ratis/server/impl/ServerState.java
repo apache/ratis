@@ -36,6 +36,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedCheckedSupplier;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
@@ -66,7 +67,7 @@ class ServerState {
   /** The thread that applies committed log entries to the state machine */
   private final MemoizedSupplier<StateMachineUpdater> stateMachineUpdater;
   /** local storage for log and snapshot */
-  private final MemoizedSupplier<RaftStorageImpl> raftStorage;
+  private final MemoizedCheckedSupplier<RaftStorageImpl, IOException> raftStorage;
   private final SnapshotManager snapshotManager;
   private volatile Timestamp lastNoLeaderTime;
   private final TimeDuration noLeaderTimeout;
@@ -109,7 +110,7 @@ class ServerState {
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
     final String storageDirName = group.getGroupId().getUuid().toString();
-    this.raftStorage = MemoizedSupplier.valueOf(() -> StorageImplUtils.chooseRaftStorage(storageDirName, prop));
+    this.raftStorage = MemoizedCheckedSupplier.valueOf(() -> StorageImplUtils.chooseRaftStorage(storageDirName, prop));
 
     this.snapshotManager = StorageImplUtils.newSnapshotManager(id);
 
@@ -424,7 +425,7 @@ class ServerState {
     if (!raftStorage.isInitialized()) {
       throw new IllegalStateException(getMemberId() + ": raftStorage is uninitialized.");
     }
-    return raftStorage.get();
+    return raftStorage.getUnchecked();
   }
 
   void installSnapshot(InstallSnapshotRequestProto request) throws IOException {

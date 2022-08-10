@@ -46,7 +46,7 @@ public class TestStorageImplUtils {
           JavaUtils.getClassSimpleName(TestStorageImplUtils.class) +
               Integer.toHexString(ThreadLocalRandom.current().nextInt())));
 
-  static File chooseStorageDir(List<File> volumes, String sub) {
+  static File chooseStorageDir(List<File> volumes, String sub) throws IOException {
     final Map<File, Integer> numberOfStorageDirPerVolume = new HashMap<>();
     final File existing = StorageImplUtils.chooseExistingStorageDir(volumes, sub, numberOfStorageDirPerVolume);
     return StorageImplUtils.chooseStorageDir(existing, sub, numberOfStorageDirPerVolume);
@@ -122,7 +122,7 @@ public class TestStorageImplUtils {
     try {
       chooseStorageDir(Collections.emptyList(), UUID.randomUUID().toString());
       Assert.fail();
-    } catch (IllegalStateException ex) {
+    } catch (IOException ex) {
       String expectedErrMsg = "No storage directory found.";
       Assert.assertEquals(expectedErrMsg, ex.getMessage());
     }
