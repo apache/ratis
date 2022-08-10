@@ -151,7 +151,7 @@
                 <descriptor>src/main/assembly/bin.xml</descriptor>
                 <descriptor>src/main/assembly/examples-bin.xml</descriptor>
                 <descriptor>src/main/assembly/shell-bin.xml</descriptor>
-                <descriptor>src/main/assembly/pkg.xml</descriptor>
+                <descriptor>src/main/assembly/bin-pkg.xml</descriptor>
               </descriptors>
               <finalName>apache-ratis-${project.version}-bin</finalName>
               <appendAssemblyId>false</appendAssemblyId>
