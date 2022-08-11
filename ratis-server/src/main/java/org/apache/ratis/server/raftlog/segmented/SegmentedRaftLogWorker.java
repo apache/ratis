@@ -179,8 +179,8 @@ class SegmentedRaftLogWorker {
   private final boolean asyncFlush;
   private final boolean unsafeFlush;
   private final ExecutorService flushExecutor;
-  private final AtomicReference<CompletableFuture<Long>> flushFuture
-      = new AtomicReference<>(CompletableFuture.completedFuture(-1L));
+  private final AtomicReference<CompletableFuture<Void>> flushFuture
+      = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
@@ -402,16 +402,16 @@ class SegmentedRaftLogWorker {
 
   private void unsafeFlushOutStream() throws IOException {
     final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
-    out.asyncFlush(flushExecutor, null).whenComplete((v, e) -> logSyncTimerContext.stop());
+    out.asyncFlush(flushExecutor).whenComplete((v, e) -> logSyncTimerContext.stop());
   }
 
   private void asyncFlushOutStream(CompletableFuture<Void> stateMachineFlush) throws IOException {
     final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
-    final CompletableFuture<Long> f = out.asyncFlush(flushExecutor, lastWrittenIndex)
+    final CompletableFuture<Void> f = out.asyncFlush(flushExecutor)
         .thenCombine(stateMachineFlush, (async, sm) -> async);
     flushFuture.updateAndGet(previous -> f.thenCombine(previous, (current, prev) -> current))
         .whenComplete((v, e) -> {
-          updateFlushedIndexIncreasingly(v);
+          updateFlushedIndexIncreasingly(lastWrittenIndex);
           logSyncTimerContext.stop();
         });
   }

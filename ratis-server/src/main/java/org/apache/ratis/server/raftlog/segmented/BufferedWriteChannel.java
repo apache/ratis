@@ -41,7 +41,7 @@ import java.util.function.Supplier;
  */
 class BufferedWriteChannel implements Closeable {
   static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer,
-      Supplier<CompletableFuture> closeCallback) throws IOException {
+      Supplier<CompletableFuture<Void>> flushFuture) throws IOException {
     final RandomAccessFile raf = new RandomAccessFile(file, "rw");
     final FileChannel fc = raf.getChannel();
     if (append) {
@@ -50,18 +50,19 @@ class BufferedWriteChannel implements Closeable {
       fc.truncate(0);
     }
     Preconditions.assertSame(fc.size(), fc.position(), "fc.position");
-    return new BufferedWriteChannel(fc, buffer, closeCallback);
+    return new BufferedWriteChannel(fc, buffer, flushFuture);
   }
 
   private final FileChannel fileChannel;
   private final ByteBuffer writeBuffer;
   private boolean forced = true;
-  private final Supplier<CompletableFuture> callback;
+  private final Supplier<CompletableFuture<Void>> flushFuture;
 
-  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer, Supplier<CompletableFuture> closeCallback) {
+  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer,
+      Supplier<CompletableFuture<Void>> flushFuture) {
     this.fileChannel = fileChannel;
     this.writeBuffer = byteBuffer;
-    this.callback = closeCallback;
+    this.flushFuture = flushFuture;
   }
 
   void write(byte[] b) throws IOException {
@@ -98,26 +99,24 @@ class BufferedWriteChannel implements Closeable {
     }
   }
 
-  CompletableFuture<Long> asyncFlush(ExecutorService executor, Long writtenIndex) throws IOException {
+  CompletableFuture<Void> asyncFlush(ExecutorService executor) throws IOException {
     flushBuffer();
     if (forced) {
       return CompletableFuture.completedFuture(null);
     }
-    final CompletableFuture<Long> f =  new CompletableFuture();
-    executor.execute(() -> fileChannelForce(writtenIndex, f));
+    final CompletableFuture<Void> f = CompletableFuture.supplyAsync(this::fileChannelForce, executor);
     forced = true;
-
     return f;
   }
 
-  private void fileChannelForce(Long lastWrittenIndex, CompletableFuture future) {
+  private Void fileChannelForce() {
     try {
       fileChannel.force(false);
-      future.complete(lastWrittenIndex);
     } catch (IOException e) {
-      LogSegment.LOG.error("Flush failure writtenIndex = {}", lastWrittenIndex);
+      LogSegment.LOG.error("Failed to flush channel", e);
       throw new CompletionException(e);
     }
+    return null;
   }
 
   /**
@@ -150,8 +149,8 @@ class BufferedWriteChannel implements Closeable {
     }
 
     try {
+      flushFuture.get().get();
       fileChannel.truncate(fileChannel.position());
-      callback.get().get();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     } catch (ExecutionException e) {
