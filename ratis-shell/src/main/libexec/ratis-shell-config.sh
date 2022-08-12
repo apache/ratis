@@ -32,6 +32,7 @@ RATIS_SHELL_HOME=$(dirname $(dirname "${this}"))
 RATIS_SHELL_ASSEMBLY_CLIENT_JAR="${RATIS_SHELL_HOME}/lib/shell/*"
 RATIS_SHELL_CONF_DIR="${RATIS_SHELL_CONF_DIR:-${RATIS_SHELL_HOME}/conf}"
 RATIS_SHELL_LOGS_DIR="${RATIS_SHELL_LOGS_DIR:-${RATIS_SHELL_HOME}/logs}"
+RATIS_SHELL_LIB_DIR="${RATIS_SHELL_LIB_DIR:-${RATIS_SHELL_HOME}/jars}"
 
 if [[ -e "${RATIS_SHELL_CONF_DIR}/ratis-shell-env.sh" ]]; then
   . "${RATIS_SHELL_CONF_DIR}/ratis-shell-env.sh"
@@ -57,6 +58,16 @@ if [[ ${JAVA_MAJORMINOR} != 001008 && ${JAVA_MAJOR} != 011 ]]; then
   echo "Error: ratis-shell requires Java 8 or Java 11, currently Java $JAVA_VERSION found."
   exit 1
 fi
+
+local RATIS_SHELL_CLASSPATH
+
+while read -d '' -r jarfile ; do
+    if [[ "$RATIS_SHELL_CLASSPATH" == "" ]]; then
+        RATIS_SHELL_CLASSPATH="$jarfile";
+    else
+        RATIS_SHELL_CLASSPATH="$RATIS_SHELL_CLASSPATH":"$jarfile"
+    fi
+done < <(find "$RATIS_SHELL_LIB_DIR" ! -type d -name '*.jar' -print0 | sort -z)
 
 RATIS_SHELL_CLIENT_CLASSPATH="${RATIS_SHELL_CONF_DIR}/:${RATIS_SHELL_CLASSPATH}:${RATIS_SHELL_ASSEMBLY_CLIENT_JAR}"
 

@@ -52,8 +52,8 @@
       <fileMode>0644</fileMode>
     </fileSet>
     <fileSet>
-      <directory>${project.basedir}/src/main/resources</directory>
-      <outputDirectory>.</outputDirectory>
+      <directory>${project.basedir}/../ratis-examples</directory>
+      <outputDirectory>examples</outputDirectory>
       <includes>
         <include>README.md</include>
       </includes>
@@ -65,19 +65,13 @@
       <includes>
         <include>*.*</include>
       </includes>
-      <fileMode>755</fileMode>
+      <fileMode>0755</fileMode>
     </fileSet>
-    <!-- Include dev support tools -->
-<!--    <fileSet>-->
-<!--      <directory>${project.basedir}/../dev-support</directory>-->
-<!--      <outputDirectory>dev-support</outputDirectory>-->
-<!--      <fileMode>0644</fileMode>-->
-<!--      <directoryMode>0755</directoryMode>-->
-<!--    </fileSet>-->
     <fileSet>
       <directory>${project.basedir}/../ratis-examples/src/main/resources</directory>
       <outputDirectory>examples/conf</outputDirectory>
       <includes>
+        <include>conf.properties</include>
         <include>log4j.properties</include>
       </includes>
       <fileMode>644</fileMode>

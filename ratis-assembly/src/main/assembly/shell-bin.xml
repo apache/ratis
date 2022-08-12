@@ -22,11 +22,14 @@
   <fileSets>
     <fileSet>
       <directory>${project.basedir}/../ratis-shell/target/</directory>
-      <outputDirectory>lib/shell</outputDirectory>
-      <fileMode>755</fileMode>
+      <outputDirectory>jars</outputDirectory>
       <includes>
-        <include>ratis-shell-*-jar-with-dependencies.jar</include>
+        <include>ratis-shell-${project.version}.jar</include>
       </includes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-shell/target/lib/</directory>
+      <outputDirectory>jars</outputDirectory>
     </fileSet>
     <fileSet>
       <directory>${project.basedir}/..</directory>
@@ -48,12 +51,12 @@
     <fileSet>
       <directory>${project.basedir}/../ratis-shell/src/main/bin</directory>
       <outputDirectory>bin</outputDirectory>
-      <fileMode>755</fileMode>
+      <fileMode>0755</fileMode>
     </fileSet>
     <fileSet>
       <directory>${project.basedir}/../ratis-shell/src/main/libexec</directory>
       <outputDirectory>libexec</outputDirectory>
-      <fileMode>0644</fileMode>
+      <fileMode>0755</fileMode>
       <directoryMode>0755</directoryMode>
     </fileSet>
     <fileSet>
