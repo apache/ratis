@@ -1739,7 +1739,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  public void onGroupLeaderElected() {
+  void onGroupLeaderElected() {
     this.firstElectionSinceStartup.set(false);
   }
 }
