@@ -31,7 +31,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import com.codahale.metrics.Gauge;
 
 public class TestLogAppenderMetrics {
 

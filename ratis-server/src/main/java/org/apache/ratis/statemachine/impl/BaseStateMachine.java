@@ -18,7 +18,7 @@
 
 package org.apache.ratis.statemachine.impl;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import com.codahale.metrics.Timer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.Message;
