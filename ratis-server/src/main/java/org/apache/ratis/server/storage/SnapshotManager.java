@@ -31,7 +31,7 @@ import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.FileUtils;
@@ -75,7 +75,8 @@ public class SnapshotManager {
     FileUtils.createDirectories(tmpDir);
     tmpDir.deleteOnExit();
 
-    LOG.info("Installing snapshot:{}, to tmp dir:{}", ServerProtoUtils.convertToString(request), tmpDir);
+    LOG.info("Installing snapshot:{}, to tmp dir:{}",
+        ServerStringUtils.toInstallSnapshotRequestString(request), tmpDir);
 
     // TODO: Make sure that subsequent requests for the same installSnapshot are coming in order,
     // and are not lost when whole request cycle is done. Check requestId and requestIndex here
