@@ -187,7 +187,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
 
-  private final AtomicBoolean firstElectionTimeout = new AtomicBoolean(true);
+  private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -247,7 +247,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   TimeDuration getRandomElectionTimeout() {
-    if (firstElectionTimeout.compareAndSet(true, false)) {
+    if (firstElectionSinceStartup.get()) {
       return getFirstRandomElectionTimeout();
     }
     final int min = properties().minRpcTimeoutMs();
@@ -1737,5 +1737,9 @@ class RaftServerImpl implements RaftServer.Division,
       return proxy.getGroupIds().stream().map(RaftGroupId::toString)
           .collect(Collectors.toList());
     }
+  }
+
+  public void onGroupLeaderElected() {
+    this.firstElectionSinceStartup.set(false);
   }
 }
