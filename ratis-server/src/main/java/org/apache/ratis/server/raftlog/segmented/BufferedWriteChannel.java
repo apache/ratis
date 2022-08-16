@@ -18,7 +18,6 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 
@@ -28,9 +27,9 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
@@ -149,12 +148,8 @@ class BufferedWriteChannel implements Closeable {
     }
 
     try {
-      flushFuture.get().get();
+      Optional.ofNullable(flushFuture).ifPresent(f -> f.get());
       fileChannel.truncate(fileChannel.position());
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    } catch (ExecutionException e) {
-      IOUtils.toIOException(e);
     } finally {
       fileChannel.close();
     }

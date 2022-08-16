@@ -98,6 +98,7 @@ public class TestLogSegment extends BaseTest {
         SimpleOperation op = new SimpleOperation("m" + i);
         entries[i] = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i + startIndex);
         out.write(entries[i]);
+        LOG.info("Write entry with size {}", size(entries[i]));
       }
     }
 
