@@ -56,7 +56,7 @@ public interface NettyDataStreamUtils {
         .setStreamOffset(request.getStreamOffset())
         .setType(request.getType())
         .setDataLength(request.getDataLength());
-    for (WriteOption option : request.getWriteOptions()) {
+    for (WriteOption option : request.getWriteOptionsList()) {
       b.addOptions(DataStreamPacketHeaderProto.Option.forNumber(
           ((StandardWriteOption) option).ordinal()));
     }

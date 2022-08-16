@@ -41,6 +41,7 @@ public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer impl
 
   @Override
   @SuppressFBWarnings("EI_EXPOSE_REP")
+  @Deprecated
   public WriteOption[] getWriteOptions() {
     return options;
   }

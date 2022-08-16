@@ -39,6 +39,16 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
    */
   CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, WriteOption... options);
 
+  /**
+   * Send out the data in the source buffer asynchronously.
+   *
+   * @param src the source buffer to be sent.
+   * @param options - options specifying how the data was written
+   * @return a future of the reply.
+   */
+  CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src,
+                                                Iterable<WriteOption> options);
+
 
   /**
    * The same as writeAsync(src, 0, src.length(), sync_default).
