@@ -59,6 +59,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -68,12 +69,29 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class TestSegmentedRaftLog extends BaseTest {
   static {
-    Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.TRACE);
-    Log4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.TRACE);
+    Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.INFO);
+    Log4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.INFO);
+    Log4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.INFO);
+  }
+
+  private final Boolean smSyncFlush;
+  private final Boolean useAsyncFlush;
+
+  public TestSegmentedRaftLog(Boolean raftLogAsync, Boolean smSync) {
+    this.useAsyncFlush = raftLogAsync;
+    this.smSyncFlush = smSync;
+  }
+
+  @Parameterized.Parameters
+  public static Collection<Boolean[]> data() {
+    return Arrays.asList((new Boolean[][] {{Boolean.FALSE, Boolean.FALSE}, {Boolean.FALSE, Boolean.TRUE},
+        {Boolean.TRUE, Boolean.FALSE}, {Boolean.TRUE, Boolean.TRUE}}));
   }
 
   public static long getOpenSegmentSize(RaftLog raftLog) {
@@ -133,6 +151,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     storageDir = getTestDir();
     properties = new RaftProperties();
     RaftServerConfigKeys.setStorageDir(properties,  Collections.singletonList(storageDir));
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
     storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     this.segmentMaxSize =
         RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
@@ -156,7 +176,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       final int size = (int) (range.end - range.start + 1);
       LogEntryProto[] entries = new LogEntryProto[size];
       try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-          segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
+          segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null)) {
         for (int i = 0; i < size; i++) {
           SimpleOperation m = new SimpleOperation("m" + (i + range.start));
           entries[i] = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, i + range.start);
@@ -677,5 +697,50 @@ public class TestSegmentedRaftLog extends BaseTest {
       LOG.info("header'' = " + new String(header, StandardCharsets.UTF_8));
       return null;
     });
+  }
+
+  @Test
+  public void testAsyncFlushPerf1() throws Exception {
+    List<SegmentRange> ranges = prepareRanges(0, 50, 20000, 0);
+    List<LogEntryProto> entries = prepareLogEntries(ranges, null);
+
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLog()) {
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      // append entries to the raftlog
+      List<List<CompletableFuture<Long>>> futures = new ArrayList<>();
+      long start = System.nanoTime();
+      for (int i = 0; i < entries.size(); i += 5) {
+        // call append API
+        futures.add(raftLog.append(entries.get(i), entries.get(i + 1), entries.get(i + 2), entries.get(i + 3),
+            entries.get(i + 4)));
+      }
+      for (List<CompletableFuture<Long>> futureList: futures) {
+        futureList.forEach(CompletableFuture::join);
+      }
+      System.out.println(entries.size() + " appendEntry finished in " + (System.nanoTime() - start) +
+          " ns with asyncFlush " + useAsyncFlush);
+    }
+  }
+
+  @Test
+  public void testAsyncFlushPerf2() throws Exception {
+    List<SegmentRange> ranges = prepareRanges(0, 50, 20000, 0);
+    List<LogEntryProto> entries = prepareLogEntries(ranges, null);
+
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLog()) {
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      // append entries to the raftlog
+      List<CompletableFuture<Long>> futures = new ArrayList<>();
+      long start = System.nanoTime();
+      for (int i = 0; i < entries.size(); i++) {
+        // call appendEntry API
+        futures.add(raftLog.appendEntry(entries.get(i)));
+      }
+      for (CompletableFuture<Long> futureList: futures) {
+        futureList.join();
+      }
+      System.out.println(entries.size() + " appendEntry finished in " + (System.nanoTime() - start) +
+          " ns with asyncFlush " + useAsyncFlush);
+    }
   }
 }
