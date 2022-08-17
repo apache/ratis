@@ -68,9 +68,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import com.codahale.metrics.Timer;
 
 @RunWith(Parameterized.class)
 public class TestSegmentedRaftLog extends BaseTest {

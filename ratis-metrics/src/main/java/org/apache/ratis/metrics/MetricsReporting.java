@@ -20,8 +20,9 @@ package org.apache.ratis.metrics;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.*;
-import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
+import com.codahale.metrics.ConsoleReporter;
+import com.codahale.metrics.JmxReporter;
+import com.codahale.metrics.JmxReporter.Builder;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,10 +53,9 @@ public final class MetricsReporting {
 
   public static Consumer<RatisMetricRegistry> jmxReporter() {
     return registry -> {
-      JmxReporter.Builder builder =
+      Builder builder =
           JmxReporter.forRegistry(registry.getDropWizardMetricRegistry());
       builder.inDomain(registry.getMetricRegistryInfo().getApplicationName());
-      builder.createsObjectNamesWith(new RatisObjectNameFactory());
       JmxReporter reporter = builder.build();
       reporter.start();
 

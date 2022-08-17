@@ -24,7 +24,7 @@ import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.util.Timestamp;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import com.codahale.metrics.Timer;
 
 import java.util.Optional;
 import java.util.function.LongSupplier;

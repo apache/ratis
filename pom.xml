@@ -218,8 +218,7 @@
     <testsThreadCount>4</testsThreadCount>
 
     <!--metrics-->
-    <shaded.dropwizard.version>4.2.9</shaded.dropwizard.version>
-    <shaded.dropwizard.ganglia.version>3.2.6</shaded.dropwizard.ganglia.version>
+    <dropwizard.version>3.2.5</dropwizard.version>
   </properties>
 
   <dependencyManagement>
@@ -409,6 +408,25 @@
         <artifactId>jcommander</artifactId>
         <version>1.72</version>
       </dependency>
+
+      <dependency>
+        <groupId>io.dropwizard.metrics</groupId>
+        <artifactId>metrics-core</artifactId>
+        <version>${dropwizard.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.dropwizard.metrics</groupId>
+        <artifactId>metrics-jvm</artifactId>
+        <version>${dropwizard.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.dropwizard.metrics</groupId>
+        <artifactId>metrics-ganglia</artifactId>
+        <version>${dropwizard.version}</version>
+      </dependency>
+
       <dependency>
         <groupId>junit</groupId>
         <artifactId>junit</artifactId>
