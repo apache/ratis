@@ -628,7 +628,7 @@ public interface RaftServerConfigKeys {
 
     /** separate first timeout so that the startup unavailable time can be reduced */
     String FIRST_TIMEOUT_MIN_KEY = PREFIX + ".first.timeout.min";
-    TimeDuration FIRST_TIMEOUT_MIN_DEFAULT = null;
+    TimeDuration FIRST_TIMEOUT_MIN_DEFAULT = TimeDuration.valueOf(150, TimeUnit.MILLISECONDS);
     static TimeDuration firstTimeoutMin(RaftProperties properties) {
       final TimeDuration fallbackFirstTimeoutMin = Rpc.timeoutMin(properties);
       return getTimeDuration(properties.getTimeDuration(fallbackFirstTimeoutMin.getUnit()),
@@ -639,7 +639,7 @@ public interface RaftServerConfigKeys {
     }
 
     String FIRST_TIMEOUT_MAX_KEY = PREFIX + ".first.timeout.max";
-    TimeDuration FIRST_TIMEOUT_MAX_DEFAULT = null;
+    TimeDuration FIRST_TIMEOUT_MAX_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
     static TimeDuration firstTimeoutMax(RaftProperties properties) {
       final TimeDuration fallbackFirstTimeoutMax = Rpc.timeoutMax(properties);
       return getTimeDuration(properties.getTimeDuration(fallbackFirstTimeoutMax.getUnit()),
