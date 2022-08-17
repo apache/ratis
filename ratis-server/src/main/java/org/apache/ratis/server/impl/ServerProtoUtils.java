@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Server proto utilities for internal use. */
-public final class ServerProtoUtils {
+final class ServerProtoUtils {
   private ServerProtoUtils() {}
 
   private static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
@@ -170,35 +170,5 @@ public final class ServerProtoUtils {
       default:
         return false;
     }
-  }
-
-  public static String convertToString(InstallSnapshotRequestProto request) {
-    final StringBuilder s = new StringBuilder();
-    final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunk =
-        request.getSnapshotChunk();
-    s.append(" { " + request.getServerRequest() + "leaderTerm: " + request.getLeaderTerm() + "\n");
-    if (request.hasSnapshotChunk()) {
-      s.append("snapshotChunk: {\n requestId: " + snapshotChunk.getRequestId() + "\n")
-          .append(" requestIndex: "  + snapshotChunk.getRequestIndex() + "\n")
-          .append(" raftConfiguration: " + snapshotChunk.getRaftConfiguration() + "\n")
-          .append(" termIndex: {\n  term: " + snapshotChunk.getTermIndex().getTerm() + "\n  index: " +
-              snapshotChunk.getTermIndex().getIndex() + "\n }\n");
-      for (FileChunkProto chunk : snapshotChunk.getFileChunksList()) {
-        s.append(" fileChunks: {\n  filename: " + chunk.getFilename() + "\n")
-            .append("  totalSize: " + chunk.getTotalSize() + "\n")
-            .append("  fileDigest: " + chunk.getFileDigest() + "\n")
-            .append("  chunkIndex: " + chunk.getChunkIndex() + "\n")
-            .append("  offset: " + chunk.getOffset() + "\n")
-            .append("  done: " + chunk.getDone() + "\n }\n");
-
-      }
-      s.append(" totalSize: " + snapshotChunk.getTotalSize() + "\n")
-          .append(" done: " + snapshotChunk.getDone()).append("\n}\n");
-    } else if (request.hasNotification()) {
-      s.append(" notification: " + request.getNotification() + "\n");
-    }
-
-    s.append(request.getLastRaftConfigurationLogEntryProto());
-    return s.toString();
   }
 }
