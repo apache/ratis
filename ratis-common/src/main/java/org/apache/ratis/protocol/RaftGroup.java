@@ -61,13 +61,9 @@ public final class RaftGroup {
     if (peers == null || !peers.iterator().hasNext()) {
       this.peers = Collections.emptyMap();
     } else {
+      Preconditions.assertUnique(peers);
       final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
-      peers.forEach(p -> {
-        Preconditions.assertTrue(!map.containsKey(p.getId()),
-            () -> "PeerId " + p.getId() + " has already appeared in this group.");
-        map.put(p.getId(), p);
-      });
-
+      peers.forEach(p -> map.put(p.getId(), p));
       this.peers = Collections.unmodifiableMap(map);
     }
   }
