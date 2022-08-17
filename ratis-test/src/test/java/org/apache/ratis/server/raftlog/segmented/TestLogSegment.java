@@ -93,11 +93,12 @@ public class TestLogSegment extends BaseTest {
 
     final LogEntryProto[] entries = new LogEntryProto[numEntries];
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null)) {
       for (int i = 0; i < entries.length; i++) {
         SimpleOperation op = new SimpleOperation("m" + i);
         entries[i] = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i + startIndex);
         out.write(entries[i]);
+        LOG.info("Write entry with size {}", size(entries[i]));
       }
     }
 
@@ -293,7 +294,8 @@ public class TestLogSegment extends BaseTest {
     // make sure preallocation is correct with different max/pre-allocated size
     for (int max : maxSizes) {
       for (int a : preallocated) {
-        try(SegmentedRaftLogOutputStream ignored = new SegmentedRaftLogOutputStream(file, false, max, a, ByteBuffer.allocateDirect(bufferSize))) {
+        try(SegmentedRaftLogOutputStream ignored =
+                new SegmentedRaftLogOutputStream(file, false, max, a, ByteBuffer.allocateDirect(bufferSize), null)) {
           Assert.assertEquals("max=" + max + ", a=" + a, file.length(), Math.min(max, a));
         }
         try(SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, 0, INVALID_LOG_INDEX, true)) {
@@ -308,7 +310,7 @@ public class TestLogSegment extends BaseTest {
     Arrays.fill(content, (byte) 1);
     final long size;
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-        1024, 1024, ByteBuffer.allocateDirect(bufferSize))) {
+        1024, 1024, ByteBuffer.allocateDirect(bufferSize), null)) {
       SimpleOperation op = new SimpleOperation(new String(content));
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
       size = LogSegment.getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
@@ -343,7 +345,7 @@ public class TestLogSegment extends BaseTest {
     long totalSize = SegmentedRaftLogFormat.getHeaderLength();
     long preallocated = 16 * 1024;
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-        max.getSize(), 16 * 1024, ByteBuffer.allocateDirect(10 * 1024))) {
+        max.getSize(), 16 * 1024, ByteBuffer.allocateDirect(10 * 1024), null)) {
       Assert.assertEquals(preallocated, file.length());
       while (totalSize + entrySize < max.getSize()) {
         totalSize += entrySize;

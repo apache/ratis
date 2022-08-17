@@ -369,6 +369,17 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, UNSAFE_FLUSH_ENABLED_KEY, unsafeFlush);
     }
 
+    /** Async-flush will increase flush index until the actual flush has completed. */
+    String ASYNC_FLUSH_ENABLED_KEY = PREFIX + ".async-flush.enabled";
+    boolean ASYNC_FLUSH_ENABLED_DEFAULT = false;
+    static boolean asyncFlushEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          ASYNC_FLUSH_ENABLED_KEY, ASYNC_FLUSH_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setAsyncFlushEnabled(RaftProperties properties, boolean asyncFlush) {
+      setBoolean(properties::setBoolean, ASYNC_FLUSH_ENABLED_KEY, asyncFlush);
+    }
+
     /** The policy to handle corrupted raft log. */
     enum CorruptionPolicy {
       /** Rethrow the exception. */
