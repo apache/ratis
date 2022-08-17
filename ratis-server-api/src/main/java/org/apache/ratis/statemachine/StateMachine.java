@@ -520,8 +520,24 @@ public interface StateMachine extends Closeable {
    * method, which returns a future, is asynchronous. The state machine implementation may
    * choose to apply the log entries in parallel. In that case, the order of applying entries to
    * state machine could possibly be different from the log commit order.
-   * @param trx the transaction state including the log entry that has been committed to a quorum
-   *            of the raft peers
+   *
+   * The implementation must be deterministic so that the raft log can be replayed in any raft peers.
+   * Note that, if there are three or more servers,
+   * the Raft algorithm makes sure the that log remains consistent
+   * even if there are hardware errors in one machine (or less than the majority number of machines).
+   *
+   * Any exceptions thrown in this method are treated as unrecoverable errors (such as hardware errors).
+   * The server will be shut down when it occurs.
+   * Administrators should manually fix the underlying problem and then restart the machine.
+   *
+   * @param trx the transaction state including the log entry that has been replicated to a majority of the raft peers.
+   *
+   * @return a future containing the result message of the transaction,
+   *         where the result message will be replied to the client.
+   *         When there is an application level exception (e.g. access denied),
+   *         the state machine may complete the returned future exceptionally.
+   *         The exception will be wrapped in an {@link org.apache.ratis.protocol.exceptions.StateMachineException}
+   *         and then replied to the client.
    */
   CompletableFuture<Message> applyTransaction(TransactionContext trx);
 
