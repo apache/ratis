@@ -61,6 +61,7 @@ public final class RaftGroup {
     if (peers == null || !peers.iterator().hasNext()) {
       this.peers = Collections.emptyMap();
     } else {
+      Preconditions.assertUnique(peers);
       final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
       peers.forEach(p -> map.put(p.getId(), p));
       this.peers = Collections.unmodifiableMap(map);
