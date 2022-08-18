@@ -20,6 +20,7 @@ package org.apache.ratis;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -28,6 +29,7 @@ import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.FileInfo;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
@@ -106,12 +108,22 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     }
 
     private static class StateMachineWithMultiNestedSnapshotFile extends SimpleStateMachine4Testing {
-        // contains two snapshot files
-        // sm/snapshot/1.bin
-        // sm/snapshot/sub/2.bin
-        final File snapshotRoot = new File(getSMdir(), "snapshot");
-        final File file1 = new File(snapshotRoot, "1.bin");
-        final File file2 = new File(new File(snapshotRoot, "sub"), "2.bin");
+
+        File snapshotRoot;
+        File file1;
+        File file2;
+
+        @Override
+        public synchronized void initialize(RaftServer server, RaftGroupId groupId, RaftStorage raftStorage) throws IOException {
+            super.initialize(server, groupId, raftStorage);
+
+            // contains two snapshot files
+            // sm/snapshot/1.bin
+            // sm/snapshot/sub/2.bin
+            snapshotRoot = new File(getSMdir(), "snapshot");
+            file1 = new File(snapshotRoot, "1.bin");
+            file2 = new File(new File(snapshotRoot, "sub"), "2.bin");
+        }
 
         @Override
         public synchronized void pause() {
