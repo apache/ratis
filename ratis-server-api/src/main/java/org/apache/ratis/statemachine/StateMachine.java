@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.statemachine;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.Message;
@@ -50,6 +49,10 @@ import java.util.function.Function;
  * StateMachine is the entry point for the custom implementation of replicated state as defined in
  * the "State Machine Approach" in the literature
  * (see https://en.wikipedia.org/wiki/State_machine_replication).
+ *
+ *  A {@link StateMachine} implementation must be threadsafe.
+ *  For example, the {@link #applyTransaction(TransactionContext)} method and the {@link #query(Message)} method
+ *  can be invoked in parallel.
  */
 public interface StateMachine extends Closeable {
   Logger LOG = LoggerFactory.getLogger(StateMachine.class);
@@ -81,7 +84,6 @@ public interface StateMachine extends Closeable {
      *
      * @return a future for the write task
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<?> write(LogEntryProto entry) {
       return CompletableFuture.completedFuture(null);
     }
@@ -92,7 +94,6 @@ public interface StateMachine extends Closeable {
      *
      * @return a future of the stream.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<DataStream> stream(RaftClientRequest request) {
       return CompletableFuture.completedFuture(null);
     }
@@ -107,7 +108,6 @@ public interface StateMachine extends Closeable {
      * @param entry the log entry to be linked.
      * @return a future for the link task.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<?> link(DataStream stream, LogEntryProto entry) {
       return CompletableFuture.completedFuture(null);
     }
@@ -118,7 +118,6 @@ public interface StateMachine extends Closeable {
      * @param logIndex The log index to flush.
      * @return a future for the flush task.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<Void> flush(long logIndex) {
       return CompletableFuture.completedFuture(null);
     }
@@ -130,7 +129,6 @@ public interface StateMachine extends Closeable {
      * @param logIndex The last log index after truncation.
      * @return a future for truncate task.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<Void> truncate(long logIndex) {
       return CompletableFuture.completedFuture(null);
     }
@@ -258,7 +256,6 @@ public interface StateMachine extends Closeable {
      * @param firstTermIndexInLog The term-index of the first append entry available in the leader's log.
      * @return return the last term-index in the snapshot after the snapshot installation.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
         RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog) {
       return CompletableFuture.completedFuture(null);
@@ -474,18 +471,26 @@ public interface StateMachine extends Closeable {
   CompletableFuture<Message> queryStale(Message request, long minIndex);
 
   /**
-   * Validate/pre-process the incoming update request in the state machine.
-   * @return the content to be written to the log entry. Null means the request
-   * should be rejected.
+   * Start a transaction for the given request.
+   * This method can be invoked in parallel when there are multiple requests.
+   * The implementation should validate the request,
+   * prepare a {@link StateMachineLogEntryProto},
+   * and then build a {@link TransactionContext}.
+   * The implementation should also be light-weighted.
+   *
+   * @return null if the request should be rejected.
+   *         Otherwise, return a transaction with the content to be written to the log.
    * @throws IOException thrown by the state machine while validation
+   *
+   * @see TransactionContext.Builder
    */
   TransactionContext startTransaction(RaftClientRequest request) throws IOException;
 
   /**
    * This is called before the transaction passed from the StateMachine is appended to the raft log.
-   * This method will be called from log append and having the same strict serial order that the
-   * transactions will have in the RAFT log. Since this is called serially in the critical path of
-   * log append, it is important to do only required operations here.
+   * This method is called with the same strict serial order as the transaction order in the raft log.
+   * Since this is called serially in the critical path of log append,
+   * it is important to do only required operations here.
    * @return The Transaction context.
    */
   TransactionContext preAppendTransaction(TransactionContext trx) throws IOException;
@@ -515,8 +520,24 @@ public interface StateMachine extends Closeable {
    * method, which returns a future, is asynchronous. The state machine implementation may
    * choose to apply the log entries in parallel. In that case, the order of applying entries to
    * state machine could possibly be different from the log commit order.
-   * @param trx the transaction state including the log entry that has been committed to a quorum
-   *            of the raft peers
+   *
+   * The implementation must be deterministic so that the raft log can be replayed in any raft peers.
+   * Note that, if there are three or more servers,
+   * the Raft algorithm makes sure the that log remains consistent
+   * even if there are hardware errors in one machine (or less than the majority number of machines).
+   *
+   * Any exceptions thrown in this method are treated as unrecoverable errors (such as hardware errors).
+   * The server will be shut down when it occurs.
+   * Administrators should manually fix the underlying problem and then restart the machine.
+   *
+   * @param trx the transaction state including the log entry that has been replicated to a majority of the raft peers.
+   *
+   * @return a future containing the result message of the transaction,
+   *         where the result message will be replied to the client.
+   *         When there is an application level exception (e.g. access denied),
+   *         the state machine may complete the returned future exceptionally.
+   *         The exception will be wrapped in an {@link org.apache.ratis.protocol.exceptions.StateMachineException}
+   *         and then replied to the client.
    */
   CompletableFuture<Message> applyTransaction(TransactionContext trx);
 
