@@ -219,7 +219,9 @@ public interface ConfUtils {
         BiFunction<String, TimeDuration, TimeDuration> getter,
         String key, TimeDuration defaultValue, String fallbackKey, TimeDuration fallbackValue,
         Consumer<String> logger, BiConsumer<String, TimeDuration>... assertions) {
-    return get(getter, key, defaultValue, fallbackKey, fallbackValue, logger, assertions);
+    final TimeDuration value = get(getter, key, defaultValue, fallbackKey, fallbackValue, logger, assertions);
+    requireNonNegativeTimeDuration().accept(key, value);
+    return value;
   }
 
 
