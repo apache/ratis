@@ -31,6 +31,7 @@ import org.apache.ratis.server.ServerFactory;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
+import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,16 +41,27 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
 
   public static final Logger LOG = LoggerFactory.getLogger(GrpcFactory.class);
 
-  private void checkPooledByteBufAllocatorUseCacheForAllThreads(Consumer<String> log) {
-    final String name = "useCacheForAllThreads";
-    final String key = "org.apache.ratis.thirdparty.io.netty.allocator." + name;
+  static final String USE_CACHE_FOR_ALL_THREADS_NAME = "useCacheForAllThreads";
+  static final String USE_CACHE_FOR_ALL_THREADS_KEY = "org.apache.ratis.thirdparty.io.netty.allocator."
+      + USE_CACHE_FOR_ALL_THREADS_NAME;
+  static {
+    // see org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator.DEFAULT_USE_CACHE_FOR_ALL_THREADS
+    final String value = JavaUtils.getSystemProperty(USE_CACHE_FOR_ALL_THREADS_KEY);
+    if (value == null) {
+      // Set the property to false, when it is not set.
+      JavaUtils.setSystemProperty(USE_CACHE_FOR_ALL_THREADS_KEY, Boolean.FALSE.toString());
+    }
+  }
+
+  static boolean checkPooledByteBufAllocatorUseCacheForAllThreads(Consumer<String> log) {
     final boolean value = PooledByteBufAllocator.defaultUseCacheForAllThreads();
     if (value) {
-      log.accept("PERFORMANCE WARNING: " + name + " is " + value
+      log.accept("PERFORMANCE WARNING: " + USE_CACHE_FOR_ALL_THREADS_NAME + " is " + true
           + " that may cause Netty to create a lot garbage objects and, as a result, trigger GC.\n"
-          + "\tIt is recommended to disable " + name + " by setting -D" + key
-          + "=" + !value + " in command line.");
+          + "\tIt is recommended to disable " + USE_CACHE_FOR_ALL_THREADS_NAME
+          + " by setting -D" + USE_CACHE_FOR_ALL_THREADS_KEY + "=" + false + " in command line.");
     }
+    return value;
   }
 
   private final GrpcTlsConfig tlsConfig;
