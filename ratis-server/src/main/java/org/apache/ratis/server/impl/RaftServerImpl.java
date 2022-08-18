@@ -257,8 +257,8 @@ class RaftServerImpl implements RaftServer.Division,
 
   private TimeDuration getFirstRandomElectionTimeout() {
     final RaftProperties properties = proxy.getProperties();
-    final int min = RaftServerConfigKeys.Rpc.firstTimeoutMin(properties).toIntExact(TimeUnit.MILLISECONDS);
-    final int max = RaftServerConfigKeys.Rpc.firstTimeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
+    final int min = RaftServerConfigKeys.Rpc.firstElectionTimeoutMin(properties).toIntExact(TimeUnit.MILLISECONDS);
+    final int max = RaftServerConfigKeys.Rpc.firstElectionTimeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
     final int mills = min + ThreadLocalRandom.current().nextInt(max - min + 1);
     return TimeDuration.valueOf(mills, TimeUnit.MILLISECONDS);
   }

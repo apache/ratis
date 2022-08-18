@@ -214,6 +214,15 @@ public interface ConfUtils {
     return value;
   }
 
+  @SafeVarargs
+  static TimeDuration getTimeDuration(
+        BiFunction<String, TimeDuration, TimeDuration> getter,
+        String key, TimeDuration defaultValue, String fallbackKey, TimeDuration fallbackValue,
+        Consumer<String> logger, BiConsumer<String, TimeDuration>... assertions) {
+    return get(getter, key, defaultValue, fallbackKey, fallbackValue, logger, assertions);
+  }
+
+
   static TlsConf getTlsConf(
       Function<String, TlsConf> tlsConfGetter,
       String key, Consumer<String> logger) {

@@ -608,9 +608,12 @@ public interface RaftServerConfigKeys {
 
     String TIMEOUT_MIN_KEY = PREFIX + ".timeout.min";
     TimeDuration TIMEOUT_MIN_DEFAULT = TimeDuration.valueOf(150, TimeUnit.MILLISECONDS);
-    static TimeDuration timeoutMin(RaftProperties properties) {
+    static TimeDuration timeoutMin(RaftProperties properties, Consumer<String> logger) {
       return getTimeDuration(properties.getTimeDuration(TIMEOUT_MIN_DEFAULT.getUnit()),
-          TIMEOUT_MIN_KEY, TIMEOUT_MIN_DEFAULT, getDefaultLog());
+          TIMEOUT_MIN_KEY, TIMEOUT_MIN_DEFAULT, logger);
+    }
+    static TimeDuration timeoutMin(RaftProperties properties) {
+      return timeoutMin(properties, getDefaultLog());
     }
     static void setTimeoutMin(RaftProperties properties, TimeDuration minDuration) {
       setTimeDuration(properties::setTimeDuration, TIMEOUT_MIN_KEY, minDuration);
@@ -618,35 +621,39 @@ public interface RaftServerConfigKeys {
 
     String TIMEOUT_MAX_KEY = PREFIX + ".timeout.max";
     TimeDuration TIMEOUT_MAX_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
-    static TimeDuration timeoutMax(RaftProperties properties) {
+    static TimeDuration timeoutMax(RaftProperties properties, Consumer<String> logger) {
       return getTimeDuration(properties.getTimeDuration(TIMEOUT_MAX_DEFAULT.getUnit()),
-          TIMEOUT_MAX_KEY, TIMEOUT_MAX_DEFAULT, getDefaultLog());
+          TIMEOUT_MAX_KEY, TIMEOUT_MAX_DEFAULT, logger);
+    }
+    static TimeDuration timeoutMax(RaftProperties properties) {
+      return timeoutMax(properties, getDefaultLog());
     }
     static void setTimeoutMax(RaftProperties properties, TimeDuration maxDuration) {
       setTimeDuration(properties::setTimeDuration, TIMEOUT_MAX_KEY, maxDuration);
     }
 
     /** separate first timeout so that the startup unavailable time can be reduced */
-    String FIRST_TIMEOUT_MIN_KEY = PREFIX + ".first.timeout.min";
-    TimeDuration FIRST_TIMEOUT_MIN_DEFAULT = TimeDuration.valueOf(150, TimeUnit.MILLISECONDS);
-    static TimeDuration firstTimeoutMin(RaftProperties properties) {
-      final TimeDuration fallbackFirstTimeoutMin = Rpc.timeoutMin(properties);
-      return getTimeDuration(properties.getTimeDuration(fallbackFirstTimeoutMin.getUnit()),
-          FIRST_TIMEOUT_MIN_KEY, fallbackFirstTimeoutMin, getDefaultLog());
+    String FIRST_ELECTION_TIMEOUT_MIN_KEY = PREFIX + ".first-election.timeout.min";
+    TimeDuration FIRST_ELECTION_TIMEOUT_MIN_DEFAULT = null;
+    static TimeDuration firstElectionTimeoutMin(RaftProperties properties) {
+      final TimeDuration fallbackFirstElectionTimeoutMin = Rpc.timeoutMin(properties, null);
+      return getTimeDuration(properties.getTimeDuration(fallbackFirstElectionTimeoutMin.getUnit()),
+          FIRST_ELECTION_TIMEOUT_MIN_KEY, FIRST_ELECTION_TIMEOUT_MIN_DEFAULT,
+          Rpc.TIMEOUT_MIN_KEY, fallbackFirstElectionTimeoutMin, getDefaultLog());
     }
-    static void setFirstTimeoutMin(RaftProperties properties, TimeDuration firstMinDuration) {
-      setTimeDuration(properties::setTimeDuration, FIRST_TIMEOUT_MIN_KEY, firstMinDuration);
+    static void setFirstElectionTimeoutMin(RaftProperties properties, TimeDuration firstMinDuration) {
+      setTimeDuration(properties::setTimeDuration, FIRST_ELECTION_TIMEOUT_MIN_KEY, firstMinDuration);
     }
 
-    String FIRST_TIMEOUT_MAX_KEY = PREFIX + ".first.timeout.max";
-    TimeDuration FIRST_TIMEOUT_MAX_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
-    static TimeDuration firstTimeoutMax(RaftProperties properties) {
-      final TimeDuration fallbackFirstTimeoutMax = Rpc.timeoutMax(properties);
-      return getTimeDuration(properties.getTimeDuration(fallbackFirstTimeoutMax.getUnit()),
-          FIRST_TIMEOUT_MAX_KEY, fallbackFirstTimeoutMax, getDefaultLog());
+    String FIRST_ELECTION_TIMEOUT_MAX_KEY = PREFIX + ".first-election.timeout.max";
+    TimeDuration FIRST_ELECTION_TIMEOUT_MAX_DEFAULT = null;
+    static TimeDuration firstElectionTimeoutMax(RaftProperties properties) {
+      final TimeDuration fallbackFirstElectionTimeoutMax = Rpc.timeoutMax(properties, null);
+      return getTimeDuration(properties.getTimeDuration(fallbackFirstElectionTimeoutMax.getUnit()),
+          FIRST_ELECTION_TIMEOUT_MAX_KEY, fallbackFirstElectionTimeoutMax, getDefaultLog());
     }
-    static void setFirstTimeoutMax(RaftProperties properties, TimeDuration firstMaxDuration) {
-      setTimeDuration(properties::setTimeDuration, FIRST_TIMEOUT_MAX_KEY, firstMaxDuration);
+    static void setFirstElectionTimeoutMax(RaftProperties properties, TimeDuration firstMaxDuration) {
+      setTimeDuration(properties::setTimeDuration, FIRST_ELECTION_TIMEOUT_MAX_KEY, firstMaxDuration);
     }
 
     String REQUEST_TIMEOUT_KEY = PREFIX + ".request.timeout";
