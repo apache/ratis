@@ -19,6 +19,7 @@ package org.apache.ratis.util;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -111,6 +112,10 @@ public interface Preconditions {
     assertTrue(clazz.isInstance(object),
         () -> "Required instance of " + clazz + " but object.getClass() is " + object.getClass());
     return clazz.cast(object);
+  }
+
+  static <K, V> void assertEmpty(Map<K, V> map, Object name) {
+    assertTrue(map.isEmpty(), () -> "The " + name + " map is non-empty: " + map);
   }
 
   static <T> void assertUnique(Iterable<T> first) {

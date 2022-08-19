@@ -40,6 +40,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.ServerFactory;
 import org.apache.ratis.server.raftlog.memory.MemoryRaftLog;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.CollectionUtils;
@@ -385,8 +386,9 @@ public abstract class MiniRaftCluster implements Closeable {
       }
       final RaftProperties prop = new RaftProperties(properties);
       RaftServerConfigKeys.setStorageDir(prop, Collections.singletonList(dir));
-      return ServerImplUtils.newRaftServer(id, group, getStateMachineRegistry(prop), prop,
-          setPropertiesAndInitParameters(id, group, prop));
+      return ServerImplUtils.newRaftServer(id, group,
+          format? RaftStorage.StartupOption.FORMAT: RaftStorage.StartupOption.RECOVER,
+          getStateMachineRegistry(prop), prop, setPropertiesAndInitParameters(id, group, prop));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

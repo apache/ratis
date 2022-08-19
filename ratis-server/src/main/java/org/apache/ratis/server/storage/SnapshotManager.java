@@ -54,21 +54,17 @@ public class SnapshotManager {
   private static final String CORRUPT = ".corrupt";
   private static final String TMP = ".tmp";
 
-  private final RaftStorage storage;
   private final RaftPeerId selfId;
   private final Supplier<MessageDigest> digester = JavaUtils.memoize(MD5Hash::getDigester);
 
-  public SnapshotManager(RaftStorage storage, RaftPeerId selfId) {
-    this.storage = storage;
+  SnapshotManager(RaftPeerId selfId) {
     this.selfId = selfId;
   }
 
-  public void installSnapshot(StateMachine stateMachine,
-      InstallSnapshotRequestProto request) throws IOException {
-    final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest =
-        request.getSnapshotChunk();
+  public void installSnapshot(InstallSnapshotRequestProto request, StateMachine stateMachine, RaftStorageDirectory dir)
+      throws IOException {
+    final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
     final long lastIncludedIndex = snapshotChunkRequest.getTermIndex().getIndex();
-    final RaftStorageDirectory dir = storage.getStorageDir();
 
     // create a unique temporary directory
     final File tmpDir =  new File(dir.getTmpDir(), "snapshot-" + snapshotChunkRequest.getRequestId());

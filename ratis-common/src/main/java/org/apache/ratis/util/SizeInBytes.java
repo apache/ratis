@@ -23,6 +23,7 @@ import java.util.Objects;
  * Size which may be constructed with a {@link TraditionalBinaryPrefix}.
  */
 public final class SizeInBytes {
+  public static final SizeInBytes ZERO = valueOf(0);
   public static final SizeInBytes ONE_KB = valueOf("1k");
   public static final SizeInBytes ONE_MB = valueOf("1m");
 

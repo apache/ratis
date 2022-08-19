@@ -167,8 +167,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     private static Method initNewRaftServerMethod() {
       final String className = RaftServer.class.getPackage().getName() + ".impl.ServerImplUtils";
-      final Class<?>[] argClasses = {RaftPeerId.class, RaftGroup.class, StateMachine.Registry.class,
-          RaftProperties.class, Parameters.class};
+      final Class<?>[] argClasses = {RaftPeerId.class, RaftGroup.class, RaftStorage.StartupOption.class,
+          StateMachine.Registry.class, RaftProperties.class, Parameters.class};
       try {
         final Class<?> clazz = ReflectionUtils.getClassByName(className);
         return clazz.getMethod("newRaftServer", argClasses);
@@ -177,12 +177,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
       }
     }
 
-    private static RaftServer newRaftServer(RaftPeerId serverId, RaftGroup group,
+    private static RaftServer newRaftServer(RaftPeerId serverId, RaftGroup group, RaftStorage.StartupOption option,
         StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
         throws IOException {
       try {
         return (RaftServer) NEW_RAFT_SERVER_METHOD.invoke(null,
-            serverId, group, stateMachineRegistry, properties, parameters);
+            serverId, group, option, stateMachineRegistry, properties, parameters);
       } catch (IllegalAccessException e) {
         throw new IllegalStateException("Failed to build " + serverId, e);
       } catch (InvocationTargetException e) {
@@ -193,6 +193,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private RaftPeerId serverId;
     private StateMachine.Registry stateMachineRegistry ;
     private RaftGroup group = null;
+    private RaftStorage.StartupOption option = RaftStorage.StartupOption.RECOVER;
     private RaftProperties properties;
     private Parameters parameters;
 
@@ -201,6 +202,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
       return newRaftServer(
           serverId,
           group,
+          option,
           Objects.requireNonNull(stateMachineRegistry , "Neither 'stateMachine' nor 'setStateMachineRegistry' " +
               "is initialized."),
           Objects.requireNonNull(properties, "The 'properties' field is not initialized."),
@@ -227,6 +229,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** Set all the peers (including the server being built) in the Raft cluster. */
     public Builder setGroup(RaftGroup group) {
       this.group = group;
+      return this;
+    }
+
+    /** Set the startup option for the group. */
+    public Builder setOption(RaftStorage.StartupOption option) {
+      this.option = option;
       return this;
     }
 
