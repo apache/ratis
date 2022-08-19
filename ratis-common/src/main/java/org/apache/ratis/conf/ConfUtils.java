@@ -214,6 +214,17 @@ public interface ConfUtils {
     return value;
   }
 
+  @SafeVarargs
+  static TimeDuration getTimeDuration(
+        BiFunction<String, TimeDuration, TimeDuration> getter,
+        String key, TimeDuration defaultValue, String fallbackKey, TimeDuration fallbackValue,
+        Consumer<String> logger, BiConsumer<String, TimeDuration>... assertions) {
+    final TimeDuration value = get(getter, key, defaultValue, fallbackKey, fallbackValue, logger, assertions);
+    requireNonNegativeTimeDuration().accept(key, value);
+    return value;
+  }
+
+
   static TlsConf getTlsConf(
       Function<String, TlsConf> tlsConfGetter,
       String key, Consumer<String> logger) {
@@ -236,10 +247,11 @@ public interface ConfUtils {
     T value = get(getter, key, defaultValue, null, assertions);
     if (value != defaultValue) {
       logGet(key, value, defaultValue, logger);
+      return value;
     } else {
       logFallback(key, fallbackKey, fallbackValue, logger);
+      return fallbackValue;
     }
-    return value;
   }
 
   static InetSocketAddress getInetSocketAddress(

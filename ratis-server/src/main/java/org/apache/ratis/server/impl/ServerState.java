@@ -315,6 +315,7 @@ class ServerState implements Closeable {
       leaderId = newLeaderId;
       if (leaderId != null) {
         server.finishTransferLeadership();
+        server.onGroupLeaderElected();
       }
     }
   }
