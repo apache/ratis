@@ -187,6 +187,8 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
 
+  private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
+
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
     LOG.info("{}: new RaftServerImpl for {} with {}", id, group, stateMachine);
@@ -245,9 +247,20 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   TimeDuration getRandomElectionTimeout() {
+    if (firstElectionSinceStartup.get()) {
+      return getFirstRandomElectionTimeout();
+    }
     final int min = properties().minRpcTimeoutMs();
     final int millis = min + ThreadLocalRandom.current().nextInt(properties().maxRpcTimeoutMs() - min + 1);
     return TimeDuration.valueOf(millis, TimeUnit.MILLISECONDS);
+  }
+
+  private TimeDuration getFirstRandomElectionTimeout() {
+    final RaftProperties properties = proxy.getProperties();
+    final int min = RaftServerConfigKeys.Rpc.firstElectionTimeoutMin(properties).toIntExact(TimeUnit.MILLISECONDS);
+    final int max = RaftServerConfigKeys.Rpc.firstElectionTimeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
+    final int mills = min + ThreadLocalRandom.current().nextInt(max - min + 1);
+    return TimeDuration.valueOf(mills, TimeUnit.MILLISECONDS);
   }
 
   TimeDuration getLeaderStepDownWaitTime() {
@@ -1724,5 +1737,9 @@ class RaftServerImpl implements RaftServer.Division,
       return proxy.getGroupIds().stream().map(RaftGroupId::toString)
           .collect(Collectors.toList());
     }
+  }
+
+  void onGroupLeaderElected() {
+    this.firstElectionSinceStartup.set(false);
   }
 }
