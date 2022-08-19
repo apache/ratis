@@ -247,10 +247,11 @@ public interface ConfUtils {
     T value = get(getter, key, defaultValue, null, assertions);
     if (value != defaultValue) {
       logGet(key, value, defaultValue, logger);
+      return value;
     } else {
       logFallback(key, fallbackKey, fallbackValue, logger);
+      return fallbackValue;
     }
-    return value;
   }
 
   static InetSocketAddress getInetSocketAddress(

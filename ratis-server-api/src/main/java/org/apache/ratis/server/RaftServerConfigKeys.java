@@ -650,7 +650,8 @@ public interface RaftServerConfigKeys {
     static TimeDuration firstElectionTimeoutMax(RaftProperties properties) {
       final TimeDuration fallbackFirstElectionTimeoutMax = Rpc.timeoutMax(properties, null);
       return getTimeDuration(properties.getTimeDuration(fallbackFirstElectionTimeoutMax.getUnit()),
-          FIRST_ELECTION_TIMEOUT_MAX_KEY, fallbackFirstElectionTimeoutMax, getDefaultLog());
+          FIRST_ELECTION_TIMEOUT_MAX_KEY, TIMEOUT_MAX_DEFAULT,
+          Rpc.TIMEOUT_MAX_KEY, fallbackFirstElectionTimeoutMax, getDefaultLog());
     }
     static void setFirstElectionTimeoutMax(RaftProperties properties, TimeDuration firstMaxDuration) {
       setTimeDuration(properties::setTimeDuration, FIRST_ELECTION_TIMEOUT_MAX_KEY, firstMaxDuration);
