@@ -77,7 +77,7 @@ public interface FileUtils {
 
   static void move(Path src, Path dst) throws IOException {
     LogUtils.runAndLog(LOG,
-        () -> Files.move(src, dst),
+        () -> Files.move(src, dst, StandardCopyOption.ATOMIC_MOVE),
         () -> "Files.move " + src + " to " + dst);
   }
 
