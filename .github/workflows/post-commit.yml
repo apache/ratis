@@ -18,7 +18,7 @@ on:
   - pull_request
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout project
         uses: actions/checkout@v2
@@ -48,7 +48,7 @@ jobs:
   compile:
     needs:
       - build
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         java: [ 11 ]
@@ -80,7 +80,7 @@ jobs:
         if: always()
   rat:
     name: rat
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
         - uses: actions/checkout@master
         - name: Cache for maven dependencies
@@ -102,7 +102,7 @@ jobs:
           if: always()
   author:
     name: author
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
         - uses: actions/checkout@master
         - run: ./dev-support/checks/author.sh
@@ -113,7 +113,7 @@ jobs:
             path: target/author
   unit:
     name: unit
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         profile:
@@ -150,7 +150,7 @@ jobs:
           if: always()
   checkstyle:
     name: checkstyle
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
         - uses: actions/checkout@master
         - name: Cache for maven dependencies
@@ -172,8 +172,12 @@ jobs:
           if: always()
   findbugs:
     name: findbugs
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
+        - name: Setup java
+          uses: actions/setup-java@v1
+          with:
+            java-version: 8
         - uses: actions/checkout@master
         - name: Cache for maven dependencies
           uses: actions/cache@v2
@@ -194,7 +198,7 @@ jobs:
           if: always()
   sonar:
     name: sonar
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     if: (github.repository == 'apache/ratis' || github.repository == 'apache/incubator-ratis') && github.event_name != 'pull_request'
     steps:
         - uses: actions/checkout@master
