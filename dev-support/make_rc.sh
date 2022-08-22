@@ -117,6 +117,7 @@ prepare-bin() {
   mkdir -p "$WORKINGDIR"
   cd "$WORKINGDIR"
   tar zvxf "$projectdir/ratis-assembly/target/apache-ratis-${RATISVERSION}-src.tar.gz"
+  mv "apache-ratis-${RATISVERSION}-src" "apache-ratis-${RATISVERSION}"
   cd "apache-ratis-${RATISVERSION}"
 
   mvnFun clean install assembly:single -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
