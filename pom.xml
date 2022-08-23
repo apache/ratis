@@ -205,7 +205,7 @@
     <maven.min.version>3.3.9</maven.min.version>
 
     <!-- Contains all shaded thirdparty dependencies -->
-    <ratis.thirdparty.version>1.0.1</ratis.thirdparty.version>
+    <ratis.thirdparty.version>1.0.2</ratis.thirdparty.version>
 
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
     <shaded.protobuf.version>3.19.2</shaded.protobuf.version>
