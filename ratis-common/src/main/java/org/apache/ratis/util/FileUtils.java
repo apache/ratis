@@ -76,9 +76,15 @@ public interface FileUtils {
   }
 
   static void move(Path src, Path dst) throws IOException {
-    LogUtils.runAndLog(LOG,
+    try {
+      LogUtils.runAndLog(LOG,
         () -> Files.move(src, dst, StandardCopyOption.ATOMIC_MOVE),
-        () -> "Files.move " + src + " to " + dst);
+        () -> "Atomic Files.move " + src + " to " + dst);
+    } catch (AtomicMoveNotSupportedException e) {
+      LogUtils.runAndLog(LOG,
+        () -> Files.move(src, dst),
+        () -> "Atomic move not supported. Fallback to Files.move " + src + " to " + dst);
+    }
   }
 
   /**
