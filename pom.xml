@@ -209,7 +209,7 @@
 
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
     <shaded.protobuf.version>3.19.2</shaded.protobuf.version>
-    <shaded.grpc.version>1.44.0</shaded.grpc.version>
+    <shaded.grpc.version>1.48.1</shaded.grpc.version>
 
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
