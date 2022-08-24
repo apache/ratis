@@ -49,7 +49,7 @@ public class TestStorageImplUtils {
 
   static File chooseNewStorageDir(List<File> volumes, String sub) throws IOException {
     final Map<File, Integer> numDirPerVolume = new HashMap<>();
-    StorageImplUtils.getExistingStorageSubs(sub, StartupOption.FORMAT, volumes, numDirPerVolume);
+    StorageImplUtils.getExistingStorageSubs(volumes, sub, numDirPerVolume);
     return StorageImplUtils.chooseNewStorageDir(sub, numDirPerVolume);
   }
 

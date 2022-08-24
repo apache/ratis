@@ -22,7 +22,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Log;
 import org.apache.ratis.server.storage.RaftStorage.StartupOption;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
@@ -54,8 +53,8 @@ public final class StorageImplUtils {
     return new RaftStorageImpl(dir, freeSpaceMin, option, logCorruptionPolicy);
   }
 
-  private static List<File> getExistingStorageSubs(List<File> volumes, String targetSubDir,
-      Map<File, Integer> dirsPerVol) {
+  /** @return a list of existing subdirectories matching the given storage directory name from the given volumes. */
+  static List<File> getExistingStorageSubs(List<File> volumes, String targetSubDir, Map<File, Integer> dirsPerVol) {
     return volumes.stream().flatMap(volume -> {
           final File[] dirs = Optional.ofNullable(volume.listFiles()).orElse(EMPTY_FILE_ARRAY);
           Optional.ofNullable(dirsPerVol).ifPresent(map -> map.put(volume, dirs.length));
@@ -64,31 +63,12 @@ public final class StorageImplUtils {
         .collect(Collectors.toList());
   }
 
-  /**
-   * Get a list of existing subdirectories matching the given storage directory name from the given root directories.
-   */
-  static List<File> getExistingStorageSubs(String storageDirName, StartupOption option,
-      List<File> rootDirs, Map<File, Integer> dirsPerVol) throws IOException {
-    Preconditions.assertEmpty(dirsPerVol, "dirsPerVol");
-    final List<File> existingSubs = getExistingStorageSubs(rootDirs, storageDirName, dirsPerVol);
-    final int size = existingSubs.size();
-    if (option == StartupOption.RECOVER) {
-      if (size > 1) {
-        throw new IOException("Failed to " + option + ": More than one existing directories found " + existingSubs
-            + " for " + storageDirName);
-      } else if (size == 0) {
-        throw new IOException("Failed to " + option + ": Storage directory not found for " + storageDirName
-            + " from " + rootDirs);
-      }
-    } else if (option == StartupOption.FORMAT) {
-      if (size > 0) {
-        throw new IOException("Failed to " + option + ": One or more existing directories found " + existingSubs
-            + " for " + storageDirName);
-      }
-    } else {
-      throw new IllegalArgumentException("Illegal option: " + option);
-    }
-    return existingSubs;
+  /** @return a volume with the min dirs. */
+  static File chooseNewStorageDir(String storageDirName, Map<File, Integer> dirsPerVol) throws IOException {
+    return dirsPerVol.entrySet().stream()
+        .min(Map.Entry.comparingByValue())
+        .map(e -> new File(e.getKey(), storageDirName))
+        .orElseThrow(() -> new IOException("No storage directory found."));
   }
 
   /**
@@ -113,61 +93,86 @@ public final class StorageImplUtils {
    */
   public static RaftStorageImpl initRaftStorage(String storageDirName, StartupOption option,
       RaftProperties properties) throws IOException {
-    final SizeInBytes freeSpaceMin = RaftServerConfigKeys.storageFreeSpaceMin(properties);
-    final Log.CorruptionPolicy logCorruptionPolicy = RaftServerConfigKeys.Log.corruptionPolicy(properties);
-    final List<File> dirsInConf = RaftServerConfigKeys.storageDir(properties);
-
-    final Map<File, Integer> dirsPerVol = new HashMap<>();
-    final List<File> existingDirs = getExistingStorageSubs(storageDirName, option, dirsInConf, dirsPerVol);
-    if (option == StartupOption.RECOVER) {
-      return recoverExistingStorageDir(existingDirs.get(0), freeSpaceMin, logCorruptionPolicy);
-    } else if (option == StartupOption.FORMAT) {
-      return formatNewStorageDir(storageDirName, dirsInConf, dirsPerVol, freeSpaceMin, logCorruptionPolicy);
-    } else {
-      throw new IllegalArgumentException("Illegal option: " + option);
-    }
+    return new Op(storageDirName, option, properties).run();
   }
 
-  private static RaftStorageImpl recoverExistingStorageDir(File dir, SizeInBytes freeSpaceMin,
-      Log.CorruptionPolicy logCorruptionPolicy) throws IOException {
-    try {
-      final RaftStorageImpl storage = newRaftStorage(dir, freeSpaceMin, StartupOption.RECOVER, logCorruptionPolicy);
-      storage.initialize();
-      return storage;
-    } catch (Throwable e) {
-      if (e instanceof IOException) {
-        throw e;
+  private static class Op {
+    private final String storageDirName;
+    private final StartupOption option;
+
+    private final SizeInBytes freeSpaceMin;
+    private final Log.CorruptionPolicy logCorruptionPolicy;
+    private final List<File> dirsInConf;
+
+    private final List<File> existingSubs;
+    private final Map<File, Integer> dirsPerVol = new HashMap<>();
+
+    Op(String storageDirName, StartupOption option, RaftProperties properties) {
+      this.storageDirName = storageDirName;
+      this.option = option;
+
+      this.freeSpaceMin = RaftServerConfigKeys.storageFreeSpaceMin(properties);
+      this.logCorruptionPolicy = RaftServerConfigKeys.Log.corruptionPolicy(properties);
+      this.dirsInConf = RaftServerConfigKeys.storageDir(properties);
+
+      this.existingSubs = getExistingStorageSubs(dirsInConf, this.storageDirName, dirsPerVol);
+    }
+
+    RaftStorageImpl run() throws IOException {
+      if (option == StartupOption.FORMAT) {
+        return format();
+      } else if (option == StartupOption.RECOVER) {
+        return recover();
+      } else {
+        throw new IllegalArgumentException("Illegal option: " + option);
       }
-      throw new IOException("Failed to initialize the existing directory " + dir.getAbsolutePath(), e);
     }
-  }
 
-  private static RaftStorageImpl formatNewStorageDir(String storageDirName, List<File> dirsInConf,
-      Map<File, Integer> dirsPerVol, SizeInBytes freeSpaceMin, Log.CorruptionPolicy logCorruptionPolicy)
-      throws IOException {
-    for(List<File> volumes = new ArrayList<>(dirsInConf); !volumes.isEmpty(); ) {
-      final File dir = chooseNewStorageDir(storageDirName, dirsPerVol);
+    private RaftStorageImpl format() throws IOException {
+      if (!existingSubs.isEmpty()) {
+        throw new IOException("Failed to " + option + ": One or more existing directories found " + existingSubs
+            + " for " + storageDirName);
+      }
+
+      for (List<File> volumes = new ArrayList<>(dirsInConf); !volumes.isEmpty(); ) {
+        final File dir = chooseNewStorageDir(storageDirName, dirsPerVol);
+        try {
+          final RaftStorageImpl storage = newRaftStorage(dir, freeSpaceMin, StartupOption.FORMAT, logCorruptionPolicy);
+          storage.initialize();
+          return storage;
+        } catch (Throwable e) {
+          LOG.warn("Failed to initialize a new directory " + dir.getAbsolutePath(), e);
+          final String parent = dir.getParentFile().getAbsolutePath();
+          volumes.removeIf(v -> v.getAbsolutePath().equals(parent));
+          if (!volumes.isEmpty()) {
+            LOG.warn("Retry other directories " + volumes, e);
+          }
+        }
+      }
+      throw new IOException("Failed to FORMAT a new storage dir for " + storageDirName + " from " + dirsInConf);
+    }
+
+    private RaftStorageImpl recover() throws IOException {
+      final int size = existingSubs.size();
+      if (size > 1) {
+        throw new IOException("Failed to " + option + ": More than one existing directories found "
+            + existingSubs + " for " + storageDirName);
+      } else if (size == 0) {
+        throw new IOException("Failed to " + option + ": Storage directory not found for "
+            + storageDirName + " from " + dirsInConf);
+      }
+
+      final File dir = existingSubs.get(0);
       try {
-        final RaftStorageImpl storage = newRaftStorage(dir, freeSpaceMin, StartupOption.FORMAT, logCorruptionPolicy);
+        final RaftStorageImpl storage = newRaftStorage(dir, freeSpaceMin, StartupOption.RECOVER, logCorruptionPolicy);
         storage.initialize();
         return storage;
       } catch (Throwable e) {
-        LOG.warn("Failed to initialize a new directory " + dir.getAbsolutePath(), e);
-        final String parent = dir.getParentFile().getAbsolutePath();
-        volumes.removeIf(v -> v.getAbsolutePath().equals(parent));
-        if (!volumes.isEmpty()) {
-          LOG.warn("Retry other directories " + volumes, e);
+        if (e instanceof IOException) {
+          throw e;
         }
+        throw new IOException("Failed to initialize the existing directory " + dir.getAbsolutePath(), e);
       }
     }
-    throw new IOException("Failed to FORMAT a new storage dir for " + storageDirName + " from " + dirsInConf);
-  }
-
-  /** @return a volume with the min dirs. */
-  static File chooseNewStorageDir(String targetSubDir, Map<File, Integer> dirsPerVol) throws IOException {
-    return dirsPerVol.entrySet().stream()
-        .min(Map.Entry.comparingByValue())
-        .map(e -> new File(e.getKey(), targetSubDir))
-        .orElseThrow(() -> new IOException("No storage directory found."));
   }
 }
