@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.server.storage.RaftStorage.StartupOption;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -50,7 +49,8 @@ public class TestStorageImplUtils {
   static File chooseNewStorageDir(List<File> volumes, String sub) throws IOException {
     final Map<File, Integer> numDirPerVolume = new HashMap<>();
     StorageImplUtils.getExistingStorageSubs(volumes, sub, numDirPerVolume);
-    return StorageImplUtils.chooseNewStorageDir(sub, numDirPerVolume);
+    final File vol = StorageImplUtils.chooseMin(numDirPerVolume);
+    return new File(vol, sub);
   }
 
   @AfterClass

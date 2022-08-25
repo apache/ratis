@@ -26,7 +26,6 @@ import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -64,10 +63,10 @@ public final class StorageImplUtils {
   }
 
   /** @return a volume with the min dirs. */
-  static File chooseNewStorageDir(String storageDirName, Map<File, Integer> dirsPerVol) throws IOException {
+  static File chooseMin(Map<File, Integer> dirsPerVol) throws IOException {
     return dirsPerVol.entrySet().stream()
         .min(Map.Entry.comparingByValue())
-        .map(e -> new File(e.getKey(), storageDirName))
+        .map(Map.Entry::getKey)
         .orElseThrow(() -> new IOException("No storage directory found."));
   }
 
@@ -134,19 +133,16 @@ public final class StorageImplUtils {
             + " for " + storageDirName);
       }
 
-      for (List<File> volumes = new ArrayList<>(dirsInConf); !volumes.isEmpty(); ) {
-        final File dir = chooseNewStorageDir(storageDirName, dirsPerVol);
+      for (; !dirsPerVol.isEmpty(); ) {
+        final File vol = chooseMin(dirsPerVol);
+        final File dir = new File(vol, storageDirName);
         try {
           final RaftStorageImpl storage = newRaftStorage(dir, freeSpaceMin, StartupOption.FORMAT, logCorruptionPolicy);
           storage.initialize();
           return storage;
         } catch (Throwable e) {
           LOG.warn("Failed to initialize a new directory " + dir.getAbsolutePath(), e);
-          final String parent = dir.getParentFile().getAbsolutePath();
-          volumes.removeIf(v -> v.getAbsolutePath().equals(parent));
-          if (!volumes.isEmpty()) {
-            LOG.warn("Retry other directories " + volumes, e);
-          }
+          dirsPerVol.remove(vol);
         }
       }
       throw new IOException("Failed to FORMAT a new storage dir for " + storageDirName + " from " + dirsInConf);
