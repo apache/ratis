@@ -149,9 +149,34 @@ public class SetConfigurationRequest extends RaftClientRequest {
   private final Arguments arguments;
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
+      RaftGroupId groupId, long callId, List<RaftPeer> peers) {
+    this(clientId, serverId, groupId, callId,
+        Arguments.newBuilder()
+            .setServersInNewConf(peers)
+            .build());
+  }
+
+  public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
+      RaftGroupId groupId, long callId, List<RaftPeer> peers, List<RaftPeer> listeners) {
+    this(clientId, serverId, groupId, callId,
+        Arguments.newBuilder()
+            .setServersInNewConf(peers)
+            .setListenersInNewConf(listeners)
+            .build());
+  }
+
+  public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, Arguments arguments) {
     super(clientId, serverId, groupId, callId, true, writeRequestType());
     this.arguments = arguments;
+  }
+
+  public List<RaftPeer> getPeersInNewConf() {
+    return arguments.serversInNewConf;
+  }
+
+  public List<RaftPeer> getListenersInNewConf() {
+    return arguments.listenersInNewConf;
   }
 
   public Arguments getArguments() {
