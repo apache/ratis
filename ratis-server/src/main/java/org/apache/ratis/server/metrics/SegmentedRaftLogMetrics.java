@@ -18,12 +18,10 @@
 
 package org.apache.ratis.server.metrics;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.*;
 import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache;
-import org.apache.ratis.util.DataQueue;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
-import java.util.Queue;
+import java.util.function.Supplier;
 
 public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   //////////////////////////////
@@ -82,34 +80,28 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     super(serverId);
   }
 
-  public void addDataQueueSizeGauge(DataQueue queue) {
-    registry.gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> queue::getNumElements);
+  public void addDataQueueSizeGauge(Supplier<Integer> numElements) {
+    registry.gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> numElements);
   }
 
-  public void addClosedSegmentsNum(SegmentedRaftLogCache cache) {
-    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM, () -> () -> {
-      return cache.getCachedSegmentNum();
-    });
+  public void addClosedSegmentsNum(Supplier<Long> cachedSegmentNum) {
+    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM, () -> cachedSegmentNum);
   }
 
-  public void addClosedSegmentsSizeInBytes(SegmentedRaftLogCache cache) {
-    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES, () -> () -> {
-      return cache.getClosedSegmentsSizeInBytes();
-    });
+  public void addClosedSegmentsSizeInBytes(Supplier<Long> closedSegmentsSizeInBytes) {
+    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES, () -> closedSegmentsSizeInBytes);
   }
 
-  public void addOpenSegmentSizeInBytes(SegmentedRaftLogCache cache) {
-    registry.gauge(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES, () -> () -> {
-      return cache.getOpenSegmentSizeInBytes();
-    });
+  public void addOpenSegmentSizeInBytes(Supplier<Long> openSegmentSizeInBytes) {
+    registry.gauge(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES, () -> openSegmentSizeInBytes);
   }
 
-  public void addLogWorkerQueueSizeGauge(Queue queue) {
-    registry.gauge(RAFT_LOG_WORKER_QUEUE_SIZE, () -> () -> queue.size());
+  public void addLogWorkerQueueSizeGauge(Supplier<Integer> queueSize) {
+    registry.gauge(RAFT_LOG_WORKER_QUEUE_SIZE, () -> queueSize);
   }
 
-  public void addFlushBatchSizeGauge(MetricRegistry.MetricSupplier<Gauge> supplier) {
-    registry.gauge(RAFT_LOG_SYNC_BATCH_SIZE, supplier);
+  public void addFlushBatchSizeGauge(Supplier<Integer> flushBatchSize) {
+    registry.gauge(RAFT_LOG_SYNC_BATCH_SIZE, () -> flushBatchSize);
   }
 
   private Timer getTimer(String timerName) {

@@ -21,7 +21,7 @@ import static org.apache.ratis.server.metrics.LogAppenderMetrics.FOLLOWER_MATCH_
 import static org.apache.ratis.server.metrics.LogAppenderMetrics.FOLLOWER_NEXT_INDEX;
 import static org.apache.ratis.server.metrics.LogAppenderMetrics.FOLLOWER_RPC_RESP_TIME;
 
-import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -35,7 +35,7 @@ import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 
 public class TestLogAppenderMetrics {
 
-  private RatisMetricRegistry ratisMetricRegistry;
+  private RatisMetricRegistryImpl ratisMetricRegistry;
   private RaftPeerId raftPeerId;
   private MyFollowerInfo followerInfo;
 
@@ -46,7 +46,7 @@ public class TestLogAppenderMetrics {
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
     followerInfo = new MyFollowerInfo(100L);
     LogAppenderMetrics logAppenderMetrics = new LogAppenderMetrics(raftGroupMemberId);
-    ratisMetricRegistry = logAppenderMetrics.getRegistry();
+    ratisMetricRegistry = (RatisMetricRegistryImpl) logAppenderMetrics.getRegistry();
     logAppenderMetrics.addFollowerGauges(raftPeerId, followerInfo::getNextIndex, followerInfo::getMatchIndex,
         followerInfo::getLastRpcTime);
   }

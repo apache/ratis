@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,20 +17,30 @@
  */
 package org.apache.ratis.metrics.impl;
 
-import java.util.Map;
-import java.util.SortedMap;
-
-import org.apache.ratis.thirdparty.com.codahale.metrics.*;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.thirdparty.com.codahale.metrics.ConsoleReporter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Histogram;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Meter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Metric;
+import org.apache.ratis.thirdparty.com.codahale.metrics.MetricFilter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.MetricRegistry;
+import org.apache.ratis.thirdparty.com.codahale.metrics.MetricSet;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.function.Supplier;
 
 /**
  * Custom implementation of {@link MetricRegistry}.
  */
 public class RatisMetricRegistryImpl implements RatisMetricRegistry {
-  private MetricRegistry metricRegistry = new MetricRegistry();
+  private final MetricRegistry metricRegistry = new MetricRegistry();
 
   private final MetricRegistryInfo info;
 
@@ -57,15 +67,20 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     return metricRegistry.remove(getMetricName(name));
   }
 
-  @Override public Gauge gauge(String name, MetricRegistry.MetricSupplier<Gauge> supplier) {
-    return metricRegistry.gauge(getMetricName(name), supplier);
+  static <T> Gauge<T> toGauge(Supplier<T> supplier) {
+    return supplier::get;
+  }
+
+  @Override
+  public <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier) {
+    metricRegistry.gauge(getMetricName(name), () -> toGauge(gaugeSupplier.get()));
   }
 
   @Override public Timer timer(String name, MetricRegistry.MetricSupplier<Timer> supplier) {
     return metricRegistry.timer(getMetricName(name), supplier);
   }
 
-  @Override public SortedMap<String, Gauge> getGauges(MetricFilter filter) {
+  public SortedMap<String, Gauge> getGauges(MetricFilter filter) {
     return metricRegistry.getGauges(filter);
   }
 

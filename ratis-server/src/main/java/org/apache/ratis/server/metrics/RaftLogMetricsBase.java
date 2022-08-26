@@ -18,12 +18,12 @@
 
 package org.apache.ratis.server.metrics;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.*;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
   public static final String RATIS_LOG_WORKER_METRICS_DESC = "Metrics for Log Worker";
