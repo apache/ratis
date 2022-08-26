@@ -25,7 +25,7 @@ import java.util.stream.IntStream;
 
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -44,12 +44,12 @@ public class TestSegmentedRaftLogCache {
 
   private SegmentedRaftLogCache cache;
   private SegmentedRaftLogMetrics raftLogMetrics;
-  private RatisMetricRegistry ratisMetricRegistry;
+  private RatisMetricRegistryImpl ratisMetricRegistry;
 
   @Before
   public void setup() {
     raftLogMetrics = new SegmentedRaftLogMetrics(RaftServerTestUtil.TEST_MEMBER_ID);
-    ratisMetricRegistry = raftLogMetrics.getRegistry();
+    ratisMetricRegistry = (RatisMetricRegistryImpl) raftLogMetrics.getRegistry();
     cache = new SegmentedRaftLogCache(null, null, prop, raftLogMetrics);
   }
 
