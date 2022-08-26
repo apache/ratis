@@ -34,9 +34,11 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * An abstract implementation of {@link LogAppender}.
@@ -53,6 +55,8 @@ public abstract class LogAppenderBase implements LogAppender {
   private final LogAppenderDaemon daemon;
   private final AwaitForSignal eventAwaitForSignal;
 
+  private final AtomicBoolean heartbeatTrigger = new AtomicBoolean();
+
   protected LogAppenderBase(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
     this.name = follower.getName() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -67,6 +71,28 @@ public abstract class LogAppenderBase implements LogAppender {
     this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
     this.daemon = new LogAppenderDaemon(this);
     this.eventAwaitForSignal = new AwaitForSignal(name);
+  }
+
+  @Override
+  public void triggerHeartbeat() throws IOException {
+    if (heartbeatTrigger.compareAndSet(false, true)) {
+      notifyLogAppender();
+    }
+  }
+
+  protected void resetHeartbeatTrigger() {
+    heartbeatTrigger.set(false);
+  }
+
+  @Override
+  public boolean shouldSendAppendEntries() {
+    return heartbeatTrigger.get() || LogAppender.super.shouldSendAppendEntries();
+  }
+
+  @Override
+  public long getHeartbeatWaitTimeMs() {
+    return heartbeatTrigger.get() ? 0 :
+        LogAppender.super.getHeartbeatWaitTimeMs();
   }
 
   @Override
