@@ -36,20 +36,14 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedCheckedSupplier;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 
-import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
-import java.nio.channels.OverlappingFileLockException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -63,7 +57,7 @@ import static org.apache.ratis.server.RaftServer.Division.LOG;
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
  */
-class ServerState implements Closeable {
+class ServerState {
   private final RaftGroupMemberId memberId;
   private final RaftServerImpl server;
   /** Raft log */
@@ -73,7 +67,7 @@ class ServerState implements Closeable {
   /** The thread that applies committed log entries to the state machine */
   private final MemoizedSupplier<StateMachineUpdater> stateMachineUpdater;
   /** local storage for log and snapshot */
-  private RaftStorageImpl storage;
+  private final MemoizedCheckedSupplier<RaftStorageImpl, IOException> raftStorage;
   private final SnapshotManager snapshotManager;
   private volatile Timestamp lastNoLeaderTime;
   private final TimeDuration noLeaderTimeout;
@@ -100,9 +94,8 @@ class ServerState implements Closeable {
    */
   private final AtomicReference<TermIndex> latestInstalledSnapshot = new AtomicReference<>();
 
-  ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
-              RaftServerImpl server, StateMachine stateMachine)
-      throws IOException {
+  ServerState(RaftPeerId id, RaftGroup group, StateMachine stateMachine, RaftServerImpl server,
+      RaftStorage.StartupOption option, RaftProperties prop) {
     this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId());
     this.server = server;
     Collection<RaftPeer> followerPeers = group.getPeers().stream()
@@ -117,36 +110,11 @@ class ServerState implements Closeable {
     configurationManager = new ConfigurationManager(initialConf);
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
-    boolean storageFound = false;
-    List<File> directories = RaftServerConfigKeys.storageDir(prop);
-    while (!directories.isEmpty()) {
-      // use full uuid string to create a subdirectory
-      File dir = chooseStorageDir(directories, group.getGroupId().getUuid().toString());
-      try {
-        storage = (RaftStorageImpl) RaftStorage.newBuilder()
-            .setDirectory(dir)
-            .setOption(RaftStorage.StartupOption.RECOVER)
-            .setLogCorruptionPolicy(RaftServerConfigKeys.Log.corruptionPolicy(prop))
-            .setStorageFreeSpaceMin(RaftServerConfigKeys.storageFreeSpaceMin(prop))
-            .build();
-        storageFound = true;
-        break;
-      } catch (IOException e) {
-        if (e.getCause() instanceof OverlappingFileLockException) {
-          throw e;
-        }
-        LOG.warn("Failed to init RaftStorage under {} for {}: {}",
-            dir.getParent(), group.getGroupId().getUuid().toString(), e);
-        directories.removeIf(d -> d.getAbsolutePath().equals(dir.getParent()));
-      }
-    }
+    final String storageDirName = group.getGroupId().getUuid().toString();
+    this.raftStorage = MemoizedCheckedSupplier.valueOf(
+        () -> StorageImplUtils.initRaftStorage(storageDirName, option, prop));
 
-    if (!storageFound) {
-      throw new IOException("No healthy directories found for RaftStorage among: " +
-          RaftServerConfigKeys.storageDir(prop));
-    }
-
-    snapshotManager = new SnapshotManager(storage, id);
+    this.snapshotManager = StorageImplUtils.newSnapshotManager(id);
 
     // On start the leader is null, start the clock now
     this.leaderId = null;
@@ -163,7 +131,8 @@ class ServerState implements Closeable {
   }
 
   void initialize(StateMachine stateMachine) throws IOException {
-    storage.initialize();
+    // initialize raft storage
+    final RaftStorageImpl storage = raftStorage.get();
     // read configuration from the storage
     Optional.ofNullable(storage.readRaftConfiguration()).ifPresent(this::setRaftConf);
 
@@ -180,32 +149,8 @@ class ServerState implements Closeable {
     return memberId;
   }
 
-  static File chooseStorageDir(List<File> volumes, String targetSubDir) throws IOException {
-    final Map<File, Integer> numberOfStorageDirPerVolume = new HashMap<>();
-    final File[] empty = {};
-    final List<File> resultList = new ArrayList<>();
-    volumes.stream().flatMap(volume -> {
-      final File[] dirs = Optional.ofNullable(volume.listFiles()).orElse(empty);
-      numberOfStorageDirPerVolume.put(volume, dirs.length);
-      return Arrays.stream(dirs);
-    }).filter(dir -> targetSubDir.equals(dir.getName()))
-        .forEach(resultList::add);
-
-    if (resultList.size() > 1) {
-      throw new IOException("More than one directories found for " + targetSubDir + ": " + resultList);
-    }
-    if (resultList.size() == 1) {
-      return resultList.get(0);
-    }
-    return numberOfStorageDirPerVolume.entrySet().stream()
-        .min(Map.Entry.comparingByValue())
-        .map(Map.Entry::getKey)
-        .map(v -> new File(v, targetSubDir))
-        .orElseThrow(() -> new IOException("No storage directory found."));
-  }
-
   void writeRaftConfiguration(LogEntryProto conf) {
-    storage.writeRaftConfiguration(conf);
+    getStorage().writeRaftConfiguration(conf);
   }
 
   void start() {
@@ -214,7 +159,8 @@ class ServerState implements Closeable {
 
   private RaftLog initRaftLog(LongSupplier getSnapshotIndexFromStateMachine, RaftProperties prop) {
     try {
-      return initRaftLog(getMemberId(), server, storage, this::setRaftConf, getSnapshotIndexFromStateMachine, prop);
+      return initRaftLog(getMemberId(), server, getStorage(), this::setRaftConf,
+          getSnapshotIndexFromStateMachine, prop);
     } catch (IOException e) {
       throw new IllegalStateException(getMemberId() + ": Failed to initRaftLog.", e);
     }
@@ -257,10 +203,6 @@ class ServerState implements Closeable {
 
   RaftPeerId getLeaderId() {
     return leaderId;
-  }
-
-  boolean hasLeader() {
-    return leaderId != null;
   }
 
   /**
@@ -434,7 +376,7 @@ class ServerState implements Closeable {
   void updateConfiguration(List<LogEntryProto> entries) {
     if (entries != null && !entries.isEmpty()) {
       configurationManager.removeConfigurations(entries.get(0).getIndex());
-      entries.stream().forEach(this::setRaftConf);
+      entries.forEach(this::setRaftConf);
     }
   }
 
@@ -455,29 +397,45 @@ class ServerState implements Closeable {
     getStateMachineUpdater().reloadStateMachine();
   }
 
-  @Override
-  public void close() throws IOException {
+  void close() {
     try {
-      getStateMachineUpdater().stopAndJoin();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      LOG.warn("{}: Interrupted when joining stateMachineUpdater", getMemberId(), e);
+      if (stateMachineUpdater.isInitialized()) {
+        getStateMachineUpdater().stopAndJoin();
+      }
+    } catch (Throwable e) {
+      LOG.warn(getMemberId() + ": Failed to join " + getStateMachineUpdater(), e);
     }
-    LOG.info("{}: closes. applyIndex: {}", getMemberId(), getLastAppliedIndex());
+    LOG.info("{}: applyIndex: {}", getMemberId(), getLastAppliedIndex());
 
-    getLog().close();
-    storage.close();
+    try {
+      if (log.isInitialized()) {
+        getLog().close();
+      }
+    } catch (Throwable e) {
+      LOG.warn(getMemberId() + ": Failed to close raft log " + getLog(), e);
+    }
+
+    try {
+      if (raftStorage.isInitialized()) {
+        getStorage().close();
+      }
+    } catch (Throwable e) {
+      LOG.warn(getMemberId() + ": Failed to close raft storage " + getStorage(), e);
+    }
   }
 
-  RaftStorage getStorage() {
-    return storage;
+  RaftStorageImpl getStorage() {
+    if (!raftStorage.isInitialized()) {
+      throw new IllegalStateException(getMemberId() + ": raftStorage is uninitialized.");
+    }
+    return raftStorage.getUnchecked();
   }
 
   void installSnapshot(InstallSnapshotRequestProto request) throws IOException {
     // TODO: verify that we need to install the snapshot
     StateMachine sm = server.getStateMachine();
     sm.pause(); // pause the SM to prepare for install snapshot
-    snapshotManager.installSnapshot(sm, request);
+    snapshotManager.installSnapshot(request, sm, getStorage().getStorageDir());
     updateInstalledSnapshotIndex(TermIndex.valueOf(request.getSnapshotChunk().getTermIndex()));
   }
 

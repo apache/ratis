@@ -571,8 +571,9 @@ public interface ClientProtoUtils {
     final RaftPeerId serverId = RaftPeerId.valueOf(m.getReplyId());
     switch(p.getOpCase()) {
       case GROUPADD:
+        final GroupAddRequestProto add = p.getGroupAdd();
         return GroupManagementRequest.newAdd(clientId, serverId, m.getCallId(),
-            ProtoUtils.toRaftGroup(p.getGroupAdd().getGroup()));
+            ProtoUtils.toRaftGroup(add.getGroup()), add.getFormat());
       case GROUPREMOVE:
         final GroupRemoveRequestProto remove = p.getGroupRemove();
         return GroupManagementRequest.newRemove(clientId, serverId, m.getCallId(),
@@ -609,8 +610,10 @@ public interface ClientProtoUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
     final GroupManagementRequest.Add add = request.getAdd();
     if (add != null) {
-      b.setGroupAdd(GroupAddRequestProto.newBuilder().setGroup(
-          ProtoUtils.toRaftGroupProtoBuilder(add.getGroup())).build());
+      b.setGroupAdd(GroupAddRequestProto.newBuilder()
+          .setGroup(ProtoUtils.toRaftGroupProtoBuilder(add.getGroup()))
+          .setFormat(add.isFormat())
+          .build());
     }
     final GroupManagementRequest.Remove remove = request.getRemove();
     if (remove != null) {

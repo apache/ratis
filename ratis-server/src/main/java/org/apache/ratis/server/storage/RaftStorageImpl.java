@@ -23,6 +23,7 @@ import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -34,17 +35,16 @@ import java.util.Optional;
 
 /** The storage of a {@link org.apache.ratis.server.RaftServer}. */
 public class RaftStorageImpl implements RaftStorage {
-
-  // TODO support multiple storage directories
   private final RaftStorageDirectoryImpl storageDir;
   private final StartupOption startupOption;
   private final CorruptionPolicy logCorruptionPolicy;
   private volatile StorageState state = StorageState.UNINITIALIZED;
   private volatile RaftStorageMetadataFileImpl metaFile;
 
-  RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy, StartupOption option,
-      long storageFeeSpaceMin) {
-    this.storageDir = new RaftStorageDirectoryImpl(dir, storageFeeSpaceMin);
+  RaftStorageImpl(File dir, SizeInBytes freeSpaceMin, StartupOption option, CorruptionPolicy logCorruptionPolicy) {
+    LOG.debug("newRaftStorage: {}, freeSpaceMin={}, option={}, logCorruptionPolicy={}",
+        dir, freeSpaceMin, option, logCorruptionPolicy);
+    this.storageDir = new RaftStorageDirectoryImpl(dir, freeSpaceMin);
     this.logCorruptionPolicy = Optional.ofNullable(logCorruptionPolicy).orElseGet(CorruptionPolicy::getDefault);
     this.startupOption = option;
   }
