@@ -72,6 +72,7 @@ class LogAppenderDefault extends LogAppenderBase {
           return null;
         }
 
+        resetHeartbeatTrigger();
         getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
         final AppendEntriesReplyProto r = getServerRpc().appendEntries(request);
         getFollower().updateLastRpcResponseTime();
