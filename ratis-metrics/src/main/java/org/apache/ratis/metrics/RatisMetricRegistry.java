@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,11 +17,18 @@
  */
 package org.apache.ratis.metrics;
 
-import java.util.SortedMap;
-
-import org.apache.ratis.thirdparty.com.codahale.metrics.*;
+import org.apache.ratis.thirdparty.com.codahale.metrics.ConsoleReporter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Histogram;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Meter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Metric;
+import org.apache.ratis.thirdparty.com.codahale.metrics.MetricRegistry;
+import org.apache.ratis.thirdparty.com.codahale.metrics.MetricSet;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+
+import java.util.function.Supplier;
 
 public interface RatisMetricRegistry {
   Timer timer(String name);
@@ -30,11 +37,9 @@ public interface RatisMetricRegistry {
 
   boolean remove(String name);
 
-  Gauge gauge(String name, MetricRegistry.MetricSupplier<Gauge> supplier);
+  <T> Supplier<T> gauge(String name, Supplier<Supplier<T>> gaugeSupplier);
 
   Timer timer(String name, MetricRegistry.MetricSupplier<Timer> supplier);
-
-  SortedMap<String, Gauge> getGauges(MetricFilter filter);
 
   Counter counter(String name, MetricRegistry.MetricSupplier<Counter> supplier);
 

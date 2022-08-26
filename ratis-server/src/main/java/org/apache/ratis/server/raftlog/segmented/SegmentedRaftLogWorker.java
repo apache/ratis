@@ -18,7 +18,6 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
@@ -174,7 +173,7 @@ class SegmentedRaftLogWorker {
   private final long segmentMaxSize;
   private final long preallocatedSize;
   private final RaftServer.Division server;
-  private int flushBatchSize;
+  private volatile int flushBatchSize;
 
   private final boolean asyncFlush;
   private final boolean unsafeFlush;
@@ -212,7 +211,7 @@ class SegmentedRaftLogWorker {
     // Server Id can be null in unit tests
     metricRegistry.addDataQueueSizeGauge(queue);
     metricRegistry.addLogWorkerQueueSizeGauge(writeTasks.q);
-    metricRegistry.addFlushBatchSizeGauge(() -> (Gauge<Integer>) () -> flushBatchSize);
+    metricRegistry.addFlushBatchSizeGauge(() -> () -> flushBatchSize);
     this.logFlushTimer = metricRegistry.getFlushTimer();
     this.raftLogSyncTimer = metricRegistry.getRaftLogSyncTimer();
     this.raftLogQueueingTimer = metricRegistry.getRaftLogQueueTimer();

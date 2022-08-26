@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 import java.util.SortedMap;
 import java.util.function.Consumer;
 
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
@@ -120,9 +121,8 @@ public class TestGrpcServerMetrics {
   }
 
   private Gauge getGuageWithName(String gaugeName) {
-    SortedMap<String, Gauge> gaugeMap =
-        grpcServerMetrics.getRegistry().getGauges((s, metric) ->
-            s.contains(gaugeName));
+    final SortedMap<String, Gauge> gaugeMap = ((RatisMetricRegistryImpl)grpcServerMetrics.getRegistry()).getGauges(
+        (s, metric) -> s.contains(gaugeName));
     return gaugeMap.get(gaugeMap.firstKey());
   }
 
