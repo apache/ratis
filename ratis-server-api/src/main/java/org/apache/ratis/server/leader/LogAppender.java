@@ -166,6 +166,9 @@ public interface LogAppender {
     return getFollower().getNextIndex() < getRaftLog().getNextIndex();
   }
 
+  /** send a heartbeat AppendEntries immediately */
+  void triggerHeartbeat() throws IOException;
+
   /** @return the wait time in milliseconds to send the next heartbeat. */
   default long getHeartbeatWaitTimeMs() {
     final int min = getServer().properties().minRpcTimeoutMs();

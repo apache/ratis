@@ -281,9 +281,12 @@ public class GrpcLogAppender extends LogAppenderBase {
     CodeInjectionForTesting.execute(GrpcService.GRPC_SEND_SERVER_REQUEST,
         getServer().getId(), null, proto);
     request.startRequestTimer();
-    boolean sent = Optional.ofNullable(appendLogRequestObserver).map(observer -> {
-        observer.onNext(proto);
-        return true;}).isPresent();
+    resetHeartbeatTrigger();
+    final boolean sent = Optional.ofNullable(appendLogRequestObserver)
+        .map(observer -> {
+          observer.onNext(proto);
+          return true;
+        }).isPresent();
 
     if (sent) {
       scheduler.onTimeout(requestTimeoutDuration,
