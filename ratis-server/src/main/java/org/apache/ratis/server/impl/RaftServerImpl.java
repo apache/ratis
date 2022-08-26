@@ -189,7 +189,8 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
 
-  RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
+  RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
+      throws IOException {
     final RaftPeerId id = proxy.getId();
     LOG.info("{}: new RaftServerImpl for {} with {}", id, group, stateMachine);
     this.lifeCycle = new LifeCycle(id);
@@ -202,7 +203,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     this.proxy = proxy;
 
-    this.state = new ServerState(id, group, properties, this, stateMachine);
+    this.state = new ServerState(id, group, stateMachine, this, option, properties);
     this.retryCache = new RetryCacheImpl(properties);
     this.dataStreamMap = new DataStreamMapImpl(id);
 
@@ -575,8 +576,8 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   GroupInfoReply getGroupInfo(GroupInfoRequest request) {
-    return new GroupInfoReply(request, getCommitInfos(),
-        getGroup(), getRoleInfoProto(), state.getStorage().getStorageDir().isHealthy());
+    final RaftStorageDirectory dir = state.getStorage().getStorageDir();
+    return new GroupInfoReply(request, getCommitInfos(), getGroup(), getRoleInfoProto(), dir.isHealthy());
   }
 
   RoleInfoProto getRoleInfoProto() {

@@ -26,6 +26,7 @@ import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -45,7 +46,7 @@ public final class ServerImplUtils {
 
   /** Create a {@link RaftServerProxy}. */
   public static RaftServerProxy newRaftServer(
-      RaftPeerId id, RaftGroup group, StateMachine.Registry stateMachineRegistry,
+      RaftPeerId id, RaftGroup group, RaftStorage.StartupOption option, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters) throws IOException {
     RaftServer.LOG.debug("newRaftServer: {}, {}", id, group);
     if (group != null && !group.getPeers().isEmpty()) {
@@ -53,7 +54,7 @@ public final class ServerImplUtils {
       Preconditions.assertNotNull(group.getPeer(id), "RaftPeerId %s is not in RaftGroup %s", id, group);
     }
     final RaftServerProxy proxy = newRaftServer(id, stateMachineRegistry, properties, parameters);
-    proxy.initGroups(group);
+    proxy.initGroups(group, option);
     return proxy;
   }
 

@@ -469,6 +469,7 @@ message StartLeaderElectionReplyProto {
 // A request to add a new group
 message GroupAddRequestProto {
   RaftGroupProto group = 1; // the group to be added.
+  bool format = 2; // Should it format the storage?
 }
 
 message GroupRemoveRequestProto {
