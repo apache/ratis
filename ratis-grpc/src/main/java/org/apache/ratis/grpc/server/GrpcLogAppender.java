@@ -283,8 +283,10 @@ public class GrpcLogAppender extends LogAppenderBase {
     request.startRequestTimer();
     resetHeartbeatTrigger();
     final boolean sent = Optional.ofNullable(appendLogRequestObserver)
-        .map(observer -> {observer.onNext(proto); return true;})
-        .isPresent();
+        .map(observer -> {
+          observer.onNext(proto);
+          return true;
+        }).isPresent();
 
     if (sent) {
       scheduler.onTimeout(requestTimeoutDuration,
