@@ -85,7 +85,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   /** id -> key */
   private static final Map<RaftPeerId, String> PEER_COMMIT_INDEX_GAUGE_KEYS = new ConcurrentHashMap<>();
 
-  public static String getPeerCommitIndexGaugeKey(RaftPeerId serverId) {
+  static String getPeerCommitIndexGaugeKey(RaftPeerId serverId) {
     return PEER_COMMIT_INDEX_GAUGE_KEYS.computeIfAbsent(serverId,
         key -> String.format(LEADER_METRIC_PEER_COMMIT_INDEX, key));
   }
@@ -149,13 +149,9 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
         .orElse(0L));
   }
 
-  /**
-   * Get the commit index gauge for the given peer of the server
-   * @return Metric Gauge holding the value of commit index of the peer
-   */
   @VisibleForTesting
-  public static Map<RaftGroupMemberId, RaftServerMetricsImpl> getMETRICS() {
-    return METRICS;
+  static RaftServerMetricsImpl getImpl(RaftGroupMemberId serverId) {
+    return METRICS.get(serverId);
   }
 
   /**

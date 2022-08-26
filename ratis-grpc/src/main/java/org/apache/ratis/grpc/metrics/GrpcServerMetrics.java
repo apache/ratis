@@ -20,7 +20,6 @@ package org.apache.ratis.grpc.metrics;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
@@ -100,10 +99,5 @@ public class GrpcServerMetrics extends RatisMetrics {
 
   public static String getHeartbeatSuffix(boolean heartbeat) {
     return heartbeat ? "_heartbeat" : "";
-  }
-
-  @VisibleForTesting
-  public RatisMetricRegistry getRegistry() {
-    return registry;
   }
 }
