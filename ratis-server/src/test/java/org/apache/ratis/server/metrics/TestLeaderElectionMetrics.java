@@ -23,9 +23,9 @@ import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECT
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -40,7 +40,7 @@ import java.util.SortedMap;
 public class TestLeaderElectionMetrics extends BaseTest {
 
   private static LeaderElectionMetrics leaderElectionMetrics;
-  private static RatisMetricRegistryImpl ratisMetricRegistry;
+  private static RatisMetricRegistry ratisMetricRegistry;
 
   @BeforeClass
   public static void setUp() {
@@ -48,7 +48,7 @@ public class TestLeaderElectionMetrics extends BaseTest {
     RaftPeerId raftPeerId = RaftPeerId.valueOf("TestId");
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
     leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(raftGroupMemberId, () -> 1000L);
-    ratisMetricRegistry = (RatisMetricRegistryImpl) leaderElectionMetrics.getRegistry();
+    ratisMetricRegistry = leaderElectionMetrics.getRegistry();
   }
 
   @Test

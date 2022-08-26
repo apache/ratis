@@ -18,13 +18,12 @@
 
 package org.apache.ratis.server.metrics;
 
+import org.apache.ratis.thirdparty.com.codahale.metrics.*;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.util.DataQueue;
 
 import java.util.Queue;
-import java.util.function.Supplier;
 
 public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   //////////////////////////////
@@ -83,27 +82,33 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     super(serverId);
   }
 
-  public void addDataQueueSizeGauge(DataQueue<?> queue) {
+  public void addDataQueueSizeGauge(DataQueue queue) {
     registry.gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> queue::getNumElements);
   }
 
   public void addClosedSegmentsNum(SegmentedRaftLogCache cache) {
-    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM, () -> cache::getCachedSegmentNum);
+    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM, () -> () -> {
+      return cache.getCachedSegmentNum();
+    });
   }
 
   public void addClosedSegmentsSizeInBytes(SegmentedRaftLogCache cache) {
-    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES, () -> cache::getClosedSegmentsSizeInBytes);
+    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES, () -> () -> {
+      return cache.getClosedSegmentsSizeInBytes();
+    });
   }
 
   public void addOpenSegmentSizeInBytes(SegmentedRaftLogCache cache) {
-    registry.gauge(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES, () -> cache::getOpenSegmentSizeInBytes);
+    registry.gauge(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES, () -> () -> {
+      return cache.getOpenSegmentSizeInBytes();
+    });
   }
 
-  public void addLogWorkerQueueSizeGauge(Queue<?> queue) {
-    registry.gauge(RAFT_LOG_WORKER_QUEUE_SIZE, () -> queue::size);
+  public void addLogWorkerQueueSizeGauge(Queue queue) {
+    registry.gauge(RAFT_LOG_WORKER_QUEUE_SIZE, () -> () -> queue.size());
   }
 
-  public void addFlushBatchSizeGauge(Supplier<Supplier<Integer>> supplier) {
+  public void addFlushBatchSizeGauge(MetricRegistry.MetricSupplier<Gauge> supplier) {
     registry.gauge(RAFT_LOG_SYNC_BATCH_SIZE, supplier);
   }
 

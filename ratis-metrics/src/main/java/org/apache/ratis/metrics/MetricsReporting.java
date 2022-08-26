@@ -17,14 +17,14 @@
  */
 package org.apache.ratis.metrics;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.ConsoleReporter;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+
+import org.apache.ratis.thirdparty.com.codahale.metrics.*;
 import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 public final class MetricsReporting {
   public static final Logger LOG = LoggerFactory.getLogger(MetricsReporting.class);

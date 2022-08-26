@@ -21,8 +21,8 @@ package org.apache.ratis.server.impl;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.*;
 import static org.junit.Assert.assertEquals;
 
-import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -40,7 +40,7 @@ import java.util.Map;
  * Test for metrics of retry cache.
  */
 public class TestRetryCacheMetrics {
-    private static RatisMetricRegistryImpl ratisMetricRegistry;
+    private static RatisMetricRegistry ratisMetricRegistry;
     private static RetryCacheImpl retryCache;
 
     @BeforeClass
@@ -53,7 +53,7 @@ public class TestRetryCacheMetrics {
 
       final RaftServerMetricsImpl raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
           raftGroupMemberId, () -> null, retryCache::getStatistics);
-      ratisMetricRegistry = (RatisMetricRegistryImpl) raftServerMetrics.getRegistry();
+      ratisMetricRegistry = raftServerMetrics.getRegistry();
     }
     
     @After
