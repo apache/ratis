@@ -22,10 +22,12 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 import org.apache.ratis.metrics.MetricRegistryInfo;
@@ -38,6 +40,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.util.Preconditions;
 
 /**
  * Metric Registry for Raft Group Server. One instance per leader/follower.
@@ -85,7 +88,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   /** id -> key */
   private static final Map<RaftPeerId, String> PEER_COMMIT_INDEX_GAUGE_KEYS = new ConcurrentHashMap<>();
 
-  static String getPeerCommitIndexGaugeKey(RaftPeerId serverId) {
+  private static String getPeerCommitIndexGaugeKey(RaftPeerId serverId) {
     return PEER_COMMIT_INDEX_GAUGE_KEYS.computeIfAbsent(serverId,
         key -> String.format(LEADER_METRIC_PEER_COMMIT_INDEX, key));
   }
@@ -149,9 +152,26 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
         .orElse(0L));
   }
 
+  /**
+   * Get the commit index gauge for the given peer of the server
+   * @return Metric Gauge holding the value of commit index of the peer
+   */
   @VisibleForTesting
-  static RaftServerMetricsImpl getImpl(RaftGroupMemberId serverId) {
-    return METRICS.get(serverId);
+  public static Gauge getPeerCommitIndexGauge(RaftGroupMemberId serverId, RaftPeerId peerId) {
+
+    final RaftServerMetricsImpl serverMetrics = METRICS.get(serverId);
+    if (serverMetrics == null) {
+      return null;
+    }
+
+    final String followerCommitIndexKey = getPeerCommitIndexGaugeKey(peerId);
+
+    SortedMap<String, Gauge> map =
+        serverMetrics.registry.getGauges((s, metric) ->
+            s.contains(followerCommitIndexKey));
+
+    Preconditions.assertTrue(map.size() <= 1);
+    return map.get(map.firstKey());
   }
 
   /**
@@ -193,7 +213,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
     registry.counter(REQUEST_QUEUE_LIMIT_HIT_COUNTER).inc();
   }
 
-  public void addNumPendingRequestsGauge(Supplier<Integer> queueSize) {
+  public void addNumPendingRequestsGauge(Gauge queueSize) {
     registry.gauge(REQUEST_QUEUE_SIZE, () -> queueSize);
   }
 
@@ -201,7 +221,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
     return registry.remove(REQUEST_QUEUE_SIZE);
   }
 
-  public void addNumPendingRequestsMegaByteSize(Supplier<Integer> megabyteSize) {
+  public void addNumPendingRequestsMegaByteSize(Gauge megabyteSize) {
     registry.gauge(REQUEST_MEGA_BYTE_SIZE, () -> megabyteSize);
   }
 

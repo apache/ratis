@@ -22,7 +22,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -407,8 +407,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     cluster.start();
     final RaftServer.Division leaderServer = waitForLeader(cluster);
 
-    final RatisMetricRegistryImpl ratisMetricRegistry = (RatisMetricRegistryImpl)
-        LeaderElectionMetrics.getMetricRegistryForLeaderElection(leaderServer.getMemberId());
+    final RatisMetricRegistry ratisMetricRegistry = LeaderElectionMetrics.getMetricRegistryForLeaderElection(
+        leaderServer.getMemberId());
 
     // Verify each metric individually.
     long numLeaderElections = ratisMetricRegistry.counter(LEADER_ELECTION_COUNT_METRIC).getCount();
