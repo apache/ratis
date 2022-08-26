@@ -17,6 +17,7 @@
  */
 package org.apache.ratis;
 
+import org.apache.ratis.server.metrics.ServerMetricsTestUtils;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -36,7 +37,6 @@ import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
-import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -51,7 +51,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
@@ -489,14 +488,14 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final List<RaftServer.Division> followers = cluster.getFollowers();
     final RaftGroupMemberId leader = cluster.getLeader().getMemberId();
 
-    Gauge leaderCommitGauge = RaftServerMetricsImpl.getPeerCommitIndexGauge(leader, leader.getPeerId());
+    Gauge leaderCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, leader.getPeerId());
 
     for (RaftServer.Division f : followers) {
       final RaftGroupMemberId follower = f.getMemberId();
-      Gauge followerCommitGauge = RaftServerMetricsImpl.getPeerCommitIndexGauge(leader, follower.getPeerId());
+      Gauge followerCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, follower.getPeerId());
       Assert.assertTrue((Long)leaderCommitGauge.getValue() >=
           (Long)followerCommitGauge.getValue());
-      Gauge followerMetric = RaftServerMetricsImpl.getPeerCommitIndexGauge(follower, follower.getPeerId());
+      Gauge followerMetric = ServerMetricsTestUtils.getPeerCommitIndexGauge(follower, follower.getPeerId());
       System.out.println(followerCommitGauge.getValue());
       System.out.println(followerMetric.getValue());
       Assert.assertTrue((Long)followerCommitGauge.getValue()  <= (Long)followerMetric.getValue());
@@ -511,12 +510,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
     Assert.assertTrue(metricRegistry.isPresent());
-    RatisMetricRegistry ratisStateMachineMetricRegistry = metricRegistry.get();
 
-    SortedMap<String, Gauge> gaugeMap =
-        ratisStateMachineMetricRegistry.getGauges((s, metric) ->
-            s.contains(gaugeName));
-
-    return gaugeMap.get(gaugeMap.firstKey());
+    return ServerMetricsTestUtils.getGaugeWithName(gaugeName, metricRegistry::get);
   }
 }

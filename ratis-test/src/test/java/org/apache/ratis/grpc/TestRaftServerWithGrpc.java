@@ -22,11 +22,9 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WATCH_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WRITE_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_QUEUE_LIMIT_HIT_COUNTER;
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_MEGA_BYTE_SIZE;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RESOURCE_LIMIT_HIT_COUNTER;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.protocol.RaftGroup;
@@ -248,12 +246,6 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       RaftClient client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
       clients.add(client);
       client.async().send(new SimpleMessage("2nd Message"));
-
-
-      final SortedMap<String, Gauge> gaugeMap = getRaftServerMetrics(cluster.getLeader())
-          .getRegistry().getGauges((s, metric) -> s.contains(
-              REQUEST_MEGA_BYTE_SIZE));
-
 
       for (int i = 0; i < 10; i++) {
         client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());

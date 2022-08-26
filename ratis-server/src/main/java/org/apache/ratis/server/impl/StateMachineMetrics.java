@@ -56,10 +56,8 @@ public final class StateMachineMetrics extends RatisMetrics {
   private StateMachineMetrics(String serverId, LongSupplier getApplied,
       LongSupplier getApplyCompleted) {
     registry = getMetricRegistryForStateMachine(serverId);
-    registry.gauge(STATEMACHINE_APPLIED_INDEX_GAUGE,
-        () -> () -> getApplied.getAsLong());
-    registry.gauge(STATEMACHINE_APPLY_COMPLETED_GAUGE,
-        () -> () -> getApplyCompleted.getAsLong());
+    registry.gauge(STATEMACHINE_APPLIED_INDEX_GAUGE, () -> getApplied::getAsLong);
+    registry.gauge(STATEMACHINE_APPLY_COMPLETED_GAUGE, () -> getApplyCompleted::getAsLong);
   }
 
   private RatisMetricRegistry getMetricRegistryForStateMachine(String serverId) {
