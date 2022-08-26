@@ -229,13 +229,12 @@ public class GrpcLogAppender extends LogAppenderBase {
       this.heartbeat = separateHeartbeat? client.appendEntries(handler, true): null;
     }
 
-    Void onNext(AppendEntriesRequestProto proto) {
+    void onNext(AppendEntriesRequestProto proto) {
       if (heartbeat != null && proto.getEntriesCount() == 0) {
         heartbeat.onNext(proto);
       } else {
         appendLog.onNext(proto);
       }
-      return null;
     }
 
     void onCompleted() {
@@ -284,7 +283,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     request.startRequestTimer();
     resetHeartbeatTrigger();
     final boolean sent = Optional.ofNullable(appendLogRequestObserver)
-        .map(observer -> observer.onNext(proto))
+        .map(observer -> {observer.onNext(proto); return true;})
         .isPresent();
 
     if (sent) {
