@@ -85,6 +85,11 @@ public abstract class LogAppenderBase implements LogAppender {
   }
 
   @Override
+  public boolean shouldSendAppendEntries() {
+    return heartbeatTrigger.get() || LogAppender.super.shouldSendAppendEntries();
+  }
+
+  @Override
   public long getHeartbeatWaitTimeMs() {
     return heartbeatTrigger.get() ? 0 :
         LogAppender.super.getHeartbeatWaitTimeMs();
