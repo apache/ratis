@@ -18,7 +18,6 @@
 
 package org.apache.ratis.statemachine.impl;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.Message;
@@ -231,19 +230,4 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     return JavaUtils.getClassSimpleName(getClass()) + ":"
         + (!server.isDone()? "uninitialized": getId() + ":" + groupId);
   }
-
-
-  protected CompletableFuture<Message> recordTime(Timer timer, Task task) {
-    final Timer.Context timerContext = timer.time();
-    try {
-      return task.run();
-    } finally {
-      timerContext.stop();
-    }
-  }
-
-  protected interface Task {
-    CompletableFuture<Message> run();
-  }
-
 }

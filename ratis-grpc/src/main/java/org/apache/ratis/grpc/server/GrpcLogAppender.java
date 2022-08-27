@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -48,8 +49,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 /**
  * A new log appender implementation using grpc bi-directional stream API.
@@ -280,10 +279,10 @@ public class GrpcLogAppender extends LogAppenderBase {
   private void sendRequest(AppendEntriesRequest request, AppendEntriesRequestProto proto) {
     CodeInjectionForTesting.execute(GrpcService.GRPC_SEND_SERVER_REQUEST,
         getServer().getId(), null, proto);
-    request.startRequestTimer();
     resetHeartbeatTrigger();
     final boolean sent = Optional.ofNullable(appendLogRequestObserver)
         .map(observer -> {
+          request.startRequestTimer();
           observer.onNext(proto);
           return true;
         }).isPresent();
@@ -293,8 +292,6 @@ public class GrpcLogAppender extends LogAppenderBase {
           () -> timeoutAppendRequest(request.getCallId(), request.isHeartbeat()),
           LOG, () -> "Timeout check failed for append entry request: " + request);
       getFollower().updateLastRpcSendTime(request.isHeartbeat());
-    } else {
-      request.stopRequestTimer();
     }
   }
 
@@ -696,8 +693,8 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   static class AppendEntriesRequest {
-    private final Timer timer;
-    private volatile Timer.Context timerContext;
+    private final Timekeeper timer;
+    private volatile Timekeeper.Context timerContext;
 
     private final long callId;
     private final TermIndex previousLog;

@@ -18,6 +18,7 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.io.CorruptedFileException;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.protocol.exceptions.ChecksumException;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -34,8 +35,6 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.util.Optional;
 import java.util.zip.Checksum;
-
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 class SegmentedRaftLogReader implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogReader.class);
@@ -193,11 +192,10 @@ class SegmentedRaftLogReader implements Closeable {
    *         exception when skipBrokenEdits is false.
    */
   LogEntryProto readEntry() throws IOException {
-    Timer.Context readEntryContext = null;
-    try {
-      if (raftLogMetrics != null) {
-        readEntryContext = raftLogMetrics.getRaftLogReadEntryTimer().time();
-      }
+    final Timekeeper timekeeper = Optional.ofNullable(raftLogMetrics)
+        .map(SegmentedRaftLogMetrics::getReadEntryTimer)
+        .orElse(null);
+    try(AutoCloseable readEntryContext = Timekeeper.start(timekeeper)) {
       return decodeEntry();
     } catch (EOFException eof) {
       in.reset();
@@ -218,10 +216,6 @@ class SegmentedRaftLogReader implements Closeable {
       // broken, throw the exception instead of skipping broken entries
       in.reset();
       throw new IOException("got unexpected exception " + e.getMessage(), e);
-    } finally {
-      if (readEntryContext != null) {
-        readEntryContext.stop();
-      }
     }
   }
 

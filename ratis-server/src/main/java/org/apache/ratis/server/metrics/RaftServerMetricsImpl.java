@@ -26,7 +26,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.apache.ratis.metrics.LongCounter;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import org.apache.ratis.metrics.Timekeeper;
 
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
@@ -206,15 +206,15 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
     followerLastHeartbeatElapsedTimeMap.put(followerId, elapsedTimeNs);
   }
 
-  public Timer getFollowerAppendEntryTimer(boolean isHeartbeat) {
+  public Timekeeper getFollowerAppendEntryTimer(boolean isHeartbeat) {
     return registry.timer(FOLLOWER_APPEND_ENTRIES_LATENCY + (isHeartbeat ? "_heartbeat" : ""));
   }
 
-  public Timer getTimer(String timerName) {
+  public Timekeeper getTimer(String timerName) {
     return registry.timer(timerName);
   }
 
-  public Timer getClientRequestTimer(Type request) {
+  public Timekeeper getClientRequestTimer(Type request) {
     if (request.is(TypeCase.READ)) {
       return getTimer(RAFT_CLIENT_READ_REQUEST);
     } else if (request.is(TypeCase.STALEREAD)) {

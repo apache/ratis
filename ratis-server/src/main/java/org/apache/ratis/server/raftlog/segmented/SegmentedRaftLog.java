@@ -18,6 +18,7 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -50,7 +51,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import org.apache.ratis.util.UncheckedAutoCloseable;
 
 /**
  * The RaftLog implementation that writes log entries into segmented files in
@@ -84,7 +85,7 @@ public class SegmentedRaftLog extends RaftLogBase {
    */
   abstract static class Task {
     private final CompletableFuture<Long> future = new CompletableFuture<>();
-    private Timer.Context queueTimerContext;
+    private Timekeeper.Context queueTimerContext;
 
     CompletableFuture<Long> getFuture() {
       return future;
@@ -108,7 +109,7 @@ public class SegmentedRaftLog extends RaftLogBase {
 
     abstract long getEndIndex();
 
-    void startTimerOnEnqueue(Timer queueTimer) {
+    void startTimerOnEnqueue(Timekeeper queueTimer) {
       queueTimerContext = queueTimer.time();
     }
 
@@ -237,9 +238,9 @@ public class SegmentedRaftLog extends RaftLogBase {
         // so that during the initial loading we can apply part of the log
         // entries to the state machine
         boolean keepEntryInCache = (paths.size() - i++) <= cache.getMaxCachedSegments();
-        final Timer.Context loadSegmentContext = getRaftLogMetrics().getRaftLogLoadSegmentTimer().time();
-        cache.loadSegment(pi, keepEntryInCache, logConsumer);
-        loadSegmentContext.stop();
+        try(UncheckedAutoCloseable ignored = getRaftLogMetrics().startLoadSegmentTimer()) {
+          cache.loadSegment(pi, keepEntryInCache, logConsumer);
+        }
       }
 
       // if the largest index is smaller than the last index in snapshot, we do
@@ -373,12 +374,12 @@ public class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
-    final Timer.Context context = getRaftLogMetrics().getRaftLogAppendEntryTimer().time();
     checkLogState();
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", getName(), LogProtoUtils.toLogEntryString(entry));
     }
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock();
+        UncheckedAutoCloseable ignored = getRaftLogMetrics().startAppendEntryTimer()) {
       validateLogEntry(entry);
       final LogSegment currentOpenSegment = cache.getOpenSegment();
       if (currentOpenSegment == null) {
@@ -417,8 +418,6 @@ public class SegmentedRaftLog extends RaftLogBase {
     } catch (Exception e) {
       LOG.error("{}: Failed to append {}", getName(), LogProtoUtils.toLogEntryString(entry), e);
       throw e;
-    } finally {
-      context.stop();
     }
   }
 
