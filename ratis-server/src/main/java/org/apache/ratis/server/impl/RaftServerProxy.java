@@ -415,14 +415,14 @@ class RaftServerProxy implements RaftServer {
       } catch (IOException ignored) {
         LOG.warn(getId() + ": Failed to close " + SupportedDataStreamType.NETTY + " server", ignored);
       }
+
+      try {
+        ConcurrentUtils.shutdownAndWait(executor);
+      } catch (Exception ignored) {
+        LOG.warn(getId() + ": Failed to shutdown executor", ignored);
+      }
     });
     pauseMonitor.stop();
-
-    try {
-      ConcurrentUtils.shutdownAndWait(executor);
-    } catch (Exception ignored) {
-      LOG.warn(getId() + ": Failed to shutdown executor", ignored);
-    }
   }
 
   @Override
