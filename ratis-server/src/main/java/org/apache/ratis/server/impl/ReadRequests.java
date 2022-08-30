@@ -17,11 +17,28 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.leader.LogAppender;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogIndex;
+import org.apache.ratis.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /** For supporting linearizable read. */
 class ReadRequests {
+  private static final Logger LOG = LoggerFactory.getLogger(ReadRequests.class);
+
   /** The acknowledgement from a {@link LogAppender} of a heartbeat for a particular call id. */
   static class HeartbeatAck {
     private final LogAppender appender;
@@ -62,5 +79,88 @@ class ReadRequests {
       // valid only if the reply has a later call id than the min.
       return appender.getCallIdComparator().compare(reply.getServerReply().getCallId(), minCallId) >= 0;
     }
+  }
+
+  static class AppendEntriesListener {
+    private final long commitIndex;
+    private final CompletableFuture<Long> future = new CompletableFuture<>();
+    private final ConcurrentHashMap<RaftPeerId, HeartbeatAck> replies = new ConcurrentHashMap<>();
+
+    AppendEntriesListener(long commitIndex) {
+      this.commitIndex = commitIndex;
+    }
+
+    void init(LogAppender appender) {
+      replies.put(appender.getFollowerId(), new HeartbeatAck(appender));
+    }
+
+    CompletableFuture<Long> getFuture() {
+      return future;
+    }
+
+    boolean receive(AppendEntriesReplyProto proto, Predicate<Predicate<RaftPeerId>> hasMajority) {
+      if (isCompletedNormally()) {
+        return true;
+      }
+      final RaftProtos.RaftRpcReplyProto rpc = proto.getServerReply();
+      final HeartbeatAck reply = replies.get(RaftPeerId.valueOf(rpc.getReplyId()));
+      if (!reply.receive(proto)) {
+        if (hasMajority.test(id -> replies.get(id).isAcknowledged())) {
+          future.complete(commitIndex);
+          return true;
+        }
+      }
+
+      return isCompletedNormally();
+    }
+
+    boolean isCompletedNormally() {
+      return future.isDone() && !future.isCancelled() && !future.isCompletedExceptionally();
+    }
+  }
+
+  class AppendEntriesListeners {
+    private final NavigableMap<Long, AppendEntriesListener> sorted = new TreeMap<>();
+
+    synchronized AppendEntriesListener add(long commitIndex, Function<Long, AppendEntriesListener> constructor) {
+      return sorted.computeIfAbsent(commitIndex, constructor);
+    }
+
+    synchronized void onAppendEntriesReply(AppendEntriesReplyProto reply,
+                                           Predicate<Predicate<RaftPeerId>> hasMajority) {
+      final long callId = reply.getServerReply().getCallId();
+      for (;;) {
+        final Map.Entry<Long, AppendEntriesListener> first = sorted.firstEntry();
+        if (first == null || first.getKey() > callId) {
+          return;
+        }
+
+        final AppendEntriesListener listener = first.getValue();
+        if (listener == null) {
+          continue;
+        }
+
+        if (listener.receive(reply, hasMajority)) {
+          final AppendEntriesListener removed = sorted.remove(callId);
+          Preconditions.assertSame(listener, removed, "AppendEntriesListener");
+          ackedCommitIndex.updateToMax(listener.commitIndex, s -> LOG.debug("{}: {}", ReadRequests.this, s));
+        }
+      }
+    }
+  }
+
+  private final AppendEntriesListeners appendEntriesListeners = new AppendEntriesListeners();
+  private final RaftLogIndex ackedCommitIndex = new RaftLogIndex("ackedCommitIndex", RaftLog.INVALID_LOG_INDEX);
+
+  AppendEntriesListener addAppendEntriesListener(long commitIndex,
+                                                 Function<Long, AppendEntriesListener> constructor) {
+    if (commitIndex <= ackedCommitIndex.get()) {
+      return null;
+    }
+    return appendEntriesListeners.add(commitIndex, constructor);
+  }
+
+  void onAppendEntriesReply(AppendEntriesReplyProto reply, Predicate<Predicate<RaftPeerId>> hasMajority) {
+    appendEntriesListeners.onAppendEntriesReply(reply, hasMajority);
   }
 }
