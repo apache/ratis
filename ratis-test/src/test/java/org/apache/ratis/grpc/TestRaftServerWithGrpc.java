@@ -26,6 +26,7 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_MEGA
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RESOURCE_LIMIT_HIT_COUNTER;
 
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
@@ -103,12 +104,13 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   }
 
   static RaftServer newRaftServer(MiniRaftClusterWithGrpc cluster, RaftPeerId id, StateMachine stateMachine,
-      RaftProperties p) throws IOException {
+      RaftStorage.StartupOption option, RaftProperties p) throws IOException {
     final RaftGroup group = cluster.getGroup();
     return RaftServer.newBuilder()
         .setServerId(id)
         .setGroup(cluster.getGroup())
         .setStateMachine(stateMachine)
+        .setOption(option)
         .setProperties(p)
         .setParameters(cluster.setPropertiesAndInitParameters(id, group, p))
         .build();
@@ -126,7 +128,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // be used by next raft server proxy instance.
     final StateMachine stateMachine = cluster.getLeader().getStateMachine();
     RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
-    newRaftServer(cluster, leaderId, stateMachine, p);
+    newRaftServer(cluster, leaderId, stateMachine, RaftStorage.StartupOption.FORMAT, p);
     // Close the server rpc for leader so that new raft server can be bound to it.
     RaftServerTestUtil.getServerRpc(cluster.getLeader()).close();
 
@@ -136,7 +138,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // the rpc server on failure.
     RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
     testFailureCase("Starting a new server with the same address should fail",
-        () -> newRaftServer(cluster, leaderId, stateMachine, p).start(),
+        () -> newRaftServer(cluster, leaderId, stateMachine, RaftStorage.StartupOption.RECOVER, p).start(),
         CompletionException.class, LOG, IOException.class, OverlappingFileLockException.class);
 
     // Try to start a raft server rpc at the leader address.
