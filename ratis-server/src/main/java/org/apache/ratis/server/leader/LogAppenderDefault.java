@@ -193,6 +193,7 @@ class LogAppenderDefault extends LogAppenderBase {
           break;
         default: throw new IllegalArgumentException("Unable to process result " + reply.getResult());
       }
+      getLeaderState().onAppendEntriesReply(getFollower(), reply);
     }
   }
 

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.leader;
 
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -61,5 +62,8 @@ public interface LeaderState {
 
   /** Check if a follower is bootstrapping. */
   boolean isFollowerBootstrapping(FollowerInfo follower);
+
+  /** Received an {@link AppendEntriesReplyProto} */
+  void onAppendEntriesReply(FollowerInfo follower, AppendEntriesReplyProto reply);
 
 }

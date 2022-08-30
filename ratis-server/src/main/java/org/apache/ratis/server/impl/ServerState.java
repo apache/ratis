@@ -72,6 +72,8 @@ class ServerState {
   private volatile Timestamp lastNoLeaderTime;
   private final TimeDuration noLeaderTimeout;
 
+  private final ReadRequests readRequests;
+
   /**
    * Latest term server has seen.
    * Initialized to 0 on first boot, increases monotonically.
@@ -128,6 +130,8 @@ class ServerState {
     this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
         stateMachine, server, this, getLog().getSnapshotIndex(), prop));
+
+    this.readRequests = new ReadRequests();
   }
 
   void initialize(StateMachine stateMachine) throws IOException {
@@ -483,5 +487,9 @@ class ServerState {
       return true;
     }
     return getLog().contains(ti);
+  }
+
+  ReadRequests getReadRequests() {
+    return readRequests;
   }
 }
