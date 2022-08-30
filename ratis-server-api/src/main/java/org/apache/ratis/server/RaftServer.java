@@ -193,7 +193,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private RaftPeerId serverId;
     private StateMachine.Registry stateMachineRegistry ;
     private RaftGroup group = null;
-    private RaftStorage.StartupOption option = RaftStorage.StartupOption.RECOVER;
+    private RaftStorage.StartupOption option = RaftStorage.StartupOption.FORMAT;
     private RaftProperties properties;
     private Parameters parameters;
 

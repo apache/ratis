@@ -85,6 +85,11 @@ public final class GroupManagementRequest extends RaftClientRequest {
     }
   }
 
+  /** The same as newAdd(clientId, serverId, callId, group, true). */
+  public static GroupManagementRequest newAdd(ClientId clientId, RaftPeerId serverId, long callId, RaftGroup group) {
+    return newAdd(clientId, serverId, callId, group, true);
+  }
+
   public static GroupManagementRequest newAdd(ClientId clientId, RaftPeerId serverId, long callId,
       RaftGroup group, boolean format) {
     return new GroupManagementRequest(clientId, serverId, callId, new Add(group, format));
