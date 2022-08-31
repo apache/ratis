@@ -20,11 +20,11 @@ package org.apache.ratis.statemachine;
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS;
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_TAKE_SNAPSHOT_TIMER;
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RATIS_SERVER_INSTALL_SNAPSHOT_COUNT;
 import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -61,7 +61,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 public abstract class RaftSnapshotBaseTest extends BaseTest {
@@ -311,8 +310,8 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   }
 
   protected void verifyInstallSnapshotMetric(RaftServer.Division leader) {
-    final Counter installSnapshotCounter = ((RaftServerMetricsImpl)leader.getRaftServerMetrics())
-        .getCounter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT);
+    final LongCounter installSnapshotCounter = ((RaftServerMetricsImpl)leader.getRaftServerMetrics())
+        .getNumInstallSnapshot();
     Assert.assertNotNull(installSnapshotCounter);
     Assert.assertTrue(installSnapshotCounter.getCount() >= 1);
   }
