@@ -27,16 +27,16 @@ import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT;
 import static org.mockito.Mockito.when;
 
-import java.util.SortedMap;
 import java.util.function.Consumer;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.apache.ratis.server.metrics.ServerMetricsTestUtils;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -109,21 +109,12 @@ public class TestGrpcServerMetrics {
     GrpcLogAppender.RequestMap pendingRequest = Mockito.mock(GrpcLogAppender.RequestMap.class);
     when(pendingRequest.logRequestsSize()).thenReturn(0);
     grpcServerMetrics.addPendingRequestsCount(raftPeerId.toString(),
-        () -> pendingRequest.logRequestsSize());
-    Assert.assertEquals(0, getGuageWithName(
-            String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT,
-                raftPeerId.toString())).getValue());
+        pendingRequest::logRequestsSize);
+    final String name = String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT, raftPeerId);
+    final Gauge gauge = ServerMetricsTestUtils.getGaugeWithName(name, grpcServerMetrics::getRegistry);
+    Assert.assertEquals(0, gauge.getValue());
     when(pendingRequest.logRequestsSize()).thenReturn(10);
-    Assert.assertEquals(10, getGuageWithName(
-            String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT,
-                raftPeerId.toString())).getValue());
-  }
-
-  private Gauge getGuageWithName(String gaugeName) {
-    SortedMap<String, Gauge> gaugeMap =
-        grpcServerMetrics.getRegistry().getGauges((s, metric) ->
-            s.contains(gaugeName));
-    return gaugeMap.get(gaugeMap.firstKey());
+    Assert.assertEquals(10, gauge.getValue());
   }
 
   @Test

@@ -18,7 +18,6 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
@@ -163,6 +162,7 @@ class SegmentedRaftLogWorker {
   private int pendingFlushNum = 0;
   /** the index of the last entry that has been written */
   private long lastWrittenIndex;
+  private volatile int flushBatchSize = 0;
   /** the largest index of the entry that has been flushed */
   private final RaftLogIndex flushIndex = new RaftLogIndex("flushIndex", 0);
   /** the index up to which cache can be evicted - max of snapshotIndex and
@@ -174,7 +174,6 @@ class SegmentedRaftLogWorker {
   private final long segmentMaxSize;
   private final long preallocatedSize;
   private final RaftServer.Division server;
-  private int flushBatchSize;
 
   private final boolean asyncFlush;
   private final boolean unsafeFlush;
@@ -203,16 +202,15 @@ class SegmentedRaftLogWorker {
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
-    this.flushBatchSize = 0;
 
     this.stateMachineDataPolicy = new StateMachineDataPolicy(properties, metricRegistry);
 
     this.workerThread = new Thread(this::run, name);
 
     // Server Id can be null in unit tests
-    metricRegistry.addDataQueueSizeGauge(queue);
-    metricRegistry.addLogWorkerQueueSizeGauge(writeTasks.q);
-    metricRegistry.addFlushBatchSizeGauge(() -> (Gauge<Integer>) () -> flushBatchSize);
+    metricRegistry.addDataQueueSizeGauge(queue::getNumElements);
+    metricRegistry.addLogWorkerQueueSizeGauge(writeTasks.q::size);
+    metricRegistry.addFlushBatchSizeGauge(() -> flushBatchSize);
     this.logFlushTimer = metricRegistry.getFlushTimer();
     this.raftLogSyncTimer = metricRegistry.getRaftLogSyncTimer();
     this.raftLogQueueingTimer = metricRegistry.getRaftLogQueueTimer();

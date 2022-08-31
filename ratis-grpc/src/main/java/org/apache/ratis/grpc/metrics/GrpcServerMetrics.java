@@ -17,13 +17,13 @@
  */
 package org.apache.ratis.grpc.metrics;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+
+import java.util.function.Supplier;
 
 public class GrpcServerMetrics extends RatisMetrics {
   private static final String RATIS_GRPC_METRICS_APP_NAME = "ratis_grpc";
@@ -89,8 +89,7 @@ public class GrpcServerMetrics extends RatisMetrics {
         follower)).inc();
   }
 
-  public void addPendingRequestsCount(String follower,
-      Gauge pendinglogQueueSize) {
+  public void addPendingRequestsCount(String follower, Supplier<Integer> pendinglogQueueSize) {
     registry.gauge(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT, follower), () -> pendinglogQueueSize);
   }
 
@@ -100,10 +99,5 @@ public class GrpcServerMetrics extends RatisMetrics {
 
   public static String getHeartbeatSuffix(boolean heartbeat) {
     return heartbeat ? "_heartbeat" : "";
-  }
-
-  @VisibleForTesting
-  public RatisMetricRegistry getRegistry() {
-    return registry;
   }
 }

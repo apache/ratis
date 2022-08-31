@@ -371,9 +371,9 @@ public class SegmentedRaftLogCache {
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
     this.raftLogMetrics = raftLogMetrics;
-    this.raftLogMetrics.addClosedSegmentsNum(this);
-    this.raftLogMetrics.addClosedSegmentsSizeInBytes(this);
-    this.raftLogMetrics.addOpenSegmentSizeInBytes(this);
+    this.raftLogMetrics.addClosedSegmentsNum(this::getCachedSegmentNum);
+    this.raftLogMetrics.addClosedSegmentsSizeInBytes(this::getClosedSegmentsSizeInBytes);
+    this.raftLogMetrics.addOpenSegmentSizeInBytes(this::getOpenSegmentSizeInBytes);
     this.maxCachedSegments = RaftServerConfigKeys.Log.segmentCacheNumMax(properties);
     this.maxSegmentCacheSize = RaftServerConfigKeys.Log.segmentCacheSizeMax(properties).getSize();
   }
@@ -391,15 +391,15 @@ public class SegmentedRaftLogCache {
     }
   }
 
-  public long getCachedSegmentNum() {
+  long getCachedSegmentNum() {
     return closedSegments.countCached();
   }
 
-  public long getClosedSegmentsSizeInBytes() {
+  long getClosedSegmentsSizeInBytes() {
     return closedSegments.getTotalFileSize();
   }
 
-  public long getOpenSegmentSizeInBytes() {
+  long getOpenSegmentSizeInBytes() {
     return openSegment == null ? 0 : openSegment.getTotalFileSize();
   }
 
