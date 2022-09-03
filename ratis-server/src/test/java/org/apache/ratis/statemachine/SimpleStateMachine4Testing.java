@@ -169,19 +169,19 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private RaftGroupId groupId;
 
   public SimpleStateMachine4Testing() {
-    checkpointer = new Daemon(() -> {
-      while (running) {
-        if (indexMap.lastKey() - endIndexLastCkpt >= SNAPSHOT_THRESHOLD) {
-          endIndexLastCkpt = takeSnapshot();
-        }
+    checkpointer = new Daemon.Builder().setRunnable(() -> {
+        while (running) {
+          if (indexMap.lastKey() - endIndexLastCkpt >= SNAPSHOT_THRESHOLD) {
+            endIndexLastCkpt = takeSnapshot();
+          }
 
-        try {
-          TimeUnit.SECONDS.sleep(1);
-        } catch (InterruptedException ignored) {
-          Thread.currentThread().interrupt();
+          try {
+            TimeUnit.SECONDS.sleep(1);
+          } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+          }
         }
-      }
-    });
+      }).build();
   }
 
   public Collecting collecting() {

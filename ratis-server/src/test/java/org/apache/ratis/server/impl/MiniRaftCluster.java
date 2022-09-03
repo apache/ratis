@@ -836,7 +836,7 @@ public abstract class MiniRaftCluster implements Closeable {
     // TODO: classes like RaftLog may throw uncaught exception during shutdown (e.g. write after close)
     ExitUtils.setTerminateOnUncaughtException(false);
 
-    final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), Daemon::new);
+    final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), (t) -> new Daemon.Builder().build());
     getServers().forEach(proxy -> executor.submit(() -> JavaUtils.runAsUnchecked(proxy::close)));
     try {
       executor.shutdown();

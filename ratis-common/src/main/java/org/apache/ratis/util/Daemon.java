@@ -29,8 +29,7 @@ public class Daemon extends Thread {
   private final AtomicReference<Throwable> throwable = new AtomicReference<>(null);
   protected ErrorRecorded statedServer;
 
-  /** Construct a daemon thread. */
-  // TODO(jiacheng): Consolidate all constructors
+  /** Construct a daemon thread with no arguments, left only for extension. */
   public Daemon() {
     super();
     setUncaughtExceptionHandler((thread, t) -> {
@@ -38,26 +37,14 @@ public class Daemon extends Thread {
     });
   }
 
-  public Daemon(String name, ErrorRecorded server) {
-    this();
-    this.setName(name);
-    this.statedServer = server;
-  }
-
-  /** Construct a daemon thread with the given runnable. */
-  public Daemon(Runnable runnable) {
-    this(runnable, runnable.toString());
-  }
-
-  /** Construct a daemon thread with the given runnable. */
-  public Daemon(Runnable runnable, String name) {
-    super(runnable);
-    this.setName(name);
-  }
-
-  public Daemon(Runnable runnable, String name, ErrorRecorded server) {
-    this(runnable, name);
-    this.statedServer = server;
+  /** Construct a daemon thread with flexible arguments. */
+  public Daemon(Builder builder) {
+    super(builder.runnable);
+    setName(builder.name);
+    this.statedServer = builder.statedServer;
+    setUncaughtExceptionHandler((thread, t) -> {
+      onError(t);
+    });
   }
 
   /**
@@ -77,5 +64,30 @@ public class Daemon extends Thread {
   @Nullable
   public Throwable getError() {
     return throwable.get();
+  }
+
+  public static class Builder {
+    private String name;
+    private Runnable runnable;
+    private ErrorRecorded statedServer;
+
+    public Builder setName(String name) {
+      this.name = name;
+      return this;
+    }
+
+    public Builder setRunnable(Runnable runnable) {
+      this.runnable = runnable;
+      return this;
+    }
+
+    public Builder setStatedServer(ErrorRecorded er) {
+      this.statedServer = er;
+      return this;
+    }
+
+    public Daemon build() {
+      return new Daemon(this);
+    }
   }
 }

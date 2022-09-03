@@ -59,7 +59,7 @@ class SimulatedServerRpc implements RaftServerRpc {
   private final RaftServer server;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
-  private final ExecutorService executor = Executors.newFixedThreadPool(3, Daemon::new);
+  private final ExecutorService executor = Executors.newFixedThreadPool(3, (t) -> new Daemon.Builder().build());
 
   SimulatedServerRpc(RaftServer server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,

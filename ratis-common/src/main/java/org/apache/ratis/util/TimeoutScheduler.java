@@ -84,7 +84,8 @@ public final class TimeoutScheduler implements TimeoutExecutor {
 
     private static ScheduledThreadPoolExecutor newExecutor() {
       LOG.debug("new ScheduledThreadPoolExecutor");
-      final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1, (ThreadFactory) Daemon::new);
+      final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1,
+          (ThreadFactory) -> new Daemon.Builder().build());
       e.setRemoveOnCancelPolicy(true);
       return e;
     }
