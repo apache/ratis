@@ -21,9 +21,6 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_STALE_READ_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WATCH_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WRITE_REQUEST;
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_QUEUE_LIMIT_HIT_COUNTER;
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER;
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RESOURCE_LIMIT_HIT_COUNTER;
 
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.log4j.Level;
@@ -257,7 +254,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
       // Because we have passed 11 requests, and the element queue size is 10.
       RaftTestUtil.waitFor(() -> getRaftServerMetrics(cluster.getLeader())
-          .getCounter(REQUEST_QUEUE_LIMIT_HIT_COUNTER).getCount() == 1, 300, 5000);
+          .getNumRequestQueueLimitHits().getCount() == 1, 300, 5000);
 
       stateMachine.unblockFlushStateMachineData();
 
@@ -272,10 +269,10 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       clients.add(client);
 
       RaftTestUtil.waitFor(() -> getRaftServerMetrics(cluster.getLeader())
-              .getCounter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER).getCount() == 1, 300, 5000);
+          .getNumRequestsByteSizeLimitHits().getCount() == 1, 300, 5000);
 
       Assert.assertEquals(2, getRaftServerMetrics(cluster.getLeader())
-              .getCounter(RESOURCE_LIMIT_HIT_COUNTER).getCount());
+          .getNumResourceLimitHits().getCount());
     } finally {
       for (RaftClient client : clients) {
         client.close();

@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
@@ -67,8 +66,8 @@ public abstract class TestRatisServerMetricsBase<CLUSTER extends MiniRaftCluster
         .setType(RaftClientRequest.staleReadRequestType(Long.MAX_VALUE))
         .build();
     final CompletableFuture<RaftClientReply> f = leaderImpl.getRaftServer().submitClientRequestAsync(r);
-    Assert.assertTrue(!f.get().isSuccess());
+    Assert.assertFalse(f.get().isSuccess());
     assertEquals(1L, ((RaftServerMetricsImpl)leaderImpl.getRaftServerMetrics())
-        .getCounter(RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT).getCount());
+        .getNumFailedClientStaleRead().getCount());
   }
 }

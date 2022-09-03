@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
+import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 import org.apache.ratis.metrics.MetricRegistryInfo;
@@ -54,9 +54,11 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   public static final String RAFT_CLIENT_STALE_READ_REQUEST = "clientStaleReadRequest";
   public static final String RAFT_CLIENT_WRITE_REQUEST = "clientWriteRequest";
   public static final String RAFT_CLIENT_WATCH_REQUEST = "clientWatch%sRequest";
+
   public static final String REQUEST_QUEUE_LIMIT_HIT_COUNTER = "numRequestQueueLimitHits";
-  public static final String RESOURCE_LIMIT_HIT_COUNTER = "leaderNumResourceLimitHits";
   public static final String REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER = "numRequestsByteSizeLimitHits";
+  public static final String RESOURCE_LIMIT_HIT_COUNTER = "numResourceLimitHits";
+
   public static final String REQUEST_QUEUE_SIZE = "numPendingRequestInQueue";
   public static final String REQUEST_MEGA_BYTE_SIZE = "numPendingRequestMegaByteSize";
   public static final String RETRY_CACHE_ENTRY_COUNT_METRIC = "retryCacheEntryCount";
@@ -64,17 +66,25 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   public static final String RETRY_CACHE_HIT_RATE_METRIC = "retryCacheHitRate";
   public static final String RETRY_CACHE_MISS_COUNT_METRIC = "retryCacheMissCount";
   public static final String RETRY_CACHE_MISS_RATE_METRIC = "retryCacheMissRate";
-  public static final String RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT =
-      "numFailedClientStaleReadOnServer";
-  public static final String RATIS_SERVER_FAILED_CLIENT_READ_COUNT =
-      "numFailedClientReadOnServer";
-  public static final String RATIS_SERVER_FAILED_CLIENT_WRITE_COUNT =
-      "numFailedClientWriteOnServer";
-  public static final String RATIS_SERVER_FAILED_CLIENT_WATCH_COUNT =
-      "numFailedClientWatchOnServer";
-  public static final String RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT =
-      "numFailedClientStreamOnServer";
+
+  public static final String RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT = "numFailedClientStaleReadOnServer";
+  public static final String RATIS_SERVER_FAILED_CLIENT_READ_COUNT       = "numFailedClientReadOnServer";
+  public static final String RATIS_SERVER_FAILED_CLIENT_WRITE_COUNT      = "numFailedClientWriteOnServer";
+  public static final String RATIS_SERVER_FAILED_CLIENT_WATCH_COUNT      = "numFailedClientWatchOnServer";
+  public static final String RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT     = "numFailedClientStreamOnServer";
   public static final String RATIS_SERVER_INSTALL_SNAPSHOT_COUNT = "numInstallSnapshot";
+
+  private final LongCounter numRequestQueueLimitHits;
+  private final LongCounter numRequestsByteSizeLimitHits;
+  private final LongCounter numResourceLimitHits;
+
+  private final LongCounter numFailedClientStaleRead;
+  private final LongCounter numFailedClientRead;
+  private final LongCounter numFailedClientWrite;
+  private final LongCounter numFailedClientWatch;
+  private final LongCounter numFailedClientStream;
+
+  private final LongCounter numInstallSnapshot;
 
   /** Follower Id -> heartbeat elapsed */
   private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
@@ -106,8 +116,41 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
       Supplier<RetryCache.Statistics> retryCacheStatistics) {
     this.registry = getMetricRegistryForRaftServer(serverId.toString());
     this.commitInfoCache = commitInfoCache;
+
+    numRequestQueueLimitHits = registry.counter(REQUEST_QUEUE_LIMIT_HIT_COUNTER);
+    numRequestsByteSizeLimitHits = registry.counter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER);
+    numResourceLimitHits = registry.counter(RESOURCE_LIMIT_HIT_COUNTER);
+
+    numFailedClientStaleRead = registry.counter(RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT);
+    numFailedClientRead      = registry.counter(RATIS_SERVER_FAILED_CLIENT_READ_COUNT);
+    numFailedClientWrite     = registry.counter(RATIS_SERVER_FAILED_CLIENT_WRITE_COUNT);
+    numFailedClientWatch     = registry.counter(RATIS_SERVER_FAILED_CLIENT_WATCH_COUNT);
+    numFailedClientStream    = registry.counter(RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT);
+
+    numInstallSnapshot = registry.counter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT);
+
     addPeerCommitIndexGauge(serverId.getPeerId());
     addRetryCacheMetric(retryCacheStatistics);
+  }
+
+  public LongCounter getNumRequestQueueLimitHits() {
+    return numRequestQueueLimitHits;
+  }
+
+  public LongCounter getNumRequestsByteSizeLimitHits() {
+    return numRequestsByteSizeLimitHits;
+  }
+
+  public LongCounter getNumResourceLimitHits() {
+    return numResourceLimitHits;
+  }
+
+  public LongCounter getNumFailedClientStaleRead() {
+    return numFailedClientStaleRead;
+  }
+
+  public LongCounter getNumInstallSnapshot() {
+    return numInstallSnapshot;
   }
 
   private RatisMetricRegistry getMetricRegistryForRaftServer(String serverId) {
@@ -171,10 +214,6 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
     return registry.timer(timerName);
   }
 
-  public Counter getCounter(String counterName) {
-    return registry.counter(counterName);
-  }
-
   public Timer getClientRequestTimer(Type request) {
     if (request.is(TypeCase.READ)) {
       return getTimer(RAFT_CLIENT_READ_REQUEST);
@@ -190,7 +229,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   public void onRequestQueueLimitHit() {
-    registry.counter(REQUEST_QUEUE_LIMIT_HIT_COUNTER).inc();
+    numRequestQueueLimitHits.inc();
   }
 
   public void addNumPendingRequestsGauge(Supplier<Integer> queueSize) {
@@ -210,31 +249,31 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   public void onRequestByteSizeLimitHit() {
-    registry.counter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER).inc();
+    numRequestsByteSizeLimitHits.inc();
   }
 
   public void onResourceLimitHit() {
-    registry.counter(RESOURCE_LIMIT_HIT_COUNTER).inc();
+    numResourceLimitHits.inc();
   }
 
   void onFailedClientStaleRead() {
-    registry.counter(RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT).inc();
+    numFailedClientStaleRead.inc();
   }
 
   void onFailedClientRead() {
-    registry.counter(RATIS_SERVER_FAILED_CLIENT_READ_COUNT).inc();
+    numFailedClientRead.inc();
   }
 
   void onFailedClientWatch() {
-    registry.counter(RATIS_SERVER_FAILED_CLIENT_WATCH_COUNT).inc();
+    numFailedClientWatch.inc();
   }
 
   void onFailedClientWrite() {
-    registry.counter(RATIS_SERVER_FAILED_CLIENT_WRITE_COUNT).inc();
+    numFailedClientWrite.inc();
   }
 
   void onFailedClientStream() {
-    registry.counter(RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT).inc();
+    numFailedClientStream.inc();
   }
 
   public void incFailedRequestCount(Type type) {
@@ -253,7 +292,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
 
   @Override
   public void onSnapshotInstalled() {
-    registry.counter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT).inc();
+    numInstallSnapshot.inc();
   }
 
   public RatisMetricRegistry getRegistry() {
