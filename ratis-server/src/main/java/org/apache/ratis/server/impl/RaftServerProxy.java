@@ -392,7 +392,6 @@ class RaftServerProxy implements RaftServer {
 
   @Override
   public LifeCycle.State getLifeCycleState() {
-    // TODO(jiacheng): How do i expose the exception from here?
     return lifeCycle.getCurrentState();
   }
 

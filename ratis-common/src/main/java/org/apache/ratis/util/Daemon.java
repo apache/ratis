@@ -17,9 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -64,7 +61,8 @@ public class Daemon extends Thread {
   }
 
   /**
-   * Handles the uncaught error on thread crashing.
+   * This will be invoked on uncaught exceptions.
+   * Necessary bookkeeping or graceful exit logics should be put here.
    *
    * @param t the crashing error
    */
@@ -73,12 +71,7 @@ public class Daemon extends Thread {
     if (statedServer != null) {
       // Rely on the server to log
       statedServer.setError(t);
-      // TODO(jiacheng): Transition the server state to ERROR
     }
-
-    // TODO(jiacheng): should i set the lifecycle to close and exit? or it is possible to recover?
-    //  Do a RaftServer state transition in a heartbeat thread
-    // TODO(jiacheng): what if this thread is created in a threadpool?
   }
 
   @Nullable

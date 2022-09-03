@@ -58,7 +58,6 @@ public interface DivisionInfo {
    */
   RaftPeerId getLeaderId();
 
-  // TODO(jiacheng): How is this lifecycle mapped to RaftServer lifecycle? See RaftServerProxy
   /** @return the life cycle state of this server division. */
   LifeCycle.State getLifeCycleState();
 

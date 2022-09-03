@@ -138,7 +138,6 @@ class LeaderElection implements Runnable {
 
     Executor(Object name, int size) {
       Preconditions.assertTrue(size > 0);
-      // TODO(jiacheng): intentionally ignoring the server ref here? Why?
       executor = Executors.newFixedThreadPool(size, r -> new Daemon(r, name + "-" + count.incrementAndGet()));
       service = new ExecutorCompletionService<>(executor);
     }
@@ -282,7 +281,6 @@ class LeaderElection implements Runnable {
       r = new ResultAndTerm(Result.PASSED, electionTerm);
     } else {
       final TermIndex lastEntry = server.getState().getLastEntry();
-      // TODO(jiacheng): The daemon can actually have the server ref here! Do we want that?
       final Executor voteExecutor = new Executor(this, others.size());
       try {
         final int submitted = submitRequests(phase, electionTerm, lastEntry, others, voteExecutor);
