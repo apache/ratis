@@ -22,11 +22,12 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.Stated;
 
 /**
  * Information of a raft server division.
  */
-public interface DivisionInfo {
+public interface DivisionInfo extends Stated {
   /** @return the current role of this server division. */
   RaftPeerRole getCurrentRole();
 
@@ -58,6 +59,7 @@ public interface DivisionInfo {
    */
   RaftPeerId getLeaderId();
 
+  // TODO(jiacheng): How is this lifecycle mapped to RaftServer lifecycle? See RaftServerProxy
   /** @return the life cycle state of this server division. */
   LifeCycle.State getLifeCycleState();
 

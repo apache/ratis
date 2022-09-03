@@ -65,6 +65,7 @@ class FollowerState extends Daemon {
   private final AtomicInteger outstandingOp = new AtomicInteger();
 
   FollowerState(RaftServerImpl server, Object reason) {
+    // implicitly calling super() here
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.setName(this.name);
     this.server = server;
