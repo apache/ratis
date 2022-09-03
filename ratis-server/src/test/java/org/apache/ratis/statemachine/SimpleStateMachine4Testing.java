@@ -170,18 +170,18 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   public SimpleStateMachine4Testing() {
     checkpointer = new Daemon.Builder().setRunnable(() -> {
-        while (running) {
-          if (indexMap.lastKey() - endIndexLastCkpt >= SNAPSHOT_THRESHOLD) {
-            endIndexLastCkpt = takeSnapshot();
-          }
-
-          try {
-            TimeUnit.SECONDS.sleep(1);
-          } catch (InterruptedException ignored) {
-            Thread.currentThread().interrupt();
-          }
+      while (running) {
+        if (indexMap.lastKey() - endIndexLastCkpt >= SNAPSHOT_THRESHOLD) {
+          endIndexLastCkpt = takeSnapshot();
         }
-      }).build();
+
+        try {
+          TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException ignored) {
+          Thread.currentThread().interrupt();
+        }
+      }
+    }).build();
   }
 
   public Collecting collecting() {
