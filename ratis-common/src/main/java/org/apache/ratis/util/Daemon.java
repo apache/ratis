@@ -27,12 +27,10 @@ public class Daemon extends Thread {
   {
     setDaemon(true);
   }
-  // TODO(jiacheng): Ideally, use the logger from the thread class itself
-  static final Logger LOG = LoggerFactory.getLogger(Daemon.class);
 
   /** If the thread meets an uncaught exception, this field will be set. */
   private final AtomicReference<Throwable> throwable = new AtomicReference<>(null);
-  protected Stated statedServer;
+  protected ErrorRecorded statedServer;
 
   /** Construct a daemon thread. */
   // TODO(jiacheng): Consolidate all constructors
@@ -43,7 +41,7 @@ public class Daemon extends Thread {
     });
   }
 
-  public Daemon(String name, Stated server) {
+  public Daemon(String name, ErrorRecorded server) {
     this();
     this.setName(name);
     this.statedServer = server;
@@ -60,7 +58,7 @@ public class Daemon extends Thread {
     this.setName(name);
   }
 
-  public Daemon(Runnable runnable, String name, Stated server) {
+  public Daemon(Runnable runnable, String name, ErrorRecorded server) {
     this(runnable, name);
     this.statedServer = server;
   }
@@ -73,8 +71,7 @@ public class Daemon extends Thread {
   public void onError(Throwable t) {
     throwable.set(t);
     if (statedServer != null) {
-      LOG.error("Daemon thread {} exiting due to an uncaught exception, marking RaftServer {} state to ERROR",
-              getName(), statedServer, t);
+      // Rely on the server to log
       statedServer.setError(t);
       // TODO(jiacheng): Transition the server state to ERROR
     }

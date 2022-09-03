@@ -64,12 +64,12 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.*;
 
+import javax.annotation.Nullable;
 import javax.management.ObjectName;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.*;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -98,13 +98,30 @@ import org.apache.ratis.util.function.CheckedSupplier;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
-    RaftClientProtocol, RaftClientAsynchronousProtocol, Stated {
+    RaftClientProtocol, RaftClientAsynchronousProtocol, ErrorRecorded {
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
+
+  private Throwable throwable;
+
+  @Override
+  public void setError(Throwable t) {
+    throwable = t;
+    LOG.error("Server transitioning to EXCEPTION state due to", t);
+    // TODO(jiacheng): will the server keep serving or just die itself?
+    //  What is the cleanup I should consider?
+    lifeCycle.transition(LifeCycle.State.EXCEPTION);
+  }
+
+  @Nullable
+  @Override
+  public Throwable getError() {
+    return throwable;
+  }
 
   class Info implements DivisionInfo {
     @Override

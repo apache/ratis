@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.leader;
 
-import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
@@ -26,7 +25,7 @@ import java.io.InterruptedIOException;
 import java.util.function.UnaryOperator;
 
 import org.apache.ratis.util.LifeCycle.State;
-import org.apache.ratis.util.Stated;
+import org.apache.ratis.util.ErrorRecorded;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +45,7 @@ class LogAppenderDaemon {
 
   private final LogAppender logAppender;
 
-  LogAppenderDaemon(LogAppender logAppender, Stated server) {
+  LogAppenderDaemon(LogAppender logAppender, ErrorRecorded server) {
     this.logAppender = logAppender;
     this.name = logAppender + "-" + JavaUtils.getClassSimpleName(getClass());
     this.lifeCycle = new LifeCycle(name);

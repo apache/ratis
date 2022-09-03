@@ -34,7 +34,7 @@ import org.apache.ratis.thirdparty.com.google.common.collect.Iterables;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ReflectionUtils;
-import org.apache.ratis.util.Stated;
+import org.apache.ratis.util.ErrorRecorded;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,11 +50,11 @@ import java.util.Optional;
 public interface RaftServer extends Closeable, RpcType.Get,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol,
-    AdminProtocol, AdminAsynchronousProtocol, Stated {
+    AdminProtocol, AdminAsynchronousProtocol, ErrorRecorded {
   Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
   /** A division of a {@link RaftServer} for a particular {@link RaftGroup}. */
-  interface Division extends Closeable, Stated {
+  interface Division extends Closeable, ErrorRecorded {
     Logger LOG = LoggerFactory.getLogger(Division.class);
 
     /** @return the {@link DivisionProperties} for this division. */

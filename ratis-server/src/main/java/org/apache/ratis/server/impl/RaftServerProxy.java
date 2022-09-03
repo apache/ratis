@@ -51,6 +51,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 
+import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -70,6 +71,23 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class RaftServerProxy implements RaftServer {
+  private Throwable throwable;
+
+  @Override
+  public void setError(Throwable t) {
+    throwable = t;
+    LOG.error("Server transitioning to EXCEPTION state due to", t);
+    // TODO(jiacheng): will the server keep serving or just die itself?
+    //  What is the cleanup I should consider?
+    lifeCycle.transition(LifeCycle.State.EXCEPTION);
+  }
+
+  @Nullable
+  @Override
+  public Throwable getError() {
+    return throwable;
+  }
+
   /**
    * A map: {@link RaftGroupId} -> {@link RaftServerImpl} futures.
    *
@@ -408,6 +426,7 @@ class RaftServerProxy implements RaftServer {
       try {
         getServerRpc().close();
       } catch(IOException ignored) {
+        // TODO(jiacheng): transition state to EXCEPTION here?
         LOG.warn(getId() + ": Failed to close " + getRpcType() + " server", ignored);
       }
 
