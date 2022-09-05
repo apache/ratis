@@ -1097,7 +1097,6 @@ class LeaderStateImpl implements LeaderState {
 
     if (supplier.isInitialized()) {
       senders.forEach(sender -> {
-        listener.init(sender);
         try {
           sender.triggerHeartbeat();
         } catch (IOException e) {
@@ -1110,8 +1109,9 @@ class LeaderStateImpl implements LeaderState {
   }
 
   @Override
-  public void onAppendEntriesReply(FollowerInfo follower, RaftProtos.AppendEntriesReplyProto reply) {
-    server.getState().getReadRequests().onAppendEntriesReply(reply, this::hasMajority);
+  public void onAppendEntriesReply(LogAppender appender, FollowerInfo follower,
+                                   RaftProtos.AppendEntriesReplyProto reply) {
+    server.getState().getReadRequests().onAppendEntriesReply(appender, reply, this::hasMajority);
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {

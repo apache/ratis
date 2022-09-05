@@ -86,9 +86,12 @@ class StateMachineUpdater implements Runnable {
   private final SnapshotRetentionPolicy snapshotRetentionPolicy;
   private StateMachineMetrics stateMachineMetrics = null;
 
+  private final Consumer<Long> appliedIndexConsumer;
+
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
-      ServerState serverState, long lastAppliedIndex, RaftProperties properties) {
+      ServerState serverState, long lastAppliedIndex, RaftProperties properties, Consumer<Long> appliedIndexConsumer) {
     this.name = serverState.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
+    this.appliedIndexConsumer = appliedIndexConsumer;
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
     this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
 
@@ -118,6 +121,7 @@ class StateMachineUpdater implements Runnable {
     //wait for RaftServerImpl and ServerState constructors to complete
     initializeMetrics();
     updater.start();
+    notifyAppliedIndex(appliedIndex.get());
   }
 
   private void initializeMetrics() {
@@ -220,6 +224,7 @@ class StateMachineUpdater implements Runnable {
     final long i = snapshot.getIndex();
     snapshotIndex.setUnconditionally(i, infoIndexChange);
     appliedIndex.setUnconditionally(i, infoIndexChange);
+    notifyAppliedIndex(i);
     state = State.RUNNING;
   }
 
@@ -237,11 +242,12 @@ class StateMachineUpdater implements Runnable {
         }
 
         final CompletableFuture<Message> f = server.applyLogToStateMachine(next);
-        if (f != null) {
-          futures.get().add(f);
-        }
         final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
         Preconditions.assertTrue(incremented == nextIndex);
+        if (f != null) {
+          futures.get().add(f);
+          f.thenAccept(m -> notifyAppliedIndex(incremented));
+        }
       } else {
         LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
             this, nextIndex, state);
@@ -320,6 +326,10 @@ class StateMachineUpdater implements Runnable {
 
   private long getLastAppliedIndex() {
     return appliedIndex.get();
+  }
+
+  private void notifyAppliedIndex(long index) {
+    appliedIndexConsumer.accept(index);
   }
 
   long getStateMachineLastAppliedIndex() {
