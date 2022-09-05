@@ -36,7 +36,6 @@ public class TestTimeoutScheduler extends BaseTest {
 
     @Override
     public void accept(RuntimeException e) {
-      System.out.println("Error in ErrorHandler" + e);
       hasError.set(true);
       TimeoutScheduler.LOG.error("Failed", e);
     }
