@@ -110,7 +110,7 @@ class StateMachineUpdater implements Runnable {
     };
     this.purgeUptoSnapshotIndex = RaftServerConfigKeys.Log.purgeUptoSnapshotIndex(properties);
 
-    updater = new Daemon.Builder().setName(name).setRunnable(this).setStatedServer(server).build();
+    updater = new Daemon.Builder(name).setRunnable(this).setStatedServer(server).build();
     this.awaitForSignal = new AwaitForSignal(name);
   }
 

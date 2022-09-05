@@ -51,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 class SimulatedServerRpc implements RaftServerRpc {
@@ -59,8 +60,10 @@ class SimulatedServerRpc implements RaftServerRpc {
   private final RaftServer server;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
+
+  AtomicInteger count = new AtomicInteger(0);
   private final ExecutorService executor = Executors.newFixedThreadPool(3, (t) ->
-      new Daemon.Builder().setName("SimulatedServerRpc-%d").build());
+      new Daemon.Builder("SimulatedServerRpc-" + count.incrementAndGet()).build());
 
   SimulatedServerRpc(RaftServer server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,

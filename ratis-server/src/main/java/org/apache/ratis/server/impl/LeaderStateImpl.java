@@ -621,7 +621,7 @@ class LeaderStateImpl implements LeaderState {
    */
   private class EventProcessor extends Daemon {
     public EventProcessor(String name) {
-      super(new Builder().setName(name).setStatedServer(server));
+      super(new Builder(name).setStatedServer(server));
     }
     @Override
     public void run() {

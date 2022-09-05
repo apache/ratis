@@ -169,7 +169,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private RaftGroupId groupId;
 
   public SimpleStateMachine4Testing() {
-    checkpointer = new Daemon.Builder().setName(getClass().getSimpleName()).setRunnable(() -> {
+    checkpointer = new Daemon.Builder("SimpleStateMachine4Testing").setRunnable(() -> {
       while (running) {
         if (indexMap.lastKey() - endIndexLastCkpt >= SNAPSHOT_THRESHOLD) {
           endIndexLastCkpt = takeSnapshot();

@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -84,8 +85,9 @@ public final class TimeoutScheduler implements TimeoutExecutor {
 
     private static ScheduledThreadPoolExecutor newExecutor() {
       LOG.debug("new ScheduledThreadPoolExecutor");
+      AtomicInteger count = new AtomicInteger(0);
       final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1,
-          (ThreadFactory) -> new Daemon.Builder().setName("TimeoutScheduler-%d").build());
+          (ThreadFactory) -> new Daemon.Builder("TimeoutScheduler-" + count.incrementAndGet()).build());
       e.setRemoveOnCancelPolicy(true);
       return e;
     }

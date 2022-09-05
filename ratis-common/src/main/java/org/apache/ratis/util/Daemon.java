@@ -67,13 +67,12 @@ public class Daemon extends Thread {
   }
 
   public static class Builder {
-    private String name;
+    private final String name;
     private Runnable runnable;
     private ErrorRecorded statedServer;
 
-    public Builder setName(String name) {
+    public Builder(String name) {
       this.name = name;
-      return this;
     }
 
     public Builder setRunnable(Runnable runnable) {
