@@ -71,11 +71,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class RaftServerProxy implements RaftServer {
-  private Throwable throwable;
+  private Throwable error;
 
   @Override
   public void setError(Throwable t) {
-    throwable = t;
+    this.error = t;
     LOG.error("Server transitioning to EXCEPTION state due to", t);
     // TODO(jiacheng): will the server keep serving or just die itself?
     //  What is the cleanup I should consider?
@@ -85,7 +85,7 @@ class RaftServerProxy implements RaftServer {
   @Nullable
   @Override
   public Throwable getError() {
-    return throwable;
+    return error;
   }
 
   /**

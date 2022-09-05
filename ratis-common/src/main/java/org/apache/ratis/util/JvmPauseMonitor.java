@@ -138,7 +138,7 @@ public class JvmPauseMonitor {
   /** Start this monitor. */
   public void start() {
     final MemoizedSupplier<Thread> supplier = JavaUtils.memoize(() ->
-        new Daemon.Builder().setRunnable(this::run).build());
+        new Daemon.Builder().setName("JvmPauseMonitor").setRunnable(this::run).build());
     Optional.of(threadRef.updateAndGet(previous -> Optional.ofNullable(previous).orElseGet(supplier)))
         .filter(t -> supplier.isInitialized())
         .ifPresent(Thread::start);

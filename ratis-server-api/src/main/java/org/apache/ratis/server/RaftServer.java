@@ -54,7 +54,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
   Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
   /** A division of a {@link RaftServer} for a particular {@link RaftGroup}. */
-  interface Division extends Closeable {
+  interface Division extends Closeable, ErrorRecorded {
     Logger LOG = LoggerFactory.getLogger(Division.class);
 
     /** @return the {@link DivisionProperties} for this division. */

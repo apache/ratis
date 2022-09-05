@@ -27,7 +27,7 @@ public class Daemon extends Thread {
 
   /** If the thread meets an uncaught exception, this field will be set. */
   private final AtomicReference<Throwable> throwable = new AtomicReference<>(null);
-  protected ErrorRecorded statedServer;
+  private ErrorRecorded statedServer;
 
   /** Construct a daemon thread with no arguments, left only for extension. */
   public Daemon() {
