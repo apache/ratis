@@ -28,7 +28,6 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.MemoizedSupplier;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
@@ -105,12 +104,14 @@ class ReadRequests {
       return future;
     }
 
-    boolean receive(LogAppender logAppender, AppendEntriesReplyProto proto, Predicate<Predicate<RaftPeerId>> hasMajority) {
+    boolean receive(LogAppender logAppender, AppendEntriesReplyProto proto,
+                    Predicate<Predicate<RaftPeerId>> hasMajority) {
       if (isCompletedNormally()) {
         return true;
       }
 
-      final HeartbeatAck reply = replies.computeIfAbsent(logAppender.getFollowerId(), key -> new HeartbeatAck(logAppender));
+      final HeartbeatAck reply = replies.computeIfAbsent(
+          logAppender.getFollowerId(), key -> new HeartbeatAck(logAppender));
       if (reply.receive(proto)) {
         if (hasMajority.test(id -> replies.get(id).isAcknowledged())) {
           future.complete(commitIndex);

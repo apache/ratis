@@ -930,7 +930,7 @@ class RaftServerImpl implements RaftServer.Division,
       return leader.getReadIndex()
           .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
           .thenCompose(readIndex -> queryStateMachine(request))
-          .exceptionally(e -> readOnlyException2Reply(request, e));
+          .exceptionally(e -> readException2Reply(request, e));
     } else if (readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       return queryStateMachine(request);
     } else {
@@ -938,7 +938,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  private RaftClientReply readOnlyException2Reply(RaftClientRequest request, Throwable e) {
+  private RaftClientReply readException2Reply(RaftClientRequest request, Throwable e) {
     e = JavaUtils.unwrapCompletionException(e);
     if (e instanceof StateMachineException ) {
       return newExceptionReply(request, (StateMachineException) e);
