@@ -63,7 +63,7 @@ class SimulatedServerRpc implements RaftServerRpc {
 
   AtomicInteger count = new AtomicInteger(0);
   private final ExecutorService executor = Executors.newFixedThreadPool(3, (t) ->
-      new Daemon.Builder("SimulatedServerRpc-" + count.incrementAndGet()).build());
+      new Daemon.Builder("SimulatedServerRpc-" + count.incrementAndGet()).setRunnable(t).build());
 
   SimulatedServerRpc(RaftServer server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
