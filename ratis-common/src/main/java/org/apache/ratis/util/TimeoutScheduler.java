@@ -87,7 +87,8 @@ public final class TimeoutScheduler implements TimeoutExecutor {
       LOG.debug("new ScheduledThreadPoolExecutor");
       AtomicInteger count = new AtomicInteger(0);
       final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1,
-          (ThreadFactory) -> new Daemon.Builder("TimeoutScheduler-" + count.incrementAndGet()).build());
+          (runnable) ->
+              new Daemon.Builder("TimeoutScheduler-" + count.getAndIncrement()).setRunnable(runnable).build());
       e.setRemoveOnCancelPolicy(true);
       return e;
     }
