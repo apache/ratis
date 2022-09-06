@@ -23,7 +23,7 @@ import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT;
-import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUESTS_TOTAL;
+import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUESTS_COUNT;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT;
 import static org.mockito.Mockito.when;
 
@@ -88,11 +88,11 @@ public class TestGrpcServerMetrics {
   public void testGrpcLogRequestTotal() {
     for (boolean heartbeat : new boolean[] { true, false }) {
       long reqTotal = ratisMetricRegistry.counter(
-          RATIS_GRPC_METRICS_REQUESTS_TOTAL + GrpcServerMetrics
+          RATIS_GRPC_METRICS_REQUESTS_COUNT + GrpcServerMetrics
               .getHeartbeatSuffix(heartbeat)).getCount();
       grpcServerMetrics.onRequestCreate(heartbeat);
       Assert.assertEquals(reqTotal + 1, ratisMetricRegistry.counter(
-          RATIS_GRPC_METRICS_REQUESTS_TOTAL + GrpcServerMetrics
+          RATIS_GRPC_METRICS_REQUESTS_COUNT + GrpcServerMetrics
               .getHeartbeatSuffix(heartbeat)).getCount());
     }
   }

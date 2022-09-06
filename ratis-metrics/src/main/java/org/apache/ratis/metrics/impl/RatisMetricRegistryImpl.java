@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.metrics.impl;
 
+import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.thirdparty.com.codahale.metrics.ConsoleReporter;
@@ -57,9 +58,28 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     return metricRegistry.timer(getMetricName(name));
   }
 
+  static LongCounter toLongCounter(Counter c) {
+    return new LongCounter() {
+      @Override
+      public void inc(long n) {
+        c.inc(n);
+      }
+
+      @Override
+      public void dec(long n) {
+        c.dec(n);
+      }
+
+      @Override
+      public long getCount() {
+        return c.getCount();
+      }
+    };
+  }
+
   @Override
-  public Counter counter(String name) {
-    return metricRegistry.counter(getMetricName(name));
+  public LongCounter counter(String name) {
+    return toLongCounter(metricRegistry.counter(getMetricName(name)));
   }
 
   @Override
@@ -82,10 +102,6 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
 
   public SortedMap<String, Gauge> getGauges(MetricFilter filter) {
     return metricRegistry.getGauges(filter);
-  }
-
-  @Override public Counter counter(String name, MetricRegistry.MetricSupplier<Counter> supplier) {
-    return metricRegistry.counter(getMetricName(name), supplier);
   }
 
   @Override public Histogram histogram(String name) {

@@ -18,7 +18,6 @@
 package org.apache.ratis.metrics;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.ConsoleReporter;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Histogram;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Meter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Metric;
@@ -33,15 +32,13 @@ import java.util.function.Supplier;
 public interface RatisMetricRegistry {
   Timer timer(String name);
 
-  Counter counter(String name);
+  LongCounter counter(String name);
 
   boolean remove(String name);
 
   <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier);
 
   Timer timer(String name, MetricRegistry.MetricSupplier<Timer> supplier);
-
-  Counter counter(String name, MetricRegistry.MetricSupplier<Counter> supplier);
 
   Histogram histogram(String name);
 
