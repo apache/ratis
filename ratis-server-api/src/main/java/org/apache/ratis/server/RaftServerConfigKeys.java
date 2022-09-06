@@ -157,6 +157,38 @@ public interface RaftServerConfigKeys {
     }
   }
 
+  interface Read {
+    String PREFIX = RaftServerConfigKeys.PREFIX
+        + "." + JavaUtils.getClassSimpleName(Read.class).toLowerCase();
+
+    String TIMEOUT_KEY = PREFIX + ".timeout";
+    TimeDuration TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+    static TimeDuration timeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(TIMEOUT_DEFAULT.getUnit()),
+          TIMEOUT_KEY, TIMEOUT_DEFAULT, getDefaultLog(), requirePositive());
+    }
+    static void setTimeout(RaftProperties properties, TimeDuration readOnlyTimeout) {
+      setTimeDuration(properties::setTimeDuration, TIMEOUT_KEY, readOnlyTimeout);
+    }
+
+    enum Option {
+      /** Directly query statemachine. Efficient but may undermine linearizability */
+      DEFAULT,
+
+      /** Use ReadIndex (see Raft Paper section 6.4). Maintains linearizability */
+      LINEARIZABLE
+    }
+
+    String OPTION_KEY = ".option";
+    Option OPTION_DEFAULT = Option.DEFAULT;
+    static Option option(RaftProperties properties) {
+      return get(properties::getEnum, OPTION_KEY, OPTION_DEFAULT, getDefaultLog());
+    }
+    static void setOption(RaftProperties properties, Option option) {
+      set(properties::setEnum, OPTION_KEY, option);
+    }
+  }
+
   interface Write {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".write";
 

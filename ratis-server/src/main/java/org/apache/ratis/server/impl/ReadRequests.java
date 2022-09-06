@@ -17,21 +17,31 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.ReadException;
+import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -90,21 +100,19 @@ class ReadRequests {
       this.commitIndex = commitIndex;
     }
 
-    void init(LogAppender appender) {
-      replies.put(appender.getFollowerId(), new HeartbeatAck(appender));
-    }
-
     CompletableFuture<Long> getFuture() {
       return future;
     }
 
-    boolean receive(AppendEntriesReplyProto proto, Predicate<Predicate<RaftPeerId>> hasMajority) {
+    boolean receive(LogAppender logAppender, AppendEntriesReplyProto proto,
+                    Predicate<Predicate<RaftPeerId>> hasMajority) {
       if (isCompletedNormally()) {
         return true;
       }
-      final RaftProtos.RaftRpcReplyProto rpc = proto.getServerReply();
-      final HeartbeatAck reply = replies.get(RaftPeerId.valueOf(rpc.getReplyId()));
-      if (!reply.receive(proto)) {
+
+      final HeartbeatAck reply = replies.computeIfAbsent(
+          logAppender.getFollowerId(), key -> new HeartbeatAck(logAppender));
+      if (reply.receive(proto)) {
         if (hasMajority.test(id -> replies.get(id).isAcknowledged())) {
           future.complete(commitIndex);
           return true;
@@ -126,31 +134,80 @@ class ReadRequests {
       return sorted.computeIfAbsent(commitIndex, constructor);
     }
 
-    synchronized void onAppendEntriesReply(AppendEntriesReplyProto reply,
+    synchronized void onAppendEntriesReply(LogAppender appender, AppendEntriesReplyProto reply,
                                            Predicate<Predicate<RaftPeerId>> hasMajority) {
       final long callId = reply.getServerReply().getCallId();
-      for (;;) {
-        final Map.Entry<Long, AppendEntriesListener> first = sorted.firstEntry();
-        if (first == null || first.getKey() > callId) {
+
+      Iterator<Map.Entry<Long, AppendEntriesListener>> iterator = sorted.entrySet().iterator();
+      while (iterator.hasNext()) {
+        Map.Entry<Long, AppendEntriesListener> entry = iterator.next();
+        if (entry.getKey() > callId) {
           return;
         }
 
-        final AppendEntriesListener listener = first.getValue();
+        final AppendEntriesListener listener = entry.getValue();
         if (listener == null) {
           continue;
         }
 
-        if (listener.receive(reply, hasMajority)) {
-          final AppendEntriesListener removed = sorted.remove(callId);
-          Preconditions.assertSame(listener, removed, "AppendEntriesListener");
+        if (listener.receive(appender, reply, hasMajority)) {
           ackedCommitIndex.updateToMax(listener.commitIndex, s -> LOG.debug("{}: {}", ReadRequests.this, s));
+          iterator.remove();
         }
+      }
+    }
+  }
+
+  static class ReadIndexQueue {
+    private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
+    private final NavigableMap<Long, CompletableFuture<Long>> sorted = new ConcurrentSkipListMap<>();
+    private final TimeDuration readTimeout;
+
+    ReadIndexQueue(TimeDuration readTimeout) {
+      this.readTimeout = readTimeout;
+    }
+
+    CompletableFuture<Long> add(long readIndex) {
+      final MemoizedSupplier<CompletableFuture<Long>> supplier = MemoizedSupplier.valueOf(CompletableFuture::new);
+      final CompletableFuture<Long> f = sorted.computeIfAbsent(readIndex, i -> supplier.get());
+
+      if (supplier.isInitialized()) {
+        scheduler.onTimeout(readTimeout, () -> handleTimeout(readIndex),
+            LOG, () -> "Failed to handle read timeout for index " + readIndex);
+      }
+      return f;
+    }
+
+    private void handleTimeout(long readIndex) {
+      Optional.ofNullable(sorted.remove(readIndex)).ifPresent(consumer -> {
+        consumer.completeExceptionally(
+          new ReadException(new TimeoutIOException("Read timeout for index " + readIndex)));
+      });
+    }
+
+    void complete(Long appliedIndex) {
+      for(;;) {
+        if (sorted.isEmpty()) {
+          return;
+        }
+        final Long first = sorted.firstKey();
+        if (first == null || first > appliedIndex) {
+          return;
+        }
+        Optional.ofNullable(sorted.remove(first)).ifPresent(f -> f.complete(appliedIndex));
       }
     }
   }
 
   private final AppendEntriesListeners appendEntriesListeners = new AppendEntriesListeners();
   private final RaftLogIndex ackedCommitIndex = new RaftLogIndex("ackedCommitIndex", RaftLog.INVALID_LOG_INDEX);
+  private final ReadIndexQueue readIndexQueue;
+  private final StateMachine stateMachine;
+
+  ReadRequests(RaftProperties properties, StateMachine stateMachine) {
+    this.readIndexQueue = new ReadIndexQueue(RaftServerConfigKeys.Read.timeout(properties));
+    this.stateMachine = stateMachine;
+  }
 
   AppendEntriesListener addAppendEntriesListener(long commitIndex,
                                                  Function<Long, AppendEntriesListener> constructor) {
@@ -160,7 +217,19 @@ class ReadRequests {
     return appendEntriesListeners.add(commitIndex, constructor);
   }
 
-  void onAppendEntriesReply(AppendEntriesReplyProto reply, Predicate<Predicate<RaftPeerId>> hasMajority) {
-    appendEntriesListeners.onAppendEntriesReply(reply, hasMajority);
+  void onAppendEntriesReply(LogAppender appender, AppendEntriesReplyProto reply,
+                            Predicate<Predicate<RaftPeerId>> hasMajority) {
+    appendEntriesListeners.onAppendEntriesReply(appender, reply, hasMajority);
+  }
+
+  Consumer<Long> getAppliedIndexConsumer() {
+    return readIndexQueue::complete;
+  }
+
+  CompletableFuture<Long> waitToAdvance(long readIndex) {
+    if (stateMachine.getLastAppliedTermIndex().getIndex() >= readIndex) {
+      return CompletableFuture.completedFuture(readIndex);
+    }
+    return readIndexQueue.add(readIndex);
   }
 }
