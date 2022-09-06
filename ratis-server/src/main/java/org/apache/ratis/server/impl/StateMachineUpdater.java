@@ -120,6 +120,7 @@ class StateMachineUpdater implements Runnable {
 
   void start() {
     //wait for RaftServerImpl and ServerState constructors to complete
+    stateMachineMetrics.get();
     updater.start();
   }
 
@@ -320,6 +321,8 @@ class StateMachineUpdater implements Runnable {
   }
 
   long getStateMachineLastAppliedIndex() {
-    return Optional.ofNullable(stateMachine.getLastAppliedTermIndex()).map(TermIndex::getIndex).orElse(-1L);
+    return Optional.ofNullable(stateMachine.getLastAppliedTermIndex())
+        .map(TermIndex::getIndex)
+        .orElse(RaftLog.INVALID_LOG_INDEX);
   }
 }
