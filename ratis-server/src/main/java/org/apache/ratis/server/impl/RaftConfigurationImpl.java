@@ -231,6 +231,10 @@ final class RaftConfigurationImpl implements RaftConfiguration {
         (oldConf == null || oldConf.hasMajority(others, selfId));
   }
 
+  long getMajorityCount() {
+    return conf.getMajorityCount();
+  }
+
   /** @return true if the rejects are in the majority(maybe half is enough in some cases). */
   boolean majorityRejectVotes(Collection<RaftPeerId> rejects) {
     return conf.majorityRejectVotes(rejects) ||
