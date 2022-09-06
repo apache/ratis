@@ -23,6 +23,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.exceptions.ReadException;
 import org.apache.ratis.protocol.exceptions.SetConfigurationException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
@@ -163,6 +164,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final RoleInfo role;
 
   private final DataStreamMap dataStreamMap;
+  private final RaftServerConfigKeys.Read.Option readOption;
 
   private final MemoizedSupplier<RaftClient> raftClient;
 
@@ -206,6 +208,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.state = new ServerState(id, group, properties, this, stateMachine);
     this.retryCache = new RetryCacheImpl(properties);
     this.dataStreamMap = new DataStreamMapImpl(id);
+    this.readOption = RaftServerConfigKeys.Read.option(properties);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
@@ -852,7 +855,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (type.is(TypeCase.READ)) {
         // TODO: We might not be the leader anymore by the time this completes.
         // See the RAFT paper section 8 (last part)
-        replyFuture = processQueryFuture(stateMachine.query(request.getMessage()), request);
+        replyFuture = readAsync(request);
       } else if (type.is(TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
       } else if (type.is(TypeCase.MESSAGESTREAM)) {
@@ -914,6 +917,45 @@ class RaftServerImpl implements RaftServer.Division,
     return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
   }
 
+  ReadRequests getReadRequests() {
+    return getState().getReadRequests();
+  }
+
+  private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
+    if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
+      /*
+        Linearizable read using ReadIndex. See Raft paper section 6.4.
+        1. First obtain readIndex from Leader.
+        2. Then waits for statemachine to advance at least as far as readIndex.
+        3. Finally, query the statemachine and return the result.
+       */
+      final LeaderStateImpl leader = role.getLeaderState().orElse(null);
+      // TODO support follower linearizable read
+      if (leader == null) {
+        return JavaUtils.completeExceptionally(generateNotLeaderException());
+      }
+      return leader.getReadIndex()
+          .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
+          .thenCompose(readIndex -> queryStateMachine(request))
+          .exceptionally(e -> readException2Reply(request, e));
+    } else if (readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
+      return queryStateMachine(request);
+    } else {
+      throw new IllegalStateException("Unexpected read option: " + readOption);
+    }
+  }
+
+  private RaftClientReply readException2Reply(RaftClientRequest request, Throwable e) {
+    e = JavaUtils.unwrapCompletionException(e);
+    if (e instanceof StateMachineException ) {
+      return newExceptionReply(request, (StateMachineException) e);
+    } else if (e instanceof ReadException) {
+      return newExceptionReply(request, (ReadException) e);
+    } else {
+      throw new CompletionException(e);
+    }
+  }
+
   private CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
     return role.getLeaderState()
         .map(ls -> ls.streamAsync(request))
@@ -925,6 +967,10 @@ class RaftServerImpl implements RaftServer.Division,
     return role.getLeaderState()
         .map(ls -> ls.streamEndOfRequestAsync(request))
         .orElse(null);
+  }
+
+  CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request) {
+    return processQueryFuture(stateMachine.query(request.getMessage()), request);
   }
 
   CompletableFuture<RaftClientReply> processQueryFuture(

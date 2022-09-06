@@ -159,10 +159,10 @@ class ServerState implements Closeable {
         .filter(i -> i >= 0)
         .orElse(RaftLog.INVALID_LOG_INDEX);
     this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
+    this.readRequests = new ReadRequests(prop, stateMachine);
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
-        stateMachine, server, this, getLog().getSnapshotIndex(), prop));
-
-    this.readRequests = new ReadRequests();
+        stateMachine, server, this, getLog().getSnapshotIndex(), prop,
+        this.readRequests.getAppliedIndexConsumer()));
   }
 
   void initialize(StateMachine stateMachine) throws IOException {
