@@ -1087,7 +1087,7 @@ class LeaderStateImpl implements LeaderState {
 
     final MemoizedSupplier<AppendEntriesListener> supplier = MemoizedSupplier.valueOf(
         () -> new AppendEntriesListener(readIndex));
-    final AppendEntriesListener listener = server.getState().getReadRequests().addAppendEntriesListener(
+    final AppendEntriesListener listener = server.getReadRequests().addAppendEntriesListener(
         readIndex, key -> supplier.get());
 
     // the readIndex is already acknowledged before
@@ -1110,7 +1110,7 @@ class LeaderStateImpl implements LeaderState {
 
   @Override
   public void onAppendEntriesReply(LogAppender appender, RaftProtos.AppendEntriesReplyProto reply) {
-    server.getState().getReadRequests().onAppendEntriesReply(appender, reply, this::hasMajority);
+    server.getReadRequests().onAppendEntriesReply(appender, reply, this::hasMajority);
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {
