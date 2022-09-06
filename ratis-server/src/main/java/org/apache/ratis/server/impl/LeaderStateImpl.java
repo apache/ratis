@@ -1109,8 +1109,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   @Override
-  public void onAppendEntriesReply(LogAppender appender, FollowerInfo follower,
-                                   RaftProtos.AppendEntriesReplyProto reply) {
+  public void onAppendEntriesReply(LogAppender appender, RaftProtos.AppendEntriesReplyProto reply) {
     server.getState().getReadRequests().onAppendEntriesReply(appender, reply, this::hasMajority);
   }
 
