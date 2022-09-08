@@ -231,7 +231,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
         (oldConf == null || oldConf.hasMajority(others, selfId));
   }
 
-  long getMajorityCount() {
+  int getMajorityCount() {
     return conf.getMajorityCount();
   }
 
