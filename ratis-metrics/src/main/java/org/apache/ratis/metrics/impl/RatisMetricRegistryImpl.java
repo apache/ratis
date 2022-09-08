@@ -55,7 +55,7 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
 
   @Override
   public Timekeeper timer(String name) {
-    return new TimekeeperImpl(metricRegistry.timer(getMetricName(name)));
+    return new DefaultTimekeeperImpl(metricRegistry.timer(getMetricName(name)));
   }
 
   static LongCounter toLongCounter(Counter c) {

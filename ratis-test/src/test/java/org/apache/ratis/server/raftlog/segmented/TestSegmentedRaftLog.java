@@ -24,7 +24,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.metrics.impl.TimekeeperImpl;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -234,10 +234,10 @@ public class TestSegmentedRaftLog extends BaseTest {
 
       final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
 
-      final TimekeeperImpl load = (TimekeeperImpl) metricRegistryForLogWorker.timer("segmentLoadLatency");
+      final DefaultTimekeeperImpl load = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("segmentLoadLatency");
       assertTrue(load.getTimer().getMeanRate() > 0);
 
-      final TimekeeperImpl read = (TimekeeperImpl) metricRegistryForLogWorker.timer("readEntryLatency");
+      final DefaultTimekeeperImpl read = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("readEntryLatency");
       assertTrue(read.getTimer().getMeanRate() > 0);
     }
   }
@@ -484,7 +484,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
     final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
-    final TimekeeperImpl purge = (TimekeeperImpl) metricRegistryForLogWorker.timer("purgeLog");
+    final DefaultTimekeeperImpl purge = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("purgeLog");
     assertTrue(purge.getTimer().getCount() > 0);
   }
 

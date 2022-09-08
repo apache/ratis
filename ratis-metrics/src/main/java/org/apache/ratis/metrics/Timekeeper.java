@@ -21,6 +21,7 @@ import org.apache.ratis.util.UncheckedAutoCloseable;
 
 import java.util.Optional;
 
+@FunctionalInterface
 public interface Timekeeper {
   UncheckedAutoCloseable NOOP = () -> {};
 
@@ -31,6 +32,7 @@ public interface Timekeeper {
         .orElse(NOOP);
   }
 
+  @FunctionalInterface
   interface Context {
     long stop();
 

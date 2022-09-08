@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.raftlog;
 
-import org.apache.ratis.metrics.impl.TimekeeperImpl;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
@@ -167,16 +167,16 @@ public class TestRaftLogMetrics extends BaseTest
     Assert.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_FLUSH_COUNT).getCount() > 0);
     Assert.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_APPEND_ENTRY_COUNT).getCount() > 0);
 
-    final TimekeeperImpl appendEntry = (TimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_APPEND_ENTRY_LATENCY);
+    final DefaultTimekeeperImpl appendEntry = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_APPEND_ENTRY_LATENCY);
     Assert.assertTrue(appendEntry.getTimer().getMeanRate() > 0);
 
-    final TimekeeperImpl taskQueue = (TimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_QUEUE_TIME);
+    final DefaultTimekeeperImpl taskQueue = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_QUEUE_TIME);
     Assert.assertTrue(taskQueue.getTimer().getMeanRate() > 0);
 
-    final TimekeeperImpl enqueueDelay = (TimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_ENQUEUE_DELAY);
+    final DefaultTimekeeperImpl enqueueDelay = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_ENQUEUE_DELAY);
     Assert.assertTrue(enqueueDelay.getTimer().getMeanRate() > 0);
 
-    final TimekeeperImpl write = (TimekeeperImpl) ratisMetricRegistry.timer(
+    final DefaultTimekeeperImpl write = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(
         String.format(RAFT_LOG_TASK_EXECUTION_TIME, "writelog"));
     Assert.assertTrue(write.getTimer().getMeanRate() > 0);
 

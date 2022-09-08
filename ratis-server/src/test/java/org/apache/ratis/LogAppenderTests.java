@@ -25,7 +25,7 @@ import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
-import org.apache.ratis.metrics.impl.TimekeeperImpl;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -164,7 +164,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       final RatisMetricRegistryImpl followerMetricRegistry = (RatisMetricRegistryImpl)followerMetrics.getRegistry();
       assertTrue(followerMetricRegistry.getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty());
       for (boolean heartbeat : new boolean[] { true, false }) {
-        final TimekeeperImpl t = (TimekeeperImpl) followerMetrics.getFollowerAppendEntryTimer(heartbeat);
+        final DefaultTimekeeperImpl t = (DefaultTimekeeperImpl) followerMetrics.getFollowerAppendEntryTimer(heartbeat);
         assertTrue(t.getTimer().getMeanRate() > 0.0d);
         assertTrue(t.getTimer().getCount() > 0L);
       }

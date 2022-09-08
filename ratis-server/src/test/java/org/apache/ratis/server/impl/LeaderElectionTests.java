@@ -23,7 +23,7 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
-import org.apache.ratis.metrics.impl.TimekeeperImpl;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -418,7 +418,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     long numLeaderElectionTimeout = ratisMetricRegistry.counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC).getCount();
     assertTrue(numLeaderElectionTimeout > 0);
 
-    final TimekeeperImpl timekeeper = (TimekeeperImpl) ratisMetricRegistry.timer(LEADER_ELECTION_TIME_TAKEN);
+    final DefaultTimekeeperImpl timekeeper = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(LEADER_ELECTION_TIME_TAKEN);
     final Timer timer = timekeeper.getTimer();
     double meanTimeNs = timer.getSnapshot().getMean();
     long elapsedNs = timestamp.elapsedTime().toLong(TimeUnit.NANOSECONDS);

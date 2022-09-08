@@ -20,7 +20,7 @@ package org.apache.ratis.server.raftlog.segmented;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.metrics.impl.TimekeeperImpl;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
@@ -218,7 +218,7 @@ public class TestLogSegment extends BaseTest {
     checkLogSegment(openSegment, 0, 98, true, openSegmentFile.length(), 0);
     storage.close();
 
-    final TimekeeperImpl readEntryTimer = (TimekeeperImpl) raftLogMetrics.getReadEntryTimer();
+    final DefaultTimekeeperImpl readEntryTimer = (DefaultTimekeeperImpl) raftLogMetrics.getReadEntryTimer();
     Assert.assertNotNull(readEntryTimer);
     Assert.assertEquals(100, readEntryTimer.getTimer().getCount());
     Assert.assertTrue(readEntryTimer.getTimer().getMeanRate() > 0);

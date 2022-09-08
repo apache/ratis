@@ -20,23 +20,13 @@ package org.apache.ratis.metrics.impl;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
-public class TimekeeperImpl implements Timekeeper {
-  static class ContexImpl implements Context {
-    private final Timer.Context context;
-
-    public ContexImpl(Timer.Context context) {
-      this.context = context;
-    }
-
-    @Override
-    public long stop() {
-      return context.stop();
-    }
-  }
-
+/**
+ * The default implementation of {@link Timekeeper} by the shaded {@link Timer}.
+ */
+public class DefaultTimekeeperImpl implements Timekeeper {
   private final Timer timer;
 
-  TimekeeperImpl(Timer timer) {
+  DefaultTimekeeperImpl(Timer timer) {
     this.timer = timer;
   }
 
@@ -46,6 +36,7 @@ public class TimekeeperImpl implements Timekeeper {
 
   @Override
   public Context time() {
-    return new ContexImpl(timer.time());
+    final Timer.Context context = timer.time();
+    return context::stop;
   }
 }
