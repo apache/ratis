@@ -24,7 +24,7 @@ import java.util.Objects;
 
 public class Daemon extends Thread {
   static final Logger LOG = LoggerFactory.getLogger(Daemon.class);
-  public static Thread.UncaughtExceptionHandler LOG_EXCEPTION =
+  public static final Thread.UncaughtExceptionHandler LOG_EXCEPTION =
       (t, e) -> LOG.error(t.getName() + " threw an uncaught exception", e);
 
   {
