@@ -31,11 +31,9 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.common.collect.Iterables;
-import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ReflectionUtils;
-import org.apache.ratis.util.ErrorRecorded;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +53,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
   Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
   /** A division of a {@link RaftServer} for a particular {@link RaftGroup}. */
-  interface Division extends Closeable, ErrorRecorded {
+  interface Division extends Closeable {
     Logger LOG = LoggerFactory.getLogger(Division.class);
 
     /** @return the {@link DivisionProperties} for this division. */
@@ -117,6 +115,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the internal {@link RaftClient} of this division. */
     RaftClient getRaftClient();
+
+    Thread.UncaughtExceptionHandler getUncaughtExceptionHandler();
 
     @Override
     void close();

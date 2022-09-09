@@ -64,7 +64,6 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.*;
 
-import javax.annotation.Nullable;
 import javax.management.ObjectName;
 import java.io.File;
 import java.io.IOException;
@@ -107,22 +106,6 @@ class RaftServerImpl implements RaftServer.Division,
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
 
   private Throwable throwable;
-
-  @Override
-  public void setError(Throwable t) {
-    throwable = t;
-    LOG.error("Server transitioning to EXCEPTION state due to", t);
-    // Some states like CLOSING cannot transition to EXCEPTION
-    if (!lifeCycle.transitionIfValid(LifeCycle.State.EXCEPTION)) {
-      LOG.error("Failed to transition from {} to EXCEPTION!", lifeCycle.getCurrentState());
-    }
-  }
-
-  @Nullable
-  @Override
-  public Throwable getError() {
-    return throwable;
-  }
 
   class Info implements DivisionInfo {
     @Override
@@ -207,6 +190,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService clientExecutor;
 
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
+  private final Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
@@ -215,6 +199,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.lifeCycle = new LifeCycle(id);
     this.stateMachine = stateMachine;
     this.role = new RoleInfo(id);
+    this.uncaughtExceptionHandler = proxy.getUncaughtExceptionHandler();
 
     final RaftProperties properties = proxy.getProperties();
     this.divisionProperties = new DivisionPropertiesImpl(properties);
@@ -289,6 +274,11 @@ class RaftServerImpl implements RaftServer.Division,
 
   TimeDuration getSleepDeviationThreshold() {
     return sleepDeviationThreshold;
+  }
+
+  @Override
+  public Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() {
+    return uncaughtExceptionHandler;
   }
 
   @Override

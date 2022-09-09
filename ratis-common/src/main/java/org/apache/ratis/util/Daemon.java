@@ -20,9 +20,7 @@ package org.apache.ratis.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class Daemon extends Thread {
   static final Logger LOG = LoggerFactory.getLogger(Daemon.class);
@@ -32,9 +30,6 @@ public class Daemon extends Thread {
   {
     setDaemon(true);
   }
-
-  /** If the thread meets an uncaught exception, this field will be set. */
-  private final AtomicReference<Throwable> throwable = new AtomicReference<>(null);
 
   /** Construct a daemon thread with flexible arguments. */
   protected Daemon(Builder builder) {
@@ -51,17 +46,11 @@ public class Daemon extends Thread {
     return new Builder();
   }
 
-  @Nullable
-  public Throwable getError() {
-    return throwable.get();
-  }
-
   public static class Builder {
     private String name;
     private Runnable runnable;
-    // By default uncaught exceptions are just logged without further actions
+    // By default, uncaught exceptions are just logged without further actions
     private UncaughtExceptionHandler uncaughtExceptionHandler = LOG_EXCEPTION;
-//    private ErrorRecorded statedServer;
 
     public Builder setName(String name) {
       this.name = name;

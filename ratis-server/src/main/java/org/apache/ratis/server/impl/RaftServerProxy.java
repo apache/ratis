@@ -222,7 +222,6 @@ class RaftServerProxy implements RaftServer {
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.pauseMonitor = new JvmPauseMonitor(id,
         extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime));
-    // TODO(jiacheng): how is this passed to RaftServerImpl?
     this.uncaughtExceptionHandler = exceptionHandler;
   }
 
