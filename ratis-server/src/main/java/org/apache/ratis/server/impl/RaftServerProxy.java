@@ -40,6 +40,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.ServerFactory;
 import org.apache.ratis.server.storage.RaftStorage.StartupOption;
 import org.apache.ratis.util.ConcurrentUtils;
+import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JvmPauseMonitor;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
@@ -197,7 +198,7 @@ class RaftServerProxy implements RaftServer {
   private final JvmPauseMonitor pauseMonitor;
   @Nullable
   private final Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
-
+  
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters, Thread.UncaughtExceptionHandler exceptionHandler) {
     this.properties = properties;
@@ -416,7 +417,6 @@ class RaftServerProxy implements RaftServer {
       try {
         getServerRpc().close();
       } catch(IOException ignored) {
-        // TODO(jiacheng): transition state to EXCEPTION here?
         LOG.warn(getId() + ": Failed to close " + getRpcType() + " server", ignored);
       }
 

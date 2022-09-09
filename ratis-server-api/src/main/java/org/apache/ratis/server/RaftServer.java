@@ -170,13 +170,18 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private static final Method NEW_RAFT_SERVER_METHOD = initNewRaftServerMethod();
 
     private static Method initNewRaftServerMethod() {
-      // TODO(jiacheng): backward compatibility?
       final String className = RaftServer.class.getPackage().getName() + ".impl.ServerImplUtils";
       final Class<?>[] argClasses = {RaftPeerId.class, RaftGroup.class, RaftStorage.StartupOption.class,
           StateMachine.Registry.class, RaftProperties.class, Parameters.class, Thread.UncaughtExceptionHandler.class};
       try {
         final Class<?> clazz = ReflectionUtils.getClassByName(className);
-        return clazz.getMethod("newRaftServer", argClasses);
+        try {
+          return clazz.getMethod("newRaftServer", argClasses);
+        } catch (NoSuchMethodException e) {
+          final Class<?>[] argClassesNoExHandler = {RaftPeerId.class, RaftGroup.class, RaftStorage.StartupOption.class,
+              StateMachine.Registry.class, RaftProperties.class, Parameters.class};
+          return ReflectionUtils.getClassByName(className).getMethod("newRaftServer", argClassesNoExHandler);
+        }
       } catch (Exception e) {
         throw new IllegalStateException("Failed to initNewRaftServerMethod", e);
       }
@@ -258,7 +263,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
       return this;
     }
 
-    // TODO(jiacheng): update tests?
+    // TODO(jiacheng): add UTs
     public Builder setUncaughtExceptionHandler(Thread.UncaughtExceptionHandler exceptionHandler) {
       this.uncaughtExceptionHandler = exceptionHandler;
       return this;
