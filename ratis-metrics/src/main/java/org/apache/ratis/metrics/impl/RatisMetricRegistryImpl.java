@@ -24,8 +24,6 @@ import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.thirdparty.com.codahale.metrics.ConsoleReporter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Histogram;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Meter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Metric;
 import org.apache.ratis.thirdparty.com.codahale.metrics.MetricFilter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.MetricRegistry;
@@ -41,6 +39,13 @@ import java.util.function.Supplier;
  * Custom implementation of {@link MetricRegistry}.
  */
 public class RatisMetricRegistryImpl implements RatisMetricRegistry {
+  static RatisMetricRegistryImpl cast(RatisMetricRegistry registry) {
+    if (!(registry instanceof RatisMetricRegistryImpl)) {
+      throw new IllegalStateException("Unexpected class: " + registry.getClass().getName());
+    }
+    return (RatisMetricRegistryImpl) registry;
+  }
+
   private final MetricRegistry metricRegistry = new MetricRegistry();
 
   private final MetricRegistryInfo info;
@@ -100,19 +105,7 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     return metricRegistry.getGauges(filter);
   }
 
-  @Override public Histogram histogram(String name) {
-    return metricRegistry.histogram(getMetricName(name));
-  }
-
-   @Override public Meter meter(String name) {
-    return metricRegistry.meter(getMetricName(name));
-  }
-
-  @Override public Meter meter(String name, MetricRegistry.MetricSupplier<Meter> supplier) {
-    return metricRegistry.meter(getMetricName(name), supplier);
-  }
-
-  @Override @VisibleForTesting
+  @VisibleForTesting
   public Metric get(String shortName) {
     return metricRegistry.getMetrics().get(getMetricName(shortName));
   }
@@ -121,12 +114,12 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     return MetricRegistry.name(info.getName(), shortName);
   }
 
-  @Override public <T extends Metric> T register(String name, T metric) throws IllegalArgumentException {
+  private <T extends Metric> T register(String name, T metric) throws IllegalArgumentException {
     return metricRegistry.register(getMetricName(name), metric);
   }
 
 
-  @Override public MetricRegistry getDropWizardMetricRegistry() {
+  public MetricRegistry getDropWizardMetricRegistry() {
     return metricRegistry;
   }
 
@@ -134,7 +127,7 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     return this.info;
   }
 
-  @Override public void registerAll(String prefix, MetricSet metricSet) {
+  void registerAll(String prefix, MetricSet metricSet) {
     for (Map.Entry<String, Metric> entry : metricSet.getMetrics().entrySet()) {
       if (entry.getValue() instanceof MetricSet) {
         registerAll(prefix + "." + entry.getKey(), (MetricSet) entry.getValue());
@@ -144,23 +137,19 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     }
   }
 
-  @Override
-  public void setJmxReporter(JmxReporter jmxReporter) {
+  void setJmxReporter(JmxReporter jmxReporter) {
     this.jmxReporter = jmxReporter;
   }
 
-  @Override
-  public JmxReporter getJmxReporter() {
+  JmxReporter getJmxReporter() {
     return this.jmxReporter;
   }
 
-  @Override
-  public void setConsoleReporter(ConsoleReporter consoleReporter) {
+  void setConsoleReporter(ConsoleReporter consoleReporter) {
     this.consoleReporter = consoleReporter;
   }
 
-  @Override
-  public ConsoleReporter getConsoleReporter() {
+  ConsoleReporter getConsoleReporter() {
     return this.consoleReporter;
   }
 }
