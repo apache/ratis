@@ -36,6 +36,7 @@ import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -497,6 +498,21 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       fail(e.getMessage());
     }
   }
+
+  @Test
+  public void testListenerRejectRequestVote() throws Exception {
+    runWithNewCluster(3, 2, this::runTestListenerRejectRequestVote);
+  }
+  void runTestListenerRejectRequestVote(CLUSTER cluster) throws IOException, InterruptedException {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final TermIndex lastEntry = leader.getRaftLog().getLastEntryTermIndex();
+    RaftServer.Division listener = cluster.getListeners().get(0);
+    final RaftProtos.RequestVoteRequestProto r = ServerProtoUtils.toRequestVoteRequestProto(
+        leader.getMemberId(), listener.getId(),  leader.getRaftLog().getLastEntryTermIndex().getTerm() + 1, lastEntry, true);
+    RaftProtos.RequestVoteReplyProto listenerReply = listener.getRaftServer().requestVote(r);
+    Assert.assertFalse(listenerReply.getServerReply().getSuccess());
+  }
+
 
   @Test
   public void testPauseResumeLeaderElection() throws Exception {
