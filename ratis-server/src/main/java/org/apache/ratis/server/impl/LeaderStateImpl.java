@@ -621,7 +621,8 @@ class LeaderStateImpl implements LeaderState {
    */
   private class EventProcessor extends Daemon {
     public EventProcessor(String name) {
-      super(Daemon.newBuilder().setName(name).setStatedServer(server));
+      // TODO(jiacheng): handler
+      super(Daemon.newBuilder().setName(name));
     }
     @Override
     public void run() {

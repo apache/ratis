@@ -71,24 +71,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class RaftServerProxy implements RaftServer {
-  private Throwable error;
-
-  @Override
-  public void setError(Throwable t) {
-    this.error = t;
-    LOG.error("Server transitioning to EXCEPTION state due to", t);
-    // Some states like CLOSING cannot transition to EXCEPTION
-    if (!lifeCycle.transitionIfValid(LifeCycle.State.EXCEPTION)) {
-      LOG.error("Failed to transition from {} to EXCEPTION!", lifeCycle.getCurrentState());
-    }
-  }
-
-  @Nullable
-  @Override
-  public Throwable getError() {
-    return error;
-  }
-
   /**
    * A map: {@link RaftGroupId} -> {@link RaftServerImpl} futures.
    *
@@ -213,9 +195,11 @@ class RaftServerProxy implements RaftServer {
   private final ExecutorService executor;
 
   private final JvmPauseMonitor pauseMonitor;
+  @Nullable
+  private final Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
-      RaftProperties properties, Parameters parameters) {
+      RaftProperties properties, Parameters parameters, Thread.UncaughtExceptionHandler exceptionHandler) {
     this.properties = properties;
     this.stateMachineRegistry = stateMachineRegistry;
 
@@ -238,6 +222,8 @@ class RaftServerProxy implements RaftServer {
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.pauseMonitor = new JvmPauseMonitor(id,
         extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime));
+    // TODO(jiacheng): how is this passed to RaftServerImpl?
+    this.uncaughtExceptionHandler = exceptionHandler;
   }
 
   private void handleJvmPause(TimeDuration extraSleep, TimeDuration closeThreshold, TimeDuration stepDownThreshold)
@@ -398,7 +384,7 @@ class RaftServerProxy implements RaftServer {
 
   @Override
   public Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() {
-    return null;
+    return this.uncaughtExceptionHandler;
   }
 
   @Override

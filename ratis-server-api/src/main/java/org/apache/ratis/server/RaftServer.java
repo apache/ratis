@@ -31,6 +31,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.common.collect.Iterables;
+import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ReflectionUtils;
@@ -50,7 +51,7 @@ import java.util.Optional;
 public interface RaftServer extends Closeable, RpcType.Get,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol,
-    AdminProtocol, AdminAsynchronousProtocol, ErrorRecorded {
+    AdminProtocol, AdminAsynchronousProtocol {
   Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
   /** A division of a {@link RaftServer} for a particular {@link RaftGroup}. */
@@ -169,10 +170,10 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private static final Method NEW_RAFT_SERVER_METHOD = initNewRaftServerMethod();
 
     private static Method initNewRaftServerMethod() {
-      // TODO(jiacheng): how to add uncaughtExHandler
+      // TODO(jiacheng): backward compatibility?
       final String className = RaftServer.class.getPackage().getName() + ".impl.ServerImplUtils";
       final Class<?>[] argClasses = {RaftPeerId.class, RaftGroup.class, RaftStorage.StartupOption.class,
-          StateMachine.Registry.class, RaftProperties.class, Parameters.class};
+          StateMachine.Registry.class, RaftProperties.class, Parameters.class, Thread.UncaughtExceptionHandler.class};
       try {
         final Class<?> clazz = ReflectionUtils.getClassByName(className);
         return clazz.getMethod("newRaftServer", argClasses);
@@ -182,11 +183,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
     }
 
     private static RaftServer newRaftServer(RaftPeerId serverId, RaftGroup group, RaftStorage.StartupOption option,
-        StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
+        StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters,
+        Thread.UncaughtExceptionHandler exceptionHandler)
         throws IOException {
       try {
         return (RaftServer) NEW_RAFT_SERVER_METHOD.invoke(null,
-            serverId, group, option, stateMachineRegistry, properties, parameters);
+            serverId, group, option, stateMachineRegistry, properties, parameters, exceptionHandler);
       } catch (IllegalAccessException e) {
         throw new IllegalStateException("Failed to build " + serverId, e);
       } catch (InvocationTargetException e) {
@@ -200,7 +202,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private RaftStorage.StartupOption option = RaftStorage.StartupOption.FORMAT;
     private RaftProperties properties;
     private Parameters parameters;
-    private Thread.UncaughtExceptionHandler exceptionHandler;
+    private Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
 
     /** @return a {@link RaftServer} object. */
     public RaftServer build() throws IOException {
@@ -211,7 +213,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
           Objects.requireNonNull(stateMachineRegistry , "Neither 'stateMachine' nor 'setStateMachineRegistry' " +
               "is initialized."),
           Objects.requireNonNull(properties, "The 'properties' field is not initialized."),
-          parameters);
+          parameters,
+          uncaughtExceptionHandler);
     }
 
     /** Set the server ID. */
@@ -252,6 +255,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** Set {@link Parameters}. */
     public Builder setParameters(Parameters parameters) {
       this.parameters = parameters;
+      return this;
+    }
+
+    // TODO(jiacheng): update tests?
+    public Builder setUncaughtExceptionHandler(Thread.UncaughtExceptionHandler exceptionHandler) {
+      this.uncaughtExceptionHandler = exceptionHandler;
       return this;
     }
   }

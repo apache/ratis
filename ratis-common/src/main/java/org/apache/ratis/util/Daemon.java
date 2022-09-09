@@ -17,52 +17,36 @@
  */
 package org.apache.ratis.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class Daemon extends Thread {
+  static final Logger LOG = LoggerFactory.getLogger(Daemon.class);
+  public static Thread.UncaughtExceptionHandler LOG_EXCEPTION =
+      (t, e) -> LOG.error(t.getName() + " threw an uncaught exception", e);
+
   {
     setDaemon(true);
   }
 
   /** If the thread meets an uncaught exception, this field will be set. */
   private final AtomicReference<Throwable> throwable = new AtomicReference<>(null);
-  private ErrorRecorded statedServer;
-
-  /** Construct a daemon thread with no arguments, left only for extension. */
-  public Daemon() {
-    super();
-    setUncaughtExceptionHandler((thread, t) -> {
-      onError(t);
-    });
-  }
 
   /** Construct a daemon thread with flexible arguments. */
-  public Daemon(Builder builder) {
+  protected Daemon(Builder builder) {
     super(builder.runnable);
     setName(builder.name);
-    this.statedServer = builder.statedServer;
-    setUncaughtExceptionHandler((thread, t) -> {
-      onError(t);
-    });
-  }
-
-  /**
-   * This will be invoked on uncaught exceptions.
-   * Necessary bookkeeping or graceful exit logics should be put here.
-   *
-   * @param t the crashing error
-   */
-  public void onError(Throwable t) {
-    throwable.set(t);
-    if (statedServer != null) {
-      // Rely on the server to log
-      statedServer.setError(t);
+    if (builder.uncaughtExceptionHandler != null) {
+      setUncaughtExceptionHandler(builder.uncaughtExceptionHandler);
     }
   }
 
   /** @return a {@link Builder}. */
+  // TODO(jiacheng): For exceptions that should crash the server, apply a correct UncaughtExceptionHandler
   public static Builder newBuilder() {
     return new Builder();
   }
@@ -75,7 +59,9 @@ public class Daemon extends Thread {
   public static class Builder {
     private String name;
     private Runnable runnable;
-    private ErrorRecorded statedServer;
+    // By default uncaught exceptions are just logged without further actions
+    private UncaughtExceptionHandler uncaughtExceptionHandler = LOG_EXCEPTION;
+//    private ErrorRecorded statedServer;
 
     public Builder setName(String name) {
       this.name = name;
@@ -87,8 +73,8 @@ public class Daemon extends Thread {
       return this;
     }
 
-    public Builder setStatedServer(ErrorRecorded er) {
-      this.statedServer = er;
+    public Builder setUncaughtExceptionHandler(UncaughtExceptionHandler exceptionHandler) {
+      this.uncaughtExceptionHandler = exceptionHandler;
       return this;
     }
 
