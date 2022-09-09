@@ -112,9 +112,10 @@ class RaftServerImpl implements RaftServer.Division,
   public void setError(Throwable t) {
     throwable = t;
     LOG.error("Server transitioning to EXCEPTION state due to", t);
-    // TODO(jiacheng): will the server keep serving or just die itself?
-    //  What is the cleanup I should consider?
-    lifeCycle.transition(LifeCycle.State.EXCEPTION);
+    // Some states like CLOSING cannot transition to EXCEPTION
+    if (!lifeCycle.transitionIfValid(LifeCycle.State.EXCEPTION)) {
+      LOG.error("Failed to transition from {} to EXCEPTION!", lifeCycle.getCurrentState());
+    }
   }
 
   @Nullable

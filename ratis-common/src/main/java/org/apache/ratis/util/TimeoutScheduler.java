@@ -37,6 +37,7 @@ public final class TimeoutScheduler implements TimeoutExecutor {
   static final TimeDuration DEFAULT_GRACE_PERIOD = TimeDuration.valueOf(1, TimeUnit.MINUTES);
 
   private static final Supplier<TimeoutScheduler> INSTANCE = JavaUtils.memoize(TimeoutScheduler::new);
+  private static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
 
   public static TimeoutScheduler getInstance() {
     return INSTANCE.get();
@@ -84,10 +85,9 @@ public final class TimeoutScheduler implements TimeoutExecutor {
 
     private static ScheduledThreadPoolExecutor newExecutor() {
       LOG.debug("new ScheduledThreadPoolExecutor");
-      AtomicInteger count = new AtomicInteger(0);
       final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1,
           (runnable) ->
-              new Daemon.Builder("TimeoutScheduler-" + count.getAndIncrement()).setRunnable(runnable).build());
+              Daemon.newBuilder().setName("TimeoutScheduler-" + THREAD_COUNT.getAndIncrement()).setRunnable(runnable).build());
       e.setRemoveOnCancelPolicy(true);
       return e;
     }

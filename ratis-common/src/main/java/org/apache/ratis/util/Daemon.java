@@ -18,6 +18,7 @@
 package org.apache.ratis.util;
 
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class Daemon extends Thread {
@@ -61,18 +62,24 @@ public class Daemon extends Thread {
     }
   }
 
+  /** @return a {@link Builder}. */
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
   @Nullable
   public Throwable getError() {
     return throwable.get();
   }
 
   public static class Builder {
-    private final String name;
+    private String name;
     private Runnable runnable;
     private ErrorRecorded statedServer;
 
-    public Builder(String name) {
+    public Builder setName(String name) {
       this.name = name;
+      return this;
     }
 
     public Builder setRunnable(Runnable runnable) {
@@ -86,6 +93,7 @@ public class Daemon extends Thread {
     }
 
     public Daemon build() {
+      Objects.requireNonNull(name, "name == null");
       return new Daemon(this);
     }
   }

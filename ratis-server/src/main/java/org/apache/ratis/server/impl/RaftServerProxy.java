@@ -77,9 +77,10 @@ class RaftServerProxy implements RaftServer {
   public void setError(Throwable t) {
     this.error = t;
     LOG.error("Server transitioning to EXCEPTION state due to", t);
-    // TODO(jiacheng): will the server keep serving or just die itself?
-    //  What is the cleanup I should consider?
-    lifeCycle.transition(LifeCycle.State.EXCEPTION);
+    // Some states like CLOSING cannot transition to EXCEPTION
+    if (!lifeCycle.transitionIfValid(LifeCycle.State.EXCEPTION)) {
+      LOG.error("Failed to transition from {} to EXCEPTION!", lifeCycle.getCurrentState());
+    }
   }
 
   @Nullable
@@ -393,6 +394,11 @@ class RaftServerProxy implements RaftServer {
   @Override
   public LifeCycle.State getLifeCycleState() {
     return lifeCycle.getCurrentState();
+  }
+
+  @Override
+  public Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() {
+    return null;
   }
 
   @Override

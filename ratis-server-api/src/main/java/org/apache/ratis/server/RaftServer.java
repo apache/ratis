@@ -157,6 +157,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
   LifeCycle.State getLifeCycleState();
 
+  Thread.UncaughtExceptionHandler getUncaughtExceptionHandler();
+
   /** @return a {@link Builder}. */
   static Builder newBuilder() {
     return new Builder();
@@ -167,6 +169,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private static final Method NEW_RAFT_SERVER_METHOD = initNewRaftServerMethod();
 
     private static Method initNewRaftServerMethod() {
+      // TODO(jiacheng): how to add uncaughtExHandler
       final String className = RaftServer.class.getPackage().getName() + ".impl.ServerImplUtils";
       final Class<?>[] argClasses = {RaftPeerId.class, RaftGroup.class, RaftStorage.StartupOption.class,
           StateMachine.Registry.class, RaftProperties.class, Parameters.class};
@@ -197,6 +200,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private RaftStorage.StartupOption option = RaftStorage.StartupOption.FORMAT;
     private RaftProperties properties;
     private Parameters parameters;
+    private Thread.UncaughtExceptionHandler exceptionHandler;
 
     /** @return a {@link RaftServer} object. */
     public RaftServer build() throws IOException {
