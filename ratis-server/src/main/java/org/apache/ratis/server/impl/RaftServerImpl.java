@@ -105,8 +105,6 @@ class RaftServerImpl implements RaftServer.Division,
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
 
-  private Throwable throwable;
-
   class Info implements DivisionInfo {
     @Override
     public RaftPeerRole getCurrentRole() {
