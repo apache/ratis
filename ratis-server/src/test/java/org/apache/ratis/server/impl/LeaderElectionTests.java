@@ -166,7 +166,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       maxTimeout.sleep();
       Assert.assertEquals(RaftProtos.RaftPeerRole.LISTENER, listener.getInfo().getCurrentRole());
     } finally {
-      deIsolate(cluster, leader.getId());
+      deIsolate(cluster, listener.getId());
     }
   }
 
