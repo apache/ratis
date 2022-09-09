@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.function.Consumer;
 
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.server.metrics.ServerMetricsTestUtils;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
@@ -70,17 +71,14 @@ public class TestGrpcServerMetrics {
       GrpcLogAppender.AppendEntriesRequest req =
           new GrpcLogAppender.AppendEntriesRequest(proto.build(), followerId,
               grpcServerMetrics);
-      Assert.assertEquals(0L, ratisMetricRegistry.timer(String.format(
-          RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + GrpcServerMetrics
-              .getHeartbeatSuffix(heartbeat), followerId.toString()))
-          .getSnapshot().getMax());
+      final String format = RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + GrpcServerMetrics.getHeartbeatSuffix(heartbeat);
+      final String name = String.format(format, followerId);
+      final DefaultTimekeeperImpl t = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(name);
+      Assert.assertEquals(0L, t.getTimer().getSnapshot().getMax());
       req.startRequestTimer();
       Thread.sleep(1000L);
       req.stopRequestTimer();
-      Assert.assertTrue(ratisMetricRegistry.timer(String.format(
-          RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + GrpcServerMetrics
-              .getHeartbeatSuffix(heartbeat), followerId.toString()))
-          .getSnapshot().getMax() > 1000L);
+      Assert.assertTrue(t.getTimer().getSnapshot().getMax() > 1000L);
     }
   }
 

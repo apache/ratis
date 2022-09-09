@@ -23,22 +23,19 @@ import org.apache.ratis.thirdparty.com.codahale.metrics.Meter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Metric;
 import org.apache.ratis.thirdparty.com.codahale.metrics.MetricRegistry;
 import org.apache.ratis.thirdparty.com.codahale.metrics.MetricSet;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 import java.util.function.Supplier;
 
 public interface RatisMetricRegistry {
-  Timer timer(String name);
+  Timekeeper timer(String name);
 
   LongCounter counter(String name);
 
   boolean remove(String name);
 
   <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier);
-
-  Timer timer(String name, MetricRegistry.MetricSupplier<Timer> supplier);
 
   Histogram histogram(String name);
 

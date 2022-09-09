@@ -25,6 +25,7 @@ import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRI
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.metrics.LongCounter;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -329,6 +330,6 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     Assert.assertTrue(opt.isPresent());
     RatisMetricRegistry metricRegistry = opt.get();
     Assert.assertNotNull(metricRegistry);
-    return metricRegistry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);
+    return ((DefaultTimekeeperImpl)metricRegistry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER)).getTimer();
   }
 }

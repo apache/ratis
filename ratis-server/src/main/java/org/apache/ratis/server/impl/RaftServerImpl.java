@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.*;
@@ -64,6 +65,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.*;
+import org.apache.ratis.util.function.CheckedSupplier;
 
 import javax.management.ObjectName;
 import java.io.File;
@@ -92,9 +94,6 @@ import static org.apache.ratis.util.LifeCycle.State.PAUSED;
 import static org.apache.ratis.util.LifeCycle.State.PAUSING;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
-
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
-import org.apache.ratis.util.function.CheckedSupplier;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
@@ -818,7 +817,8 @@ class RaftServerImpl implements RaftServer.Division,
       RaftClientRequest request) throws IOException {
     assertLifeCycleState(LifeCycle.States.RUNNING);
     LOG.debug("{}: receive client request({})", getMemberId(), request);
-    final Optional<Timer> timer = Optional.ofNullable(raftServerMetrics.getClientRequestTimer(request.getType()));
+    final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
+    final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
 
     final CompletableFuture<RaftClientReply> replyFuture;
 
@@ -881,7 +881,7 @@ class RaftServerImpl implements RaftServer.Division,
     final RaftClientRequest.Type type = request.getType();
     replyFuture.whenComplete((clientReply, exception) -> {
       if (clientReply.isSuccess()) {
-        timer.map(Timer::time).ifPresent(Timer.Context::stop);
+        timerContext.ifPresent(Timekeeper.Context::stop);
       }
       if (exception != null || clientReply.getException() != null) {
         raftServerMetrics.incFailedRequestCount(type);
@@ -1413,7 +1413,7 @@ class RaftServerImpl implements RaftServer.Division,
     final long currentTerm;
     final long followerCommit = state.getLog().getLastCommittedIndex();
     final Optional<FollowerState> followerState;
-    Timer.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
+    final Timekeeper.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
     synchronized (this) {
       // Check life cycle state again to avoid the PAUSING/PAUSED state.
       assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);

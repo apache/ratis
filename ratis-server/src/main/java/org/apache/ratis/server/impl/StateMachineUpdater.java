@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
@@ -46,8 +47,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
-
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 /**
  * This class tracks the log entries that have been committed in a quorum and
@@ -270,9 +269,9 @@ class StateMachineUpdater implements Runnable {
   private void takeSnapshot() {
     final long i;
     try {
-      Timer.Context takeSnapshotTimerContext = stateMachineMetrics.get().getTakeSnapshotTimer().time();
-      i = stateMachine.takeSnapshot();
-      takeSnapshotTimerContext.stop();
+      try(UncheckedAutoCloseable ignored = Timekeeper.start(stateMachineMetrics.get().getTakeSnapshotTimer())) {
+        i = stateMachine.takeSnapshot();
+      }
       server.getSnapshotRequestHandler().completeTakingSnapshot(i);
 
       final long lastAppliedIndex = getLastAppliedIndex();

@@ -15,14 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.util;
+package org.apache.ratis.metrics.impl;
+
+import org.apache.ratis.metrics.Timekeeper;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 /**
- * The same as {@link AutoCloseable}
- * except that the close method does not throw {@link Exception}.
+ * The default implementation of {@link Timekeeper} by the shaded {@link Timer}.
  */
-@FunctionalInterface
-public interface UncheckedAutoCloseable extends AutoCloseable {
+public class DefaultTimekeeperImpl implements Timekeeper {
+  private final Timer timer;
+
+  DefaultTimekeeperImpl(Timer timer) {
+    this.timer = timer;
+  }
+
+  public Timer getTimer() {
+    return timer;
+  }
+
   @Override
-  void close();
+  public Context time() {
+    final Timer.Context context = timer.time();
+    return context::stop;
+  }
 }

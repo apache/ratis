@@ -24,6 +24,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -68,7 +69,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -234,11 +234,11 @@ public class TestSegmentedRaftLog extends BaseTest {
 
       final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
 
-      Timer raftLogSegmentLoadLatencyTimer = metricRegistryForLogWorker.timer("segmentLoadLatency");
-      assertTrue(raftLogSegmentLoadLatencyTimer.getMeanRate() > 0);
+      final DefaultTimekeeperImpl load = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("segmentLoadLatency");
+      assertTrue(load.getTimer().getMeanRate() > 0);
 
-      Timer raftLogReadLatencyTimer = metricRegistryForLogWorker.timer("readEntryLatency");
-      assertTrue(raftLogReadLatencyTimer.getMeanRate() > 0);
+      final DefaultTimekeeperImpl read = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("readEntryLatency");
+      assertTrue(read.getTimer().getMeanRate() > 0);
     }
   }
 
@@ -484,7 +484,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
     final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
-    assertTrue(metricRegistryForLogWorker.timer("purgeLog").getCount() > 0);
+    final DefaultTimekeeperImpl purge = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("purgeLog");
+    assertTrue(purge.getTimer().getCount() > 0);
   }
 
   @Test

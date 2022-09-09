@@ -23,7 +23,6 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
   public static final String RATIS_LOG_WORKER_METRICS_DESC = "Metrics for Log Worker";
@@ -34,14 +33,6 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
   public static final String CONFIG_LOG_ENTRY_COUNT = "configLogEntryCount";
   public static final String STATE_MACHINE_LOG_ENTRY_COUNT = "stateMachineLogEntryCount";
 
-  //////////////////////////////
-  // Raft Log Read Path Metrics
-  /////////////////////////////
-  // Time required to read a raft log entry from actual raft log file and create a raft log entry
-  public static final String RAFT_LOG_READ_ENTRY_LATENCY = "readEntryLatency";
-  // Time required to load and process raft log segments during restart
-  public static final String RAFT_LOG_LOAD_SEGMENT_LATENCY = "segmentLoadLatency";
-
   public RaftLogMetricsBase(RaftGroupMemberId serverId) {
     this.registry = getLogWorkerMetricRegistry(serverId);
   }
@@ -50,10 +41,6 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
     return create(new MetricRegistryInfo(serverId.toString(),
         RATIS_APPLICATION_NAME_METRICS,
         RATIS_LOG_WORKER_METRICS, RATIS_LOG_WORKER_METRICS_DESC));
-  }
-
-  private Timer getTimer(String timerName) {
-    return registry.timer(timerName);
   }
 
   @Override
@@ -70,13 +57,5 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
         return;
       default:
     }
-  }
-
-  public Timer getRaftLogReadEntryTimer() {
-    return getTimer(RAFT_LOG_READ_ENTRY_LATENCY);
-  }
-
-  public Timer getRaftLogLoadSegmentTimer() {
-    return getTimer(RAFT_LOG_LOAD_SEGMENT_LATENCY);
   }
 }

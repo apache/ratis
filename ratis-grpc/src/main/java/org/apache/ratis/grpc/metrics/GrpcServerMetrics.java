@@ -22,7 +22,7 @@ import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import org.apache.ratis.metrics.Timekeeper;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,6 +62,9 @@ public class GrpcServerMetrics extends RatisMetrics {
   private final Map<String, LongCounter> requestNotLeader = new ConcurrentHashMap<>();
   private final Map<String, LongCounter> requestInconsistency = new ConcurrentHashMap<>();
 
+  private final Map<String, String> heartbeatLatency = new ConcurrentHashMap<>();
+  private final Map<String, String> appendLogLatency = new ConcurrentHashMap<>();
+
   public GrpcServerMetrics(String serverId) {
     registry = getMetricRegistryForGrpcServer(serverId);
 
@@ -77,10 +80,11 @@ public class GrpcServerMetrics extends RatisMetrics {
         RATIS_GRPC_METRICS_COMP_NAME, RATIS_GRPC_METRICS_DESC));
   }
 
-  public Timer getGrpcLogAppenderLatencyTimer(String follower,
-      boolean isHeartbeat) {
-    return registry.timer(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + getHeartbeatSuffix(isHeartbeat),
-        follower));
+  public Timekeeper getGrpcLogAppenderLatencyTimer(String follower, boolean isHeartbeat) {
+    final Map<String, String> map = isHeartbeat ? heartbeatLatency : appendLogLatency;
+    final String name = map.computeIfAbsent(follower,
+        key -> String.format(RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + getHeartbeatSuffix(isHeartbeat), key));
+    return registry.timer(name);
   }
 
   public void onRequestRetry() {

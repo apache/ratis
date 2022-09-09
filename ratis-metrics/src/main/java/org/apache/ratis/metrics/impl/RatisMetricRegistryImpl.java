@@ -20,6 +20,7 @@ package org.apache.ratis.metrics.impl;
 import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.thirdparty.com.codahale.metrics.ConsoleReporter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Counter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
@@ -29,7 +30,6 @@ import org.apache.ratis.thirdparty.com.codahale.metrics.Metric;
 import org.apache.ratis.thirdparty.com.codahale.metrics.MetricFilter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.MetricRegistry;
 import org.apache.ratis.thirdparty.com.codahale.metrics.MetricSet;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
@@ -54,8 +54,8 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
   }
 
   @Override
-  public Timer timer(String name) {
-    return metricRegistry.timer(getMetricName(name));
+  public Timekeeper timer(String name) {
+    return new DefaultTimekeeperImpl(metricRegistry.timer(getMetricName(name)));
   }
 
   static LongCounter toLongCounter(Counter c) {
@@ -94,10 +94,6 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
   @Override
   public <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier) {
     metricRegistry.gauge(getMetricName(name), () -> toGauge(gaugeSupplier.get()));
-  }
-
-  @Override public Timer timer(String name, MetricRegistry.MetricSupplier<Timer> supplier) {
-    return metricRegistry.timer(getMetricName(name), supplier);
   }
 
   public SortedMap<String, Gauge> getGauges(MetricFilter filter) {
