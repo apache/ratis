@@ -133,7 +133,7 @@ class VoteContext {
    */
   boolean decideVote(RaftPeer candidate, TermIndex candidateLastEntry) {
     if (impl.getRole().getCurrentRole() == RaftProtos.RaftPeerRole.LISTENER) {
-      return reject("The server " + impl.getId() + " is listener and should not participate in elections");
+      return reject("this server is a listener, who is a non-voting member");
     }
     if (candidate == null) {
       return false;
