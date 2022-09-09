@@ -131,6 +131,48 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testLeaderNotCountListenerForMajority() throws Exception {
+    runWithNewCluster(3, 2, this::runTestLeaderNotCountListenerForMajority);
+  }
+
+  void runTestLeaderNotCountListenerForMajority(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    Assert.assertEquals(2, ((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).getMajorityCount());
+    try (RaftClient client = cluster.createClient(leader.getId())) {
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+      List<RaftPeer> listeners = cluster.getListeners()
+          .stream().map(RaftServer.Division::getPeer).collect(Collectors.toList());
+      Assert.assertEquals(2, listeners.size());
+      RaftClientReply reply = client.admin().setConfiguration(cluster.getPeers());
+      Assert.assertTrue(reply.isSuccess());
+      Collection<RaftPeer> peer = leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
+      Assert.assertEquals(0, peer.size());
+    }
+    Assert.assertEquals(3, ((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).getMajorityCount());
+  }
+
+  @Test
+  public void testListenerNotStartLeaderElection() throws Exception {
+    runWithNewCluster(3, 2, this::runTestListenerNotStartLeaderElection);
+  }
+
+  void runTestListenerNotStartLeaderElection(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final TimeDuration maxTimeout = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
+
+    final RaftServer.Division listener = cluster.getListeners().get(0);
+    final RaftPeerId listenerId = listener.getId();
+    try {
+      isolate(cluster, listenerId);
+      maxTimeout.sleep();
+      maxTimeout.sleep();
+      Assert.assertEquals(RaftProtos.RaftPeerRole.LISTENER, listener.getInfo().getCurrentRole());
+    } finally {
+      deIsolate(cluster, listener.getId());
+    }
+  }
+
+  @Test
   public void testTransferLeader() throws Exception {
     try(final MiniRaftCluster cluster = newCluster(3)) {
       cluster.start();
