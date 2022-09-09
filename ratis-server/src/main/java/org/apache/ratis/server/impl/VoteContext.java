@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DivisionInfo;
@@ -131,6 +132,9 @@ class VoteContext {
    * See Section 5.4.1 Election restriction
    */
   boolean decideVote(RaftPeer candidate, TermIndex candidateLastEntry) {
+    if (impl.getRole().getCurrentRole() == RaftProtos.RaftPeerRole.LISTENER) {
+      return reject("this server is a listener, who is a non-voting member");
+    }
     if (candidate == null) {
       return false;
     }
