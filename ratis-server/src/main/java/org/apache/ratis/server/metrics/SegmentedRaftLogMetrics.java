@@ -18,6 +18,7 @@
 
 package org.apache.ratis.server.metrics;
 
+import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.util.JavaUtils;
@@ -80,42 +81,54 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   /** Time required to load and process raft log segments during restart */
   public static final String RAFT_LOG_LOAD_SEGMENT_LATENCY = "segmentLoadLatency";
 
-  private final Timekeeper flushTimer = getTimer(RAFT_LOG_FLUSH_TIME);
-  private final Timekeeper syncTimer = getTimer(RAFT_LOG_SYNC_TIME);
-  private final Timekeeper enqueuedTimer = getTimer(RAFT_LOG_TASK_QUEUE_TIME);
-  private final Timekeeper queuingDelayTimer = getTimer(RAFT_LOG_TASK_ENQUEUE_DELAY);;
+  private final Timekeeper flushTimer = getRegistry().timer(RAFT_LOG_FLUSH_TIME);
+  private final Timekeeper syncTimer = getRegistry().timer(RAFT_LOG_SYNC_TIME);
+  private final Timekeeper enqueuedTimer = getRegistry().timer(RAFT_LOG_TASK_QUEUE_TIME);
+  private final Timekeeper queuingDelayTimer = getRegistry().timer(RAFT_LOG_TASK_ENQUEUE_DELAY);
 
-  private final Timekeeper appendEntryTimer = getTimer(RAFT_LOG_APPEND_ENTRY_LATENCY);
-  private final Timekeeper readEntryTimer = getTimer(RAFT_LOG_READ_ENTRY_LATENCY);
-  private final Timekeeper loadSegmentTimer = getTimer(RAFT_LOG_LOAD_SEGMENT_LATENCY);
-  private final Timekeeper purgeTimer = getTimer(RAFT_LOG_PURGE_METRIC);
+  private final Timekeeper appendEntryTimer = getRegistry().timer(RAFT_LOG_APPEND_ENTRY_LATENCY);
+  private final Timekeeper readEntryTimer = getRegistry().timer(RAFT_LOG_READ_ENTRY_LATENCY);
+  private final Timekeeper loadSegmentTimer = getRegistry().timer(RAFT_LOG_LOAD_SEGMENT_LATENCY);
+  private final Timekeeper purgeTimer = getRegistry().timer(RAFT_LOG_PURGE_METRIC);
+
+  private final LongCounter cacheHitCount = getRegistry().counter(RAFT_LOG_CACHE_HIT_COUNT);
+  private final LongCounter cacheMissCount= getRegistry().counter(RAFT_LOG_CACHE_MISS_COUNT);
+  private final LongCounter appendEntryCount = getRegistry().counter(RAFT_LOG_APPEND_ENTRY_COUNT);
+  private final LongCounter flushCount = getRegistry().counter(RAFT_LOG_FLUSH_COUNT);
+
+  private final LongCounter numStateMachineDataWriteTimeout = getRegistry().counter(
+      RAFT_LOG_STATEMACHINE_DATA_WRITE_TIMEOUT_COUNT);
+  private final LongCounter numStateMachineDataReadTimeout = getRegistry().counter(
+      RAFT_LOG_STATEMACHINE_DATA_READ_TIMEOUT_COUNT);
+
+  private final Map<Class<?>, Timekeeper> taskClassTimers = new ConcurrentHashMap<>();
 
   public SegmentedRaftLogMetrics(RaftGroupMemberId serverId) {
     super(serverId);
   }
 
   public void addDataQueueSizeGauge(Supplier<Integer> numElements) {
-    registry.gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> numElements);
+    getRegistry().gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> numElements);
   }
 
   public void addClosedSegmentsNum(Supplier<Long> cachedSegmentNum) {
-    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM, () -> cachedSegmentNum);
+    getRegistry().gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM, () -> cachedSegmentNum);
   }
 
   public void addClosedSegmentsSizeInBytes(Supplier<Long> closedSegmentsSizeInBytes) {
-    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES, () -> closedSegmentsSizeInBytes);
+    getRegistry().gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES, () -> closedSegmentsSizeInBytes);
   }
 
   public void addOpenSegmentSizeInBytes(Supplier<Long> openSegmentSizeInBytes) {
-    registry.gauge(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES, () -> openSegmentSizeInBytes);
+    getRegistry().gauge(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES, () -> openSegmentSizeInBytes);
   }
 
   public void addLogWorkerQueueSizeGauge(Supplier<Integer> queueSize) {
-    registry.gauge(RAFT_LOG_WORKER_QUEUE_SIZE, () -> queueSize);
+    getRegistry().gauge(RAFT_LOG_WORKER_QUEUE_SIZE, () -> queueSize);
   }
 
   public void addFlushBatchSizeGauge(Supplier<Integer> flushBatchSize) {
-    registry.gauge(RAFT_LOG_SYNC_BATCH_SIZE, () -> flushBatchSize);
+    getRegistry().gauge(RAFT_LOG_SYNC_BATCH_SIZE, () -> flushBatchSize);
   }
 
   public UncheckedAutoCloseable startFlushTimer() {
@@ -127,19 +140,19 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   }
 
   public void onRaftLogCacheHit() {
-    registry.counter(RAFT_LOG_CACHE_HIT_COUNT).inc();
+    cacheHitCount.inc();
   }
 
   public void onRaftLogCacheMiss() {
-    registry.counter(RAFT_LOG_CACHE_MISS_COUNT).inc();
+    cacheMissCount.inc();
   }
 
   public void onRaftLogFlush() {
-    registry.counter(RAFT_LOG_FLUSH_COUNT).inc();
+    flushCount.inc();
   }
 
   public void onRaftLogAppendEntry() {
-    registry.counter(RAFT_LOG_APPEND_ENTRY_COUNT).inc();
+    appendEntryCount.inc();
   }
 
   public UncheckedAutoCloseable startAppendEntryTimer() {
@@ -154,13 +167,12 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     return Timekeeper.start(queuingDelayTimer);
   }
 
-  private final Map<Class<?>, Timekeeper> classMap = new ConcurrentHashMap<>();
-  private Timekeeper getTaskExecutionTimer(Class<?> taskClass) {
-    return getTimer(String.format(RAFT_LOG_TASK_EXECUTION_TIME,
+  private Timekeeper newTaskExecutionTimer(Class<?> taskClass) {
+    return getRegistry().timer(String.format(RAFT_LOG_TASK_EXECUTION_TIME,
         JavaUtils.getClassSimpleName(taskClass).toLowerCase()));
   }
   public UncheckedAutoCloseable startTaskExecutionTimer(Class<?> taskClass) {
-    return Timekeeper.start(classMap.computeIfAbsent(taskClass, this::getTaskExecutionTimer));
+    return Timekeeper.start(taskClassTimers.computeIfAbsent(taskClass, this::newTaskExecutionTimer));
   }
 
   public Timekeeper getReadEntryTimer() {
@@ -176,11 +188,11 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   }
 
   public void onStateMachineDataWriteTimeout() {
-    registry.counter(RAFT_LOG_STATEMACHINE_DATA_WRITE_TIMEOUT_COUNT).inc();
+    numStateMachineDataWriteTimeout.inc();
   }
 
   @Override
   public void onStateMachineDataReadTimeout() {
-    registry.counter(RAFT_LOG_STATEMACHINE_DATA_READ_TIMEOUT_COUNT).inc();
+    numStateMachineDataReadTimeout.inc();
   }
 }
