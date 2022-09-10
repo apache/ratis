@@ -57,7 +57,7 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, RaftPeer
   }
 
   default RaftServerAsynchronousProtocol async() {
-    throw new UnsupportedOperationException(JavaUtils.getClassSimpleName(RaftServerAsynchronousProtocol.class) +
-        "is not yet supported");
+    throw new UnsupportedOperationException(getClass().getName()
+        + " does not support " + JavaUtils.getClassSimpleName(RaftServerAsynchronousProtocol.class));
   }
 }

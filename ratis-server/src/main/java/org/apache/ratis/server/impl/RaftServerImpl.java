@@ -951,7 +951,11 @@ class RaftServerImpl implements RaftServer.Division,
           .thenCompose(readIndex -> queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));
     } else if (readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
-      return queryStateMachine(request);
+       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
+       if (reply != null) {
+         return reply;
+       }
+       return queryStateMachine(request);
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
     }
