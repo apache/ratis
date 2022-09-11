@@ -239,6 +239,15 @@ message InstallSnapshotReplyProto {
   }
 }
 
+message ReadIndexRequestProto {
+  RaftRpcRequestProto serverRequest = 1;
+}
+
+message ReadIndexReplyProto {
+  RaftRpcReplyProto serverReply = 1;
+  uint64 readIndex = 2;
+}
+
 message ClientMessageEntryProto {
   bytes content = 1;
 }
@@ -399,6 +408,7 @@ message RaftClientReplyProto {
     ThrowableProto dataStreamException = 8;
     ThrowableProto leaderSteppingDownException = 9;
     ThrowableProto transferLeadershipException = 10;
+    ThrowableProto readException = 11;
   }
 
   uint64 logIndex = 14; // When the request is a write request and the reply is success, the log index of the transaction

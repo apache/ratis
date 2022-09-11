@@ -831,6 +831,8 @@ class RaftServerImpl implements RaftServer.Division,
 
     if (request.is(TypeCase.STALEREAD)) {
       replyFuture = staleReadAsync(request);
+    } else if (request.is(TypeCase.READ)) {
+      replyFuture = readAsync(request);
     } else {
       // first check the server's leader state
       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null,
@@ -852,11 +854,7 @@ class RaftServerImpl implements RaftServer.Division,
         }
       }
 
-      if (type.is(TypeCase.READ)) {
-        // TODO: We might not be the leader anymore by the time this completes.
-        // See the RAFT paper section 8 (last part)
-        replyFuture = readAsync(request);
-      } else if (type.is(TypeCase.WATCH)) {
+      if (type.is(TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
       } else if (type.is(TypeCase.MESSAGESTREAM)) {
         replyFuture = streamAsync(request);
@@ -921,6 +919,16 @@ class RaftServerImpl implements RaftServer.Division,
     return getState().getReadRequests();
   }
 
+  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync() {
+    final ReadIndexRequestProto request = ServerProtoUtils.toReadIndexRequestProto(
+        getMemberId(),  getInfo().getLeaderId());
+    try {
+      return getServerRpc().async().readIndexAsync(request);
+    } catch (IOException e) {
+      return JavaUtils.completeExceptionally(e);
+    }
+  }
+
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
     if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
       /*
@@ -930,16 +938,31 @@ class RaftServerImpl implements RaftServer.Division,
         3. Finally, query the statemachine and return the result.
        */
       final LeaderStateImpl leader = role.getLeaderState().orElse(null);
-      // TODO support follower linearizable read
-      if (leader == null) {
-        return JavaUtils.completeExceptionally(generateNotLeaderException());
+
+      final CompletableFuture<Long> replyFuture;
+      if (leader != null) {
+        replyFuture = leader.getReadIndex();
+      } else {
+        replyFuture = sendReadIndexAsync().thenApply(reply -> {
+          if (reply.getServerReply().getSuccess()) {
+            return reply.getReadIndex();
+          } else {
+            throw new CompletionException(new ReadException(getId() +
+                ": Failed to get read index from the leader: " + reply));
+          }
+        });
       }
-      return leader.getReadIndex()
+
+      return replyFuture
           .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
           .thenCompose(readIndex -> queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));
     } else if (readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
-      return queryStateMachine(request);
+       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
+       if (reply != null) {
+         return reply;
+       }
+       return queryStateMachine(request);
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
     }
@@ -1362,6 +1385,24 @@ class RaftServerImpl implements RaftServer.Division,
       LOG.error("{}: Failed appendEntriesAsync {}", getMemberId(), r, t);
       throw t;
     }
+  }
+
+  @Override
+  public CompletableFuture<ReadIndexReplyProto> readIndexAsync(ReadIndexRequestProto request) throws IOException {
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+
+    final RaftPeerId peerId = RaftPeerId.valueOf(request.getServerRequest().getRequestorId());
+
+    final LeaderStateImpl leader = role.getLeaderState().orElse(null);
+    if (leader == null) {
+      return CompletableFuture.completedFuture(
+          ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, INVALID_LOG_INDEX));
+    }
+
+    return leader.getReadIndex()
+        .thenApply(index -> ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), true, index))
+        .exceptionally(throwable ->
+            ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, INVALID_LOG_INDEX));
   }
 
   static void logAppendEntries(boolean isHeartbeat, Supplier<String> message) {

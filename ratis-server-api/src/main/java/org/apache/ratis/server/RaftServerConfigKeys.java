@@ -182,7 +182,11 @@ public interface RaftServerConfigKeys {
     String OPTION_KEY = ".option";
     Option OPTION_DEFAULT = Option.DEFAULT;
     static Option option(RaftProperties properties) {
-      return get(properties::getEnum, OPTION_KEY, OPTION_DEFAULT, getDefaultLog());
+      Option option =  get(properties::getEnum, OPTION_KEY, OPTION_DEFAULT, getDefaultLog());
+      if (option != Option.DEFAULT && option != Option.LINEARIZABLE) {
+        throw new IllegalArgumentException("Unexpected read option: " + option);
+      }
+      return option;
     }
     static void setOption(RaftProperties properties, Option option) {
       set(properties::setEnum, OPTION_KEY, option);

@@ -49,6 +49,14 @@ public interface BlockingApi {
   RaftClientReply sendReadOnly(Message message) throws IOException;
 
   /**
+   * Send the given readonly message to the given server (not the raft service)
+   * @param message The request message.
+   * @param server The target server
+   * @return the reply.
+   */
+  RaftClientReply sendReadOnly(Message message, RaftPeerId server) throws IOException;
+
+  /**
    * Send the given stale-read message to the given server (not the raft service).
    * If the server commit index is larger than or equal to the given min-index, the request will be processed.
    * Otherwise, the server throws a {@link org.apache.ratis.protocol.exceptions.StaleReadException}.

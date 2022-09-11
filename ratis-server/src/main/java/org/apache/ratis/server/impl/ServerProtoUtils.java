@@ -109,6 +109,21 @@ final class ServerProtoUtils {
     return builder.build();
   }
 
+  static ReadIndexRequestProto toReadIndexRequestProto(
+      RaftGroupMemberId requestorId, RaftPeerId replyId) {
+    return ReadIndexRequestProto.newBuilder()
+        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId))
+        .build();
+  }
+
+  static ReadIndexReplyProto toReadIndexReplyProto(
+      RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success, long index) {
+    return ReadIndexReplyProto.newBuilder()
+        .setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success))
+        .setReadIndex(index)
+        .build();
+  }
+
   @SuppressWarnings("parameternumber")
   static AppendEntriesReplyProto toAppendEntriesReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId, long term,

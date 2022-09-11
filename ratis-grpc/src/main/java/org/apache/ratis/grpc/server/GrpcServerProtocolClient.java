@@ -121,6 +121,11 @@ public class GrpcServerProtocolClient implements Closeable {
     return r;
   }
 
+  void readIndex(ReadIndexRequestProto request, StreamObserver<ReadIndexReplyProto> s) {
+    asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+        .readIndex(request, s);
+  }
+
   StreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseHandler, boolean isHeartbeat) {
     if (isHeartbeat && useSeparateHBChannel) {

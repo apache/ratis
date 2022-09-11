@@ -21,7 +21,9 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.util.JavaUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -52,5 +54,10 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, RaftPeer
 
   /** The server role changes from leader to a non-leader role. */
   default void notifyNotLeader(RaftGroupId groupId) {
+  }
+
+  default RaftServerAsynchronousProtocol async() {
+    throw new UnsupportedOperationException(getClass().getName()
+        + " does not support " + JavaUtils.getClassSimpleName(RaftServerAsynchronousProtocol.class));
   }
 }
