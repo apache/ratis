@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.protocol.exceptions.ReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.util.JavaUtils;
@@ -169,7 +170,7 @@ public class RaftClientReply extends RaftClientMessage {
           AlreadyClosedException.class,
           NotLeaderException.class, NotReplicatedException.class,
           LeaderNotReadyException.class, StateMachineException.class, DataStreamException.class,
-          LeaderSteppingDownException.class, TransferLeadershipException.class),
+          LeaderSteppingDownException.class, TransferLeadershipException.class, ReadException.class),
           () -> "Unexpected exception class: " + this);
     }
   }
@@ -243,6 +244,10 @@ public class RaftClientReply extends RaftClientMessage {
 
   public TransferLeadershipException getTransferLeadershipException() {
     return JavaUtils.cast(exception, TransferLeadershipException.class);
+  }
+
+  public ReadException getReadException() {
+    return JavaUtils.cast(exception, ReadException.class);
   }
 
   /** @return the exception, if there is any; otherwise, return null. */
