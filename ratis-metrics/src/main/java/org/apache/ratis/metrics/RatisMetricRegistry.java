@@ -17,15 +17,6 @@
  */
 package org.apache.ratis.metrics;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.ConsoleReporter;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Histogram;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Meter;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Metric;
-import org.apache.ratis.thirdparty.com.codahale.metrics.MetricRegistry;
-import org.apache.ratis.thirdparty.com.codahale.metrics.MetricSet;
-import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
-
 import java.util.function.Supplier;
 
 public interface RatisMetricRegistry {
@@ -37,27 +28,5 @@ public interface RatisMetricRegistry {
 
   <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier);
 
-  Histogram histogram(String name);
-
-  Meter meter(String name);
-
-  Meter meter(String name, MetricRegistry.MetricSupplier<Meter> supplier);
-
-  @VisibleForTesting Metric get(String shortName);
-
-  <T extends Metric> T register(String name, T metric) throws IllegalArgumentException;
-
-  MetricRegistry getDropWizardMetricRegistry();
-
   MetricRegistryInfo getMetricRegistryInfo();
-
-  void registerAll(String prefix, MetricSet metricSet);
-
-  void setJmxReporter(JmxReporter jmxReporter);
-
-  JmxReporter getJmxReporter();
-
-  void setConsoleReporter(ConsoleReporter consoleReporter);
-
-  ConsoleReporter getConsoleReporter();
 }

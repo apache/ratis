@@ -18,11 +18,13 @@
 package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.metrics.JVMMetrics;
+import org.apache.ratis.metrics.impl.JvmMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.RaftServer;
@@ -50,7 +52,7 @@ import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.*;
 public class TestRaftLogMetrics extends BaseTest
     implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
   static {
-    JVMMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    JvmMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
   }
 
   public static final int NUM_SERVERS = 3;
@@ -117,9 +119,13 @@ public class TestRaftLogMetrics extends BaseTest
     Assert.assertEquals(expectedMsgs, stmCount);
   }
 
+  static RatisMetricRegistryImpl getRegistry(RaftGroupMemberId memberId) {
+    return (RatisMetricRegistryImpl) RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
+  }
+
   static void assertFlushCount(RaftServer.Division server) throws Exception {
     final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getMemberId().toString());
-    final RatisMetricRegistry ratisMetricRegistry = RaftLogMetricsBase.getLogWorkerMetricRegistry(server.getMemberId());
+    final RatisMetricRegistryImpl ratisMetricRegistry = getRegistry(server.getMemberId());
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_FLUSH_TIME);
     Assert.assertNotNull(tm);
 
@@ -142,7 +148,7 @@ public class TestRaftLogMetrics extends BaseTest
 
   static void assertRaftLogWritePathMetrics(RaftServer.Division server) throws Exception {
     final String syncTimeMetric = RaftStorageTestUtils.getRaftLogFullMetric(server.getMemberId().toString(), RAFT_LOG_SYNC_TIME);
-    final RatisMetricRegistry ratisMetricRegistry = RaftLogMetricsBase.getLogWorkerMetricRegistry(server.getMemberId());
+    final RatisMetricRegistryImpl ratisMetricRegistry = getRegistry(server.getMemberId());
 
     //Test sync count
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_SYNC_TIME);
