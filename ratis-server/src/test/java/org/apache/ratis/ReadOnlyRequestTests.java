@@ -126,6 +126,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
         Assert.assertTrue(reply.isSuccess());
 
         CompletableFuture<RaftClientReply> result = client.async().send(waitAndIncrementMessage);
+        Thread.sleep(100);
 
         RaftClientReply staleValueBefore = client.io()
                 .sendStaleRead(queryMessage, 0, leaderId);
@@ -216,6 +217,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
         leaderClient.io().send(incrementMessage);
         leaderClient.async().send(waitAndIncrementMessage);
+        Thread.sleep(100);
 
         RaftClientReply clientReply = followerClient1.io().sendReadOnly(queryMessage, followers.get(0).getId());
         Assert.assertEquals(2, retrieve(clientReply));
