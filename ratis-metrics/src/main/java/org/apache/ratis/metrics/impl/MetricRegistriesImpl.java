@@ -48,7 +48,7 @@ public class MetricRegistriesImpl extends MetricRegistries {
   private final MetricRegistryFactory factory;
 
   private final RefCountingMap<MetricRegistryInfo, RatisMetricRegistry> registries;
-  private static final Object registerLock = new Object();
+  private final Object registerLock = new Object();
 
   public MetricRegistriesImpl() {
     this(new MetricRegistryFactoryImpl());
