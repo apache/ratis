@@ -340,7 +340,8 @@ class LeaderStateImpl implements LeaderState {
       LOG.warn("{}: Caught exception in sendNotLeaderResponses", this, e);
     }
     messageStreamRequests.clear();
-    readIndexHeartbeats.clear();
+    // TODO client should retry on NotLeaderException
+    readIndexHeartbeats.failListeners(nle);
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();

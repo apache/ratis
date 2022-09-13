@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public class ReadIndexHeartbeats {
+class ReadIndexHeartbeats {
   private static final Logger LOG = LoggerFactory.getLogger(ReadIndexHeartbeats.class);
 
   /** The acknowledgement from a {@link LogAppender} of a heartbeat for a particular call id. */
@@ -144,6 +144,11 @@ public class ReadIndexHeartbeats {
         }
       }
     }
+
+    synchronized void failAll(Exception e) {
+      sorted.forEach((index, listener) -> listener.getFuture().completeExceptionally(e));
+      sorted.clear();
+    }
   }
 
   private final AppendEntriesListeners appendEntriesListeners = new AppendEntriesListeners();
@@ -162,7 +167,7 @@ public class ReadIndexHeartbeats {
     appendEntriesListeners.onAppendEntriesReply(appender, reply, hasMajority);
   }
 
-  void clear() {
-    appendEntriesListeners.sorted.clear();
+  void failListeners(Exception e) {
+    appendEntriesListeners.failAll(e);
   }
 }
