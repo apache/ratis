@@ -158,6 +158,11 @@ public abstract class LogAppenderBase implements LogAppender {
       }
     }
 
+    final long raftLogLastPurgedIndex = getRaftLog().getStartIndex() - 1;
+    if (raftLogLastPurgedIndex == previousIndex) {
+      return TermIndex.valueOf(server.getInfo().getCurrentTerm(), raftLogLastPurgedIndex);
+    }
+
     return null;
   }
 
