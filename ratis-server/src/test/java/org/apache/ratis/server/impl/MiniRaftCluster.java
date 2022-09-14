@@ -74,6 +74,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -836,7 +837,9 @@ public abstract class MiniRaftCluster implements Closeable {
     // TODO: classes like RaftLog may throw uncaught exception during shutdown (e.g. write after close)
     ExitUtils.setTerminateOnUncaughtException(false);
 
-    final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), Daemon::new);
+    AtomicInteger count = new AtomicInteger(0);
+    final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), (t) ->
+        Daemon.newBuilder().setName("MiniRaftCluster-" + count.incrementAndGet()).setRunnable(t).build());
     getServers().forEach(proxy -> executor.submit(() -> JavaUtils.runAsUnchecked(proxy::close)));
     try {
       executor.shutdown();

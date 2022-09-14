@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.util;
 
+import java.util.Objects;
+
 public class Daemon extends Thread {
   {
     setDaemon(true);
@@ -36,5 +38,36 @@ public class Daemon extends Thread {
   public Daemon(Runnable runnable, String name) {
     super(runnable);
     this.setName(name);
+  }
+
+  /** Construct a daemon thread with flexible arguments. */
+  protected Daemon(Builder builder) {
+    super(builder.runnable);
+    setName(builder.name);
+  }
+
+  /** @return a {@link Builder}. */
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  public static class Builder {
+    private String name;
+    private Runnable runnable;
+
+    public Builder setName(String name) {
+      this.name = name;
+      return this;
+    }
+
+    public Builder setRunnable(Runnable runnable) {
+      this.runnable = runnable;
+      return this;
+    }
+
+    public Daemon build() {
+      Objects.requireNonNull(name, "name == null");
+      return new Daemon(this);
+    }
   }
 }

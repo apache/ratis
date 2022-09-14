@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -37,6 +38,7 @@ public final class TimeoutScheduler implements TimeoutExecutor {
   static final TimeDuration DEFAULT_GRACE_PERIOD = TimeDuration.valueOf(1, TimeUnit.MINUTES);
 
   private static final Supplier<TimeoutScheduler> INSTANCE = JavaUtils.memoize(TimeoutScheduler::new);
+  private static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
 
   public static TimeoutScheduler getInstance() {
     return INSTANCE.get();
@@ -84,7 +86,10 @@ public final class TimeoutScheduler implements TimeoutExecutor {
 
     private static ScheduledThreadPoolExecutor newExecutor() {
       LOG.debug("new ScheduledThreadPoolExecutor");
-      final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1, (ThreadFactory) Daemon::new);
+      final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1,
+          (runnable) ->
+              Daemon.newBuilder().setName("TimeoutScheduler-" + THREAD_COUNT.getAndIncrement())
+                 .setRunnable(runnable).build());
       e.setRemoveOnCancelPolicy(true);
       return e;
     }
