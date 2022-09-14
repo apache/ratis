@@ -51,7 +51,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -179,8 +178,6 @@ class SegmentedRaftLogWorker {
   private final boolean asyncFlush;
   private final boolean unsafeFlush;
   private final ExecutorService flushExecutor;
-  private final AtomicReference<CompletableFuture<Void>> flushFuture
-      = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
@@ -407,9 +404,8 @@ class SegmentedRaftLogWorker {
 
   private void asyncFlushOutStream(CompletableFuture<Void> stateMachineFlush) throws IOException {
     final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
-    final CompletableFuture<Void> f = out.asyncFlush(flushExecutor)
-        .thenCombine(stateMachineFlush, (async, sm) -> async);
-    flushFuture.updateAndGet(previous -> f.thenCombine(previous, (current, prev) -> current))
+    out.asyncFlush(flushExecutor)
+        .thenCombine(stateMachineFlush, (async, sm) -> async)
         .whenComplete((v, e) -> {
           updateFlushedIndexIncreasingly(lastWrittenIndex);
           logSyncTimerContext.stop();
@@ -754,6 +750,6 @@ class SegmentedRaftLogWorker {
   private void allocateSegmentedRaftLogOutputStream(File file, boolean append) throws IOException {
     Preconditions.assertTrue(out == null && writeBuffer.position() == 0);
     out = new SegmentedRaftLogOutputStream(file, append, segmentMaxSize,
-            preallocatedSize, writeBuffer, flushFuture::get);
+            preallocatedSize, writeBuffer);
   }
 }

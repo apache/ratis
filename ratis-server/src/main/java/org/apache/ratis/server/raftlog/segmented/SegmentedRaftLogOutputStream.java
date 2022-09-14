@@ -34,7 +34,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Supplier;
 import java.util.zip.Checksum;
 
 public class SegmentedRaftLogOutputStream implements Closeable {
@@ -58,13 +57,13 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private final long preallocatedSize;
 
   public SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
-      long preallocatedSize, ByteBuffer byteBuffer, Supplier<CompletableFuture<Void>> flushFuture)
+      long preallocatedSize, ByteBuffer byteBuffer)
       throws IOException {
     this.file = file;
     this.checksum = new PureJavaCrc32C();
     this.segmentMaxSize = segmentMaxSize;
     this.preallocatedSize = preallocatedSize;
-    this.out = BufferedWriteChannel.open(file, append, byteBuffer, flushFuture);
+    this.out = BufferedWriteChannel.open(file, append, byteBuffer);
 
     if (!append) {
       // write header
