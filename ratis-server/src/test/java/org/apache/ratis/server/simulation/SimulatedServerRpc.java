@@ -56,13 +56,13 @@ import java.util.function.Supplier;
 
 class SimulatedServerRpc implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(SimulatedServerRpc.class);
+  static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
 
   private final RaftServer server;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
-  AtomicInteger count = new AtomicInteger(0);
   private final ExecutorService executor = Executors.newFixedThreadPool(3, (t) ->
-      Daemon.newBuilder().setName("SimulatedServerRpc-" + count.incrementAndGet()).setRunnable(t).build());
+      Daemon.newBuilder().setName("SimulatedServerRpc-" + THREAD_COUNT.incrementAndGet()).setRunnable(t).build());
 
   SimulatedServerRpc(RaftServer server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
