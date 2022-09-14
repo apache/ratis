@@ -48,7 +48,7 @@ class LogAppenderDaemon {
     this.logAppender = logAppender;
     this.name = logAppender + "-" + JavaUtils.getClassSimpleName(getClass());
     this.lifeCycle = new LifeCycle(name);
-    this.daemon = new Daemon(this::run, name);
+    this.daemon = Daemon.newBuilder().setName(name).setRunnable(this::run).build();
   }
 
   public boolean isWorking() {

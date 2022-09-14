@@ -137,7 +137,8 @@ class LeaderElection implements Runnable {
 
     Executor(Object name, int size) {
       Preconditions.assertTrue(size > 0);
-      executor = Executors.newFixedThreadPool(size, r -> new Daemon(r, name + "-" + count.incrementAndGet()));
+      executor = Executors.newFixedThreadPool(size, r ->
+          Daemon.newBuilder().setName(name + "-" + count.incrementAndGet()).setRunnable(r).build());
       service = new ExecutorCompletionService<>(executor);
     }
 
@@ -189,7 +190,7 @@ class LeaderElection implements Runnable {
   LeaderElection(RaftServerImpl server, boolean skipPreVote) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
-    this.daemon = new Daemon(this);
+    this.daemon = Daemon.newBuilder().setName(name).setRunnable(this).build();
     this.server = server;
     this.skipPreVote = skipPreVote ||
         !RaftServerConfigKeys.LeaderElection.preVote(
