@@ -24,22 +24,6 @@ public class Daemon extends Thread {
     setDaemon(true);
   }
 
-  /** Construct a daemon thread. */
-  public Daemon() {
-    super();
-  }
-
-  /** Construct a daemon thread with the given runnable. */
-  public Daemon(Runnable runnable) {
-    this(runnable, runnable.toString());
-  }
-
-  /** Construct a daemon thread with the given runnable. */
-  public Daemon(Runnable runnable, String name) {
-    super(runnable);
-    this.setName(name);
-  }
-
   /** Construct a daemon thread with flexible arguments. */
   protected Daemon(Builder builder) {
     super(builder.runnable);
