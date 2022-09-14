@@ -28,11 +28,13 @@ import java.lang.management.MemoryManagerMXBean;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class JvmPauseMonitor {
   public static final Logger LOG = LoggerFactory.getLogger(JvmPauseMonitor.class);
+  private static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
 
   static final class GcInfo {
     private final long count;
@@ -137,7 +139,8 @@ public class JvmPauseMonitor {
 
   /** Start this monitor. */
   public void start() {
-    final MemoizedSupplier<Thread> supplier = JavaUtils.memoize(() -> new Daemon(this::run));
+    final MemoizedSupplier<Thread> supplier = JavaUtils.memoize(() -> Daemon.newBuilder()
+        .setName("JvmPauseMonitor" + THREAD_COUNT.getAndIncrement()).setRunnable(this::run).build());
     Optional.of(threadRef.updateAndGet(previous -> Optional.ofNullable(previous).orElseGet(supplier)))
         .filter(t -> supplier.isInitialized())
         .ifPresent(Thread::start);
