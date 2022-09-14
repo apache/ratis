@@ -17,11 +17,14 @@
  */
 package org.apache.ratis.server.raftlog;
 
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.metrics.JVMMetrics;
+import org.apache.ratis.metrics.impl.JvmMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.RaftServer;
@@ -49,7 +52,7 @@ import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.*;
 public class TestRaftLogMetrics extends BaseTest
     implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
   static {
-    JVMMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    JvmMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
   }
 
   public static final int NUM_SERVERS = 3;
@@ -116,9 +119,13 @@ public class TestRaftLogMetrics extends BaseTest
     Assert.assertEquals(expectedMsgs, stmCount);
   }
 
+  static RatisMetricRegistryImpl getRegistry(RaftGroupMemberId memberId) {
+    return (RatisMetricRegistryImpl) RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
+  }
+
   static void assertFlushCount(RaftServer.Division server) throws Exception {
     final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getMemberId().toString());
-    final RatisMetricRegistry ratisMetricRegistry = RaftLogMetricsBase.getLogWorkerMetricRegistry(server.getMemberId());
+    final RatisMetricRegistryImpl ratisMetricRegistry = getRegistry(server.getMemberId());
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_FLUSH_TIME);
     Assert.assertNotNull(tm);
 
@@ -141,7 +148,7 @@ public class TestRaftLogMetrics extends BaseTest
 
   static void assertRaftLogWritePathMetrics(RaftServer.Division server) throws Exception {
     final String syncTimeMetric = RaftStorageTestUtils.getRaftLogFullMetric(server.getMemberId().toString(), RAFT_LOG_SYNC_TIME);
-    final RatisMetricRegistry ratisMetricRegistry = RaftLogMetricsBase.getLogWorkerMetricRegistry(server.getMemberId());
+    final RatisMetricRegistryImpl ratisMetricRegistry = getRegistry(server.getMemberId());
 
     //Test sync count
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_SYNC_TIME);
@@ -166,17 +173,18 @@ public class TestRaftLogMetrics extends BaseTest
     Assert.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_FLUSH_COUNT).getCount() > 0);
     Assert.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_APPEND_ENTRY_COUNT).getCount() > 0);
 
-    Timer appendLatencyTimer = ratisMetricRegistry.timer(RAFT_LOG_APPEND_ENTRY_LATENCY);
-    Assert.assertTrue(appendLatencyTimer.getMeanRate() > 0);
+    final DefaultTimekeeperImpl appendEntry = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_APPEND_ENTRY_LATENCY);
+    Assert.assertTrue(appendEntry.getTimer().getMeanRate() > 0);
 
-    Timer enqueuedTimer = ratisMetricRegistry.timer(RAFT_LOG_TASK_QUEUE_TIME);
-    Assert.assertTrue(enqueuedTimer.getMeanRate() > 0);
+    final DefaultTimekeeperImpl taskQueue = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_QUEUE_TIME);
+    Assert.assertTrue(taskQueue.getTimer().getMeanRate() > 0);
 
-    Timer queueingDelayTimer = ratisMetricRegistry.timer(RAFT_LOG_TASK_ENQUEUE_DELAY);
-    Assert.assertTrue(queueingDelayTimer.getMeanRate() > 0);
+    final DefaultTimekeeperImpl enqueueDelay = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_ENQUEUE_DELAY);
+    Assert.assertTrue(enqueueDelay.getTimer().getMeanRate() > 0);
 
-    Timer executionTimer = ratisMetricRegistry.timer(String.format(RAFT_LOG_TASK_EXECUTION_TIME, "writelog"));
-    Assert.assertTrue(executionTimer.getMeanRate() > 0);
+    final DefaultTimekeeperImpl write = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(
+        String.format(RAFT_LOG_TASK_EXECUTION_TIME, "writelog"));
+    Assert.assertTrue(write.getTimer().getMeanRate() > 0);
 
     Assert.assertNotNull(ratisMetricRegistry.get(RAFT_LOG_DATA_QUEUE_SIZE));
     Assert.assertNotNull(ratisMetricRegistry.get(RAFT_LOG_WORKER_QUEUE_SIZE));

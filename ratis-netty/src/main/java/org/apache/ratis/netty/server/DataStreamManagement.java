@@ -25,8 +25,8 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
-import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics.RequestContext;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics.RequestMetrics;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics.RequestType;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -91,7 +91,7 @@ public class DataStreamManagement {
     }
 
     CompletableFuture<Long> write(ByteBuf buf, WriteOption[] options, Executor executor) {
-      final RequestContext context = metrics.start();
+      final Timekeeper.Context context = metrics.start();
       return composeAsync(writeFuture, executor,
           n -> streamFuture.thenCompose(stream -> writeToAsync(buf, options, stream, executor)
               .whenComplete((l, e) -> metrics.stop(context, e == null))));
@@ -110,7 +110,7 @@ public class DataStreamManagement {
     }
 
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
-      final RequestContext context = metrics.start();
+      final Timekeeper.Context context = metrics.start();
       return composeAsync(sendFuture, executor,
           n -> out.writeAsync(request.slice().nioBuffer(), request.getWriteOptions())
               .whenComplete((l, e) -> metrics.stop(context, e == null)));
@@ -252,7 +252,7 @@ public class DataStreamManagement {
     final MemoizedSupplier<CompletableFuture<DataStream>> supplier = JavaUtils.memoize(
         () -> {
           final RequestMetrics metrics = getMetrics().newRequestMetrics(RequestType.STATE_MACHINE_STREAM);
-          final RequestContext context = metrics.start();
+          final Timekeeper.Context context = metrics.start();
           return division.getStateMachine().data().stream(request)
               .whenComplete((r, e) -> metrics.stop(context, e == null));
         });

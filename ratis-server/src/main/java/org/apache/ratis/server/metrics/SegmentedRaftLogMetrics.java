@@ -18,9 +18,13 @@
 
 package org.apache.ratis.server.metrics;
 
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.UncheckedAutoCloseable;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
@@ -76,6 +80,16 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   /** Time required to load and process raft log segments during restart */
   public static final String RAFT_LOG_LOAD_SEGMENT_LATENCY = "segmentLoadLatency";
 
+  private final Timekeeper flushTimer = getTimer(RAFT_LOG_FLUSH_TIME);
+  private final Timekeeper syncTimer = getTimer(RAFT_LOG_SYNC_TIME);
+  private final Timekeeper enqueuedTimer = getTimer(RAFT_LOG_TASK_QUEUE_TIME);
+  private final Timekeeper queuingDelayTimer = getTimer(RAFT_LOG_TASK_ENQUEUE_DELAY);;
+
+  private final Timekeeper appendEntryTimer = getTimer(RAFT_LOG_APPEND_ENTRY_LATENCY);
+  private final Timekeeper readEntryTimer = getTimer(RAFT_LOG_READ_ENTRY_LATENCY);
+  private final Timekeeper loadSegmentTimer = getTimer(RAFT_LOG_LOAD_SEGMENT_LATENCY);
+  private final Timekeeper purgeTimer = getTimer(RAFT_LOG_PURGE_METRIC);
+
   public SegmentedRaftLogMetrics(RaftGroupMemberId serverId) {
     super(serverId);
   }
@@ -104,16 +118,12 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     registry.gauge(RAFT_LOG_SYNC_BATCH_SIZE, () -> flushBatchSize);
   }
 
-  private Timer getTimer(String timerName) {
-    return registry.timer(timerName);
+  public UncheckedAutoCloseable startFlushTimer() {
+    return Timekeeper.start(flushTimer);
   }
 
-  public Timer getFlushTimer() {
-    return getTimer(RAFT_LOG_FLUSH_TIME);
-  }
-
-  public Timer getRaftLogSyncTimer() {
-    return getTimer(RAFT_LOG_SYNC_TIME);
+  public Timekeeper getSyncTimer() {
+    return syncTimer;
   }
 
   public void onRaftLogCacheHit() {
@@ -132,32 +142,37 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     registry.counter(RAFT_LOG_APPEND_ENTRY_COUNT).inc();
   }
 
-  public Timer getRaftLogAppendEntryTimer() {
-    return getTimer(RAFT_LOG_APPEND_ENTRY_LATENCY);
+  public UncheckedAutoCloseable startAppendEntryTimer() {
+    return Timekeeper.start(appendEntryTimer);
   }
 
-  public Timer getRaftLogQueueTimer() {
-    return getTimer(RAFT_LOG_TASK_QUEUE_TIME);
+  public Timekeeper getEnqueuedTimer() {
+    return enqueuedTimer;
   }
 
-  public Timer getRaftLogEnqueueDelayTimer() {
-    return getTimer(RAFT_LOG_TASK_ENQUEUE_DELAY);
+  public UncheckedAutoCloseable startQueuingDelayTimer() {
+    return Timekeeper.start(queuingDelayTimer);
   }
 
-  public Timer getRaftLogTaskExecutionTimer(String taskName) {
-    return getTimer(String.format(RAFT_LOG_TASK_EXECUTION_TIME, taskName));
+  private final Map<Class<?>, Timekeeper> classMap = new ConcurrentHashMap<>();
+  private Timekeeper getTaskExecutionTimer(Class<?> taskClass) {
+    return getTimer(String.format(RAFT_LOG_TASK_EXECUTION_TIME,
+        JavaUtils.getClassSimpleName(taskClass).toLowerCase()));
+  }
+  public UncheckedAutoCloseable startTaskExecutionTimer(Class<?> taskClass) {
+    return Timekeeper.start(classMap.computeIfAbsent(taskClass, this::getTaskExecutionTimer));
   }
 
-  public Timer getRaftLogReadEntryTimer() {
-    return getTimer(RAFT_LOG_READ_ENTRY_LATENCY);
+  public Timekeeper getReadEntryTimer() {
+    return readEntryTimer;
   }
 
-  public Timer getRaftLogLoadSegmentTimer() {
-    return getTimer(RAFT_LOG_LOAD_SEGMENT_LATENCY);
+  public UncheckedAutoCloseable startLoadSegmentTimer() {
+    return Timekeeper.start(loadSegmentTimer);
   }
 
-  public Timer getRaftLogPurgeTimer() {
-    return getTimer(RAFT_LOG_PURGE_METRIC);
+  public UncheckedAutoCloseable startPurgeTimer() {
+    return Timekeeper.start(purgeTimer);
   }
 
   public void onStateMachineDataWriteTimeout() {

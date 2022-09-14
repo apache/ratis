@@ -27,11 +27,10 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Supplier;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Provides a buffering layer in front of a FileChannel for writing.
@@ -39,8 +38,7 @@ import java.util.function.Supplier;
  * This class is NOT threadsafe.
  */
 class BufferedWriteChannel implements Closeable {
-  static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer,
-      Supplier<CompletableFuture<Void>> flushFuture) throws IOException {
+  static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
     final RandomAccessFile raf = new RandomAccessFile(file, "rw");
     final FileChannel fc = raf.getChannel();
     if (append) {
@@ -49,19 +47,19 @@ class BufferedWriteChannel implements Closeable {
       fc.truncate(0);
     }
     Preconditions.assertSame(fc.size(), fc.position(), "fc.position");
-    return new BufferedWriteChannel(fc, buffer, flushFuture);
+    return new BufferedWriteChannel(fc, buffer);
   }
 
   private final FileChannel fileChannel;
   private final ByteBuffer writeBuffer;
   private boolean forced = true;
-  private final Supplier<CompletableFuture<Void>> flushFuture;
+  private final AtomicReference<CompletableFuture<Void>> flushFuture
+      = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
-  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer,
-      Supplier<CompletableFuture<Void>> flushFuture) {
+
+  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer) {
     this.fileChannel = fileChannel;
     this.writeBuffer = byteBuffer;
-    this.flushFuture = flushFuture;
   }
 
   void write(byte[] b) throws IOException {
@@ -101,11 +99,11 @@ class BufferedWriteChannel implements Closeable {
   CompletableFuture<Void> asyncFlush(ExecutorService executor) throws IOException {
     flushBuffer();
     if (forced) {
-      return CompletableFuture.completedFuture(null);
+      return flushFuture.get();
     }
     final CompletableFuture<Void> f = CompletableFuture.supplyAsync(this::fileChannelForce, executor);
     forced = true;
-    return f;
+    return flushFuture.updateAndGet(previous -> f.thenCombine(previous, (current, prev) -> current));
   }
 
   private Void fileChannelForce() {
@@ -148,7 +146,7 @@ class BufferedWriteChannel implements Closeable {
     }
 
     try {
-      Optional.ofNullable(flushFuture).ifPresent(f -> f.get());
+      flushFuture.get().join();
       fileChannel.truncate(fileChannel.position());
     } finally {
       fileChannel.close();

@@ -23,12 +23,13 @@ import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT;
-import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUESTS_TOTAL;
+import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUESTS_COUNT;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT;
 import static org.mockito.Mockito.when;
 
 import java.util.function.Consumer;
 
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.server.metrics.ServerMetricsTestUtils;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
@@ -70,17 +71,14 @@ public class TestGrpcServerMetrics {
       GrpcLogAppender.AppendEntriesRequest req =
           new GrpcLogAppender.AppendEntriesRequest(proto.build(), followerId,
               grpcServerMetrics);
-      Assert.assertEquals(0L, ratisMetricRegistry.timer(String.format(
-          RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + GrpcServerMetrics
-              .getHeartbeatSuffix(heartbeat), followerId.toString()))
-          .getSnapshot().getMax());
+      final String format = RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + GrpcServerMetrics.getHeartbeatSuffix(heartbeat);
+      final String name = String.format(format, followerId);
+      final DefaultTimekeeperImpl t = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(name);
+      Assert.assertEquals(0L, t.getTimer().getSnapshot().getMax());
       req.startRequestTimer();
       Thread.sleep(1000L);
       req.stopRequestTimer();
-      Assert.assertTrue(ratisMetricRegistry.timer(String.format(
-          RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + GrpcServerMetrics
-              .getHeartbeatSuffix(heartbeat), followerId.toString()))
-          .getSnapshot().getMax() > 1000L);
+      Assert.assertTrue(t.getTimer().getSnapshot().getMax() > 1000L);
     }
   }
 
@@ -88,11 +86,11 @@ public class TestGrpcServerMetrics {
   public void testGrpcLogRequestTotal() {
     for (boolean heartbeat : new boolean[] { true, false }) {
       long reqTotal = ratisMetricRegistry.counter(
-          RATIS_GRPC_METRICS_REQUESTS_TOTAL + GrpcServerMetrics
+          RATIS_GRPC_METRICS_REQUESTS_COUNT + GrpcServerMetrics
               .getHeartbeatSuffix(heartbeat)).getCount();
       grpcServerMetrics.onRequestCreate(heartbeat);
       Assert.assertEquals(reqTotal + 1, ratisMetricRegistry.counter(
-          RATIS_GRPC_METRICS_REQUESTS_TOTAL + GrpcServerMetrics
+          RATIS_GRPC_METRICS_REQUESTS_COUNT + GrpcServerMetrics
               .getHeartbeatSuffix(heartbeat)).getCount());
     }
   }

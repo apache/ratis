@@ -15,18 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.metrics;
+package org.apache.ratis.grpc;
 
-import java.util.function.Supplier;
+import org.apache.ratis.ReadOnlyRequestTests;
 
-public interface RatisMetricRegistry {
-  Timekeeper timer(String name);
-
-  LongCounter counter(String name);
-
-  boolean remove(String name);
-
-  <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier);
-
-  MetricRegistryInfo getMetricRegistryInfo();
+public class TestReadOnlyRequestsWithGrpc
+  extends ReadOnlyRequestTests<MiniRaftClusterWithGrpc>
+  implements MiniRaftClusterWithGrpc.FactoryGet {
 }

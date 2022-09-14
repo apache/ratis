@@ -22,7 +22,7 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.grpc.server.GrpcService;
-import org.apache.ratis.metrics.JVMMetrics;
+import org.apache.ratis.metrics.impl.JvmMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.server.RaftServer;
@@ -40,7 +40,7 @@ import static org.apache.ratis.RaftTestUtil.waitForLeader;
 public class TestGrpcMessageMetrics extends BaseTest
     implements MiniRaftClusterWithGrpc.FactoryGet {
   static {
-    JVMMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    JvmMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
   }
 
   public static final int NUM_SERVERS = 3;

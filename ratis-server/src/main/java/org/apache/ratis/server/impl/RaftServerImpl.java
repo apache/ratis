@@ -20,9 +20,11 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.exceptions.ReadException;
 import org.apache.ratis.protocol.exceptions.SetConfigurationException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
@@ -63,6 +65,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.*;
+import org.apache.ratis.util.function.CheckedSupplier;
 
 import javax.management.ObjectName;
 import java.io.File;
@@ -91,9 +94,6 @@ import static org.apache.ratis.util.LifeCycle.State.PAUSED;
 import static org.apache.ratis.util.LifeCycle.State.PAUSING;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
-
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
-import org.apache.ratis.util.function.CheckedSupplier;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
@@ -163,6 +163,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final RoleInfo role;
 
   private final DataStreamMap dataStreamMap;
+  private final RaftServerConfigKeys.Read.Option readOption;
 
   private final MemoizedSupplier<RaftClient> raftClient;
 
@@ -208,6 +209,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.state = new ServerState(id, group, stateMachine, this, option, properties);
     this.retryCache = new RetryCacheImpl(properties);
     this.dataStreamMap = new DataStreamMapImpl(id);
+    this.readOption = RaftServerConfigKeys.Read.option(properties);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
@@ -822,12 +824,15 @@ class RaftServerImpl implements RaftServer.Division,
       RaftClientRequest request) throws IOException {
     assertLifeCycleState(LifeCycle.States.RUNNING);
     LOG.debug("{}: receive client request({})", getMemberId(), request);
-    final Optional<Timer> timer = Optional.ofNullable(raftServerMetrics.getClientRequestTimer(request.getType()));
+    final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
+    final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
 
     final CompletableFuture<RaftClientReply> replyFuture;
 
     if (request.is(TypeCase.STALEREAD)) {
       replyFuture = staleReadAsync(request);
+    } else if (request.is(TypeCase.READ)) {
+      replyFuture = readAsync(request);
     } else {
       // first check the server's leader state
       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null,
@@ -849,11 +854,7 @@ class RaftServerImpl implements RaftServer.Division,
         }
       }
 
-      if (type.is(TypeCase.READ)) {
-        // TODO: We might not be the leader anymore by the time this completes.
-        // See the RAFT paper section 8 (last part)
-        replyFuture = processQueryFuture(stateMachine.query(request.getMessage()), request);
-      } else if (type.is(TypeCase.WATCH)) {
+      if (type.is(TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
       } else if (type.is(TypeCase.MESSAGESTREAM)) {
         replyFuture = streamAsync(request);
@@ -885,7 +886,7 @@ class RaftServerImpl implements RaftServer.Division,
     final RaftClientRequest.Type type = request.getType();
     replyFuture.whenComplete((clientReply, exception) -> {
       if (clientReply.isSuccess()) {
-        timer.map(Timer::time).ifPresent(Timer.Context::stop);
+        timerContext.ifPresent(Timekeeper.Context::stop);
       }
       if (exception != null || clientReply.getException() != null) {
         raftServerMetrics.incFailedRequestCount(type);
@@ -914,6 +915,70 @@ class RaftServerImpl implements RaftServer.Division,
     return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
   }
 
+  ReadRequests getReadRequests() {
+    return getState().getReadRequests();
+  }
+
+  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync() {
+    final ReadIndexRequestProto request = ServerProtoUtils.toReadIndexRequestProto(
+        getMemberId(),  getInfo().getLeaderId());
+    try {
+      return getServerRpc().async().readIndexAsync(request);
+    } catch (IOException e) {
+      return JavaUtils.completeExceptionally(e);
+    }
+  }
+
+  private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
+    if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
+      /*
+        Linearizable read using ReadIndex. See Raft paper section 6.4.
+        1. First obtain readIndex from Leader.
+        2. Then waits for statemachine to advance at least as far as readIndex.
+        3. Finally, query the statemachine and return the result.
+       */
+      final LeaderStateImpl leader = role.getLeaderState().orElse(null);
+
+      final CompletableFuture<Long> replyFuture;
+      if (leader != null) {
+        replyFuture = leader.getReadIndex();
+      } else {
+        replyFuture = sendReadIndexAsync().thenApply(reply -> {
+          if (reply.getServerReply().getSuccess()) {
+            return reply.getReadIndex();
+          } else {
+            throw new CompletionException(new ReadException(getId() +
+                ": Failed to get read index from the leader: " + reply));
+          }
+        });
+      }
+
+      return replyFuture
+          .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
+          .thenCompose(readIndex -> queryStateMachine(request))
+          .exceptionally(e -> readException2Reply(request, e));
+    } else if (readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
+       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
+       if (reply != null) {
+         return reply;
+       }
+       return queryStateMachine(request);
+    } else {
+      throw new IllegalStateException("Unexpected read option: " + readOption);
+    }
+  }
+
+  private RaftClientReply readException2Reply(RaftClientRequest request, Throwable e) {
+    e = JavaUtils.unwrapCompletionException(e);
+    if (e instanceof StateMachineException ) {
+      return newExceptionReply(request, (StateMachineException) e);
+    } else if (e instanceof ReadException) {
+      return newExceptionReply(request, (ReadException) e);
+    } else {
+      throw new CompletionException(e);
+    }
+  }
+
   private CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
     return role.getLeaderState()
         .map(ls -> ls.streamAsync(request))
@@ -925,6 +990,10 @@ class RaftServerImpl implements RaftServer.Division,
     return role.getLeaderState()
         .map(ls -> ls.streamEndOfRequestAsync(request))
         .orElse(null);
+  }
+
+  CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request) {
+    return processQueryFuture(stateMachine.query(request.getMessage()), request);
   }
 
   CompletableFuture<RaftClientReply> processQueryFuture(
@@ -1315,6 +1384,24 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
+  @Override
+  public CompletableFuture<ReadIndexReplyProto> readIndexAsync(ReadIndexRequestProto request) throws IOException {
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+
+    final RaftPeerId peerId = RaftPeerId.valueOf(request.getServerRequest().getRequestorId());
+
+    final LeaderStateImpl leader = role.getLeaderState().orElse(null);
+    if (leader == null) {
+      return CompletableFuture.completedFuture(
+          ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, INVALID_LOG_INDEX));
+    }
+
+    return leader.getReadIndex()
+        .thenApply(index -> ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), true, index))
+        .exceptionally(throwable ->
+            ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, INVALID_LOG_INDEX));
+  }
+
   static void logAppendEntries(boolean isHeartbeat, Supplier<String> message) {
     if (isHeartbeat) {
       if (LOG.isTraceEnabled()) {
@@ -1374,7 +1461,7 @@ class RaftServerImpl implements RaftServer.Division,
     final long currentTerm;
     final long followerCommit = state.getLog().getLastCommittedIndex();
     final Optional<FollowerState> followerState;
-    Timer.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
+    final Timekeeper.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
     synchronized (this) {
       // Check life cycle state again to avoid the PAUSING/PAUSED state.
       assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);

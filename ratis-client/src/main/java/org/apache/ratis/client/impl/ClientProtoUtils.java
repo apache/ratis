@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.protocol.exceptions.ReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.rpc.CallId;
@@ -47,6 +48,7 @@ import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDe
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.LEADERSTEPPINGDOWNEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTREPLICATEDEXCEPTION;
+import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.READEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.STATEMACHINEEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.TRANSFERLEADERSHIPEXCEPTION;
 
@@ -303,6 +305,10 @@ public interface ClientProtoUtils {
           .map(ProtoUtils::toThrowableProto)
           .ifPresent(b::setTransferLeadershipException);
 
+      Optional.ofNullable(reply.getReadException())
+          .map(ProtoUtils::toThrowableProto)
+          .ifPresent(b::setReadException);
+
       final RaftClientReplyProto serialized = b.build();
       final RaftException e = reply.getException();
       if (e != null) {
@@ -392,6 +398,8 @@ public interface ClientProtoUtils {
       e = ProtoUtils.toThrowable(replyProto.getLeaderSteppingDownException(), LeaderSteppingDownException.class);
     } else if (replyProto.getExceptionDetailsCase().equals(TRANSFERLEADERSHIPEXCEPTION)) {
       e = ProtoUtils.toThrowable(replyProto.getTransferLeadershipException(), TransferLeadershipException.class);
+    } else if (replyProto.getExceptionDetailsCase().equals(READEXCEPTION)) {
+      e = ProtoUtils.toThrowable(replyProto.getReadException(), ReadException.class);
     } else {
       e = null;
     }

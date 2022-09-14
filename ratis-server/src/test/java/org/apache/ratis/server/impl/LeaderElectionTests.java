@@ -23,6 +23,7 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -35,6 +36,7 @@ import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -125,6 +127,48 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       RaftServerTestUtil.assertLostMajorityHeartbeatsRecently(leader);
     } finally {
       deIsolate(cluster, leader.getId());
+    }
+  }
+
+  @Test
+  public void testLeaderNotCountListenerForMajority() throws Exception {
+    runWithNewCluster(3, 2, this::runTestLeaderNotCountListenerForMajority);
+  }
+
+  void runTestLeaderNotCountListenerForMajority(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    Assert.assertEquals(2, ((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).getMajorityCount());
+    try (RaftClient client = cluster.createClient(leader.getId())) {
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+      List<RaftPeer> listeners = cluster.getListeners()
+          .stream().map(RaftServer.Division::getPeer).collect(Collectors.toList());
+      Assert.assertEquals(2, listeners.size());
+      RaftClientReply reply = client.admin().setConfiguration(cluster.getPeers());
+      Assert.assertTrue(reply.isSuccess());
+      Collection<RaftPeer> peer = leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
+      Assert.assertEquals(0, peer.size());
+    }
+    Assert.assertEquals(3, ((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).getMajorityCount());
+  }
+
+  @Test
+  public void testListenerNotStartLeaderElection() throws Exception {
+    runWithNewCluster(3, 2, this::runTestListenerNotStartLeaderElection);
+  }
+
+  void runTestListenerNotStartLeaderElection(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final TimeDuration maxTimeout = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
+
+    final RaftServer.Division listener = cluster.getListeners().get(0);
+    final RaftPeerId listenerId = listener.getId();
+    try {
+      isolate(cluster, listenerId);
+      maxTimeout.sleep();
+      maxTimeout.sleep();
+      Assert.assertEquals(RaftProtos.RaftPeerRole.LISTENER, listener.getInfo().getCurrentRole());
+    } finally {
+      deIsolate(cluster, listener.getId());
     }
   }
 
@@ -417,7 +461,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     long numLeaderElectionTimeout = ratisMetricRegistry.counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC).getCount();
     assertTrue(numLeaderElectionTimeout > 0);
 
-    Timer timer = ratisMetricRegistry.timer(LEADER_ELECTION_TIME_TAKEN);
+    final DefaultTimekeeperImpl timekeeper = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(LEADER_ELECTION_TIME_TAKEN);
+    final Timer timer = timekeeper.getTimer();
     double meanTimeNs = timer.getSnapshot().getMean();
     long elapsedNs = timestamp.elapsedTime().toLong(TimeUnit.NANOSECONDS);
     assertTrue(timer.getCount() > 0 && meanTimeNs < elapsedNs);
@@ -495,6 +540,21 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       fail(e.getMessage());
     }
   }
+
+  @Test
+  public void testListenerRejectRequestVote() throws Exception {
+    runWithNewCluster(3, 2, this::runTestListenerRejectRequestVote);
+  }
+  void runTestListenerRejectRequestVote(CLUSTER cluster) throws IOException, InterruptedException {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final TermIndex lastEntry = leader.getRaftLog().getLastEntryTermIndex();
+    RaftServer.Division listener = cluster.getListeners().get(0);
+    final RaftProtos.RequestVoteRequestProto r = ServerProtoUtils.toRequestVoteRequestProto(
+        leader.getMemberId(), listener.getId(),  leader.getRaftLog().getLastEntryTermIndex().getTerm() + 1, lastEntry, true);
+    RaftProtos.RequestVoteReplyProto listenerReply = listener.getRaftServer().requestVote(r);
+    Assert.assertFalse(listenerReply.getServerReply().getSuccess());
+  }
+
 
   @Test
   public void testPauseResumeLeaderElection() throws Exception {

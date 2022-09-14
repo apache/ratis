@@ -27,10 +27,12 @@ import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
+import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
+import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
@@ -44,6 +46,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
@@ -55,6 +58,41 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   static final Logger LOG = LoggerFactory.getLogger(GrpcService.class);
   public static final String GRPC_SEND_SERVER_REQUEST =
       JavaUtils.getClassSimpleName(GrpcService.class) + ".sendRequest";
+
+  class AsyncService implements RaftServerAsynchronousProtocol {
+
+    @Override
+    public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request)
+        throws IOException {
+      throw new UnsupportedOperationException("This method is not supported");
+    }
+
+    @Override
+    public CompletableFuture<ReadIndexReplyProto> readIndexAsync(ReadIndexRequestProto request) throws IOException {
+      CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, getId(), null, request);
+
+      final CompletableFuture<ReadIndexReplyProto> f = new CompletableFuture<>();
+      final StreamObserver<ReadIndexReplyProto> s = new StreamObserver<ReadIndexReplyProto>() {
+        @Override
+        public void onNext(ReadIndexReplyProto reply) {
+          f.complete(reply);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+          f.completeExceptionally(throwable);
+        }
+
+        @Override
+        public void onCompleted() {
+        }
+      };
+
+      final RaftPeerId target = RaftPeerId.valueOf(request.getServerRequest().getReplyId());
+      getProxies().getProxy(target).readIndex(request, s);
+      return f;
+    }
+  }
 
   public static final class Builder {
     private RaftServer server;
@@ -107,6 +145,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   private final Supplier<InetSocketAddress> addressSupplier;
   private final Supplier<InetSocketAddress> clientServerAddressSupplier;
   private final Supplier<InetSocketAddress> adminServerAddressSupplier;
+
+  private final AsyncService asyncService = new AsyncService();
 
   private final ExecutorService executor;
   private final GrpcClientProtocolService clientProtocolService;
@@ -310,6 +350,11 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   @Override
   public InetSocketAddress getAdminServerAddress() {
     return adminServerAddressSupplier.get();
+  }
+
+  @Override
+  public RaftServerAsynchronousProtocol async() {
+    return asyncService;
   }
 
   @Override

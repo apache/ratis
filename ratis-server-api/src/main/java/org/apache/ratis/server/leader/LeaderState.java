@@ -64,6 +64,6 @@ public interface LeaderState {
   boolean isFollowerBootstrapping(FollowerInfo follower);
 
   /** Received an {@link AppendEntriesReplyProto} */
-  void onAppendEntriesReply(FollowerInfo follower, AppendEntriesReplyProto reply);
+  void onAppendEntriesReply(LogAppender appender, AppendEntriesReplyProto reply);
 
 }

@@ -15,18 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.metrics;
+package org.apache.ratis.metrics.impl;
 
-import java.util.function.Supplier;
+import org.apache.ratis.metrics.Timekeeper;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
-public interface RatisMetricRegistry {
-  Timekeeper timer(String name);
+/**
+ * The default implementation of {@link Timekeeper} by the shaded {@link Timer}.
+ */
+public class DefaultTimekeeperImpl implements Timekeeper {
+  private final Timer timer;
 
-  LongCounter counter(String name);
+  DefaultTimekeeperImpl(Timer timer) {
+    this.timer = timer;
+  }
 
-  boolean remove(String name);
+  public Timer getTimer() {
+    return timer;
+  }
 
-  <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier);
-
-  MetricRegistryInfo getMetricRegistryInfo();
+  @Override
+  public Context time() {
+    final Timer.Context context = timer.time();
+    return context::stop;
+  }
 }

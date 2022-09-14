@@ -21,12 +21,11 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.statemachine.StateMachine;
 
 import java.util.function.LongSupplier;
-
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 
 /**
  * Metrics Registry for the State Machine Updater. One instance per group.
@@ -66,7 +65,7 @@ public final class StateMachineMetrics extends RatisMetrics {
         RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC));
   }
 
-  public Timer getTakeSnapshotTimer() {
+  public Timekeeper getTakeSnapshotTimer() {
     return registry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);
   }
 

@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,16 +17,29 @@
  */
 package org.apache.ratis.metrics;
 
-import java.util.function.Supplier;
+import org.apache.ratis.util.UncheckedAutoCloseable;
 
-public interface RatisMetricRegistry {
-  Timekeeper timer(String name);
+import java.util.Optional;
 
-  LongCounter counter(String name);
+@FunctionalInterface
+public interface Timekeeper {
+  UncheckedAutoCloseable NOOP = () -> {};
 
-  boolean remove(String name);
+  static UncheckedAutoCloseable start(Timekeeper timekeeper) {
+    return Optional.ofNullable(timekeeper)
+        .map(Timekeeper::time)
+        .map(Context::toAutoCloseable)
+        .orElse(NOOP);
+  }
 
-  <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier);
+  @FunctionalInterface
+  interface Context {
+    long stop();
 
-  MetricRegistryInfo getMetricRegistryInfo();
+    default UncheckedAutoCloseable toAutoCloseable() {
+      return this::stop;
+    }
+  }
+
+  Context time();
 }

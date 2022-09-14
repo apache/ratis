@@ -157,6 +157,10 @@ class PeerConfiguration {
     return num > size() / 2;
   }
 
+  int getMajorityCount() {
+    return size() / 2 + 1;
+  }
+
   boolean majorityRejectVotes(Collection<RaftPeerId> rejected) {
     int num = size();
     for (RaftPeerId other : rejected) {

@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,18 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.metrics;
+package org.apache.ratis.protocol.exceptions;
 
-import java.util.function.Supplier;
+/**
+ * This exception indicates the failure of a read request.
+ */
+public class ReadException extends RaftException {
+  public ReadException(String message) {
+    super(message);
+  }
 
-public interface RatisMetricRegistry {
-  Timekeeper timer(String name);
-
-  LongCounter counter(String name);
-
-  boolean remove(String name);
-
-  <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier);
-
-  MetricRegistryInfo getMetricRegistryInfo();
+  public ReadException(Throwable cause) {
+    super(cause);
+  }
 }

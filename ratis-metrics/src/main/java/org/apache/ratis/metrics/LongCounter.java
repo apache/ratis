@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,16 +17,18 @@
  */
 package org.apache.ratis.metrics;
 
-import java.util.function.Supplier;
+public interface LongCounter {
+  default void inc() {
+    inc(1L);
+  }
 
-public interface RatisMetricRegistry {
-  Timekeeper timer(String name);
+  void inc(long n);
 
-  LongCounter counter(String name);
+  default void dec() {
+    dec(1L);
+  }
 
-  boolean remove(String name);
+  void dec(long n);
 
-  <T> void gauge(String name, Supplier<Supplier<T>> gaugeSupplier);
-
-  MetricRegistryInfo getMetricRegistryInfo();
+  long getCount();
 }

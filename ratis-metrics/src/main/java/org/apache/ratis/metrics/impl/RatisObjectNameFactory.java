@@ -16,20 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.metrics;
+package org.apache.ratis.metrics.impl;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.ObjectNameFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
-public class RatisObjectNameFactory implements ObjectNameFactory {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(JmxReporter.class);
-
+class RatisObjectNameFactory implements ObjectNameFactory {
   @Override
   public ObjectName createName(String type, String domain, String name) {
     try {
@@ -41,9 +35,9 @@ public class RatisObjectNameFactory implements ObjectNameFactory {
     } catch (MalformedObjectNameException e) {
       try {
         return new ObjectName(domain, "name", ObjectName.quote(name));
-      } catch (MalformedObjectNameException e1) {
-        LOGGER.warn("Unable to register {} {}", type, name, e1);
-        throw new RuntimeException(e1);
+      } catch (MalformedObjectNameException mone) {
+        throw new IllegalArgumentException(
+            "Failed to register " + name + ", type=" + type + ", domain=" + domain, mone);
       }
     }
   }

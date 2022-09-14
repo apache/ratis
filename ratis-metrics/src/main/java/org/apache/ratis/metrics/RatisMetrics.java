@@ -54,4 +54,8 @@ public class RatisMetrics {
   public RatisMetricRegistry getRegistry() {
     return registry;
   }
+
+  protected Timekeeper getTimer(String timerName) {
+    return getRegistry().timer(timerName);
+  }
 }
