@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.metrics;
 
 import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 
 import java.util.Map;
@@ -46,19 +47,19 @@ public class MessageMetrics extends RatisMetrics {
   private final Map<Type, Map<String, LongCounter>> types;
 
   public MessageMetrics(String endpointId, String endpointType) {
-    super(create(
-        new MetricRegistryInfo(endpointId,
-            RATIS_APPLICATION_NAME_METRICS,
-            String.format(GRPC_MESSAGE_METRICS, endpointType),
-            GRPC_MESSAGE_METRICS_DESC)
-    ));
-
+    super(createRegistry(endpointId, endpointType));
     this.types = newCounterMaps(Type.class);
   }
 
-  private void inc(Type t, String rpcType) {
+  private static RatisMetricRegistry createRegistry(String endpointId, String endpointType) {
+    final String name = String.format(GRPC_MESSAGE_METRICS, endpointType);
+    return create(new MetricRegistryInfo(endpointId,
+        RATIS_APPLICATION_NAME_METRICS, name, GRPC_MESSAGE_METRICS_DESC));
+  }
+
+  private void inc(String metricNamePrefix, Type t) {
     types.get(t)
-        .computeIfAbsent(rpcType, key -> getRegistry().counter(key + t.getSuffix()))
+        .computeIfAbsent(metricNamePrefix, prefix -> getRegistry().counter(prefix + t.getSuffix()))
         .inc();
   }
 
@@ -66,22 +67,22 @@ public class MessageMetrics extends RatisMetrics {
    * Increments the count of RPCs that are started.
    * Both client and server use this.
    */
-  public void rpcStarted(String rpcType){
-    inc(Type.STARTED, rpcType);
+  public void rpcStarted(String metricNamePrefix){
+    inc(metricNamePrefix, Type.STARTED);
   }
 
   /**
    * Increments the count of RPCs that were started and got completed.
    * Both client and server use this.
    */
-  public void rpcCompleted(String rpcType){
-    inc(Type.COMPLETED, rpcType);
+  public void rpcCompleted(String metricNamePrefix){
+    inc(metricNamePrefix, Type.COMPLETED);
   }
 
   /**
    * Increments the count of RPCs received on the server.
    */
-  public void rpcReceived(String rpcType){
-    inc(Type.RECEIVED, rpcType);
+  public void rpcReceived(String metricNamePrefix){
+    inc(metricNamePrefix, Type.RECEIVED);
   }
 }

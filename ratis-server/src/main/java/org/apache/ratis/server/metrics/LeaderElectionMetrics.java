@@ -54,14 +54,14 @@ public final class LeaderElectionMetrics extends RatisMetrics {
   private volatile Timestamp lastElectionTime;
 
   private LeaderElectionMetrics(RaftGroupMemberId serverId, LongSupplier getLastLeaderElapsedTimeMs) {
-    super(getMetricRegistryForLeaderElection(serverId));
+    super(createRegistry(serverId));
 
     getRegistry().gauge(LAST_LEADER_ELAPSED_TIME, () -> getLastLeaderElapsedTimeMs::getAsLong);
     getRegistry().gauge(LAST_LEADER_ELECTION_ELAPSED_TIME,
         () -> () -> Optional.ofNullable(lastElectionTime).map(Timestamp::elapsedTimeMs).orElse(-1L));
   }
 
-  public static RatisMetricRegistry getMetricRegistryForLeaderElection(RaftGroupMemberId serverId) {
+  public static RatisMetricRegistry createRegistry(RaftGroupMemberId serverId) {
     return create(new MetricRegistryInfo(serverId.toString(),
         RATIS_APPLICATION_NAME_METRICS, RATIS_LEADER_ELECTION_METRICS,
         RATIS_LEADER_ELECTION_METRICS_DESC));

@@ -112,12 +112,12 @@ public class NettyServerStreamRpcMetrics extends RatisMetrics {
   private final Map<Op, Map<String, LongCounter>> ops;
 
   public NettyServerStreamRpcMetrics(String serverId) {
-    super(getMetricRegistryForGrpcServer(serverId));
+    super(createRegistry(serverId));
 
     this.ops = newCounterMaps(Op.class);
   }
 
-  private static RatisMetricRegistry getMetricRegistryForGrpcServer(String serverId) {
+  private static RatisMetricRegistry createRegistry(String serverId) {
     return create(new MetricRegistryInfo(serverId,
         METRICS_APP_NAME, METRICS_COMP_NAME, METRICS_DESC));
   }

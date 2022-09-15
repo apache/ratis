@@ -30,6 +30,7 @@ import org.apache.ratis.metrics.Timekeeper;
 
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.RaftClientRequest.Type;
@@ -85,8 +86,13 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   private final LongCounter numFailedClientWatch = getRegistry().counter(RATIS_SERVER_FAILED_CLIENT_WATCH_COUNT);
   private final LongCounter numFailedClientStream = getRegistry().counter(RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT);
 
-
   private final LongCounter numInstallSnapshot = getRegistry().counter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT);
+
+  private final Timekeeper readTimer = getRegistry().timer(RAFT_CLIENT_READ_REQUEST);
+  private final Timekeeper staleReadTimer = getRegistry().timer(RAFT_CLIENT_STALE_READ_REQUEST);
+  private final Timekeeper writeTimer = getRegistry().timer(RAFT_CLIENT_WRITE_REQUEST);
+  private final Map<ReplicationLevel, Timekeeper> watchTimers = newTimerMap(ReplicationLevel.class,
+      replication -> getRegistry().timer(String.format(RAFT_CLIENT_WATCH_REQUEST, Type.toString(replication))));
 
   private final Function<Boolean, Timekeeper> followerAppendEntryLatency
       = newHeartbeatTimer(FOLLOWER_APPEND_ENTRIES_LATENCY);
@@ -204,14 +210,13 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
 
   public Timekeeper getClientRequestTimer(Type request) {
     if (request.is(TypeCase.READ)) {
-      return getRegistry().timer(RAFT_CLIENT_READ_REQUEST);
+      return readTimer;
     } else if (request.is(TypeCase.STALEREAD)) {
-      return getRegistry().timer(RAFT_CLIENT_STALE_READ_REQUEST);
+      return staleReadTimer;
     } else if (request.is(TypeCase.WATCH)) {
-      String watchType = Type.toString(request.getWatch().getReplication());
-      return getRegistry().timer(String.format(RAFT_CLIENT_WATCH_REQUEST, watchType));
+      return watchTimers.get(request.getWatch().getReplication());
     } else if (request.is(TypeCase.WRITE)) {
-      return getRegistry().timer(RAFT_CLIENT_WRITE_REQUEST);
+      return writeTimer;
     }
     return null;
   }

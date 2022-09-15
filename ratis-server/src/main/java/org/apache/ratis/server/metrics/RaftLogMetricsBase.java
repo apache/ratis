@@ -39,10 +39,10 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
   private final LongCounter stateMachineLogEntryCount = getRegistry().counter(STATE_MACHINE_LOG_ENTRY_COUNT);
 
   public RaftLogMetricsBase(RaftGroupMemberId serverId) {
-    super(getLogWorkerMetricRegistry(serverId));
+    super(createRegistry(serverId));
   }
 
-  public static RatisMetricRegistry getLogWorkerMetricRegistry(RaftGroupMemberId serverId) {
+  public static RatisMetricRegistry createRegistry(RaftGroupMemberId serverId) {
     return create(new MetricRegistryInfo(serverId.toString(),
         RATIS_APPLICATION_NAME_METRICS,
         RATIS_LOG_WORKER_METRICS, RATIS_LOG_WORKER_METRICS_DESC));
