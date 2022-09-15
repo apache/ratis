@@ -50,13 +50,11 @@ class LogAppenderDaemon {
     this.logAppender = logAppender;
     this.name = logAppender + "-" + JavaUtils.getClassSimpleName(getClass());
     this.lifeCycle = new LifeCycle(name);
-    Thread.UncaughtExceptionHandler handler = Daemon.LOG_EXCEPTION;
+    Daemon.Builder builder = Daemon.newBuilder().setName(name).setRunnable(this::run);
     if (server instanceof RaftServerImpl) {
-      RaftServerImpl serverImpl = (RaftServerImpl) server;
-      handler = serverImpl.getUncaughtExceptionHandler();
+      builder.setUncaughtExceptionHandler(((RaftServerImpl) server).getUncaughtExceptionHandler());
     }
-    this.daemon = Daemon.newBuilder().setName(name)
-        .setRunnable(this::run).setUncaughtExceptionHandler(handler).build();
+    this.daemon = builder.build();
   }
 
   public boolean isWorking() {
