@@ -18,6 +18,7 @@
 package org.apache.ratis.server.leader;
 
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
@@ -49,8 +50,13 @@ class LogAppenderDaemon {
     this.logAppender = logAppender;
     this.name = logAppender + "-" + JavaUtils.getClassSimpleName(getClass());
     this.lifeCycle = new LifeCycle(name);
+    Thread.UncaughtExceptionHandler handler = Daemon.LOG_EXCEPTION;
+    if (server instanceof RaftServerImpl) {
+      RaftServerImpl serverImpl = (RaftServerImpl) server;
+      handler = serverImpl.getUncaughtExceptionHandler();
+    }
     this.daemon = Daemon.newBuilder().setName(name)
-        .setRunnable(this::run).setUncaughtExceptionHandler(server.getUncaughtExceptionHandler()).build();
+        .setRunnable(this::run).setUncaughtExceptionHandler(handler).build();
   }
 
   public boolean isWorking() {

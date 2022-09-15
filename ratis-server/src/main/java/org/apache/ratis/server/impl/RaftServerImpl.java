@@ -95,7 +95,7 @@ import static org.apache.ratis.util.LifeCycle.State.PAUSING;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
-class RaftServerImpl implements RaftServer.Division,
+public class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
@@ -276,7 +276,6 @@ class RaftServerImpl implements RaftServer.Division,
     return sleepDeviationThreshold;
   }
 
-  @Override
   public Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() {
     return uncaughtExceptionHandler;
   }

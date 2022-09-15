@@ -383,7 +383,6 @@ class RaftServerProxy implements RaftServer {
     return lifeCycle.getCurrentState();
   }
 
-  @Override
   public Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() {
     return this.uncaughtExceptionHandler;
   }

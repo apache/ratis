@@ -116,8 +116,6 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** @return the internal {@link RaftClient} of this division. */
     RaftClient getRaftClient();
 
-    Thread.UncaughtExceptionHandler getUncaughtExceptionHandler();
-
     @Override
     void close();
   }
@@ -157,8 +155,6 @@ public interface RaftServer extends Closeable, RpcType.Get,
   void start() throws IOException;
 
   LifeCycle.State getLifeCycleState();
-
-  Thread.UncaughtExceptionHandler getUncaughtExceptionHandler();
 
   /** @return a {@link Builder}. */
   static Builder newBuilder() {
