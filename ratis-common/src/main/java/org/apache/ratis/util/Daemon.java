@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public class Daemon extends Thread {
   static final Logger LOG = LoggerFactory.getLogger(Daemon.class);
@@ -35,9 +36,7 @@ public class Daemon extends Thread {
   protected Daemon(Builder builder) {
     super(builder.runnable);
     setName(builder.name);
-    if (builder.uncaughtExceptionHandler != null) {
-      setUncaughtExceptionHandler(builder.uncaughtExceptionHandler);
-    }
+    Optional.ofNullable(builder.uncaughtExceptionHandler).ifPresent(this::setUncaughtExceptionHandler);
   }
 
   /** @return a {@link Builder}. */

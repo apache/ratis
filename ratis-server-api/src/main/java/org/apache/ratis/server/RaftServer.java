@@ -175,13 +175,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
           StateMachine.Registry.class, RaftProperties.class, Parameters.class, Thread.UncaughtExceptionHandler.class};
       try {
         final Class<?> clazz = ReflectionUtils.getClassByName(className);
-        try {
-          return clazz.getMethod("newRaftServer", argClasses);
-        } catch (NoSuchMethodException e) {
-          final Class<?>[] argClassesNoExHandler = {RaftPeerId.class, RaftGroup.class, RaftStorage.StartupOption.class,
-              StateMachine.Registry.class, RaftProperties.class, Parameters.class};
-          return ReflectionUtils.getClassByName(className).getMethod("newRaftServer", argClassesNoExHandler);
-        }
+        return clazz.getMethod("newRaftServer", argClasses);
       } catch (Exception e) {
         throw new IllegalStateException("Failed to initNewRaftServerMethod", e);
       }
