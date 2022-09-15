@@ -40,7 +40,6 @@ public class Daemon extends Thread {
   }
 
   /** @return a {@link Builder}. */
-  // TODO(jiacheng): For exceptions that should crash the server, apply a correct UncaughtExceptionHandler
   public static Builder newBuilder() {
     return new Builder();
   }

@@ -253,7 +253,6 @@ public interface RaftServer extends Closeable, RpcType.Get,
       return this;
     }
 
-    // TODO(jiacheng): add UTs
     public Builder setUncaughtExceptionHandler(Thread.UncaughtExceptionHandler exceptionHandler) {
       this.uncaughtExceptionHandler = exceptionHandler;
       return this;
