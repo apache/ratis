@@ -40,7 +40,7 @@ public class RatisMetrics {
     });
   }
 
-  public void unregister() {
+  synchronized public void unregister() {
     MetricRegistryInfo info = registry.getMetricRegistryInfo();
     if (LOG.isDebugEnabled()) {
       LOG.debug("Unregistering Metrics Registry : {}", info.getName());

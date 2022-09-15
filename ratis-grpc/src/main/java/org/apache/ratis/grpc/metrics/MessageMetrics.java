@@ -58,7 +58,7 @@ public class MessageMetrics extends RatisMetrics {
    * increments the count of RPCs recived on the server.
    * @param rpcType
    */
-  public void rpcReceived(String rpcType){
+  synchronized public void rpcReceived(String rpcType){
     registry.counter(rpcType + "_received_executed").inc();
   }
 
