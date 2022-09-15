@@ -15,8 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.metrics;
+package org.apache.ratis.metrics.impl;
 
+import org.apache.ratis.metrics.MetricRegistries;
+import org.apache.ratis.metrics.MetricRegistryInfo;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.thirdparty.com.codahale.metrics.jvm.ClassLoadingGaugeSet;
 import org.apache.ratis.thirdparty.com.codahale.metrics.jvm.GarbageCollectorMetricSet;
 import org.apache.ratis.thirdparty.com.codahale.metrics.jvm.MemoryUsageGaugeSet;
@@ -26,10 +29,10 @@ import org.apache.ratis.util.TimeDuration;
 /**
  * Helper class to add JVM metrics.
  */
-public interface JVMMetrics {
+public interface JvmMetrics {
   static void initJvmMetrics(TimeDuration consoleReportRate) {
     final MetricRegistries registries = MetricRegistries.global();
-    JVMMetrics.addJvmMetrics(registries);
+    JvmMetrics.addJvmMetrics(registries);
     registries.enableConsoleReporter(consoleReportRate);
     registries.enableJmxReporter();
   }
@@ -39,9 +42,10 @@ public interface JVMMetrics {
 
     RatisMetricRegistry registry = registries.create(info);
 
-    registry.registerAll("gc", new GarbageCollectorMetricSet());
-    registry.registerAll("memory", new MemoryUsageGaugeSet());
-    registry.registerAll("threads", new ThreadStatesGaugeSet());
-    registry.registerAll("classLoading", new ClassLoadingGaugeSet());
+    final RatisMetricRegistryImpl impl = RatisMetricRegistryImpl.cast(registry);
+    impl.registerAll("gc", new GarbageCollectorMetricSet());
+    impl.registerAll("memory", new MemoryUsageGaugeSet());
+    impl.registerAll("threads", new ThreadStatesGaugeSet());
+    impl.registerAll("classLoading", new ClassLoadingGaugeSet());
   }
 }

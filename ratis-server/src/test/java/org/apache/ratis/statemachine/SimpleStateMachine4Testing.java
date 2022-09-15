@@ -169,7 +169,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private RaftGroupId groupId;
 
   public SimpleStateMachine4Testing() {
-    checkpointer = new Daemon(() -> {
+    checkpointer = Daemon.newBuilder().setName("SimpleStateMachine4Testing").setRunnable(() -> {
       while (running) {
         if (indexMap.lastKey() - endIndexLastCkpt >= SNAPSHOT_THRESHOLD) {
           endIndexLastCkpt = takeSnapshot();
@@ -181,7 +181,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           Thread.currentThread().interrupt();
         }
       }
-    });
+    }).build();
   }
 
   public Collecting collecting() {
@@ -264,7 +264,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(),
         termIndex.getIndex(), snapshotFile);
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(snapshotFile, false,
-        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null)) {
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (final LogEntryProto entry : indexMap.values()) {
         if (entry.getIndex() > endIndex) {
           break;

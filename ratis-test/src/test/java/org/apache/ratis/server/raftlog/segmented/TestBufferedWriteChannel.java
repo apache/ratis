@@ -137,7 +137,7 @@ public class TestBufferedWriteChannel extends BaseTest {
     final byte[] bytes = new byte[10];
     final ByteBuffer buffer = ByteBuffer.wrap(bytes);
     final FakeFileChannel fake = new FakeFileChannel();
-    final BufferedWriteChannel out = new BufferedWriteChannel(fake, buffer, null);
+    final BufferedWriteChannel out = new BufferedWriteChannel(fake, buffer);
 
     // write exactly buffer size, then flush.
     fake.assertValues(0, 0);
