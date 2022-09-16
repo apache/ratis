@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,49 +17,72 @@
  */
 package org.apache.ratis.grpc.metrics;
 
+import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.Map;
 
 public class MessageMetrics extends RatisMetrics {
-  static final Logger LOG = LoggerFactory.getLogger(MessageMetrics.class);
   public static final String GRPC_MESSAGE_METRICS = "%s_message_metrics";
   public static final String GRPC_MESSAGE_METRICS_DESC = "Outbound/Inbound message counters";
 
+  private enum Type {
+    STARTED("_started_total"),
+    COMPLETED("_completed_total"),
+    RECEIVED("_received_executed");
+
+    private final String suffix;
+
+    Type(String suffix) {
+      this.suffix = suffix;
+    }
+
+    String getSuffix() {
+      return suffix;
+    }
+  }
+
+  private final Map<Type, Map<String, LongCounter>> types;
+
   public MessageMetrics(String endpointId, String endpointType) {
-    this.registry = create(
-        new MetricRegistryInfo(endpointId,
-            RATIS_APPLICATION_NAME_METRICS,
-            String.format(GRPC_MESSAGE_METRICS, endpointType),
-            GRPC_MESSAGE_METRICS_DESC)
-    );
+    super(createRegistry(endpointId, endpointType));
+    this.types = newCounterMaps(Type.class);
+  }
+
+  private static RatisMetricRegistry createRegistry(String endpointId, String endpointType) {
+    final String name = String.format(GRPC_MESSAGE_METRICS, endpointType);
+    return create(new MetricRegistryInfo(endpointId,
+        RATIS_APPLICATION_NAME_METRICS, name, GRPC_MESSAGE_METRICS_DESC));
+  }
+
+  private void inc(String metricNamePrefix, Type t) {
+    types.get(t)
+        .computeIfAbsent(metricNamePrefix, prefix -> getRegistry().counter(prefix + t.getSuffix()))
+        .inc();
   }
 
   /**
    * Increments the count of RPCs that are started.
    * Both client and server use this.
-   * @param rpcType
    */
-  public void rpcStarted(String rpcType){
-    registry.counter(rpcType + "_started_total").inc();
+  public void rpcStarted(String metricNamePrefix){
+    inc(metricNamePrefix, Type.STARTED);
   }
 
   /**
    * Increments the count of RPCs that were started and got completed.
    * Both client and server use this.
-   * @param rpcType
    */
-  public void rpcCompleted(String rpcType){
-    registry.counter(rpcType + "_completed_total").inc();
+  public void rpcCompleted(String metricNamePrefix){
+    inc(metricNamePrefix, Type.COMPLETED);
   }
 
   /**
-   * increments the count of RPCs recived on the server.
-   * @param rpcType
+   * Increments the count of RPCs received on the server.
    */
-  public void rpcReceived(String rpcType){
-    registry.counter(rpcType + "_received_executed").inc();
+  public void rpcReceived(String metricNamePrefix){
+    inc(metricNamePrefix, Type.RECEIVED);
   }
-
 }

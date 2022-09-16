@@ -120,7 +120,7 @@ public class TestRaftLogMetrics extends BaseTest
   }
 
   static RatisMetricRegistryImpl getRegistry(RaftGroupMemberId memberId) {
-    return (RatisMetricRegistryImpl) RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
+    return (RatisMetricRegistryImpl) RaftLogMetricsBase.createRegistry(memberId);
   }
 
   static void assertFlushCount(RaftServer.Division server) throws Exception {

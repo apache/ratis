@@ -26,7 +26,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 import org.apache.ratis.metrics.MetricRegistries;
-import org.apache.ratis.metrics.MetricRegistryFactory;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.util.TimeDuration;
@@ -44,7 +43,7 @@ public class MetricRegistriesImpl extends MetricRegistries {
 
   private final List<Consumer<RatisMetricRegistry>> stopReporters = new CopyOnWriteArrayList<>();
 
-  private final MetricRegistryFactory factory;
+  private final MetricRegistryFactoryImpl factory;
 
   private final RefCountingMap<MetricRegistryInfo, RatisMetricRegistry> registries;
 
@@ -52,7 +51,7 @@ public class MetricRegistriesImpl extends MetricRegistries {
     this(new MetricRegistryFactoryImpl());
   }
 
-  public MetricRegistriesImpl(MetricRegistryFactory factory) {
+  MetricRegistriesImpl(MetricRegistryFactoryImpl factory) {
     this.factory = factory;
     this.registries = new RefCountingMap<>();
   }

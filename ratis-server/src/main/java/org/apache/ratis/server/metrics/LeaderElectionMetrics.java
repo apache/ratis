@@ -18,6 +18,7 @@
 
 package org.apache.ratis.server.metrics;
 
+import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
@@ -43,16 +44,24 @@ public final class LeaderElectionMetrics extends RatisMetrics {
   public static final String TRANSFER_LEADERSHIP_COUNT_METRIC = "transferLeadershipCount";
 
   public static final String LAST_LEADER_ELECTION_ELAPSED_TIME = "lastLeaderElectionElapsedTime";
+
+  private final LongCounter electionCount = getRegistry().counter(LEADER_ELECTION_COUNT_METRIC);
+  private final LongCounter timeoutCount = getRegistry().counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC);
+  private final LongCounter transferLeadershipCount = getRegistry().counter(TRANSFER_LEADERSHIP_COUNT_METRIC);
+
+  private final Timekeeper electionTime = getRegistry().timer(LEADER_ELECTION_TIME_TAKEN);
+
   private volatile Timestamp lastElectionTime;
 
   private LeaderElectionMetrics(RaftGroupMemberId serverId, LongSupplier getLastLeaderElapsedTimeMs) {
-    this.registry = getMetricRegistryForLeaderElection(serverId);
-    registry.gauge(LAST_LEADER_ELAPSED_TIME, () -> getLastLeaderElapsedTimeMs::getAsLong);
-    registry.gauge(LAST_LEADER_ELECTION_ELAPSED_TIME,
+    super(createRegistry(serverId));
+
+    getRegistry().gauge(LAST_LEADER_ELAPSED_TIME, () -> getLastLeaderElapsedTimeMs::getAsLong);
+    getRegistry().gauge(LAST_LEADER_ELECTION_ELAPSED_TIME,
         () -> () -> Optional.ofNullable(lastElectionTime).map(Timestamp::elapsedTimeMs).orElse(-1L));
   }
 
-  public static RatisMetricRegistry getMetricRegistryForLeaderElection(RaftGroupMemberId serverId) {
+  public static RatisMetricRegistry createRegistry(RaftGroupMemberId serverId) {
     return create(new MetricRegistryInfo(serverId.toString(),
         RATIS_APPLICATION_NAME_METRICS, RATIS_LEADER_ELECTION_METRICS,
         RATIS_LEADER_ELECTION_METRICS_DESC));
@@ -64,19 +73,19 @@ public final class LeaderElectionMetrics extends RatisMetrics {
   }
 
   public void onNewLeaderElectionCompletion() {
-    registry.counter(LEADER_ELECTION_COUNT_METRIC).inc();
+    electionCount.inc();
     lastElectionTime = Timestamp.currentTime();
   }
 
   public Timekeeper getLeaderElectionTimer() {
-    return registry.timer(LEADER_ELECTION_TIME_TAKEN);
+    return electionTime;
   }
 
   public void onLeaderElectionTimeout() {
-    registry.counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC).inc();
+    timeoutCount.inc();
   }
 
   public void onTransferLeadership() {
-    registry.counter(TRANSFER_LEADERSHIP_COUNT_METRIC).inc();
+    transferLeadershipCount.inc();
   }
 }

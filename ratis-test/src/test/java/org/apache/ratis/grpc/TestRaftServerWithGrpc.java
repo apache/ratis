@@ -22,6 +22,7 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WATCH_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WRITE_REQUEST;
 
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
@@ -302,33 +303,34 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       ExecutionException, InterruptedException {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftServerMetricsImpl raftServerMetrics = getRaftServerMetrics(leader);
+    final RatisMetricRegistry registry = raftServerMetrics.getRegistry();
 
     try (final RaftClient client = cluster.createClient()) {
       final CompletableFuture<RaftClientReply> f1 = client.async().send(new SimpleMessage("testing"));
       Assert.assertTrue(f1.get().isSuccess());
-      final DefaultTimekeeperImpl write = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(RAFT_CLIENT_WRITE_REQUEST);
+      final DefaultTimekeeperImpl write = (DefaultTimekeeperImpl) registry.timer(RAFT_CLIENT_WRITE_REQUEST);
       Assert.assertTrue(write.getTimer().getCount() > 0);
 
       final CompletableFuture<RaftClientReply> f2 = client.async().sendReadOnly(new SimpleMessage("testing"));
       Assert.assertTrue(f2.get().isSuccess());
-      final DefaultTimekeeperImpl read = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(RAFT_CLIENT_READ_REQUEST);
+      final DefaultTimekeeperImpl read = (DefaultTimekeeperImpl) registry.timer(RAFT_CLIENT_READ_REQUEST);
       Assert.assertTrue(read.getTimer().getCount() > 0);
 
       final CompletableFuture<RaftClientReply> f3 = client.async().sendStaleRead(new SimpleMessage("testing"),
           0, leader.getId());
       Assert.assertTrue(f3.get().isSuccess());
-      final DefaultTimekeeperImpl staleRead = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(RAFT_CLIENT_STALE_READ_REQUEST);
+      final DefaultTimekeeperImpl staleRead = (DefaultTimekeeperImpl) registry.timer(RAFT_CLIENT_STALE_READ_REQUEST);
       Assert.assertTrue(staleRead.getTimer().getCount() > 0);
 
       final CompletableFuture<RaftClientReply> f4 = client.async().watch(0, RaftProtos.ReplicationLevel.ALL);
       Assert.assertTrue(f4.get().isSuccess());
-      final DefaultTimekeeperImpl watchAll = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(
+      final DefaultTimekeeperImpl watchAll = (DefaultTimekeeperImpl) registry.timer(
           String.format(RAFT_CLIENT_WATCH_REQUEST, "-ALL"));
       Assert.assertTrue(watchAll.getTimer().getCount() > 0);
 
       final CompletableFuture<RaftClientReply> f5 = client.async().watch(0, RaftProtos.ReplicationLevel.MAJORITY);
       Assert.assertTrue(f5.get().isSuccess());
-      final DefaultTimekeeperImpl watch = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(
+      final DefaultTimekeeperImpl watch = (DefaultTimekeeperImpl) registry.timer(
           String.format(RAFT_CLIENT_WATCH_REQUEST, ""));
       Assert.assertTrue(watch.getTimer().getCount() > 0);
     }
