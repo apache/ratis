@@ -384,7 +384,7 @@ class RaftServerProxy implements RaftServer {
   }
 
   public ThreadGroup getThreadGroup() {
-    return this.threadGroup;
+    return threadGroup;
   }
 
   @Override
