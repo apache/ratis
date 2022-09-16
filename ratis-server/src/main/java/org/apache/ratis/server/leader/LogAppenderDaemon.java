@@ -52,7 +52,7 @@ class LogAppenderDaemon {
     this.lifeCycle = new LifeCycle(name);
     Daemon.Builder builder = Daemon.newBuilder().setName(name).setRunnable(this::run);
     if (server instanceof RaftServerImpl) {
-      builder.setUncaughtExceptionHandler(((RaftServerImpl) server).getUncaughtExceptionHandler());
+      builder.setThreadGroup(((RaftServerImpl) server).getThreadGroup());
     }
     this.daemon = builder.build();
   }

@@ -17,26 +17,18 @@
  */
 package org.apache.ratis.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Objects;
-import java.util.Optional;
 
 public class Daemon extends Thread {
-  static final Logger LOG = LoggerFactory.getLogger(Daemon.class);
-  public static final Thread.UncaughtExceptionHandler LOG_EXCEPTION =
-      (t, e) -> LOG.error(t.getName() + " threw an uncaught exception", e);
-
   {
     setDaemon(true);
   }
 
   /** Construct a daemon thread with flexible arguments. */
   protected Daemon(Builder builder) {
-    super(builder.runnable);
+    // If the threadGroup is null, the new Daemon will be in the same thread group as the caller thread
+    super(builder.threadGroup, builder.runnable);
     setName(builder.name);
-    Optional.ofNullable(builder.uncaughtExceptionHandler).ifPresent(this::setUncaughtExceptionHandler);
   }
 
   /** @return a {@link Builder}. */
@@ -47,8 +39,7 @@ public class Daemon extends Thread {
   public static class Builder {
     private String name;
     private Runnable runnable;
-    // By default, uncaught exceptions are just logged without further actions
-    private UncaughtExceptionHandler uncaughtExceptionHandler = LOG_EXCEPTION;
+    private ThreadGroup threadGroup = null;
 
     public Builder setName(String name) {
       this.name = name;
@@ -60,8 +51,8 @@ public class Daemon extends Thread {
       return this;
     }
 
-    public Builder setUncaughtExceptionHandler(UncaughtExceptionHandler exceptionHandler) {
-      this.uncaughtExceptionHandler = exceptionHandler;
+    public Builder setThreadGroup(ThreadGroup threadGroup) {
+      this.threadGroup = threadGroup;
       return this;
     }
 

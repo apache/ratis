@@ -390,8 +390,7 @@ public abstract class MiniRaftCluster implements Closeable {
       RaftServerConfigKeys.setStorageDir(prop, Collections.singletonList(dir));
       return ServerImplUtils.newRaftServer(id, group,
           format? RaftStorage.StartupOption.FORMAT: RaftStorage.StartupOption.RECOVER,
-          getStateMachineRegistry(prop), prop, setPropertiesAndInitParameters(id, group, prop),
-          Daemon.LOG_EXCEPTION);
+          getStateMachineRegistry(prop), prop, setPropertiesAndInitParameters(id, group, prop), null);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

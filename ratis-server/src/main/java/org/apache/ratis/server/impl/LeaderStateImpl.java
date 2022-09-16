@@ -622,7 +622,7 @@ class LeaderStateImpl implements LeaderState {
   private class EventProcessor extends Daemon {
     public EventProcessor(String name, RaftServerImpl server) {
       super(Daemon.newBuilder()
-          .setName(name).setUncaughtExceptionHandler(server.getUncaughtExceptionHandler()));
+          .setName(name).setThreadGroup(server.getThreadGroup()));
     }
     @Override
     public void run() {

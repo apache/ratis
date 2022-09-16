@@ -189,7 +189,7 @@ public class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService clientExecutor;
 
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
-  private final Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
+  private final ThreadGroup threadGroup;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
@@ -198,7 +198,7 @@ public class RaftServerImpl implements RaftServer.Division,
     this.lifeCycle = new LifeCycle(id);
     this.stateMachine = stateMachine;
     this.role = new RoleInfo(id);
-    this.uncaughtExceptionHandler = proxy.getUncaughtExceptionHandler();
+    this.threadGroup = proxy.getThreadGroup();
 
     final RaftProperties properties = proxy.getProperties();
     this.divisionProperties = new DivisionPropertiesImpl(properties);
@@ -276,8 +276,8 @@ public class RaftServerImpl implements RaftServer.Division,
     return sleepDeviationThreshold;
   }
 
-  public Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() {
-    return uncaughtExceptionHandler;
+  public ThreadGroup getThreadGroup() {
+    return threadGroup;
   }
 
   @Override

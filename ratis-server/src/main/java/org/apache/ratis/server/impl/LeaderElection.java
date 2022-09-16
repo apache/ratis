@@ -191,7 +191,7 @@ class LeaderElection implements Runnable {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
     this.daemon = Daemon.newBuilder().setName(name).setRunnable(this)
-        .setUncaughtExceptionHandler(server.getUncaughtExceptionHandler()).build();
+        .setThreadGroup(server.getThreadGroup()).build();
     this.server = server;
     this.skipPreVote = skipPreVote ||
         !RaftServerConfigKeys.LeaderElection.preVote(

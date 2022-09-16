@@ -66,7 +66,7 @@ class FollowerState extends Daemon {
   FollowerState(RaftServerImpl server, Object reason) {
     super(newBuilder()
         .setName(server.getMemberId() + "-" + JavaUtils.getClassSimpleName(FollowerState.class))
-        .setUncaughtExceptionHandler(server.getUncaughtExceptionHandler()));
+        .setThreadGroup(server.getThreadGroup()));
     this.server = server;
     this.reason = reason;
   }
