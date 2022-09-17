@@ -82,14 +82,14 @@
     </dependency>
     <dependency>
       <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-metrics</artifactId>
+      <artifactId>ratis-metrics-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-metrics</artifactId>
-      <type>test-jar</type>
+      <artifactId>ratis-metrics-default</artifactId>
       <scope>test</scope>
     </dependency>
+
 
     <dependency>
       <groupId>com.github.spotbugs</groupId>
