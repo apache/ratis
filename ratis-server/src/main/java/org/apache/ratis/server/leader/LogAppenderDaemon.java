@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server.leader;
 
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
@@ -46,15 +44,12 @@ class LogAppenderDaemon {
 
   private final LogAppender logAppender;
 
-  LogAppenderDaemon(LogAppender logAppender, RaftServer.Division server) {
+  LogAppenderDaemon(LogAppender logAppender) {
     this.logAppender = logAppender;
     this.name = logAppender + "-" + JavaUtils.getClassSimpleName(getClass());
     this.lifeCycle = new LifeCycle(name);
-    Daemon.Builder builder = Daemon.newBuilder().setName(name).setRunnable(this::run);
-    if (server instanceof RaftServerImpl) {
-      builder.setThreadGroup(((RaftServerImpl) server).getThreadGroup());
-    }
-    this.daemon = builder.build();
+    this.daemon = Daemon.newBuilder().setName(name).setRunnable(this::run)
+        .setThreadGroup(logAppender.getServer().getThreadGroup()).build();
   }
 
   public boolean isWorking() {

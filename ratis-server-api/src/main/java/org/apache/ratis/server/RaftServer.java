@@ -116,6 +116,11 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** @return the internal {@link RaftClient} of this division. */
     RaftClient getRaftClient();
 
+    /** @return the {@link ThreadGroup} the threads of this Division belong to. */
+    default ThreadGroup getThreadGroup() {
+      return Thread.currentThread().getThreadGroup();
+    }
+
     @Override
     void close();
   }
