@@ -95,7 +95,7 @@ import static org.apache.ratis.util.LifeCycle.State.PAUSING;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
-public class RaftServerImpl implements RaftServer.Division,
+class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
@@ -198,7 +198,6 @@ public class RaftServerImpl implements RaftServer.Division,
     this.lifeCycle = new LifeCycle(id);
     this.stateMachine = stateMachine;
     this.role = new RoleInfo(id);
-    this.threadGroup = proxy.getThreadGroup();
 
     final RaftProperties properties = proxy.getProperties();
     this.divisionProperties = new DivisionPropertiesImpl(properties);
@@ -218,6 +217,7 @@ public class RaftServerImpl implements RaftServer.Division,
         getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
+    this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
 
     this.raftClient = JavaUtils.memoize(() -> RaftClient.newBuilder()
         .setRaftGroup(group)
@@ -276,6 +276,7 @@ public class RaftServerImpl implements RaftServer.Division,
     return sleepDeviationThreshold;
   }
 
+  @Override
   public ThreadGroup getThreadGroup() {
     return threadGroup;
   }

@@ -53,7 +53,6 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 
-import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -197,7 +196,6 @@ class RaftServerProxy implements RaftServer {
   private final ExecutorService executor;
 
   private final JvmPauseMonitor pauseMonitor;
-  @Nullable
   private final ThreadGroup threadGroup;
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
@@ -224,7 +222,7 @@ class RaftServerProxy implements RaftServer {
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.pauseMonitor = new JvmPauseMonitor(id,
         extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime));
-    this.threadGroup = threadGroup;
+    this.threadGroup = threadGroup == null ? new ThreadGroup("raft-server-proxy") : threadGroup;
   }
 
   private void handleJvmPause(TimeDuration extraSleep, TimeDuration closeThreshold, TimeDuration stepDownThreshold)
@@ -383,7 +381,7 @@ class RaftServerProxy implements RaftServer {
     return lifeCycle.getCurrentState();
   }
 
-  public ThreadGroup getThreadGroup() {
+  ThreadGroup getThreadGroup() {
     return threadGroup;
   }
 
