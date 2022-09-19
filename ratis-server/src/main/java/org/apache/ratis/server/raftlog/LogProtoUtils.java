@@ -151,7 +151,7 @@ public final class LogProtoUtils {
     return getStateMachineEntry(entry)
         .map(StateMachineEntryProto::getStateMachineData)
         .map(ByteString::isEmpty)
-        .orElse(false);
+        .orElse(true);
   }
 
   private static Optional<StateMachineEntryProto> getStateMachineEntry(LogEntryProto entry) {

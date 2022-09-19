@@ -288,7 +288,7 @@ public class SegmentedRaftLog extends RaftLogBase {
     if (entry == null) {
       throw new RaftLogIOException("Log entry not found: index = " + index);
     }
-    if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
+    if (LogProtoUtils.isStateMachineDataEmpty(entry)) {
       return newEntryWithData(entry, null);
     }
 
