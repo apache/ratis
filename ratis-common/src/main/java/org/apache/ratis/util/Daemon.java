@@ -26,7 +26,6 @@ public class Daemon extends Thread {
 
   /** Construct a daemon thread with flexible arguments. */
   protected Daemon(Builder builder) {
-    // If the threadGroup is null, the new Daemon will be in the same thread group as the caller thread
     super(builder.threadGroup, builder.runnable);
     setName(builder.name);
   }
@@ -39,7 +38,7 @@ public class Daemon extends Thread {
   public static class Builder {
     private String name;
     private Runnable runnable;
-    private ThreadGroup threadGroup = null;
+    private ThreadGroup threadGroup;
 
     public Builder setName(String name) {
       this.name = name;
