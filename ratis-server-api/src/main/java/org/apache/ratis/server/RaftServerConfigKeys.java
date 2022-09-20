@@ -179,7 +179,7 @@ public interface RaftServerConfigKeys {
       LINEARIZABLE
     }
 
-    String OPTION_KEY = ".option";
+    String OPTION_KEY = PREFIX + ".option";
     Option OPTION_DEFAULT = Option.DEFAULT;
     static Option option(RaftProperties properties) {
       Option option =  get(properties::getEnum, OPTION_KEY, OPTION_DEFAULT, getDefaultLog());
