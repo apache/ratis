@@ -19,11 +19,10 @@ package org.apache.ratis.metrics.impl;
 
 import org.apache.ratis.metrics.MetricRegistryFactory;
 import org.apache.ratis.metrics.MetricRegistryInfo;
-import org.apache.ratis.metrics.RatisMetricRegistry;
 
 public class MetricRegistryFactoryImpl implements MetricRegistryFactory {
   @Override
-  public RatisMetricRegistry create(MetricRegistryInfo info) {
+  public RatisMetricRegistryImpl create(MetricRegistryInfo info) {
     return new RatisMetricRegistryImpl(info);
   }
 }

@@ -18,7 +18,13 @@
 
 package org.apache.ratis.metrics;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,8 +33,28 @@ public class RatisMetrics {
   static final Logger LOG = LoggerFactory.getLogger(RatisMetrics.class);
   public static final String RATIS_APPLICATION_NAME_METRICS = "ratis";
 
-  @SuppressWarnings("VisibilityModifier")
-  protected RatisMetricRegistry registry;
+  public static String getHeartbeatSuffix(boolean heartbeat) {
+    return heartbeat ? "_heartbeat" : "";
+  }
+
+  private static <T> Function<Boolean, T> newHeartbeatFunction(String prefix, Function<String, T> function) {
+    final T trueValue = function.apply(prefix + getHeartbeatSuffix(true));
+    final T falseValue = function.apply(prefix + getHeartbeatSuffix(false));
+    return b -> b? trueValue: falseValue;
+  }
+
+  protected static <T extends Enum<T>> Map<T, Map<String, LongCounter>> newCounterMaps(Class<T> clazz) {
+    final EnumMap<T,Map<String, LongCounter>> maps = new EnumMap<>(clazz);
+    Arrays.stream(clazz.getEnumConstants()).forEach(t -> maps.put(t, new ConcurrentHashMap<>()));
+    return Collections.unmodifiableMap(maps);
+  }
+
+  protected static <T extends Enum<T>> Map<T, Timekeeper> newTimerMap(
+      Class<T> clazz, Function<T, Timekeeper> constructor) {
+    final EnumMap<T, Timekeeper> map = new EnumMap<>(clazz);
+    Arrays.stream(clazz.getEnumConstants()).forEach(t -> map.put(t, constructor.apply(t)));
+    return Collections.unmodifiableMap(map);
+  }
 
   protected static RatisMetricRegistry create(MetricRegistryInfo info) {
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
@@ -38,6 +64,12 @@ public class RatisMetrics {
       }
       return MetricRegistries.global().create(info);
     });
+  }
+
+  private final RatisMetricRegistry registry;
+
+  protected RatisMetrics(RatisMetricRegistry registry) {
+    this.registry = registry;
   }
 
   public void unregister() {
@@ -51,11 +83,15 @@ public class RatisMetrics {
     }
   }
 
-  public RatisMetricRegistry getRegistry() {
+  public final RatisMetricRegistry getRegistry() {
     return registry;
   }
 
-  protected Timekeeper getTimer(String timerName) {
-    return getRegistry().timer(timerName);
+  protected Function<Boolean, Timekeeper> newHeartbeatTimer(String prefix) {
+    return newHeartbeatFunction(prefix, getRegistry()::timer);
+  }
+
+  protected Function<Boolean, LongCounter> newHeartbeatCounter(String prefix) {
+    return newHeartbeatFunction(prefix, getRegistry()::counter);
   }
 }

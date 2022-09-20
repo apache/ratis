@@ -452,7 +452,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final RaftServer.Division leaderServer = waitForLeader(cluster);
 
     final RatisMetricRegistryImpl ratisMetricRegistry = (RatisMetricRegistryImpl)
-        LeaderElectionMetrics.getMetricRegistryForLeaderElection(leaderServer.getMemberId());
+        LeaderElectionMetrics.createRegistry(leaderServer.getMemberId());
 
     // Verify each metric individually.
     long numLeaderElections = ratisMetricRegistry.counter(LEADER_ELECTION_COUNT_METRIC).getCount();

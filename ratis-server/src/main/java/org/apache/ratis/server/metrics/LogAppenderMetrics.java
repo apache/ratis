@@ -36,10 +36,10 @@ public final class LogAppenderMetrics extends RatisMetrics {
   public static final String FOLLOWER_RPC_RESP_TIME = "follower_%s_rpc_response_time";
 
   public LogAppenderMetrics(RaftGroupMemberId groupMemberId) {
-    registry = getMetricRegistryForLogAppender(groupMemberId.toString());
+    super(createRegistry(groupMemberId.toString()));
   }
 
-  private RatisMetricRegistry getMetricRegistryForLogAppender(String serverId) {
+  private static RatisMetricRegistry createRegistry(String serverId) {
     return create(new MetricRegistryInfo(serverId,
         RATIS_APPLICATION_NAME_METRICS,
         RATIS_LOG_APPENDER_METRICS, RATIS_LOG_APPENDER_METRICS_DESC));
@@ -47,8 +47,8 @@ public final class LogAppenderMetrics extends RatisMetrics {
 
   public void addFollowerGauges(RaftPeerId id, LongSupplier getNextIndex, LongSupplier getMatchIndex,
       Supplier<Timestamp> getLastRpcTime) {
-    registry.gauge(String.format(FOLLOWER_NEXT_INDEX, id), () -> getNextIndex::getAsLong);
-    registry.gauge(String.format(FOLLOWER_MATCH_INDEX, id), () -> getMatchIndex::getAsLong);
-    registry.gauge(String.format(FOLLOWER_RPC_RESP_TIME, id), () -> () -> getLastRpcTime.get().elapsedTimeMs());
+    getRegistry().gauge(String.format(FOLLOWER_NEXT_INDEX, id), () -> getNextIndex::getAsLong);
+    getRegistry().gauge(String.format(FOLLOWER_MATCH_INDEX, id), () -> getMatchIndex::getAsLong);
+    getRegistry().gauge(String.format(FOLLOWER_RPC_RESP_TIME, id), () -> () -> getLastRpcTime.get().elapsedTimeMs());
   }
 }
