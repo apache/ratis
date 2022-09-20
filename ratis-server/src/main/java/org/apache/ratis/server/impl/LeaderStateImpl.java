@@ -40,7 +40,7 @@ import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ReadRequests.AppendEntriesListener;
+import org.apache.ratis.server.impl.ReadIndexHeartbeats.AppendEntriesListener;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppender;
@@ -260,6 +260,8 @@ class LeaderStateImpl implements LeaderState {
   private final long followerMaxGapThreshold;
   private final PendingStepDown pendingStepDown;
 
+  private final ReadIndexHeartbeats readIndexHeartbeats;
+
   LeaderStateImpl(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.server = server;
@@ -279,6 +281,7 @@ class LeaderStateImpl implements LeaderState {
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
     this.pendingStepDown = new PendingStepDown(this);
+    this.readIndexHeartbeats = new ReadIndexHeartbeats();
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
     double followerGapRatioMax = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
 
@@ -337,6 +340,8 @@ class LeaderStateImpl implements LeaderState {
       LOG.warn("{}: Caught exception in sendNotLeaderResponses", this, e);
     }
     messageStreamRequests.clear();
+    // TODO client should retry on NotLeaderException
+    readIndexHeartbeats.failListeners(nle);
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
@@ -1088,7 +1093,7 @@ class LeaderStateImpl implements LeaderState {
 
     final MemoizedSupplier<AppendEntriesListener> supplier = MemoizedSupplier.valueOf(
         () -> new AppendEntriesListener(readIndex));
-    final AppendEntriesListener listener = server.getReadRequests().addAppendEntriesListener(
+    final AppendEntriesListener listener = readIndexHeartbeats.addAppendEntriesListener(
         readIndex, key -> supplier.get());
 
     // the readIndex is already acknowledged before
@@ -1111,7 +1116,7 @@ class LeaderStateImpl implements LeaderState {
 
   @Override
   public void onAppendEntriesReply(LogAppender appender, RaftProtos.AppendEntriesReplyProto reply) {
-    server.getReadRequests().onAppendEntriesReply(appender, reply, this::hasMajority);
+    readIndexHeartbeats.onAppendEntriesReply(appender, reply, this::hasMajority);
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {

@@ -124,32 +124,18 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
         RaftClientReply reply = client.io().send(incrementMessage);
         Assert.assertTrue(reply.isSuccess());
-        Semaphore canRead = new Semaphore(0);
 
-        // this future will complete after 500 ms
-        Thread thread = new Thread(() -> {
-          try {
-            RaftClientReply staleValueBefore = client.io()
+        CompletableFuture<RaftClientReply> result = client.async().send(waitAndIncrementMessage);
+        Thread.sleep(100);
+
+        RaftClientReply staleValueBefore = client.io()
                 .sendStaleRead(queryMessage, 0, leaderId);
 
-            Assert.assertEquals(retrieve(staleValueBefore), 1);
+        Assert.assertEquals(retrieve(staleValueBefore), 1);
 
-            canRead.acquire();
-            // we still have to sleep for a while to guarantee that the async write arrives at RaftServer
-            Thread.sleep(100);
-            // send a linearizable read request
-            // linearizable read will wait the statemachine to advance
-            RaftClientReply linearizableReadValue = client.io()
-                .sendReadOnly(queryMessage);
-            Assert.assertEquals(retrieve(linearizableReadValue), 2);
-          }
-          catch (Exception ignored) {}
-        });
-
-        thread.start();
-        CompletableFuture<RaftClientReply> result = client.async().send(waitAndIncrementMessage);
-        canRead.release();
-        thread.join();
+        RaftClientReply linearizableReadValue = client.io()
+            .sendReadOnly(queryMessage);
+        Assert.assertEquals(retrieve(linearizableReadValue), 2);
 
       }
     } finally {
@@ -231,6 +217,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
         leaderClient.io().send(incrementMessage);
         leaderClient.async().send(waitAndIncrementMessage);
+        Thread.sleep(100);
 
         RaftClientReply clientReply = followerClient1.io().sendReadOnly(queryMessage, followers.get(0).getId());
         Assert.assertEquals(2, retrieve(clientReply));
