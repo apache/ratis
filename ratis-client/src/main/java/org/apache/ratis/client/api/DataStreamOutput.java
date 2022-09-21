@@ -22,10 +22,12 @@ import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 /** An asynchronous output stream supporting zero buffer copying. */
@@ -37,7 +39,10 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
    * @param options - options specifying how the data was written
    * @return a future of the reply.
    */
-  CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, WriteOption... options);
+  default CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src,
+                                                 WriteOption... options) {
+    return writeAsync(src, Arrays.asList(options));
+  }
 
   /**
    * Send out the data in the source buffer asynchronously.

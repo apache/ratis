@@ -28,6 +28,8 @@ import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
+import java.util.Arrays;
+
 /**
  * Implements {@link DataStreamRequest} with {@link ByteBuf}.
  *
@@ -37,12 +39,11 @@ public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements Da
   private final ByteBuf buf;
   private final WriteOption[] options;
 
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DataStreamRequestByteBuf(ClientId clientId, Type type, long streamId, long streamOffset, WriteOption[] options,
       ByteBuf buf) {
     super(clientId, type, streamId, streamOffset);
     this.buf = buf != null? buf.asReadOnly(): Unpooled.EMPTY_BUFFER;
-    this.options = options;
+    this.options = Arrays.stream(options).toArray(WriteOption[]::new);
   }
 
   public DataStreamRequestByteBuf(DataStreamRequestHeader header, ByteBuf buf) {

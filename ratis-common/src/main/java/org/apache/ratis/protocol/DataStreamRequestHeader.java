@@ -32,14 +32,12 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
 
   private final WriteOption[] options;
 
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DataStreamRequestHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
       WriteOption... options) {
     super(clientId, type, streamId, streamOffset, dataLength);
     this.options = options;
   }
 
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DataStreamRequestHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
                                  Iterable<WriteOption> options) {
     this(clientId, type, streamId, streamOffset, dataLength,

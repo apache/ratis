@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -125,15 +126,9 @@ public class DataStreamClientImpl implements DataStreamClient {
       this.header = request;
       this.slidingWindow = new SlidingWindow.Client<>(ClientInvocationId.valueOf(clientId, header.getCallId()));
       final ByteBuffer buffer = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(header);
-      this.headerFuture = send(Type.STREAM_HEADER, buffer, buffer.remaining());
+      this.headerFuture = send(Type.STREAM_HEADER, buffer, buffer.remaining(),
+              Collections.EMPTY_LIST);
     }
-
-    private CompletableFuture<DataStreamReply> send(Type type, Object data,
-                                                    long length,
-                                                    WriteOption... options) {
-      return this.send(type, data, length, Arrays.asList(options));
-    }
-
     private CompletableFuture<DataStreamReply> send(Type type, Object data,
                                                     long length,
                                                     Iterable<WriteOption> options) {
