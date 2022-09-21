@@ -222,7 +222,7 @@ class RaftServerProxy implements RaftServer {
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.pauseMonitor = new JvmPauseMonitor(id,
         extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime));
-    this.threadGroup = threadGroup == null ? new ThreadGroup("raft-server-proxy") : threadGroup;
+    this.threadGroup = threadGroup == null ? new ThreadGroup(this.id.toString()) : threadGroup;
   }
 
   private void handleJvmPause(TimeDuration extraSleep, TimeDuration closeThreshold, TimeDuration stepDownThreshold)
