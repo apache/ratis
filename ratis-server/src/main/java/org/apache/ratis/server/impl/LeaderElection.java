@@ -190,7 +190,8 @@ class LeaderElection implements Runnable {
   LeaderElection(RaftServerImpl server, boolean skipPreVote) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
-    this.daemon = Daemon.newBuilder().setName(name).setRunnable(this).build();
+    this.daemon = Daemon.newBuilder().setName(name).setRunnable(this)
+        .setThreadGroup(server.getThreadGroup()).build();
     this.server = server;
     this.skipPreVote = skipPreVote ||
         !RaftServerConfigKeys.LeaderElection.preVote(

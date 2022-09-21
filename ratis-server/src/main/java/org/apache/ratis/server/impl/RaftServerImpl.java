@@ -97,7 +97,7 @@ import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
-    RaftClientProtocol, RaftClientAsynchronousProtocol{
+    RaftClientProtocol, RaftClientAsynchronousProtocol {
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
@@ -189,6 +189,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService clientExecutor;
 
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
+  private final ThreadGroup threadGroup;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
@@ -216,6 +217,7 @@ class RaftServerImpl implements RaftServer.Division,
         getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
+    this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
 
     this.raftClient = JavaUtils.memoize(() -> RaftClient.newBuilder()
         .setRaftGroup(group)
@@ -272,6 +274,11 @@ class RaftServerImpl implements RaftServer.Division,
 
   TimeDuration getSleepDeviationThreshold() {
     return sleepDeviationThreshold;
+  }
+
+  @Override
+  public ThreadGroup getThreadGroup() {
+    return threadGroup;
   }
 
   @Override

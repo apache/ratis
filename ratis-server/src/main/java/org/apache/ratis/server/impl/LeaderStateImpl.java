@@ -274,7 +274,7 @@ class LeaderStateImpl implements LeaderState {
     this.currentTerm = state.getCurrentTerm();
 
     this.eventQueue = new EventQueue();
-    processor = new EventProcessor(this.name);
+    processor = new EventProcessor(this.name, server);
     raftServerMetrics = server.getRaftServerMetrics();
     logAppenderMetrics = new LogAppenderMetrics(server.getMemberId());
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
@@ -625,8 +625,9 @@ class LeaderStateImpl implements LeaderState {
    * state, such as changing to follower, or updating the committed index.
    */
   private class EventProcessor extends Daemon {
-    public EventProcessor(String name) {
-      super(Daemon.newBuilder().setName(name));
+    public EventProcessor(String name, RaftServerImpl server) {
+      super(Daemon.newBuilder()
+          .setName(name).setThreadGroup(server.getThreadGroup()));
     }
     @Override
     public void run() {

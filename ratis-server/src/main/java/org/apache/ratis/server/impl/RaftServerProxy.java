@@ -196,9 +196,10 @@ class RaftServerProxy implements RaftServer {
   private final ExecutorService executor;
 
   private final JvmPauseMonitor pauseMonitor;
+  private final ThreadGroup threadGroup;
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
-      RaftProperties properties, Parameters parameters) {
+      RaftProperties properties, Parameters parameters, ThreadGroup threadGroup) {
     this.properties = properties;
     this.stateMachineRegistry = stateMachineRegistry;
 
@@ -221,6 +222,7 @@ class RaftServerProxy implements RaftServer {
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.pauseMonitor = new JvmPauseMonitor(id,
         extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime));
+    this.threadGroup = threadGroup == null ? new ThreadGroup(this.id.toString()) : threadGroup;
   }
 
   private void handleJvmPause(TimeDuration extraSleep, TimeDuration closeThreshold, TimeDuration stepDownThreshold)
@@ -377,6 +379,10 @@ class RaftServerProxy implements RaftServer {
   @Override
   public LifeCycle.State getLifeCycleState() {
     return lifeCycle.getCurrentState();
+  }
+
+  ThreadGroup getThreadGroup() {
+    return threadGroup;
   }
 
   @Override
