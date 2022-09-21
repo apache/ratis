@@ -114,7 +114,7 @@ public class TestRaftStorage extends BaseTest {
    */
   @Test
   public void testStorage() throws Exception {
-    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, SizeInBytes.ZERO);
+    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, 0);
     try {
       StorageState state = sd.analyzeStorage(true);
       Assert.assertEquals(StorageState.NOT_FORMATTED, state);
@@ -171,7 +171,7 @@ public class TestRaftStorage extends BaseTest {
     Assert.assertEquals(StorageState.NORMAL, storage.getState());
     storage.close();
 
-    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, SizeInBytes.ZERO);
+    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, 0);
     File metaFile = sd.getMetaFile();
     FileUtils.move(metaFile, sd.getMetaTmpFile());
 
@@ -286,7 +286,7 @@ public class TestRaftStorage extends BaseTest {
     File mockStorageDir = Mockito.spy(storageDir);
     Mockito.when(mockStorageDir.getFreeSpace()).thenReturn(100L);  // 100B
 
-    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(mockStorageDir, SizeInBytes.valueOf("100M"));
+    final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(mockStorageDir, 104857600); // 100MB
     StorageState state = sd.analyzeStorage(false);
     Assert.assertEquals(StorageState.NO_SPACE, state);
   }

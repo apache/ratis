@@ -62,7 +62,8 @@ public interface RaftStorage extends Closeable {
 
     private static Method initNewRaftStorageMethod() {
       final String className = RaftStorage.class.getPackage().getName() + ".StorageImplUtils";
-      final Class<?>[] argClasses = {File.class, SizeInBytes.class, StartupOption.class, CorruptionPolicy.class};
+      //final String className = "org.apache.ratis.server.storage.RaftStorageImpl";
+      final Class<?>[] argClasses = { File.class, CorruptionPolicy.class, StartupOption.class, long.class };
       try {
         final Class<?> clazz = ReflectionUtils.getClassByName(className);
         return clazz.getMethod("newRaftStorage", argClasses);
@@ -75,7 +76,7 @@ public interface RaftStorage extends Closeable {
         StartupOption option, SizeInBytes storageFreeSpaceMin) throws IOException {
       try {
         return (RaftStorage) NEW_RAFT_STORAGE_METHOD.invoke(null,
-            dir, storageFreeSpaceMin, option, logCorruptionPolicy);
+            dir, logCorruptionPolicy, option, storageFreeSpaceMin.getSize());
       } catch (IllegalAccessException e) {
         throw new IllegalStateException("Failed to build " + dir, e);
       } catch (InvocationTargetException e) {

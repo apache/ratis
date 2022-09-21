@@ -19,7 +19,6 @@ package org.apache.ratis.server.storage;
 
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,13 +51,13 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
   private final File root; // root directory
   private FileLock lock;   // storage lock
-  private final SizeInBytes freeSpaceMin;
+  private long freeSpaceMin;
 
   /**
    * Constructor
    * @param dir directory corresponding to the storage
    */
-  RaftStorageDirectoryImpl(File dir, SizeInBytes freeSpaceMin) {
+  RaftStorageDirectoryImpl(File dir, long freeSpaceMin) {
     this.root = dir;
     this.lock = null;
     this.freeSpaceMin = freeSpaceMin;
@@ -178,7 +177,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   }
 
   private boolean hasEnoughSpace() {
-    return root.getFreeSpace() >= freeSpaceMin.getSize();
+    return root.getFreeSpace() > freeSpaceMin;
   }
 
   /**

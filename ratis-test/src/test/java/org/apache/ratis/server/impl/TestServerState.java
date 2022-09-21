@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.impl;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.util.FileUtils;
@@ -28,9 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
@@ -39,19 +37,12 @@ import java.util.stream.IntStream;
 /**
  * Test cases to verify ServerState.
  */
-public class TestStorageImplUtils {
+public class TestServerState {
 
   private static final Supplier<File> rootTestDir = JavaUtils.memoize(
       () -> new File(BaseTest.getRootTestDir(),
-          JavaUtils.getClassSimpleName(TestStorageImplUtils.class) +
+          JavaUtils.getClassSimpleName(TestServerState.class) +
               Integer.toHexString(ThreadLocalRandom.current().nextInt())));
-
-  static File chooseNewStorageDir(List<File> volumes, String sub) throws IOException {
-    final Map<File, Integer> numDirPerVolume = new HashMap<>();
-    StorageImplUtils.getExistingStorageSubs(volumes, sub, numDirPerVolume);
-    final File vol = StorageImplUtils.chooseMin(numDirPerVolume);
-    return new File(vol, sub);
-  }
 
   @AfterClass
   public static void tearDown() throws IOException {
@@ -69,8 +60,8 @@ public class TestStorageImplUtils {
     List<File> directories = Collections.singletonList(testDir);
     String subDirOne = UUID.randomUUID().toString();
     String subDirTwo = UUID.randomUUID().toString();
-    final File storageDirOne = chooseNewStorageDir(directories, subDirOne);
-    final File storageDirTwo = chooseNewStorageDir(directories, subDirTwo);
+    File storageDirOne = ServerState.chooseStorageDir(directories, subDirOne);
+    File storageDirTwo = ServerState.chooseStorageDir(directories, subDirTwo);
     File expectedOne = new File(testDir, subDirOne);
     File expectedTwo = new File(testDir, subDirTwo);
     Assert.assertEquals(expectedOne.getCanonicalPath(),
@@ -109,7 +100,7 @@ public class TestStorageImplUtils {
               }
             });
     String subDir = UUID.randomUUID().toString();
-    final File storageDirectory = chooseNewStorageDir(directories, subDir);
+    File storageDirectory = ServerState.chooseStorageDir(directories, subDir);
     File expected = new File(directories.get(6), subDir);
     Assert.assertEquals(expected.getCanonicalPath(),
         storageDirectory.getCanonicalPath());
@@ -117,15 +108,19 @@ public class TestStorageImplUtils {
 
   /**
    * Tests choosing of storage directory when only no volume is configured.
+   *
+   * @throws IOException in case of exception.
    */
   @Test
   public void testChooseStorageDirWithNoVolume() {
     try {
-      chooseNewStorageDir(Collections.emptyList(), UUID.randomUUID().toString());
+      ServerState.chooseStorageDir(
+          Collections.emptyList(), UUID.randomUUID().toString());
       Assert.fail();
     } catch (IOException ex) {
       String expectedErrMsg = "No storage directory found.";
       Assert.assertEquals(expectedErrMsg, ex.getMessage());
     }
   }
+
 }
