@@ -116,6 +116,9 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** @return the internal {@link RaftClient} of this division. */
     RaftClient getRaftClient();
 
+    /** @return the {@link ThreadGroup} the threads of this Division belong to. */
+    ThreadGroup getThreadGroup();
+
     @Override
     void close();
   }
@@ -168,7 +171,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private static Method initNewRaftServerMethod() {
       final String className = RaftServer.class.getPackage().getName() + ".impl.ServerImplUtils";
       final Class<?>[] argClasses = {RaftPeerId.class, RaftGroup.class, StateMachine.Registry.class,
-          RaftProperties.class, Parameters.class};
+          ThreadGroup.class, RaftProperties.class, Parameters.class};
       try {
         final Class<?> clazz = ReflectionUtils.getClassByName(className);
         return clazz.getMethod("newRaftServer", argClasses);
@@ -178,11 +181,11 @@ public interface RaftServer extends Closeable, RpcType.Get,
     }
 
     private static RaftServer newRaftServer(RaftPeerId serverId, RaftGroup group,
-        StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
-        throws IOException {
+        StateMachine.Registry stateMachineRegistry, ThreadGroup threadGroup,
+        RaftProperties properties, Parameters parameters) throws IOException {
       try {
         return (RaftServer) NEW_RAFT_SERVER_METHOD.invoke(null,
-            serverId, group, stateMachineRegistry, properties, parameters);
+            serverId, group, stateMachineRegistry, threadGroup, properties, parameters);
       } catch (IllegalAccessException e) {
         throw new IllegalStateException("Failed to build " + serverId, e);
       } catch (InvocationTargetException e) {
@@ -195,6 +198,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private RaftGroup group = null;
     private RaftProperties properties;
     private Parameters parameters;
+    private ThreadGroup threadGroup;
 
     /** @return a {@link RaftServer} object. */
     public RaftServer build() throws IOException {
@@ -203,6 +207,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
           group,
           Objects.requireNonNull(stateMachineRegistry , "Neither 'stateMachine' nor 'setStateMachineRegistry' " +
               "is initialized."),
+          threadGroup,
           Objects.requireNonNull(properties, "The 'properties' field is not initialized."),
           parameters);
     }
@@ -239,6 +244,16 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** Set {@link Parameters}. */
     public Builder setParameters(Parameters parameters) {
       this.parameters = parameters;
+      return this;
+    }
+
+    /**
+     * Set {@link ThreadGroup} so the application can control RaftServer threads consistently with the application.
+     * For example, configure {@link ThreadGroup#uncaughtException(Thread, Throwable)} for the whole thread group.
+     * If not set, the new thread will be put into the thread group of the caller thread.
+     */
+    public Builder setThreadGroup(ThreadGroup threadGroup) {
+      this.threadGroup = threadGroup;
       return this;
     }
   }

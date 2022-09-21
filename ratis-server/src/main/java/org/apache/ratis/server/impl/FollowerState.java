@@ -64,7 +64,9 @@ class FollowerState extends Daemon {
   private final AtomicInteger outstandingOp = new AtomicInteger();
 
   FollowerState(RaftServerImpl server, Object reason) {
-    super(newBuilder().setName(server.getMemberId() + "-" + JavaUtils.getClassSimpleName(FollowerState.class)));
+    super(newBuilder()
+        .setName(server.getMemberId() + "-" + JavaUtils.getClassSimpleName(FollowerState.class))
+        .setThreadGroup(server.getThreadGroup()));
     this.server = server;
     this.reason = reason;
   }
