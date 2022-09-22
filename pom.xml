@@ -85,6 +85,7 @@
     <module>ratis-replicated-map</module>
     <module>ratis-metrics-api</module>
     <module>ratis-metrics-default</module>
+    <module>ratis-metrics-dropwizard3</module>
     <module>ratis-tools</module>
     <module>ratis-shell</module>
     <module>ratis-assembly</module>
@@ -278,6 +279,11 @@
       </dependency>
       <dependency>
         <artifactId>ratis-metrics-default</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-metrics-dropwizard3</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>
       </dependency>
