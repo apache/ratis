@@ -55,6 +55,12 @@
     </dependency>
 
     <dependency>
+      <artifactId>ratis-metrics-default</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <artifactId>ratis-netty</artifactId>
       <groupId>org.apache.ratis</groupId>
       <scope>test</scope>

@@ -59,9 +59,7 @@ public class RatisMetrics {
   protected static RatisMetricRegistry create(MetricRegistryInfo info) {
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
     return metricRegistry.orElseGet(() -> {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Creating Metrics Registry : {}", info.getName());
-      }
+      LOG.debug("Creating {}", info);
       return MetricRegistries.global().create(info);
     });
   }
@@ -74,9 +72,7 @@ public class RatisMetrics {
 
   public void unregister() {
     MetricRegistryInfo info = registry.getMetricRegistryInfo();
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Unregistering Metrics Registry : {}", info.getName());
-    }
+    LOG.debug("Unregistering {}", info);
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
     if (metricRegistry.isPresent()) {
       MetricRegistries.global().remove(info);

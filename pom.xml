@@ -83,7 +83,8 @@
 
     <module>ratis-examples</module>
     <module>ratis-replicated-map</module>
-    <module>ratis-metrics</module>
+    <module>ratis-metrics-api</module>
+    <module>ratis-metrics-default</module>
     <module>ratis-tools</module>
     <module>ratis-shell</module>
     <module>ratis-assembly</module>
@@ -271,16 +272,21 @@
         <version>${project.version}</version>
       </dependency>
       <dependency>
-       <artifactId>ratis-metrics</artifactId>
-       <groupId>org.apache.ratis</groupId>
-       <version>${project.version}</version>
+        <artifactId>ratis-metrics-api</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
       </dependency>
       <dependency>
-       <artifactId>ratis-metrics</artifactId>
-       <groupId>org.apache.ratis</groupId>
-       <version>${project.version}</version>
-       <type>test-jar</type>
-       <scope>test</scope>
+        <artifactId>ratis-metrics-default</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-metrics-default</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
       </dependency>
       <dependency>
         <artifactId>ratis-tools</artifactId>

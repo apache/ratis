@@ -18,22 +18,24 @@
 
 package org.apache.ratis.metrics;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.MetricRegistry;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
 
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
- *
- * This class holds the name and description and JMX related context names for such group of
- * metrics.
+ * This class holds the name, description and JMX related context names for such group of metrics.
+ * <p>
+ * This class is immutable.
  */
 public class MetricRegistryInfo {
-
   private final String prefix;
   private final String metricsDescription;
   private final String metricsComponentName;
-  private final String fullName;
   private final String applicationName;
+
+  private final Supplier<Integer> hash = MemoizedSupplier.valueOf(this::computeHash);
 
   /**
    * @param prefix   className or component name this metric registry collects metric for
@@ -48,7 +50,6 @@ public class MetricRegistryInfo {
     this.applicationName = applicationName;
     this.metricsComponentName = metricsComponentName;
     this.metricsDescription = metricsDescription;
-    this.fullName = MetricRegistry.name(applicationName, metricsComponentName, prefix);
   }
 
   public String getApplicationName() {
@@ -79,21 +80,33 @@ public class MetricRegistryInfo {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof MetricRegistryInfo) {
-      return this.hashCode() == obj.hashCode();
-    } else {
+    if (this == obj) {
+      return true;
+    } else if (!(obj instanceof MetricRegistryInfo)) {
       return false;
     }
+    final MetricRegistryInfo that = (MetricRegistryInfo) obj;
+    return Objects.equals(prefix, that.prefix)
+        && Objects.equals(metricsDescription, that.metricsDescription)
+        && Objects.equals(metricsComponentName, that.metricsComponentName)
+        && Objects.equals(applicationName, that.applicationName);
   }
 
   @Override
   public int hashCode() {
+    return hash.get();
+  }
+
+  private Integer computeHash() {
     return Objects.hash(prefix, metricsDescription, metricsComponentName);
   }
 
-  public String getName() {
-    return fullName;
+  @Override
+  public String toString() {
+    return JavaUtils.getClassSimpleName(getClass())
+        + ": applicationName=" + getApplicationName()
+        + ", metricsComponentName=" + getMetricsComponentName()
+        + ", prefix=" + getPrefix()
+        + ", metricsDescription=" + getMetricsDescription();
   }
-
-
 }

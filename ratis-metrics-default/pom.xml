@@ -21,10 +21,14 @@
     <version>3.0.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>ratis-metrics</artifactId>
-  <name>Apache Ratis Metrics</name>
+  <artifactId>ratis-metrics-default</artifactId>
+  <name>Apache Ratis Metrics Default Implementation</name>
 
   <dependencies>
+    <dependency>
+      <artifactId>ratis-metrics-api</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
     <dependency>
       <artifactId>ratis-proto</artifactId>
       <groupId>org.apache.ratis</groupId>

@@ -65,6 +65,11 @@
     </dependency>
 
     <dependency>
+      <artifactId>ratis-metrics-default</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+
+    <dependency>
       <artifactId>ratis-grpc</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>

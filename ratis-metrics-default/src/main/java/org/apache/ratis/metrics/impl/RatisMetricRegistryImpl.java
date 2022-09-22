@@ -32,6 +32,7 @@ import org.apache.ratis.thirdparty.com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.SortedMap;
 import java.util.function.Supplier;
 
@@ -49,13 +50,14 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
   private final MetricRegistry metricRegistry = new MetricRegistry();
 
   private final MetricRegistryInfo info;
+  private final String namePrefix;
 
   private JmxReporter jmxReporter;
   private ConsoleReporter consoleReporter;
 
   public RatisMetricRegistryImpl(MetricRegistryInfo info) {
-    super();
-    this.info = info;
+    this.info = Objects.requireNonNull(info, "info == null");
+    this.namePrefix = MetricRegistry.name(info.getApplicationName(), info.getMetricsComponentName(), info.getPrefix());
   }
 
   @Override
@@ -111,7 +113,7 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
   }
 
   private String getMetricName(String shortName) {
-    return MetricRegistry.name(info.getName(), shortName);
+    return MetricRegistry.name(namePrefix, shortName);
   }
 
   private <T extends Metric> T register(String name, T metric) throws IllegalArgumentException {
