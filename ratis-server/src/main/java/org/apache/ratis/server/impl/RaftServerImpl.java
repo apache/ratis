@@ -1329,15 +1329,18 @@ class RaftServerImpl implements RaftServer.Division,
       List<LogEntryProto> entries) {
     if (entries != null && !entries.isEmpty()) {
       final long index0 = entries.get(0).getIndex();
-
-      if (previous == null || previous.getTerm() == 0) {
-        Preconditions.assertTrue(index0 == 0,
-            "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
-            0, index0);
-      } else {
-        Preconditions.assertTrue(previous.getIndex() == index0 - 1,
-            "Unexpected Index: previous is %s but entries[%s].getIndex()=%s",
-            previous, 0, index0);
+      // Check if next entry's index is 1 greater than the snapshotIndex. If yes, then
+      // we do not have to check for the existence of previous.
+      if (index0 != state.getSnapshotIndex() + 1) {
+        if (previous == null || previous.getTerm() == 0) {
+          Preconditions.assertTrue(index0 == 0,
+              "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
+              0, index0);
+        } else {
+          Preconditions.assertTrue(previous.getIndex() == index0 - 1,
+              "Unexpected Index: previous is %s but entries[%s].getIndex()=%s",
+              previous, 0, index0);
+        }
       }
 
       for (int i = 0; i < entries.size(); i++) {
