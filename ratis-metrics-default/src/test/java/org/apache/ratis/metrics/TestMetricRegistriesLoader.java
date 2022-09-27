@@ -21,20 +21,21 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.mock;
 
-import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
+import org.apache.ratis.metrics.impl.MetricRegistriesImpl;
+import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
 
 /**
  * Test class for {@link MetricRegistriesLoader}.
  */
 public class TestMetricRegistriesLoader {
-
-
   @Test
-  public void testLoadSinleInstance() {
+  public void testLoadSingleInstance() {
     MetricRegistries loader = mock(MetricRegistries.class);
-    MetricRegistries instance = MetricRegistriesLoader.load(Lists.newArrayList(loader));
+    MetricRegistries instance = MetricRegistriesLoader.load(Collections.singletonList(loader));
     assertEquals(loader, instance);
   }
 
@@ -43,12 +44,18 @@ public class TestMetricRegistriesLoader {
     MetricRegistries loader1 = mock(MetricRegistries.class);
     MetricRegistries loader2 = mock(MetricRegistries.class);
     MetricRegistries loader3 = mock(MetricRegistries.class);
-    MetricRegistries instance = MetricRegistriesLoader.load(Lists.newArrayList(loader1, loader2,
-        loader3));
+    MetricRegistries instance = MetricRegistriesLoader.load(Arrays.asList(loader1, loader2, loader3));
 
     // the load() returns the first instance
     assertEquals(loader1, instance);
     assertNotEquals(loader2, instance);
     assertNotEquals(loader3, instance);
   }
+
+  @Test
+  public void testLoadDefault() {
+    final MetricRegistries r = MetricRegistriesLoader.load();
+    Assert.assertSame(MetricRegistriesImpl.class, r.getClass());
+  }
+
 }
