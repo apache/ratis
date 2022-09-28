@@ -149,8 +149,7 @@ public class OrderedStreamAsync {
         request.getDataStreamRequest());
     long seqNum = request.getSeqNum();
 
-    final boolean isClose =
-            StandardWriteOption.CLOSE.isOneOf(request.getDataStreamRequest().getWriteOptionsList());
+    final boolean isClose = StandardWriteOption.CLOSE.isOneOf(request.getDataStreamRequest().getWriteOptionsList());
     scheduleWithTimeout(request, isClose? closeTimeout: requestTimeout);
 
     requestFuture.thenApply(reply -> {

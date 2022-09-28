@@ -17,13 +17,14 @@
  */
 package org.apache.ratis.datastream.impl;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
+import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 import org.apache.ratis.util.Preconditions;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * Implements {@link DataStreamRequest} with {@link ByteBuffer}.
@@ -31,18 +32,16 @@ import java.nio.ByteBuffer;
  * This class is immutable.
  */
 public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer implements DataStreamRequest {
-  private WriteOption[] options;
+  private List<WriteOption> options;
 
   public DataStreamRequestByteBuffer(DataStreamRequestHeader header, ByteBuffer buffer) {
     super(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset(), buffer);
-    this.options = header.getWriteOptions();
+    this.options = Lists.newArrayList(header.getWriteOptionsList());
     Preconditions.assertTrue(header.getDataLength() == buffer.remaining());
   }
 
   @Override
-  @SuppressFBWarnings("EI_EXPOSE_REP")
-  @Deprecated
-  public WriteOption[] getWriteOptions() {
-    return options;
+  public List<WriteOption> getWriteOptionsList() {
+    return Lists.newArrayList(options);
   }
 }

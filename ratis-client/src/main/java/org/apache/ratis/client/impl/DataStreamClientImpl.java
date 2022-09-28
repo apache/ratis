@@ -54,7 +54,6 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 /**
  * Streaming client implementation
@@ -126,11 +125,9 @@ public class DataStreamClientImpl implements DataStreamClient {
       this.header = request;
       this.slidingWindow = new SlidingWindow.Client<>(ClientInvocationId.valueOf(clientId, header.getCallId()));
       final ByteBuffer buffer = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(header);
-      this.headerFuture = send(Type.STREAM_HEADER, buffer, buffer.remaining(),
-              Collections.EMPTY_LIST);
+      this.headerFuture = send(Type.STREAM_HEADER, buffer, buffer.remaining(), Collections.emptyList());
     }
-    private CompletableFuture<DataStreamReply> send(Type type, Object data,
-                                                    long length,
+    private CompletableFuture<DataStreamReply> send(Type type, Object data, long length,
                                                     Iterable<WriteOption> options) {
       final DataStreamRequestHeader h =
           new DataStreamRequestHeader(header.getClientId(), type, header.getCallId(), streamOffset, length, options);
@@ -141,9 +138,7 @@ public class DataStreamClientImpl implements DataStreamClient {
       return future.thenCombine(headerFuture, (reply, headerReply) -> headerReply.isSuccess()? reply : headerReply);
     }
 
-    private CompletableFuture<DataStreamReply> writeAsyncImpl(Object data,
-                                               long length,
-                                               Iterable<WriteOption> options) {
+    private CompletableFuture<DataStreamReply> writeAsyncImpl(Object data, long length, Iterable<WriteOption> options) {
       if (isClosed()) {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(
             clientId + ": stream already closed, request=" + header));
@@ -160,7 +155,7 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     @Override
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, WriteOption... options) {
-      return writeAsync(src, Arrays.stream(options).collect(Collectors.toList()));
+      return writeAsync(src, Arrays.asList(options));
     }
 
     @Override

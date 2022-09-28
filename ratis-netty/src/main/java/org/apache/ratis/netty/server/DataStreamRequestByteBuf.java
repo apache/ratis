@@ -18,17 +18,17 @@
 
 package org.apache.ratis.netty.server;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
 import org.apache.ratis.io.WriteOption;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
-import java.util.Arrays;
+import java.util.List;
 
 /**
  * Implements {@link DataStreamRequest} with {@link ByteBuf}.
@@ -37,18 +37,18 @@ import java.util.Arrays;
  */
 public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements DataStreamRequest {
   private final ByteBuf buf;
-  private final WriteOption[] options;
+  private final List<WriteOption> options;
 
-  public DataStreamRequestByteBuf(ClientId clientId, Type type, long streamId, long streamOffset, WriteOption[] options,
-      ByteBuf buf) {
+  public DataStreamRequestByteBuf(ClientId clientId, Type type, long streamId, long streamOffset,
+                                  Iterable<WriteOption> options, ByteBuf buf) {
     super(clientId, type, streamId, streamOffset);
     this.buf = buf != null? buf.asReadOnly(): Unpooled.EMPTY_BUFFER;
-    this.options = Arrays.stream(options).toArray(WriteOption[]::new);
+    this.options = Lists.newArrayList(options);
   }
 
   public DataStreamRequestByteBuf(DataStreamRequestHeader header, ByteBuf buf) {
     this(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset(),
-        header.getWriteOptions(), buf);
+         header.getWriteOptionsList(), buf);
   }
 
   @Override
@@ -61,9 +61,7 @@ public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements Da
   }
 
   @Override
-  @SuppressFBWarnings("EI_EXPOSE_REP")
-  @Deprecated
-  public WriteOption[] getWriteOptions() {
-    return options;
+  public List<WriteOption> getWriteOptionsList() {
+    return Lists.newArrayList(options);
   }
 }
