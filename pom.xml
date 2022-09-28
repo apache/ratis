@@ -759,6 +759,7 @@
         <configuration>
           <configLocation>dev-support/checkstyle.xml</configLocation>
           <failOnViolation>false</failOnViolation>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <linkXRef>false</linkXRef>
         </configuration>
       </plugin>

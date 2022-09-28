@@ -55,7 +55,7 @@ public class TestRetryCacheMetrics {
           raftGroupMemberId, () -> null, retryCache::getStatistics);
       ratisMetricRegistry = (RatisMetricRegistryImpl) raftServerMetrics.getRegistry();
     }
-    
+
     @After
     public void tearDown() {
         retryCache.close();
