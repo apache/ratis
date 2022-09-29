@@ -543,6 +543,16 @@ public interface RaftServerConfigKeys {
       static void setInstallSnapshotEnabled(RaftProperties properties, boolean shouldInstallSnapshot) {
         setBoolean(properties::setBoolean, INSTALL_SNAPSHOT_ENABLED_KEY, shouldInstallSnapshot);
       }
+
+      String WAIT_TIME_MIN_KEY = PREFIX + ".wait-time.min";
+      TimeDuration WAIT_TIME_MIN_DEFAULT = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);
+      static TimeDuration waitTimeMin(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(WAIT_TIME_MIN_DEFAULT.getUnit()),
+            WAIT_TIME_MIN_KEY, WAIT_TIME_MIN_DEFAULT, getDefaultLog());
+      }
+      static void setWaitTimeMin(RaftProperties properties, TimeDuration minDuration) {
+        setTimeDuration(properties::setTimeDuration, WAIT_TIME_MIN_KEY, minDuration);
+      }
     }
   }
 
