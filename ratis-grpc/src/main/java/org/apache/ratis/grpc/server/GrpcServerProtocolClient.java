@@ -102,6 +102,7 @@ public class GrpcServerProtocolClient implements Closeable {
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
+    channelBuilder.disableRetry();
     return channelBuilder.flowControlWindow(flowControlWindow).build();
   }
 
