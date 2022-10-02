@@ -136,7 +136,7 @@ public final class OrderedAsync {
   }
 
   private SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> getSlidingWindow(RaftClientRequest request) {
-    return getSlidingWindow(request.is(TypeCase.STALEREAD) ? request.getServerId() : null);
+    return getSlidingWindow(request.isToLeader()? null: request.getServerId());
   }
 
   private SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> getSlidingWindow(RaftPeerId target) {

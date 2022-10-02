@@ -40,18 +40,16 @@ public interface BlockingApi {
    */
   RaftClientReply send(Message message) throws IOException;
 
+  /** The same as sendReadOnly(message, null). */
+  default RaftClientReply sendReadOnly(Message message) throws IOException {
+    return sendReadOnly(message, null);
+  }
+
   /**
    * Send the given readonly message to the raft service.
    *
    * @param message The request message.
-   * @return the reply.
-   */
-  RaftClientReply sendReadOnly(Message message) throws IOException;
-
-  /**
-   * Send the given readonly message to the given server (not the raft service)
-   * @param message The request message.
-   * @param server The target server
+   * @param server The target server.  When server == null, send the message to the leader.
    * @return the reply.
    */
   RaftClientReply sendReadOnly(Message message, RaftPeerId server) throws IOException;

@@ -19,7 +19,7 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.ReadOnlyRequestTests;
 
-public class TestReadOnlyRequestsWithGrpc
+public class TestReadOnlyRequestWithGrpc
   extends ReadOnlyRequestTests<MiniRaftClusterWithGrpc>
   implements MiniRaftClusterWithGrpc.FactoryGet {
 }
