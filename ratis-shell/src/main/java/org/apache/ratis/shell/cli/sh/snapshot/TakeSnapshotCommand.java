@@ -79,7 +79,11 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
             + " [-%s <RAFT_GROUP_ID>]"
             + " [-%s <timeoutInMs>]"
             + " [-%s <raftPeerId>]",
-        getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME);
+        getCommandName(),
+        PEER_OPTION_NAME,
+        GROUPID_OPTION_NAME,
+        TAKE_SNAPSHOT_TIMEOUT_OPTION_NAME,
+        PEER_ID_OPTION_NAME);
   }
 
   @Override
