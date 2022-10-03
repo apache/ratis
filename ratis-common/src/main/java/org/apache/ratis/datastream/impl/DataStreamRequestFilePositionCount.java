@@ -21,6 +21,7 @@ import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
+import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.List;
@@ -36,7 +37,7 @@ public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl imp
 
   public DataStreamRequestFilePositionCount(DataStreamRequestHeader header, FilePositionCount file) {
     super(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset());
-    this.options = Collections.unmodifiableList(header.getWriteOptions());
+    this.options = Collections.unmodifiableList(Lists.newArrayList(header.getWriteOptions()));
     this.file = file;
   }
 

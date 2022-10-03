@@ -20,11 +20,11 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.StreamSupport;
-
 /**
  * The header format is the same {@link DataStreamPacketHeader}
  * since there are no additional fields.
@@ -35,14 +35,13 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
 
   public DataStreamRequestHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
       WriteOption... options) {
-    super(clientId, type, streamId, streamOffset, dataLength);
-    this.options = Collections.unmodifiableList(Arrays.asList(options));
+    this(clientId, type, streamId, streamOffset, dataLength, Arrays.asList(options));
   }
 
   public DataStreamRequestHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
                                  Iterable<WriteOption> options) {
-    this(clientId, type, streamId, streamOffset, dataLength,
-         StreamSupport.stream(options.spliterator(), false).toArray(WriteOption[]::new));
+    super(clientId, type, streamId, streamOffset, dataLength);
+    this.options = Collections.unmodifiableList(Lists.newArrayList(options));
   }
 
   @Override
