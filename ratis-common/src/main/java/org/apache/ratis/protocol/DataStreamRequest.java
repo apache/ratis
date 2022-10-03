@@ -22,6 +22,5 @@ import org.apache.ratis.io.WriteOption;
 import java.util.List;
 
 public interface DataStreamRequest extends DataStreamPacket {
-
   List<WriteOption> getWriteOptions();
 }
