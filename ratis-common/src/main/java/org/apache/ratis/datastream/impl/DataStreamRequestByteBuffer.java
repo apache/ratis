@@ -20,10 +20,10 @@ package org.apache.ratis.datastream.impl;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
-import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 import org.apache.ratis.util.Preconditions;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -36,12 +36,12 @@ public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer impl
 
   public DataStreamRequestByteBuffer(DataStreamRequestHeader header, ByteBuffer buffer) {
     super(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset(), buffer);
-    this.options = Lists.newArrayList(header.getWriteOptionsList());
+    this.options = Collections.unmodifiableList(header.getWriteOptions());
     Preconditions.assertTrue(header.getDataLength() == buffer.remaining());
   }
 
   @Override
-  public List<WriteOption> getWriteOptionsList() {
-    return Lists.newArrayList(options);
+  public List<WriteOption> getWriteOptions() {
+    return options;
   }
 }

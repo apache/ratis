@@ -23,5 +23,5 @@ import java.util.List;
 
 public interface DataStreamRequest extends DataStreamPacket {
 
-  List<WriteOption> getWriteOptionsList();
+  List<WriteOption> getWriteOptions();
 }

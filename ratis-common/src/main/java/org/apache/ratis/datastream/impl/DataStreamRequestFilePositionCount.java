@@ -21,8 +21,8 @@ import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
-import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -32,11 +32,11 @@ import java.util.List;
  */
 public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl implements DataStreamRequest {
   private final FilePositionCount file;
-  private List<WriteOption> options;
+  private final List<WriteOption> options;
 
   public DataStreamRequestFilePositionCount(DataStreamRequestHeader header, FilePositionCount file) {
     super(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset());
-    this.options = header.getWriteOptionsList();
+    this.options = Collections.unmodifiableList(header.getWriteOptions());
     this.file = file;
   }
 
@@ -51,7 +51,7 @@ public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl imp
   }
 
   @Override
-  public List<WriteOption> getWriteOptionsList() {
-    return Lists.newArrayList(options);
+  public List<WriteOption> getWriteOptions() {
+    return options;
   }
 }

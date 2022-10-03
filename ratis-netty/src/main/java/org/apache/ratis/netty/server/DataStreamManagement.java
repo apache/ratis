@@ -114,7 +114,7 @@ public class DataStreamManagement {
       final Timekeeper.Context context = metrics.start();
       return composeAsync(sendFuture, executor,
           n -> out.writeAsync(request.slice().nioBuffer(),
-                          request.getWriteOptionsList())
+                          request.getWriteOptions())
               .whenComplete((l, e) -> metrics.stop(context, e == null)));
     }
   }
@@ -394,7 +394,7 @@ public class DataStreamManagement {
 
   private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx, ByteBuf buf,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
-    boolean close = WriteOption.containsOption(request.getWriteOptionsList(),
+    boolean close = WriteOption.containsOption(request.getWriteOptions(),
             StandardWriteOption.CLOSE);
     ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
     final StreamInfo info;
@@ -425,7 +425,7 @@ public class DataStreamManagement {
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
       localWrite = info.getLocal().write(buf,
-              request.getWriteOptionsList(),
+              request.getWriteOptions(),
               writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
     } else {
