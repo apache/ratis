@@ -34,7 +34,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRaftCluster>
@@ -60,16 +59,13 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         ReadOnlyRequestTests.CounterStateMachine.class, StateMachine.class);
 
-    p.setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
-    p.setTimeDuration(RaftServerConfigKeys.Read.TIMEOUT_KEY, TimeDuration.valueOf(1, TimeUnit.SECONDS));
-    p.setTimeDuration(RaftServerConfigKeys.Rpc.FIRST_ELECTION_TIMEOUT_MIN_KEY,
-        TimeDuration.valueOf(150, TimeUnit.MILLISECONDS));
-    p.setTimeDuration(RaftServerConfigKeys.Rpc.FIRST_ELECTION_TIMEOUT_MAX_KEY,
-        TimeDuration.valueOf(300, TimeUnit.MILLISECONDS));
-    p.setTimeDuration(RaftServerConfigKeys.Rpc.TIMEOUT_MIN_KEY, TimeDuration.valueOf(3, TimeUnit.SECONDS));
-    p.setTimeDuration(RaftServerConfigKeys.Rpc.TIMEOUT_MAX_KEY, TimeDuration.valueOf(6, TimeUnit.SECONDS));
-    p.setTimeDuration(RaftServerConfigKeys.Rpc.REQUEST_TIMEOUT_KEY,
-        TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Read.setOption(p, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    RaftServerConfigKeys.Read.setTimeout(p, TimeDuration.ONE_SECOND);
+    RaftServerConfigKeys.Rpc.setFirstElectionTimeoutMin(p, TimeDuration.valueOf(150, TimeUnit.MILLISECONDS));
+    RaftServerConfigKeys.Rpc.setFirstElectionTimeoutMax(p, TimeDuration.valueOf(300, TimeUnit.MILLISECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMin(p, TimeDuration.valueOf(3, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(p, TimeDuration.valueOf(6, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setRequestTimeout(p, TimeDuration.valueOf(10, TimeUnit.SECONDS));
   }
 
   @Test
@@ -82,22 +78,18 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
     final RaftPeerId leaderId = cluster.getLeader().getId();
 
     try (RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
-
-      RaftClientReply reply = client.io().send(incrementMessage);
+      final RaftClientReply reply = client.io().send(incrementMessage);
       Assert.assertTrue(reply.isSuccess());
 
-      CompletableFuture<RaftClientReply> result = client.async().send(waitAndIncrementMessage);
+      client.async().send(waitAndIncrementMessage);
       Thread.sleep(100);
 
-      RaftClientReply staleValueBefore = client.io()
-          .sendStaleRead(queryMessage, 0, leaderId);
+      RaftClientReply staleValueBefore = client.io().sendStaleRead(queryMessage, 0, leaderId);
 
       Assert.assertEquals(1, ReadOnlyRequestTests.retrieve(staleValueBefore));
 
-      RaftClientReply linearizableReadValue = client.io()
-          .sendReadOnly(queryMessage);
+      RaftClientReply linearizableReadValue = client.io().sendReadOnly(queryMessage);
       Assert.assertEquals(2, ReadOnlyRequestTests.retrieve(linearizableReadValue));
-
     }
   }
 }

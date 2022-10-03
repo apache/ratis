@@ -40,7 +40,7 @@ public interface AsyncApi {
    */
   CompletableFuture<RaftClientReply> send(Message message);
 
-  /** The same as sendReadOnly(message, null, true). */
+  /** The same as sendReadOnly(message, null). */
   default CompletableFuture<RaftClientReply> sendReadOnly(Message message) {
     return sendReadOnly(message, null);
   }
