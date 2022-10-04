@@ -45,7 +45,7 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
   }
 
   @Override
-  public List<WriteOption> getWriteOptions() {
+  public List<WriteOption> getWriteOptionList() {
     return options;
   }
 }

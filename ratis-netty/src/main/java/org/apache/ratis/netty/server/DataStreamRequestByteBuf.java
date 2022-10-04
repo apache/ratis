@@ -33,7 +33,7 @@ import java.util.List;
 
 /**
  * Implements {@link DataStreamRequest} with {@link ByteBuf}.
- *
+ * <p>
  * This class is immutable.
  */
 public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements DataStreamRequest {
@@ -41,7 +41,7 @@ public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements Da
   private final List<WriteOption> options;
 
   public DataStreamRequestByteBuf(ClientId clientId, Type type, long streamId, long streamOffset,
-                                  List<WriteOption> options, ByteBuf buf) {
+                                  Iterable<WriteOption> options, ByteBuf buf) {
     super(clientId, type, streamId, streamOffset);
     this.buf = buf != null? buf.asReadOnly(): Unpooled.EMPTY_BUFFER;
     this.options = Collections.unmodifiableList(Lists.newArrayList(options));
@@ -49,7 +49,7 @@ public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements Da
 
   public DataStreamRequestByteBuf(DataStreamRequestHeader header, ByteBuf buf) {
     this(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset(),
-         header.getWriteOptions(), buf);
+         header.getWriteOptionList(), buf);
   }
 
   @Override
@@ -62,7 +62,7 @@ public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements Da
   }
 
   @Override
-  public List<WriteOption> getWriteOptions() {
+  public List<WriteOption> getWriteOptionList() {
     return options;
   }
 }

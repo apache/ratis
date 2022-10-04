@@ -20,29 +20,27 @@ package org.apache.ratis.datastream.impl;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
-import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 import org.apache.ratis.util.Preconditions;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
 import java.util.List;
 
 /**
  * Implements {@link DataStreamRequest} with {@link ByteBuffer}.
- *
+ * <p>
  * This class is immutable.
  */
 public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer implements DataStreamRequest {
-  private List<WriteOption> options;
+  private final List<WriteOption> options;
 
   public DataStreamRequestByteBuffer(DataStreamRequestHeader header, ByteBuffer buffer) {
     super(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset(), buffer);
-    this.options = Collections.unmodifiableList(Lists.newArrayList(header.getWriteOptions()));
+    this.options = header.getWriteOptionList();
     Preconditions.assertTrue(header.getDataLength() == buffer.remaining());
   }
 
   @Override
-  public List<WriteOption> getWriteOptions() {
+  public List<WriteOption> getWriteOptionList() {
     return options;
   }
 }

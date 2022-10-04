@@ -113,8 +113,7 @@ public class DataStreamManagement {
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
       final Timekeeper.Context context = metrics.start();
       return composeAsync(sendFuture, executor,
-          n -> out.writeAsync(request.slice().nioBuffer(),
-                          request.getWriteOptions())
+          n -> out.writeAsync(request.slice().nioBuffer(), request.getWriteOptionList())
               .whenComplete((l, e) -> metrics.stop(context, e == null)));
     }
   }
@@ -394,8 +393,7 @@ public class DataStreamManagement {
 
   private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx, ByteBuf buf,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
-    boolean close = WriteOption.containsOption(request.getWriteOptions(),
-            StandardWriteOption.CLOSE);
+    final boolean close = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
     ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
@@ -424,9 +422,7 @@ public class DataStreamManagement {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
-      localWrite = info.getLocal().write(buf,
-              request.getWriteOptions(),
-              writeExecutor);
+      localWrite = info.getLocal().write(buf, request.getWriteOptionList(), writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);

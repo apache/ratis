@@ -21,5 +21,7 @@ public enum StandardWriteOption implements WriteOption {
   /** Sync the data to the underlying storage. */
   SYNC,
   /** Close the data to the underlying storage. */
-  CLOSE
+  CLOSE,
+  /** Flush the data out to the network. */
+  FLUSH,
 }
