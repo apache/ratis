@@ -90,7 +90,8 @@ public class DataStreamManagement {
       this.metrics = metrics;
     }
 
-    CompletableFuture<Long> write(ByteBuf buf, WriteOption[] options, Executor executor) {
+    CompletableFuture<Long> write(ByteBuf buf, Iterable<WriteOption> options,
+                                  Executor executor) {
       final Timekeeper.Context context = metrics.start();
       return composeAsync(writeFuture, executor,
           n -> streamFuture.thenCompose(stream -> writeToAsync(buf, options, stream, executor)
@@ -112,7 +113,8 @@ public class DataStreamManagement {
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
       final Timekeeper.Context context = metrics.start();
       return composeAsync(sendFuture, executor,
-          n -> out.writeAsync(request.slice().nioBuffer(), request.getWriteOptions())
+          n -> out.writeAsync(request.slice().nioBuffer(),
+                          request.getWriteOptions())
               .whenComplete((l, e) -> metrics.stop(context, e == null)));
     }
   }
@@ -282,13 +284,16 @@ public class DataStreamManagement {
     return future.updateAndGet(previous -> previous.thenComposeAsync(function, executor));
   }
 
-  static CompletableFuture<Long> writeToAsync(ByteBuf buf, WriteOption[] options, DataStream stream,
+  static CompletableFuture<Long> writeToAsync(ByteBuf buf,
+                                              Iterable<WriteOption> options,
+                                              DataStream stream,
       Executor defaultExecutor) {
     final Executor e = Optional.ofNullable(stream.getExecutor()).orElse(defaultExecutor);
     return CompletableFuture.supplyAsync(() -> writeTo(buf, options, stream), e);
   }
 
-  static long writeTo(ByteBuf buf, WriteOption[] options, DataStream stream) {
+  static long writeTo(ByteBuf buf, Iterable<WriteOption> options,
+                      DataStream stream) {
     final DataChannel channel = stream.getDataChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
@@ -389,7 +394,8 @@ public class DataStreamManagement {
 
   private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx, ByteBuf buf,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
-    boolean close = WriteOption.containsOption(request.getWriteOptions(), StandardWriteOption.CLOSE);
+    boolean close = WriteOption.containsOption(request.getWriteOptions(),
+            StandardWriteOption.CLOSE);
     ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
@@ -418,7 +424,9 @@ public class DataStreamManagement {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
-      localWrite = info.getLocal().write(buf, request.getWriteOptions(), writeExecutor);
+      localWrite = info.getLocal().write(buf,
+              request.getWriteOptions(),
+              writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
