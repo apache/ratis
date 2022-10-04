@@ -17,8 +17,11 @@
  */
 package org.apache.ratis.io;
 
+import java.util.Arrays;
+
 public interface WriteOption {
-  static boolean containsOption(WriteOption[] options, WriteOption target) {
+  static boolean containsOption(Iterable<WriteOption> options,
+                                WriteOption target) {
     for (WriteOption option : options) {
       if (option == target) {
         return true;
@@ -28,7 +31,12 @@ public interface WriteOption {
     return false;
   }
 
-  default boolean isOneOf(WriteOption... options) {
+  static boolean containsOption(WriteOption[] options,
+                                WriteOption target) {
+    return containsOption(Arrays.asList(options), target);
+  }
+
+  default boolean isOneOf(Iterable<WriteOption> options) {
     return containsOption(options, this);
   }
 }

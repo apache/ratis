@@ -18,28 +18,34 @@
 
 package org.apache.ratis.protocol;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 /**
  * The header format is the same {@link DataStreamPacketHeader}
  * since there are no additional fields.
  */
 public class DataStreamRequestHeader extends DataStreamPacketHeader implements DataStreamRequest {
 
-  private final WriteOption[] options;
+  private final List<WriteOption> options;
 
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DataStreamRequestHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
       WriteOption... options) {
+    this(clientId, type, streamId, streamOffset, dataLength, Arrays.asList(options));
+  }
+
+  public DataStreamRequestHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
+                                 Iterable<WriteOption> options) {
     super(clientId, type, streamId, streamOffset, dataLength);
-    this.options = options;
+    this.options = Collections.unmodifiableList(Lists.newArrayList(options));
   }
 
   @Override
-  @SuppressFBWarnings("EI_EXPOSE_REP")
-  public WriteOption[] getWriteOptions() {
+  public List<WriteOption> getWriteOptions() {
     return options;
   }
 }
