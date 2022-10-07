@@ -40,14 +40,20 @@ public interface AsyncApi {
    */
   CompletableFuture<RaftClientReply> send(Message message);
 
+  /** The same as sendReadOnly(message, null). */
+  default CompletableFuture<RaftClientReply> sendReadOnly(Message message) {
+    return sendReadOnly(message, null);
+  }
+
   /**
    * Send the given readonly message asynchronously to the raft service.
    * Note that the reply futures are completed in the same order of the messages being sent.
    *
    * @param message The request message.
+   * @param server The target server.  When server == null, send the message to the leader.
    * @return a future of the reply.
    */
-  CompletableFuture<RaftClientReply> sendReadOnly(Message message);
+  CompletableFuture<RaftClientReply> sendReadOnly(Message message, RaftPeerId server);
 
   /** The same as sendReadOnlyUnordered(message, null). */
   default CompletableFuture<RaftClientReply> sendReadOnlyUnordered(Message message) {
