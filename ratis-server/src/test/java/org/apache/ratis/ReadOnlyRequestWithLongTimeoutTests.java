@@ -23,6 +23,8 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.ReadException;
+import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -34,6 +36,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRaftCluster>
@@ -48,9 +51,11 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
 
   static final String INCREMENT = "INCREMENT";
   static final String WAIT_AND_INCREMENT = "WAIT_AND_INCREMENT";
+  static final String TIMEOUT_INCREMENT = "TIMEOUT_INCREMENT";
   static final String QUERY = "QUERY";
   final Message incrementMessage = new RaftTestUtil.SimpleMessage(INCREMENT);
   final Message waitAndIncrementMessage = new RaftTestUtil.SimpleMessage(WAIT_AND_INCREMENT);
+  final Message timeoutMessage = new RaftTestUtil.SimpleMessage(TIMEOUT_INCREMENT);
   final Message queryMessage = new RaftTestUtil.SimpleMessage(QUERY);
 
   @Before
@@ -90,6 +95,31 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
 
       RaftClientReply linearizableReadValue = client.io().sendReadOnly(queryMessage);
       Assert.assertEquals(2, ReadOnlyRequestTests.retrieve(linearizableReadValue));
+    }
+  }
+
+  @Test
+  public void testLinearizableReadTimeout() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::testLinearizableReadTimeoutImpl);
+  }
+
+  private void testLinearizableReadTimeoutImpl(CLUSTER cluster) throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = cluster.getLeader().getId();
+
+    try (RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
+      final RaftClientReply reply = client.io().send(incrementMessage);
+      Assert.assertTrue(reply.isSuccess());
+
+      final CompletableFuture<RaftClientReply> asyncTimeoutReply = client.async().send(timeoutMessage);
+      Thread.sleep(100);
+
+      Assert.assertThrows(ReadException.class, () -> {
+        final RaftClientReply timeoutReply = client.io().sendReadOnly(queryMessage);
+        Assert.assertTrue(timeoutReply.getException().getCause() instanceof TimeoutIOException);
+      });
+
+      asyncTimeoutReply.join();
     }
   }
 }
