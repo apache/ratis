@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -22,4 +22,9 @@ import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 public class TestFileStoreWithNetty
     extends FileStoreBaseTest<MiniRaftClusterWithNetty>
     implements MiniRaftClusterWithNetty.FactoryGet {
+
+  @Override
+  public void testWatch() {
+    //NettyClientRpc does not support sendRequestAsyncUnordered
+  }
 }

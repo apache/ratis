@@ -26,8 +26,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 /**
  * Asynchronous API to support operations
  * such as sending message, read-message, stale-read-message and watch-request.
- *
- * Note that this API and {@link BlockingApi} support the same set of operations.
+ * <p>
+ * Note that this API supports all the operations in {@link BlockingApi}.
  */
 public interface AsyncApi {
   /**
@@ -47,12 +47,28 @@ public interface AsyncApi {
 
   /**
    * Send the given readonly message asynchronously to the raft service.
+   * Note that the reply futures are completed in the same order of the messages being sent.
    *
    * @param message The request message.
    * @param server The target server.  When server == null, send the message to the leader.
    * @return a future of the reply.
    */
   CompletableFuture<RaftClientReply> sendReadOnly(Message message, RaftPeerId server);
+
+  /** The same as sendReadOnlyUnordered(message, null). */
+  default CompletableFuture<RaftClientReply> sendReadOnlyUnordered(Message message) {
+    return sendReadOnlyUnordered(message, null);
+  }
+
+  /**
+   * Send the given readonly message asynchronously to the raft service.
+   * Note that the reply futures can be completed in any order.
+   *
+   * @param message The request message.
+   * @param server The target server.  When server == null, send the message to the leader.
+   * @return a future of the reply.
+   */
+  CompletableFuture<RaftClientReply> sendReadOnlyUnordered(Message message, RaftPeerId server);
 
   /**
    * Send the given stale-read message asynchronously to the given server (not the raft service).

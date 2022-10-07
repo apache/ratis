@@ -26,8 +26,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 /**
  * Blocking API to support operations
  * such as sending message, read-message, stale-read-message and watch-request.
- *
- * Note that this API and {@link AsyncApi} support the same set of operations.
+ * <p>
+ * Note that this API supports a subset of the operations in {@link AsyncApi}.
  */
 public interface BlockingApi {
   /**
