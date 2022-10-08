@@ -96,7 +96,6 @@
       <outputDirectory>.</outputDirectory>
       <includes>
         <include>BUILDING.md</include>
-        <include>DISCLAIMER</include>
         <include>LICENSE</include>
         <include>NOTICE</include>
         <include>README.md</include>
