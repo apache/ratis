@@ -27,17 +27,18 @@ _realpath() {
 }
 
 ## generate summary txt file
-find "." -name 'TEST*.xml' -print0 \
+find "." -not -path '*/iteration*' -name 'TEST*.xml' -print0 \
     | xargs -n1 -0 "grep" -l -E "<failure|<error" \
     | awk -F/ '{sub("'"TEST-"'",""); sub(".xml",""); print $NF}' \
     | tee "$REPORT_DIR/summary.txt"
 
 #Copy heap dump and dump leftovers
-find "." -name "*.hprof" \
+find "." -not -path '*/iteration*' \
+    \( -name "*.hprof" \
     -or -name "*.dump" \
     -or -name "*.dumpstream" \
-    -or -name "hs_err_*.log" \
-  -exec cp {} "$REPORT_DIR/" \;
+    -or -name "hs_err_*.log" \) \
+  -exec mv {} "$REPORT_DIR/" \;
 
 ## Add the tests where the JVM is crashed
 grep -A1 'Crashed tests' "${REPORT_DIR}/output.log" \
@@ -46,23 +47,30 @@ grep -A1 'Crashed tests' "${REPORT_DIR}/output.log" \
   | sort -u \
   | tee -a "${REPORT_DIR}/summary.txt"
 
-# Add tests where "There was a timeout or other error in the fork"
-grep -e 'Running org' -e 'Tests run: .* in org' "${REPORT_DIR}/output.log" \
-  | sed -e 's/.* \(org[^ ]*\)/\1/' \
-  | uniq -c \
-  | grep -v ' 2 ' \
-  | awk '{ print $2 }' \
-  | sort -u \
-  | tee -a "${REPORT_DIR}/summary.txt"
-
+# Check for tests that started but were not finished
+if grep -q 'There was a timeout or other error in the fork' "${REPORT_DIR}/output.log"; then
+  diff -uw \
+    <(grep -e 'Running org' "${REPORT_DIR}/output.log" \
+      | sed -e 's/.* \(org[^ ]*\)/\1/' \
+      | uniq -c \
+      | sort -u -k2) \
+    <(grep -e 'Tests run: .* in org' "${REPORT_DIR}/output.log" \
+      | sed -e 's/.* \(org[^ ]*\)/\1/' \
+      | uniq -c \
+      | sort -u -k2) \
+    | grep '^- ' \
+    | awk '{ print $3 }' \
+    | tee -a "${REPORT_DIR}/summary.txt"
+fi
 
 #Collect of all of the report files of FAILED tests
 for failed_test in $(< ${REPORT_DIR}/summary.txt); do
-  for file in $(find "." -name "${failed_test}.txt" -or -name "${failed_test}-output.txt" -or -name "TEST-${failed_test}.xml"); do
+  for file in $(find "." -not -path '*/iteration*' \
+      \( -name "${failed_test}.txt" -or -name "${failed_test}-output.txt" -or -name "TEST-${failed_test}.xml" \)); do
     dir=$(dirname "${file}")
     dest_dir=$(_realpath --relative-to="${PWD}" "${dir}/../..") || continue
     mkdir -p "${REPORT_DIR}/${dest_dir}"
-    cp "${file}" "${REPORT_DIR}/${dest_dir}"/
+    mv "${file}" "${REPORT_DIR}/${dest_dir}"/
   done
 done
 
