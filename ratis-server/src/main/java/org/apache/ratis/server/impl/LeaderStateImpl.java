@@ -1090,6 +1090,7 @@ class LeaderStateImpl implements LeaderState {
     // leader has not committed any entries in this term, reject
     if (server.getRaftLog().getTermIndex(readIndex).getTerm() != server.getState().getCurrentTerm()) {
       return JavaUtils.completeExceptionally(new ReadIndexException(
+          "Failed to getReadIndex " + readIndex + " since the term is not yet committed.",
           new LeaderNotReadyException(server.getMemberId())));
     }
 

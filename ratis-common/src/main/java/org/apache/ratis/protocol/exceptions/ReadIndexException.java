@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,7 +26,7 @@ public class ReadIndexException extends RaftException {
   public ReadIndexException(String message) {
     super(message);
   }
-  public ReadIndexException(Throwable throwable) {
-    super(throwable);
+  public ReadIndexException(String message, Throwable throwable) {
+    super(message, throwable);
   }
 }
