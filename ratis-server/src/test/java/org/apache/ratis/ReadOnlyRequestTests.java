@@ -24,7 +24,10 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.ReadException;
+import org.apache.ratis.protocol.exceptions.ReadIndexException;
+import org.apache.ratis.retry.ExceptionDependentRetry;
 import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
@@ -32,6 +35,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -107,7 +111,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
         CompletableFuture<RaftClientReply> result = client.async().send(incrementMessage);
         client.admin().transferLeadership(null, 200);
 
-        Assert.assertThrows(ReadException.class, () -> {
+        Assert.assertThrows(ReadIndexException.class, () -> {
           RaftClientReply timeoutReply = noRetry.io().sendReadOnly(queryMessage);
           Assert.assertNotNull(timeoutReply.getException());
           Assert.assertTrue(timeoutReply.getException() instanceof ReadException);
@@ -199,13 +203,44 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
          // read timeout quicker than election timeout
          leaderClient.admin().transferLeadership(null, 200);
 
-         Assert.assertThrows(ReadException.class, () -> {
+         Assert.assertThrows(ReadIndexException.class, () -> {
            followerClient1.io().sendReadOnly(queryMessage, followers.get(0).getId());
          });
       }
 
     } finally {
       cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testFollowerLinearizableReadRetryWhenLeaderDown() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::testFollowerLinearizableReadRetryWhenLeaderDown);
+  }
+
+  private void testFollowerLinearizableReadRetryWhenLeaderDown(CLUSTER cluster) throws Exception {
+    // only retry on readIndexException
+    final RetryPolicy retryPolicy = ExceptionDependentRetry
+        .newBuilder()
+        .setDefaultPolicy(RetryPolicies.noRetry())
+        .setExceptionToPolicy(ReadIndexException.class,
+            RetryPolicies.retryForeverWithSleep(TimeDuration.valueOf(100, TimeUnit.MILLISECONDS)))
+        .build();
+
+    RaftTestUtil.waitForLeader(cluster);
+
+    try (RaftClient client = cluster.createClient(cluster.getLeader().getId(), retryPolicy)) {
+      client.io().send(incrementMessage);
+
+      final RaftClientReply clientReply = client.io().sendReadOnly(queryMessage);
+      Assert.assertEquals(1, retrieve(clientReply));
+
+      // kill the leader
+      client.admin().transferLeadership(null, 200);
+
+      // readOnly will success after re-election
+      final RaftClientReply replySuccess = client.io().sendReadOnly(queryMessage);
+      Assert.assertEquals(1, retrieve(clientReply));
     }
   }
 
@@ -253,7 +288,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     }
 
     private void timeoutIncrement() {
-      sleepQuietly(1500);
+      sleepQuietly(2500);
       increment();
     }
 

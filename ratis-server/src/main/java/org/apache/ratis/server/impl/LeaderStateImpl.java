@@ -38,6 +38,7 @@ import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
+import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ReadIndexHeartbeats.AppendEntriesListener;
@@ -1088,7 +1089,9 @@ class LeaderStateImpl implements LeaderState {
 
     // leader has not committed any entries in this term, reject
     if (server.getRaftLog().getTermIndex(readIndex).getTerm() != server.getState().getCurrentTerm()) {
-      return JavaUtils.completeExceptionally(new LeaderNotReadyException(server.getMemberId()));
+      return JavaUtils.completeExceptionally(new ReadIndexException(
+          "Failed to getReadIndex " + readIndex + " since the term is not yet committed.",
+          new LeaderNotReadyException(server.getMemberId())));
     }
 
     final MemoizedSupplier<AppendEntriesListener> supplier = MemoizedSupplier.valueOf(
