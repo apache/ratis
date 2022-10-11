@@ -24,6 +24,7 @@ import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.ReadException;
+import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.SetConfigurationException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
@@ -947,7 +948,7 @@ class RaftServerImpl implements RaftServer.Division,
           if (reply.getServerReply().getSuccess()) {
             return reply.getReadIndex();
           } else {
-            throw new CompletionException(new ReadException(getId() +
+            throw new CompletionException(new ReadIndexException(getId() +
                 ": Failed to get read index from the leader: " + reply));
           }
         });
@@ -974,6 +975,8 @@ class RaftServerImpl implements RaftServer.Division,
       return newExceptionReply(request, (StateMachineException) e);
     } else if (e instanceof ReadException) {
       return newExceptionReply(request, (ReadException) e);
+    } else if (e instanceof ReadIndexException) {
+      return newExceptionReply(request, (ReadIndexException) e);
     } else {
       throw new CompletionException(e);
     }
