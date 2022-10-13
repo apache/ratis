@@ -34,6 +34,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 import java.util.zip.Checksum;
 
 public class SegmentedRaftLogOutputStream implements Closeable {
@@ -52,6 +53,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private final File file;
   private final BufferedWriteChannel out; // buffered FileChannel for writing
   private final Checksum checksum;
+  private final Supplier<byte[]> sharedBuffer;
 
   private final long segmentMaxSize;
   private final long preallocatedSize;
@@ -59,10 +61,17 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   public SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
       long preallocatedSize, ByteBuffer byteBuffer)
       throws IOException {
+    this(file, append, segmentMaxSize, preallocatedSize, byteBuffer, null);
+  }
+
+  SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
+      long preallocatedSize, ByteBuffer byteBuffer, Supplier<byte[]> sharedBuffer)
+      throws IOException {
     this.file = file;
     this.checksum = new PureJavaCrc32C();
     this.segmentMaxSize = segmentMaxSize;
     this.preallocatedSize = preallocatedSize;
+    this.sharedBuffer = sharedBuffer;
     this.out = BufferedWriteChannel.open(file, append, byteBuffer);
 
     if (!append) {
@@ -75,12 +84,12 @@ public class SegmentedRaftLogOutputStream implements Closeable {
 
   /**
    * Write the given entry to this output stream.
-   *
+   * <p>
    * Format:
    *   (1) The serialized size of the entry.
    *   (2) The entry.
    *   (3) 4-byte checksum of the entry.
-   *
+   * <p>
    * Size in bytes to be written:
    *   (size to encode n) + n + (checksum size),
    *   where n is the entry serialized size and the checksum size is 4.
@@ -88,8 +97,10 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   public void write(LogEntryProto entry) throws IOException {
     final int serialized = entry.getSerializedSize();
     final int proto = CodedOutputStream.computeUInt32SizeNoTag(serialized) + serialized;
-    final byte[] buf = new byte[proto + 4]; // proto and 4-byte checksum
-    preallocateIfNecessary(buf.length);
+    final int total = proto + 4; // proto and 4-byte checksum
+    final byte[] buf = sharedBuffer != null? sharedBuffer.get(): new byte[total];
+    Preconditions.assertTrue(total <= buf.length, () -> "total = " + total + " > buf.length " + buf.length);
+    preallocateIfNecessary(total);
 
     CodedOutputStream cout = CodedOutputStream.newInstance(buf);
     cout.writeUInt32NoTag(serialized);
@@ -99,7 +110,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
     checksum.update(buf, 0, proto);
     ByteBuffer.wrap(buf, proto, 4).putInt((int) checksum.getValue());
 
-    out.write(buf);
+    out.write(buf, total);
   }
 
   @Override
