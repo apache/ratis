@@ -20,6 +20,8 @@ package org.apache.ratis.client.impl;
 import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -54,10 +56,11 @@ public interface UnorderedAsync {
     }
   }
 
-  static CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, RaftClientImpl client) {
+  static CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, Message message, RaftPeerId server,
+      RaftClientImpl client) {
     final long callId = CallId.getAndIncrement();
     final PendingClientRequest pending = new PendingUnorderedRequest(
-        () -> client.newRaftClientRequest(null, callId, null, type, null));
+        () -> client.newRaftClientRequest(server, callId, message, type, null));
     sendRequestWithRetry(pending, client);
     return pending.getReplyFuture()
         .thenApply(reply -> RaftClientImpl.handleRaftException(reply, CompletionException::new));

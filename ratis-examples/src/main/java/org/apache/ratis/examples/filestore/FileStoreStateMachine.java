@@ -85,7 +85,8 @@ public class FileStoreStateMachine extends BaseStateMachine {
     }
 
     final String path = proto.getPath().toStringUtf8();
-    return files.read(path, proto.getOffset(), proto.getLength(), true)
+    return (proto.getIsWatch()? files.watch(path)
+        : files.read(path, proto.getOffset(), proto.getLength(), true))
         .thenApply(reply -> Message.valueOf(reply.toByteString()));
   }
 
