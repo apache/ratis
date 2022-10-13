@@ -18,38 +18,34 @@
 package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.ExamplesProtos.ReadReplyProto;
+import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.thirdparty.io.netty.util.internal.ThreadLocalRandom;
 import org.apache.ratis.util.LogUtils;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
-import org.apache.ratis.util.StringUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
-import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -66,14 +62,81 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
 
   static final int NUM_PEERS = 3;
 
+  FileStoreClient newFileStoreClient(CLUSTER cluster) throws IOException {
+    return new FileStoreClient(cluster.getGroup(), getProperties());
+  }
+
+  @Test
+  public void testWatch() throws Exception {
+    runWithNewCluster(NUM_PEERS, cluster -> runTestWatch(10, cluster));
+  }
+
+  void runTestWatch(int n, CLUSTER cluster) throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+
+    final AtomicBoolean isStarted = new AtomicBoolean();
+    final List<Integer> randomIndices = new ArrayList<>();
+    for (int i = 0; i < n; i++) {
+      randomIndices.add(i);
+    }
+    Collections.shuffle(randomIndices);
+    LOG.info("randomIndices {}", randomIndices);
+    final List<Integer> completionOrder = new ArrayList<>();
+
+    final String pathFirst = "first";
+    final String pathSecond = "second";
+    final List<CompletableFuture<ReadReplyProto>> firstList = new ArrayList<>(n);
+    final List<CompletableFuture<ReadReplyProto>> watchSecond = new ArrayList<>(n);
+    try (FileStoreClient client = new FileStoreClient(cluster.getGroup(), getProperties())) {
+      for (int i = 0; i < n; i++) {
+        LOG.info("watchAsync {}", i);
+        final int index = i;
+        final CompletableFuture<ReadReplyProto> f = client.watchAsync(pathFirst + i).whenComplete((reply, e) -> {
+          throw new IllegalStateException(pathFirst + index + " should never be completed.");
+        });
+        firstList.add(f);
+        final CompletableFuture<ReadReplyProto> s = client.watchAsync(pathSecond + i).whenComplete((reply, e) -> {
+          Assert.assertNotNull(reply);
+          Assert.assertNull(e);
+          Assert.assertTrue(isStarted.get());
+          completionOrder.add(index);
+        });
+        watchSecond.add(s);
+        Assert.assertFalse(f.isDone());
+        Assert.assertFalse(s.isDone());
+        Assert.assertFalse(isStarted.get());
+      }
+
+      TimeDuration.valueOf(ThreadLocalRandom.current().nextLong(500) + 100, TimeUnit.MILLISECONDS)
+          .sleep(s -> LOG.info("{}", s));
+      firstList.stream().map(CompletableFuture::isDone).forEach(Assert::assertFalse);
+      watchSecond.stream().map(CompletableFuture::isDone).forEach(Assert::assertFalse);
+      Assert.assertFalse(isStarted.get());
+      isStarted.set(true);
+
+      for (int i : randomIndices) {
+        writeSingleFile(pathSecond + i, SizeInBytes.ONE_KB, () -> client);
+      }
+
+      for (int i = 0; i < n; i++) {
+        final ReadReplyProto reply = watchSecond.get(i).get(100, TimeUnit.MILLISECONDS);
+        LOG.info("reply {}: {}", i, reply);
+        Assert.assertNotNull(reply);
+        Assert.assertEquals(pathSecond + i, reply.getResolvedPath().toStringUtf8());
+      }
+      LOG.info("completionOrder {}", completionOrder);
+      Assert.assertEquals(randomIndices, completionOrder);
+      firstList.stream().map(CompletableFuture::isDone).forEach(Assert::assertFalse);
+    }
+  }
+
   @Test
   public void testFileStore() throws Exception {
     final CLUSTER cluster = newCluster(NUM_PEERS);
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
 
-    final CheckedSupplier<FileStoreClient, IOException> newClient =
-        () -> new FileStoreClient(cluster.getGroup(), getProperties());
+    final CheckedSupplier<FileStoreClient, IOException> newClient = () -> newFileStoreClient(cluster);
 
     testSingleFile("foo", SizeInBytes.valueOf("2M"), newClient);
     testMultipleFiles("file", 20, SizeInBytes.valueOf("1M"), newClient);
@@ -81,19 +144,24 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
     cluster.shutdown();
   }
 
+  private static FileStoreWriter writeSingleFile(
+      String path, SizeInBytes fileLength, CheckedSupplier<FileStoreClient, IOException> newClient)
+      throws Exception {
+    return FileStoreWriter.newBuilder()
+        .setFileName(path)
+        .setFileSize(fileLength)
+        .setFileStoreClientSupplier(newClient)
+        .build()
+        .write(false)
+        .verify()
+        .delete();
+  }
+
   private static void testSingleFile(
       String path, SizeInBytes fileLength, CheckedSupplier<FileStoreClient, IOException> newClient)
       throws Exception {
     LOG.info("runTestSingleFile with path={}, fileLength={}", path, fileLength);
-
-    try (final FileStoreWriter w =
-             FileStoreWriter.newBuilder()
-                 .setFileName(path)
-                 .setFileSize(fileLength)
-                 .setFileStoreClientSupplier(newClient)
-                 .build()) {
-      w.write(false).verify().delete();
-    }
+    writeSingleFile(path, fileLength, newClient).close();
   }
 
   private static void testMultipleFiles(
