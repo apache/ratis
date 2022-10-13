@@ -34,6 +34,7 @@ message ReadRequestProto {
   bytes path = 1;
   uint64 offset = 2;
   uint64 length = 3;
+  bool isWatch = 4;
 }
 
 message WriteRequestHeaderProto {

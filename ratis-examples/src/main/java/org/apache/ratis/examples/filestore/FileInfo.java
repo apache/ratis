@@ -93,6 +93,24 @@ abstract class FileInfo {
         "File " + getRelativePath() + " is not under construction.");
   }
 
+  static class Watch extends FileInfo {
+    private final CompletableFuture<UnderConstruction> future = new CompletableFuture<>();
+
+    Watch(Path relativePath) {
+      super(relativePath);
+    }
+
+    CompletableFuture<UnderConstruction> getFuture() {
+      return future;
+    }
+
+    CompletableFuture<UnderConstruction> complete(UnderConstruction uc) {
+      Preconditions.assertTrue(getRelativePath().equals(uc.getRelativePath()));
+      future.complete(uc);
+      return future;
+    }
+  }
+
   static class ReadOnly extends FileInfo {
     private final long committedSize;
     private final long writeSize;

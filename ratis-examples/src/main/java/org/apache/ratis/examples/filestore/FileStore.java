@@ -72,6 +72,14 @@ public class FileStore implements Closeable {
       return applyFunction(relative, map::get);
     }
 
+    FileInfo watch(String relative) {
+      try {
+        return applyFunction(relative, p -> map.computeIfAbsent(p, FileInfo.Watch::new));
+      } catch (FileNotFoundException e) {
+        throw new IllegalStateException("Failed to watch " + relative, e);
+      }
+    }
+
     FileInfo remove(String relative) throws FileNotFoundException {
       LOG.trace("{}: remove {}", name, relative);
       return applyFunction(relative, map::remove);
@@ -88,7 +96,10 @@ public class FileStore implements Closeable {
 
     void putNew(UnderConstruction uc) {
       LOG.trace("{}: putNew {}", name, uc.getRelativePath());
-      CollectionUtils.putNew(uc.getRelativePath(), uc, map, name::toString);
+      final FileInfo previous = map.put(uc.getRelativePath(), uc);
+      if (previous instanceof FileInfo.Watch) {
+        ((FileInfo.Watch) previous).complete(uc);
+      }
     }
 
     ReadOnly close(UnderConstruction uc) {
@@ -169,6 +180,17 @@ public class FileStore implements Closeable {
           + " is not a sub-path under root directory " + root);
     }
     return full;
+  }
+
+  CompletableFuture<ReadReplyProto> watch(String relative) {
+    final FileInfo info = files.watch(relative);
+    final ReadReplyProto reply = ReadReplyProto.newBuilder()
+        .setResolvedPath(FileStoreCommon.toByteString(info.getRelativePath()))
+        .build();
+    if (info instanceof FileInfo.Watch) {
+      return ((FileInfo.Watch) info).getFuture().thenApply(uc -> reply);
+    }
+    return CompletableFuture.completedFuture(reply);
   }
 
   CompletableFuture<ReadReplyProto> read(String relative, long offset, long length, boolean readCommitted) {
@@ -262,15 +284,12 @@ public class FileStore implements Closeable {
 
   CompletableFuture<StreamWriteReplyProto> streamCommit(String p, long bytesWritten) {
     return CompletableFuture.supplyAsync(() -> {
-      long len = 0;
-      try {
-        final Path full = resolve(normalize(p));
-        RandomAccessFile file = new RandomAccessFile(full.toFile(), "r");
+      final long len;
+      try (RandomAccessFile file = new RandomAccessFile(resolve(normalize(p)).toFile(), "r")) {
         len = file.length();
         return StreamWriteReplyProto.newBuilder().setIsSuccess(len == bytesWritten).setByteWritten(len).build();
       } catch (IOException e) {
-        throw new CompletionException("Failed to commit stream write on file:" + p +
-        ", expected written bytes:" + bytesWritten + ", actual written bytes:" + len, e);
+        throw new CompletionException("Failed to commit stream " + p + " with " + bytesWritten + " B.", e);
       }
     }, committer);
   }
