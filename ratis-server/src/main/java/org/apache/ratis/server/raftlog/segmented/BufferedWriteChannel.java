@@ -63,9 +63,12 @@ class BufferedWriteChannel implements Closeable {
   }
 
   void write(byte[] b) throws IOException {
+    write(b, b.length);
+  }
+  void write(byte[] b, int len) throws IOException {
     int offset = 0;
-    while (offset < b.length) {
-      int toPut = Math.min(b.length - offset, writeBuffer.remaining());
+    while (offset < len) {
+      int toPut = Math.min(len - offset, writeBuffer.remaining());
       writeBuffer.put(b, offset, toPut);
       offset += toPut;
       if (writeBuffer.remaining() == 0) {
