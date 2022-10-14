@@ -31,8 +31,9 @@ jobs:
             maven-repo-${{ hashFiles('**/pom.xml') }}
             maven-repo-
       - name: Setup java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
+          distribution: 'temurin'
           java-version: 8
       - name: Run a full build
         run: ./dev-support/checks/build.sh -Prelease assembly:single
@@ -70,8 +71,9 @@ jobs:
             maven-repo-${{ hashFiles('**/pom.xml') }}
             maven-repo-
       - name: Setup java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
+          distribution: 'temurin'
           java-version: ${{ matrix.java }}
       - name: Run a full build
         run: ./dev-support/checks/build.sh
@@ -175,8 +177,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
         - name: Setup java
-          uses: actions/setup-java@v1
+          uses: actions/setup-java@v3
           with:
+            distribution: 'temurin'
             java-version: 8
         - uses: actions/checkout@v3
         - name: Cache for maven dependencies
@@ -211,8 +214,9 @@ jobs:
               maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
         - name: Setup java 11
-          uses: actions/setup-java@v1
+          uses: actions/setup-java@v3
           with:
+            distribution: 'temurin'
             java-version: 11
         - run: ./dev-support/checks/sonar.sh
           env:
