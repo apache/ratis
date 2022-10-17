@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.statemachine;
+package org.apache.ratis.statemachine.impl;
 
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.conf.RaftProperties;
@@ -37,9 +37,8 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogInputStream;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogOutputStream;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.statemachine.impl.BaseStateMachine;
-import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
-import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
@@ -66,8 +65,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
  * entries in a list. Mainly used for test.
- *
- * For snapshot it simply merges all the log segments together.
+ * <p>
+ * For snapshots, it simply merges all the log segments together.
  */
 public class SimpleStateMachine4Testing extends BaseStateMachine {
   private static final int SNAPSHOT_THRESHOLD = 100;
@@ -214,7 +213,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     getLifeCycle().startAndTransition(() -> {
       super.initialize(server, groupId, raftStorage);
       storage.init(raftStorage);
-      loadSnapshot(storage.findLatestSnapshot());
+      loadSnapshot(storage.getLatestSnapshot());
 
       if (properties.getBoolean(
           RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY,
@@ -233,7 +232,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public synchronized void reinitialize() throws IOException {
     LOG.info("Reinitializing " + this);
-    loadSnapshot(storage.findLatestSnapshot());
+    loadSnapshot(storage.findLatestSnapshot(getStateMachineDir().toPath()));
     if (getLifeCycleState() == LifeCycle.State.PAUSED) {
       getLifeCycle().transition(LifeCycle.State.STARTING);
       getLifeCycle().transition(LifeCycle.State.RUNNING);
@@ -439,7 +438,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return notifiedAsLeader;
   }
 
-  protected File getSMdir() {
-    return storage.getSmDir();
+  public File getStateMachineDir() {
+    return storage.getStateMachineDir();
   }
 }
