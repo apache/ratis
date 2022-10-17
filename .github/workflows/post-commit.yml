@@ -21,9 +21,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout project
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Cache for maven dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2/repository
           key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
@@ -31,13 +31,14 @@ jobs:
             maven-repo-${{ hashFiles('**/pom.xml') }}
             maven-repo-
       - name: Setup java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
+          distribution: 'temurin'
           java-version: 8
       - name: Run a full build
         run: ./dev-support/checks/build.sh -Prelease assembly:single
       - name: Store source tarball for compilation
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ratis-src
           path: ratis-assembly/target/apache-ratis-*-src.tar.gz
@@ -55,14 +56,14 @@ jobs:
       fail-fast: false
     steps:
       - name: Download source tarball
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: ratis-src
       - name: Untar sources
         run: |
           tar --strip-components 1 -xzvf apache-ratis-*-src.tar.gz
       - name: Cache for maven dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2/repository
           key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
@@ -70,8 +71,9 @@ jobs:
             maven-repo-${{ hashFiles('**/pom.xml') }}
             maven-repo-
       - name: Setup java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
+          distribution: 'temurin'
           java-version: ${{ matrix.java }}
       - name: Run a full build
         run: ./dev-support/checks/build.sh
@@ -82,9 +84,9 @@ jobs:
     name: rat
     runs-on: ubuntu-20.04
     steps:
-        - uses: actions/checkout@master
+        - uses: actions/checkout@v3
         - name: Cache for maven dependencies
-          uses: actions/cache@v2
+          uses: actions/cache@v3
           with:
             path: ~/.m2/repository
             key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
@@ -92,7 +94,7 @@ jobs:
               maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
         - run: ./dev-support/checks/rat.sh
-        - uses: actions/upload-artifact@master
+        - uses: actions/upload-artifact@v3
           if: always()
           with:
             name: rat
@@ -104,9 +106,9 @@ jobs:
     name: author
     runs-on: ubuntu-20.04
     steps:
-        - uses: actions/checkout@master
+        - uses: actions/checkout@v3
         - run: ./dev-support/checks/author.sh
-        - uses: actions/upload-artifact@master
+        - uses: actions/upload-artifact@v3
           if: always()
           with:
             name: author
@@ -127,9 +129,9 @@ jobs:
           run: |
             echo -e "$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)\t$(hostname -f) $(hostname -s)" | sudo tee -a /etc/hosts
         # REMOVE CODE ABOVE WHEN ISSUE IS ADDRESSED!
-        - uses: actions/checkout@master
+        - uses: actions/checkout@v3
         - name: Cache for maven dependencies
-          uses: actions/cache@v2
+          uses: actions/cache@v3
           with:
             path: ~/.m2/repository
             key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
@@ -140,7 +142,7 @@ jobs:
         - name: Summary of failures
           run: cat target/${{ github.job }}/summary.txt
           if: ${{ !cancelled() }}
-        - uses: actions/upload-artifact@master
+        - uses: actions/upload-artifact@v3
           if: ${{ !cancelled() }}
           with:
             name: unit-${{ matrix.profile }}
@@ -152,9 +154,9 @@ jobs:
     name: checkstyle
     runs-on: ubuntu-20.04
     steps:
-        - uses: actions/checkout@master
+        - uses: actions/checkout@v3
         - name: Cache for maven dependencies
-          uses: actions/cache@v2
+          uses: actions/cache@v3
           with:
             path: ~/.m2/repository
             key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
@@ -162,7 +164,7 @@ jobs:
               maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
         - run: ./dev-support/checks/checkstyle.sh
-        - uses: actions/upload-artifact@master
+        - uses: actions/upload-artifact@v3
           if: always()
           with:
             name: checkstyle
@@ -175,12 +177,13 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
         - name: Setup java
-          uses: actions/setup-java@v1
+          uses: actions/setup-java@v3
           with:
+            distribution: 'temurin'
             java-version: 8
-        - uses: actions/checkout@master
+        - uses: actions/checkout@v3
         - name: Cache for maven dependencies
-          uses: actions/cache@v2
+          uses: actions/cache@v3
           with:
             path: ~/.m2/repository
             key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
@@ -188,7 +191,7 @@ jobs:
               maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
         - run: ./dev-support/checks/findbugs.sh
-        - uses: actions/upload-artifact@master
+        - uses: actions/upload-artifact@v3
           if: always()
           with:
             name: findbugs
@@ -201,9 +204,9 @@ jobs:
     runs-on: ubuntu-20.04
     if: (github.repository == 'apache/ratis' || github.repository == 'apache/incubator-ratis') && github.event_name != 'pull_request'
     steps:
-        - uses: actions/checkout@master
+        - uses: actions/checkout@v3
         - name: Cache for maven dependencies
-          uses: actions/cache@v2
+          uses: actions/cache@v3
           with:
             path: ~/.m2/repository
             key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
@@ -211,8 +214,9 @@ jobs:
               maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
         - name: Setup java 11
-          uses: actions/setup-java@v1
+          uses: actions/setup-java@v3
           with:
+            distribution: 'temurin'
             java-version: 11
         - run: ./dev-support/checks/sonar.sh
           env:
