@@ -38,7 +38,7 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogFormat;
 import org.apache.ratis.server.RaftServerConfigKeys.Log;
 import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;

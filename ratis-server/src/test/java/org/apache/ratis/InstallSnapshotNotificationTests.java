@@ -32,7 +32,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
@@ -109,7 +109,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       Supplier<TermIndex> supplier = () -> {
         try {
           Path leaderSnapshotFile = leaderSnapshotInfo.getFile().getPath();
-          File followerSnapshotFilePath = new File(getSMdir(),
+          final File followerSnapshotFilePath = new File(getStateMachineDir(),
               leaderSnapshotFile.getFileName().toString());
           // simulate the real situation such as snapshot transmission delay
           Thread.sleep(1000);
@@ -148,7 +148,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
             }
           } else {
             LOG.info("Receive the notification to clean up snapshot as follower for {}, result: {}", peer, result);
-            File followerSnapshotFile = new File(getSMdir(), leaderSnapshotFile.getName());
+            final File followerSnapshotFile = new File(getStateMachineDir(), leaderSnapshotFile.getName());
             if (followerSnapshotFile.exists()) {
               FileUtils.deleteFile(followerSnapshotFile);
               LOG.info("follower snapshot {} deleted", followerSnapshotFile);
@@ -481,7 +481,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       File leaderSnapshotFile = leaderSnapshotInfo.getFiles().get(0).getPath().toFile();
       SimpleStateMachine4Testing followerStateMachine =
           (SimpleStateMachine4Testing) cluster.getFollowers().get(0).getStateMachine();
-      File followerSnapshotFile = new File(followerStateMachine.getStateMachineStorage().getSmDir(),
+      final File followerSnapshotFile = new File(followerStateMachine.getStateMachineDir(),
           leaderSnapshotFile.getName());
       Assert.assertEquals(numNotifyInstallSnapshotFinished.get(), 2);
       Assert.assertTrue(leaderSnapshotFile.exists());
