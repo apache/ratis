@@ -42,6 +42,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -60,13 +61,12 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
       Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
 
   private volatile File stateMachineDir = null;
-
-  private volatile SingleFileSnapshotInfo currentSnapshot = null;
+  private final AtomicReference<SnapshotInfo> latestSnapshot = new AtomicReference<>();
 
   @Override
   public void init(RaftStorage storage) throws IOException {
     this.stateMachineDir = storage.getStorageDir().getStateMachineDir();
-    loadLatestSnapshot();
+    this.latestSnapshot.set(findLatestSnapshot(stateMachineDir.toPath()));
   }
 
   @Override
@@ -178,11 +178,9 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     return new SingleFileSnapshotInfo(info, latest.getTerm(), latest.getIndex());
   }
 
-  public void loadLatestSnapshot() throws IOException {
-    if (stateMachineDir == null) {
-      return;
-    }
-    this.currentSnapshot = findLatestSnapshot(stateMachineDir.toPath());
+  public SnapshotInfo updateLatestSnapshot(SnapshotInfo info) {
+    return latestSnapshot.updateAndGet(
+        previous -> previous == null || info.getIndex() > previous.getIndex()? info: previous);
   }
 
   public static String getSnapshotFileName(long term, long endIndex) {
@@ -190,8 +188,8 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   }
 
   @Override
-  public SingleFileSnapshotInfo getLatestSnapshot() {
-    return currentSnapshot;
+  public SnapshotInfo getLatestSnapshot() {
+    return latestSnapshot.get();
   }
 
   @VisibleForTesting
