@@ -21,7 +21,6 @@ import java.util.Collections;
 
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
-import org.apache.ratis.statemachine.SnapshotInfo;
 
 /**
  * Each snapshot only has a single file.
@@ -29,13 +28,6 @@ import org.apache.ratis.statemachine.SnapshotInfo;
  * The objects of this class are immutable.
  */
 public class SingleFileSnapshotInfo extends FileListSnapshotInfo {
-  public static SingleFileSnapshotInfo cast(SnapshotInfo info) {
-    if (!(info instanceof SingleFileSnapshotInfo)) {
-      throw new IllegalArgumentException("Unexpected " + info.getClass() + ": " + info);
-    }
-    return (SingleFileSnapshotInfo) info;
-  }
-
   public SingleFileSnapshotInfo(FileInfo fileInfo, TermIndex termIndex) {
     super(Collections.singletonList(fileInfo), termIndex);
   }

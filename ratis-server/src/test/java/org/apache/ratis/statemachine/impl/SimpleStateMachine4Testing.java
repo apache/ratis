@@ -289,15 +289,11 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return storage;
   }
 
-  private void loadSnapshot(SnapshotInfo snapshot) throws IOException {
-    if (snapshot == null) {
-      return;
-    }
-    loadSnapshot(SingleFileSnapshotInfo.cast(snapshot));
-  }
-
   private synchronized void loadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
       LOG.info("Loading snapshot {}", snapshot);
+      if (snapshot == null) {
+        return;
+      }
       final long endIndex = snapshot.getIndex();
       try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(
           snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
@@ -314,6 +310,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           "endIndex=%s, indexMap=%s", endIndex, indexMap);
       this.endIndexLastCkpt = endIndex;
       setLastAppliedTermIndex(snapshot.getTermIndex());
+      this.storage.updateLatestSnapshot(snapshot);
   }
 
   /**

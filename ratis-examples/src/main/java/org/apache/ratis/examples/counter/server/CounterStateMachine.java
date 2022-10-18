@@ -28,7 +28,6 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
@@ -155,21 +154,26 @@ public class CounterStateMachine extends BaseStateMachine {
   /**
    * Load the state of the state machine from the {@link #storage}.
    *
-   * @param info the information of the snapshot being loaded
+   * @param snapshot the information of the snapshot being loaded
    * @return the index of the snapshot or -1 if snapshot is invalid
    * @throws IOException if it failed to read from storage
    */
-  private long load(SnapshotInfo info) throws IOException {
+  private long load(SingleFileSnapshotInfo snapshot) throws IOException {
     //check null
-    if (info == null) {
+    if (snapshot == null) {
       return RaftLog.INVALID_LOG_INDEX;
     }
-    final SingleFileSnapshotInfo snapshot = SingleFileSnapshotInfo.cast(info);
     //check if the snapshot file exists.
     final Path snapshotPath = snapshot.getFile().getPath();
     if (!Files.exists(snapshotPath)) {
       LOG.warn("The snapshot file {} does not exist for snapshot {}", snapshotPath, snapshot);
       return RaftLog.INVALID_LOG_INDEX;
+    }
+
+    // verify md5
+    final MD5Hash md5 = snapshot.getFile().getFileDigest();
+    if (md5 != null) {
+      MD5FileUtil.verifySavedMD5(snapshotPath.toFile(), md5);
     }
 
     //read the TermIndex from the snapshot file name

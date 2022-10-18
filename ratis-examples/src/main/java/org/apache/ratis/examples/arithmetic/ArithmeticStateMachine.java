@@ -28,7 +28,6 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
@@ -109,20 +108,24 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     final MD5Hash md5 = MD5FileUtil.computeAndSaveMd5ForFile(snapshotFile);
     final FileInfo info = new FileInfo(snapshotFile.toPath(), md5);
     storage.updateLatestSnapshot(new SingleFileSnapshotInfo(info, last));
-
     return last.getIndex();
   }
 
-  public long loadSnapshot(SnapshotInfo info) throws IOException {
-    if (info == null) {
+  public long loadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
+    if (snapshot == null) {
       LOG.warn("The snapshot info is null.");
       return RaftLog.INVALID_LOG_INDEX;
     }
-    final SingleFileSnapshotInfo snapshot = SingleFileSnapshotInfo.cast(info);
     final File snapshotFile = snapshot.getFile().getPath().toFile();
     if (!snapshotFile.exists()) {
       LOG.warn("The snapshot file {} does not exist for snapshot {}", snapshotFile, snapshot);
       return RaftLog.INVALID_LOG_INDEX;
+    }
+
+    // verify md5
+    final MD5Hash md5 = snapshot.getFile().getFileDigest();
+    if (md5 != null) {
+      MD5FileUtil.verifySavedMD5(snapshotFile, md5);
     }
 
     final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
