@@ -115,7 +115,11 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
           .collect(Collectors.toList());
       for (File snapshotFile : snapshotFilesToBeCleaned) {
         LOG.info("Deleting old snapshot at {}", snapshotFile.getAbsolutePath());
-        FileUtils.deleteFileQuietly(snapshotFile);
+        final boolean deleted = FileUtils.deleteFileQuietly(snapshotFile);
+        if (deleted) {
+          final File md5file = MD5FileUtil.getDigestFileForFile(snapshotFile);
+          FileUtils.deleteFileQuietly(md5file);
+        }
       }
     }
   }

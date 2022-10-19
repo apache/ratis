@@ -144,11 +144,13 @@ public interface FileUtils {
   }
 
   /** The same as passing f.toPath() to {@link #delete(Path)}. */
-  static void deleteFileQuietly(File f) {
+  static boolean deleteFileQuietly(File f) {
     try {
       delete(f.toPath());
+      return true;
     } catch (Exception ex) {
-      LOG.debug("File delete was not susccesful {}", f.getAbsoluteFile(), ex);
+      LOG.debug("File delete was not successful {}", f.getAbsoluteFile(), ex);
+      return false;
     }
   }
 
