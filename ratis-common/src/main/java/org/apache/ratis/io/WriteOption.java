@@ -20,6 +20,8 @@ package org.apache.ratis.io;
 import java.util.Arrays;
 
 public interface WriteOption {
+  WriteOption[] EMPTY_ARRAY = {};
+
   static boolean containsOption(Iterable<WriteOption> options,
                                 WriteOption target) {
     for (WriteOption option : options) {
@@ -36,7 +38,7 @@ public interface WriteOption {
     return containsOption(Arrays.asList(options), target);
   }
 
-  default boolean isOneOf(Iterable<WriteOption> options) {
+  default boolean isOneOf(WriteOption... options) {
     return containsOption(options, this);
   }
 }
