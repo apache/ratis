@@ -17,9 +17,14 @@
  */
 package org.apache.ratis.datastream;
 
+import org.apache.ratis.client.RaftClientConfigKeys;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RoutingTable;
+import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.TimeDuration;
+import org.junit.Before;
 
 import java.util.Collection;
 import java.util.List;
@@ -29,13 +34,22 @@ public class TestNettyDataStreamStarTopologyWithGrpcCluster
     extends DataStreamAsyncClusterTests<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty>
     implements MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty.FactoryGet {
 
+  @Before
+  public void setup() {
+    final RaftProperties p = getProperties();
+    RaftClientConfigKeys.DataStream.setRequestTimeout(p, TimeDuration.ONE_MINUTE);
+    RaftClientConfigKeys.DataStream.setFlushRequestCountMin(p, 4);
+    RaftClientConfigKeys.DataStream.setFlushRequestBytesMin(p, SizeInBytes.valueOf("10MB"));
+    RaftClientConfigKeys.DataStream.setOutstandingRequestsMax(p, 2 << 16);
+  }
+
   @Override
   public RoutingTable getRoutingTable(Collection<RaftPeer> peers, RaftPeer primary) {
-    RoutingTable.Builder builder = RoutingTable.newBuilder();
     final List<RaftPeerId> others = peers.stream()
-        .filter(p -> !p.getId().equals(primary.getId())).map(v -> v.getId())
+        .map(RaftPeer::getId).filter(id -> !id.equals(primary.getId()))
         .collect(Collectors.toList());
-    builder.addSuccessors(primary.getId(), others);
-    return builder.build();
+    return RoutingTable.newBuilder()
+        .addSuccessors(primary.getId(), others)
+        .build();
   }
 }

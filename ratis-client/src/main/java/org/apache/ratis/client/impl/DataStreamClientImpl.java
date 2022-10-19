@@ -137,11 +137,6 @@ public class DataStreamClientImpl implements DataStreamClient {
     }
 
     @Override
-    public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, WriteOption... options) {
-      return writeAsync(src, Arrays.asList(options));
-    }
-
-    @Override
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, Iterable<WriteOption> options) {
       return writeAsyncImpl(src, src.remaining(), options);
     }
