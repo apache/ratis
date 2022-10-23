@@ -240,8 +240,8 @@ public interface GrpcConfigKeys {
       return getBoolean(properties::getBoolean, HEARTBEAT_CHANNEL_KEY,
               HEARTBEAT_CHANNEL_DEFAULT, getDefaultLog());
     }
-    static void setHeartbeatChannel(RaftProperties properties, boolean useCached) {
-      setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useCached);
+    static void setHeartbeatChannel(RaftProperties properties, boolean useSeparate) {
+      setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useSeparate);
     }
   }
 
