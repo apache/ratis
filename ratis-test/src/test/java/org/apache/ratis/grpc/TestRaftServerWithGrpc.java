@@ -24,7 +24,6 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.protocol.RaftGroup;
@@ -53,7 +52,7 @@ import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -62,6 +61,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.nio.channels.OverlappingFileLockException;
@@ -76,7 +76,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @RunWith(Parameterized.class)
 public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
   {
-    Log4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.ALL);
+    Slf4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.TRACE);
   }
 
   public TestRaftServerWithGrpc(Boolean separateHeartbeat) {

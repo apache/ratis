@@ -17,22 +17,22 @@
  */
 package org.apache.ratis.datastream;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyUtils;
 import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.junit.Ignore;
+import org.slf4j.event.Level;
 
 import java.util.function.Supplier;
 
 public class TestDataStreamSslWithRpcTypeGrpcAndDataStreamTypeNetty
     extends DataStreamAsyncClusterTests<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> {
   {
-    Log4jUtils.setLogLevel(NettyUtils.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(NettyUtils.LOG, Level.DEBUG);
   }
 
   Parameters newParameters() {
