@@ -36,7 +36,9 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogInputStream;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogOutputStream;
+import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -232,7 +234,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public synchronized void reinitialize() throws IOException {
     LOG.info("Reinitializing " + this);
-    loadSnapshot(storage.findLatestSnapshot(getStateMachineDir().toPath()));
+    loadSnapshot(storage.getLatestSnapshot());
     if (getLifeCycleState() == LifeCycle.State.PAUSED) {
       getLifeCycle().transition(LifeCycle.State.STARTING);
       getLifeCycle().transition(LifeCycle.State.RUNNING);
@@ -258,10 +260,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     final long endIndex = termIndex.getIndex();
 
     // TODO: snapshot should be written to a tmp file, then renamed
-    File snapshotFile = storage.getSnapshotFile(termIndex.getTerm(),
-        termIndex.getIndex());
-    LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(),
-        termIndex.getIndex(), snapshotFile);
+    final File snapshotFile = storage.getSnapshotFile(termIndex.getTerm(), endIndex);
+    LOG.debug("Taking a snapshot with {}, file:{}", termIndex, snapshotFile);
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(snapshotFile, false,
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (final LogEntryProto entry : indexMap.values()) {
@@ -276,20 +276,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       LOG.warn("Failed to take snapshot", e);
     }
 
-    try {
-      final MD5Hash digest = MD5FileUtil.computeMd5ForFile(snapshotFile);
-      MD5FileUtil.saveMD5File(snapshotFile, digest);
-    } catch (IOException e) {
-      LOG.warn("Hit IOException when computing MD5 for snapshot file "
-          + snapshotFile, e);
-    }
+    final MD5Hash digest = MD5FileUtil.computeAndSaveMd5ForFile(snapshotFile);
+    final FileInfo info = new FileInfo(snapshotFile.toPath(), digest);
+    storage.updateLatestSnapshot(new SingleFileSnapshotInfo(info, termIndex));
 
-    try {
-      this.storage.loadLatestSnapshot();
-    } catch (IOException e) {
-      LOG.warn("Hit IOException when loading latest snapshot for snapshot file "
-          + snapshotFile, e);
-    }
     // TODO: purge log segments
     return endIndex;
   }
@@ -299,14 +289,11 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return storage;
   }
 
-  private synchronized long loadSnapshot(SingleFileSnapshotInfo snapshot)
-      throws IOException {
-    if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
-      LOG.info("The snapshot file {} does not exist",
-          snapshot == null ? null : snapshot.getFile());
-      return RaftLog.INVALID_LOG_INDEX;
-    } else {
+  private synchronized void loadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
       LOG.info("Loading snapshot {}", snapshot);
+      if (snapshot == null) {
+        return;
+      }
       final long endIndex = snapshot.getIndex();
       try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(
           snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
@@ -323,9 +310,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           "endIndex=%s, indexMap=%s", endIndex, indexMap);
       this.endIndexLastCkpt = endIndex;
       setLastAppliedTermIndex(snapshot.getTermIndex());
-      this.storage.loadLatestSnapshot();
-      return endIndex;
-    }
+      this.storage.updateLatestSnapshot(snapshot);
   }
 
   /**

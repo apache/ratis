@@ -18,6 +18,7 @@
 package org.apache.ratis.examples.counter.server;
 
 import org.apache.ratis.examples.counter.CounterCommand;
+import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.Message;
@@ -25,12 +26,14 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MD5FileUtil;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -46,10 +49,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * A {@link org.apache.ratis.statemachine.StateMachine} implementation for the {@link CounterServer}.
  * This class maintain a {@link AtomicInteger} object as a state and accept two commands:
- *
+ * <p>
  * - {@link CounterCommand#GET} is a readonly command
  *   which is handled by the {@link #query(Message)} method.
- *
+ * <p>
  * - {@link CounterCommand#INCREMENT} is a transactional command
  *   which is handled by the {@link #applyTransaction(TransactionContext)} method.
  */
@@ -139,6 +142,11 @@ public class CounterStateMachine extends BaseStateMachine {
           + "\", last applied index=" + state.getApplied());
     }
 
+    // update storage
+    final MD5Hash md5 = MD5FileUtil.computeAndSaveMd5ForFile(snapshotFile);
+    final FileInfo info = new FileInfo(snapshotFile.toPath(), md5);
+    storage.updateLatestSnapshot(new SingleFileSnapshotInfo(info, state.getApplied()));
+
     //return the index of the stored snapshot (which is the last applied one)
     return index;
   }
@@ -153,7 +161,6 @@ public class CounterStateMachine extends BaseStateMachine {
   private long load(SingleFileSnapshotInfo snapshot) throws IOException {
     //check null
     if (snapshot == null) {
-      LOG.warn("The snapshot info is null.");
       return RaftLog.INVALID_LOG_INDEX;
     }
     //check if the snapshot file exists.
@@ -161,6 +168,12 @@ public class CounterStateMachine extends BaseStateMachine {
     if (!Files.exists(snapshotPath)) {
       LOG.warn("The snapshot file {} does not exist for snapshot {}", snapshotPath, snapshot);
       return RaftLog.INVALID_LOG_INDEX;
+    }
+
+    // verify md5
+    final MD5Hash md5 = snapshot.getFile().getFileDigest();
+    if (md5 != null) {
+      MD5FileUtil.verifySavedMD5(snapshotPath.toFile(), md5);
     }
 
     //read the TermIndex from the snapshot file name
