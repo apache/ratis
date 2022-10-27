@@ -22,7 +22,6 @@ import static org.junit.Assert.assertEquals;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.conf.RaftProperties;
@@ -34,12 +33,13 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 public class MemoryRaftLogTest extends BaseTest {
   static {
-    Log4jUtils.setLogLevel(MemoryRaftLog.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(MemoryRaftLog.LOG, Level.DEBUG);
   }
 
   @Test

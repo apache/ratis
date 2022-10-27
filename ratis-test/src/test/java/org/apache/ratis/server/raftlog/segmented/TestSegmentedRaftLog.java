@@ -19,7 +19,6 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import static org.junit.Assert.assertTrue;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
@@ -44,7 +43,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -71,13 +70,14 @@ import java.util.function.Supplier;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.slf4j.event.Level;
 
 @RunWith(Parameterized.class)
 public class TestSegmentedRaftLog extends BaseTest {
   static {
-    Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.INFO);
-    Log4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.INFO);
-    Log4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.INFO);
   }
 
   private final Boolean smSyncFlush;

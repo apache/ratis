@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -29,7 +28,7 @@ import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.Assert;
@@ -44,6 +43,7 @@ import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.slf4j.event.Level;
 
 /**
  * Test Raft Server Slowness detection and notification to Leader's statemachine.
@@ -52,7 +52,7 @@ import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 @Ignore
 public class TestRaftServerSlownessDetection extends BaseTest {
   static {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;

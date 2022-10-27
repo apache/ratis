@@ -1,5 +1,3 @@
-package org.apache.ratis.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -17,12 +15,15 @@ package org.apache.ratis.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.util;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.slf4j.Logger;
+import org.slf4j.event.Level;
 
-public interface Log4jUtils {
+import java.util.Optional;
+
+public interface Slf4jUtils {
 
   static void setLogLevel(Logger logger, Level level) {
     final String name = logger.getName();
@@ -31,7 +32,19 @@ public interface Log4jUtils {
     } else {
       LogUtils.LOG.info("Set {} log level to {}", name, level);
     }
-    LogManager.getLogger(name).setLevel(level);
+
+    Optional.ofNullable(LogManager.getLogger(name))
+        .ifPresent(log -> log.setLevel(getLog4jLevel(level)));
   }
 
+  static org.apache.log4j.Level getLog4jLevel(Level level) {
+    switch (level) {
+      case ERROR: return org.apache.log4j.Level.ERROR;
+      case WARN: return org.apache.log4j.Level.WARN;
+      case INFO: return org.apache.log4j.Level.INFO;
+      case DEBUG: return org.apache.log4j.Level.DEBUG;
+      case TRACE: return org.apache.log4j.Level.TRACE;
+    }
+    throw new IllegalArgumentException("Unexpected level " + level);
+  }
 }
