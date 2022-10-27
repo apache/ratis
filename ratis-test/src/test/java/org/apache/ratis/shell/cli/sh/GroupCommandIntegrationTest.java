@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.shell.cli.sh;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
@@ -27,11 +26,12 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluster>
     extends AbstractCommandIntegrationTestWithGrpc
@@ -40,9 +40,9 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
   static final String NEW_LINE = System.lineSeparator();
 
   {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.WARN);
-    Log4jUtils.setLogLevel(RaftLog.LOG, Level.WARN);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(RaftLog.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.WARN);
   }
 
   {

@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
@@ -47,11 +46,12 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -71,8 +71,8 @@ import static org.apache.ratis.RaftTestUtil.waitForLeader;
 public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;

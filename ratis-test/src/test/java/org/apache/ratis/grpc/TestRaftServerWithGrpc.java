@@ -27,7 +27,6 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_BYTE
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RESOURCE_LIMIT_HIT_COUNTER;
 
 import com.codahale.metrics.Gauge;
-import org.apache.log4j.Level;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.BaseTest;
@@ -57,7 +56,7 @@ import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -66,6 +65,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.slf4j.event.Level;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
@@ -82,7 +82,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @RunWith(Parameterized.class)
 public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
   {
-    Log4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.ALL);
+    Slf4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.TRACE);
   }
 
   public TestRaftServerWithGrpc(Boolean separateHeartbeat) {

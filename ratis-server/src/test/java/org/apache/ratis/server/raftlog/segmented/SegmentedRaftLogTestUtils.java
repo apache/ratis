@@ -17,12 +17,12 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import org.apache.log4j.Level;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
+import org.slf4j.event.Level;
 
 public interface SegmentedRaftLogTestUtils {
   static void setRaftLogWorkerLogLevel(Level level) {
-    Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, level);
+    Slf4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, level);
   }
 
   static String getLogFlushTimeMetric(String memberId) {

@@ -17,20 +17,12 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.log4j.Appender;
-import org.apache.log4j.Layout;
-import org.apache.log4j.Level;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.PatternLayout;
-import org.apache.log4j.WriterAppender;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DivisionInfo;
@@ -41,20 +33,18 @@ import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 
-import java.io.IOException;
-import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 public class RaftServerTestUtil {
@@ -68,13 +58,13 @@ public class RaftServerTestUtil {
   }
 
   public static void setStateMachineUpdaterLogLevel(Level level) {
-    Log4jUtils.setLogLevel(StateMachineUpdater.LOG, level);
+    Slf4jUtils.setLogLevel(StateMachineUpdater.LOG, level);
   }
   public static void setWatchRequestsLogLevel(Level level) {
-    Log4jUtils.setLogLevel(WatchRequests.LOG, level);
+    Slf4jUtils.setLogLevel(WatchRequests.LOG, level);
   }
   public static void setPendingRequestsLogLevel(Level level) {
-    Log4jUtils.setLogLevel(PendingRequests.LOG, level);
+    Slf4jUtils.setLogLevel(PendingRequests.LOG, level);
   }
 
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
@@ -194,59 +184,5 @@ public class RaftServerTestUtil {
 
   public static boolean isHighestPriority(RaftConfiguration config, RaftPeerId peerId) {
     return ((RaftConfigurationImpl)config).isHighestPriority(peerId);
-  }
-
-  public static CompletableFuture<RaftClientReply> takeSnapshotAsync(RaftServer.Division leader, SnapshotManagementRequest r)
-      throws IOException {
-    return ((RaftServerImpl)leader).takeSnapshotAsync(r);
-  }
-
-  /**
-   * Class to capture logs for doing assertions.
-   */
-  public static final class LogCapturer {
-    private StringWriter sw = new StringWriter();
-    private WriterAppender appender;
-    private org.apache.log4j.Logger logger;
-
-    public static LogCapturer captureLogs(org.slf4j.Logger logger) {
-      return new LogCapturer(toLog4j(logger), getDefaultLayout());
-    }
-
-    public static LogCapturer captureLogs(org.slf4j.Logger logger, Layout layout) {
-      return new LogCapturer(toLog4j(logger), layout);
-    }
-
-    private static Layout getDefaultLayout() {
-      Appender defaultAppender = org.apache.log4j.Logger.getRootLogger().getAppender("stdout");
-      if (defaultAppender == null) {
-        defaultAppender = org.apache.log4j.Logger.getRootLogger().getAppender("console");
-      }
-      return (defaultAppender == null) ? new PatternLayout() :
-          defaultAppender.getLayout();
-    }
-
-    private LogCapturer(org.apache.log4j.Logger logger, Layout layout) {
-      this.logger = logger;
-      this.appender = new WriterAppender(layout, sw);
-      logger.addAppender(this.appender);
-    }
-
-    public String getOutput() {
-      return sw.toString();
-    }
-
-    public void stopCapturing() {
-      logger.removeAppender(appender);
-    }
-
-    public void clearOutput() {
-      sw.getBuffer().setLength(0);
-    }
-  }
-
-  @Deprecated
-  public static org.apache.log4j.Logger toLog4j(org.slf4j.Logger logger) {
-    return LogManager.getLogger(logger.getName());
   }
 }

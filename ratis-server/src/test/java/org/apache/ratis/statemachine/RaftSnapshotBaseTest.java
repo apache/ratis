@@ -23,7 +23,6 @@ import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_TAKE
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RATIS_SERVER_INSTALL_SNAPSHOT_COUNT;
 import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
@@ -47,7 +46,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -64,12 +63,13 @@ import java.util.stream.LongStream;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Timer;
+import org.slf4j.event.Level;
 
 public abstract class RaftSnapshotBaseTest extends BaseTest {
   {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);

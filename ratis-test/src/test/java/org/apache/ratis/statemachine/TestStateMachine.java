@@ -19,7 +19,6 @@ package org.apache.ratis.statemachine;
 
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
@@ -35,8 +34,9 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.junit.*;
+import org.slf4j.event.Level;
 
 import java.util.Collections;
 import java.util.List;
@@ -55,8 +55,8 @@ import static org.junit.Assert.*;
  */
 public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
   static {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;
