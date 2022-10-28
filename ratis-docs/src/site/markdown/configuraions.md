@@ -263,6 +263,7 @@ watch.timeout should be a multiple of watch.timeout.denomination
 
 log.queue.byte-limit and log.queue.element-limit are quite similar to write.element-limit and .write.byte-limit. When
 pending IO tasks reached the limit, Ratis will temporarily stall new IO Tasks.
+
 --------------------------------------------------------------------------------
 
 | **Property**    | `raft.server.log.purge.gap`             |
