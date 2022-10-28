@@ -462,32 +462,6 @@ ThreadPool configurations related to DataStream Api.
 
 Configurations related to Server RPC timeout.
 
-| **Property**    | `raft.server.rpc.timeout.min`      |
-|-----------------|------------------------------------|
-| **Description** | Raft Protocol min election timeout |
-| **Type**        | TimeDuration                       |
-| **Default**     | 150ms                              |
-
-| **Property**    | `raft.server.rpc.timeout.max`      |
-|-----------------|------------------------------------|
-| **Description** | Raft Protocol max election timeout |
-| **Type**        | TimeDuration                       |
-| **Default**     | 300ms                              |
-
-First election timeout is introduced to reduce unavailable time when a RaftGroup initially starts up.
-
-| **Property**    | `raft.server.rpc.first-election.timeout.min` |
-|-----------------|----------------------------------------------|
-| **Description** | Raft Protocol min election timeout           |
-| **Type**        | TimeDuration                                 |
-| **Default**     | 150ms                                        |
-
-| **Property**    | `raft.server.rpc.first-election.timeout.max` |
-|-----------------|----------------------------------------------|
-| **Description** | Raft Protocol max election timeout           |
-| **Type**        | TimeDuration                                 |
-| **Default**     | 300ms                                        |
-
 | **Property**    | `raft.server.rpc.request.timeout` |
 |-----------------|-----------------------------------|
 | **Description** | timeout for AppendEntries RPC     |
@@ -540,6 +514,32 @@ Configurations related to state machine notifications.
 #### LeaderElection
 
 Configurations related to leader election.
+
+| **Property**    | `raft.server.rpc.timeout.min`      |
+|-----------------|------------------------------------|
+| **Description** | Raft Protocol min election timeout |
+| **Type**        | TimeDuration                       |
+| **Default**     | 150ms                              |
+
+| **Property**    | `raft.server.rpc.timeout.max`      |
+|-----------------|------------------------------------|
+| **Description** | Raft Protocol max election timeout |
+| **Type**        | TimeDuration                       |
+| **Default**     | 300ms                              |
+
+First election timeout is introduced to reduce unavailable time when a RaftGroup initially starts up.
+
+| **Property**    | `raft.server.rpc.first-election.timeout.min` |
+|-----------------|----------------------------------------------|
+| **Description** | Raft Protocol min election timeout           |
+| **Type**        | TimeDuration                                 |
+| **Default**     | 150ms                                        |
+
+| **Property**    | `raft.server.rpc.first-election.timeout.max` |
+|-----------------|----------------------------------------------|
+| **Description** | Raft Protocol max election timeout           |
+| **Type**        | TimeDuration                                 |
+| **Default**     | 300ms                                        |
 
 | **Property**    | `raft.server.leaderelection.leader.step-down.wait-time`                    |
 |-----------------|----------------------------------------------------------------------------|
