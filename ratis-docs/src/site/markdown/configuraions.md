@@ -171,11 +171,11 @@ Configurations related to write requests.
 | **Type**        | int                               |
 | **Default**     | 4096                              |
 
-| **Property**    | `raft.server.write.byte-limit`      |
-|-----------------|-------------------------------------|
-| **Description** | max pending write requests sum size |
-| **Type**        | SizeInBytes                         |
-| **Default**     | 64MB                                |
+| **Property**    | `raft.server.write.byte-limit`              |
+|-----------------|---------------------------------------------|
+| **Description** | max byte size of all pending write requests |
+| **Type**        | SizeInBytes                                 |
+| **Default**     | 64MB                                        |
 
 Ratis imposes limitations on pending write requests. If the pending requests queue size exceeds element-limit or the
 size of bytes accumulated in pending requests exceeds byte-limit, RaftServer will reject incoming write requests until
@@ -227,11 +227,11 @@ Configurations related to raft log.
 | **Type**        | int                                   |
 | **Default**     | 4096                                  |
 
-| **Property**    | `raft.server.log.queue.byte-limit`             |
-|-----------------|------------------------------------------------|
-| **Description** | size of bytes accumulated in pending log tasks |
-| **Type**        | SizeInBytes                                    |
-| **Default**     | 64MB                                           |
+| **Property**    | `raft.server.log.queue.byte-limit`                 |
+|-----------------|----------------------------------------------------|
+| **Description** | max size of bytes accumulated in pending log tasks |
+| **Type**        | SizeInBytes                                        |
+| **Default**     | 64MB                                               |
 
 log.queue.byte-limit and log.queue.element-limit are quite similar to write.element-limit and .write.byte-limit. When
 pending IO tasks reached the limit, Ratis will temporarily stall new IO Tasks.
@@ -242,17 +242,17 @@ pending IO tasks reached the limit, Ratis will temporarily stall new IO Tasks.
 | **Type**        | int                                     |
 | **Default**     | 1024                                    |
 
-| **Property**    | `raft.server.log.purge.upto.snapshot.index`                 |
-|-----------------|-------------------------------------------------------------|
-| **Description** | purge logs up to snapshot index when a takes a new snapshot |
-| **Type**        | boolean                                                     |
-| **Default**     | false                                                       |
+| **Property**    | `raft.server.log.purge.upto.snapshot.index`                |
+|-----------------|------------------------------------------------------------|
+| **Description** | purge logs up to snapshot index when taking a new snapshot |
+| **Type**        | boolean                                                    |
+| **Default**     | false                                                      |
 
-| **Property**    | `raft.server.log.purge.preservation.log.num`                 |
-|-----------------|--------------------------------------------------------------|
-| **Description** | preserve certain logs when purging logs up to snapshot index |
-| **Type**        | long                                                         |
-| **Default**     | 0                                                            |
+| **Property**    | `raft.server.log.purge.preservation.log.num`         |
+|-----------------|------------------------------------------------------|
+| **Description** | preserve logs when purging logs up to snapshot index |
+| **Type**        | long                                                 |
+| **Default**     | 0                                                    |
 
 | **Property**    | `raft.server.log.segment.size.max`          |
 |-----------------|---------------------------------------------|
@@ -278,11 +278,11 @@ pending IO tasks reached the limit, Ratis will temporarily stall new IO Tasks.
 | **Type**        | SizeInBytes                         |
 | **Default**     | 4MB                                 |
 
-| **Property**    | `raft.server.log.write.buffer.size`                   |
-|-----------------|-------------------------------------------------------|
-| **Description** | size of direct byte buffer for SegmentLog FileChannel |
-| **Type**        | SizeInBytes                                           |
-| **Default**     | 64KB                                                  |
+| **Property**    | `raft.server.log.write.buffer.size`                         |
+|-----------------|-------------------------------------------------------------|
+| **Description** | size of direct byte buffer for SegmentedRaftLog FileChannel |
+| **Type**        | SizeInBytes                                                 |
+| **Default**     | 64KB                                                        |
 
 | **Property**    | `raft.server.log.force.sync.num`                                                |
 |-----------------|---------------------------------------------------------------------------------|
@@ -290,17 +290,17 @@ pending IO tasks reached the limit, Ratis will temporarily stall new IO Tasks.
 | **Type**        | int                                                                             |
 | **Default**     | 128                                                                             |
 
-| **Property**    | `raft.server.log.unsafe-flush.enabled`                                                 |
-|-----------------|----------------------------------------------------------------------------------------|
-| **Description** | unsafe-flush allow increasing flush index without waiting the actual flush to complete |
-| **Type**        | boolean                                                                                |
-| **Default**     | false                                                                                  |
+| **Property**    | `raft.server.log.unsafe-flush.enabled`                                                        |
+|-----------------|-----------------------------------------------------------------------------------------------|
+| **Description** | unsafe-flush allows increasing flush index without waiting the actual async-flush to complete |
+| **Type**        | boolean                                                                                       |
+| **Default**     | false                                                                                         |
 
-| **Property**    | `raft.server.log.async-flush.enabled`                                       |
-|-----------------|-----------------------------------------------------------------------------|
-| **Description** | async-flush will increase flush index until the actual flush has completed. |
-| **Type**        | boolean                                                                     |
-| **Default**     | false                                                                       |
+| **Property**    | `raft.server.log.async-flush.enabled`                   |
+|-----------------|---------------------------------------------------------|
+| **Description** | async-flush enables to flush the RaftLog asynchronously |
+| **Type**        | boolean                                                 |
+| **Default**     | false                                                   |
 
 | **Property**    | `raft.server.log.corruption.policy`     |
 |-----------------|-----------------------------------------|
@@ -357,17 +357,17 @@ machine data part when caching a LogEntry.
 
 Configurations related to leader's LogAppender
 
-| **Property**    | `raft.server.log.appender.buffer.element-limit` |
-|-----------------|-------------------------------------------------|
-| **Description** | limits on AppendEntries RPC log entries         |
-| **Type**        | int                                             |
-| **Default**     | 0, means no limit                               |
+| **Property**    | `raft.server.log.appender.buffer.element-limit`            |
+|-----------------|------------------------------------------------------------|
+| **Description** | limits on log entries num of in a single AppendEntries RPC |
+| **Type**        | int                                                        |
+| **Default**     | 0, means no limit                                          |
 
-| **Property**    | `raft.server.log.appender.buffer.byte-limit`                  |
-|-----------------|---------------------------------------------------------------|
-| **Description** | limits on byte size of a single AppendEntries RPC log entries |
-| **Type**        | SizeInBytes                                                   |
-| **Default**     | 4MB                                                           |
+| **Property**    | `raft.server.log.appender.buffer.byte-limit`                         |
+|-----------------|----------------------------------------------------------------------|
+| **Description** | limits on byte size of all RPC log entries in a single AppendEntries |
+| **Type**        | SizeInBytes                                                          |
+| **Default**     | 4MB                                                                  |
 
 It is the limit of
 * max serialized size of a single Log Entry. 
@@ -401,7 +401,7 @@ Configurations related to snapshot.
 
 | **Property**    | `raft.server.snapshot.auto.trigger.enabled`                             |
 |-----------------|-------------------------------------------------------------------------|
-| **Description** | whether trigger snapshot when log size exceeds limit                    |
+| **Description** | whether to trigger snapshot when log size exceeds limit                 |
 | **Type**        | boolean                                                                 |
 | **Default**     | false, by default let the state machine to decide when to do checkpoint |
 
@@ -411,11 +411,11 @@ Configurations related to snapshot.
 | **Type**        | long                                                 |
 | **Default**     | 1024                                                 |
 
-| **Property**    | `raft.server.snapshot.auto.trigger.threshold`                        |
-|-----------------|----------------------------------------------------------------------|
-| **Description** | log size limit (in number of log entries) that triggers the snapshot |
-| **Type**        | long                                                                 |
-| **Default**     | 400000                                                               |
+| **Property**    | `raft.server.snapshot.auto.trigger.threshold`                                |
+|-----------------|------------------------------------------------------------------------------|
+| **Description** | log size limit (in number of applied log entries) that triggers the snapshot |
+| **Type**        | long                                                                         |
+| **Default**     | 400000                                                                       |
 
 | **Property**    | `raft.server.snapshot.retention.file.num` |
 |-----------------|-------------------------------------------|
@@ -508,8 +508,8 @@ First election timeout is introduced to reduce unavailable time when a RaftGroup
 
 slowness.timeout is use in two places:
 
-* Leader would consider a follower 'slow' if slowness.timeout elapsed without hearing any responses from this follower.
-* If server monitors a JVM Pause longer than slowness.timeout, it would shut down self.
+* Leader would consider a follower 'slow' if `slowness.timeout` elapsed without hearing any responses from this follower.
+* If server monitors a JVM Pause longer than `slowness.timeout`, it would shut down itself.
 
 #### RetryCache
 
@@ -541,11 +541,11 @@ Configurations related to state machine notifications.
 
 Configurations related to leader election.
 
-| **Property**    | `raft.server.leaderelection.leader.step-down.wait-time`                  |
-|-----------------|--------------------------------------------------------------------------|
-| **Description** | when a leader steps down, it can't be re-elected until wait-time elapsed |
-| **Type**        | TimeDuration                                                             |
-| **Default**     | 10s                                                                      |
+| **Property**    | `raft.server.leaderelection.leader.step-down.wait-time`                    |
+|-----------------|----------------------------------------------------------------------------|
+| **Description** | when a leader steps down, it can't be re-elected until `wait-time` elapsed |
+| **Type**        | TimeDuration                                                               |
+| **Default**     | 10s                                                                        |
 
 | **Property**    | `raft.server.leaderelection.pre-vote` |
 |-----------------|---------------------------------------|
@@ -558,6 +558,3 @@ if a majority of the cluster would be willing to grant the candidate their votes
 (if the candidate’s log is sufficiently up-to-date, 
 and the voters have not received heartbeats from a valid leader
 for at least a baseline election timeout).
-
-See Ongaro, D. Consensus: Bridging Theory and Practice. PhD thesis, Stanford University, 2014.
-Available at https://github.com/ongardie/dissertation
