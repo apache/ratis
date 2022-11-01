@@ -324,12 +324,9 @@ public interface ClientProtoUtils {
         b.setNotReplicatedException(nreBuilder);
       }
 
-      final LeaderNotReadyException lnre = reply.getLeaderNotReadyException();
-      if (lnre != null) {
-        LeaderNotReadyExceptionProto.Builder lnreBuilder = LeaderNotReadyExceptionProto.newBuilder()
-            .setServerId(ProtoUtils.toRaftGroupMemberIdProtoBuilder(lnre.getServerId()));
-        b.setLeaderNotReadyException(lnreBuilder);
-      }
+      Optional.ofNullable(reply.getLeaderNotReadyException())
+          .map(e -> LeaderNotReadyExceptionProto.newBuilder().setServerId(e.getRaftGroupMemberIdProto()))
+          .ifPresent(b::setLeaderNotReadyException);
 
       Optional.ofNullable(reply.getStateMachineException())
           .map(ClientProtoUtils::toStateMachineExceptionProtoBuilder)
