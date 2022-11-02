@@ -224,7 +224,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
         .newBuilder()
         .setDefaultPolicy(RetryPolicies.noRetry())
         .setExceptionToPolicy(ReadIndexException.class,
-            RetryPolicies.retryForeverWithSleep(TimeDuration.valueOf(100, TimeUnit.MILLISECONDS)))
+            RetryPolicies.retryForeverWithSleep(TimeDuration.valueOf(500, TimeUnit.MILLISECONDS)))
         .build();
 
     RaftTestUtil.waitForLeader(cluster);
