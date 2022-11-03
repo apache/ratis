@@ -223,7 +223,7 @@ public class LifeCycle {
    * If the current state is equal to the specified from state,
    * then transition to the give to state; otherwise, make no change.
    *
-   * @return true iff the current state is equal to the specified from state.
+   * @return true if the current state is equal to the specified from state.
    */
   public boolean compareAndTransition(final State from, final State to) {
     if (current.compareAndSet(from, to)) {
