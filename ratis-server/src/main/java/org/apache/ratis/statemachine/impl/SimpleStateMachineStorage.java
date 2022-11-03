@@ -21,7 +21,6 @@ import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -42,6 +41,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -60,13 +60,12 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
       Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
 
   private volatile File stateMachineDir = null;
-
-  private volatile SingleFileSnapshotInfo currentSnapshot = null;
+  private final AtomicReference<SingleFileSnapshotInfo> latestSnapshot = new AtomicReference<>();
 
   @Override
   public void init(RaftStorage storage) throws IOException {
     this.stateMachineDir = storage.getStorageDir().getStateMachineDir();
-    loadLatestSnapshot();
+    getLatestSnapshot();
   }
 
   @Override
@@ -109,14 +108,18 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     final List<SingleFileSnapshotInfo> allSnapshotFiles = getSingleFileSnapshotInfos(stateMachineDir.toPath());
 
     if (allSnapshotFiles.size() > snapshotRetentionPolicy.getNumSnapshotsRetained()) {
-      allSnapshotFiles.sort(Comparator.comparing(SnapshotInfo::getIndex).reversed());
+      allSnapshotFiles.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
       List<File> snapshotFilesToBeCleaned = allSnapshotFiles.subList(
               snapshotRetentionPolicy.getNumSnapshotsRetained(), allSnapshotFiles.size()).stream()
           .map(singleFileSnapshotInfo -> singleFileSnapshotInfo.getFile().getPath().toFile())
           .collect(Collectors.toList());
       for (File snapshotFile : snapshotFilesToBeCleaned) {
         LOG.info("Deleting old snapshot at {}", snapshotFile.getAbsolutePath());
-        FileUtils.deleteFileQuietly(snapshotFile);
+        final boolean deleted = FileUtils.deleteFileQuietly(snapshotFile);
+        if (deleted) {
+          final File md5file = MD5FileUtil.getDigestFileForFile(snapshotFile);
+          FileUtils.deleteFileQuietly(md5file);
+        }
       }
     }
   }
@@ -178,11 +181,9 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     return new SingleFileSnapshotInfo(info, latest.getTerm(), latest.getIndex());
   }
 
-  public void loadLatestSnapshot() throws IOException {
-    if (stateMachineDir == null) {
-      return;
-    }
-    this.currentSnapshot = findLatestSnapshot(stateMachineDir.toPath());
+  public SingleFileSnapshotInfo updateLatestSnapshot(SingleFileSnapshotInfo info) {
+    return latestSnapshot.updateAndGet(
+        previous -> previous == null || info.getIndex() > previous.getIndex()? info: previous);
   }
 
   public static String getSnapshotFileName(long term, long endIndex) {
@@ -191,7 +192,19 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
 
   @Override
   public SingleFileSnapshotInfo getLatestSnapshot() {
-    return currentSnapshot;
+    final SingleFileSnapshotInfo s = latestSnapshot.get();
+    if (s != null) {
+      return s;
+    }
+    final File dir = stateMachineDir;
+    if (dir == null) {
+      return null;
+    }
+    try {
+      return updateLatestSnapshot(findLatestSnapshot(dir.toPath()));
+    } catch (IOException ignored) {
+      return null;
+    }
   }
 
   @VisibleForTesting

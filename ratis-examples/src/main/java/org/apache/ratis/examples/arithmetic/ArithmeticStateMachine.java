@@ -18,6 +18,7 @@
 package org.apache.ratis.examples.arithmetic;
 
 import org.apache.ratis.examples.arithmetic.expression.Expression;
+import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.Message;
@@ -25,6 +26,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -33,6 +35,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MD5FileUtil;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -102,14 +105,13 @@ public class ArithmeticStateMachine extends BaseStateMachine {
           + "\", last applied index=" + last);
     }
 
+    final MD5Hash md5 = MD5FileUtil.computeAndSaveMd5ForFile(snapshotFile);
+    final FileInfo info = new FileInfo(snapshotFile.toPath(), md5);
+    storage.updateLatestSnapshot(new SingleFileSnapshotInfo(info, last));
     return last.getIndex();
   }
 
   public long loadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
-    return load(snapshot, false);
-  }
-
-  private long load(SingleFileSnapshotInfo snapshot, boolean reload) throws IOException {
     if (snapshot == null) {
       LOG.warn("The snapshot info is null.");
       return RaftLog.INVALID_LOG_INDEX;
@@ -120,17 +122,21 @@ public class ArithmeticStateMachine extends BaseStateMachine {
       return RaftLog.INVALID_LOG_INDEX;
     }
 
+    // verify md5
+    final MD5Hash md5 = snapshot.getFile().getFileDigest();
+    if (md5 != null) {
+      MD5FileUtil.verifySavedMD5(snapshotFile, md5);
+    }
+
     final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
     try(AutoCloseableLock writeLock = writeLock();
         ObjectInputStream in = new ObjectInputStream(
             new BufferedInputStream(new FileInputStream(snapshotFile)))) {
-      if (reload) {
-        reset();
-      }
+      reset();
       setLastAppliedTermIndex(last);
       variables.putAll(JavaUtils.cast(in.readObject()));
     } catch (ClassNotFoundException e) {
-      throw new IllegalStateException(e);
+      throw new IllegalStateException("Failed to load " + snapshot, e);
     }
     return last.getIndex();
   }

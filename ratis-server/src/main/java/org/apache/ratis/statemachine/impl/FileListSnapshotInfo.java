@@ -28,16 +28,20 @@ import org.apache.ratis.util.JavaUtils;
 
 /**
  * Each snapshot has a list of files.
- *
+ * <p>
  * The objects of this class are immutable.
  */
 public class FileListSnapshotInfo implements SnapshotInfo {
   private final TermIndex termIndex;
   private final List<FileInfo> files;
 
-  public FileListSnapshotInfo(List<FileInfo> files, long term, long index) {
-    this.termIndex = TermIndex.valueOf(term, index);
+  public FileListSnapshotInfo(List<FileInfo> files, TermIndex termIndex) {
+    this.termIndex = termIndex;
     this.files = Collections.unmodifiableList(new ArrayList<>(files));
+  }
+
+  public FileListSnapshotInfo(List<FileInfo> files, long term, long index) {
+    this(files, TermIndex.valueOf(term, index));
   }
 
   @Override

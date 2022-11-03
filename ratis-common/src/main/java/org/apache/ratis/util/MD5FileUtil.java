@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,9 +26,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.regex.Matcher;
@@ -122,16 +122,26 @@ public abstract class MD5FileUtil {
    * Read dataFile and compute its MD5 checksum.
    */
   public static MD5Hash computeMd5ForFile(File dataFile) throws IOException {
-    InputStream in = new FileInputStream(dataFile);
-    try {
-      MessageDigest digester = MD5Hash.getDigester();
-      DigestInputStream dis = new DigestInputStream(in, digester);
+    final MessageDigest digester = MD5Hash.getDigester();
+    try (DigestInputStream dis = new DigestInputStream(Files.newInputStream(dataFile.toPath()), digester)) {
       IOUtils.readFully(dis, 128*1024);
-
-      return new MD5Hash(digester.digest());
-    } finally {
-      IOUtils.cleanup(LOG, in);
     }
+    return new MD5Hash(digester.digest());
+  }
+
+  public static MD5Hash computeAndSaveMd5ForFile(File dataFile) {
+    final MD5Hash md5;
+    try {
+      md5 = computeMd5ForFile(dataFile);
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to compute MD5 for file " + dataFile, e);
+    }
+    try {
+      saveMD5File(dataFile, md5);
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to save MD5 " + md5 + " for file " + dataFile, e);
+    }
+    return md5;
   }
 
   /**

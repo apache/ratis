@@ -20,7 +20,6 @@ package org.apache.ratis;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
@@ -39,7 +38,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
 import org.junit.Test;
@@ -56,12 +55,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.slf4j.event.Level;
 
 public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    Log4jUtils.setLogLevel(LogAppender.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(LogAppender.LOG, Level.DEBUG);
   }
 
   {

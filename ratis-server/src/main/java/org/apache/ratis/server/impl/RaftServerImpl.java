@@ -921,6 +921,9 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync() {
+    if (getInfo().getLeaderId() == null) {
+      JavaUtils.completeExceptionally(generateNotLeaderException());
+    }
     final ReadIndexRequestProto request = ServerProtoUtils.toReadIndexRequestProto(
         getMemberId(),  getInfo().getLeaderId());
     try {
@@ -944,7 +947,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (leader != null) {
         replyFuture = leader.getReadIndex();
       } else {
-        replyFuture = sendReadIndexAsync().thenApply(reply -> {
+        replyFuture = sendReadIndexAsync().thenApply(reply   -> {
           if (reply.getServerReply().getSuccess()) {
             return reply.getReadIndex();
           } else {
