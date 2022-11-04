@@ -34,6 +34,11 @@
       <groupId>org.apache.ratis</groupId>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <artifactId>ratis-metrics</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <scope>provided</scope>
+    </dependency>
 
     <dependency>
       <groupId>commons-cli</groupId>
