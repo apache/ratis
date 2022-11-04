@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -29,7 +29,9 @@ public interface AdminProtocol {
 
   RaftClientReply snapshotManagement(SnapshotManagementRequest request) throws IOException;
 
-  RaftClientReply leaderElectionManagement(LeaderElectionManagementRequest request) throws IOException;
+  default RaftClientReply leaderElectionManagement(LeaderElectionManagementRequest request) throws IOException {
+    throw new UnsupportedOperationException(getClass() + " does not support this method yet.");
+  }
 
   RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException;
 
