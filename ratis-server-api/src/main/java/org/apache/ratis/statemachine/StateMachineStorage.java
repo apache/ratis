@@ -17,12 +17,10 @@
  */
 package org.apache.ratis.statemachine;
 
+import org.apache.ratis.server.storage.RaftStorage;
+
 import java.io.File;
 import java.io.IOException;
-import java.util.Optional;
-
-import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.server.storage.RaftStorageDirectory;
 
 public interface StateMachineStorage {
 
