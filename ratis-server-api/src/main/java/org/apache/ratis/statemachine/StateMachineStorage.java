@@ -17,9 +17,12 @@
  */
 package org.apache.ratis.statemachine;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.server.storage.RaftStorageDirectory;
 
 public interface StateMachineStorage {
 
@@ -38,4 +41,14 @@ public interface StateMachineStorage {
   void format() throws IOException;
 
   void cleanupOldSnapshots(SnapshotRetentionPolicy snapshotRetentionPolicy) throws IOException;
+
+  /** @return the state machine directory. */
+  default File getSnapshotDir() {
+    return null;
+  }
+
+  /** @return the temporary directory. */
+  default File getTmpDir() {
+    return null;
+  }
 }

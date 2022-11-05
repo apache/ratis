@@ -146,7 +146,7 @@ class ServerState implements Closeable {
           RaftServerConfigKeys.storageDir(prop));
     }
 
-    snapshotManager = new SnapshotManager(storage, id);
+    snapshotManager = new SnapshotManager(id, storage.getStorageDir(), stateMachine.getStateMachineStorage());
 
     // On start the leader is null, start the clock now
     this.leaderId = null;
