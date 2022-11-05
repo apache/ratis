@@ -60,8 +60,6 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
 
   {
     final RaftProperties prop = getProperties();
-    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        StateMachineWithSeparatedSnapshotPath.class, StateMachine.class);
     RaftServerConfigKeys.Log.setPurgeGap(prop, PURGE_GAP);
     RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(
         prop, SNAPSHOT_TRIGGER_THRESHOLD);
@@ -73,6 +71,15 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
 
   @Test
   public void testMultiFileInstallSnapshot() throws Exception {
+    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        StateMachineWithSeparatedSnapshotPath.class, StateMachine.class);
+    runWithNewCluster(1, this::testMultiFileInstallSnapshot);
+  }
+
+  @Test
+  public void testSeparateSnapshotInstallPath() throws Exception {
+    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        StateMachineWithSeparatedSnapshotPath.class, StateMachine.class);
     runWithNewCluster(1, this::testMultiFileInstallSnapshot);
   }
 
@@ -107,7 +114,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       // Check the installed snapshot file number on each Follower matches with the
       // leader snapshot.
       for (RaftServer.Division follower : cluster.getFollowers()) {
-        Assert.assertEquals(follower.getStateMachine().getLatestSnapshot().getFiles().size(), 3);
+        Assert.assertEquals(3, follower.getStateMachine().getLatestSnapshot().getFiles().size());
       }
     } finally {
       cluster.shutdown();
@@ -128,6 +135,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       // sm/snapshot/1.bin
       // sm/snapshot/sub/2.bin
       snapshotRoot = new File(getSMdir(), "snapshot");
+      FileUtils.deleteFully(snapshotRoot);
       file1 = new File(snapshotRoot, "1.bin");
       file2 = new File(new File(snapshotRoot, "sub"), "2.bin");
     }
@@ -178,7 +186,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       files.add(new FileInfo(
           file2.toPath(),
           null));
-      Assert.assertEquals(files.size(), 2);
+      Assert.assertEquals(2, files.size());
 
       SnapshotInfo info = super.getLatestSnapshot();
       if (info == null) {
