@@ -229,10 +229,11 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       final TermIndex lastApplied = getLastAppliedTermIndex();
       final File snapshotTmpDir = new File(tmpDir, UUID.randomUUID().toString());
       final File snapshotRealDir = new File(snapshotDir, String.format("%d_%d", lastApplied.getTerm(), lastApplied.getIndex()));
-      Assert.assertTrue(snapshotTmpDir.mkdirs());
-      Assert.assertTrue(snapshotRealDir.mkdirs());
-      try {
 
+      try {
+        FileUtils.deleteFully(snapshotRealDir);
+        FileUtils.deleteFully(snapshotTmpDir);
+        Assert.assertTrue(snapshotTmpDir.mkdirs());
         final File snapshotFile1 = new File(snapshotTmpDir, "deer");
         final File snapshotFile2 = new File(snapshotTmpDir, "loves");
         final File snapshotFile3 = new File(snapshotTmpDir, "vegetable");
@@ -240,7 +241,6 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
         Assert.assertTrue(snapshotFile2.createNewFile());
         Assert.assertTrue(snapshotFile3.createNewFile());
         FileUtils.move(snapshotTmpDir, snapshotRealDir);
-
       } catch (IOException ioe) {
         LOG.error("create snapshot data file failed", ioe);
         return RaftLog.INVALID_LOG_INDEX;
@@ -262,7 +262,9 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
 
       List<FileInfo> fileInfos = new ArrayList<>();
       for (File f : Objects.requireNonNull(latest.listFiles())) {
-        fileInfos.add(new FileInfo(f.toPath(), null));
+        if (!f.getName().endsWith(".md5")) {
+          fileInfos.add(new FileInfo(f.toPath(), null));
+        }
       }
 
       return new FileListSnapshotInfo(fileInfos, snapshotLastIncluded.getTerm(), snapshotLastIncluded.getIndex());
