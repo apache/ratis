@@ -72,7 +72,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
   @Test
   public void testMultiFileInstallSnapshot() throws Exception {
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        StateMachineWithSeparatedSnapshotPath.class, StateMachine.class);
+        StateMachineWithMultiNestedSnapshotFile.class, StateMachine.class);
     runWithNewCluster(1, this::testMultiFileInstallSnapshot);
   }
 
