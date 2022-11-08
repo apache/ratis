@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.log4j.Level;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 import java.util.Arrays;
 import java.util.List;
@@ -34,7 +34,7 @@ import static org.junit.Assert.assertTrue;
 
 public class TestTimeDuration {
   {
-    Log4jUtils.setLogLevel(TimeDuration.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(TimeDuration.LOG, Level.DEBUG);
   }
 
   @Test(timeout = 1000)

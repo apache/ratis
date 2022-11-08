@@ -114,8 +114,8 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, PROXY_SIZE_KEY, PROXY_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
-    static void setProxySize(RaftProperties properties, int port) {
-      setInt(properties::setInt, PROXY_SIZE_KEY, port);
+    static void setProxySize(RaftProperties properties, int size) {
+      setInt(properties::setInt, PROXY_SIZE_KEY, size);
     }
 
     String SERVER_CACHED_KEY = PREFIX + ".server.cached";
@@ -133,8 +133,8 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, SERVER_SIZE_KEY, SERVER_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
-    static void setServerSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, SERVER_SIZE_KEY, port);
+    static void setServerSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, SERVER_SIZE_KEY, size);
     }
 
     String CLIENT_CACHED_KEY = PREFIX + ".client.cached";
@@ -152,8 +152,8 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, CLIENT_SIZE_KEY, CLIENT_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
-    static void setClientSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, CLIENT_SIZE_KEY, port);
+    static void setClientSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, CLIENT_SIZE_KEY, size);
     }
   }
 
@@ -567,8 +567,8 @@ public interface RaftServerConfigKeys {
       return getBoolean(properties::getBoolean,
           AUTO_TRIGGER_ENABLED_KEY, AUTO_TRIGGER_ENABLED_DEFAULT, getDefaultLog());
     }
-    static void setAutoTriggerEnabled(RaftProperties properties, boolean autoTriggerThreshold) {
-      setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerThreshold);
+    static void setAutoTriggerEnabled(RaftProperties properties, boolean autoTriggerEnabled) {
+      setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerEnabled);
     }
 
     /** The log index gap between to two snapshot creations. */
@@ -628,8 +628,8 @@ public interface RaftServerConfigKeys {
           requireMin(0), requireMax(65536));
     }
 
-    static void setAsyncRequestThreadPoolSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY, port);
+    static void setAsyncRequestThreadPoolSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY, size);
     }
 
     String ASYNC_WRITE_THREAD_POOL_SIZE_KEY = PREFIX + ".async.write.thread.pool.size";
@@ -641,8 +641,8 @@ public interface RaftServerConfigKeys {
           requireMin(0), requireMax(65536));
     }
 
-    static void setAsyncWriteThreadPoolSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, port);
+    static void setAsyncWriteThreadPoolSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, size);
     }
 
     String CLIENT_POOL_SIZE_KEY = PREFIX + ".client.pool.size";
@@ -795,8 +795,8 @@ public interface RaftServerConfigKeys {
       return getTimeDuration(properties.getTimeDuration(LEADER_STEP_DOWN_WAIT_TIME_DEFAULT.getUnit()),
           LEADER_STEP_DOWN_WAIT_TIME_KEY, LEADER_STEP_DOWN_WAIT_TIME_DEFAULT, getDefaultLog());
     }
-    static void setLeaderStepDownWaitTime(RaftProperties properties, TimeDuration noLeaderTimeout) {
-      setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, noLeaderTimeout);
+    static void setLeaderStepDownWaitTime(RaftProperties properties, TimeDuration leaderStepDownWaitTime) {
+      setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, leaderStepDownWaitTime);
     }
 
     String PRE_VOTE_KEY = PREFIX + ".pre-vote";
