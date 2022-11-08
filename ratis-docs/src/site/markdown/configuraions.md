@@ -237,7 +237,9 @@ the server rejects new incoming write requests until the pending situation is re
 | **Type**        | TimeDuration                                       |
 | **Default**     | 1s                                                 |
 
-watch.timeout should be a multiple of watch.timeout.denomination
+Note that `watch.timeout` must be a multiple of `watch.timeout.denomination`.
+
+--------------------------------------------------------------------------------
 
 ### Log - Configurations related to raft log.
 
@@ -247,6 +249,7 @@ watch.timeout should be a multiple of watch.timeout.denomination
 | **Type**        | boolean                      |
 | **Default**     | false                        |
 
+Only use memory RaftLog for testing.
 
 --------------------------------------------------------------------------------
 | **Property**    | `raft.server.log.queue.element-limit` |
@@ -261,8 +264,10 @@ watch.timeout should be a multiple of watch.timeout.denomination
 | **Type**        | SizeInBytes                                 |
 | **Default**     | 64MB                                        |
 
-log.queue.byte-limit and log.queue.element-limit are quite similar to write.element-limit and .write.byte-limit. When
-pending IO tasks reached the limit, Ratis will temporarily stall new IO Tasks.
+Note that `log.queue.element-limit` and `log.queue.byte-limit`
+are similar to `write.element-limit` and `write.byte-limit`.
+When the pending IO tasks reached the limit,
+Ratis will temporarily stall the new IO Tasks.
 
 --------------------------------------------------------------------------------
 
@@ -344,13 +349,14 @@ pending IO tasks reached the limit, Ratis will temporarily stall new IO Tasks.
 | **Type**        | `Log.CorruptionPolicy` enum [`EXCEPTION`, `WARN_AND_RETURN`] |
 | **Default**     | CorruptionPolicy.EXCEPTION                                   |
 
-1. `CorruptionPolicy.EXCEPTION`: Rethrow the exception.
-2. `CorruptionPolicy.WARN_AND_RETURN`: Print a warning log message and return all uncorrupted log entries up to the
-   corruption.
+1. `Log.CorruptionPolicy.EXCEPTION`:
+   Rethrow the exception.
+2. `Log.CorruptionPolicy.WARN_AND_RETURN`:
+   Print a warning log message and return all uncorrupted log entries up to the corruption.
 
-#### StateMachineData
+--------------------------------------------------------------------------------
 
-configurations related to `StateMachine.DataApi`
+#### StateMachineData - Configurations related to `StateMachine.DataApi`
 
 | **Property**    | `raft.server.log.statemachine.data.sync`                |
 |:----------------|:--------------------------------------------------------|
@@ -388,12 +394,13 @@ configurations related to `StateMachine.DataApi`
 | **Type**        | boolean                                             |
 | **Default**     | false                                               |
 
-If disabled, The stateMachineData will be cached inside the StateMachine itself. RaftLogCache will remove the state
-machine data part when caching a LogEntry.
+If disabled, the state machine is responsible to cache the data.
+RaftLogCache will remove the state machine data part when caching a LogEntry.
+It is to avoid double caching.
 
-#### Appender
+--------------------------------------------------------------------------------
 
-Configurations related to leader's LogAppender
+#### Appender - Configurations related to leader's LogAppender
 
 | **Property**    | `raft.server.log.appender.buffer.element-limit`            |
 |:----------------|:-----------------------------------------------------------|
@@ -424,9 +431,13 @@ It is the limit of
 | **Type**        | boolean                                             |
 | **Default**     | true                                                |
 
-If install.snapshot.enabled is disabled, leader won't send the snapshot to follower. Instead, if the leader detects that
-it does not contain the missing logs of a follower, it will just send a notification to that follower, and the
-follower's statemachine is responsible for fetching and installing snapshot from leader statemachine.
+- When `install.snapshot.enabled` is true and the leader detects that
+it does not contain the missing logs of a follower,
+the leader sends a snapshot to follower as specified in the Raft Consensus Algorithm.
+- When `install.snapshot.enabled` is false,
+the leader won't send snapshots to follower.
+It will just send a notification to that follower instead.
+The follower's statemachine is responsible for fetching and installing snapshot by some other means.
 
 | **Property**    | `raft.server.log.appender.wait-time.min`       |
 |:----------------|:-----------------------------------------------|
@@ -434,9 +445,9 @@ follower's statemachine is responsible for fetching and installing snapshot from
 | **Type**        | TimeDuration                                   |
 | **Default**     | 10ms                                           |
 
-### Snapshot
+--------------------------------------------------------------------------------
 
-Configurations related to snapshot.
+### Snapshot - Configurations related to snapshot.
 
 | **Property**    | `raft.server.snapshot.auto.trigger.enabled`                             |
 |:----------------|:------------------------------------------------------------------------|
@@ -462,9 +473,9 @@ Configurations related to snapshot.
 | **Type**        | int                                       |
 | **Default**     | -1, means only keep latest snapshot       |
 
-### DataStream
+--------------------------------------------------------------------------------
 
-ThreadPool configurations related to DataStream Api.
+### DataStream - ThreadPool configurations related to DataStream Api.
 
 | **Property**    | `raft.server.data-stream.async.request.thread.pool.cached` |
 |:----------------|:-----------------------------------------------------------|
@@ -498,10 +509,9 @@ ThreadPool configurations related to DataStream Api.
 | **Type**        | int                                         |
 | **Default**     | 10                                          |
 
+--------------------------------------------------------------------------------
 
-### RPC
-
-Configurations related to Server RPC timeout.
+### RPC - Configurations related to Server RPC timeout.
 
 | **Property**    | `raft.server.rpc.request.timeout` |
 |:----------------|:----------------------------------|
@@ -521,14 +531,13 @@ Configurations related to Server RPC timeout.
 | **Type**        | TimeDuration                       |
 | **Default**     | 60s                                |
 
-slowness.timeout is use in two places:
-
+Note that `slowness.timeout` is use in two places:
 * Leader would consider a follower slow if `slowness.timeout` elapsed without hearing any responses from this follower.
 * If server monitors a JVM Pause longer than `slowness.timeout`, it would shut down itself.
 
-#### RetryCache
+--------------------------------------------------------------------------------
 
-configuration related to server retry cache.
+#### RetryCache - Configuration related to server retry cache.
 
 | **Property**    | `raft.server.retrycache.expire-time` |
 |:----------------|:-------------------------------------|
@@ -542,9 +551,9 @@ configuration related to server retry cache.
 | **Type**        | TimeDuration                                    |
 | **Default**     | 100us                                           |
 
-#### Notification
+--------------------------------------------------------------------------------
 
-Configurations related to state machine notifications.
+#### Notification - Configurations related to state machine notifications.
 
 | **Property**    | `raft.server.notification.no-leader.timeout`                                   |
 |:----------------|:-------------------------------------------------------------------------------|
@@ -552,9 +561,9 @@ Configurations related to state machine notifications.
 | **Type**        | TimeDuration                                                                   |
 | **Default**     | 60s                                                                            |
 
-#### LeaderElection
+--------------------------------------------------------------------------------
 
-Configurations related to leader election.
+#### LeaderElection - Configurations related to leader election.
 
 | **Property**    | `raft.server.rpc.timeout.min`      |
 |:----------------|:-----------------------------------|
@@ -568,9 +577,9 @@ Configurations related to leader election.
 | **Type**        | TimeDuration                       |
 | **Default**     | 300ms                              |
 
-First election timeout is introduced to reduce unavailable time when a RaftGroup initially starts up.
-
 --------------------------------------------------------------------------------
+
+First election timeout is introduced to reduce unavailable time when a RaftGroup initially starts up.
 
 | **Property**    | `raft.server.rpc.first-election.timeout.min` |
 |:----------------|:---------------------------------------------|
@@ -583,6 +592,7 @@ First election timeout is introduced to reduce unavailable time when a RaftGroup
 | **Description** | Raft Protocol max election timeout           |
 | **Type**        | TimeDuration                                 |
 | **Default**     | 300ms                                        |
+
 --------------------------------------------------------------------------------
 
 | **Property**    | `raft.server.leaderelection.leader.step-down.wait-time`                    |
