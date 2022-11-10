@@ -274,12 +274,16 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
           tlsConfig.isFileBasedConfig()?
               SslContextBuilder.forServer(tlsConfig.getCertChainFile(),
                   tlsConfig.getPrivateKeyFile()):
+              tlsConfig.isManagerBasedConfig()?
+                  SslContextBuilder.forServer(tlsConfig.getSslKeyManager()):
               SslContextBuilder.forServer(tlsConfig.getPrivateKey(),
                   tlsConfig.getCertChain());
       if (tlsConfig.getMtlsEnabled()) {
         sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
         if (tlsConfig.isFileBasedConfig()) {
           sslContextBuilder.trustManager(tlsConfig.getTrustStoreFile());
+        } else if (tlsConfig.isManagerBasedConfig()) {
+          sslContextBuilder.trustManager(tlsConfig.getSslTrustManager());
         } else {
             sslContextBuilder.trustManager(tlsConfig.getTrustStore());
         }

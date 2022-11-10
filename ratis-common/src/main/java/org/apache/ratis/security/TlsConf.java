@@ -20,6 +20,8 @@ package org.apache.ratis.security;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
@@ -96,24 +98,34 @@ public class TlsConf {
   /** Configurations for a trust manager. */
   public static final class TrustManagerConf {
     /** Trust certificates. */
-    private final CertificatesConf trustCertificates;
+    private CertificatesConf trustCertificates;
+    private TrustManager trustManager;
 
     private TrustManagerConf(CertificatesConf trustCertificates) {
       this.trustCertificates = trustCertificates;
+    }
+
+    private TrustManagerConf(TrustManager trustManager) {
+      this.trustManager = trustManager;
     }
 
     /** @return the trust certificates. */
     public CertificatesConf getTrustCertificates() {
       return trustCertificates;
     }
+
+    public TrustManager getTrustManager() {
+      return trustManager;
+    }
   }
 
   /** Configurations for a key manager. */
   public static final class KeyManagerConf {
     /** A {@link PrivateKey}. */
-    private final PrivateKeyConf privateKey;
+    private PrivateKeyConf privateKey;
     /** Certificates for the private key. */
-    private final CertificatesConf keyCertificates;
+    private CertificatesConf keyCertificates;
+    private KeyManager keyManager;
 
     private KeyManagerConf(PrivateKeyConf privateKey, CertificatesConf keyCertificates) {
       this.privateKey = Objects.requireNonNull(privateKey, "privateKey == null");
@@ -122,6 +134,10 @@ public class TlsConf {
           () -> "The privateKey (isFileBased? " + privateKey.isFileBased()
               + ") and the keyCertificates (isFileBased? " + keyCertificates.isFileBased()
               + ") must be either both file based or both not.");
+    }
+
+    private KeyManagerConf(KeyManager keyManager) {
+      this.keyManager = keyManager;
     }
 
     /** @return the private key. */
@@ -136,6 +152,10 @@ public class TlsConf {
 
     public boolean isFileBased() {
       return privateKey.isFileBased();
+    }
+
+    public KeyManager getKeyManager() {
+      return keyManager;
     }
   }
 
@@ -188,6 +208,8 @@ public class TlsConf {
     private PrivateKeyConf privateKey;
     private CertificatesConf keyCertificates;
     private boolean mutualTls;
+    private KeyManager keyManager;
+    private TrustManager trustManager;
 
     public Builder setName(String name) {
       this.name = name;
@@ -209,6 +231,16 @@ public class TlsConf {
       return this;
     }
 
+    public Builder setKeyManager(KeyManager keyManager) {
+      this.keyManager = keyManager;
+      return this;
+    }
+
+    public Builder setTrustManager(TrustManager trustManager) {
+      this.trustManager = trustManager;
+      return this;
+    }
+
     public Builder setMutualTls(boolean mutualTls) {
       this.mutualTls = mutualTls;
       return this;
@@ -223,11 +255,17 @@ public class TlsConf {
     }
 
     private TrustManagerConf buildTrustManagerConf() {
-      return new TrustManagerConf(trustCertificates);
+      if (trustManager != null) {
+        return new TrustManagerConf(trustManager);
+      } else {
+        return new TrustManagerConf(trustCertificates);
+      }
     }
 
     private KeyManagerConf buildKeyManagerConf() {
-      if (privateKey == null && keyCertificates == null) {
+      if (keyManager != null) {
+        return new KeyManagerConf(keyManager);
+      } else if (privateKey == null && keyCertificates == null) {
         return null;
       } else if (privateKey != null && keyCertificates != null) {
         return new KeyManagerConf(privateKey, keyCertificates);

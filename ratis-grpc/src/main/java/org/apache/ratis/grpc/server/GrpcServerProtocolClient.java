@@ -79,13 +79,17 @@ public class GrpcServerProtocolClient implements Closeable {
 
     if (tlsConfig!= null) {
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
-      if (tlsConfig.isFileBasedConfig()) {
+      if (tlsConfig.isManagerBasedConfig()) {
+        sslContextBuilder.trustManager(tlsConfig.getSslTrustManager());
+      } else if (tlsConfig.isFileBasedConfig()) {
         sslContextBuilder.trustManager(tlsConfig.getTrustStoreFile());
       } else {
         sslContextBuilder.trustManager(tlsConfig.getTrustStore());
       }
       if (tlsConfig.getMtlsEnabled()) {
-        if (tlsConfig.isFileBasedConfig()) {
+        if (tlsConfig.isManagerBasedConfig()) {
+          sslContextBuilder.keyManager(tlsConfig.getSslKeyManager());
+        } else if (tlsConfig.isFileBasedConfig()) {
           sslContextBuilder.keyManager(tlsConfig.getCertChainFile(),
               tlsConfig.getPrivateKeyFile());
         } else {
