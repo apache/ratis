@@ -105,7 +105,7 @@ public abstract class MetricRegistries {
    * @param stopReporter Consumer to stop the reporter for the registry.
    */
   public abstract void removeReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration,
-                                               Consumer<RatisMetricRegistry> stopReporter);
+      Consumer<RatisMetricRegistry> stopReporter);
   
   /**
    * Enable jmx reporter for the metricRegistry.
