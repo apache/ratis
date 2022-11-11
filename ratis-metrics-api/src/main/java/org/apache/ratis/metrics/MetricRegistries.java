@@ -107,7 +107,7 @@ public abstract class MetricRegistries {
   public void removeReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration,
       Consumer<RatisMetricRegistry> stopReporter) {
   }
-  
+
   /**
    * Enable jmx reporter for the metricRegistry.
    */
