@@ -25,16 +25,21 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.storage.FileChunkReader;
 import org.apache.ratis.server.storage.FileInfo;
+import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.JavaUtils;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * An {@link Iterable} of {@link InstallSnapshotRequestProto} for sending a snapshot.
- *
+ * <p>
  * The snapshot is sent by one or more requests, where
  * a snapshot has one or more files, and
  * a file is sent by one or more chunks.
@@ -43,6 +48,7 @@ import java.util.NoSuchElementException;
 class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
   private final RaftServer.Division server;
   private final RaftPeerId followerId;
+  private final Function<FileInfo, Path> getRelativePath;
 
   /** The snapshot to be sent. */
   private final SnapshotInfo snapshot;
@@ -71,6 +77,21 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
     this.snapshotChunkMaxSize = snapshotChunkMaxSize;
     this.totalSize = snapshot.getFiles().stream().mapToLong(FileInfo::getFileSize).reduce(Long::sum).orElseThrow(
             () -> new IllegalStateException("Failed to compute total size for snapshot " + snapshot));
+
+    final File snapshotDir = server.getStateMachine().getStateMachineStorage().getSnapshotDir();
+    final Function<Path, Path> relativize;
+    if (snapshotDir != null) {
+      final Path dir = snapshotDir.toPath();
+      // add STATE_MACHINE_DIR_NAME for compatibility.
+      relativize = p -> new File(RaftStorageDirectory.STATE_MACHINE_DIR_NAME, dir.relativize(p).toString()).toPath();
+    } else {
+      final Path dir = server.getRaftStorage().getStorageDir().getRoot().toPath();
+      relativize = dir::relativize;
+    }
+    this.getRelativePath = info -> Optional.of(info.getPath())
+        .filter(Path::isAbsolute)
+        .map(relativize)
+        .orElseGet(info::getPath);
   }
 
   @Override
@@ -97,7 +118,7 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
     final FileInfo info = snapshot.getFiles().get(fileIndex);
     try {
       if (current == null) {
-        current = new FileChunkReader(info, server.getRaftStorage().getStorageDir());
+        current = new FileChunkReader(info, getRelativePath.apply(info));
       }
       final FileChunkProto chunk = current.readFileChunk(snapshotChunkMaxSize);
       if (chunk.getDone()) {
