@@ -21,7 +21,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.mock;
 
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
+import org.junit.Assert;
 import org.junit.Test;
 
 
@@ -50,5 +53,28 @@ public class TestMetricRegistriesLoader {
     assertEquals(loader1, instance);
     assertNotEquals(loader2, instance);
     assertNotEquals(loader3, instance);
+  }
+
+  @Test
+  public void testAddRemoveReporter() {
+    final AtomicLong cntr = new AtomicLong(0L);
+    final MetricRegistries r = MetricRegistries.global();
+    Consumer<RatisMetricRegistry> reporter = v-> cntr.incrementAndGet();
+    Consumer<RatisMetricRegistry> stopReporter = v-> cntr.incrementAndGet();
+    r.addReporterRegistration(reporter, stopReporter);
+
+    // check if add and remove of metric do reporting counter increase
+    MetricRegistryInfo info = new MetricRegistryInfo("t1", "t1", "t1", "t1");
+    r.create(info);
+    Assert.assertTrue(cntr.get() == 1);
+    r.remove(info);
+    Assert.assertTrue(cntr.get() == 2);
+
+    // after removal, add and remove of metric must not do any increase
+    r.removeReporterRegistration(reporter, stopReporter);
+    r.create(info);
+    Assert.assertTrue(cntr.get() == 2);
+    r.remove(info);
+    Assert.assertTrue(cntr.get() == 2);
   }
 }
