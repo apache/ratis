@@ -93,10 +93,20 @@ public abstract class MetricRegistries {
    * Add hook to register reporter for the metricRegistry.
    *
    * @param reporterRegistration Consumer to create the reporter for the registry.
+   * @param stopReporter Consumer to stop the reporter for the registry.
    */
   public abstract void addReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration,
       Consumer<RatisMetricRegistry> stopReporter);
 
+  /**
+   * Remove hook of reporter for the metricRegistry.
+   *
+   * @param reporterRegistration Consumer to create the reporter for the registry.
+   * @param stopReporter Consumer to stop the reporter for the registry.
+   */
+  public abstract void removeReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration,
+      Consumer< RatisMetricRegistry> stopReporter);
+  
   /**
    * Enable jmx reporter for the metricRegistry.
    */
