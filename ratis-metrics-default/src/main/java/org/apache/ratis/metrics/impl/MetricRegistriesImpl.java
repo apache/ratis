@@ -114,6 +114,13 @@ public class MetricRegistriesImpl extends MetricRegistries {
   }
 
   @Override
+  public void removeReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration,
+      Consumer<RatisMetricRegistry> stopReporter) {
+    this.reporterRegistrations.remove(reporterRegistration);
+    this.stopReporters.remove(stopReporter);
+  }
+
+  @Override
   public void enableJmxReporter() {
     addReporterRegistration(
         MetricsReporting.jmxReporter(),

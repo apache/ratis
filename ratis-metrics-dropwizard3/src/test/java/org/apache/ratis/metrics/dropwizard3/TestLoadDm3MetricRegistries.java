@@ -17,8 +17,12 @@
  */
 package org.apache.ratis.metrics.dropwizard3;
 
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistriesLoader;
+import org.apache.ratis.metrics.MetricRegistryInfo;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -30,5 +34,28 @@ public class TestLoadDm3MetricRegistries {
   public void testLoadDm3() {
     final MetricRegistries r = MetricRegistriesLoader.load();
     Assert.assertSame(Dm3MetricRegistriesImpl.class, r.getClass());
+  }
+
+  @Test
+  public void testAddRemoveReporter() {
+    final AtomicLong cntr = new AtomicLong(0L);
+    final MetricRegistries r = Dm3MetricRegistriesImpl.global();
+    Consumer<RatisMetricRegistry> reporter = v-> cntr.incrementAndGet();
+    Consumer<RatisMetricRegistry> stopReporter = v-> cntr.incrementAndGet();
+    r.addReporterRegistration(reporter, stopReporter);
+
+    // check if add and remove of metric do reporting counter increase
+    MetricRegistryInfo info = new MetricRegistryInfo("t1", "t1", "t1", "t1");
+    r.create(info);
+    Assert.assertTrue(cntr.get() == 1);
+    r.remove(info);
+    Assert.assertTrue(cntr.get() == 2);
+
+    // after removal, add and remove of metric must not do any increase
+    r.removeReporterRegistration(reporter, stopReporter);
+    r.create(info);
+    Assert.assertTrue(cntr.get() == 2);
+    r.remove(info);
+    Assert.assertTrue(cntr.get() == 2);
   }
 }
