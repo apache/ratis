@@ -712,8 +712,8 @@ public class TestSegmentedRaftLog extends BaseTest {
       long start = System.nanoTime();
       for (int i = 0; i < entries.size(); i += 5) {
         // call append API
-        futures.add(raftLog.append(entries.get(i), entries.get(i + 1), entries.get(i + 2), entries.get(i + 3),
-            entries.get(i + 4)));
+        futures.add(raftLog.append(Arrays.asList(
+            entries.get(i), entries.get(i + 1), entries.get(i + 2), entries.get(i + 3), entries.get(i + 4))));
       }
       for (List<CompletableFuture<Long>> futureList: futures) {
         futureList.forEach(CompletableFuture::join);
