@@ -40,6 +40,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.nio.file.Path;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.util.Optional;
@@ -71,9 +72,9 @@ public class SnapshotManager {
     this.tmp = MemoizedSupplier.valueOf(
         () -> Optional.ofNullable(smStorage.getTmpDir()).orElseGet(() -> dir.get().getTmpDir()));
 
-    this.getRelativePath =
-        c -> dir.get().getStateMachineDir().toPath()
-            .relativize(new File(dir.get().getRoot(), c.getFilename()).toPath()).toString();
+    final Supplier<Path> smDir = MemoizedSupplier.valueOf(() -> dir.get().getStateMachineDir().toPath());
+    this.getRelativePath = c -> smDir.get().relativize(
+        new File(dir.get().getRoot(), c.getFilename()).toPath()).toString();
   }
 
   public void installSnapshot(InstallSnapshotRequestProto request, StateMachine stateMachine, RaftStorageDirectory dir)

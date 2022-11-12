@@ -116,13 +116,7 @@ class ServerState {
     this.raftStorage = MemoizedCheckedSupplier.valueOf(
         () -> StorageImplUtils.initRaftStorage(storageDirName, option, prop));
 
-    this.snapshotManager = StorageImplUtils.newSnapshotManager(id, () -> {
-          try {
-            return raftStorage.get().getStorageDir();
-          } catch (IOException e) {
-            throw new IllegalStateException("RaftStorageDirectory is not properly initialized " + storageDirName, e);
-          }
-        },
+    this.snapshotManager = StorageImplUtils.newSnapshotManager(id, () -> getStorage().getStorageDir(),
         stateMachine.getStateMachineStorage());
 
     // On start the leader is null, start the clock now
