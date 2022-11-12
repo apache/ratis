@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Log;
 import org.apache.ratis.server.storage.RaftStorage.StartupOption;
+import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.RaftServer.Division.LOG;
@@ -42,8 +44,9 @@ public final class StorageImplUtils {
     //Never constructed
   }
 
-  public static SnapshotManager newSnapshotManager(RaftPeerId id) {
-    return new SnapshotManager(id);
+  public static SnapshotManager newSnapshotManager(RaftPeerId id,
+                                                   Supplier<RaftStorageDirectory> dir, StateMachineStorage smStorage) {
+    return new SnapshotManager(id, dir, smStorage);
   }
 
   /** Create a {@link RaftStorageImpl}. */

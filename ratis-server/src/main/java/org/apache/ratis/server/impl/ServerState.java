@@ -116,7 +116,8 @@ class ServerState {
     this.raftStorage = MemoizedCheckedSupplier.valueOf(
         () -> StorageImplUtils.initRaftStorage(storageDirName, option, prop));
 
-    this.snapshotManager = StorageImplUtils.newSnapshotManager(id);
+    this.snapshotManager = StorageImplUtils.newSnapshotManager(id, () -> getStorage().getStorageDir(),
+        stateMachine.getStateMachineStorage());
 
     // On start the leader is null, start the clock now
     this.leaderId = null;
