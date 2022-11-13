@@ -51,8 +51,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 
 /**
  * This class takes the responsibility of all the raft log related I/O ops for a
@@ -103,6 +105,10 @@ class SegmentedRaftLogWorker {
     private final Queue<WriteLog> q = new LinkedList<>();
     private volatile long index;
 
+    int getQueueSize() {
+      return q.size();
+    }
+
     void offerOrCompleteFuture(WriteLog writeLog) {
       if (writeLog.getEndIndex() <= index || !offer(writeLog)) {
         writeLog.completeFuture();
@@ -132,22 +138,53 @@ class SegmentedRaftLogWorker {
     }
   }
 
+  static class Queues implements ToIntFunction<String> {
+    private final DataBlockingQueue<Task> taskQueue;
+    private final WriteLogTasks writeTasks = new WriteLogTasks();
+
+    Queues(String name, RaftProperties properties) {
+      final SizeInBytes queueByteLimit = RaftServerConfigKeys.Log.queueByteLimit(properties);
+      final int queueElementLimit = RaftServerConfigKeys.Log.queueElementLimit(properties);
+      this.taskQueue = new DataBlockingQueue<>(name, queueByteLimit, queueElementLimit, Task::getSerializedSize);
+    }
+
+    DataBlockingQueue<Task> getTaskQueue() {
+      return taskQueue;
+    }
+
+    WriteLogTasks getWriteTasks() {
+      return writeTasks;
+    }
+
+    @Override
+    public int applyAsInt(String type) {
+      if (type.equals(SegmentedRaftLogMetrics.RAFT_LOG_DATA_QUEUE_SIZE)) {
+        return taskQueue.getNumElements();
+      } else if (type.equals(SegmentedRaftLogMetrics.RAFT_LOG_WORKER_QUEUE_SIZE)) {
+        return writeTasks.getQueueSize();
+      }
+      throw new IllegalArgumentException("Unknown type " + type);
+    }
+
+    @Override
+    public String toString() {
+      return "#tasks=" + taskQueue.getNumElements()
+          + ", #writes=" + writeTasks.getQueueSize();
+    }
+  }
+
   private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", this, s);
   private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", this, s);
 
   private final String name;
-  /**
-   * The task queue accessed by rpc handler threads and the io worker thread.
-   */
-  private final DataBlockingQueue<Task> queue;
-  private final WriteLogTasks writeTasks = new WriteLogTasks();
-  private volatile boolean running = true;
+  private final AtomicReference<Queues> queues;
   private final Thread workerThread;
 
   private final RaftStorage storage;
   private volatile SegmentedRaftLogOutputStream out;
   private final Runnable submitUpdateCommitEvent;
   private final StateMachine stateMachine;
+
   private final Timer logFlushTimer;
   private final Timer raftLogSyncTimer;
   private final Timer raftLogQueueingTimer;
@@ -174,7 +211,7 @@ class SegmentedRaftLogWorker {
   private final long segmentMaxSize;
   private final long preallocatedSize;
   private final RaftServer.Division server;
-  private int flushBatchSize;
+  private volatile int flushBatchSize;
 
   private final boolean asyncFlush;
   private final boolean unsafeFlush;
@@ -188,15 +225,13 @@ class SegmentedRaftLogWorker {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     LOG.info("new {} for {}", name, storage);
 
+    this.queues = new AtomicReference<>(new Queues(name, properties));
+
     this.submitUpdateCommitEvent = submitUpdateCommitEvent;
     this.stateMachine = stateMachine;
     this.raftLogMetrics = metricRegistry;
     this.storage = storage;
     this.server = server;
-    final SizeInBytes queueByteLimit = RaftServerConfigKeys.Log.queueByteLimit(properties);
-    final int queueElementLimit = RaftServerConfigKeys.Log.queueElementLimit(properties);
-    this.queue =
-        new DataBlockingQueue<>(name, queueByteLimit, queueElementLimit, Task::getSerializedSize);
 
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
@@ -208,8 +243,7 @@ class SegmentedRaftLogWorker {
     this.workerThread = new Thread(this::run, name);
 
     // Server Id can be null in unit tests
-    metricRegistry.addDataQueueSizeGauge(queue);
-    metricRegistry.addLogWorkerQueueSizeGauge(writeTasks.q);
+    metricRegistry.addQueueSizeGauges(queues);
     metricRegistry.addFlushBatchSizeGauge(() -> (Gauge<Integer>) () -> flushBatchSize);
     this.logFlushTimer = metricRegistry.getFlushTimer();
     this.raftLogSyncTimer = metricRegistry.getRaftLogSyncTimer();
@@ -244,7 +278,11 @@ class SegmentedRaftLogWorker {
   }
 
   void close() {
-    this.running = false;
+    final Queues previous = queues.getAndSet(null);
+    if (previous == null) {
+      return;
+    }
+    LOG.info("{} close: {}", name, previous);
     workerThread.interrupt();
     Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
     try {
@@ -253,7 +291,14 @@ class SegmentedRaftLogWorker {
       Thread.currentThread().interrupt();
     }
     IOUtils.cleanup(LOG, out);
-    LOG.info("{} close()", name);
+  }
+
+  Optional<DataBlockingQueue<Task>> getTaskQueue() {
+    return Optional.ofNullable(queues.get()).map(Queues::getTaskQueue);
+  }
+
+  Optional<WriteLogTasks> getWriteTasks() {
+    return Optional.ofNullable(queues.get()).map(Queues::getWriteTasks);
   }
 
   /**
@@ -261,7 +306,7 @@ class SegmentedRaftLogWorker {
    * worker's state accordingly.
    */
   void syncWithSnapshot(long lastSnapshotIndex) {
-    queue.clear();
+    getTaskQueue().ifPresent(DataBlockingQueue::clear);
     lastWrittenIndex = lastSnapshotIndex;
     flushIndex.setUnconditionally(lastSnapshotIndex, infoIndexChange);
     safeCacheEvictIndex.setUnconditionally(lastSnapshotIndex, infoIndexChange);
@@ -278,16 +323,22 @@ class SegmentedRaftLogWorker {
    */
   private Task addIOTask(Task task) {
     LOG.debug("{} adds IO task {}", name, task);
+    final Optional<DataBlockingQueue<Task>> queue = getTaskQueue();
+    if (!queue.isPresent()) {
+      LOG.warn("Failed to add IO task {} since {} is not running.", task, name);
+      return task;
+    }
+
     try {
       final Timer.Context enqueueTimerContext = raftLogEnqueueingDelayTimer.time();
-      for(; !queue.offer(task, ONE_SECOND); ) {
+      for(; !queue.get().offer(task, ONE_SECOND); ) {
         Preconditions.assertTrue(isAlive(),
             "the worker thread is not alive");
       }
       enqueueTimerContext.stop();
       task.startTimerOnEnqueue(raftLogQueueingTimer);
     } catch (Exception e) {
-      if (e instanceof InterruptedException && !running) {
+      if (e instanceof InterruptedException && !isRunning()) {
         LOG.info("Got InterruptedException when adding task " + task
             + ". The SegmentedRaftLogWorker already stopped.");
       } else {
@@ -298,17 +349,22 @@ class SegmentedRaftLogWorker {
     return task;
   }
 
+  boolean isRunning() {
+    return queues.get() != null;
+  }
+
   boolean isAlive() {
-    return running && workerThread.isAlive();
+    return isRunning() && workerThread.isAlive();
   }
 
   private void run() {
     // if and when a log task encounters an exception
     RaftLogIOException logIOException = null;
 
-    while (running) {
+    Queues q;
+    while ((q = queues.get()) != null) { // q == null => already closed
       try {
-        Task task = queue.poll(ONE_SECOND);
+        final Task task = q.getTaskQueue().poll(ONE_SECOND);
         if (task != null) {
           task.stopTimerOnDequeue();
           try {
@@ -339,16 +395,14 @@ class SegmentedRaftLogWorker {
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        if (running) {
+        if (isRunning()) {
           LOG.warn("{} got interrupted while still running",
               Thread.currentThread().getName());
         }
-        LOG.info(Thread.currentThread().getName()
-            + " was interrupted, exiting. There are " + queue.getNumElements()
-            + " tasks remaining in the queue.");
+        LOG.info(Thread.currentThread().getName() + " was interrupted, exiting...");
         return;
       } catch (Exception e) {
-        if (!running) {
+        if (!isRunning()) {
           LOG.info("{} got closed and hit exception",
               Thread.currentThread().getName(), e);
         } else {
@@ -365,7 +419,7 @@ class SegmentedRaftLogWorker {
     } else if (pendingFlushNum >= forceSyncNum) {
       return true;
     }
-    return pendingFlushNum > 0 && queue.isEmpty();
+    return pendingFlushNum > 0 && getTaskQueue().map(DataQueue::isEmpty).orElse(false);
   }
 
   @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
@@ -433,7 +487,7 @@ class SegmentedRaftLogWorker {
     final long i = index;
     flushIndex.updateIncreasingly(i, traceIndexChange);
     postUpdateFlushedIndex(Math.toIntExact(lastWrittenIndex - index));
-    writeTasks.updateIndex(i);
+    getWriteTasks().ifPresent(writes -> writes.updateIndex(i));
   }
 
   private void postUpdateFlushedIndex(int count) {
@@ -552,7 +606,7 @@ class SegmentedRaftLogWorker {
 
     @Override
     void done() {
-      writeTasks.offerOrCompleteFuture(this);
+      getWriteTasks().ifPresent(writes -> writes.offerOrCompleteFuture(this));
     }
 
     @Override

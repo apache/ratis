@@ -23,9 +23,9 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache;
-import org.apache.ratis.util.DataQueue;
 
-import java.util.Queue;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.ToIntFunction;
 
 public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   //////////////////////////////
@@ -84,8 +84,15 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     super(serverId);
   }
 
-  public void addDataQueueSizeGauge(DataQueue queue) {
-    registry.gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> queue::getNumElements);
+  public void addQueueSizeGauges(AtomicReference<? extends ToIntFunction<String>> queues) {
+    registry.gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> () -> {
+      final ToIntFunction<String> f = queues.get();
+      return f != null? f.applyAsInt(RAFT_LOG_DATA_QUEUE_SIZE): -1;
+    });
+    registry.gauge(RAFT_LOG_WORKER_QUEUE_SIZE, () -> () -> {
+      final ToIntFunction<String> f = queues.get();
+      return f != null? f.applyAsInt(RAFT_LOG_WORKER_QUEUE_SIZE): -1;
+    });
   }
 
   public void addClosedSegmentsNum(SegmentedRaftLogCache cache) {
@@ -104,10 +111,6 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     registry.gauge(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES, () -> () -> {
       return cache.getOpenSegmentSizeInBytes();
     });
-  }
-
-  public void addLogWorkerQueueSizeGauge(Queue queue) {
-    registry.gauge(RAFT_LOG_WORKER_QUEUE_SIZE, () -> () -> queue.size());
   }
 
   public void addFlushBatchSizeGauge(MetricRegistry.MetricSupplier<Gauge> supplier) {
