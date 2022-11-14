@@ -325,19 +325,24 @@ class SegmentedRaftLogWorker {
     LOG.debug("{} adds IO task {}", name, task);
     final Optional<DataBlockingQueue<Task>> queue = getTaskQueue();
     if (!queue.isPresent()) {
-      LOG.warn("Failed to add IO task {} since {} is not running.", task, name);
+      task.completeExceptionally(new IllegalStateException(
+          "Failed to add " + task + " since " + this + " is not running."));
       return task;
     }
 
     try {
       final Timer.Context enqueueTimerContext = raftLogEnqueueingDelayTimer.time();
       for(; !queue.get().offer(task, ONE_SECOND); ) {
-        Preconditions.assertTrue(isAlive(),
-            "the worker thread is not alive");
+        if (!isAlive()) {
+          task.completeExceptionally(new IllegalStateException(
+              "Failed to add " + task + " since " + this + " is no longer alive."));
+          return task;
+        }
       }
       enqueueTimerContext.stop();
       task.startTimerOnEnqueue(raftLogQueueingTimer);
     } catch (Exception e) {
+      task.completeExceptionally(new IllegalStateException("Failed to add " + task + " to " + this, e));
       if (e instanceof InterruptedException && !isRunning()) {
         LOG.info("Got InterruptedException when adding task " + task
             + ". The SegmentedRaftLogWorker already stopped.");

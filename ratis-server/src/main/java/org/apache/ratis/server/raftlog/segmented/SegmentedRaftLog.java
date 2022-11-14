@@ -90,6 +90,10 @@ public class SegmentedRaftLog extends RaftLogBase {
       return future;
     }
 
+    void completeExceptionally(Exception e) {
+      future.completeExceptionally(e);
+    }
+
     void done() {
       completeFuture();
     }
