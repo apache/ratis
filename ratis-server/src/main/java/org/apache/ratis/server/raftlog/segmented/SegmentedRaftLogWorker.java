@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Timer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
@@ -51,6 +50,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -211,7 +211,7 @@ class SegmentedRaftLogWorker {
   private final long segmentMaxSize;
   private final long preallocatedSize;
   private final RaftServer.Division server;
-  private volatile int flushBatchSize;
+  private final AtomicInteger flushBatchSize = new AtomicInteger();
 
   private final boolean asyncFlush;
   private final boolean unsafeFlush;
@@ -236,7 +236,6 @@ class SegmentedRaftLogWorker {
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
-    this.flushBatchSize = 0;
 
     this.stateMachineDataPolicy = new StateMachineDataPolicy(properties, metricRegistry);
 
@@ -244,7 +243,7 @@ class SegmentedRaftLogWorker {
 
     // Server Id can be null in unit tests
     metricRegistry.addQueueSizeGauges(queues);
-    metricRegistry.addFlushBatchSizeGauge(() -> (Gauge<Integer>) () -> flushBatchSize);
+    metricRegistry.addFlushBatchSizeGauge(() -> flushBatchSize::get);
     this.logFlushTimer = metricRegistry.getFlushTimer();
     this.raftLogSyncTimer = metricRegistry.getRaftLogSyncTimer();
     this.raftLogQueueingTimer = metricRegistry.getRaftLogQueueTimer();
@@ -440,7 +439,7 @@ class SegmentedRaftLogWorker {
         if (stateMachineDataPolicy.isSync()) {
           stateMachineDataPolicy.getFromFuture(f, () -> this + "-flushStateMachineData");
         }
-        flushBatchSize = (int)(lastWrittenIndex - flushIndex.get());
+        flushBatchSize.set(Math.toIntExact(lastWrittenIndex - flushIndex.get()));
         if (unsafeFlush) {
           // unsafe-flush: call updateFlushedIndexIncreasingly() without waiting the underlying FileChannel.force(..).
           unsafeFlushOutStream();
