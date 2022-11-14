@@ -34,7 +34,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Supplier;
+import java.util.function.IntFunction;
 import java.util.zip.Checksum;
 
 public class SegmentedRaftLogOutputStream implements Closeable {
@@ -53,7 +53,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private final File file;
   private final BufferedWriteChannel out; // buffered FileChannel for writing
   private final Checksum checksum;
-  private final Supplier<byte[]> sharedBuffer;
+  private final IntFunction<byte[]> byteArrayGet;
 
   private final long segmentMaxSize;
   private final long preallocatedSize;
@@ -65,13 +65,13 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   }
 
   SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
-      long preallocatedSize, ByteBuffer byteBuffer, Supplier<byte[]> sharedBuffer)
+      long preallocatedSize, ByteBuffer byteBuffer, IntFunction<byte[]> byteArrayGet)
       throws IOException {
     this.file = file;
     this.checksum = new PureJavaCrc32C();
     this.segmentMaxSize = segmentMaxSize;
     this.preallocatedSize = preallocatedSize;
-    this.sharedBuffer = sharedBuffer;
+    this.byteArrayGet = byteArrayGet;
     this.out = BufferedWriteChannel.open(file, append, byteBuffer);
 
     if (!append) {
@@ -98,7 +98,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
     final int serialized = entry.getSerializedSize();
     final int proto = CodedOutputStream.computeUInt32SizeNoTag(serialized) + serialized;
     final int total = proto + 4; // proto and 4-byte checksum
-    final byte[] buf = sharedBuffer != null? sharedBuffer.get(): new byte[total];
+    final byte[] buf = byteArrayGet != null? byteArrayGet.apply(total): new byte[total];
     Preconditions.assertTrue(total <= buf.length, () -> "total = " + total + " > buf.length " + buf.length);
     preallocateIfNecessary(total);
 
