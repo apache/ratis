@@ -24,6 +24,7 @@ import com.codahale.metrics.Timer;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.ToIntFunction;
 
@@ -113,8 +114,8 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     });
   }
 
-  public void addFlushBatchSizeGauge(MetricRegistry.MetricSupplier<Gauge> supplier) {
-    registry.gauge(RAFT_LOG_SYNC_BATCH_SIZE, supplier);
+  public void addFlushBatchSizeGauge(AtomicInteger syncBatchSize) {
+    registry.gauge(RAFT_LOG_SYNC_BATCH_SIZE, () -> syncBatchSize::get);
   }
 
   private Timer getTimer(String timerName) {

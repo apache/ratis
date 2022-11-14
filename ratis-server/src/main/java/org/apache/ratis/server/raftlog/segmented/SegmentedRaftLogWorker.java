@@ -23,6 +23,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -142,10 +143,19 @@ class SegmentedRaftLogWorker {
     private final DataBlockingQueue<Task> taskQueue;
     private final WriteLogTasks writeTasks = new WriteLogTasks();
 
+    private final ByteBuffer writeBuffer;
+    private final Supplier<byte[]> sharedBuffer;
+
     Queues(String name, RaftProperties properties) {
       final SizeInBytes queueByteLimit = RaftServerConfigKeys.Log.queueByteLimit(properties);
       final int queueElementLimit = RaftServerConfigKeys.Log.queueElementLimit(properties);
       this.taskQueue = new DataBlockingQueue<>(name, queueByteLimit, queueElementLimit, Task::getSerializedSize);
+
+      final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
+      this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
+      final int logEntryLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
+      // 4 bytes (serialized size) + logEntryLimit + 4 bytes (checksum)
+      this.sharedBuffer = () -> new byte[logEntryLimit + 8];
     }
 
     DataBlockingQueue<Task> getTaskQueue() {
@@ -154,6 +164,15 @@ class SegmentedRaftLogWorker {
 
     WriteLogTasks getWriteTasks() {
       return writeTasks;
+    }
+
+    ByteBuffer getWriteBuffer() {
+      Preconditions.assertSame(0, writeBuffer.position(), "writeBuffer.position()");
+      return writeBuffer;
+    }
+
+    Supplier<byte[]> getSharedBuffer() {
+      return sharedBuffer;
     }
 
     @Override
@@ -173,6 +192,8 @@ class SegmentedRaftLogWorker {
     }
   }
 
+  static final AtomicInteger COUNT = new AtomicInteger();
+
   private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", this, s);
   private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", this, s);
 
@@ -190,8 +211,6 @@ class SegmentedRaftLogWorker {
   private final Timer raftLogQueueingTimer;
   private final Timer raftLogEnqueueingDelayTimer;
   private final SegmentedRaftLogMetrics raftLogMetrics;
-  private final ByteBuffer writeBuffer;
-  private final Supplier<byte[]> sharedBuffer;
 
   /**
    * The number of entries that have been written into the SegmentedRaftLogOutputStream but
@@ -222,7 +241,7 @@ class SegmentedRaftLogWorker {
   SegmentedRaftLogWorker(RaftGroupMemberId memberId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
                          RaftServer.Division server, RaftStorage storage, RaftProperties properties,
                          SegmentedRaftLogMetrics metricRegistry) {
-    this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
+    this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.getAndIncrement();
     LOG.info("new {} for {}", name, storage);
 
     this.queues = new AtomicReference<>(new Queues(name, properties));
@@ -243,17 +262,12 @@ class SegmentedRaftLogWorker {
 
     // Server Id can be null in unit tests
     metricRegistry.addQueueSizeGauges(queues);
-    metricRegistry.addFlushBatchSizeGauge(() -> flushBatchSize::get);
+    metricRegistry.addFlushBatchSizeGauge(flushBatchSize);
     this.logFlushTimer = metricRegistry.getFlushTimer();
     this.raftLogSyncTimer = metricRegistry.getRaftLogSyncTimer();
     this.raftLogQueueingTimer = metricRegistry.getRaftLogQueueTimer();
     this.raftLogEnqueueingDelayTimer = metricRegistry.getRaftLogEnqueueDelayTimer();
 
-    final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
-    this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
-    final int logEntryLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
-    // 4 bytes (serialized size) + logEntryLimit + 4 bytes (checksum)
-    this.sharedBuffer = MemoizedSupplier.valueOf(() -> new byte[logEntryLimit + 8]);
     this.unsafeFlush = RaftServerConfigKeys.Log.unsafeFlushEnabled(properties);
     this.asyncFlush = RaftServerConfigKeys.Log.asyncFlushEnabled(properties);
     if (asyncFlush && unsafeFlush) {
@@ -806,12 +820,16 @@ class SegmentedRaftLogWorker {
   private void freeSegmentedRaftLogOutputStream() {
     IOUtils.cleanup(LOG, out);
     out = null;
-    Preconditions.assertTrue(writeBuffer.position() == 0);
+    Optional.ofNullable(queues.get()).ifPresent(Queues::getWriteBuffer); // for asserting buffer position
   }
 
   private void allocateSegmentedRaftLogOutputStream(File file, boolean append) throws IOException {
-    Preconditions.assertTrue(out == null && writeBuffer.position() == 0);
+    final Queues q = queues.get();
+    if (q == null) {
+      throw new AlreadyClosedException(this + " is closed.");
+    }
+    Preconditions.assertNull(out, "out");
     out = new SegmentedRaftLogOutputStream(file, append, segmentMaxSize,
-            preallocatedSize, writeBuffer, sharedBuffer);
+            preallocatedSize, q.getWriteBuffer(), q.getSharedBuffer());
   }
 }
