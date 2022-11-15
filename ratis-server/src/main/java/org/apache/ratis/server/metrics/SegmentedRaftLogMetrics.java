@@ -18,8 +18,6 @@
 
 package org.apache.ratis.server.metrics;
 
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache;
