@@ -348,6 +348,16 @@ public interface RaftServerConfigKeys {
       setSizeInBytes(properties::set, WRITE_BUFFER_SIZE_KEY, writeBufferSize);
     }
 
+    String BYTE_ARRAY_SHARE_KEY = PREFIX + ".byte-array.share";
+    boolean BYTE_ARRAY_SHARE_DEFAULT = true;
+    static boolean byteArrayShare(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          BYTE_ARRAY_SHARE_KEY, BYTE_ARRAY_SHARE_DEFAULT, getDefaultLog());
+    }
+    static void setByteArrayShare(RaftProperties properties, boolean isShared) {
+      setBoolean(properties::setBoolean, BYTE_ARRAY_SHARE_KEY, isShared);
+    }
+
     String FORCE_SYNC_NUM_KEY = PREFIX + ".force.sync.num";
     int FORCE_SYNC_NUM_DEFAULT = 128;
     static int forceSyncNum(RaftProperties properties) {

@@ -19,7 +19,6 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Timer;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientInvocationId;
@@ -51,6 +50,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -132,6 +132,53 @@ class SegmentedRaftLogWorker {
     }
   }
 
+  static class ByteArray {
+    private final boolean shared;
+    private final int sizeLimit;
+    private volatile byte[] bytes;
+
+    ByteArray(boolean shared, int sizeLimit) {
+      this.shared = shared;
+      this.sizeLimit = sizeLimit;
+    }
+
+    byte[] get(int size) {
+      final byte[] byteArray = getImpl(size);
+      Preconditions.assertNotNull(byteArray, "byteArray");
+      Preconditions.assertTrue(byteArray.length >= size);
+      return byteArray;
+    }
+
+    private byte[] getImpl(int size) {
+      if (!shared) {
+        return new byte[size];
+      }
+
+      final byte[] existing = bytes;
+      if (existing != null && existing.length >= size) {
+        return existing;
+      }
+
+      synchronized (this) {
+        if (bytes != null && bytes.length >= size) {
+          return bytes;
+        }
+        bytes = new byte[Math.min(sizeLimit, roundUpPowerOfTwo(size))];
+        return bytes;
+      }
+    }
+
+    static int roundUpPowerOfTwo(int n) {
+      final long highestOne = Integer.highestOneBit(n);
+      if (highestOne == n) {
+        return n; // n is a power of two.
+      }
+      return Math.toIntExact(highestOne << 1);
+    }
+  }
+
+  private static final AtomicInteger COUNT = new AtomicInteger();
+
   private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", this, s);
   private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", this, s);
 
@@ -154,7 +201,7 @@ class SegmentedRaftLogWorker {
   private final Timer raftLogEnqueueingDelayTimer;
   private final SegmentedRaftLogMetrics raftLogMetrics;
   private final ByteBuffer writeBuffer;
-  private final Supplier<byte[]> sharedBuffer;
+  private final ByteArray byteArray;
 
   /**
    * The number of entries that have been written into the SegmentedRaftLogOutputStream but
@@ -185,7 +232,7 @@ class SegmentedRaftLogWorker {
   SegmentedRaftLogWorker(RaftGroupMemberId memberId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
                          RaftServer.Division server, RaftStorage storage, RaftProperties properties,
                          SegmentedRaftLogMetrics metricRegistry) {
-    this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
+    this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.getAndIncrement();
     LOG.info("new {} for {}", name, storage);
 
     this.submitUpdateCommitEvent = submitUpdateCommitEvent;
@@ -219,8 +266,9 @@ class SegmentedRaftLogWorker {
     final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
     final int logEntryLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
+    final boolean share = RaftServerConfigKeys.Log.byteArrayShare(properties);
     // 4 bytes (serialized size) + logEntryLimit + 4 bytes (checksum)
-    this.sharedBuffer = MemoizedSupplier.valueOf(() -> new byte[logEntryLimit + 8]);
+    this.byteArray = new ByteArray(share, logEntryLimit + 8);
     this.unsafeFlush = RaftServerConfigKeys.Log.unsafeFlushEnabled(properties);
     this.asyncFlush = RaftServerConfigKeys.Log.asyncFlushEnabled(properties);
     if (asyncFlush && unsafeFlush) {
@@ -368,7 +416,6 @@ class SegmentedRaftLogWorker {
     return pendingFlushNum > 0 && queue.isEmpty();
   }
 
-  @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
   private void flushIfNecessary() throws IOException {
     if (shouldFlush()) {
       raftLogMetrics.onRaftLogFlush();
@@ -754,6 +801,6 @@ class SegmentedRaftLogWorker {
   private void allocateSegmentedRaftLogOutputStream(File file, boolean append) throws IOException {
     Preconditions.assertTrue(out == null && writeBuffer.position() == 0);
     out = new SegmentedRaftLogOutputStream(file, append, segmentMaxSize,
-            preallocatedSize, writeBuffer, sharedBuffer);
+            preallocatedSize, writeBuffer, byteArray::get);
   }
 }
