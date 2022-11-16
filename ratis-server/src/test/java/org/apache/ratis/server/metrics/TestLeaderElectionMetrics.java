@@ -30,6 +30,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 /**
  * Test for LeaderElectionMetrics.
  */
@@ -43,7 +45,7 @@ public class TestLeaderElectionMetrics {
     RaftGroupId raftGroupId = RaftGroupId.randomId();
     RaftPeerId raftPeerId = RaftPeerId.valueOf("TestId");
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
-    leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(raftGroupMemberId, () -> 1000L);
+    leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(raftGroupMemberId, new AtomicReference<>());
     ratisMetricRegistry = leaderElectionMetrics.getRegistry();
   }
 

@@ -143,19 +143,10 @@ class SegmentedRaftLogWorker {
     private final DataBlockingQueue<Task> taskQueue;
     private final WriteLogTasks writeTasks = new WriteLogTasks();
 
-    private final ByteBuffer writeBuffer;
-    private final Supplier<byte[]> sharedBuffer;
-
     Queues(String name, RaftProperties properties) {
       final SizeInBytes queueByteLimit = RaftServerConfigKeys.Log.queueByteLimit(properties);
       final int queueElementLimit = RaftServerConfigKeys.Log.queueElementLimit(properties);
       this.taskQueue = new DataBlockingQueue<>(name, queueByteLimit, queueElementLimit, Task::getSerializedSize);
-
-      final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
-      this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
-      final int logEntryLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
-      // 4 bytes (serialized size) + logEntryLimit + 4 bytes (checksum)
-      this.sharedBuffer = () -> new byte[logEntryLimit + 8];
     }
 
     DataBlockingQueue<Task> getTaskQueue() {
@@ -164,15 +155,6 @@ class SegmentedRaftLogWorker {
 
     WriteLogTasks getWriteTasks() {
       return writeTasks;
-    }
-
-    ByteBuffer getWriteBuffer() {
-      Preconditions.assertSame(0, writeBuffer.position(), "writeBuffer.position()");
-      return writeBuffer;
-    }
-
-    Supplier<byte[]> getSharedBuffer() {
-      return sharedBuffer;
     }
 
     @Override
@@ -192,6 +174,28 @@ class SegmentedRaftLogWorker {
     }
   }
 
+  static class Buffers {
+    private final ByteBuffer writeBuffer;
+    private final Supplier<byte[]> sharedBuffer;
+
+    Buffers(RaftProperties properties) {
+      final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
+      this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
+      final int logEntryLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
+      // 4 bytes (serialized size) + logEntryLimit + 4 bytes (checksum)
+      this.sharedBuffer = MemoizedSupplier.valueOf(() -> new byte[logEntryLimit + 8]);
+    }
+
+    ByteBuffer getWriteBuffer() {
+      Preconditions.assertSame(0, writeBuffer.position(), "writeBuffer.position()");
+      return writeBuffer;
+    }
+
+    Supplier<byte[]> getSharedBuffer() {
+      return sharedBuffer;
+    }
+  }
+
   static final AtomicInteger COUNT = new AtomicInteger();
 
   private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", this, s);
@@ -199,6 +203,7 @@ class SegmentedRaftLogWorker {
 
   private final String name;
   private final AtomicReference<Queues> queues;
+  private final AtomicReference<Buffers> buffers;
   private final Thread workerThread;
 
   private final RaftStorage storage;
@@ -245,6 +250,7 @@ class SegmentedRaftLogWorker {
     LOG.info("new {} for {}", name, storage);
 
     this.queues = new AtomicReference<>(new Queues(name, properties));
+    this.buffers = new AtomicReference<>(new Buffers(properties));
 
     this.submitUpdateCommitEvent = submitUpdateCommitEvent;
     this.stateMachine = stateMachine;
@@ -296,6 +302,7 @@ class SegmentedRaftLogWorker {
       return;
     }
     LOG.info("{} close: {}", name, previous);
+    buffers.set(null);
     workerThread.interrupt();
     Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
     try {
@@ -820,16 +827,16 @@ class SegmentedRaftLogWorker {
   private void freeSegmentedRaftLogOutputStream() {
     IOUtils.cleanup(LOG, out);
     out = null;
-    Optional.ofNullable(queues.get()).ifPresent(Queues::getWriteBuffer); // for asserting buffer position
+    Optional.ofNullable(buffers.get()).ifPresent(Buffers::getWriteBuffer); // for asserting buffer position
   }
 
   private void allocateSegmentedRaftLogOutputStream(File file, boolean append) throws IOException {
-    final Queues q = queues.get();
-    if (q == null) {
+    final Buffers b = buffers.get();
+    if (b == null) {
       throw new AlreadyClosedException(this + " is closed.");
     }
     Preconditions.assertNull(out, "out");
     out = new SegmentedRaftLogOutputStream(file, append, segmentMaxSize,
-            preallocatedSize, q.getWriteBuffer(), q.getSharedBuffer());
+            preallocatedSize, b.getWriteBuffer(), b.getSharedBuffer());
   }
 }

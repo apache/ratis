@@ -52,7 +52,7 @@ public class TestRetryCacheMetrics {
       retryCache = new RetryCacheImpl(RaftServerConfigKeys.RetryCache.EXPIRY_TIME_DEFAULT, null);
 
       final RaftServerMetricsImpl raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
-          raftGroupMemberId, () -> null, retryCache::getStatistics);
+          raftGroupMemberId, id -> null, retryCache::getStatistics);
       ratisMetricRegistry = raftServerMetrics.getRegistry();
     }
     

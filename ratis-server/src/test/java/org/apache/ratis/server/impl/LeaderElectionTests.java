@@ -57,6 +57,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
@@ -593,7 +594,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     when(server.getInfo()).thenReturn(info);
     final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(RaftPeerId.valueOf("any"), RaftGroupId.randomId());
     when(server.getMemberId()).thenReturn(memberId);
-    LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(memberId, () -> 0);
+    LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
+        memberId, new AtomicReference<>());
     when(server.getLeaderElectionMetrics()).thenReturn(leaderElectionMetrics);
     RaftServerProxy proxy = mock(RaftServerProxy.class);
     RaftProperties properties = new RaftProperties();

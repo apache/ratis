@@ -209,9 +209,9 @@ class RaftServerImpl implements RaftServer.Division,
 
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
-        getMemberId(), state::getLastLeaderElapsedTimeMs);
+        getMemberId(), state.getLastNoLeaderTime());
     this.raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
-        getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
+        getMemberId(), commitInfoCache::get, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
     this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
@@ -594,8 +594,9 @@ class RaftServerImpl implements RaftServer.Division,
         .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs());
     switch (currentRole) {
     case CANDIDATE:
+      final Timestamp lastNoLeaderTime = state.getLastNoLeaderTime().get();
       CandidateInfoProto.Builder candidate = CandidateInfoProto.newBuilder()
-          .setLastLeaderElapsedTimeMs(state.getLastLeaderElapsedTimeMs());
+          .setLastLeaderElapsedTimeMs(lastNoLeaderTime != null? lastNoLeaderTime.elapsedTimeMs(): 0L);
       roleInfo.setCandidateInfo(candidate);
       break;
 

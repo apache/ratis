@@ -81,7 +81,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
 
   /** Follower Id -> heartbeat elapsed */
   private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
-  private final Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache;
+  private final Function<RaftPeerId, CommitInfoProto> commitInfoCache;
 
   /** id -> metric */
   private static final Map<RaftGroupMemberId, RaftServerMetricsImpl> METRICS = new ConcurrentHashMap<>();
@@ -94,7 +94,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   public static RaftServerMetricsImpl computeIfAbsentRaftServerMetrics(RaftGroupMemberId serverId,
-      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
+      Function<RaftPeerId, CommitInfoProto> commitInfoCache,
       Supplier<RetryCache.Statistics> retryCacheStatistics) {
     return METRICS.computeIfAbsent(serverId,
         key -> new RaftServerMetricsImpl(serverId, commitInfoCache, retryCacheStatistics));
@@ -105,7 +105,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   public RaftServerMetricsImpl(RaftGroupMemberId serverId,
-      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
+      Function<RaftPeerId, CommitInfoProto> commitInfoCache,
       Supplier<RetryCache.Statistics> retryCacheStatistics) {
     this.registry = getMetricRegistryForRaftServer(serverId.toString());
     this.commitInfoCache = commitInfoCache;
@@ -146,8 +146,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
    * Register a commit index tracker for the peer in cluster.
    */
   public void addPeerCommitIndexGauge(RaftPeerId peerId) {
-    registry.gauge(getPeerCommitIndexGaugeKey(peerId), () -> () -> Optional.ofNullable(commitInfoCache.get())
-        .map(cache -> cache.apply(peerId))
+    registry.gauge(getPeerCommitIndexGaugeKey(peerId), () -> () -> Optional.ofNullable(commitInfoCache.apply(peerId))
         .map(CommitInfoProto::getCommitIndex)
         .orElse(0L));
   }

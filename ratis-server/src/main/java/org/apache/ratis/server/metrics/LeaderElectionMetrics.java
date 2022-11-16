@@ -27,7 +27,7 @@ import org.apache.ratis.util.Timestamp;
 import com.codahale.metrics.Timer;
 
 import java.util.Optional;
-import java.util.function.LongSupplier;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Class to update the metrics related to Leader Election.
@@ -46,9 +46,10 @@ public final class LeaderElectionMetrics extends RatisMetrics {
   public static final String LAST_LEADER_ELECTION_ELAPSED_TIME = "lastLeaderElectionElapsedTime";
   private volatile Timestamp lastElectionTime;
 
-  private LeaderElectionMetrics(RaftGroupMemberId serverId, LongSupplier getLastLeaderElapsedTimeMs) {
+  private LeaderElectionMetrics(RaftGroupMemberId serverId, AtomicReference<Timestamp> lastNoLeaderTime) {
     this.registry = getMetricRegistryForLeaderElection(serverId);
-    registry.gauge(LAST_LEADER_ELAPSED_TIME, () -> getLastLeaderElapsedTimeMs::getAsLong);
+    registry.gauge(LAST_LEADER_ELAPSED_TIME,
+        () -> () -> Optional.ofNullable(lastNoLeaderTime.get()).map(Timestamp::elapsedTimeMs).orElse(0L));
     registry.gauge(LAST_LEADER_ELECTION_ELAPSED_TIME,
         () -> () -> Optional.ofNullable(lastElectionTime).map(Timestamp::elapsedTimeMs).orElse(-1L));
   }
@@ -60,8 +61,8 @@ public final class LeaderElectionMetrics extends RatisMetrics {
   }
 
   public static LeaderElectionMetrics getLeaderElectionMetrics(
-      RaftGroupMemberId serverId, LongSupplier getLastLeaderElapsedTimeMs) {
-    return new LeaderElectionMetrics(serverId, getLastLeaderElapsedTimeMs);
+      RaftGroupMemberId serverId, AtomicReference<Timestamp> lastNoLeaderTime) {
+    return new LeaderElectionMetrics(serverId, lastNoLeaderTime);
   }
 
   public void onNewLeaderElectionCompletion() {
