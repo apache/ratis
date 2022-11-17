@@ -19,6 +19,7 @@ package org.apache.ratis.metrics.impl;
 
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.codahale.metrics.ConsoleReporter;
 import com.codahale.metrics.Counter;
@@ -43,6 +44,7 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
   private MetricRegistry metricRegistry = new MetricRegistry();
 
   private final MetricRegistryInfo info;
+  private final Map<String, String> metricNameCache = new ConcurrentHashMap<>();
 
   private JmxReporter jmxReporter;
   private ConsoleReporter consoleReporter;
@@ -101,7 +103,7 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
   }
 
   private String getMetricName(String shortName) {
-    return MetricRegistry.name(info.getName(), shortName);
+    return metricNameCache.computeIfAbsent(shortName, key -> MetricRegistry.name(info.getName(), shortName));
   }
 
   @Override public <T extends Metric> T register(String name, T metric) throws IllegalArgumentException {
