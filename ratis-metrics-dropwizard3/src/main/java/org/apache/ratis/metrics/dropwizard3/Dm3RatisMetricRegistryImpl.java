@@ -29,11 +29,13 @@ import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricSet;
 import com.codahale.metrics.JmxReporter;
+
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
@@ -51,6 +53,7 @@ public class Dm3RatisMetricRegistryImpl implements RatisMetricRegistry {
 
   private final MetricRegistryInfo info;
   private final String namePrefix;
+  private final Map<String, String> metricNameCache = new ConcurrentHashMap<>();
 
   private JmxReporter jmxReporter;
   private ConsoleReporter consoleReporter;
@@ -113,7 +116,7 @@ public class Dm3RatisMetricRegistryImpl implements RatisMetricRegistry {
   }
 
   private String getMetricName(String shortName) {
-    return MetricRegistry.name(namePrefix, shortName);
+    return metricNameCache.computeIfAbsent(shortName, key -> MetricRegistry.name(namePrefix, shortName));
   }
 
   private <T extends Metric> T register(String name, T metric) throws IllegalArgumentException {
