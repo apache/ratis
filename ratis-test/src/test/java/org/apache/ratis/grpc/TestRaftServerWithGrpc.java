@@ -26,7 +26,6 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.slf4j.event.Level;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.security.SecurityTestUtils;
-import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;

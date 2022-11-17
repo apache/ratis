@@ -98,15 +98,17 @@ public class TlsConf {
   /** Configurations for a trust manager. */
   public static final class TrustManagerConf {
     /** Trust certificates. */
-    private CertificatesConf trustCertificates;
-    private TrustManager trustManager;
+    private final CertificatesConf trustCertificates;
+    private final TrustManager trustManager;
 
     private TrustManagerConf(CertificatesConf trustCertificates) {
       this.trustCertificates = trustCertificates;
+      this.trustManager = null;
     }
 
     private TrustManagerConf(TrustManager trustManager) {
       this.trustManager = trustManager;
+      this.trustCertificates = null;
     }
 
     /** @return the trust certificates. */
@@ -122,10 +124,10 @@ public class TlsConf {
   /** Configurations for a key manager. */
   public static final class KeyManagerConf {
     /** A {@link PrivateKey}. */
-    private PrivateKeyConf privateKey;
+    private final PrivateKeyConf privateKey;
     /** Certificates for the private key. */
-    private CertificatesConf keyCertificates;
-    private KeyManager keyManager;
+    private final CertificatesConf keyCertificates;
+    private final KeyManager keyManager;
 
     private KeyManagerConf(PrivateKeyConf privateKey, CertificatesConf keyCertificates) {
       this.privateKey = Objects.requireNonNull(privateKey, "privateKey == null");
@@ -134,10 +136,13 @@ public class TlsConf {
           () -> "The privateKey (isFileBased? " + privateKey.isFileBased()
               + ") and the keyCertificates (isFileBased? " + keyCertificates.isFileBased()
               + ") must be either both file based or both not.");
+      keyManager = null;
     }
 
     private KeyManagerConf(KeyManager keyManager) {
       this.keyManager = keyManager;
+      this.privateKey = null;
+      this.keyCertificates = null;
     }
 
     /** @return the private key. */

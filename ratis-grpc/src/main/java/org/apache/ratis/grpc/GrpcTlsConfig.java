@@ -34,14 +34,9 @@ import java.util.Optional;
  */
 public class GrpcTlsConfig extends TlsConf {
   private final boolean fileBasedConfig;
-  private final boolean managerBasedConfig;
 
   public boolean isFileBasedConfig() {
     return fileBasedConfig;
-  }
-
-  public boolean isManagerBasedConfig() {
-    return managerBasedConfig;
   }
 
   public PrivateKey getPrivateKey() {
@@ -88,18 +83,6 @@ public class GrpcTlsConfig extends TlsConf {
         .orElse(null);
   }
 
-  public TrustManager getSslTrustManager() {
-    return Optional.ofNullable(getTrustManager())
-        .map(TrustManagerConf::getTrustManager)
-        .orElse(null);
-  }
-
-  public KeyManager getSslKeyManager() {
-    return Optional.ofNullable(getKeyManager())
-        .map(KeyManagerConf::getKeyManager)
-        .orElse(null);
-  }
-
   public boolean getMtlsEnabled() {
     return isMutualTls();
   }
@@ -119,18 +102,13 @@ public class GrpcTlsConfig extends TlsConf {
     this(newBuilder(privateKeyFile, certChainFile, trustStoreFile, mTlsEnabled), true);
   }
 
-  public GrpcTlsConfig(KeyManager keyManager, TrustManager trustManager, boolean mTlsEnabled) {
-    this(newBuilder(keyManager, trustManager, mTlsEnabled), false, true);
-  }
-
   private GrpcTlsConfig(Builder builder, boolean fileBasedConfig) {
-    this(builder, fileBasedConfig, false);
-  }
-
-  private GrpcTlsConfig(Builder builder, boolean fileBasedConfig, boolean managerBasedConfig) {
     super(builder);
     this.fileBasedConfig = fileBasedConfig;
-    this.managerBasedConfig = managerBasedConfig;
+  }
+
+  public GrpcTlsConfig(KeyManager keyManager, TrustManager trustManager, boolean mTlsEnabled) {
+    this(newBuilder(keyManager, trustManager, mTlsEnabled), false);
   }
 
   private static Builder newBuilder(PrivateKey privateKey, X509Certificate certChain,
@@ -151,7 +129,6 @@ public class GrpcTlsConfig extends TlsConf {
   }
 
   private static Builder newBuilder(KeyManager keyManager, TrustManager trustManager, boolean mTlsEnabled) {
-    final Builder b = newBuilder().setMutualTls(mTlsEnabled).setKeyManager(keyManager).setTrustManager(trustManager);
-    return b;
+    return newBuilder().setMutualTls(mTlsEnabled).setKeyManager(keyManager).setTrustManager(trustManager);
   }
 }

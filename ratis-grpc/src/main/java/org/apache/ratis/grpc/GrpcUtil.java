@@ -20,11 +20,16 @@ package org.apache.ratis.grpc;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.security.TlsConf.TrustManagerConf;
+import org.apache.ratis.security.TlsConf.CertificatesConf;
+import org.apache.ratis.security.TlsConf.PrivateKeyConf;
+import org.apache.ratis.security.TlsConf.KeyManagerConf;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.Metadata;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -33,6 +38,8 @@ import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -230,6 +237,57 @@ public interface GrpcUtil {
       } catch (Exception e) {
         LOG.error("Unexpected exception while waiting for channel termination", e);
       }
+    }
+  }
+
+  static SslContextBuilder initSslContextBuilderForServer(KeyManagerConf keyManagerConfig) {
+    final KeyManager keyManager = keyManagerConfig.getKeyManager();
+    if (keyManager != null) {
+      return SslContextBuilder.forServer(keyManager);
+    }
+    final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
+    final CertificatesConf certificates = keyManagerConfig.getKeyCertificates();
+
+    if (keyManagerConfig.isFileBased()) {
+      return SslContextBuilder.forServer(certificates.getFile(), privateKey.getFile());
+    } else {
+      return SslContextBuilder.forServer(privateKey.get(), certificates.get());
+    }
+  }
+
+  static void setTrustManager(SslContextBuilder b, TrustManagerConf trustManagerConfig) {
+    if (trustManagerConfig == null) {
+      return;
+    }
+    final TrustManager trustManager = trustManagerConfig.getTrustManager();
+    if (trustManager != null) {
+      b.trustManager(trustManager);
+      return;
+    }
+    final CertificatesConf certificates = trustManagerConfig.getTrustCertificates();
+    if (certificates.isFileBased()) {
+      b.trustManager(certificates.getFile());
+    } else {
+      b.trustManager(certificates.get());
+    }
+  }
+
+  static void setKeyManager(SslContextBuilder b, KeyManagerConf keyManagerConfig) {
+    if (keyManagerConfig == null) {
+      return;
+    }
+    final KeyManager keyManager = keyManagerConfig.getKeyManager();
+    if (keyManager != null) {
+      b.keyManager(keyManager);
+      return;
+    }
+    final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
+    final CertificatesConf certificates = keyManagerConfig.getKeyCertificates();
+
+    if (keyManagerConfig.isFileBased()) {
+      b.keyManager(certificates.getFile(), privateKey.getFile());
+    } else {
+      b.keyManager(privateKey.get(), certificates.get());
     }
   }
 }

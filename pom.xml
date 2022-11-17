@@ -219,7 +219,7 @@
     <!-- number of threads/forks to use when running tests in parallel, see parallel-tests profile -->
     <testsThreadCount>4</testsThreadCount>
 
-    <bouncycastle.version>1.67</bouncycastle.version>
+    <bouncycastle.version>1.70</bouncycastle.version>
   </properties>
 
   <dependencyManagement>
