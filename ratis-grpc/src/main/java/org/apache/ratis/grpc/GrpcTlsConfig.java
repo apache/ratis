@@ -19,6 +19,8 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.security.TlsConf;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
@@ -105,6 +107,10 @@ public class GrpcTlsConfig extends TlsConf {
     this.fileBasedConfig = fileBasedConfig;
   }
 
+  public GrpcTlsConfig(KeyManager keyManager, TrustManager trustManager, boolean mTlsEnabled) {
+    this(newBuilder(keyManager, trustManager, mTlsEnabled), false);
+  }
+
   private static Builder newBuilder(PrivateKey privateKey, X509Certificate certChain,
       List<X509Certificate> trustStore, boolean mTlsEnabled) {
     final Builder b = newBuilder().setMutualTls(mTlsEnabled);
@@ -120,5 +126,9 @@ public class GrpcTlsConfig extends TlsConf {
     Optional.ofNullable(privateKeyFile).map(PrivateKeyConf::new).ifPresent(b::setPrivateKey);
     Optional.ofNullable(certChainFile).map(CertificatesConf::new).ifPresent(b::setKeyCertificates);
     return b;
+  }
+
+  private static Builder newBuilder(KeyManager keyManager, TrustManager trustManager, boolean mTlsEnabled) {
+    return newBuilder().setMutualTls(mTlsEnabled).setKeyManager(keyManager).setTrustManager(trustManager);
   }
 }

@@ -219,6 +219,8 @@
 
     <!--metrics-->
     <dropwizard.version>3.2.5</dropwizard.version>
+
+    <bouncycastle.version>1.70</bouncycastle.version>
   </properties>
 
   <dependencyManagement>
