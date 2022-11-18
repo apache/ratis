@@ -23,6 +23,9 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WRITE_REQUEST;
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.slf4j.event.Level;
+import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
@@ -61,8 +64,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.slf4j.event.Level;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.nio.channels.OverlappingFileLockException;
 import java.util.*;
@@ -340,5 +344,39 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     final SimpleMessage m = new SimpleMessage("m" + seqNum);
     return RaftClientTestUtil.newRaftClientRequest(client, serverId, seqNum, m,
         RaftClientRequest.writeRequestType(), ProtoUtils.toSlidingWindowEntry(seqNum, seqNum == 1L));
+  }
+
+  @Test
+  public void testTlsWithKeyAndTrustManager() throws Exception {
+    final RaftProperties p = getProperties();
+    RaftServerConfigKeys.Write.setElementLimit(p, 10);
+    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf("1MB"));
+    String[] ids = MiniRaftCluster.generateIds(3, 3);
+
+    KeyManager serverKeyManager = SecurityTestUtils.getKeyManager(SecurityTestUtils::getServerKeyStore);
+    TrustManager serverTrustManager = SecurityTestUtils.getTrustManager(SecurityTestUtils::getTrustStore);
+    KeyManager clientKeyManager = SecurityTestUtils.getKeyManager(SecurityTestUtils::getClientKeyStore);
+    TrustManager clientTrustManager = SecurityTestUtils.getTrustManager(SecurityTestUtils::getTrustStore);
+
+    GrpcTlsConfig serverConfig = new GrpcTlsConfig(serverKeyManager, serverTrustManager, true);
+    GrpcTlsConfig clientConfig = new GrpcTlsConfig(clientKeyManager, clientTrustManager, true);
+
+    final Parameters parameters = new Parameters();
+    GrpcConfigKeys.Server.setTlsConf(parameters, serverConfig);
+    GrpcConfigKeys.Admin.setTlsConf(parameters, clientConfig);
+    GrpcConfigKeys.Client.setTlsConf(parameters, clientConfig);
+
+    MiniRaftClusterWithGrpc cluster = null;
+    try {
+      cluster = new MiniRaftClusterWithGrpc(ids, new String[0], p, parameters);
+      cluster.start();
+      testRequestMetrics(cluster);
+    }  finally {
+      RaftServerConfigKeys.Write.setElementLimit(p, RaftServerConfigKeys.Write.ELEMENT_LIMIT_DEFAULT);
+      RaftServerConfigKeys.Write.setByteLimit(p, RaftServerConfigKeys.Write.BYTE_LIMIT_DEFAULT);
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
   }
 }
