@@ -34,7 +34,7 @@ import java.util.Optional;
 
 /**
  * The peer configuration of a raft cluster.
- *
+ * <p>
  * The objects of this class are immutable.
  */
 class PeerConfiguration {
@@ -93,6 +93,10 @@ class PeerConfiguration {
 
   int size() {
     return peers.size();
+  }
+
+  Iterable<RaftPeerId> getPeerIds() {
+    return peers.keySet();
   }
 
   @Override
