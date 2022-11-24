@@ -236,10 +236,10 @@ class LeaderStateImpl implements LeaderState {
     private final List<FollowerInfo> old;
 
     CurrentOldFollowerInfos(RaftConfigurationImpl conf, List<FollowerInfo> current, List<FollowerInfo> old) {
+      // set null when the sizes are not the same so that it will update next time.
       this.conf = isSameSize(current, conf.getConf()) && isSameSize(old, conf.getOldConf())? conf: null;
       this.current = Collections.unmodifiableList(current);
       this.old = old == null? null: Collections.unmodifiableList(old);
-
     }
 
     RaftConfigurationImpl getConf() {
@@ -264,7 +264,7 @@ class LeaderStateImpl implements LeaderState {
     return cached != null && cached.getConf() == conf;
   }
 
-  class FollowerInfoMap {
+  static class FollowerInfoMap {
     private final Map<RaftPeerId, FollowerInfo> map = new ConcurrentHashMap<>();
 
     private volatile CurrentOldFollowerInfos followerInfos;
