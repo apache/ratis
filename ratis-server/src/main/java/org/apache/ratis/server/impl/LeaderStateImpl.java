@@ -236,9 +236,10 @@ class LeaderStateImpl implements LeaderState {
     private final List<FollowerInfo> old;
 
     CurrentOldFollowerInfos(RaftConfigurationImpl conf, List<FollowerInfo> current, List<FollowerInfo> old) {
-      this.conf = conf;
+      this.conf = isSameSize(current, conf.getConf()) && isSameSize(old, conf.getOldConf())? conf: null;
       this.current = Collections.unmodifiableList(current);
-      this.old = Collections.unmodifiableList(old);
+      this.old = old == null? null: Collections.unmodifiableList(old);
+
     }
 
     RaftConfigurationImpl getConf() {
@@ -252,6 +253,10 @@ class LeaderStateImpl implements LeaderState {
     List<FollowerInfo> getOld() {
       return old;
     }
+  }
+
+  static boolean isSameSize(List<FollowerInfo> infos, PeerConfiguration conf) {
+    return conf == null? infos == null: conf.size() == infos.size();
   }
 
   /** Use == to compare if the confs are the same object. */
@@ -286,16 +291,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     private List<FollowerInfo> getFollowerInfos(PeerConfiguration peers) {
-      final List<FollowerInfo> infos = new ArrayList<>();
-      for (RaftPeerId id : peers.getPeerIds()) {
-        final FollowerInfo info = map.get(id);
-        if (info == null) {
-          throw new IllegalArgumentException(name + ": Follower " + id + " not found");
-        }
-        infos.add(info);
-      }
-
-      return infos;
+      return peers.streamPeerIds().map(map::get).filter(Objects::nonNull).collect(Collectors.toList());
     }
   }
 

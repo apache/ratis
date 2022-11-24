@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * The peer configuration of a raft cluster.
@@ -95,8 +96,8 @@ class PeerConfiguration {
     return peers.size();
   }
 
-  Iterable<RaftPeerId> getPeerIds() {
-    return peers.keySet();
+  Stream<RaftPeerId> streamPeerIds() {
+    return peers.keySet().stream();
   }
 
   @Override
