@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.statemachine.impl;
 
+import static org.apache.ratis.util.MD5FileUtil.MD5_SUFFIX;
+
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
@@ -58,6 +60,8 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   /** snapshot.term_index */
   public static final Pattern SNAPSHOT_REGEX =
       Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
+  public static final Pattern SNAPSHOT_MD5_REGEX =
+      Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)" + MD5_SUFFIX);
 
   private volatile File stateMachineDir = null;
   private final AtomicReference<SingleFileSnapshotInfo> latestSnapshot = new AtomicReference<>();
@@ -109,8 +113,9 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
 
     if (allSnapshotFiles.size() > snapshotRetentionPolicy.getNumSnapshotsRetained()) {
       allSnapshotFiles.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
-      List<File> snapshotFilesToBeCleaned = allSnapshotFiles.subList(
-              snapshotRetentionPolicy.getNumSnapshotsRetained(), allSnapshotFiles.size()).stream()
+      List<SingleFileSnapshotInfo> snapshotToBeCleaned = allSnapshotFiles.subList(
+          snapshotRetentionPolicy.getNumSnapshotsRetained(), allSnapshotFiles.size());
+      List<File> snapshotFilesToBeCleaned = snapshotToBeCleaned.stream()
           .map(singleFileSnapshotInfo -> singleFileSnapshotInfo.getFile().getPath().toFile())
           .collect(Collectors.toList());
       for (File snapshotFile : snapshotFilesToBeCleaned) {
@@ -119,6 +124,26 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
         if (deleted) {
           final File md5file = MD5FileUtil.getDigestFileForFile(snapshotFile);
           FileUtils.deleteFileQuietly(md5file);
+        }
+      }
+      if (snapshotToBeCleaned.isEmpty()) {
+        return;
+      }
+      // clean up old md5 file created by old ratis version
+      long cleanedSnapshotMaxIndex =
+          snapshotToBeCleaned.get(snapshotToBeCleaned.size() - 1).getIndex();
+      try (DirectoryStream<Path> stream = Files.newDirectoryStream(stateMachineDir.toPath())) {
+        for (Path path : stream) {
+          final Path md5file = path.getFileName();
+          if (md5file != null) {
+            final Matcher matcher = SNAPSHOT_MD5_REGEX.matcher(md5file.toString());
+            if (matcher.matches()) {
+              final long index = Long.parseLong(matcher.group(2));
+              if (index < cleanedSnapshotMaxIndex){
+                FileUtils.deleteFileQuietly(path.toFile());
+              }
+            }
+          }
         }
       }
     }
