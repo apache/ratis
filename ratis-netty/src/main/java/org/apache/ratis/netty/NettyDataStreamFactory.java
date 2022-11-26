@@ -50,6 +50,6 @@ public class NettyDataStreamFactory implements DataStreamServerFactory, DataStre
 
   @Override
   public DataStreamServerRpc newDataStreamServerRpc(RaftServer server) {
-    return new NettyServerStreamRpc(server, NettyConfigKeys.DataStream.Server.tlsConf(parameters));
+    return new NettyServerStreamRpc(server, parameters);
   }
 }
