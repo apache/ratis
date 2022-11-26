@@ -143,13 +143,29 @@ public interface FileUtils {
     deleteFully(source);
   }
 
-  /** The same as passing f.toPath() to {@link #delete(Path)}. */
+  /**
+   * The same as passing f.toPath() to {@link #deletePathQuietly(Path)}.
+   *
+   * @param f file to delete
+   * @return true if the file is successfully deleted false otherwise
+   */
   static boolean deleteFileQuietly(File f) {
+    return deletePathQuietly(f.toPath());
+  }
+
+  /**
+   * Delete the given path quietly.
+   * Only print a debug message in case that there is an exception,
+   *
+   * @param p path to delete
+   * @return true if the path is successfully deleted false otherwise
+   */
+  static boolean deletePathQuietly(Path p) {
     try {
-      delete(f.toPath());
+      delete(p);
       return true;
     } catch (Exception ex) {
-      LOG.debug("File delete was not successful {}", f.getAbsoluteFile(), ex);
+      LOG.debug("Failed to delete " + p.toAbsolutePath(), ex);
       return false;
     }
   }
