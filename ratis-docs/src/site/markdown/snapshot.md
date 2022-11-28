@@ -15,11 +15,9 @@
   limitations under the License.
 -->
 
-# Developer's Guide
+# Snapshot Guide
 
-## Snapshot
-
-### Overview
+## Overview
 
 Raft log grows during normal operation. As it grows larger, it occupies more space and takes more time to replay. 
 Therefore, some form of log compaction is necessary for practical systems.
@@ -28,7 +26,7 @@ In Ratis, we introduce snapshot mechanism as the way to do log compaction.
 The basic idea of snapshot is to create and save a snapshot reflecting the latest state of the state machine, 
 and then delete previous logs up to the checkpoint.
 
-### Implement snapshot
+## Implement snapshot
 
 To enable snapshot, we have to first implement the following two methods in `StateMachine`:
 
@@ -67,7 +65,7 @@ other servers.
 Examples of snapshot implementation can be found at 
 https://github.com/apache/ratis/blob/master/ratis-examples/src/main/java/org/apache/ratis/examples/arithmetic/ArithmeticStateMachine.java.
 
-### Trigger a snapshot
+## Trigger a snapshot
 
 To trigger a snapshot, we can either
 
@@ -93,7 +91,7 @@ and set an appropriate triggering threshold.
   RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(properties, 400000);
   ```
 
-### Purge obsolete logs after snapshot
+## Purge obsolete logs after snapshot
 
 When a snapshot is taken, Ratis will automatically discard obsolete logs.
 By default, Ratis will purge logs up to min(snapshot index, safe index), 
@@ -119,7 +117,7 @@ RaftServerConfigKeys.Log.setPurgePreservationLogNum(properties, n);
 ```
 Intuitively, cost of transferring n logs shall equal the cost of transferring the full snapshot.
 
-### Retain multiple versions of snapshot
+## Retain multiple versions of snapshot
 
 Ratis allows `StateMachine` to retain multiple versions of snapshot. 
 To enable this feature, we have to:
@@ -134,7 +132,7 @@ To enable this feature, we have to:
    void cleanupOldSnapshots(SnapshotRetentionPolicy snapshotRetentionPolicy) throws IOException;
    ```
 
-### Load the latest snapshot
+## Load the latest snapshot
 
 1. When a RaftServer restarts and tries to recover the data, it first has to read and load the latest snapshot,
    and then apply the logs not included in the snapshot. 
@@ -170,7 +168,7 @@ To enable this feature, we have to:
    ```
    
 
-### Customize snapshot storage path
+## Customize snapshot storage path
 
 By default, Ratis assumes `StateMachine` snapshot files be placed under 
 `RaftStorageDirectory.getStateMachineDir()`. When leader installs a snapshot to the follower,
@@ -197,7 +195,7 @@ default File getTmpDir() {
 Examples of customizing snapshot storage path can be found at
 https://github.com/apache/ratis/blob/master/ratis-server/src/test/java/org/apache/ratis/InstallSnapshotFromLeaderTests.java
 
-### Customize snapshot installation
+## Customize snapshot installation
 
 When a new follower joins the cluster, leader will install the latest snapshot to the follower.
 `StateMachine` only needs to provide the `SnapshotInfo` of the latest snapshot, and it's Ratis'
