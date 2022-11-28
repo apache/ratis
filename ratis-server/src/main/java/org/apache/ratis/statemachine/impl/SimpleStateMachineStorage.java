@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.statemachine.impl;
 
+import static org.apache.ratis.util.MD5FileUtil.MD5_SUFFIX;
+
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
@@ -44,7 +46,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * A StateMachineStorage that stores the snapshot in a single file.
@@ -58,6 +59,14 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   /** snapshot.term_index */
   public static final Pattern SNAPSHOT_REGEX =
       Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
+  public static final Pattern SNAPSHOT_MD5_REGEX =
+      Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)" + MD5_SUFFIX);
+  private static final DirectoryStream.Filter<Path> SNAPSHOT_MD5_FILTER
+      = entry -> Optional.ofNullable(entry.getFileName())
+      .map(Path::toString)
+      .map(SNAPSHOT_MD5_REGEX::matcher)
+      .filter(Matcher::matches)
+      .isPresent();
 
   private volatile File stateMachineDir = null;
   private final AtomicReference<SingleFileSnapshotInfo> latestSnapshot = new AtomicReference<>();
@@ -109,16 +118,28 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
 
     if (allSnapshotFiles.size() > snapshotRetentionPolicy.getNumSnapshotsRetained()) {
       allSnapshotFiles.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
-      List<File> snapshotFilesToBeCleaned = allSnapshotFiles.subList(
-              snapshotRetentionPolicy.getNumSnapshotsRetained(), allSnapshotFiles.size()).stream()
-          .map(singleFileSnapshotInfo -> singleFileSnapshotInfo.getFile().getPath().toFile())
-          .collect(Collectors.toList());
-      for (File snapshotFile : snapshotFilesToBeCleaned) {
-        LOG.info("Deleting old snapshot at {}", snapshotFile.getAbsolutePath());
-        final boolean deleted = FileUtils.deleteFileQuietly(snapshotFile);
-        if (deleted) {
-          final File md5file = MD5FileUtil.getDigestFileForFile(snapshotFile);
-          FileUtils.deleteFileQuietly(md5file);
+      allSnapshotFiles.subList(numSnapshotsRetained, allSnapshotFiles.size())
+          .stream()
+          .map(SingleFileSnapshotInfo::getFile)
+          .map(FileInfo::getPath)
+          .forEach(snapshotPath -> {
+            LOG.info("Deleting old snapshot at {}", snapshotPath.toAbsolutePath());
+            FileUtils.deletePathQuietly(snapshotPath);
+          });
+      // clean up the md5 files if the corresponding snapshot file does not exist
+      try (DirectoryStream<Path> stream = Files.newDirectoryStream(stateMachineDir.toPath(),
+          SNAPSHOT_MD5_FILTER)) {
+        for (Path md5path : stream) {
+          Path md5FileNamePath = md5path.getFileName();
+          if (md5FileNamePath == null) {
+            continue;
+          }
+          final String md5FileName = md5FileNamePath.toString();
+          final File snapshotFile = new File(stateMachineDir,
+              md5FileName.substring(0, md5FileName.length() - MD5_SUFFIX.length()));
+          if (!snapshotFile.exists()) {
+            FileUtils.deletePathQuietly(md5path);
+          }
         }
       }
     }

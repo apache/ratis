@@ -18,6 +18,7 @@
 package org.apache.ratis.server.storage;
 
 import static org.apache.ratis.statemachine.impl.SimpleStateMachineStorage.SNAPSHOT_REGEX;
+import static org.apache.ratis.util.MD5FileUtil.MD5_SUFFIX;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
@@ -237,14 +238,22 @@ public class TestRaftStorage extends BaseTest {
     //Create 5 snapshot files in storage dir.
     for (int i = 0; i < 5; i++) {
       final long term = ThreadLocalRandom.current().nextLong(10L);
-      final long index = ThreadLocalRandom.current().nextLong(1000L);
+      final long index = ThreadLocalRandom.current().nextLong(100, 1000L);
       indices.add(index);
       File file = simpleStateMachineStorage.getSnapshotFile(term, index);
       file.createNewFile();
     }
+    // create MD5 files that will not be deleted in older version
+    for (int i = 0; i < 2; i++) {
+      final long index = ThreadLocalRandom.current().nextLong(0, 100L);
+      indices.add(index);
+      File file = simpleStateMachineStorage.getSnapshotFile(1, index);
+      File snapshotFile = new File(file.getParent(), file.getName() + MD5_SUFFIX);
+      snapshotFile.createNewFile();
+    }
 
     File stateMachineDir = storage.getStorageDir().getStateMachineDir();
-    Assert.assertTrue(stateMachineDir.listFiles().length == 5);
+    Assert.assertTrue(stateMachineDir.listFiles().length == 7);
     simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
     File[] remainingFiles = stateMachineDir.listFiles();
     Assert.assertTrue(remainingFiles.length == 3);
