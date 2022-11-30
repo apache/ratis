@@ -110,6 +110,7 @@ public interface NettyDataStreamUtils {
 
   static void encodeByteBuffer(ByteBuffer buffer, Consumer<Object> out) {
     if (buffer.remaining() == 0) {
+      out.accept(Unpooled.EMPTY_BUFFER); // to avoid EncoderException: must produce at least one message
       return;
     }
     out.accept(Unpooled.wrappedBuffer(buffer));
