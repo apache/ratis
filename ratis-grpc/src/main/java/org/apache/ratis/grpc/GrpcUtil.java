@@ -86,20 +86,20 @@ public interface GrpcUtil {
 
   static Throwable unwrapThrowable(Throwable t) {
     if (t instanceof StatusRuntimeException) {
-      final IOException ioe = tryUnwrapException((StatusRuntimeException)t);
-      if (ioe != null) {
-        return ioe;
+      final Throwable unwrapped = tryUnwrapThrowable((StatusRuntimeException)t);
+      if (unwrapped != null) {
+        return unwrapped;
       }
     }
     return t;
   }
 
   static IOException unwrapException(StatusRuntimeException se) {
-    final IOException ioe = tryUnwrapException(se);
-    return ioe != null? ioe: new IOException(se);
+    final Throwable t = tryUnwrapThrowable(se);
+    return t instanceof IOException? (IOException) t: new IOException(t != null? t: se);
   }
 
-  static IOException tryUnwrapException(StatusRuntimeException se) {
+  static Throwable tryUnwrapThrowable(StatusRuntimeException se) {
     final Status status = se.getStatus();
     if (status != null && status.getCode() == Status.Code.DEADLINE_EXCEEDED) {
       return new TimeoutIOException(status.getDescription(), se);
@@ -113,7 +113,7 @@ public interface GrpcUtil {
     final byte[] bytes = trailers.get(EXCEPTION_OBJECT_KEY);
     if (bytes != null) {
       try {
-        return IOUtils.bytes2Object(bytes, IOException.class);
+        return IOUtils.bytes2Object(bytes, Throwable.class);
       } catch (Exception e) {
         se.addSuppressed(e);
       }
@@ -125,7 +125,7 @@ public interface GrpcUtil {
         try {
           final Class<? extends Throwable> clazz = Class.forName(className).asSubclass(Throwable.class);
           final Throwable unwrapped = ReflectionUtils.instantiateException(clazz, status.getDescription());
-          return IOUtils.asIOException(unwrapped.initCause(se));
+          return unwrapped.initCause(se);
         } catch (Throwable e) {
           se.addSuppressed(e);
           return new IOException(se);

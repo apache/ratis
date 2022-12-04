@@ -921,11 +921,11 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync() {
-    if (getInfo().getLeaderId() == null) {
-      JavaUtils.completeExceptionally(generateNotLeaderException());
+    final RaftPeerId leaderId = getInfo().getLeaderId();
+    if (leaderId == null) {
+      return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
     }
-    final ReadIndexRequestProto request = ServerProtoUtils.toReadIndexRequestProto(
-        getMemberId(),  getInfo().getLeaderId());
+    final ReadIndexRequestProto request = ServerProtoUtils.toReadIndexRequestProto(getMemberId(), leaderId);
     try {
       return getServerRpc().async().readIndexAsync(request);
     } catch (IOException e) {
