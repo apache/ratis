@@ -31,10 +31,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * The peer configuration of a raft cluster.
- *
+ * <p>
  * The objects of this class are immutable.
  */
 class PeerConfiguration {
@@ -93,6 +94,10 @@ class PeerConfiguration {
 
   int size() {
     return peers.size();
+  }
+
+  Stream<RaftPeerId> streamPeerIds() {
+    return peers.keySet().stream();
   }
 
   @Override
