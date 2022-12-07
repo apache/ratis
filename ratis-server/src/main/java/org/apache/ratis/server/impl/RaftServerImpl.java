@@ -534,6 +534,7 @@ class RaftServerImpl implements RaftServer.Division,
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
         role.shutdownLeaderState(false);
+        state.setLeader(null, reason);
       } else if (old == RaftPeerRole.CANDIDATE) {
         role.shutdownLeaderElection();
       } else if (old == RaftPeerRole.FOLLOWER) {
