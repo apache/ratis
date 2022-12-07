@@ -20,6 +20,7 @@ package org.apache.ratis.netty.server;
 
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamOutputRpc;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.netty.NettyConfigKeys;
@@ -122,11 +123,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   static class ProxiesPool {
     private final List<Proxies> list;
 
-    ProxiesPool(String name, RaftProperties properties) {
+    ProxiesPool(String name, RaftProperties properties, Parameters parameters) {
       final int clientPoolSize = RaftServerConfigKeys.DataStream.clientPoolSize(properties);
       final List<Proxies> proxies = new ArrayList<>(clientPoolSize);
       for (int i = 0; i < clientPoolSize; i++) {
-        proxies.add(new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties))));
+        proxies.add(new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties, parameters))));
       }
       this.list = Collections.unmodifiableList(proxies);
     }
@@ -155,13 +156,13 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private final NettyServerStreamRpcMetrics metrics;
 
-  public NettyServerStreamRpc(RaftServer server, TlsConf tlsConf) {
+  public NettyServerStreamRpc(RaftServer server, Parameters parameters) {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.metrics = new NettyServerStreamRpcMetrics(this.name);
     this.requests = new DataStreamManagement(server, metrics);
 
     final RaftProperties properties = server.getProperties();
-    this.proxies = new ProxiesPool(name, properties);
+    this.proxies = new ProxiesPool(name, properties, parameters);
 
     final boolean useEpoll = NettyConfigKeys.DataStream.Server.useEpoll(properties);
     this.bossGroup = NettyUtils.newEventLoopGroup(name + "-bossGroup",
@@ -169,6 +170,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     this.workerGroup = NettyUtils.newEventLoopGroup(name + "-workerGroup",
         NettyConfigKeys.DataStream.Server.workerGroupSize(properties), useEpoll);
 
+    final TlsConf tlsConf = NettyConfigKeys.DataStream.Server.tlsConf(parameters);
     final SslContext sslContext = NettyUtils.buildSslContextForServer(tlsConf);
     final String host = NettyConfigKeys.DataStream.host(server.getProperties());
     final int port = NettyConfigKeys.DataStream.port(properties);
@@ -185,11 +187,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .bind(socketAddress);
   }
 
-  static DataStreamClient newClient(RaftPeer peer, RaftProperties properties) {
+  static DataStreamClient newClient(RaftPeer peer, RaftProperties properties, Parameters parameters) {
     return DataStreamClient.newBuilder()
         .setClientId(ClientId.randomId())
         .setDataStreamServer(peer)
         .setProperties(properties)
+        .setParameters(parameters)
         .build();
   }
 
