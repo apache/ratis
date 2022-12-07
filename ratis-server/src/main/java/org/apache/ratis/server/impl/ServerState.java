@@ -87,7 +87,7 @@ class ServerState implements Closeable {
    * The server ID of the leader for this term. Null means either there is
    * no leader for this term yet or this server does not know who it is yet.
    */
-  private volatile RaftPeerId leaderId;
+  private final AtomicReference<RaftPeerId> leaderId = new AtomicReference<>();
   /**
    * Candidate that this peer granted vote for in current term (or null if none)
    */
@@ -149,7 +149,6 @@ class ServerState implements Closeable {
     snapshotManager = new SnapshotManager(id, storage.getStorageDir(), stateMachine.getStateMachineStorage());
 
     // On start the leader is null, start the clock now
-    this.leaderId = null;
     this.lastNoLeaderTime = Timestamp.currentTime();
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
 
@@ -256,7 +255,7 @@ class ServerState implements Closeable {
   }
 
   RaftPeerId getLeaderId() {
-    return leaderId;
+    return leaderId.get();
   }
 
   boolean hasLeader() {
@@ -298,7 +297,8 @@ class ServerState implements Closeable {
   }
 
   void setLeader(RaftPeerId newLeaderId, Object op) {
-    if (!Objects.equals(leaderId, newLeaderId)) {
+    final RaftPeerId oldLeaderId = leaderId.getAndSet(newLeaderId);
+    if (!Objects.equals(oldLeaderId, newLeaderId)) {
       String suffix;
       if (newLeaderId == null) {
         // reset the time stamp when a null leader is assigned
@@ -311,9 +311,8 @@ class ServerState implements Closeable {
         server.getStateMachine().event().notifyLeaderChanged(getMemberId(), newLeaderId);
       }
       LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
-          getMemberId(), leaderId, newLeaderId, getCurrentTerm(), op, suffix);
-      leaderId = newLeaderId;
-      if (leaderId != null) {
+          getMemberId(), oldLeaderId, newLeaderId, getCurrentTerm(), op, suffix);
+      if (newLeaderId != null) {
         server.finishTransferLeadership();
         server.onGroupLeaderElected();
       }
@@ -376,13 +375,15 @@ class ServerState implements Closeable {
     final long current = currentTerm.get();
     if (leaderTerm < current) {
       return false;
-    } else if (leaderTerm > current || this.leaderId == null) {
+    }
+    final RaftPeerId curLeaderId = getLeaderId();
+    if (leaderTerm > current || curLeaderId == null) {
       // If the request indicates a term that is greater than the current term
       // or no leader has been set for the current term, make sure to update
       // leader and term later
       return true;
     }
-    return this.leaderId.equals(peerLeaderId);
+    return curLeaderId.equals(peerLeaderId);
   }
 
   static int compareLog(TermIndex lastEntry, TermIndex candidateLastEntry) {
@@ -406,7 +407,7 @@ class ServerState implements Closeable {
 
   @Override
   public String toString() {
-    return getMemberId() + ":t" + currentTerm + ", leader=" + leaderId
+    return getMemberId() + ":t" + currentTerm + ", leader=" + getLeaderId()
         + ", voted=" + votedFor + ", raftlog=" + log + ", conf=" + getRaftConf();
   }
 
