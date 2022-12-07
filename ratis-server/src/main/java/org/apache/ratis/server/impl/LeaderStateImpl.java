@@ -582,10 +582,8 @@ class LeaderStateImpl implements LeaderState {
         .map(peer -> {
           final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, t, nextIndex, attendVote);
           followerInfoMap.put(peer.getId(), f);
-          if (role == RaftPeerRole.FOLLOWER) {
-            raftServerMetrics.addFollower(peer.getId());
-            logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
-          }
+          raftServerMetrics.addFollower(peer.getId());
+          logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
           return server.newLogAppender(this, f);
         }).collect(Collectors.toList());
     senders.addAll(newAppenders);
