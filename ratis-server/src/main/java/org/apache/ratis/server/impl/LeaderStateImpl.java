@@ -873,7 +873,7 @@ class LeaderStateImpl implements LeaderState {
       }
 
       final long[] indicesInOldConf = getSorted(oldFollowers, includeSelfInOldConf, followerIndex, logIndex);
-      final MinMajorityMax oldConf = MinMajorityMax.valueOf(indicesInOldConf, followerMaxGapThreshold);
+      final MinMajorityMax oldConf = MinMajorityMax.valueOf(indicesInOldConf, gapThreshold);
       return Optional.of(newConf.combine(oldConf));
     }
   }
