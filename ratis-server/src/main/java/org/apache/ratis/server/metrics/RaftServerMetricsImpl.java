@@ -20,7 +20,6 @@ package org.apache.ratis.server.metrics;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -98,7 +97,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
       = newHeartbeatTimer(FOLLOWER_APPEND_ENTRIES_LATENCY);
 
   /** Follower Id -> heartbeat elapsed */
-  private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
+  private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new ConcurrentHashMap<>();
   private final Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache;
 
   /** id -> metric */

@@ -366,11 +366,11 @@ class LeaderStateImpl implements LeaderState {
     placeHolderIndex = raftLog.getNextIndex();
 
     senders = new SenderList();
-    addSenders(others, placeHolderIndex, true, RaftPeerRole.FOLLOWER);
+    addSenders(others, placeHolderIndex, true);
 
     final Collection<RaftPeer> listeners = conf.getAllPeers(RaftPeerRole.LISTENER);
     if (!listeners.isEmpty()) {
-      addSenders(listeners, placeHolderIndex, false, RaftPeerRole.LISTENER);
+      addSenders(listeners, placeHolderIndex, false);
     }
   }
 
@@ -460,8 +460,8 @@ class LeaderStateImpl implements LeaderState {
       applyOldNewConf();
     } else {
       // update the LeaderState's sender list
-      addAndStartSenders(newPeers, RaftPeerRole.FOLLOWER);
-      addAndStartSenders(newListeners, RaftPeerRole.LISTENER);
+      addAndStartSenders(newPeers);
+      addAndStartSenders(newListeners);
     }
     return pending;
   }
@@ -569,23 +569,20 @@ class LeaderStateImpl implements LeaderState {
   /**
    * Update sender list for setConfiguration request
    */
-  void addAndStartSenders(Collection<RaftPeer> newPeers, RaftPeerRole role) {
+  void addAndStartSenders(Collection<RaftPeer> newPeers) {
     if (!newPeers.isEmpty()) {
-      addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false, role).forEach(LogAppender::start);
+      addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false).forEach(LogAppender::start);
     }
   }
 
-  Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote,
-      RaftPeerRole role) {
+  Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote) {
     final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final List<LogAppender> newAppenders = newPeers.stream()
         .map(peer -> {
           final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, t, nextIndex, attendVote);
           followerInfoMap.put(peer.getId(), f);
-          if (role == RaftPeerRole.FOLLOWER) {
-            raftServerMetrics.addFollower(peer.getId());
-            logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
-          }
+          raftServerMetrics.addFollower(peer.getId());
+          logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
           return server.newLogAppender(this, f);
         }).collect(Collectors.toList());
     senders.addAll(newAppenders);
@@ -606,10 +603,8 @@ class LeaderStateImpl implements LeaderState {
     senders.removeAll(Collections.singleton(sender));
 
     final RaftPeer peer = info.getPeer();
-    if (server.getRaftConf().containsInConf(peer.getId())) {
-      addAndStartSenders(Collections.singleton(peer), RaftPeerRole.FOLLOWER);
-    } else if (server.getRaftConf().containsInConf(peer.getId(), RaftPeerRole.LISTENER)) {
-      addAndStartSenders(Collections.singleton(peer), RaftPeerRole.LISTENER);
+    if (server.getRaftConf().containsInConf(peer.getId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER)) {
+      addAndStartSenders(Collections.singleton(peer));
     }
   }
 
