@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -90,6 +91,36 @@ public final class CounterClient implements Closeable {
     final RaftClientReply reply = client.io().sendReadOnly(CounterCommand.GET.getMessage());
     final String count = reply.getMessage().getContent().toStringUtf8();
     System.out.println("Current counter value: " + count);
+
+    // using Linearizable Read
+    futures.clear();
+    final long startTime = System.currentTimeMillis();
+    final ExecutorService executor = Executors.newFixedThreadPool(Constants.PEERS.size());
+    Constants.PEERS.forEach(p -> {
+      final Future<RaftClientReply> f = CompletableFuture.supplyAsync(() -> {
+                try {
+                  return client.io().sendReadOnly(CounterCommand.GET.getMessage(), p.getId());
+                } catch (IOException e) {
+                  System.err.println("Failed read-only request");
+                  return RaftClientReply.newBuilder().setSuccess(false).build();
+                }
+              }, executor).whenCompleteAsync((r, ex) -> {
+                if (ex != null || !r.isSuccess()) {
+                  System.err.println("Failed " + r);
+                  return;
+                }
+                final long endTime = System.currentTimeMillis();
+                final long elapsedSec = (endTime-startTime) / 1000;
+                final String countValue = r.getMessage().getContent().toStringUtf8();
+                System.out.println("read from " + p.getId() + " and get counter value: " + countValue
+                    + ", time elapsed: " + elapsedSec + " seconds");
+              });
+      futures.add(f);
+    });
+
+    for (Future<RaftClientReply> f : futures) {
+      f.get();
+    }
   }
 
   public static void main(String[] args) {
