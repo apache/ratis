@@ -24,12 +24,14 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.TimeDuration;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Scanner;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -46,19 +48,27 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public final class CounterServer implements Closeable {
   private final RaftServer server;
 
-  public CounterServer(RaftPeer peer, File storageDir) throws IOException {
+  public CounterServer(RaftPeer peer, File storageDir, TimeDuration simulatedSlowness) throws IOException {
     //create a property object
     final RaftProperties properties = new RaftProperties();
 
     //set the storage directory (different for each peer) in the RaftProperty object
     RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
 
+    //set the read policy to Linearizable Read.
+    //the Default policy will route read-only requests to leader and directly query leader statemachine.
+    //Linearizable Read allows to route read-only requests to any group member
+    //and uses ReadIndex to guarantee strong consistency.
+    RaftServerConfigKeys.Read.setOption(properties, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    //set the linearizable read timeout
+    RaftServerConfigKeys.Read.setTimeout(properties, TimeDuration.ONE_MINUTE);
+
     //set the port (different for each peer) in RaftProperty object
     final int port = NetUtils.createSocketAddr(peer.getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
 
     //create the counter state machine which holds the counter value
-    final CounterStateMachine counterStateMachine = new CounterStateMachine();
+    final CounterStateMachine counterStateMachine = new CounterStateMachine(simulatedSlowness);
 
     //build the Raft server
     this.server = RaftServer.newBuilder()
@@ -88,8 +98,10 @@ public final class CounterServer implements Closeable {
       if (peerIndex < 0 || peerIndex > 2) {
         throw new IllegalArgumentException("The server index must be 0, 1 or 2: peerIndex=" + peerIndex);
       }
-
-      startServer(peerIndex);
+      TimeDuration simulatedSlowness = Optional.ofNullable(Constants.SIMULATED_SLOWNESS)
+                  .map(slownessList -> slownessList.get(peerIndex))
+                  .orElse(TimeDuration.ZERO);
+      startServer(peerIndex, simulatedSlowness);
     } catch(Throwable e) {
       e.printStackTrace();
       System.err.println();
@@ -102,13 +114,13 @@ public final class CounterServer implements Closeable {
     }
   }
 
-  private static void startServer(int peerIndex) throws IOException {
+  private static void startServer(int peerIndex, TimeDuration simulatedSlowness) throws IOException {
     //get peer and define storage dir
     final RaftPeer currentPeer = Constants.PEERS.get(peerIndex);
     final File storageDir = new File("./" + currentPeer.getId());
 
     //start a counter server
-    try(CounterServer counterServer = new CounterServer(currentPeer, storageDir)) {
+    try(CounterServer counterServer = new CounterServer(currentPeer, storageDir, simulatedSlowness)) {
       counterServer.start();
 
       //exit when any input entered

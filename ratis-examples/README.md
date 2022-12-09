@@ -134,10 +134,10 @@ result which should be the value of the counter.
 You can find more detail by reading these classes javaDocs.
 
 ### Run Counter Server and Client
-run the client and servers by these commands from ratis-examples directory:
-for server: `java -cp target/*.jar org.apache.ratis.examples.counter.server.CounterServer {serverIndex}`
-replace {serverIndex} with 1, 2, or 3
-for client: `java -cp target/*.jar org.apache.ratis.examples.counter.client.CounterClient`
+run the client and servers by these commands from ratis directory:
+for server: `java -cp ./ratis-examples/target/*.jar org.apache.ratis.examples.counter.server.CounterServer {serverIndex}`
+replace {serverIndex} with 0, 1, or 2
+for client: `java -cp ./ratis-examples/target/*.jar org.apache.ratis.examples.counter.client.CounterClient`
 
 ## Pre-Setup Vagrant Pseudo Cluster
 Note: This option is only available to Example 1 and 2
