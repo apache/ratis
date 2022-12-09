@@ -21,6 +21,7 @@ package org.apache.ratis.examples.debug.server;
 import org.apache.ratis.examples.common.Constants;
 import org.apache.ratis.examples.counter.server.CounterServer;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.util.TimeDuration;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,7 +46,7 @@ public final class Server {
         .findFirst().orElseThrow(() -> new IllegalArgumentException("Peer not found: " + args[0]));
 
     final File storageDir = new File(Constants.PATH, currentPeer.getId().toString());
-    final CounterServer counterServer = new CounterServer(currentPeer, storageDir);
+    final CounterServer counterServer = new CounterServer(currentPeer, storageDir, TimeDuration.ZERO);
     counterServer.start();
   }
 }
