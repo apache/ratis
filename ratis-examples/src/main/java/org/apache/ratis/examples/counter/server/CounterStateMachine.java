@@ -85,6 +85,9 @@ public class CounterStateMachine extends BaseStateMachine {
   CounterStateMachine(TimeDuration simulatedSlowness) {
     this.simulatedSlowness = simulatedSlowness;
   }
+  CounterStateMachine() {
+    this.simulatedSlowness = TimeDuration.ZERO;
+  }
 
   /** @return the current state. */
   private synchronized CounterState getState() {
