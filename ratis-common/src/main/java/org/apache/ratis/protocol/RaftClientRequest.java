@@ -37,6 +37,7 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private static final Type READ_DEFAULT = new Type(ReadRequestTypeProto.getDefaultInstance());
   private static final Type STALE_READ_DEFAULT = new Type(StaleReadRequestTypeProto.getDefaultInstance());
+  private static final Type READ_INDEX_DEFAULT = new Type(ReadIndexRequestTypeProto.getDefaultInstance());
 
   public static Type writeRequestType() {
     return WRITE_DEFAULT;
@@ -67,6 +68,10 @@ public class RaftClientRequest extends RaftClientMessage {
         : new Type(StaleReadRequestTypeProto.newBuilder().setMinIndex(minIndex).build());
   }
 
+  public static Type readIndexRequestType() {
+    return READ_INDEX_DEFAULT;
+  }
+
   public static Type watchRequestType() {
     return WATCH_DEFAULT;
   }
@@ -94,6 +99,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
     public static Type valueOf(StaleReadRequestTypeProto staleRead) {
       return staleRead.getMinIndex() == 0? STALE_READ_DEFAULT: new Type(staleRead);
+    }
+
+    public static Type valueOf(ReadIndexRequestTypeProto readIndex) {
+      return READ_INDEX_DEFAULT;
     }
 
     public static Type valueOf(WatchRequestTypeProto watch) {
@@ -146,6 +155,10 @@ public class RaftClientRequest extends RaftClientMessage {
       this(WATCH, watch);
     }
 
+    private Type(ReadIndexRequestTypeProto readIndex) {
+      this(READINDEX, readIndex);
+    }
+
     public boolean is(RaftClientRequestProto.TypeCase tCase) {
       return getTypeCase().equals(tCase);
     }
@@ -189,6 +202,11 @@ public class RaftClientRequest extends RaftClientMessage {
       return (WatchRequestTypeProto)proto;
     }
 
+    public ReadIndexRequestTypeProto getReadIndex() {
+      Preconditions.assertTrue(is(READINDEX));
+      return (ReadIndexRequestTypeProto)proto;
+    }
+
     public static String toString(ReplicationLevel replication) {
       return replication == ReplicationLevel.MAJORITY? "": "-" + replication;
     }
@@ -218,6 +236,8 @@ public class RaftClientRequest extends RaftClientMessage {
           return "StaleRead(" + getStaleRead().getMinIndex() + ")";
         case WATCH:
           return toString(getWatch());
+        case READINDEX:
+          return "RI";
         default:
           throw new IllegalStateException("Unexpected request type: " + typeCase);
       }

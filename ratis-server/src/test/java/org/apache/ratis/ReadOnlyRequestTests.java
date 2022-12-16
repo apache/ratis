@@ -153,6 +153,36 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testFollowerLinearizableReadUseReadIndexRequest() throws Exception {
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.DEFAULT);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerLinearizableReadUseReadIndexRequestImpl);
+  }
+
+  private void testFollowerLinearizableReadUseReadIndexRequestImpl(CLUSTER cluster) throws Exception {
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+
+      List<RaftServer.Division> followers = cluster.getFollowers();
+      Assert.assertEquals(2, followers.size());
+
+      final RaftPeerId f0 = followers.get(0).getId();
+      final RaftPeerId f1 = followers.get(1).getId();
+      try (RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
+        for (int i = 1; i <= 10; i++) {
+          final RaftClientReply reply = client.io().send(incrementMessage);
+          Assert.assertTrue(reply.isSuccess());
+          final RaftClientReply read1 = client.io().sendReadOnly(queryMessage, f0, true);
+          Assert.assertEquals(i, retrieve(read1));
+          final CompletableFuture<RaftClientReply> read2 = client.async().sendReadOnly(queryMessage, f1, true);
+          Assert.assertEquals(i, retrieve(read2.get(1, TimeUnit.SECONDS)));
+        }
+      }
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  @Test
   public void testFollowerLinearizableReadParallel() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::testFollowerLinearizableReadParallelImpl);
   }

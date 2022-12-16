@@ -833,7 +833,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     if (request.is(TypeCase.STALEREAD)) {
       replyFuture = staleReadAsync(request);
-    } else if (request.is(TypeCase.READ)) {
+    } else if (request.is(TypeCase.READ) || request.is(TypeCase.READINDEX)) {
       replyFuture = readAsync(request);
     } else {
       // first check the server's leader state
@@ -935,7 +935,8 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
-    if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
+    if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE
+        || request.is(TypeCase.READINDEX)) {
       /*
         Linearizable read using ReadIndex. See Raft paper section 6.4.
         1. First obtain readIndex from Leader.

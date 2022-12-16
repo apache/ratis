@@ -296,6 +296,10 @@ message ForwardRequestTypeProto {
 message ReadRequestTypeProto {
 }
 
+message ReadIndexRequestTypeProto {
+
+}
+
 message StaleReadRequestTypeProto {
   uint64 minIndex = 1;
 }
@@ -327,6 +331,7 @@ message RaftClientRequestProto {
     MessageStreamRequestTypeProto messageStream = 7;
     DataStreamRequestTypeProto dataStream = 8;
     ForwardRequestTypeProto forward = 9;
+    ReadIndexRequestTypeProto readIndex = 10;
   }
 }
 
