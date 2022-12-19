@@ -60,11 +60,13 @@ class BlockingImpl implements BlockingApi {
   }
 
   @Override
-  public RaftClientReply sendReadOnly(Message message, RaftPeerId server, boolean readIndex) throws IOException {
-    if (readIndex) {
-      return send(RaftClientRequest.readIndexRequestType(), message, server);
-    }
+  public RaftClientReply sendReadOnly(Message message, RaftPeerId server) throws IOException {
     return send(RaftClientRequest.readRequestType(), message, server);
+  }
+
+  @Override
+  public RaftClientReply sendReadOnlyNonLinearizable(Message message) throws IOException {
+    return send(RaftClientRequest.readRequestType(true), message, null);
   }
 
   @Override
