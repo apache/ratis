@@ -294,6 +294,7 @@ message ForwardRequestTypeProto {
 }
 
 message ReadRequestTypeProto {
+  bool preferNonLinearizable = 1;
 }
 
 message StaleReadRequestTypeProto {

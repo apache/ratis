@@ -52,6 +52,11 @@ class AsyncImpl implements AsyncRpcApi {
   }
 
   @Override
+  public CompletableFuture<RaftClientReply> sendReadOnlyNonLinearizable(Message message) {
+    return send(RaftClientRequest.readRequestType(true), message, null);
+  }
+
+  @Override
   public CompletableFuture<RaftClientReply> sendReadOnlyUnordered(Message message, RaftPeerId server) {
     return UnorderedAsync.send(RaftClientRequest.readRequestType(), message, server, client);
   }

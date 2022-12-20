@@ -36,6 +36,8 @@ public class RaftClientRequest extends RaftClientMessage {
       WatchRequestTypeProto.newBuilder().setIndex(0L).setReplication(ReplicationLevel.MAJORITY).build());
 
   private static final Type READ_DEFAULT = new Type(ReadRequestTypeProto.getDefaultInstance());
+  private static final Type
+      READ_NONLINEARIZABLE_DEFAULT = new Type(ReadRequestTypeProto.newBuilder().setPreferNonLinearizable(true).build());
   private static final Type STALE_READ_DEFAULT = new Type(StaleReadRequestTypeProto.getDefaultInstance());
 
   public static Type writeRequestType() {
@@ -60,6 +62,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public static Type readRequestType() {
     return READ_DEFAULT;
+  }
+
+  public static Type readRequestType(boolean nonLinearizable) {
+    return nonLinearizable? READ_NONLINEARIZABLE_DEFAULT: readRequestType();
   }
 
   public static Type staleReadRequestType(long minIndex) {
@@ -89,7 +95,7 @@ public class RaftClientRequest extends RaftClientMessage {
     }
 
     public static Type valueOf(ReadRequestTypeProto read) {
-      return READ_DEFAULT;
+      return read.getPreferNonLinearizable()? READ_NONLINEARIZABLE_DEFAULT: READ_DEFAULT;
     }
 
     public static Type valueOf(StaleReadRequestTypeProto staleRead) {
