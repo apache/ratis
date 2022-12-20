@@ -55,6 +55,17 @@ public interface BlockingApi {
   RaftClientReply sendReadOnly(Message message, RaftPeerId server) throws IOException;
 
   /**
+   * Send the given readonly message to the raft service using non-linearizable read.
+   * This method is useful when linearizable read is enabled
+   * but this client prefers not using it for performance reason.
+   * When linearizable read is disabled, this method is the same as {@link #sendReadOnly(Message)}.
+   *
+   * @param message The request message.
+   * @return the reply.
+   */
+  RaftClientReply sendReadOnlyNonLinearizable(Message message) throws IOException;
+
+  /**
    * Send the given stale-read message to the given server (not the raft service).
    * If the server commit index is larger than or equal to the given min-index, the request will be processed.
    * Otherwise, the server throws a {@link org.apache.ratis.protocol.exceptions.StaleReadException}.

@@ -55,6 +55,17 @@ public interface AsyncApi {
    */
   CompletableFuture<RaftClientReply> sendReadOnly(Message message, RaftPeerId server);
 
+  /**
+   * Send the given readonly message asynchronously to the raft service using non-linearizable read.
+   * This method is useful when linearizable read is enabled
+   * but this client prefers not using it for performance reason.
+   * When linearizable read is disabled, this method is the same as {@link #sendReadOnly(Message)}.
+   *
+   * @param message The request message.
+   * @return a future of the reply.
+   */
+  CompletableFuture<RaftClientReply> sendReadOnlyNonLinearizable(Message message);
+
   /** The same as sendReadOnlyUnordered(message, null). */
   default CompletableFuture<RaftClientReply> sendReadOnlyUnordered(Message message) {
     return sendReadOnlyUnordered(message, null);
