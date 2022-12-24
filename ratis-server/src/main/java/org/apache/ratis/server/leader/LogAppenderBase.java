@@ -127,6 +127,7 @@ public abstract class LogAppenderBase implements LogAppender {
 
   void restart() {
     if (!server.getInfo().isAlive()) {
+      LOG.warn("Failed to restart {}: server {} is not alive", this, server.getMemberId());
       return;
     }
     getLeaderState().restart(this);

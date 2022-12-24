@@ -395,6 +395,7 @@ class LeaderStateImpl implements LeaderState {
 
   void stop() {
     if (!isStopped.compareAndSet(false, true)) {
+      LOG.info("{} is already stopped", this);
       return;
     }
     // do not interrupt event processor since it may be in the middle of logSync
@@ -610,6 +611,7 @@ class LeaderStateImpl implements LeaderState {
   @Override
   public void restart(LogAppender sender) {
     if (!isRunning()) {
+      LOG.warn("Failed to restart {}: {} is not running", sender, this);
       return;
     }
 
