@@ -74,6 +74,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
@@ -160,7 +161,7 @@ class LeaderStateImpl implements LeaderState {
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();
         String s = this + ": poll() is interrupted";
-        if (!running) {
+        if (isStopped.get()) {
           LOG.info(s + " gracefully");
           return null;
         } else {
@@ -314,7 +315,7 @@ class LeaderStateImpl implements LeaderState {
   private final PendingRequests pendingRequests;
   private final WatchRequests watchRequests;
   private final MessageStreamRequests messageStreamRequests;
-  private volatile boolean running = true;
+  private final AtomicBoolean isStopped = new AtomicBoolean();
 
   private final int stagingCatchupGap;
   private final long placeHolderIndex;
@@ -386,7 +387,10 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void stop() {
-    this.running = false;
+    if (!isStopped.compareAndSet(false, true)) {
+      LOG.info("{} is already stopped", this);
+      return;
+    }
     // do not interrupt event processor since it may be in the middle of logSync
     senders.forEach(LogAppender::stop);
     final NotLeaderException nle = server.generateNotLeaderException();
@@ -431,7 +435,8 @@ class LeaderStateImpl implements LeaderState {
    */
   PendingRequest startSetConfiguration(SetConfigurationRequest request, List<RaftPeer> peersInNewConf) {
     LOG.info("{}: startSetConfiguration {}", this, request);
-    Preconditions.assertTrue(running && !inStagingState());
+    Preconditions.assertTrue(isRunning(), () -> this + " is not running.");
+    Preconditions.assertTrue(!inStagingState(), () -> this + " is already in staging state " + stagingState);
 
     final List<RaftPeer> listenersInNewConf = request.getArguments().getPeersInNewConf(RaftPeerRole.LISTENER);
     final Collection<RaftPeer> peersToBootStrap = server.getRaftConf().filterNotContainedInConf(peersInNewConf);
@@ -589,8 +594,21 @@ class LeaderStateImpl implements LeaderState {
     senders.removeAll(toStop);
   }
 
+  boolean isRunning() {
+    if (isStopped.get()) {
+      return false;
+    }
+    final LeaderStateImpl current = server.getRole().getLeaderState().orElse(null);
+    return this == current;
+  }
+
   @Override
   public void restart(LogAppender sender) {
+    if (!isRunning()) {
+      LOG.warn("Failed to restart {}: {} is not running", sender, this);
+      return;
+    }
+
     final FollowerInfo info = sender.getFollower();
     LOG.info("{}: Restarting {} for {}", this, JavaUtils.getClassSimpleName(sender.getClass()), info.getName());
     sender.stop();
@@ -629,7 +647,7 @@ class LeaderStateImpl implements LeaderState {
       LOG.warn(s, e);
       // the failure should happen while changing the state to follower
       // thus the in-memory state should have been updated
-      if (running) {
+      if (!isStopped.get()) {
         throw new IllegalStateException(s + " and running == true", e);
       }
     }
@@ -665,7 +683,7 @@ class LeaderStateImpl implements LeaderState {
 
   private void prepare() {
     synchronized (server) {
-      if (running) {
+      if (isRunning()) {
         final ServerState state = server.getState();
         if (state.getRaftConf().isTransitional() && state.isConfCommitted()) {
           // the configuration is in transitional state, and has been committed
@@ -690,10 +708,10 @@ class LeaderStateImpl implements LeaderState {
       // apply an empty message; check if necessary to replicate (new) conf
       prepare();
 
-      while (running) {
+      while (isRunning()) {
         final StateUpdateEvent event = eventQueue.poll();
         synchronized(server) {
-          if (running) {
+          if (isRunning()) {
             if (event != null) {
               event.execute();
             } else if (inStagingState()) {
