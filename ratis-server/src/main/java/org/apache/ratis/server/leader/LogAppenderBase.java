@@ -125,6 +125,14 @@ public abstract class LogAppenderBase implements LogAppender {
     daemon.tryToClose();
   }
 
+  void restart() {
+    if (!server.getInfo().isAlive()) {
+      LOG.warn("Failed to restart {}: server {} is not alive", this, server.getMemberId());
+      return;
+    }
+    getLeaderState().restart(this);
+  }
+
   @Override
   public final FollowerInfo getFollower() {
     return follower;
