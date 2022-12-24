@@ -125,6 +125,13 @@ public abstract class LogAppenderBase implements LogAppender {
     daemon.tryToClose();
   }
 
+  void restart() {
+    if (!server.getInfo().isAlive()) {
+      return;
+    }
+    getLeaderState().restart(this);
+  }
+
   @Override
   public final FollowerInfo getFollower() {
     return follower;
