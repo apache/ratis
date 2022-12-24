@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -60,7 +60,7 @@ public class OpenCloseState {
     final Throwable t = state.get();
     if (!(t instanceof OpenTrace)) {
       final String s = name + " is expected to be opened but it is " + toString(t);
-      throw new IllegalArgumentException(s, t);
+      throw new IllegalStateException(s, t);
     }
   }
 
