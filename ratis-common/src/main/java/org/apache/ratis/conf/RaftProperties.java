@@ -708,6 +708,13 @@ public class RaftProperties {
     properties.clear();
   }
 
+  /**
+   * @return the key-value properties map
+   */
+  public ConcurrentMap<String, String> getProperties() {
+    return properties;
+  }
+
   @Override
   public String toString() {
     return JavaUtils.getClassSimpleName(getClass()) + ":" + size();
