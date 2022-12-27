@@ -27,7 +27,6 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.client.impl.OrderedAsync;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.conf.ReconfigurationBase;
@@ -39,10 +38,11 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -57,7 +57,7 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
 
   {
-    Log4jUtils.setLogLevel(OrderedAsync.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(OrderedAsync.LOG, Level.DEBUG);
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
   }
@@ -105,14 +105,14 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
     boolean setFound = false;
 
     for (ReconfigurationUtil.PropertyChange c: changes) {
-      if (c.prop.equals(PROP2) && c.oldVal != null && c.oldVal.equals(VAL1) &&
-          c.newVal != null && c.newVal.equals(VAL2)) {
+      if (c.getProp().equals(PROP2) && c.getOldVal() != null && c.getOldVal().equals(VAL1) &&
+          c.getNewVal() != null && c.getNewVal().equals(VAL2)) {
         changeFound = true;
-      } else if (c.prop.equals(PROP3) && c.oldVal != null && c.oldVal.equals(VAL1) &&
-          c.newVal == null) {
+      } else if (c.getProp().equals(PROP3) && c.getOldVal() != null && c.getOldVal().equals(VAL1) &&
+          c.getNewVal() == null) {
         unsetFound = true;
-      } else if (c.prop.equals(PROP4) && c.oldVal == null &&
-          c.newVal != null && c.newVal.equals(VAL1)) {
+      } else if (c.getProp().equals(PROP4) && c.getOldVal() == null &&
+          c.getNewVal() != null && c.getNewVal().equals(VAL1)) {
         setFound = true;
       }
     }
@@ -427,15 +427,15 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
     for (Map.Entry<PropertyChange, Optional<String>> result :
         status.getStatus().entrySet()) {
       PropertyChange change = result.getKey();
-      if (change.prop.equals("name1")) {
+      if (change.getProp().equals("name1")) {
         Assert.assertFalse(result.getValue().isPresent());
-      } else if (change.prop.equals("name2")) {
+      } else if (change.getProp().equals("name2")) {
         Assert.assertThat(result.getValue().get(),
             containsString("Property name2 is not reconfigurable"));
-      } else if (change.prop.equals("name3")) {
+      } else if (change.getProp().equals("name3")) {
         Assert.assertThat(result.getValue().get(), containsString("io exception"));
       } else {
-        fail("Unknown property: " + change.prop);
+        fail("Unknown property: " + change.getProp());
       }
     }
   }

@@ -24,14 +24,26 @@ import java.util.Map;
 
 public class ReconfigurationUtil {
   public static class PropertyChange {
-    public String prop;
-    public String oldVal;
-    public String newVal;
+    private final String prop;
+    private final String oldVal;
+    private final String newVal;
 
     public PropertyChange(String prop, String newVal, String oldVal) {
       this.prop = prop;
       this.newVal = newVal;
       this.oldVal = oldVal;
+    }
+
+    public String getProp() {
+      return prop;
+    }
+
+    public String getOldVal() {
+      return oldVal;
+    }
+
+    public String getNewVal() {
+      return newVal;
     }
   }
 

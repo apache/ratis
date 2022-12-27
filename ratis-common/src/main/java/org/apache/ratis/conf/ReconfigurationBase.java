@@ -19,13 +19,10 @@
 package org.apache.ratis.conf;
 
 import org.apache.ratis.thirdparty.com.google.common.collect.Maps;
-import org.apache.ratis.util.Daemon;
-import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.sql.Time;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -76,15 +73,15 @@ public abstract class ReconfigurationBase implements Reconfigurable {
 
   /**
    * Construct a ReconfigurableBase with the {@link RaftProperties}
-   * @param prop raft properties.
+   * @param properties raft properties.
    */
-  public ReconfigurationBase(RaftProperties prop) {
-    setConf((prop == null) ? new RaftProperties() : prop);
+  public ReconfigurationBase(RaftProperties properties) {
+    setConf((properties == null) ? new RaftProperties() : properties);
   }
 
   @Override
-  public void setConf(RaftProperties prop) {
-    this.prop = prop;
+  public void setConf(RaftProperties properties) {
+    this.prop = properties;
   }
 
   public RaftProperties getConf() {
@@ -122,26 +119,26 @@ public abstract class ReconfigurationBase implements Reconfigurable {
       Map<PropertyChange, Optional<String>> results = Maps.newHashMap();
       for (PropertyChange change : changes) {
         String errorMessage = null;
-        if (!parent.isPropertyReconfigurable(change.prop)) {
+        if (!parent.isPropertyReconfigurable(change.getProp())) {
           LOG.info(String.format(
               "Property %s is not configurable: old value: %s, new value: %s",
-              change.prop,
-              change.oldVal,
-              change.newVal));
+              change.getProp(),
+              change.getOldVal(),
+              change.getNewVal()));
           continue;
         }
-        LOG.info("Change property: " + change.prop + " from \""
-            + ((change.oldVal == null) ? "<default>" :  change.oldVal)
+        LOG.info("Change property: " + change.getProp() + " from \""
+            + ((change.getOldVal() == null) ? "<default>" :  change.getOldVal())
             + "\" to \""
-            + ((change.newVal == null) ? "<default>" : change.newVal)
+            + ((change.getNewVal() == null) ? "<default>" : change.getNewVal())
             + "\".");
         try {
           String effectiveValue =
-              parent.reconfigurePropertyImpl(change.prop, change.newVal);
-          if (change.newVal != null) {
-            oldConf.set(change.prop, effectiveValue);
+              parent.reconfigurePropertyImpl(change.getProp(), change.getNewVal());
+          if (change.getNewVal() != null) {
+            oldConf.set(change.getProp(), effectiveValue);
           } else {
-            oldConf.unset(change.prop);
+            oldConf.unset(change.getProp());
           }
         } catch (ReconfigurationException e) {
           Throwable cause = e.getCause();

@@ -23,9 +23,9 @@ import java.util.Optional;
 import org.apache.ratis.conf.ReconfigurationUtil.PropertyChange;
 
 public class ReconfigurationTaskStatus {
-  long startTime;
-  long endTime;
-  final Map<ReconfigurationUtil.PropertyChange, Optional<String>> status;
+  private long startTime;
+  private long endTime;
+  private final Map<ReconfigurationUtil.PropertyChange, Optional<String>> status;
 
   public ReconfigurationTaskStatus(long startTime, long endTime,
       Map<ReconfigurationUtil.PropertyChange, Optional<String>> status) {
