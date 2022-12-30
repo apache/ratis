@@ -40,7 +40,8 @@ import java.util.Objects;
 public abstract class ReconfigurationBase implements Reconfigurable {
   private static final Logger LOG = LoggerFactory.getLogger(ReconfigurationBase.class);
 
-  public static Collection<PropertyChange> getChangedProperties(RaftProperties newProperties, RaftProperties oldProperties) {
+  public static Collection<PropertyChange> getChangedProperties(
+      RaftProperties newProperties, RaftProperties oldProperties) {
     final Map<String, PropertyChange> changes = new HashMap<>();
 
     // iterate over old properties
