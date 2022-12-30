@@ -20,50 +20,40 @@ package org.apache.ratis.conf;
 
 import java.util.Collection;
 
+/**
+ * To reconfigure {@link RaftProperties} in runtime.
+ */
 public interface Reconfigurable {
-  /**
-   * Change a raft property on this object to the value specified.
-   *
-   * Change a raft property on this object to the value specified
-   * and return the previous value that the raft property was set to
-   * (or null if it was not previously set). If newVal is null, set the property
-   * to its default value;
-   *
-   * @param property property name.
-   * @param newVal new value.
-   * @throws ReconfigurationException if there was an error applying newVal.
-   * If the property cannot be changed, throw a
-   * {@link ReconfigurationException}.
-   */
-  void reconfigureProperty(String property, String newVal)
-      throws ReconfigurationException;
+  /** @return the {@link RaftProperties} to be reconfigured. */
+  RaftProperties getProperties();
 
   /**
-   * Return whether a given property is changeable at run time.
+   * Change a property on this object to the new value specified.
+   * If the new value specified is null, reset the property to its default value.
+   * <p>
+   * This method must apply the change to all internal data structures derived
+   * from the configuration property that is being changed.
+   * If this object owns other {@link Reconfigurable} objects,
+   * it must call this method recursively in order to update all these objects.
    *
-   * If isPropertyReconfigurable returns true for a property,
-   * then changeConf should not throw an exception when changing
-   * this property.
-   * @param property property name.
-   * @return true if property reconfigurable; false if not.
+   * @param property the name of the given property.
+   * @param newValue the new value.
+   * @return the effective value, which could possibly be different from specified new value,
+   *         of the property after reconfiguration.
+   * @throws ReconfigurationException if the property is not reconfigurable or there is an error applying the new value.
    */
-  boolean isPropertyReconfigurable(String property);
+  String reconfigureProperty(String property, String newValue) throws ReconfigurationException;
 
   /**
-   * Return all the properties that can be changed at run time.
-   * @return reconfigurable properties.
+   * Is the given property reconfigurable at runtime?
+   *
+   * @param property the name of the given property.
+   * @return true iff the given property is reconfigurable.
    */
+  default boolean isPropertyReconfigurable(String property) {
+    return getReconfigurableProperties().contains(property);
+  }
+
+  /** @return all the properties that are reconfigurable at runtime. */
   Collection<String> getReconfigurableProperties();
-
-  /**
-   * Set the raft properties to be used by this object.
-   * @param prop raft properties to be used
-   */
-  void setConf(RaftProperties prop);
-
-  /**
-   * Return the raft properties used by this object.
-   * @return RaftProperties
-   */
-  RaftProperties getConf();
 }

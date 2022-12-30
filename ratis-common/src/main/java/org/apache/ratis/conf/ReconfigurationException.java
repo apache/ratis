@@ -18,87 +18,46 @@
 
 package org.apache.ratis.conf;
 
-public class ReconfigurationException extends Exception{
+import static org.apache.ratis.conf.ReconfigurationStatus.propertyString;
 
+public class ReconfigurationException extends Exception {
   private static final long serialVersionUID = 1L;
 
-  private String property;
-  private String newVal;
-  private String oldVal;
-
-  /**
-   * Construct the exception message.
-   */
-  private static String constructMessage(String property, String newVal, String oldVal) {
-    String message = "Could not change property " + property;
-    if (oldVal != null) {
-      message += " from \'" + oldVal;
-    }
-    if (newVal != null) {
-      message += "\' to \'" + newVal + "\'";
-    }
-    return message;
-  }
-
+  private final String property;
+  private final String newValue;
+  private final String oldValue;
 
   /**
    * Create a new instance of {@link ReconfigurationException}.
+   * @param property the property name.
+   * @param newValue the new value.
+   * @param oldValue the old value.
+   * @param cause the cause of this exception.
    */
-  public ReconfigurationException() {
-    super("Could not change configuration.");
-    this.property = null;
-    this.newVal = null;
-    this.oldVal = null;
-  }
-
-  /**
-   * Create a new instance of {@link ReconfigurationException}.
-   * @param property property name.
-   * @param newVal new value.
-   * @param oldVal old value.
-   * @param cause original exception.
-   */
-  public ReconfigurationException(String property, String newVal, String oldVal, Throwable cause) {
-    super(constructMessage(property, newVal, oldVal), cause);
+  public ReconfigurationException(String reason, String property, String newValue, String oldValue, Throwable cause) {
+    super("Failed to change property " + propertyString(property, newValue, oldValue) + ": " + reason, cause);
     this.property = property;
-    this.newVal = newVal;
-    this.oldVal = oldVal;
+    this.newValue = newValue;
+    this.oldValue = oldValue;
   }
 
-  /**
-   * Create a new instance of {@link ReconfigurationException}.
-   * @param property property name.
-   * @param newVal new value.
-   * @param oldVal old value.
-   */
-  public ReconfigurationException(String property, String newVal, String oldVal) {
-    super(constructMessage(property, newVal, oldVal));
-    this.property = property;
-    this.newVal = newVal;
-    this.oldVal = oldVal;
+  /** The same as new ReconfigurationException(reason, property, newValue, oldValue, null). */
+  public ReconfigurationException(String reason, String property, String newValue, String oldValue) {
+    this(reason, property, newValue, oldValue, null);
   }
 
-  /**
-   * Get property that cannot be changed.
-   * @return property info.
-   */
+  /** @return the property name related to this exception. */
   public String getProperty() {
     return property;
   }
 
-  /**
-   * Get value to which property was supposed to be changed.
-   * @return new value.
-   */
+  /** @return the value that the property was supposed to be changed. */
   public String getNewValue() {
-    return newVal;
+    return newValue;
   }
 
-  /**
-   * Get old value of property that cannot be changed.
-   * @return old value.
-   */
+  /** @return the old value of the property. */
   public String getOldValue() {
-    return oldVal;
+    return oldValue;
   }
 }
