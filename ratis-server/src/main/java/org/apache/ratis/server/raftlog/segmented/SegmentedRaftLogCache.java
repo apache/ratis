@@ -318,8 +318,8 @@ public class SegmentedRaftLogCache {
           // to purge that.
           int startIndex = (overlappedSegment.getEndIndex() == index) ?
               segmentIndex : segmentIndex - 1;
-          for (int i = startIndex; i >= 0; i--) {
-            LogSegment segment = segments.remove(i);
+          for (int i = 0; i <= startIndex; i++) {
+            LogSegment segment = segments.remove(0); // must remove the first segment to avoid gaps.
             sizeInBytes -= segment.getTotalFileSize();
             list.add(SegmentFileInfo.newClosedSegmentFileInfo(segment));
           }
