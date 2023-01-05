@@ -117,7 +117,9 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       // Check the installed snapshot file number on each Follower matches with the
       // leader snapshot.
       for (RaftServer.Division follower : cluster.getFollowers()) {
-        Assert.assertEquals(3, follower.getStateMachine().getLatestSnapshot().getFiles().size());
+        final SnapshotInfo info = follower.getStateMachine().getLatestSnapshot();
+        Assert.assertNotNull(info);
+        Assert.assertEquals(3, info.getFiles().size());
       }
     } finally {
       cluster.shutdown();
