@@ -66,7 +66,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(
         prop, SNAPSHOT_TRIGGER_THRESHOLD);
     RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(prop, true);
-    RaftServerConfigKeys.Log.Appender.setSnapshotChunkSizeMax(prop, SizeInBytes.ONE_MB);
+    RaftServerConfigKeys.Log.Appender.setSnapshotChunkSizeMax(prop, SizeInBytes.ONE_KB);
   }
 
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 64;
@@ -171,9 +171,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
           final byte[] data = new byte[4096];
           Arrays.fill(data, (byte)0x01);
           try (FileOutputStream fout = new FileOutputStream(file2)) {
-            for (int i = 0; i < 1024; i++) {
               fout.write(data);
-            }
           }
         }
 
