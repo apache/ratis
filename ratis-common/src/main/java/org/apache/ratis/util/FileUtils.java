@@ -71,6 +71,21 @@ public interface FileUtils {
         () -> "Files.createDirectories " + dir);
   }
 
+  static void createDirectoriesDeleteExistingNonDirectory(File dir) throws IOException {
+    createDirectoriesDeleteExistingNonDirectory(dir.toPath());
+  }
+
+  static void createDirectoriesDeleteExistingNonDirectory(Path dir) throws IOException {
+    try {
+      createDirectories(dir);
+    } catch (FileAlreadyExistsException e) {
+      LOG.warn("Failed to create directory " + dir
+          + " since it already exists as a non-directory.  Trying to delete it ...", e);
+      delete(dir);
+      createDirectories(dir);
+    }
+  }
+
   static void move(File src, File dst) throws IOException {
     move(src.toPath(), dst.toPath());
   }
