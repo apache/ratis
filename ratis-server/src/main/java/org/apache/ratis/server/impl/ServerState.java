@@ -482,7 +482,7 @@ class ServerState implements Closeable {
     // TODO: verify that we need to install the snapshot
     StateMachine sm = server.getStateMachine();
     sm.pause(); // pause the SM to prepare for install snapshot
-    snapshotManager.installSnapshot(sm, request);
+    snapshotManager.installSnapshot(request, sm);
     updateInstalledSnapshotIndex(TermIndex.valueOf(request.getSnapshotChunk().getTermIndex()));
   }
 
