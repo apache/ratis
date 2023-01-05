@@ -37,12 +37,14 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -64,6 +66,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(
         prop, SNAPSHOT_TRIGGER_THRESHOLD);
     RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(prop, true);
+    RaftServerConfigKeys.Log.Appender.setSnapshotChunkSizeMax(prop, SizeInBytes.ONE_MB);
   }
 
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 64;
@@ -162,6 +165,14 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
           FileUtils.createDirectories(file2.getParentFile());
           FileUtils.createNewFile(file1.toPath());
           FileUtils.createNewFile(file2.toPath());
+          // write 4MB data to simulate multiple chunk scene
+          final byte[] data = new byte[4096];
+          Arrays.fill(data, (byte)0x01);
+          try (FileOutputStream fout = new FileOutputStream(file2)) {
+            for (int i = 0; i < 1024; i++) {
+              fout.write(data);
+            }
+          }
         }
 
       } catch (IOException ioException) {

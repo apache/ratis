@@ -73,14 +73,20 @@ public class FileChunkReader implements Closeable {
     final long remaining = info.getFileSize() - offset;
     final int chunkLength = remaining < chunkMaxSize ? (int) remaining : chunkMaxSize;
     final ByteString data = ByteString.readFrom(in, chunkLength);
-    final ByteString fileDigest = ByteString.copyFrom(
-            digester != null? digester.digest(): info.getFileDigest().getDigest());
+    final boolean isDone = offset + chunkLength == info.getFileSize();
+    final ByteString fileDigest;
+    if (digester != null) {
+      // file digest is calculated once and shipped with last FileChunkProto
+      fileDigest = isDone ? ByteString.copyFrom(digester.digest()) : ByteString.EMPTY;
+    } else {
+      fileDigest = ByteString.copyFrom(info.getFileDigest().getDigest());
+    }
 
     final FileChunkProto proto = FileChunkProto.newBuilder()
         .setFilename(relativePath.toString())
         .setOffset(offset)
         .setChunkIndex(chunkIndex)
-        .setDone(offset + chunkLength == info.getFileSize())
+        .setDone(isDone)
         .setData(data)
         .setFileDigest(fileDigest)
         .build();
