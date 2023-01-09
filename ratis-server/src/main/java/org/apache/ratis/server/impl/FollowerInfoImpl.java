@@ -37,7 +37,7 @@ class FollowerInfoImpl implements FollowerInfo {
   private final AtomicReference<Timestamp> lastRpcSendTime;
   private final AtomicReference<Timestamp> lastHeartbeatSendTime;
   private final RaftLogIndex nextIndex;
-  private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", 0L);
+  private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex snapshotIndex = new RaftLogIndex("snapshotIndex", 0L);
   private volatile boolean attendVote;
