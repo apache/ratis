@@ -1177,7 +1177,8 @@ class RaftServerImpl implements RaftServer.Division,
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
     return role.getLeaderState().map(leader -> leader.submitStepDownRequestAsync(request))
-        .orElseGet(() -> CompletableFuture.completedFuture(newSuccessReply(request)));
+        .orElseGet(() -> CompletableFuture.completedFuture(newExceptionReply(
+            request, new NotLeaderException(getMemberId(), getRaftConf().getPeer(info.getLeaderId()), null))));
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
