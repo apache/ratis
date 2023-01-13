@@ -68,9 +68,9 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
   /** Number of entries appended to the raft log */
   public static final String RAFT_LOG_APPEND_ENTRY_COUNT = "appendEntryCount";
   public static final String RAFT_LOG_PURGE_METRIC = "purgeLog";
-  /** Time taken for a Raft log operation to complete write state machine data. */
+  /** Number of statemachine dataApi write timeouts */
   public static final String RAFT_LOG_STATEMACHINE_DATA_WRITE_TIMEOUT_COUNT = "numStateMachineDataWriteTimeout";
-  /** Time taken for a Raft log operation to complete read state machine data. */
+  /** Number of statemachine dataApi read timeouts */
   public static final String RAFT_LOG_STATEMACHINE_DATA_READ_TIMEOUT_COUNT = "numStateMachineDataReadTimeout";
 
   //////////////////////////////
