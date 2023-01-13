@@ -21,6 +21,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
@@ -49,7 +50,8 @@ public class StepDownCommand extends AbstractRatisCommand {
     super.run(cl);
 
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      final RaftClientReply transferLeadershipReply = client.admin().transferLeadership(null, 60_000);
+      RaftPeerId leaderId = RaftPeerId.valueOf(getLeader(getGroupInfoReply().getRoleInfoProto()).getId());
+      final RaftClientReply transferLeadershipReply = client.admin().transferLeadership(null, leaderId, 60_000);
       processReply(transferLeadershipReply, () -> "Failed to step down leader");
     } catch (Throwable t) {
       printf("caught an error when executing step down leader: %s%n", t.getMessage());

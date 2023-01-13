@@ -66,5 +66,9 @@ public interface AdminApi {
   }
 
   /** Transfer leadership to the given server.*/
-  RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException;
+  default RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException {
+    return transferLeadership(newLeader, null, timeoutMs);
+  };
+
+  RaftClientReply transferLeadership(RaftPeerId newLeader, RaftPeerId leaderId, long timeoutMs) throws IOException;
 }
