@@ -661,7 +661,7 @@ class LeaderStateImpl implements LeaderState {
     return pendingStepDown.submitAsync(request);
   }
 
-  private synchronized void sendStartLeaderElectionToHigherPriorityPeer(RaftPeerId follower, TermIndex lastEntry) {
+  synchronized void sendStartLeaderElectionToHigherPriorityPeer(RaftPeerId follower, TermIndex lastEntry) {
     ServerState state = server.getState();
     TermIndex currLastEntry = state.getLastEntry();
     if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
@@ -772,6 +772,7 @@ class LeaderStateImpl implements LeaderState {
     } else {
       eventQueue.submit(checkStagingEvent);
     }
+    server.getTransferLeadership().onFollowerSuccessAppendEntries(follower, this);
   }
 
   @Override
@@ -1249,6 +1250,10 @@ class LeaderStateImpl implements LeaderState {
 
   Stream<LogAppender> getLogAppenders() {
     return senders.stream();
+  }
+
+  Optional<LogAppender> getLogAppender(RaftPeerId transferee) {
+    return getLogAppenders().filter(a -> a.getFollowerId().equals(transferee)).findAny();
   }
 
   private static boolean isAttendingVote(FollowerInfo follower) {
