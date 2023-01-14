@@ -317,6 +317,10 @@ class RaftServerImpl implements RaftServer.Division,
     return proxy;
   }
 
+  TransferLeadership getTransferLeadership() {
+    return transferLeadership;
+  }
+
   RaftServerRpc getServerRpc() {
     return proxy.getServerRpc();
   }

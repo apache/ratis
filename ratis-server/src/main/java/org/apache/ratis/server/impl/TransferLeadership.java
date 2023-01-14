@@ -21,6 +21,8 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
+import org.apache.ratis.server.leader.FollowerInfo;
+import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.TimeDuration;
@@ -81,8 +83,48 @@ public class TransferLeadership {
     this.server = server;
   }
 
+  private RaftPeerId getTransferee() {
+    return Optional.ofNullable(pending.get())
+        .map(r -> r.getRequest().getNewLeader()).orElse(null);
+  }
+
   boolean isSteppingDown() {
     return pending.get() != null;
+  }
+
+  void onFollowerAppendEntriesReply(FollowerInfo follower) {
+    final RaftPeerId transferee = getTransferee();
+    // If TransferLeadership is in progress, and the transferee has just append some entries
+    if (follower.getPeer().getId().equals(transferee)) {
+      // If the transferee is up-to-date, send StartLeaderElection to it
+      server.getRole().getLeaderState().ifPresent(leaderState -> {
+        if (leaderState.sendStartLeaderElection(follower)) {
+          LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
+              server.getMemberId(), transferee);
+        }
+      });
+    }
+  }
+
+  private void tryTransferLeadership(RaftPeerId transferee) {
+    server.getRole().getLeaderState().ifPresent(leaderState -> {
+      LOG.info("{}: start transferring leadership to {}", server.getMemberId(), transferee);
+      final LogAppender appender = leaderState.getLogAppender(transferee).orElse(null);
+
+      if (appender == null) {
+        LOG.error("{}: cannot find LogAppender for transferee {}", server.getMemberId(), transferee);
+        return;
+      }
+      final FollowerInfo follower = appender.getFollower();
+      if (leaderState.sendStartLeaderElection(follower)) {
+        LOG.info("{}: sent StartLeaderElection to transferee {} immediately as it already has up-to-date log",
+            server.getMemberId(), transferee);
+      } else {
+        LOG.info("{}: notifying LogAppender to send AppendEntries as transferee {} is not up-to-date",
+            server.getMemberId(), transferee);
+        appender.notifyLogAppender();
+      }
+    });
   }
 
   CompletableFuture<RaftClientReply> start(TransferLeadershipRequest request) {
@@ -106,10 +148,13 @@ public class TransferLeadership {
         return CompletableFuture.completedFuture(server.newExceptionReply(request, tle));
       }
     }
+    tryTransferLeadership(request.getNewLeader());
 
-    scheduler.onTimeout(TimeDuration.valueOf(request.getTimeoutMs(), TimeUnit.MILLISECONDS),
-        () -> finish(server.getState().getLeaderId(), true),
-        LOG, () -> "Timeout check failed for append entry request: " + request);
+    // if timeout is not specified in request, default to random election timeout
+    final TimeDuration timeout = request.getTimeoutMs() == 0 ? server.getRandomElectionTimeout()
+        : TimeDuration.valueOf(request.getTimeoutMs(), TimeUnit.MILLISECONDS);
+    scheduler.onTimeout(timeout, () -> finish(server.getState().getLeaderId(), true),
+        LOG, () -> "Failed to transfer leadership to " + request.getNewLeader() + ": timeout after " + timeout);
     return supplier.get().getReplyFuture();
   }
 
