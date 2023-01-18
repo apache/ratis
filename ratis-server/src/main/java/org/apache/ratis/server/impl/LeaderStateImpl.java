@@ -28,6 +28,7 @@ import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
 import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -66,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1037,40 +1039,16 @@ class LeaderStateImpl implements LeaderState {
       return;
     }
     int leaderPriority = leader.getPriority();
-
-    for (LogAppender logAppender : senders.getSenders()) {
-      final FollowerInfo followerInfo = logAppender.getFollower();
-      final RaftPeerId followerID = followerInfo.getPeer().getId();
-      final RaftPeer follower = conf.getPeer(followerID);
-      if (follower == null) {
-        if (conf.getPeer(followerID, RaftPeerRole.LISTENER) == null) {
-          LOG.error("{} the follower {} is not in the conf {}", this, followerID, conf);
-        }
-        continue;
-      }
-      final int followerPriority = follower.getPriority();
-      if (followerPriority <= leaderPriority) {
-        continue;
-      }
-      final TermIndex leaderLastEntry = server.getState().getLastEntry();
-      if (leaderLastEntry == null) {
-        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} " +
-                "is higher than leader's:{} and leader's lastEntry is null",
-            this, followerID, currentTerm, followerPriority, leaderPriority);
-
-        sendStartLeaderElectionToHigherPriorityPeer(followerID, null);
-        return;
-      }
-
-      if (followerInfo.getMatchIndex() >= leaderLastEntry.getIndex()) {
-        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} " +
-                "is higher than leader's:{} and follower's lastEntry index:{} catch up with leader's:{}",
-            this, followerID, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
-            leaderLastEntry.getIndex());
-        sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
-        return;
-      }
-    }
+    // If there is a follower whose priority is higher than leaderPriority, start transfer leadership
+    getLogAppenders().map(LogAppender::getFollowerId).map(conf::getPeer).filter(Objects::nonNull)
+        .max(Comparator.comparingInt(RaftPeer::getPriority)).ifPresent(peer -> {
+          if (peer.getPriority() > leaderPriority) {
+            LOG.info("{}: yield leadership to follower {} with higher priority {}",
+                server.getMemberId(), peer.getId(), peer.getPriority());
+            server.getTransferLeadership().start(new TransferLeadershipRequest(
+                ClientId.emptyClientId(), server.getId(), server.getGroup().getGroupId(), 0, peer.getId(), 0));
+          }
+        });
   }
 
   /**
