@@ -260,6 +260,40 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testYieldLeaderToHigherPriority() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+
+        List<RaftServer.Division> followers = cluster.getFollowers();
+        assertEquals(followers.size(), 2);
+        RaftServer.Division newLeader = followers.get(0);
+
+        List<RaftPeer> peers = cluster.getPeers();
+        List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
+        RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
+        assertTrue(reply.isSuccess());
+
+        // Wait the old leader to step down.
+        // TODO: make it more deterministic.
+        Thread.sleep(1000);
+
+        final RaftServer.Division currLeader = waitForLeader(cluster);
+        assertEquals(newLeader.getId(), currLeader.getId());
+
+        reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        assertEquals(reply.getReplierId(), newLeader.getId().toString());
+        assertTrue(reply.isSuccess());
+      }
+
+      cluster.shutdown();
+    }
+  }
+
+  @Test
   public void testEnforceLeader() throws Exception {
     LOG.info("Running testEnforceLeader");
     final int numServer = 5;
