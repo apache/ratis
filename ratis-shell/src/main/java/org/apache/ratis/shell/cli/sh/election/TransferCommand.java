@@ -29,9 +29,6 @@ import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Command for transferring the ratis leader to specific server.
@@ -57,14 +54,7 @@ public class TransferCommand extends AbstractRatisCommand {
     String strAddr = cl.getOptionValue(ADDRESS_OPTION_NAME);
 
     RaftPeerId newLeaderId = null;
-    // update priorities to enable transfer
-    List<RaftPeer> peersWithNewPriorities = new ArrayList<>();
     for (RaftPeer peer : getRaftGroup().getPeers()) {
-      peersWithNewPriorities.add(
-          RaftPeer.newBuilder(peer)
-              .setPriority(peer.getAddress().equals(strAddr) ? 2 : 1)
-              .build()
-      );
       if (peer.getAddress().equals(strAddr)) {
         newLeaderId = peer.getId();
       }
@@ -73,17 +63,9 @@ public class TransferCommand extends AbstractRatisCommand {
       return -2;
     }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      String stringPeers = "[" + peersWithNewPriorities.stream().map(RaftPeer::toString)
-          .collect(Collectors.joining(", ")) + "]";
-      printf("Applying new peer state before transferring leadership: %n%s%n", stringPeers);
-      RaftClientReply setConfigurationReply =
-          client.admin().setConfiguration(peersWithNewPriorities);
-      processReply(setConfigurationReply,
-          () -> "failed to set priorities before initiating election");
       // transfer leadership
       printf("Transferring leadership to server with address <%s> %n", strAddr);
       try {
-        Thread.sleep(3_000);
         RaftClientReply transferLeadershipReply =
             client.admin().transferLeadership(newLeaderId, 60_000);
         processReply(transferLeadershipReply, () -> "election failed");
