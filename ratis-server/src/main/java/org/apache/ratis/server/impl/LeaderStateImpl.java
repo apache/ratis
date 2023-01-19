@@ -669,6 +669,8 @@ class LeaderStateImpl implements LeaderState {
               "did not match lastEntry:{}", this, follower, currLastEntry, lastEntry);
       return;
     }
+    LOG.info("{}: send StartLeaderElectionRequest to follower {} on term {}, lastEntry={}",
+        this, follower, currentTerm, lastEntry);
 
     final StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
         server.getMemberId(), follower, lastEntry);
@@ -685,34 +687,16 @@ class LeaderStateImpl implements LeaderState {
     });
   }
 
-  boolean sendStartLeaderElection(FollowerInfo followerInfo, int leaderPriority) {
-    final RaftConfigurationImpl conf = server.getRaftConf();
+  boolean sendStartLeaderElection(FollowerInfo followerInfo) {
     final RaftPeerId followerId = followerInfo.getPeer().getId();
-    final RaftPeer follower = conf.getPeer(followerId);
-    if (follower == null) {
-      if (conf.getPeer(followerId, RaftPeerRole.LISTENER) == null) {
-        LOG.error("{} the follower {} is not in the conf {}", this, followerId, conf);
-      }
-      return false;
-    }
-    if (follower.getPriority() <= leaderPriority) {
-      return false;
-    }
     final TermIndex leaderLastEntry = server.getState().getLastEntry();
     if (leaderLastEntry == null) {
-      LOG.info("{}: send StartLeaderElectionRequest to follower {} (priority={}) on term {} "
-              + " from leader (priority={})",
-          this, followerId, follower.getPriority(), currentTerm, leaderPriority);
-
       sendStartLeaderElection(followerId, null);
       return true;
     }
 
     final long followerMatchIndex = followerInfo.getMatchIndex();
     if (followerMatchIndex >= leaderLastEntry.getIndex()) {
-      LOG.info("{}: send StartLeaderElectionRequest to follower {} (priority={}, matchIndex={}) on term {} "
-              + " from leader (priority={}, lastEntry={})",
-          this, followerId, follower.getPriority(), followerMatchIndex, currentTerm, leaderPriority, leaderLastEntry);
       sendStartLeaderElection(followerId, leaderLastEntry);
       return true;
     }
@@ -1064,10 +1048,23 @@ class LeaderStateImpl implements LeaderState {
       LOG.error("{} the leader {} is not in the conf {}", this, server.getId(), conf);
       return;
     }
+    final int leaderPriority = leader.getPriority();
+
+    FollowerInfo highestPriorityInfo = null;
+    int highestPriority = Integer.MIN_VALUE;
     for (LogAppender logAppender : senders.getSenders()) {
-      if (sendStartLeaderElection(logAppender.getFollower(), leader.getPriority())) {
-        return;
+      final RaftPeer follower = conf.getPeer(logAppender.getFollowerId());
+      if (follower == null) {
+        continue;
       }
+      final int followerPriority = follower.getPriority();
+      if (followerPriority > leaderPriority && followerPriority >= highestPriority) {
+        highestPriority = followerPriority;
+        highestPriorityInfo = logAppender.getFollower();
+      }
+    }
+    if (highestPriorityInfo != null) {
+      sendStartLeaderElection(highestPriorityInfo);
     }
   }
 
