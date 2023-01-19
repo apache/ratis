@@ -124,12 +124,12 @@ class ReadIndexHeartbeats {
 
     synchronized void onAppendEntriesReply(LogAppender appender, AppendEntriesReplyProto reply,
                                            Predicate<Predicate<RaftPeerId>> hasMajority) {
-      final long callId = reply.getServerReply().getCallId();
+      final long followerCommit = reply.getFollowerCommit();
 
       Iterator<Map.Entry<Long, AppendEntriesListener>> iterator = sorted.entrySet().iterator();
       while (iterator.hasNext()) {
         Map.Entry<Long, AppendEntriesListener> entry = iterator.next();
-        if (entry.getKey() > callId) {
+        if (entry.getKey() > followerCommit) {
           return;
         }
 
