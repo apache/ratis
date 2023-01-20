@@ -18,6 +18,7 @@
 package org.apache.ratis.server.leader;
 
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +32,15 @@ public interface FollowerInfo {
   /** @return the name of this object. */
   String getName();
 
-  /** @return this follower's peer info. */
+  /** @return this follower's peer id. */
+  RaftPeerId getId();
+
+  /**
+   * Return this follower's {@link RaftPeer}.
+   * To obtain the {@link RaftPeerId}, use {@link #getId()} which is more efficient than this method.
+   *
+   * @return this follower's peer info.
+   */
   RaftPeer getPeer();
 
   /** @return the matchIndex acknowledged by this follower. */

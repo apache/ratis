@@ -20,8 +20,8 @@ package org.apache.ratis.server;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
@@ -69,7 +69,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link RaftPeer} for this division. */
     default RaftPeer getPeer() {
-      return Optional.ofNullable(getRaftConf().getPeer(getId()))
+      return Optional.ofNullable(getRaftConf().getPeer(getId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER))
         .orElseGet(() -> getRaftServer().getPeer());
     }
 
@@ -78,10 +78,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link RaftGroup} for this division. */
     default RaftGroup getGroup() {
-      Collection<RaftPeer> allFollowerPeers =
-          getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.FOLLOWER);
-      Collection<RaftPeer> allListenerPeers =
-          getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
+      final Collection<RaftPeer> allFollowerPeers = getRaftConf().getAllPeers(RaftPeerRole.FOLLOWER);
+      final Collection<RaftPeer> allListenerPeers = getRaftConf().getAllPeers(RaftPeerRole.LISTENER);
       Iterable<RaftPeer> peers = Iterables.concat(allFollowerPeers, allListenerPeers);
       return RaftGroup.valueOf(getMemberId().getGroupId(), peers);
     }
@@ -126,7 +124,10 @@ public interface RaftServer extends Closeable, RpcType.Get,
   /** @return the server ID. */
   RaftPeerId getId();
 
-  /** @return the {@link RaftPeer} for this server. */
+  /**
+   * @return the general {@link RaftPeer} for this server.
+   *         To obtain a specific {@link RaftPeer} for a {@link RaftGroup}, use {@link Division#getPeer()}.
+   */
   RaftPeer getPeer();
 
   /** @return the group IDs the server is part of. */
