@@ -126,7 +126,10 @@ public interface RaftServer extends Closeable, RpcType.Get,
   /** @return the server ID. */
   RaftPeerId getId();
 
-  /** @return the {@link RaftPeer} for this server. */
+  /**
+   * @return the general {@link RaftPeer} for this server.
+   *         To obtain a specific {@link RaftPeer} for a {@link RaftGroup}, use {@link Division#getPeer()}.
+   */
   RaftPeer getPeer();
 
   /** @return the group IDs the server is part of. */

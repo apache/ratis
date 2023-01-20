@@ -581,7 +581,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private RaftPeer getPeer(RaftPeerId id) {
-    return server.getRaftConf().getPeer(id);
+    return server.getRaftConf().getPeer(id, RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER);
   }
 
   Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote) {
@@ -623,7 +623,7 @@ class LeaderStateImpl implements LeaderState {
     sender.stop();
     senders.removeAll(Collections.singleton(sender));
 
-    Optional.ofNullable(server.getRaftConf().getPeer(info.getId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER))
+    Optional.ofNullable(getPeer(info.getId()))
         .ifPresent(peer -> addAndStartSenders(Collections.singleton(peer)));
   }
 
