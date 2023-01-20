@@ -79,7 +79,7 @@ public interface LogAppender {
 
   /** The same as getFollower().getPeer().getId(). */
   default RaftPeerId getFollowerId() {
-    return getFollower().getPeer().getId();
+    return getFollower().getId();
   }
 
   /** @return the call id for the next {@link AppendEntriesRequestProto}. */

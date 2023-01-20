@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
@@ -26,13 +27,15 @@ import org.apache.ratis.util.Timestamp;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 class FollowerInfoImpl implements FollowerInfo {
   private final String name;
   private final Consumer<Object> infoIndexChange;
   private final Consumer<Object> debugIndexChange;
 
-  private final RaftPeer peer;
+  private final AtomicReference<RaftPeer> peer;
+  private final Function<RaftPeerId, RaftPeer> getPeer;
   private final AtomicReference<Timestamp> lastRpcResponseTime;
   private final AtomicReference<Timestamp> lastRpcSendTime;
   private final AtomicReference<Timestamp> lastHeartbeatSendTime;
@@ -43,12 +46,14 @@ class FollowerInfoImpl implements FollowerInfo {
   private volatile boolean attendVote;
   private volatile boolean ackInstallSnapshotAttempt = false;
 
-  FollowerInfoImpl(RaftGroupMemberId id, RaftPeer peer, Timestamp lastRpcTime, long nextIndex, boolean attendVote) {
+  FollowerInfoImpl(RaftGroupMemberId id, RaftPeer peer, Function<RaftPeerId, RaftPeer> getPeer,
+      Timestamp lastRpcTime, long nextIndex, boolean attendVote) {
     this.name = id + "->" + peer.getId();
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
     this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
 
-    this.peer = peer;
+    this.peer = new AtomicReference<>(peer);
+    this.getPeer = getPeer;
     this.lastRpcResponseTime = new AtomicReference<>(lastRpcTime);
     this.lastRpcSendTime = new AtomicReference<>(lastRpcTime);
     this.lastHeartbeatSendTime = new AtomicReference<>(lastRpcTime);
@@ -146,8 +151,19 @@ class FollowerInfoImpl implements FollowerInfo {
   }
 
   @Override
+  public RaftPeerId getId() {
+    return peer.get().getId();
+  }
+
+  @Override
   public RaftPeer getPeer() {
-    return peer;
+    final RaftPeer newPeer = getPeer.apply(getId());
+    if (newPeer != null) {
+      peer.set(newPeer);
+      return newPeer;
+    } else {
+      return peer.get();
+    }
   }
 
   @Override

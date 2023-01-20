@@ -565,7 +565,7 @@ class LeaderStateImpl implements LeaderState {
   public AppendEntriesRequestProto newAppendEntriesRequestProto(FollowerInfo follower,
       List<LogEntryProto> entries, TermIndex previous, long callId) {
     final boolean initializing = isAttendingVote(follower);
-    final RaftPeerId targetId = follower.getPeer().getId();
+    final RaftPeerId targetId = follower.getId();
     return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, currentTerm, entries,
         ServerImplUtils.effectiveCommitIndex(raftLog.getLastCommittedIndex(), previous, entries.size()),
         initializing, previous, server.getCommitInfos(), callId);
@@ -580,16 +580,19 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
+  private RaftPeer getPeer(RaftPeerId id) {
+    return server.getRaftConf().getPeer(id, RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER);
+  }
+
   Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote) {
     final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
-    final List<LogAppender> newAppenders = newPeers.stream()
-        .map(peer -> {
-          final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, t, nextIndex, attendVote);
-          followerInfoMap.put(peer.getId(), f);
-          raftServerMetrics.addFollower(peer.getId());
-          logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
-          return server.newLogAppender(this, f);
-        }).collect(Collectors.toList());
+    final List<LogAppender> newAppenders = newPeers.stream().map(peer -> {
+      final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, this::getPeer, t, nextIndex, attendVote);
+      followerInfoMap.put(peer.getId(), f);
+      raftServerMetrics.addFollower(peer.getId());
+      logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
+      return server.newLogAppender(this, f);
+    }).collect(Collectors.toList());
     senders.addAll(newAppenders);
     return newAppenders;
   }
@@ -620,10 +623,8 @@ class LeaderStateImpl implements LeaderState {
     sender.stop();
     senders.removeAll(Collections.singleton(sender));
 
-    final RaftPeer peer = info.getPeer();
-    if (server.getRaftConf().containsInConf(peer.getId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER)) {
-      addAndStartSenders(Collections.singleton(peer));
-    }
+    Optional.ofNullable(getPeer(info.getId()))
+        .ifPresent(peer -> addAndStartSenders(Collections.singleton(peer)));
   }
 
   /**
@@ -688,7 +689,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   boolean sendStartLeaderElection(FollowerInfo followerInfo) {
-    final RaftPeerId followerId = followerInfo.getPeer().getId();
+    final RaftPeerId followerId = followerInfo.getId();
     final TermIndex leaderLastEntry = server.getState().getLastEntry();
     if (leaderLastEntry == null) {
       sendStartLeaderElection(followerId, null);
@@ -793,7 +794,7 @@ class LeaderStateImpl implements LeaderState {
 
   @Override
   public boolean isFollowerBootstrapping(FollowerInfo follower) {
-    return isBootStrappingPeer(follower.getPeer().getId());
+    return isBootStrappingPeer(follower.getId());
   }
 
   private void checkStaging() {
@@ -811,7 +812,7 @@ class LeaderStateImpl implements LeaderState {
         applyOldNewConf();
         senders.stream()
             .map(LogAppender::getFollower)
-            .filter(f -> server.getRaftConf().containsInConf(f.getPeer().getId()))
+            .filter(f -> server.getRaftConf().containsInConf(f.getId()))
             .map(FollowerInfoImpl.class::cast)
             .forEach(FollowerInfoImpl::startAttendVote);
       }
@@ -934,7 +935,7 @@ class LeaderStateImpl implements LeaderState {
 
     int count = includeSelf ? 1 : 0;
     for (FollowerInfo follower: followers) {
-      if (isAcked.test(follower.getPeer().getId())) {
+      if (isAcked.test(follower.getId())) {
         count++;
       }
     }
@@ -1259,7 +1260,7 @@ class LeaderStateImpl implements LeaderState {
       server.getStateMachine().leaderEvent().notifyFollowerSlowness(leaderInfo);
       server.getStateMachine().leaderEvent().notifyFollowerSlowness(leaderInfo, follower.getPeer());
     }
-    final RaftPeerId followerId = follower.getPeer().getId();
+    final RaftPeerId followerId = follower.getId();
     raftServerMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime.toLong(TimeUnit.NANOSECONDS));
   }
 
