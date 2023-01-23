@@ -620,7 +620,7 @@ class RaftServerImpl implements RaftServer.Division,
     case LEADER:
       role.getLeaderState().ifPresent(ls -> {
         final LeaderInfoProto.Builder leader = LeaderInfoProto.newBuilder();
-        ls.getLogAppenders().map(LogAppender::getFollower).forEach(f ->
+        ls.getSenders().map(LogAppender::getFollower).forEach(f ->
             leader.addFollowerInfo(ServerProtoUtils.toServerRpcProto(
                 f.getPeer(), f.getLastRpcResponseTime().elapsedTimeMs())));
         leader.setTerm(ls.getCurrentTerm());
@@ -1835,8 +1835,8 @@ class RaftServerImpl implements RaftServer.Division,
 
     @Override
     public List<String> getFollowers() {
-      return role.getLeaderState().map(LeaderStateImpl::getFollowers).orElse(Collections.emptyList())
-          .stream().map(RaftPeer::toString).collect(Collectors.toList());
+      return role.getLeaderState().map(LeaderStateImpl::getFollowers).orElseGet(Stream::empty)
+          .map(RaftPeer::toString).collect(Collectors.toList());
     }
 
     @Override

@@ -144,13 +144,13 @@ public class RaftServerTestUtil {
   }
 
   public static Stream<LogAppender> getLogAppenders(RaftServer.Division server) {
-    return getLeaderState(server).map(LeaderStateImpl::getLogAppenders).orElse(null);
+    return getLeaderState(server).map(LeaderStateImpl::getSenders).orElse(null);
   }
 
   public static void restartLogAppenders(RaftServer.Division server) {
     final LeaderStateImpl leaderState = getLeaderState(server).orElseThrow(
         () -> new IllegalStateException(server + " is not the leader"));
-    leaderState.getLogAppenders().forEach(leaderState::restart);
+    leaderState.getSenders().forEach(leaderState::restart);
   }
 
   public static RaftServer.Division getDivision(RaftServer server, RaftGroupId groupId) {
