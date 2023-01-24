@@ -771,15 +771,6 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  private Collection<BootStrapProgress> checkAllProgress(long committed) {
-    Preconditions.assertTrue(inStagingState());
-    return getSenders()
-        .map(LogAppender::getFollower)
-        .filter(follower -> !isAttendingVote(follower))
-        .map(follower -> checkProgress(follower, committed))
-        .collect(Collectors.toList());
-  }
-
   @Override
   public void onFollowerSuccessAppendEntries(FollowerInfo follower) {
     if (isAttendingVote(follower)) {
