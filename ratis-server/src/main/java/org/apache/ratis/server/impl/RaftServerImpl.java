@@ -620,7 +620,7 @@ class RaftServerImpl implements RaftServer.Division,
     case LEADER:
       role.getLeaderState().ifPresent(ls -> {
         final LeaderInfoProto.Builder leader = LeaderInfoProto.newBuilder();
-        ls.getSenders().map(LogAppender::getFollower).forEach(f ->
+        ls.getLogAppenders().map(LogAppender::getFollower).forEach(f ->
             leader.addFollowerInfo(ServerProtoUtils.toServerRpcProto(
                 f.getPeer(), f.getLastRpcResponseTime().elapsedTimeMs())));
         leader.setTerm(ls.getCurrentTerm());

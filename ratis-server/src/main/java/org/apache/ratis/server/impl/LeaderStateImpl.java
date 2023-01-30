@@ -592,7 +592,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private void stopAndRemoveSenders(Predicate<LogAppender> predicate) {
-    stopAndRemoveSenders(getSenders().filter(predicate).collect(Collectors.toList()));
+    stopAndRemoveSenders(getLogAppenders().filter(predicate).collect(Collectors.toList()));
   }
 
   private void stopAndRemoveSenders(Collection<LogAppender> toStop) {
@@ -792,7 +792,7 @@ class LeaderStateImpl implements LeaderState {
     } else {
       final long commitIndex = server.getState().getLog().getLastCommittedIndex();
       // check progress for the new followers
-      final EnumSet<BootStrapProgress> reports = getSenders()
+      final EnumSet<BootStrapProgress> reports = getLogAppenders()
           .map(LogAppender::getFollower)
           .filter(follower -> !isAttendingVote(follower))
           .map(follower -> checkProgress(follower, commitIndex))
@@ -802,7 +802,7 @@ class LeaderStateImpl implements LeaderState {
       } else if (!reports.contains(BootStrapProgress.PROGRESSING)) {
         // all caught up!
         applyOldNewConf();
-        getSenders()
+        getLogAppenders()
             .map(LogAppender::getFollower)
             .filter(f -> server.getRaftConf().containsInConf(f.getId()))
             .map(FollowerInfoImpl.class::cast)
@@ -1080,7 +1080,7 @@ class LeaderStateImpl implements LeaderState {
       return true;
     }
 
-    final List<RaftPeerId> activePeers = getSenders()
+    final List<RaftPeerId> activePeers = getLogAppenders()
         .filter(sender -> sender.getFollower()
                                 .getLastRpcResponseTime()
                                 .elapsedTimeMs() <= server.getMaxTimeoutMs())
@@ -1098,7 +1098,7 @@ class LeaderStateImpl implements LeaderState {
         + ". Election timeout: " + server.getMaxTimeoutMs() + "ms"
         + ". In charge for: " + server.getRole().getRoleElapsedTimeMs() + "ms"
         + ". Conf: " + conf);
-    getSenders().map(LogAppender::getFollower).forEach(f -> LOG.warn("Follower {}", f));
+    getLogAppenders().map(LogAppender::getFollower).forEach(f -> LOG.warn("Follower {}", f));
 
     // step down as follower
     stepDown(currentTerm, StepDownReason.LOST_MAJORITY_HEARTBEATS);
@@ -1165,7 +1165,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   long[] getFollowerNextIndices() {
-    return getSenders().mapToLong(s -> s.getFollower().getNextIndex()).toArray();
+    return getLogAppenders().mapToLong(s -> s.getFollower().getNextIndex()).toArray();
   }
 
   static Map<RaftPeerId, RaftPeer> newMap(Collection<RaftPeer> peers, String str) {
@@ -1230,12 +1230,12 @@ class LeaderStateImpl implements LeaderState {
    * @return the RaftPeer (address and id) information of the followers.
    */
   Stream<RaftPeer> getFollowers() {
-    return getSenders()
+    return getLogAppenders()
         .map(sender -> sender.getFollower().getPeer())
         .filter(peer -> server.getRaftConf().containsInConf(peer.getId()));
   }
 
-  Stream<LogAppender> getSenders() {
+  Stream<LogAppender> getLogAppenders() {
     return StreamSupport.stream(senders.spliterator(), false);
   }
 
