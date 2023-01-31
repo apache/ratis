@@ -1834,8 +1834,8 @@ class RaftServerImpl implements RaftServer.Division,
 
     @Override
     public List<String> getFollowers() {
-      return role.getLeaderState().map(LeaderStateImpl::getFollowers).orElse(Collections.emptyList())
-          .stream().map(RaftPeer::toString).collect(Collectors.toList());
+      return role.getLeaderState().map(LeaderStateImpl::getFollowers).orElseGet(Stream::empty)
+          .map(RaftPeer::toString).collect(Collectors.toList());
     }
 
     @Override
