@@ -101,7 +101,7 @@ class ReadIndexHeartbeats {
       final HeartbeatAck reply = replies.computeIfAbsent(
           logAppender.getFollowerId(), key -> new HeartbeatAck(logAppender));
       if (reply.receive(proto)) {
-        if (hasMajority.test(id -> replies.get(id).isAcknowledged())) {
+        if (hasMajority.test(id -> replies.get(id) != null && replies.get(id).isAcknowledged())) {
           future.complete(commitIndex);
           return true;
         }
