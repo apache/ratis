@@ -778,7 +778,7 @@ class LeaderStateImpl implements LeaderState {
     } else {
       eventQueue.submit(checkStagingEvent);
     }
-    server.getTransferLeadership().onFollowerAppendEntriesReply(follower);
+    server.getTransferLeadership().onFollowerAppendEntriesReply(this, follower);
   }
 
   @Override

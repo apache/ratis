@@ -92,42 +92,38 @@ public class TransferLeadership {
     return pending.get() != null;
   }
 
-  void onFollowerAppendEntriesReply(FollowerInfo follower) {
+  void onFollowerAppendEntriesReply(LeaderStateImpl leaderState, FollowerInfo follower) {
     final RaftPeerId transferee = getTransferee();
     // If TransferLeadership is in progress, and the transferee has just append some entries
     if (follower.getPeer().getId().equals(transferee)) {
       // If the transferee is up-to-date, send StartLeaderElection to it
-      server.getRole().getLeaderState().ifPresent(leaderState -> {
-        if (leaderState.sendStartLeaderElection(follower)) {
-          LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
-              server.getMemberId(), transferee);
-        }
-      });
+      if (leaderState.sendStartLeaderElection(follower)) {
+        LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
+            server.getMemberId(), transferee);
+      }
     }
   }
 
-  private void tryTransferLeadership(RaftPeerId transferee) {
-    server.getRole().getLeaderState().ifPresent(leaderState -> {
-      LOG.info("{}: start transferring leadership to {}", server.getMemberId(), transferee);
-      final LogAppender appender = leaderState.getLogAppender(transferee).orElse(null);
+  private void tryTransferLeadership(LeaderStateImpl leaderState, RaftPeerId transferee) {
+    LOG.info("{}: start transferring leadership to {}", server.getMemberId(), transferee);
+    final LogAppender appender = leaderState.getLogAppender(transferee).orElse(null);
 
-      if (appender == null) {
-        LOG.error("{}: cannot find LogAppender for transferee {}", server.getMemberId(), transferee);
-        return;
-      }
-      final FollowerInfo follower = appender.getFollower();
-      if (leaderState.sendStartLeaderElection(follower)) {
-        LOG.info("{}: sent StartLeaderElection to transferee {} immediately as it already has up-to-date log",
-            server.getMemberId(), transferee);
-      } else {
-        LOG.info("{}: notifying LogAppender to send AppendEntries as transferee {} is not up-to-date",
-            server.getMemberId(), transferee);
-        appender.notifyLogAppender();
-      }
-    });
+    if (appender == null) {
+      LOG.error("{}: cannot find LogAppender for transferee {}", server.getMemberId(), transferee);
+      return;
+    }
+    final FollowerInfo follower = appender.getFollower();
+    if (leaderState.sendStartLeaderElection(follower)) {
+      LOG.info("{}: sent StartLeaderElection to transferee {} immediately as it already has up-to-date log",
+          server.getMemberId(), transferee);
+    } else {
+      LOG.info("{}: notifying LogAppender to send AppendEntries as transferee {} is not up-to-date",
+          server.getMemberId(), transferee);
+      appender.notifyLogAppender();
+    }
   }
 
-  CompletableFuture<RaftClientReply> start(TransferLeadershipRequest request) {
+  CompletableFuture<RaftClientReply> start(LeaderStateImpl leaderState, TransferLeadershipRequest request) {
     final MemoizedSupplier<PendingRequest> supplier = JavaUtils.memoize(() -> new PendingRequest(request));
     final PendingRequest previous = pending.getAndUpdate(f -> f != null? f: supplier.get());
     if (previous != null) {
@@ -148,7 +144,7 @@ public class TransferLeadership {
         return CompletableFuture.completedFuture(server.newExceptionReply(request, tle));
       }
     }
-    tryTransferLeadership(request.getNewLeader());
+    tryTransferLeadership(leaderState, request.getNewLeader());
 
     // if timeout is not specified in request, default to random election timeout
     final TimeDuration timeout = request.getTimeoutMs() == 0 ? server.getRandomElectionTimeout()
