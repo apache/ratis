@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -101,13 +102,17 @@ class ReadIndexHeartbeats {
       final HeartbeatAck reply = replies.computeIfAbsent(
           logAppender.getFollowerId(), key -> new HeartbeatAck(logAppender));
       if (reply.receive(proto)) {
-        if (hasMajority.test(id -> replies.get(id).isAcknowledged())) {
+        if (hasMajority.test(this::isAcknowledged)) {
           future.complete(commitIndex);
           return true;
         }
       }
 
       return isCompletedNormally();
+    }
+
+    boolean isAcknowledged(RaftPeerId id) {
+      return Optional.ofNullable(replies.get(id)).map(HeartbeatAck::isAcknowledged).isPresent();
     }
 
     boolean isCompletedNormally() {
