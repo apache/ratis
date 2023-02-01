@@ -83,9 +83,9 @@ public class TransferLeadership {
     this.server = server;
   }
 
-  private RaftPeerId getTransferee() {
+  private Optional<RaftPeerId> getTransferee() {
     return Optional.ofNullable(pending.get())
-        .map(r -> r.getRequest().getNewLeader()).orElse(null);
+        .map(r -> r.getRequest().getNewLeader());
   }
 
   boolean isSteppingDown() {
@@ -93,13 +93,13 @@ public class TransferLeadership {
   }
 
   void onFollowerAppendEntriesReply(LeaderStateImpl leaderState, FollowerInfo follower) {
-    final RaftPeerId transferee = getTransferee();
+    final Optional<RaftPeerId> transferee = getTransferee();
     // If TransferLeadership is in progress, and the transferee has just append some entries
-    if (follower.getPeer().getId().equals(transferee)) {
+    if (transferee.filter(t -> t.equals(follower.getId())).isPresent()) {
       // If the transferee is up-to-date, send StartLeaderElection to it
       if (leaderState.sendStartLeaderElection(follower)) {
         LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
-            server.getMemberId(), transferee);
+            server.getMemberId(), transferee.get());
       }
     }
   }
