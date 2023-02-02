@@ -778,6 +778,7 @@ class LeaderStateImpl implements LeaderState {
     } else {
       eventQueue.submit(checkStagingEvent);
     }
+    server.getTransferLeadership().onFollowerAppendEntriesReply(this, follower);
   }
 
   @Override
@@ -1237,6 +1238,10 @@ class LeaderStateImpl implements LeaderState {
 
   Stream<LogAppender> getLogAppenders() {
     return StreamSupport.stream(senders.spliterator(), false);
+  }
+
+  Optional<LogAppender> getLogAppender(RaftPeerId id) {
+    return getLogAppenders().filter(a -> a.getFollowerId().equals(id)).findAny();
   }
 
   private static boolean isAttendingVote(FollowerInfo follower) {

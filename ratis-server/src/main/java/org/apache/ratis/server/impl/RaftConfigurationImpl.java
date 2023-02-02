@@ -172,7 +172,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     }
     Collection<RaftPeer> peers = getCurrentPeers();
     for (RaftPeer peer : peers) {
-      if (peer.getPriority() >= target.getPriority() && !peer.equals(target)) {
+      if (peer.getPriority() > target.getPriority() && !peer.equals(target)) {
         return false;
       }
     }
