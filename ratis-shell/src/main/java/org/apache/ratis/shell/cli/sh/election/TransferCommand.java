@@ -34,7 +34,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Command for transferring the ratis leader to specific server.
+ * Command for transferring the ratis leader to specific server by changing priorities.
+ * @deprecated since 3.0, use {@link TransferLeaderCommand} instead.
  */
 public class TransferCommand extends AbstractRatisCommand {
   public static final String ADDRESS_OPTION_NAME = "address";
@@ -126,6 +127,6 @@ public class TransferCommand extends AbstractRatisCommand {
    * @return command's description
    */
   public static String description() {
-    return "Transfers leadership to the <hostname>:<port>";
+    return "[deprecated] Transfers leadership to the <hostname>:<port> by changing priorities";
   }
 }
