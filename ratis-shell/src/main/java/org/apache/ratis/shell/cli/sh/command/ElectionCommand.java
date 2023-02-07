@@ -21,6 +21,7 @@ import org.apache.ratis.shell.cli.sh.election.PauseCommand;
 import org.apache.ratis.shell.cli.sh.election.ResumeCommand;
 import org.apache.ratis.shell.cli.sh.election.StepDownCommand;
 import org.apache.ratis.shell.cli.sh.election.TransferCommand;
+import org.apache.ratis.shell.cli.sh.election.TransferLeaderCommand;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,7 +31,7 @@ import java.util.function.Function;
 public class ElectionCommand extends AbstractParentCommand {
   private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
       = Collections.unmodifiableList(Arrays.asList(
-      TransferCommand::new, StepDownCommand::new, PauseCommand::new, ResumeCommand::new));
+      TransferCommand::new, TransferLeaderCommand::new, StepDownCommand::new, PauseCommand::new, ResumeCommand::new));
 
   /**
    * @param context command context
