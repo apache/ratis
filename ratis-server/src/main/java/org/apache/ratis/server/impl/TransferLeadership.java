@@ -94,13 +94,12 @@ public class TransferLeadership {
 
   void onFollowerAppendEntriesReply(LeaderStateImpl leaderState, FollowerInfo follower) {
     final Optional<RaftPeerId> transferee = getTransferee();
-    // If TransferLeadership is in progress, and the transferee has just append some entries
-    if (transferee.filter(t -> t.equals(follower.getId())).isPresent()) {
-      // If the transferee is up-to-date, send StartLeaderElection to it
-      if (leaderState.sendStartLeaderElection(follower)) {
-        LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
-            server.getMemberId(), transferee.get());
-      }
+    // If the transferee has just append some entries and becomes up-to-date,
+    // send StartLeaderElection to it
+    if (transferee.filter(t -> t.equals(follower.getId())).isPresent()
+        && leaderState.sendStartLeaderElection(follower)) {
+      LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
+          server.getMemberId(), transferee.get());
     }
   }
 
