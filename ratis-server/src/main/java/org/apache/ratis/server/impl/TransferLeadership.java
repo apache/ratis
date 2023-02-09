@@ -126,22 +126,7 @@ public class TransferLeadership {
     final MemoizedSupplier<PendingRequest> supplier = JavaUtils.memoize(() -> new PendingRequest(request));
     final PendingRequest previous = pending.getAndUpdate(f -> f != null? f: supplier.get());
     if (previous != null) {
-      if (request.getNewLeader().equals(previous.getRequest().getNewLeader())) {
-        final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
-        previous.getReplyFuture().whenComplete((r, e) -> {
-          if (e != null) {
-            replyFuture.completeExceptionally(e);
-          } else {
-            replyFuture.complete(r.isSuccess()? server.newSuccessReply(request)
-                : server.newExceptionReply(request, r.getException()));
-          }
-        });
-        return replyFuture;
-      } else {
-        final TransferLeadershipException tle = new TransferLeadershipException(server.getMemberId() +
-            "Failed to transfer leadership to " + request.getNewLeader() + ": a previous " + previous + " exists");
-        return CompletableFuture.completedFuture(server.newExceptionReply(request, tle));
-      }
+      return createReplyFutureFromPreviousRequest(request, previous);
     }
     tryTransferLeadership(leaderState, request.getNewLeader());
 
@@ -151,6 +136,26 @@ public class TransferLeadership {
     scheduler.onTimeout(timeout, () -> finish(server.getState().getLeaderId(), true),
         LOG, () -> "Failed to transfer leadership to " + request.getNewLeader() + ": timeout after " + timeout);
     return supplier.get().getReplyFuture();
+  }
+
+  private CompletableFuture<RaftClientReply> createReplyFutureFromPreviousRequest(
+      TransferLeadershipRequest request, PendingRequest previous) {
+    if (request.getNewLeader().equals(previous.getRequest().getNewLeader())) {
+      final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
+      previous.getReplyFuture().whenComplete((r, e) -> {
+        if (e != null) {
+          replyFuture.completeExceptionally(e);
+        } else {
+          replyFuture.complete(r.isSuccess() ? server.newSuccessReply(request)
+              : server.newExceptionReply(request, r.getException()));
+        }
+      });
+      return replyFuture;
+    } else {
+      final TransferLeadershipException tle = new TransferLeadershipException(server.getMemberId() +
+          "Failed to transfer leadership to " + request.getNewLeader() + ": a previous " + previous + " exists");
+      return CompletableFuture.completedFuture(server.newExceptionReply(request, tle));
+    }
   }
 
   void finish(RaftPeerId currentLeader, boolean timeout) {
