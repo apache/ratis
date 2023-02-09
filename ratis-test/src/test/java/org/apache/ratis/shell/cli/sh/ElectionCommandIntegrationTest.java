@@ -54,17 +54,24 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
 
   @Test
   public void testElectionTransferCommand() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::runTestElectionTransferCommand);
+    // deprecated command, transfer leader by changing priorities
+    runWithNewCluster(NUM_SERVERS, cluster -> runTestElectionTransferCommand(cluster, "transfer"));
   }
 
-  void runTestElectionTransferCommand(MiniRaftCluster cluster) throws Exception {
+  @Test
+  public void testElectionTransferLeaderCommand() throws Exception {
+    // new command, transfer leader without changing priorities
+    runWithNewCluster(NUM_SERVERS, cluster -> runTestElectionTransferCommand(cluster, "transferLeader"));
+  }
+
+  void runTestElectionTransferCommand(MiniRaftCluster cluster, String command) throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     String address = getClusterAddress(cluster);
     RaftServer.Division newLeader = cluster.getFollowers().get(0);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
     Assert.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
-    int ret = shell.run("election", "transfer", "-peers", address, "-address",
+    int ret = shell.run("election", command, "-peers", address, "-address",
         newLeader.getPeer().getAddress());
 
     Assert.assertEquals(0, ret);
