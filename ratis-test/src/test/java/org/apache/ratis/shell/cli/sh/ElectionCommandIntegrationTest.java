@@ -59,7 +59,7 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
   }
 
   @Test
-  public void testElectionTransferLeaderCommand() throws Exception {
+  public void testElectionTransferLeaderCommandBasic() throws Exception {
     // new command, transfer leader without changing priorities
     runWithNewCluster(NUM_SERVERS, cluster -> runTestElectionTransferCommand(cluster, "transferLeader"));
   }
@@ -78,6 +78,55 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     JavaUtils.attempt(() -> {
       Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferCommand", LOG);
+  }
+
+  @Test
+  public void testElectionTransferLeaderCommand() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestElectionTransferLeaderCommand);
+  }
+
+  void runTestElectionTransferLeaderCommand(MiniRaftCluster cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final String address = getClusterAddress(cluster);
+
+    RaftServer.Division newLeader = cluster.getFollowers().get(0);
+    RaftServer.Division theOther = cluster.getFollowers().get(1);
+    final StringPrintStream out = new StringPrintStream();
+    RatisShell shell = new RatisShell(out.getPrintStream());
+    Assert.assertTrue(cluster.getFollowers().contains(newLeader));
+
+    // set current leader's priority to 2
+    int ret = shell.run("peer", "setPriority", "-peers", address, "-addressPriority",
+        leader.getPeer().getAddress()+ "|" + 2);
+    Assert.assertEquals(0, ret);
+
+    // transferLeader to new leader will fail because its priority is less than current leader
+    ret = shell.run("election", "transferLeader", "-peers", address, "-address",
+        newLeader.getPeer().getAddress());
+    Assert.assertEquals(-1, ret);
+
+    JavaUtils.attempt(() -> {
+      Assert.assertEquals(cluster.getLeader().getId(), leader.getId());
+    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferLeaderCommand", LOG);
+
+    // set new leader's priority to 2
+    ret = shell.run("peer", "setPriority", "-peers", address, "-addressPriority",
+        newLeader.getPeer().getAddress()+ "|" + 2);
+    Assert.assertEquals(0, ret);
+
+    // transferLeader to new leader will success
+    ret = shell.run("election", "transferLeader", "-peers", address, "-address",
+        newLeader.getPeer().getAddress());
+    Assert.assertEquals(0, ret);
+
+    JavaUtils.attempt(() -> {
+      Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
+    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferLeaderCommand", LOG);
+
+    // transferLeader to the other peer will fail because its priority is less than new leader
+    ret = shell.run("election", "transferLeader", "-peers", address, "-address",
+        theOther.getPeer().getAddress());
+    Assert.assertEquals(-1, ret);
   }
 
   @Test
