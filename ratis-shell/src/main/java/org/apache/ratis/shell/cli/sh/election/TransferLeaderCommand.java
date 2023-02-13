@@ -86,9 +86,9 @@ public class TransferLeaderCommand extends AbstractRatisCommand {
   public String getUsage() {
     return String.format("%s -%s <HOSTNAME:PORT>"
             + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-            + " [-%s <RAFT_GROUP_ID>]",
+            + " [-%s <RAFT_GROUP_ID>] [-%s <TIMEOUT_IN_SECONDS>]",
         getCommandName(), ADDRESS_OPTION_NAME, PEER_OPTION_NAME,
-        GROUPID_OPTION_NAME);
+        GROUPID_OPTION_NAME, TIMEOUT_OPTION_NAME);
   }
 
   @Override
@@ -109,7 +109,7 @@ public class TransferLeaderCommand extends AbstractRatisCommand {
         Option.builder()
             .option(TIMEOUT_OPTION_NAME)
             .hasArg()
-            .desc("Max time (in seconds) to block client requests before transfer leadership completes")
+            .desc("Timeout for transfer leadership to complete (in seconds)")
             .build()
     );
   }
