@@ -35,6 +35,7 @@ import java.io.IOException;
  */
 public class TransferLeaderCommand extends AbstractRatisCommand {
   public static final String ADDRESS_OPTION_NAME = "address";
+  public static final String TIMEOUT_OPTION_NAME = "timeout";
   /**
    * @param context command context
    */
@@ -52,6 +53,9 @@ public class TransferLeaderCommand extends AbstractRatisCommand {
     super.run(cl);
 
     String strAddr = cl.getOptionValue(ADDRESS_OPTION_NAME);
+    // timeout = 0 means let server decide the timeout, which defaults to election timeout
+    long timeout = !cl.hasOption(TIMEOUT_OPTION_NAME) ? 0L :
+        Long.parseLong(cl.getOptionValue(TIMEOUT_OPTION_NAME)) * 1000L;
 
     RaftPeerId newLeaderId = null;
     for (RaftPeer peer : getRaftGroup().getPeers()) {
@@ -67,7 +71,7 @@ public class TransferLeaderCommand extends AbstractRatisCommand {
       printf("Transferring leadership to server with address <%s> %n", strAddr);
       try {
         RaftClientReply transferLeadershipReply =
-            client.admin().transferLeadership(newLeaderId, 60_000);
+            client.admin().transferLeadership(newLeaderId, timeout);
         processReply(transferLeadershipReply, () -> "election failed");
       } catch (Throwable t) {
         printf("caught an error when executing transfer: %s%n", t.getMessage());
@@ -100,6 +104,12 @@ public class TransferLeaderCommand extends AbstractRatisCommand {
             .hasArg()
             .required()
             .desc("Server address that will take over as leader")
+            .build()
+    ).addOption(
+        Option.builder()
+            .option(TIMEOUT_OPTION_NAME)
+            .hasArg()
+            .desc("Max time (in seconds) to block client requests before transfer leadership completes")
             .build()
     );
   }

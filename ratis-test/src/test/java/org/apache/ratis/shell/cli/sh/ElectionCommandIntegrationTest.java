@@ -127,6 +127,15 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     ret = shell.run("election", "transferLeader", "-peers", address, "-address",
         theOther.getPeer().getAddress());
     Assert.assertEquals(-1, ret);
+
+    // transferLeader to old leader will success, with timeout = 10 seconds
+    ret = shell.run("election", "transferLeader", "-peers", address, "-address",
+        leader.getPeer().getAddress(), "-timeout", "10");
+    Assert.assertEquals(0, ret);
+
+    JavaUtils.attempt(() -> {
+      Assert.assertEquals(cluster.getLeader().getId(), leader.getId());
+    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferLeaderCommand", LOG);
   }
 
   @Test
