@@ -72,7 +72,7 @@ public class TransferCommand extends AbstractRatisCommand {
       if (err instanceof TransferLeadershipException
           && err.getMessage().contains("it does not has highest priority")) {
         // legacy mode, transfer leadership by setting priority.
-        err = tryTransfer(client, newLeader, highestPriority + 1, 60_000);
+        err = tryTransfer(client, newLeader, highestPriority + 1, timeout);
       }
       if (err != null) {
         return -1;
