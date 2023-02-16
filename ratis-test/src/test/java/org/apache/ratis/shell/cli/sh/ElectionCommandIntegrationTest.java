@@ -98,9 +98,8 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
         newLeader.getPeer().getAddress(), "-timeout", "1");
     Assert.assertEquals(0, ret);
 
-    JavaUtils.attempt(() -> {
-      Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
-    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferLeaderCommand", LOG);
+    JavaUtils.attempt(() -> Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId()),
+        10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferLeaderCommand", LOG);
 
     // verify that new leader's priority is 2
     ret = shell.run("group", "info", "-peers", address);
