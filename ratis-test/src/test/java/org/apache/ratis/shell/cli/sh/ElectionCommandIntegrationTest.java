@@ -83,7 +83,6 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     final String address = getClusterAddress(cluster);
 
     RaftServer.Division newLeader = cluster.getFollowers().get(0);
-    RaftServer.Division theOther = cluster.getFollowers().get(1);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
     Assert.assertTrue(cluster.getFollowers().contains(newLeader));
