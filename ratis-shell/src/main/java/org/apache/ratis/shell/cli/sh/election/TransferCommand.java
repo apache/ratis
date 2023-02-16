@@ -29,16 +29,13 @@ import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
- * Command for transferring the ratis leader to specific server by changing priorities.
- * @deprecated since 3.0, use {@link TransferLeaderCommand} instead.
+ * Command for transferring the ratis leader to specific server.
  */
 public class TransferCommand extends AbstractRatisCommand {
   public static final String ADDRESS_OPTION_NAME = "address";
+  public static final String TIMEOUT_OPTION_NAME = "timeout";
   /**
    * @param context command context
    */
@@ -56,16 +53,12 @@ public class TransferCommand extends AbstractRatisCommand {
     super.run(cl);
 
     String strAddr = cl.getOptionValue(ADDRESS_OPTION_NAME);
+    // timeout = 0 means let server decide the timeout, which defaults to election timeout
+    long timeout = !cl.hasOption(TIMEOUT_OPTION_NAME) ? 0L :
+        Long.parseLong(cl.getOptionValue(TIMEOUT_OPTION_NAME)) * 1000L;
 
     RaftPeerId newLeaderId = null;
-    // update priorities to enable transfer
-    List<RaftPeer> peersWithNewPriorities = new ArrayList<>();
     for (RaftPeer peer : getRaftGroup().getPeers()) {
-      peersWithNewPriorities.add(
-          RaftPeer.newBuilder(peer)
-              .setPriority(peer.getAddress().equals(strAddr) ? 2 : 1)
-              .build()
-      );
       if (peer.getAddress().equals(strAddr)) {
         newLeaderId = peer.getId();
       }
@@ -74,19 +67,11 @@ public class TransferCommand extends AbstractRatisCommand {
       return -2;
     }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      String stringPeers = "[" + peersWithNewPriorities.stream().map(RaftPeer::toString)
-          .collect(Collectors.joining(", ")) + "]";
-      printf("Applying new peer state before transferring leadership: %n%s%n", stringPeers);
-      RaftClientReply setConfigurationReply =
-          client.admin().setConfiguration(peersWithNewPriorities);
-      processReply(setConfigurationReply,
-          () -> "failed to set priorities before initiating election");
       // transfer leadership
       printf("Transferring leadership to server with address <%s> %n", strAddr);
       try {
-        Thread.sleep(3_000);
         RaftClientReply transferLeadershipReply =
-            client.admin().transferLeadership(newLeaderId, 60_000);
+            client.admin().transferLeadership(newLeaderId, timeout);
         processReply(transferLeadershipReply, () -> "election failed");
       } catch (Throwable t) {
         printf("caught an error when executing transfer: %s%n", t.getMessage());
@@ -101,9 +86,9 @@ public class TransferCommand extends AbstractRatisCommand {
   public String getUsage() {
     return String.format("%s -%s <HOSTNAME:PORT>"
             + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-            + " [-%s <RAFT_GROUP_ID>]",
+            + " [-%s <RAFT_GROUP_ID>] [-%s <TIMEOUT_IN_SECONDS>]",
         getCommandName(), ADDRESS_OPTION_NAME, PEER_OPTION_NAME,
-        GROUPID_OPTION_NAME);
+        GROUPID_OPTION_NAME, TIMEOUT_OPTION_NAME);
   }
 
   @Override
@@ -120,6 +105,12 @@ public class TransferCommand extends AbstractRatisCommand {
             .required()
             .desc("Server address that will take over as leader")
             .build()
+    ).addOption(
+        Option.builder()
+            .option(TIMEOUT_OPTION_NAME)
+            .hasArg()
+            .desc("Timeout for transfer leadership to complete (in seconds)")
+            .build()
     );
   }
 
@@ -127,6 +118,6 @@ public class TransferCommand extends AbstractRatisCommand {
    * @return command's description
    */
   public static String description() {
-    return "[deprecated] Transfers leadership to the <hostname>:<port> by changing priorities";
+    return "Transfers leadership to the <hostname>:<port>";
   }
 }
