@@ -23,12 +23,13 @@ import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Command for transferring the ratis leader to specific server.
@@ -57,21 +58,23 @@ public class TransferCommand extends AbstractRatisCommand {
     long timeout = !cl.hasOption(TIMEOUT_OPTION_NAME) ? 0L :
         Long.parseLong(cl.getOptionValue(TIMEOUT_OPTION_NAME)) * 1000L;
 
-    RaftPeerId newLeaderId = null;
-    for (RaftPeer peer : getRaftGroup().getPeers()) {
-      if (peer.getAddress().equals(strAddr)) {
-        newLeaderId = peer.getId();
-      }
-    }
-    if (newLeaderId == null) {
+    final int highestPriority = getRaftGroup().getPeers().stream()
+        .mapToInt(RaftPeer::getPriority).max().orElse(0);
+    RaftPeer newLeader = getRaftGroup().getPeers().stream()
+        .filter(peer -> peer.getAddress().equals(strAddr)).findAny().orElse(null);
+    if (newLeader == null) {
       return -2;
     }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
       // transfer leadership
       printf("Transferring leadership to server with address <%s> %n", strAddr);
       try {
+        // lift the current leader to the highest priority,
+        if (newLeader.getPriority() < highestPriority) {
+          setPriority(client, strAddr, highestPriority);
+        }
         RaftClientReply transferLeadershipReply =
-            client.admin().transferLeadership(newLeaderId, timeout);
+            client.admin().transferLeadership(newLeader.getId(), timeout);
         processReply(transferLeadershipReply, () -> "election failed");
       } catch (Throwable t) {
         printf("caught an error when executing transfer: %s%n", t.getMessage());
@@ -80,6 +83,16 @@ public class TransferCommand extends AbstractRatisCommand {
       println("Transferring leadership initiated");
     }
     return 0;
+  }
+
+  private void setPriority(RaftClient client, String address, int priority) throws IOException {
+    printf("Changing priority of <%s> to %d%n: ", address, priority);
+    List<RaftPeer> peers = getRaftGroup().getPeers().stream()
+        .map(peer -> peer.getAddress().equals(address) ?
+            RaftPeer.newBuilder(peer).setPriority(priority).build() : peer)
+        .collect(Collectors.toList());
+    RaftClientReply reply = client.admin().setConfiguration(peers);
+    processReply(reply, () -> "Failed to set master priorities");
   }
 
   @Override
