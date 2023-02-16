@@ -23,6 +23,7 @@ import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
@@ -67,22 +68,35 @@ public class TransferCommand extends AbstractRatisCommand {
     }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
       // transfer leadership
-      printf("Transferring leadership to server with address <%s> %n", strAddr);
-      try {
-        // lift the current leader to the highest priority,
-        if (newLeader.getPriority() < highestPriority) {
-          setPriority(client, strAddr, highestPriority);
-        }
-        RaftClientReply transferLeadershipReply =
-            client.admin().transferLeadership(newLeader.getId(), timeout);
-        processReply(transferLeadershipReply, () -> "election failed");
-      } catch (Throwable t) {
-        printf("caught an error when executing transfer: %s%n", t.getMessage());
+      Throwable err = tryTransfer(client, newLeader, highestPriority, timeout);
+      if (err instanceof TransferLeadershipException
+          && err.getMessage().contains("it does not has highest priority")) {
+        // legacy mode, transfer leadership by setting priority.
+        err = tryTransfer(client, newLeader, highestPriority + 1, 60_000);
+      }
+      if (err != null) {
         return -1;
       }
-      println("Transferring leadership initiated");
     }
     return 0;
+  }
+
+  private Throwable tryTransfer(RaftClient client, RaftPeer newLeader, int highestPriority, long timeout) {
+    printf("Transferring leadership to server with address <%s> %n", newLeader.getAddress());
+    try {
+      // lift the current leader to the highest priority,
+      if (newLeader.getPriority() < highestPriority) {
+        setPriority(client, newLeader.getAddress(), highestPriority);
+      }
+      RaftClientReply transferLeadershipReply =
+          client.admin().transferLeadership(newLeader.getId(), timeout);
+      processReply(transferLeadershipReply, () -> "election failed");
+    } catch (Throwable t) {
+      printf("caught an error when executing transfer: %s%n", t.getMessage());
+      return t;
+    }
+    println("Transferring leadership initiated");
+    return null;
   }
 
   private void setPriority(RaftClient client, String address, int priority) throws IOException {
