@@ -18,6 +18,7 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.*;
+import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils.MAX_OP_SIZE;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -59,7 +60,7 @@ public class TestSegmentedRaftLogCache {
   }
 
   private LogSegment prepareLogSegment(long start, long end, boolean isOpen) {
-    LogSegment s = LogSegment.newOpenSegment(null, start, null);
+    LogSegment s = LogSegment.newOpenSegment(null, start, MAX_OP_SIZE, null);
     for (long i = start; i <= end; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);

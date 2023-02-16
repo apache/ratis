@@ -28,6 +28,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.PureJavaCrc32C;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -132,21 +133,22 @@ class SegmentedRaftLogReader implements Closeable {
     }
   }
 
-  private static final int MAX_OP_SIZE = 32 * 1024 * 1024;
-
   private final File file;
   private final LimitedInputStream limiter;
   private final DataInputStream in;
   private byte[] temp = new byte[4096];
   private final Checksum checksum;
   private final SegmentedRaftLogMetrics raftLogMetrics;
+  private final SizeInBytes maxOpSize;
 
-  SegmentedRaftLogReader(File file, SegmentedRaftLogMetrics raftLogMetrics) throws FileNotFoundException {
+  SegmentedRaftLogReader(File file, SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics)
+      throws FileNotFoundException {
     this.file = file;
     this.limiter = new LimitedInputStream(
         new BufferedInputStream(new FileInputStream(file)));
     in = new DataInputStream(limiter);
     checksum = new PureJavaCrc32C();
+    this.maxOpSize = maxOpSize;
     this.raftLogMetrics = raftLogMetrics;
   }
 
@@ -267,8 +269,9 @@ class SegmentedRaftLogReader implements Closeable {
    * @return The log entry, or null if we hit EOF.
    */
   private LogEntryProto decodeEntry() throws IOException {
-    limiter.setLimit(MAX_OP_SIZE);
-    in.mark(MAX_OP_SIZE);
+    final int max = maxOpSize.getSizeInt();
+    limiter.setLimit(max);
+    in.mark(max);
 
     byte nextByte;
     try {
@@ -288,17 +291,17 @@ class SegmentedRaftLogReader implements Closeable {
     // Here, we verify that the Op size makes sense and that the
     // data matches its checksum before attempting to construct an Op.
     int entryLength = CodedInputStream.readRawVarint32(nextByte, in);
-    if (entryLength > MAX_OP_SIZE) {
+    if (entryLength > max) {
       throw new IOException("Entry has size " + entryLength
-          + ", but MAX_OP_SIZE = " + MAX_OP_SIZE);
+          + ", but MAX_OP_SIZE = " + maxOpSize);
     }
 
     final int varintLength = CodedOutputStream.computeUInt32SizeNoTag(
         entryLength);
     final int totalLength = varintLength + entryLength;
-    checkBufferSize(totalLength);
+    checkBufferSize(totalLength, max);
     in.reset();
-    in.mark(MAX_OP_SIZE);
+    in.mark(max);
     IOUtils.readFully(in, temp, 0, totalLength);
 
     // verify checksum
@@ -317,12 +320,12 @@ class SegmentedRaftLogReader implements Closeable {
         CodedInputStream.newInstance(temp, varintLength, entryLength));
   }
 
-  private void checkBufferSize(int entryLength) {
-    Preconditions.assertTrue(entryLength <= MAX_OP_SIZE);
+  private void checkBufferSize(int entryLength, int max) {
+    Preconditions.assertTrue(entryLength <= max);
     int length = temp.length;
     if (length < entryLength) {
       while (length < entryLength) {
-        length = Math.min(length * 2, MAX_OP_SIZE);
+        length = Math.min(length * 2, max);
       }
       temp = new byte[length];
     }
