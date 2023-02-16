@@ -125,15 +125,9 @@ public final class LogSegment implements Comparable<Long> {
   public static int readSegmentFile(File file, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
       CorruptionPolicy corruptionPolicy, SegmentedRaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer)
       throws IOException {
-    return readSegmentFile(file, startEnd.getStartIndex(), startEnd.getEndIndex(), startEnd.isOpen(), maxOpSize,
-        corruptionPolicy, raftLogMetrics, entryConsumer);
-  }
-
-  private static int readSegmentFile(File file, long start, long end, boolean isOpen, SizeInBytes maxOpSize,
-      CorruptionPolicy corruptionPolicy, SegmentedRaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer)
-      throws IOException {
     int count = 0;
-    try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, start, end, isOpen, maxOpSize, raftLogMetrics)) {
+    try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(
+        file, startEnd.getStartIndex(), startEnd.getEndIndex(), startEnd.isOpen(), maxOpSize, raftLogMetrics)) {
       for(LogEntryProto prev = null, next; (next = in.nextEntry()) != null; prev = next) {
         if (prev != null) {
           Preconditions.assertTrue(next.getIndex() == prev.getIndex() + 1,
@@ -149,8 +143,8 @@ public final class LogSegment implements Comparable<Long> {
       switch (corruptionPolicy) {
         case EXCEPTION: throw ioe;
         case WARN_AND_RETURN:
-          LOG.warn("Failed to read segment file {} (start={}, end={}, isOpen? {}): only {} entries read successfully",
-              file, start, end, isOpen, count, ioe);
+          LOG.warn("Failed to read segment file {} ({}): only {} entries read successfully",
+              file, startEnd, count, ioe);
           break;
         default:
           throw new IllegalStateException("Unexpected enum value: " + corruptionPolicy
@@ -238,7 +232,8 @@ public final class LogSegment implements Comparable<Long> {
       // note the loading should not exceed the endIndex: it is possible that
       // the on-disk log file should be truncated but has not been done yet.
       final AtomicReference<LogEntryProto> toReturn = new AtomicReference<>();
-      readSegmentFile(file, startIndex, endIndex, isOpen, maxOpSize,
+      final LogSegmentStartEnd startEnd = LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen);
+      readSegmentFile(file, startEnd, maxOpSize,
           getLogCorruptionPolicy(), raftLogMetrics, entry -> {
         final TermIndex ti = TermIndex.valueOf(entry);
         putEntryCache(ti, entry, Op.LOAD_SEGMENT_FILE);
