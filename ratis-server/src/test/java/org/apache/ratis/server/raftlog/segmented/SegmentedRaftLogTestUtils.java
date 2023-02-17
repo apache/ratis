@@ -19,8 +19,18 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.SizeInBytes;
+
+import java.io.File;
 
 public interface SegmentedRaftLogTestUtils {
+  SizeInBytes MAX_OP_SIZE = SizeInBytes.valueOf("32MB");
+
+  static SegmentedRaftLogInputStream newSegmentedRaftLogInputStream(File log,
+      long startIndex, long endIndex, boolean isOpen) {
+    return new SegmentedRaftLogInputStream(log, startIndex, endIndex, isOpen, MAX_OP_SIZE, null);
+  }
+
   static void setRaftLogWorkerLogLevel(Level level) {
     Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, level);
   }
