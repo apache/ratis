@@ -75,7 +75,8 @@ public class TestRaftLogReadWrite extends BaseTest {
   private LogEntryProto[] readLog(File file, long startIndex, long endIndex,
       boolean isOpen) throws IOException {
     List<LogEntryProto> list = new ArrayList<>();
-    try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, startIndex, endIndex, isOpen)) {
+    try (SegmentedRaftLogInputStream in = SegmentedRaftLogTestUtils.newSegmentedRaftLogInputStream(
+        file, startIndex, endIndex, isOpen)) {
       LogEntryProto entry;
       while ((entry = in.nextEntry()) != null) {
         list.add(entry);
@@ -207,8 +208,8 @@ public class TestRaftLogReadWrite extends BaseTest {
     }
 
     List<LogEntryProto> list = new ArrayList<>();
-    try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(openSegment, 0,
-        RaftLog.INVALID_LOG_INDEX, true)) {
+    try (SegmentedRaftLogInputStream in = SegmentedRaftLogTestUtils.newSegmentedRaftLogInputStream(
+        openSegment, 0, RaftLog.INVALID_LOG_INDEX, true)) {
       LogEntryProto entry;
       while ((entry = in.nextEntry()) != null) {
         list.add(entry);
