@@ -32,6 +32,7 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AutoCloseableReadWriteLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -350,6 +351,7 @@ public class SegmentedRaftLogCache {
   private volatile LogSegment openSegment;
   private final LogSegmentList closedSegments;
   private final RaftStorage storage;
+  private final SizeInBytes maxOpSize;
   private final SegmentedRaftLogMetrics raftLogMetrics;
 
   private final int maxCachedSegments;
@@ -367,6 +369,7 @@ public class SegmentedRaftLogCache {
     this.raftLogMetrics.addOpenSegmentSizeInBytes(this::getOpenSegmentSizeInBytes);
     this.maxCachedSegments = RaftServerConfigKeys.Log.segmentCacheNumMax(properties);
     this.maxSegmentCacheSize = RaftServerConfigKeys.Log.segmentCacheSizeMax(properties).getSize();
+    this.maxOpSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
   }
 
   int getMaxCachedSegments() {
@@ -376,7 +379,7 @@ public class SegmentedRaftLogCache {
   void loadSegment(LogSegmentPath pi, boolean keepEntryInCache,
       Consumer<LogEntryProto> logConsumer) throws IOException {
     final LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(), pi.getStartEnd(),
-        keepEntryInCache, logConsumer, raftLogMetrics);
+        maxOpSize, keepEntryInCache, logConsumer, raftLogMetrics);
     if (logSegment != null) {
       addSegment(logSegment);
     }
@@ -434,7 +437,7 @@ public class SegmentedRaftLogCache {
   }
 
   void addOpenSegment(long startIndex) {
-    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex,raftLogMetrics));
+    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex, maxOpSize, raftLogMetrics));
   }
 
   private void setOpenSegment(LogSegment openSegment) {
