@@ -30,6 +30,7 @@ import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -55,9 +56,16 @@ public class TransferCommand extends AbstractRatisCommand {
     super.run(cl);
 
     String strAddr = cl.getOptionValue(ADDRESS_OPTION_NAME);
-    // timeout = 0 means let server decide the timeout, which defaults to election timeout
-    long timeout = !cl.hasOption(TIMEOUT_OPTION_NAME) ? 0L :
-        Long.parseLong(cl.getOptionValue(TIMEOUT_OPTION_NAME)) * 1000L;
+    // TODO: Default timeout should be set to 0, which means let server decide (based on election timeout).
+    //       However, occasionally the request could timeout too fast while the transfer is in progress.
+    //       i.e. request timeout doesn't mean transfer leadership has failed.
+    //       Currently, Ratis shell returns merely based on the result of the request.
+    //       So we set a larger default timeout here (3s).
+    final long timeoutDefault = 3_000L;
+    // Default timeout for legacy mode matches with the legacy command (version 2.4.x and older).
+    final long timeoutLegacy = 60_000L;
+    final Optional<Long> timeout = !cl.hasOption(TIMEOUT_OPTION_NAME) ? Optional.empty() :
+        Optional.of(Long.parseLong(cl.getOptionValue(TIMEOUT_OPTION_NAME)) * 1000L);
 
     final int highestPriority = getRaftGroup().getPeers().stream()
         .mapToInt(RaftPeer::getPriority).max().orElse(0);
@@ -68,11 +76,11 @@ public class TransferCommand extends AbstractRatisCommand {
     }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
       // transfer leadership
-      Throwable err = tryTransfer(client, newLeader, highestPriority, timeout);
+      Throwable err = tryTransfer(client, newLeader, highestPriority, timeout.orElse(timeoutDefault));
       if (err instanceof TransferLeadershipException
           && err.getMessage().contains("it does not has highest priority")) {
         // legacy mode, transfer leadership by setting priority.
-        err = tryTransfer(client, newLeader, highestPriority + 1, timeout);
+        err = tryTransfer(client, newLeader, highestPriority + 1, timeout.orElse(timeoutLegacy));
       }
       if (err != null) {
         return -1;
