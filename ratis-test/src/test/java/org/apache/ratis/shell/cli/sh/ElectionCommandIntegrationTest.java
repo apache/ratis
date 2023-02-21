@@ -74,6 +74,42 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
   }
 
   @Test
+  public void testElectionTransferCommandToHigherPriority() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestElectionTransferCommandToHigherPriority);
+  }
+
+  void runTestElectionTransferCommandToHigherPriority(MiniRaftCluster cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final String address = getClusterAddress(cluster);
+
+    RaftServer.Division newLeader = cluster.getFollowers().get(0);
+    final StringPrintStream out = new StringPrintStream();
+    RatisShell shell = new RatisShell(out.getPrintStream());
+    Assert.assertTrue(cluster.getFollowers().contains(newLeader));
+
+    // set current leader's priority to 2
+    int ret = shell.run("peer", "setPriority", "-peers", address, "-addressPriority",
+        leader.getPeer().getAddress()+ "|" + 2);
+    Assert.assertEquals(0, ret);
+
+    // transfer to new leader will set its priority to 2 (with timeout 1s)
+    ret = shell.run("election", "transfer", "-peers", address, "-address",
+        newLeader.getPeer().getAddress(), "-timeout", "1");
+    Assert.assertEquals(0, ret);
+
+    JavaUtils.attempt(() -> Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId()),
+        10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferLeaderCommand", LOG);
+
+    // verify that priorities of new leader and old leader are both 2
+    ret = shell.run("group", "info", "-peers", address);
+    Assert.assertEquals(0 , ret);
+    String expected = String.format("\"%s\"%n  priority: %d", newLeader.getPeer().getAddress(), 2);
+    String expected2 = String.format("\"%s\"%n  priority: %d", leader.getPeer().getAddress(), 2);
+    Assert.assertTrue(out.toString().contains(expected));
+    Assert.assertTrue(out.toString().contains(expected2));
+  }
+
+  @Test
   public void testElectionPauseResumeCommand() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::runTestElectionPauseResumeCommand);
   }
