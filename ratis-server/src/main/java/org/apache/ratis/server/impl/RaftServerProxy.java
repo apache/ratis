@@ -192,7 +192,7 @@ class RaftServerProxy implements RaftServer {
   private final DataStreamServerRpc dataStreamServerRpc;
 
   private final ImplMap impls = new ImplMap();
-  private final ExecutorService implExecutor = Executors.newSingleThreadExecutor();
+  private final ExecutorService implExecutor;
   private final ExecutorService executor;
 
   private final JvmPauseMonitor pauseMonitor;
@@ -213,6 +213,7 @@ class RaftServerProxy implements RaftServer {
 
     this.dataStreamServerRpc = new DataStreamServerImpl(this, parameters).getServerRpc();
 
+    this.implExecutor = ConcurrentUtils.newSingleThreadExecutor(id + "-groupManagement");
     this.executor = ConcurrentUtils.newThreadPoolWithMax(
         RaftServerConfigKeys.ThreadPool.proxyCached(properties),
         RaftServerConfigKeys.ThreadPool.proxySize(properties),
