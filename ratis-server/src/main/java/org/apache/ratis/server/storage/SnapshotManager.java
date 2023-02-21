@@ -114,6 +114,7 @@ public class SnapshotManager {
           }
           // create the temp snapshot file and put padding inside
           out = new FileOutputStream(tmpSnapshotFile);
+          digester.get().reset();
         } else {
           Preconditions.assertTrue(tmpSnapshotFile.exists());
           out = new FileOutputStream(tmpSnapshotFile, true);
