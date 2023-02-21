@@ -27,10 +27,12 @@ import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
+import org.apache.ratis.util.TimeDuration;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -61,17 +63,18 @@ public class TransferCommand extends AbstractRatisCommand {
     //       i.e. request timeout doesn't mean transfer leadership has failed.
     //       Currently, Ratis shell returns merely based on the result of the request.
     //       So we set a larger default timeout here (3s).
-    final long timeoutDefault = 3_000L;
+    final TimeDuration timeoutDefault = TimeDuration.valueOf(3, TimeUnit.SECONDS);
     // Default timeout for legacy mode matches with the legacy command (version 2.4.x and older).
-    final long timeoutLegacy = 60_000L;
-    final Optional<Long> timeout = !cl.hasOption(TIMEOUT_OPTION_NAME) ? Optional.empty() :
-        Optional.of(Long.parseLong(cl.getOptionValue(TIMEOUT_OPTION_NAME)) * 1000L);
+    final TimeDuration timeoutLegacy = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+    final Optional<TimeDuration> timeout = !cl.hasOption(TIMEOUT_OPTION_NAME) ? Optional.empty() :
+        Optional.of(TimeDuration.valueOf(cl.getOptionValue(TIMEOUT_OPTION_NAME), TimeUnit.SECONDS));
 
     final int highestPriority = getRaftGroup().getPeers().stream()
         .mapToInt(RaftPeer::getPriority).max().orElse(0);
     RaftPeer newLeader = getRaftGroup().getPeers().stream()
         .filter(peer -> peer.getAddress().equals(strAddr)).findAny().orElse(null);
     if (newLeader == null) {
+      printf("Peer with address %s not found.", strAddr);
       return -2;
     }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
@@ -89,7 +92,7 @@ public class TransferCommand extends AbstractRatisCommand {
     return 0;
   }
 
-  private Throwable tryTransfer(RaftClient client, RaftPeer newLeader, int highestPriority, long timeout) {
+  private Throwable tryTransfer(RaftClient client, RaftPeer newLeader, int highestPriority, TimeDuration timeout) {
     printf("Transferring leadership to server with address <%s> %n", newLeader.getAddress());
     try {
       // lift the current leader to the highest priority,
@@ -97,7 +100,7 @@ public class TransferCommand extends AbstractRatisCommand {
         setPriority(client, newLeader.getAddress(), highestPriority);
       }
       RaftClientReply transferLeadershipReply =
-          client.admin().transferLeadership(newLeader.getId(), timeout);
+          client.admin().transferLeadership(newLeader.getId(), timeout.toLong(TimeUnit.MILLISECONDS));
       processReply(transferLeadershipReply, () -> "election failed");
     } catch (Throwable t) {
       printf("caught an error when executing transfer: %s%n", t.getMessage());
