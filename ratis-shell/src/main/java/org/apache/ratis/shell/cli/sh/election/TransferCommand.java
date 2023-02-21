@@ -84,8 +84,7 @@ public class TransferCommand extends AbstractRatisCommand {
         tryTransfer(client, newLeader, highestPriority + 1, timeout.orElse(timeoutLegacy));
       }
     } catch (Throwable t) {
-      printf("Failed to transfer peer %s with address %s: ",
-          newLeader.getId(), newLeader.getAddress());
+      printf("Failed to transfer to peer %s with address %s: ", newLeader.getId(), newLeader.getAddress());
       t.printStackTrace(getPrintStream());
       return -1;
     }
@@ -94,11 +93,11 @@ public class TransferCommand extends AbstractRatisCommand {
 
   private boolean tryTransfer(RaftClient client, RaftPeer newLeader, int highestPriority, TimeDuration timeout)
       throws IOException {
-    printf("Transferring leadership to server with address <%s> %n", newLeader.getAddress());
+    printf("Transferring leadership to peer %s with address %s%n", newLeader.getId(), newLeader.getAddress());
     try {
-      // lift the current leader to the highest priority,
+      // lift the new leader to the highest priority,
       if (newLeader.getPriority() < highestPriority) {
-        setPriority(client, newLeader.getAddress(), highestPriority);
+        setPriority(client, newLeader, highestPriority);
       }
       RaftClientReply transferLeadershipReply =
           client.admin().transferLeadership(newLeader.getId(), timeout.toLong(TimeUnit.MILLISECONDS));
@@ -113,11 +112,10 @@ public class TransferCommand extends AbstractRatisCommand {
     return true;
   }
 
-  private void setPriority(RaftClient client, String address, int priority) throws IOException {
-    printf("Changing priority of <%s> to %d%n: ", address, priority);
+  private void setPriority(RaftClient client, RaftPeer target, int priority) throws IOException {
+    printf("Changing priority of peer %s with address %s to %d%n", target.getId(), target.getAddress(), priority);
     List<RaftPeer> peers = getRaftGroup().getPeers().stream()
-        .map(peer -> peer.getAddress().equals(address) ?
-            RaftPeer.newBuilder(peer).setPriority(priority).build() : peer)
+        .map(peer -> peer == target ? RaftPeer.newBuilder(peer).setPriority(priority).build() : peer)
         .collect(Collectors.toList());
     RaftClientReply reply = client.admin().setConfiguration(peers);
     processReply(reply, () -> "Failed to set master priorities");

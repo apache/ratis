@@ -100,7 +100,7 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     JavaUtils.attempt(() -> Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId()),
         10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferLeaderCommand", LOG);
 
-    // verify that priority of new leader and old leader is both 2
+    // verify that priorities of new leader and old leader are both 2
     ret = shell.run("group", "info", "-peers", address);
     Assert.assertEquals(0 , ret);
     String expected = String.format("\"%s\"%n  priority: %d", newLeader.getPeer().getAddress(), 2);
