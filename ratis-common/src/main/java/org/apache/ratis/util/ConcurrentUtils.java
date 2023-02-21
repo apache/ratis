@@ -81,6 +81,21 @@ public interface ConcurrentUtils {
   }
 
   /**
+    * This method is similar to {@link java.util.concurrent.Executors#newSingleThreadExecutor(ThreadFactory)}
+    * except that this method takes a specific thread name as there is only one thread.g
+    *
+    * @param name the thread name for only one thread.
+    * @return a new {@link ExecutorService}.
+    */
+  static ExecutorService newSingleThreadExecutor(String name) {
+      return Executors.newSingleThreadExecutor(runnable -> {
+          final Thread t = new Thread(runnable);
+          t.setName(name);
+          return t;
+        });
+  }
+
+  /**
    * The same as {@link java.util.concurrent.Executors#newCachedThreadPool(ThreadFactory)}
    * except that this method takes a maximumPoolSize parameter.
    *

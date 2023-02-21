@@ -141,8 +141,7 @@ class SegmentedRaftLogWorker {
   private final DataBlockingQueue<Task> queue;
   private final WriteLogTasks writeTasks = new WriteLogTasks();
   private volatile boolean running = true;
-  private final Thread workerThread;
-
+  private final ExecutorService workerThreadExecutor;
   private final RaftStorage storage;
   private volatile SegmentedRaftLogOutputStream out;
   private final Runnable submitUpdateCommitEvent;
@@ -199,7 +198,7 @@ class SegmentedRaftLogWorker {
 
     this.stateMachineDataPolicy = new StateMachineDataPolicy(properties, metricRegistry);
 
-    this.workerThread = new Thread(this::run, name);
+    this.workerThreadExecutor = ConcurrentUtils.newSingleThreadExecutor(name);
 
     // Server Id can be null in unit tests
     metricRegistry.addDataQueueSizeGauge(queue::getNumElements);
@@ -218,7 +217,7 @@ class SegmentedRaftLogWorker {
           " and " + RaftServerConfigKeys.Log.ASYNC_FLUSH_ENABLED_KEY);
     }
     this.flushExecutor = (!asyncFlush && !unsafeFlush)? null
-        : Executors.newSingleThreadExecutor(ConcurrentUtils.newThreadFactory(name + "-flush"));
+        : ConcurrentUtils.newSingleThreadExecutor(name + "-flush");
   }
 
   void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
@@ -230,19 +229,15 @@ class SegmentedRaftLogWorker {
       Preconditions.assertTrue(openSegmentFile.exists());
       allocateSegmentedRaftLogOutputStream(openSegmentFile, true);
     }
-    workerThread.start();
+    workerThreadExecutor.submit(this::run);
   }
 
   void close() {
     this.running = false;
     sharedBuffer.set(null);
-    workerThread.interrupt();
     Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
-    try {
-      workerThread.join(3000);
-    } catch (InterruptedException ignored) {
-      Thread.currentThread().interrupt();
-    }
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND.multiply(3),
+        workerThreadExecutor, timeout -> LOG.warn("{}: shutdown timeout in " + timeout, name));
     IOUtils.cleanup(LOG, out);
     LOG.info("{} close()", name);
   }
@@ -288,7 +283,7 @@ class SegmentedRaftLogWorker {
   }
 
   boolean isAlive() {
-    return running && workerThread.isAlive();
+    return running && !workerThreadExecutor.isTerminated();
   }
 
   private void run() {
