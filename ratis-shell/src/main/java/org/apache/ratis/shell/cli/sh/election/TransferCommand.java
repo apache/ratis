@@ -79,20 +79,21 @@ public class TransferCommand extends AbstractRatisCommand {
     }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
       // transfer leadership
-      Throwable err = tryTransfer(client, newLeader, highestPriority, timeout.orElse(timeoutDefault));
-      if (err instanceof TransferLeadershipException
-          && err.getMessage().contains("it does not has highest priority")) {
+      if (!tryTransfer(client, newLeader, highestPriority, timeout.orElse(timeoutDefault))) {
         // legacy mode, transfer leadership by setting priority.
-        err = tryTransfer(client, newLeader, highestPriority + 1, timeout.orElse(timeoutLegacy));
+        tryTransfer(client, newLeader, highestPriority + 1, timeout.orElse(timeoutLegacy));
       }
-      if (err != null) {
-        return -1;
-      }
+    } catch (Throwable t) {
+      printf("Failed to transfer peer %s with address %s: ",
+          newLeader.getId(), newLeader.getAddress());
+      t.printStackTrace(getPrintStream());
+      return -1;
     }
     return 0;
   }
 
-  private Throwable tryTransfer(RaftClient client, RaftPeer newLeader, int highestPriority, TimeDuration timeout) {
+  private boolean tryTransfer(RaftClient client, RaftPeer newLeader, int highestPriority, TimeDuration timeout)
+      throws IOException {
     printf("Transferring leadership to server with address <%s> %n", newLeader.getAddress());
     try {
       // lift the current leader to the highest priority,
@@ -102,12 +103,14 @@ public class TransferCommand extends AbstractRatisCommand {
       RaftClientReply transferLeadershipReply =
           client.admin().transferLeadership(newLeader.getId(), timeout.toLong(TimeUnit.MILLISECONDS));
       processReply(transferLeadershipReply, () -> "election failed");
-    } catch (Throwable t) {
-      printf("caught an error when executing transfer: %s%n", t.getMessage());
-      return t;
+    } catch (TransferLeadershipException tle) {
+      if (tle.getMessage().contains("it does not has highest priority")) {
+        return false;
+      }
+      throw tle;
     }
     println("Transferring leadership initiated");
-    return null;
+    return true;
   }
 
   private void setPriority(RaftClient client, String address, int priority) throws IOException {
