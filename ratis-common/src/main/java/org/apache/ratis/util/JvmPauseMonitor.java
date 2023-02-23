@@ -65,28 +65,26 @@ public class JvmPauseMonitor {
   }
 
   static String toString(Map<String, GcInfo> beforeSleep, TimeDuration extraSleepTime, Map<String, GcInfo> afterSleep) {
-    final StringBuilder b = new StringBuilder("Detected pause in JVM or host machine (eg GC): pause of approximately ")
-        .append(extraSleepTime)
-        .append('.');
-
-    boolean detected = false;
+    final StringBuilder b = new StringBuilder();
+    long ms = 0;
     for(Map.Entry<String, GcInfo> before: beforeSleep.entrySet()) {
       final String name = before.getKey();
       final GcInfo after = afterSleep.get(name);
       if (after != null) {
         final GcInfo diff = after.subtract(before.getValue());
         if (diff.count != 0) {
+          ms += diff.timeMs;
           b.append(System.lineSeparator()).append("GC pool '").append(name)
               .append("' had collection(s): ").append(diff);
-          detected = true;
         }
       }
     }
 
-    if (!detected) {
-      b.append(" No GCs detected.");
-    }
-    return b.toString();
+    final String gc = b.length() == 0? " without any GCs."
+        : " with " + TimeDuration.valueOf(ms, TimeUnit.MILLISECONDS).toString(TimeUnit.SECONDS, 3)
+        + " GC time." + b;
+    return "Detected pause in JVM or host machine approximately "
+        + extraSleepTime.toString(TimeUnit.SECONDS, 3) + gc;
   }
 
   private static final TimeDuration SLEEP_TIME = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);

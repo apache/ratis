@@ -229,8 +229,12 @@ class RaftServerProxy implements RaftServer {
   private void handleJvmPause(TimeDuration extraSleep, TimeDuration closeThreshold, TimeDuration stepDownThreshold)
       throws IOException {
     if (extraSleep.compareTo(closeThreshold) > 0) {
+      LOG.error("{}: JVM pause detected {} longer than the close-threshold {}, shutting down ...",
+          getId(), extraSleep.toString(TimeUnit.SECONDS, 3), closeThreshold.toString(TimeUnit.SECONDS, 3));
       close();
     } else if (extraSleep.compareTo(stepDownThreshold) > 0) {
+      LOG.warn("{}: JVM pause detected {} longer than the step-down-threshold {}",
+          getId(), extraSleep.toString(TimeUnit.SECONDS, 3), stepDownThreshold.toString(TimeUnit.SECONDS, 3));
       getImpls().forEach(RaftServerImpl::stepDownOnJvmPause);
     }
   }
