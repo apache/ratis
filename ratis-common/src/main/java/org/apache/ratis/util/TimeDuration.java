@@ -32,7 +32,7 @@ import java.util.function.LongUnaryOperator;
 
 /**
  * Time duration is represented by a long together with a {@link TimeUnit}.
- *
+ * <p>
  * This is a value-based class.
  */
 public final class TimeDuration implements Comparable<TimeDuration> {
@@ -374,5 +374,21 @@ public final class TimeDuration implements Comparable<TimeDuration> {
   @Override
   public String toString() {
     return duration + Abbreviation.valueOf(unit).getDefault();
+  }
+
+  /** @return a representation of this object in the given target unit and decimal places. */
+  public String toString(TimeUnit targetUnit, int decimalPlaces) {
+    Objects.requireNonNull(targetUnit, "targetUnit == null");
+    if (targetUnit.compareTo(unit) <= 0) {
+      return to(targetUnit).toString();
+    }
+    final double divisor = unit.convert(1, targetUnit);
+    if (duration % divisor == 0) {
+      return to(targetUnit).toString();
+    }
+    final String decimal = StringUtils.format("%." + decimalPlaces + "f", duration/divisor);
+    final String s = decimal + Abbreviation.valueOf(targetUnit).getDefault();
+    LOG.debug("{}.to({}) = {}", this, targetUnit, s);
+    return s;
   }
 }
