@@ -165,8 +165,10 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
 
   @Override
   public void close() {
-    peers.values().parallelStream().forEach(
-        pp -> pp.setNullProxyAndClose().ifPresent(proxy -> closeProxy(proxy, pp)));
+    ConcurrentUtils.parallelForEachAsync(peers.values(),
+        pp -> pp.setNullProxyAndClose().ifPresent(proxy -> closeProxy(proxy, pp)),
+        r -> new Thread(r).start()
+    ).join();
   }
 
   private void closeProxy(PROXY proxy, PeerAndProxy pp) {
