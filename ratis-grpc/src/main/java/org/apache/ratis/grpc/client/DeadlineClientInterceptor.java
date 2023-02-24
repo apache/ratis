@@ -25,7 +25,7 @@ import org.apache.ratis.thirdparty.io.grpc.MethodDescriptor;
 import org.apache.ratis.util.TimeDuration;
 
 /**
- * Intercepts the messages and reset corrects the deadline for streaming messages.
+ * Intercepts the messages and resets the deadline for each streaming call.
  */
 public class DeadlineClientInterceptor implements ClientInterceptor {
   private final TimeDuration timeout;
