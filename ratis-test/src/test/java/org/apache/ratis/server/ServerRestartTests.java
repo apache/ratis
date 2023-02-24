@@ -119,18 +119,22 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final RaftLog followerLog = follower.getRaftLog();
     final long followerLastIndex = followerLog.getLastEntryTermIndex().getIndex();
     Assert.assertTrue(followerLastIndex >= leaderLastIndex);
+    final long leaderFinalIndex = cluster.getLeader().getRaftLog().getLastEntryTermIndex().getIndex();
+    Assert.assertEquals(leaderFinalIndex, followerLastIndex);
 
     final File followerOpenLogFile = getOpenLogFile(follower);
     final File leaderOpenLogFile = getOpenLogFile(cluster.getDivision(leaderId));
 
     // shutdown all servers
-    for(RaftServer s : cluster.getServers()) {
-      s.close();
+    // shutdown followers first, so there won't be any new leader elected
+    for (RaftServer.Division d : cluster.getFollowers()) {
+      d.close();
     }
+    cluster.getDivision(leaderId).close();
 
     // truncate log and
     assertTruncatedLog(followerId, followerOpenLogFile, followerLastIndex, cluster);
-    assertTruncatedLog(leaderId, leaderOpenLogFile, leaderLastIndex, cluster);
+    assertTruncatedLog(leaderId, leaderOpenLogFile, leaderFinalIndex, cluster);
 
     // restart and write something.
     cluster.restart(false);
