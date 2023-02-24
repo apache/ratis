@@ -124,9 +124,11 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final File leaderOpenLogFile = getOpenLogFile(cluster.getDivision(leaderId));
 
     // shutdown all servers
-    for(RaftServer s : cluster.getServers()) {
-      s.close();
+    // shutdown followers first, so there won't be any new leader elected
+    for (RaftServer.Division d : cluster.getFollowers()) {
+      d.close();
     }
+    cluster.getDivision(leaderId).close();
 
     // truncate log and
     assertTruncatedLog(followerId, followerOpenLogFile, followerLastIndex, cluster);
