@@ -38,7 +38,7 @@ import static org.apache.ratis.thirdparty.io.grpc.internal.GrpcUtil.TIMER_SERVIC
  */
 public class DeadlineClientInterceptor implements ClientInterceptor {
   private final TimeDuration timeout;
-  private static final ScheduledExecutorService Timer = SharedResourceHolder.get(TIMER_SERVICE);
+  private static final ScheduledExecutorService TIMER = SharedResourceHolder.get(TIMER_SERVICE);
   public DeadlineClientInterceptor(TimeDuration timeout) {
     this.timeout = timeout;
   }
@@ -55,7 +55,7 @@ public class DeadlineClientInterceptor implements ClientInterceptor {
 
     private CallWithDeadline(ClientCall<ReqT, RespT> delegate, TimeDuration timeout) {
       super(delegate);
-      timeoutFuture = Timer.schedule(() -> cancel("streaming call timeouts", null),
+      timeoutFuture = TIMER.schedule(() -> cancel("streaming call timeouts", null),
           timeout.getDuration(), timeout.getUnit());
     }
 
