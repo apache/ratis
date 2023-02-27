@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.util.TimeDuration.Abbreviation;
+import static org.apache.ratis.util.TimeDuration.LOG;
 import static org.apache.ratis.util.TimeDuration.parse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -110,22 +111,23 @@ public class TestTimeDuration {
   @Test(timeout = 1000)
   public void testTo() {
     final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
-    assertTo(1000, oneSecond, TimeUnit.MILLISECONDS);
-    final TimeDuration nanos = assertTo(1_000_000_000, oneSecond, TimeUnit.NANOSECONDS);
-    assertTo(1000, nanos, TimeUnit.MILLISECONDS);
+    assertTo(1000, "1000ms", oneSecond, TimeUnit.MILLISECONDS);
+    final TimeDuration nanos = assertTo(1_000_000_000, "1000000000ns", oneSecond, TimeUnit.NANOSECONDS);
+    assertTo(1000, "1000ms", nanos, TimeUnit.MILLISECONDS);
 
-    assertTo(0, oneSecond, TimeUnit.MINUTES);
-    assertTo(0, nanos, TimeUnit.MINUTES);
+    assertTo(0, "0.0167min", oneSecond, TimeUnit.MINUTES);
+    assertTo(0, "0.0167min", nanos, TimeUnit.MINUTES);
 
     final TimeDuration millis = TimeDuration.valueOf(1_999, TimeUnit.MILLISECONDS);
-    assertTo(1, millis, TimeUnit.SECONDS);
-    assertTo(0, millis, TimeUnit.MINUTES);
+    assertTo(1, "1.9990s", millis, TimeUnit.SECONDS);
+    assertTo(0, "0.0333min", millis, TimeUnit.MINUTES);
   }
 
-  static TimeDuration assertTo(long expected, TimeDuration timeDuration, TimeUnit toUnit) {
+  static TimeDuration assertTo(long expected, String expectedString, TimeDuration timeDuration, TimeUnit toUnit) {
     final TimeDuration computed = timeDuration.to(toUnit);
     assertEquals(expected, computed.getDuration());
     assertEquals(toUnit, computed.getUnit());
+    assertEquals(expectedString, timeDuration.toString(toUnit, 4));
     return computed;
   }
 

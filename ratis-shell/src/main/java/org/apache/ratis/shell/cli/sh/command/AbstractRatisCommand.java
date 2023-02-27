@@ -151,6 +151,10 @@ public abstract class AbstractRatisCommand implements Command {
             .addOption(GROUPID_OPTION_NAME, true, "Raft group id");
   }
 
+  protected PrintStream getPrintStream() {
+    return printStream;
+  }
+
   protected void printf(String format, Object... args) {
     printStream.printf(format, args);
   }
