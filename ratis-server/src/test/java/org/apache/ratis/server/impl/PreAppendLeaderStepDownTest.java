@@ -33,6 +33,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.event.Level;
@@ -98,6 +99,8 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
       // the client.
       rpc.sendRequest(r);
 
+      // Sleep 1s to let waitForLeader return the new value.
+      TimeDuration.ONE_SECOND.sleep();
       long newTerm =
           RaftTestUtil.waitForLeader(cluster).getRaftLog().getLastEntryTermIndex().getTerm();
 
