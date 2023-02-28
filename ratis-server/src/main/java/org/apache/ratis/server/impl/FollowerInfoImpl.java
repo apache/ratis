@@ -93,17 +93,20 @@ class FollowerInfoImpl implements FollowerInfo {
 
   @Override
   public void decreaseNextIndex(long newNextIndex) {
-    nextIndex.updateUnconditionally(old -> old <= 0L? old: Math.min(old - 1, newNextIndex), infoIndexChange);
+    nextIndex.updateUnconditionally(old -> old <= 0L? old: Math.min(old - 1, newNextIndex),
+        message -> infoIndexChange.accept("decreaseNextIndex " + message));
   }
 
   @Override
   public void setNextIndex(long newNextIndex) {
-    nextIndex.updateUnconditionally(old -> newNextIndex >= 0 ? newNextIndex : old, infoIndexChange);
+    nextIndex.updateUnconditionally(old -> newNextIndex >= 0 ? newNextIndex : old,
+        message -> infoIndexChange.accept("setNextIndex " + message));
   }
 
   @Override
   public void updateNextIndex(long newNextIndex) {
-    nextIndex.updateToMax(newNextIndex, infoIndexChange);
+    nextIndex.updateToMax(newNextIndex,
+        message -> infoIndexChange.accept("decreaseNextIndex " + message));
   }
 
   @Override
@@ -158,6 +161,11 @@ class FollowerInfoImpl implements FollowerInfo {
   @Override
   public Timestamp getLastRpcResponseTime() {
     return lastRpcResponseTime.get();
+  }
+
+  @Override
+  public Timestamp getLastRpcSendTime() {
+    return lastRpcSendTime.get();
   }
 
   @Override
