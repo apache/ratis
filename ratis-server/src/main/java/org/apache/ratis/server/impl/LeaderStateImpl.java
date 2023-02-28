@@ -1140,13 +1140,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     if (supplier.isInitialized()) {
-      senders.forEach(sender -> {
-        try {
-          sender.triggerHeartbeat();
-        } catch (IOException e) {
-          LOG.warn("{}: {} cannot trigger heartbeat due to {}", this, sender, e);
-        }
-      });
+      senders.forEach(LogAppender::triggerHeartbeat);
     }
 
     return listener.getFuture();
