@@ -23,6 +23,21 @@
     <fileSet>
       <directory>${project.basedir}/target/apache-ratis-${project.version}-bin/apache-ratis-${project.version}-bin</directory>
       <outputDirectory>..</outputDirectory>
+      <excludes>
+        <exclude>bin/ratis</exclude>
+        <exclude>libexec/*.sh</exclude>
+        <exclude>examples/bin/*.sh</exclude>
+      </excludes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/target/apache-ratis-${project.version}-bin/apache-ratis-${project.version}-bin</directory>
+      <outputDirectory>..</outputDirectory>
+      <includes>
+        <include>bin/ratis</include>
+        <include>libexec/*.sh</include>
+        <include>examples/bin/*.sh</include>
+      </includes>
+      <fileMode>0755</fileMode>
     </fileSet>
   </fileSets>
 </assembly>
