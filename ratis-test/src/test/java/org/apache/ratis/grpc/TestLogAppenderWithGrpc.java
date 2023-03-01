@@ -89,7 +89,7 @@ public class TestLogAppenderWithGrpc
         futures.add(client.async().send(new RaftTestUtil.SimpleMessage("m")));
       }
 
-      FIVE_SECONDS.sleep();
+      TEN_SECONDS.sleep();
       for (long nextIndex : leader.getInfo().getFollowerNextIndices()) {
         // Verify nextIndex does not progress due to pendingRequests limit
         Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
