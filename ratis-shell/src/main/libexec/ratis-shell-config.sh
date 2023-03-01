@@ -75,7 +75,7 @@ if [[ -n "${RATIS_SHELL_HOME}" ]]; then
   RATIS_SHELL_JAVA_OPTS+=" -Dratis.shell.home=${RATIS_SHELL_HOME}"
 fi
 
-RATIS_SHELL_JAVA_OPTS+=" -Dratis.shell.conf.dir=${RATIS_SHELL_CONF_DIR} -Dratis.shell.logs.dir=${RATIS_SHELL_LOGS_DIR} -Dratis.shell.user.logs.dir=${RATIS_SHELL_USER_LOGS_DIR}"
+RATIS_SHELL_JAVA_OPTS+=" -Dratis.shell.conf.dir=${RATIS_SHELL_CONF_DIR} -Dratis.shell.logs.dir=${RATIS_SHELL_LOGS_DIR}"
 
 RATIS_SHELL_JAVA_OPTS+=" -Dlog4j.configuration=file:${RATIS_SHELL_CONF_DIR}/log4j.properties"
 RATIS_SHELL_JAVA_OPTS+=" -Dorg.apache.jasper.compiler.disablejsr199=true"
