@@ -88,7 +88,7 @@ public class TestLogAppenderWithGrpc
       for (int i = 0; i < maxAppends * 2; i++) {
         futures.add(client.async().send(new RaftTestUtil.SimpleMessage("m")));
       }
-      
+
       JavaUtils.attempt(() -> {
         for (long nextIndex : leader.getInfo().getFollowerNextIndices()) {
           // Verify nextIndex does not progress due to pendingRequests limit
