@@ -52,7 +52,6 @@ public abstract class BaseTest {
   public static final TimeDuration HUNDRED_MILLIS = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
   public static final TimeDuration ONE_SECOND = TimeDuration.ONE_SECOND;
   public static final TimeDuration FIVE_SECONDS = TimeDuration.valueOf(5, TimeUnit.SECONDS);
-  public static final TimeDuration TEN_SECONDS = TimeDuration.valueOf(10, TimeUnit.SECONDS);
 
   {
     Slf4jUtils.setLogLevel(ConfUtils.LOG, Level.WARN);
