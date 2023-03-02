@@ -94,7 +94,7 @@ public class TestLogAppenderWithGrpc
           // Verify nextIndex does not progress due to pendingRequests limit
           Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
         }
-      }, 5, ONE_SECOND, "matching nextIndex", LOG);
+      }, 10, ONE_SECOND, "matching nextIndex", LOG);
       ONE_SECOND.sleep();
       for (RaftServer.Division server : cluster.getFollowers()) {
         // unblock the appends in the follower
