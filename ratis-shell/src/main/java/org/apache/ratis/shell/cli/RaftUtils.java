@@ -64,13 +64,13 @@ public final class RaftUtils {
    * @return return a raft client
    */
   public static RaftClient createClient(RaftGroup raftGroup) {
-    RaftProperties properties = new RaftProperties();
-    RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
+    RaftProperties defaults = new RaftProperties();
+    RaftClientConfigKeys.Rpc.setRequestTimeout(defaults,
         TimeDuration.valueOf(15, TimeUnit.SECONDS));
+
     // Since ratis-shell support GENERIC_COMMAND_OPTIONS, here we should
-    // set these options to raft properties to make it work.
-    System.getProperties().stringPropertyNames().forEach(
-        key -> properties.set(key, System.getProperty(key)));
+    // merge these options to raft properties to make it work.
+    RaftProperties systems = new RaftProperties(System.getProperties());
     ExponentialBackoffRetry retryPolicy = ExponentialBackoffRetry.newBuilder()
         .setBaseSleepTime(TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS))
         .setMaxAttempts(10)
@@ -79,7 +79,7 @@ public final class RaftUtils {
         .build();
     return RaftClient.newBuilder()
         .setRaftGroup(raftGroup)
-        .setProperties(properties)
+        .setProperties(RaftProperties.merge(defaults, systems))
         .setRetryPolicy(retryPolicy)
         .build();
   }

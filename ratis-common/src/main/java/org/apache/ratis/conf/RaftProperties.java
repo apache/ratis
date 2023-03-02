@@ -18,6 +18,7 @@
 
 package org.apache.ratis.conf;
 
+import org.apache.ratis.thirdparty.com.google.common.collect.Maps;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ReflectionUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -33,6 +34,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -51,6 +53,10 @@ public class RaftProperties {
 
   /** A new configuration. */
   public RaftProperties() {
+  }
+
+  public RaftProperties(Properties properties) {
+    this.properties.putAll(Maps.fromProperties(properties));
   }
 
   /**
@@ -121,6 +127,24 @@ public class RaftProperties {
         matchStart = leftBrace + 1;
       }
     }
+    return result;
+  }
+
+  /**
+   * Merge two raft properties.
+   *
+   * <p>
+   * Properties in {@code p2} overwrite those in {@code p1} if they have
+   * the same key.
+   * </p>
+   *
+   * @param p1 first properties
+   * @param p2 second properties
+   * @return merged properties
+   */
+  public static RaftProperties merge(RaftProperties p1, RaftProperties p2) {
+    RaftProperties result = new RaftProperties(p1);
+    result.properties.putAll(p2.properties);
     return result;
   }
 
