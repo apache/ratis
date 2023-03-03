@@ -83,9 +83,11 @@ Usage: ratis sh [generic options]
 ```
 
 ## generic options
-The `generic options` pass values for a given ratis-shell property.
-It supports the following content:
+The `generic options` supports the following content:
 `-D*`, `-X*`, `-agentlib*`, `-javaagent*`
+
+The `-D*` can pass values for a given ratis property to ratis-shell client RaftProperties.
+
 ```
 $ ratis sh -D<property=value> ...
 ```
