@@ -80,6 +80,13 @@ public class TestLogAppenderWithGrpc
       final RaftServer.Division leader = waitForLeader(cluster);
       long initialNextIndex = RaftServerTestUtil.getNextIndex(leader);
 
+      JavaUtils.attempt(() -> {
+        for (long nextIndex : leader.getInfo().getFollowerNextIndices()) {
+          // Make sure followers are up-to-date before blocking the appends in the follower
+          Assert.assertEquals(initialNextIndex, nextIndex);
+        }
+      }, 5, ONE_SECOND, "matching initial nextIndex", LOG);
+
       for (RaftServer.Division server : cluster.getFollowers()) {
         // block the appends in the follower
         SimpleStateMachine4Testing.get(server).blockWriteStateMachineData();
