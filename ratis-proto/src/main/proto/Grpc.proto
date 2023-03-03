@@ -47,7 +47,7 @@ service RaftServerProtocolService {
       returns(stream ratis.common.InstallSnapshotReplyProto) {}
 
   rpc readIndex(ratis.common.ReadIndexRequestProto)
-      returns(stream ratis.common.ReadIndexReplyProto) {}
+      returns(ratis.common.ReadIndexReplyProto) {}
 }
 
 service AdminProtocolService {
