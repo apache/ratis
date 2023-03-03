@@ -26,6 +26,7 @@ import org.apache.ratis.retry.ExponentialBackoffRetry;
 import org.apache.ratis.util.TimeDuration;
 
 import java.net.InetSocketAddress;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -64,13 +65,15 @@ public final class RaftUtils {
    * @return return a raft client
    */
   public static RaftClient createClient(RaftGroup raftGroup) {
-    RaftProperties defaults = new RaftProperties();
-    RaftClientConfigKeys.Rpc.setRequestTimeout(defaults,
+    RaftProperties properties = new RaftProperties();
+    RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
         TimeDuration.valueOf(15, TimeUnit.SECONDS));
 
     // Since ratis-shell support GENERIC_COMMAND_OPTIONS, here we should
     // merge these options to raft properties to make it work.
-    RaftProperties systems = new RaftProperties(System.getProperties());
+    final Properties sys = System.getProperties();
+    sys.stringPropertyNames().forEach(key -> properties.set(key, sys.getProperty(key)));
+
     ExponentialBackoffRetry retryPolicy = ExponentialBackoffRetry.newBuilder()
         .setBaseSleepTime(TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS))
         .setMaxAttempts(10)
@@ -79,7 +82,7 @@ public final class RaftUtils {
         .build();
     return RaftClient.newBuilder()
         .setRaftGroup(raftGroup)
-        .setProperties(RaftProperties.merge(defaults, systems))
+        .setProperties(properties)
         .setRetryPolicy(retryPolicy)
         .build();
   }
