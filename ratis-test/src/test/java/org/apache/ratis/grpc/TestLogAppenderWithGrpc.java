@@ -81,10 +81,9 @@ public class TestLogAppenderWithGrpc
       long initialNextIndex = RaftServerTestUtil.getNextIndex(leader);
 
       JavaUtils.attempt(() -> {
-        for (long nextIndex : leader.getInfo().getFollowerNextIndices()) {
-          // Make sure followers are up-to-date before blocking the appends in the follower
-          Assert.assertEquals(initialNextIndex, nextIndex);
-        }
+        // Make sure followers are up-to-date before blocking the appends in the follower
+        cluster.getFollowers().stream().mapToLong(RaftServerTestUtil::getNextIndex)
+            .forEach(nextIndex -> Assert.assertEquals(initialNextIndex, nextIndex));
       }, 5, ONE_SECOND, "matching initial nextIndex", LOG);
 
       for (RaftServer.Division server : cluster.getFollowers()) {
