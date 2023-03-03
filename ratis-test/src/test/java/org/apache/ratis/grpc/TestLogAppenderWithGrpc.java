@@ -102,7 +102,6 @@ public class TestLogAppenderWithGrpc
           Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
         }
       }, 5, ONE_SECOND, "matching nextIndex", LOG);
-      ONE_SECOND.sleep();
       for (RaftServer.Division server : cluster.getFollowers()) {
         // unblock the appends in the follower
         SimpleStateMachine4Testing.get(server).unblockWriteStateMachineData();
