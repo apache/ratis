@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.LogAppenderTests;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -76,8 +77,9 @@ public class TestLogAppenderWithGrpc
 
     // client and leader setup
     try (final RaftClient client = cluster.createClient(cluster.getGroup())) {
-      client.io().send(new RaftTestUtil.SimpleMessage("m"));
       final RaftServer.Division leader = waitForLeader(cluster);
+      RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m"));
+      client.io().watch(reply.getLogIndex(), RaftProtos.ReplicationLevel.ALL_COMMITTED);
       long initialNextIndex = RaftServerTestUtil.getNextIndex(leader);
 
       for (RaftServer.Division server : cluster.getFollowers()) {
@@ -94,8 +96,7 @@ public class TestLogAppenderWithGrpc
           // Verify nextIndex does not progress due to pendingRequests limit
           Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
         }
-      }, 5, ONE_SECOND, "matching nextIndex", LOG);
-      ONE_SECOND.sleep();
+      }, 10, ONE_SECOND, "matching nextIndex", LOG);
       for (RaftServer.Division server : cluster.getFollowers()) {
         // unblock the appends in the follower
         SimpleStateMachine4Testing.get(server).unblockWriteStateMachineData();
