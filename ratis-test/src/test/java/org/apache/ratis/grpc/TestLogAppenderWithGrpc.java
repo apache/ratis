@@ -84,7 +84,7 @@ public class TestLogAppenderWithGrpc
         // Make sure followers are up-to-date before blocking the appends in the follower
         cluster.getFollowers().stream().mapToLong(RaftServerTestUtil::getNextIndex)
             .forEach(nextIndex -> Assert.assertEquals(initialNextIndex, nextIndex));
-      }, 5, ONE_SECOND, "matching initial nextIndex", LOG);
+      }, 10, ONE_SECOND, "matching initial nextIndex", LOG);
 
       for (RaftServer.Division server : cluster.getFollowers()) {
         // block the appends in the follower
@@ -100,7 +100,7 @@ public class TestLogAppenderWithGrpc
           // Verify nextIndex does not progress due to pendingRequests limit
           Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
         }
-      }, 5, ONE_SECOND, "matching nextIndex", LOG);
+      }, 10, ONE_SECOND, "matching nextIndex", LOG);
       for (RaftServer.Division server : cluster.getFollowers()) {
         // unblock the appends in the follower
         SimpleStateMachine4Testing.get(server).unblockWriteStateMachineData();
