@@ -82,6 +82,16 @@ Usage: ratis sh [generic options]
          [snapshot [create]]
 ```
 
+## generic options
+The `generic options` supports the following content:
+`-D*`, `-X*`, `-agentlib*`, `-javaagent*`
+
+The `-D*` can pass values for a given ratis property to ratis-shell client RaftProperties.
+
+```
+$ ratis sh -D<property=value> ...
+```
+
 ## election
 The `election` command manages leader election.
 It has the following subcommands:
