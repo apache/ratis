@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.util.StreamObserverWithTimeout;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
@@ -136,9 +137,9 @@ public class GrpcServerProtocolClient implements Closeable {
   }
 
   StreamObserver<InstallSnapshotRequestProto> installSnapshot(
-      StreamObserver<InstallSnapshotReplyProto> responseHandler) {
-    return asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-        .installSnapshot(responseHandler);
+      String name, TimeDuration timeout, StreamObserver<InstallSnapshotReplyProto> responseHandler) {
+    return StreamObserverWithTimeout.newInstance(name, timeout,
+        i -> asyncStub.withInterceptors(i).installSnapshot(responseHandler));
   }
 
   // short-circuit the backoff timer and make them reconnect immediately.
