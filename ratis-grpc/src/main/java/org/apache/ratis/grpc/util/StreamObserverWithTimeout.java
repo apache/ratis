@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 
-public class StreamObserverWithTimeout<T> implements StreamObserver<T> {
+public final class StreamObserverWithTimeout<T> implements StreamObserver<T> {
   public static final Logger LOG = LoggerFactory.getLogger(StreamObserverWithTimeout.class);
 
   public static <T> StreamObserverWithTimeout<T> newInstance(String name, TimeDuration timeout,
