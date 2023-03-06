@@ -539,7 +539,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (old == RaftPeerRole.LEADER) {
         role.shutdownLeaderState(false);
         state.setLeader(null, reason);
-      } else if (old == RaftPeerRole.CANDIDATE) {
+      } else if (old == RaftPeerRole.CANDIDATE || old == RaftPeerRole.PRE_CANDIDATE) {
         role.shutdownLeaderElection();
       } else if (old == RaftPeerRole.FOLLOWER) {
         role.shutdownFollowerState();
@@ -603,6 +603,7 @@ class RaftServerImpl implements RaftServer.Division,
         .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs());
     switch (currentRole) {
     case CANDIDATE:
+    case PRE_CANDIDATE:
       CandidateInfoProto.Builder candidate = CandidateInfoProto.newBuilder()
           .setLastLeaderElapsedTimeMs(state.getLastLeaderElapsedTimeMs());
       roleInfo.setCandidateInfo(candidate);
@@ -638,15 +639,31 @@ class RaftServerImpl implements RaftServer.Division,
     return roleInfo.build();
   }
 
-  synchronized void changeToCandidate(boolean forceStartLeaderElection) {
+  synchronized void changeToPreCandidate() {
     Preconditions.assertTrue(getInfo().isFollower());
     role.shutdownFollowerState();
+    setRole(RaftPeerRole.PRE_CANDIDATE, "changeToPreCandidate");
+    if (state.shouldNotifyExtendedNoLeader()) {
+      stateMachine.followerEvent().notifyExtendedNoLeader(getRoleInfoProto());
+    }
+    // start election
+    role.startLeaderElection(this, Phase.PRE_VOTE);
+  }
+
+  synchronized void changeToCandidate() {
+    Preconditions.assertTrue(getInfo().isFollower() || getInfo().isPreCandidate());
+    if (getInfo().isFollower()) {
+      role.shutdownFollowerState();
+    }
+    if (getInfo().isPreCandidate()) {
+      role.shutdownLeaderElection();
+    }
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
     if (state.shouldNotifyExtendedNoLeader()) {
       stateMachine.followerEvent().notifyExtendedNoLeader(getRoleInfoProto());
     }
     // start election
-    role.startLeaderElection(this, forceStartLeaderElection);
+    role.startLeaderElection(this, Phase.ELECTION);
   }
 
   @Override
@@ -1697,7 +1714,7 @@ class RaftServerImpl implements RaftServer.Division,
         return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
       }
 
-      changeToCandidate(true);
+      changeToCandidate();
       return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
     }
   }

@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -68,6 +69,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -500,7 +502,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testImmediatelyRevertedToFollower() {
     RaftServerImpl server = createMockServer(true);
-    LeaderElection subject = new LeaderElection(server, false);
+    LeaderElection subject = new LeaderElection(server, LeaderElection.Phase.PRE_VOTE);
 
     try {
       subject.startInForeground();
@@ -514,7 +516,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testShutdownBeforeStart() {
     RaftServerImpl server = createMockServer(false);
-    LeaderElection subject = new LeaderElection(server, false);
+    LeaderElection subject = new LeaderElection(server, LeaderElection.Phase.PRE_VOTE);
 
     try {
       subject.shutdown();
@@ -628,6 +630,10 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     RaftServerConfigKeys.LeaderElection.setPreVote(properties, true);
     when(proxy.getProperties()).thenReturn(properties);
     when(server.getRaftServer()).thenReturn(proxy);
+    final ServerState state = mock(ServerState.class);
+    RaftConfigurationImpl conf = RaftServerTestUtil.newRaftConfiguration(Collections.emptyList());
+    when(state.initElection(any())).thenReturn(new LeaderElection.ConfAndTerm(conf, 999));
+    when(server.getState()).thenReturn(state);
     return server;
   }
 }

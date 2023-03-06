@@ -113,11 +113,11 @@ class RoleInfo {
     }
   }
 
-  void startLeaderElection(RaftServerImpl server, boolean force) {
+  void startLeaderElection(RaftServerImpl server, LeaderElection.Phase phase) {
     if (pauseLeaderElection.get()) {
       return;
     }
-    updateAndGet(leaderElection, new LeaderElection(server, force)).start();
+    updateAndGet(leaderElection, new LeaderElection(server, phase)).start();
   }
 
   void setLeaderElectionPause(boolean pause) {

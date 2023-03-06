@@ -131,7 +131,7 @@ public class RaftServerTestUtil {
     return (ConfigurationManager) RaftTestUtil.getDeclaredField(getState(server), "configurationManager");
   }
 
-  public static RaftConfiguration newRaftConfiguration(Collection<RaftPeer> peers) {
+  public static RaftConfigurationImpl newRaftConfiguration(Collection<RaftPeer> peers) {
     return RaftConfigurationImpl.newBuilder().setConf(peers).build();
   }
 

@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.server.DivisionInfo;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
@@ -143,8 +144,12 @@ class FollowerState extends Daemon {
             LOG.info("{}: change to CANDIDATE, lastRpcElapsedTime:{}, electionTimeout:{}",
                 this, lastRpcTime.elapsedTime(), electionTimeout);
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.
-            // election timeout, should become a candidate
-            server.changeToCandidate(false);
+            // election timeout, should become a candidate or preCandidate
+            if (RaftServerConfigKeys.LeaderElection.preVote(server.getRaftServer().getProperties())) {
+              server.changeToPreCandidate();
+            } else {
+              server.changeToCandidate();
+            }
             break;
           }
         }

@@ -185,17 +185,20 @@ class LeaderElection implements Runnable {
   private final Daemon daemon;
 
   private final RaftServerImpl server;
-  private final boolean skipPreVote;
+  private final Phase phase;
+  private final long electionTerm;
+  private final RaftConfigurationImpl conf;
 
-  LeaderElection(RaftServerImpl server, boolean skipPreVote) {
+  LeaderElection(RaftServerImpl server, Phase phase) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
     this.daemon = Daemon.newBuilder().setName(name).setRunnable(this)
         .setThreadGroup(server.getThreadGroup()).build();
     this.server = server;
-    this.skipPreVote = skipPreVote ||
-        !RaftServerConfigKeys.LeaderElection.preVote(
-            server.getRaftServer().getProperties());
+    this.phase = phase;
+    final ConfAndTerm confAndTerm = server.getState().initElection(phase);
+    this.electionTerm = confAndTerm.getTerm();
+    this.conf = confAndTerm.getConf();
   }
 
   void start() {
@@ -234,8 +237,10 @@ class LeaderElection implements Runnable {
     }
 
     try (AutoCloseable ignored = Timekeeper.start(server.getLeaderElectionMetrics().getLeaderElectionTimer())) {
-      if (skipPreVote || askForVotes(Phase.PRE_VOTE)) {
-        if (askForVotes(Phase.ELECTION)) {
+      if (askForVotes(phase)) {
+        if (phase == Phase.PRE_VOTE) {
+          server.changeToCandidate();
+        } else {
           server.changeToLeader();
         }
       }
@@ -262,7 +267,7 @@ class LeaderElection implements Runnable {
 
   private boolean shouldRun() {
     final DivisionInfo info = server.getInfo();
-    return lifeCycle.getCurrentState().isRunning() && info.isCandidate() && info.isAlive();
+    return lifeCycle.getCurrentState().isRunning() && (info.isCandidate() || info.isPreCandidate()) && info.isAlive();
   }
 
   private boolean shouldRun(long electionTerm) {
@@ -295,17 +300,6 @@ class LeaderElection implements Runnable {
   /** Send requestVote rpc to all other peers for the given phase. */
   private boolean askForVotes(Phase phase) throws InterruptedException, IOException {
     for(int round = 0; shouldRun(); round++) {
-      final long electionTerm;
-      final RaftConfigurationImpl conf;
-      synchronized (server) {
-        if (!shouldRun()) {
-          return false;
-        }
-        final ConfAndTerm confAndTerm = server.getState().initElection(phase);
-        electionTerm = confAndTerm.getTerm();
-        conf = confAndTerm.getConf();
-      }
-
       LOG.info("{} {} round {}: submit vote requests at term {} for {}", this, phase, round, electionTerm, conf);
       final ResultAndTerm r = submitRequestAndWaitResult(phase, conf, electionTerm);
       LOG.info("{} {} round {}: result {}", this, phase, round, r);

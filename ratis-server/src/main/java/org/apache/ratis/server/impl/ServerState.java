@@ -212,7 +212,7 @@ class ServerState {
   /**
    * Become a candidate and start leader election
    */
-  LeaderElection.ConfAndTerm initElection(Phase phase) throws IOException {
+  LeaderElection.ConfAndTerm initElection(Phase phase) {
     setLeader(null, phase);
     final long term;
     if (phase == Phase.PRE_VOTE) {
@@ -220,7 +220,11 @@ class ServerState {
     } else if (phase == Phase.ELECTION) {
       term = currentTerm.incrementAndGet();
       votedFor = getMemberId().getPeerId();
-      persistMetadata();
+      try {
+        persistMetadata();
+      } catch (IOException e) {
+        throw new IllegalStateException("Failed to persist metadata for term:" + term, e);
+      }
     } else {
       throw new IllegalArgumentException("Unexpected phase " + phase);
     }

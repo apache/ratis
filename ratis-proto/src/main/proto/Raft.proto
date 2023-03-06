@@ -276,6 +276,7 @@ enum RaftPeerRole {
   CANDIDATE = 1;
   FOLLOWER = 2;
   LISTENER = 3;
+  PRE_CANDIDATE = 4;
 }
 
 message WriteRequestTypeProto {

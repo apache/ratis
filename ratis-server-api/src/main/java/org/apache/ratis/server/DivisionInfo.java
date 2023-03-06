@@ -35,6 +35,11 @@ public interface DivisionInfo {
     return getCurrentRole() == RaftPeerRole.FOLLOWER;
   }
 
+  /** Is this server division currently a pre-candidate? */
+  default boolean isPreCandidate() {
+    return getCurrentRole() == RaftPeerRole.PRE_CANDIDATE;
+  }
+
   /** Is this server division currently a candidate? */
   default boolean isCandidate() {
     return getCurrentRole() == RaftPeerRole.CANDIDATE;
