@@ -148,7 +148,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     }
     @Override
     public void onError(Throwable t) {
-      GrpcUtil.warn(LOG, () -> getId() + ": installSnapshot onError, lastRequest: " + getPreviousRequestString(), t);
+      GrpcUtil.warn(LOG, () -> getId() + ": "+ op + " onError, lastRequest: " + getPreviousRequestString(), t);
       if (isClosed.compareAndSet(false, true)) {
         Status status = Status.fromThrowable(t);
         if (status != null && status.getCode() != Status.Code.CANCELLED) {
