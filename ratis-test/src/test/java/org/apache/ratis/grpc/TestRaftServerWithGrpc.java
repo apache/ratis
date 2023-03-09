@@ -27,6 +27,8 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_BYTE
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RESOURCE_LIMIT_HIT_COUNTER;
 
 import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Timer;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.BaseTest;
@@ -318,24 +320,34 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     try (final RaftClient client = cluster.createClient()) {
       final CompletableFuture<RaftClientReply> f1 = client.async().send(new SimpleMessage("testing"));
       Assert.assertTrue(f1.get().isSuccess());
-      Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_WRITE_REQUEST).getCount() > 0);
+      final Timer write = raftServerMetrics.getTimer(RAFT_CLIENT_WRITE_REQUEST);
+      JavaUtils.attempt(() -> Assert.assertTrue(write.getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "writeTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f2 = client.async().sendReadOnly(new SimpleMessage("testing"));
       Assert.assertTrue(f2.get().isSuccess());
-      Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_READ_REQUEST).getCount() > 0);
+      final Timer read = raftServerMetrics.getTimer(RAFT_CLIENT_READ_REQUEST);
+      JavaUtils.attempt(() -> Assert.assertTrue(read.getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "readTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f3 = client.async().sendStaleRead(new SimpleMessage("testing"),
           0, leader.getId());
       Assert.assertTrue(f3.get().isSuccess());
-      Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_STALE_READ_REQUEST).getCount() > 0);
+      final Timer staleRead = raftServerMetrics.getTimer(RAFT_CLIENT_STALE_READ_REQUEST);
+      JavaUtils.attempt(() -> Assert.assertTrue(staleRead.getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "staleReadTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f4 = client.async().watch(0, RaftProtos.ReplicationLevel.ALL);
       Assert.assertTrue(f4.get().isSuccess());
-      Assert.assertTrue(raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, "-ALL")).getCount() > 0);
+      final Timer watchAll = raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, "-ALL"));
+      JavaUtils.attempt(() -> Assert.assertTrue(watchAll.getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "watchAllTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f5 = client.async().watch(0, RaftProtos.ReplicationLevel.MAJORITY);
       Assert.assertTrue(f5.get().isSuccess());
-      Assert.assertTrue(raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, "")).getCount() > 0);
+      final Timer watch = raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, ""));
+      JavaUtils.attempt(() -> Assert.assertTrue(watch.getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "watchTimer metrics", LOG);
     }
   }
 

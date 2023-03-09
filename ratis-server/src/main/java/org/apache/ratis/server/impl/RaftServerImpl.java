@@ -890,9 +890,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final RaftClientRequest.Type type = request.getType();
     replyFuture.whenComplete((clientReply, exception) -> {
-      if (clientReply.isSuccess()) {
-        timer.map(Timer::time).ifPresent(Timer.Context::stop);
-      }
+      timer.map(Timer::time).ifPresent(Timer.Context::stop);
       if (exception != null || clientReply.getException() != null) {
         raftServerMetrics.incFailedRequestCount(type);
       }
