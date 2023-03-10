@@ -198,7 +198,7 @@ class LeaderElection implements Runnable {
         !RaftServerConfigKeys.LeaderElection.preVote(
             server.getRaftServer().getProperties());
     try {
-      // increase term of the candidate early if it's forced to election
+      // increase term of the candidate in advance if it's forced to election
       this.round0 = force ? server.getState().initElection(Phase.ELECTION) : null;
     } catch (IOException e) {
       throw new IllegalStateException(name + ": Failed to initialize election", e);
@@ -310,7 +310,7 @@ class LeaderElection implements Runnable {
         return false;
       }
       // If round0 is non-null, we have already called initElection in the constructor,
-      // reuse round0 to skip term increment for the first round
+      // reuse round0 to avoid initElection again for the first round
       final ConfAndTerm confAndTerm = (round == 0 && round0 != null) ?
           round0 : server.getState().initElection(phase);
       electionTerm = confAndTerm.getTerm();
