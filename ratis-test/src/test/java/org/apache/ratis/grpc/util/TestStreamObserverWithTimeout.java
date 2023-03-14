@@ -92,9 +92,6 @@ public class TestStreamObserverWithTimeout extends BaseTest {
 
         final List<CompletableFuture<String>> futures = new ArrayList<>();
         for (String m : messages) {
-          if (type == Type.WithTimeout) {
-            timeout.sleep();
-          }
           futures.add(client.send(m));
         }
 

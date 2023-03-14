@@ -137,8 +137,8 @@ public class GrpcServerProtocolClient implements Closeable {
   }
 
   StreamObserver<InstallSnapshotRequestProto> installSnapshot(
-      String name, TimeDuration timeout, StreamObserver<InstallSnapshotReplyProto> responseHandler) {
-    return StreamObserverWithTimeout.newInstance(name, timeout,
+      String name, TimeDuration timeout, int limit, StreamObserver<InstallSnapshotReplyProto> responseHandler) {
+    return StreamObserverWithTimeout.newInstance(name, timeout, limit,
         i -> asyncStub.withInterceptors(i).installSnapshot(responseHandler));
   }
 
