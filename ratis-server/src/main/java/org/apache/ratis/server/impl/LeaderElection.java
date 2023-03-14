@@ -186,16 +186,23 @@ class LeaderElection implements Runnable {
 
   private final RaftServerImpl server;
   private final boolean skipPreVote;
+  private final ConfAndTerm round0;
 
-  LeaderElection(RaftServerImpl server, boolean skipPreVote) {
+  LeaderElection(RaftServerImpl server, boolean force) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
     this.daemon = Daemon.newBuilder().setName(name).setRunnable(this)
         .setThreadGroup(server.getThreadGroup()).build();
     this.server = server;
-    this.skipPreVote = skipPreVote ||
+    this.skipPreVote = force ||
         !RaftServerConfigKeys.LeaderElection.preVote(
             server.getRaftServer().getProperties());
+    try {
+      // increase term of the candidate in advance if it's forced to election
+      this.round0 = force ? server.getState().initElection(Phase.ELECTION) : null;
+    } catch (IOException e) {
+      throw new IllegalStateException(name + ": Failed to initialize election", e);
+    }
   }
 
   void start() {
@@ -302,7 +309,10 @@ class LeaderElection implements Runnable {
       if (!shouldRun()) {
         return false;
       }
-      final ConfAndTerm confAndTerm = server.getState().initElection(phase);
+      // If round0 is non-null, we have already called initElection in the constructor,
+      // reuse round0 to avoid initElection again for the first round
+      final ConfAndTerm confAndTerm = (round == 0 && round0 != null) ?
+          round0 : server.getState().initElection(phase);
       electionTerm = confAndTerm.getTerm();
       conf = confAndTerm.getConf();
     }
