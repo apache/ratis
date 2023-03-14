@@ -582,11 +582,10 @@ class RaftServerImpl implements RaftServer.Division,
       role.getLeaderState().ifPresent(
           leader -> leader.updateFollowerCommitInfos(commitInfoCache, infos));
     } else {
-      StreamSupport.stream(
-              Iterables
-                  .concat(getRaftConf().getAllPeers(RaftPeerRole.FOLLOWER),
-                      getRaftConf().getAllPeers(RaftPeerRole.LISTENER))
-                  .spliterator(), false)
+      RaftConfigurationImpl raftConf = getRaftConf();
+      Stream.concat(
+              raftConf.getAllPeers(RaftPeerRole.FOLLOWER).stream(),
+              raftConf.getAllPeers(RaftPeerRole.LISTENER).stream())
           .map(RaftPeer::getId)
           .filter(id -> !id.equals(getId()))
           .map(commitInfoCache::get)
