@@ -113,7 +113,7 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
   private InstallSnapshotRequestProto nextInstallSnapshotRequestProto() {
     final int numFiles = snapshot.getFiles().size();
     if (fileIndex >= numFiles) {
-      throw new NoSuchElementException();
+      throw new NoSuchElementException("fileIndex = " + fileIndex + " >= numFiles = " + numFiles);
     }
     final FileInfo info = snapshot.getFiles().get(fileIndex);
     try {
