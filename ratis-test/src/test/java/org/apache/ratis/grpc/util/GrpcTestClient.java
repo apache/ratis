@@ -53,7 +53,7 @@ class GrpcTestClient implements Closeable {
   }
 
   static StreamObserverFactory withTimeout(TimeDuration timeout) {
-    return (stub, responseHandler) -> StreamObserverWithTimeout.newInstance("test", timeout,
+    return (stub, responseHandler) -> StreamObserverWithTimeout.newInstance("test", timeout, 2,
         i -> stub.withInterceptors(i).hello(responseHandler));
   }
 

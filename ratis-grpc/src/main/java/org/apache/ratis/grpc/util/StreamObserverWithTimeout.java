@@ -21,6 +21,7 @@ import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.ClientInterceptor;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.ResourceSemaphore;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
@@ -34,13 +35,19 @@ import java.util.function.IntSupplier;
 public final class StreamObserverWithTimeout<T> implements StreamObserver<T> {
   public static final Logger LOG = LoggerFactory.getLogger(StreamObserverWithTimeout.class);
 
-  public static <T> StreamObserverWithTimeout<T> newInstance(String name, TimeDuration timeout,
+  public static <T> StreamObserverWithTimeout<T> newInstance(
+      String name, TimeDuration timeout, int outstandingLimit,
       Function<ClientInterceptor, StreamObserver<T>> newStreamObserver) {
     final AtomicInteger responseCount = new AtomicInteger();
-    final ResponseNotifyClientInterceptor interceptor = new ResponseNotifyClientInterceptor(
-        r -> responseCount.getAndIncrement());
+    final ResourceSemaphore semaphore = outstandingLimit > 0? new ResourceSemaphore(outstandingLimit): null;
+    final ResponseNotifyClientInterceptor interceptor = new ResponseNotifyClientInterceptor(r -> {
+      responseCount.getAndIncrement();
+      if (semaphore != null) {
+        semaphore.release();
+      }
+    });
     return new StreamObserverWithTimeout<>(
-        name, timeout, responseCount::get, newStreamObserver.apply(interceptor));
+        name, timeout, responseCount::get, semaphore, newStreamObserver.apply(interceptor));
   }
 
   private final String name;
@@ -51,17 +58,37 @@ public final class StreamObserverWithTimeout<T> implements StreamObserver<T> {
   private final AtomicBoolean isClose = new AtomicBoolean();
   private final AtomicInteger requestCount = new AtomicInteger();
   private final IntSupplier responseCount;
+  private final ResourceSemaphore semaphore;
 
   private StreamObserverWithTimeout(String name, TimeDuration timeout, IntSupplier responseCount,
-      StreamObserver<T> observer) {
+      ResourceSemaphore semaphore, StreamObserver<T> observer) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "-" + name;
     this.timeout = timeout;
     this.responseCount = responseCount;
+    this.semaphore = semaphore;
     this.observer = observer;
+  }
+
+  private void acquire(T request) {
+    if (semaphore == null) {
+      return;
+    }
+    boolean acquired = false;
+    for (; !acquired && !isClose.get(); ) {
+      try {
+        acquired = semaphore.tryAcquire(timeout.getDuration(), timeout.getUnit());
+      } catch (InterruptedException e) {
+        throw new IllegalStateException("Interrupted onNext " + request, e);
+      }
+    }
+    if (!acquired) {
+      throw new IllegalStateException("Failed onNext " + request + ": already closed.");
+    }
   }
 
   @Override
   public void onNext(T request) {
+    acquire(request);
     observer.onNext(request);
     final int id = requestCount.incrementAndGet();
     scheduler.onTimeout(timeout, () -> handleTimeout(id, request),

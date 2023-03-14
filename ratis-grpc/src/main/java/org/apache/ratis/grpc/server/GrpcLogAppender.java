@@ -598,7 +598,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     final String requestId = UUID.randomUUID().toString();
     try {
       snapshotRequestObserver = getClient().installSnapshot(getFollower().getName() + "-installSnapshot",
-          requestTimeoutDuration, responseHandler);
+          requestTimeoutDuration, 8, responseHandler); //FIXME: RATIS-1809
       for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
         if (isRunning()) {
           snapshotRequestObserver.onNext(request);
@@ -649,7 +649,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
     try {
       snapshotRequestObserver = getClient().installSnapshot(getFollower().getName() + "-notifyInstallSnapshot",
-          requestTimeoutDuration, responseHandler);
+          requestTimeoutDuration, 0, responseHandler);
 
       snapshotRequestObserver.onNext(request);
       getFollower().updateLastRpcSendTime(false);

@@ -61,6 +61,12 @@ class PendingRequests {
 
   static class Permit {}
 
+  /**
+   * The return type of {@link RequestLimits#tryAcquire(int)}.
+   * The order of the enum value must match the order in {@link RequestLimits}.
+   */
+  enum Acquired { FAILED_IN_ELEMENT_LIMIT, FAILED_IN_BYTE_SIZE_LIMIT, SUCCESS }
+
   static class RequestLimits extends ResourceSemaphore.Group {
     RequestLimits(int elementLimit, int megabyteLimit) {
       super(elementLimit, megabyteLimit);
@@ -74,8 +80,9 @@ class PendingRequests {
       return get(1).used();
     }
 
-    ResourceSemaphore.ResourceAcquireStatus tryAcquire(int messageSizeMb) {
-      return tryAcquire(1, messageSizeMb);
+    Acquired tryAcquire(int messageSizeMb) {
+      final int acquired = tryAcquire(1, messageSizeMb);
+      return acquired == SUCCESS? PendingRequests.Acquired.SUCCESS: PendingRequests.Acquired.values()[acquired];
     }
 
     void releaseExtraMb(int extraMb) {
@@ -112,13 +119,13 @@ class PendingRequests {
     Permit tryAcquire(Message message) {
       final int messageSize = Message.getSize(message);
       final int messageSizeMb = roundUpMb(messageSize );
-      final ResourceSemaphore.ResourceAcquireStatus acquired = resource.tryAcquire(messageSizeMb);
+      final Acquired acquired = resource.tryAcquire(messageSizeMb);
       LOG.trace("tryAcquire {} MB? {}", messageSizeMb, acquired);
-      if (acquired == ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_ELEMENT_LIMIT) {
+      if (acquired == Acquired.FAILED_IN_ELEMENT_LIMIT) {
         raftServerMetrics.onRequestQueueLimitHit();
         raftServerMetrics.onResourceLimitHit();
         return null;
-      } else if (acquired == ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_BYTE_SIZE_LIMIT) {
+      } else if (acquired == Acquired.FAILED_IN_BYTE_SIZE_LIMIT) {
         raftServerMetrics.onRequestByteSizeLimitHit();
         raftServerMetrics.onResourceLimitHit();
         return null;
