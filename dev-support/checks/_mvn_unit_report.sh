@@ -15,6 +15,7 @@
 # limitations under the License.
 
 REPORT_DIR=${REPORT_DIR:-$PWD}
+MVN=${MVN:-"mvn"}
 
 _realpath() {
   if realpath "$@" > /dev/null; then
@@ -75,7 +76,7 @@ for failed_test in $(< ${REPORT_DIR}/summary.txt); do
 done
 
 ## Check if Maven was killed
-if grep -q 'Killed.* mvn .* test ' "${REPORT_DIR}/output.log"; then
+if grep -q "Killed.* $MVN .* test " "${REPORT_DIR}/output.log"; then
   echo 'Maven test run was killed' >> "${REPORT_DIR}/summary.txt"
 fi
 

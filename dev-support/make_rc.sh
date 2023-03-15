@@ -27,9 +27,12 @@
 # Presumes your settings.xml all set up so can sign artifacts published to mvn, etc.
 set -e
 # Set mvn and mvnopts
-mvn=mvn
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source "${DIR}/find-mvn.sh"
+
 if [ "$MAVEN" != "" ]; then
-  mvn="${MAVEN}"
+  MVN="${MAVEN}"
 fi
 mvnopts="-Xmx1g"
 if [ "$MAVEN_OPTS" != "" ]; then
@@ -37,7 +40,7 @@ if [ "$MAVEN_OPTS" != "" ]; then
 fi
 
 mvnGet() {
-  ${mvn} -q -Dexec.executable="echo" -Dexec.args="\${${1}}" --non-recursive \
+  ${MVN} -q -Dexec.executable="echo" -Dexec.args="\${${1}}" --non-recursive \
     org.codehaus.mojo:exec-maven-plugin:1.6.0:exec 2>/dev/null
 }
 
