@@ -248,26 +248,26 @@ public interface GrpcConfigKeys {
       setInt(properties::setInt, LEADER_OUTSTANDING_APPENDS_MAX_KEY, maxAppend);
     }
 
-    String LEADER_OUTSTANDING_INSTALL_SNAPSHOTS_MAX_KEY = PREFIX + ".leader.outstanding.install_snapshots.max";
-    int LEADER_OUTSTANDING_INSTALL_SNAPSHOTS_MAX_DEFAULT = 8;
-    static int leaderOutstandingInstallSnapshotsMax(RaftProperties properties) {
-      return getInt(properties::getInt, LEADER_OUTSTANDING_INSTALL_SNAPSHOTS_MAX_KEY,
-          LEADER_OUTSTANDING_INSTALL_SNAPSHOTS_MAX_DEFAULT, getDefaultLog(), requireMin(0));
+    String INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_KEY = PREFIX + ".install_snapshot.request.element-limit";
+    int INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_DEFAULT = 8;
+    static int installSnapshotRequestElementLimit(RaftProperties properties) {
+      return getInt(properties::getInt, INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_KEY,
+          INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_DEFAULT, getDefaultLog(), requireMin(0));
     }
-    static void setLeaderOutstandingInstallSnapshotsMax(RaftProperties properties, int maxInstallSnapshots) {
-      setInt(properties::setInt, LEADER_OUTSTANDING_INSTALL_SNAPSHOTS_MAX_KEY, maxInstallSnapshots);
+    static void setInstallSnapshotRequestElementLimit(RaftProperties properties, int elementLimit) {
+      setInt(properties::setInt, INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_KEY, elementLimit);
     }
 
-    String LEADER_INSTALL_SNAPSHOT_STREAM_TIMEOUT_KEY = PREFIX + ".leader.install_snapshot.stream.timeout";
-    TimeDuration LEADER_INSTALL_SNAPSHOT_STREAM_TIMEOUT_DEFAULT = RaftServerConfigKeys.Rpc.REQUEST_TIMEOUT_DEFAULT;
-    static TimeDuration leaderInstallSnapshotStreamTimeout(RaftProperties properties) {
-      return getTimeDuration(properties.getTimeDuration(LEADER_INSTALL_SNAPSHOT_STREAM_TIMEOUT_DEFAULT.getUnit()),
-          LEADER_INSTALL_SNAPSHOT_STREAM_TIMEOUT_KEY, LEADER_INSTALL_SNAPSHOT_STREAM_TIMEOUT_DEFAULT, getDefaultLog());
+    String INSTALL_SNAPSHOT_REQUEST_TIMEOUT_KEY = PREFIX + ".install_snapshot.request.timeout";
+    TimeDuration INSTALL_SNAPSHOT_REQUEST_TIMEOUT_DEFAULT = RaftServerConfigKeys.Rpc.REQUEST_TIMEOUT_DEFAULT;
+    static TimeDuration installSnapshotRequestTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(INSTALL_SNAPSHOT_REQUEST_TIMEOUT_DEFAULT.getUnit()),
+          INSTALL_SNAPSHOT_REQUEST_TIMEOUT_KEY, INSTALL_SNAPSHOT_REQUEST_TIMEOUT_DEFAULT, getDefaultLog());
     }
-    static void setLeaderInstallSnapshotStreamTimeout(RaftProperties properties,
-                                                      TimeDuration installSnapshotStreamTimeout) {
+    static void setInstallSnapshotRequestTimeout(RaftProperties properties,
+                                                 TimeDuration installSnapshotRequestTimeout) {
       setTimeDuration(properties::setTimeDuration,
-          LEADER_INSTALL_SNAPSHOT_STREAM_TIMEOUT_KEY, installSnapshotStreamTimeout);
+          INSTALL_SNAPSHOT_REQUEST_TIMEOUT_KEY, installSnapshotRequestTimeout);
     }
 
     String HEARTBEAT_CHANNEL_KEY = PREFIX + ".heartbeat.channel";
