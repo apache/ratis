@@ -379,7 +379,7 @@ public class SegmentedRaftLog extends RaftLogBase {
       LOG.trace("{}: appendEntry {}", getName(), LogProtoUtils.toLogEntryString(entry));
     }
     try(AutoCloseableLock writeLock = writeLock()) {
-      Timekeeper.Context appendEntryTimerContext = getRaftLogMetrics().getAppendEntryTimer().time();
+      final Timekeeper.Context appendEntryTimerContext = getRaftLogMetrics().startAppendEntryTimer();
       validateLogEntry(entry);
       final LogSegment currentOpenSegment = cache.getOpenSegment();
       if (currentOpenSegment == null) {
@@ -414,12 +414,7 @@ public class SegmentedRaftLog extends RaftLogBase {
       } else {
         cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       }
-      writeFuture.whenComplete((clientReply, exception) -> {
-        if (appendEntryTimerContext != null) {
-          appendEntryTimerContext.stop();
-        }
-      });
-      return writeFuture;
+      return writeFuture.whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
     } catch (Exception e) {
       LOG.error("{}: Failed to append {}", getName(), LogProtoUtils.toLogEntryString(entry), e);
       throw e;
