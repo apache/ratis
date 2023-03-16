@@ -414,7 +414,8 @@ public class SegmentedRaftLog extends RaftLogBase {
       } else {
         cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       }
-      return writeFuture.whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
+      writeFuture.whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
+      return writeFuture;
     } catch (Exception e) {
       LOG.error("{}: Failed to append {}", getName(), LogProtoUtils.toLogEntryString(entry), e);
       throw e;
