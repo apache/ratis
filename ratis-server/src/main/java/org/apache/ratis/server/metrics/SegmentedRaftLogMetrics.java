@@ -155,8 +155,8 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     appendEntryCount.inc();
   }
 
-  public UncheckedAutoCloseable startAppendEntryTimer() {
-    return Timekeeper.start(appendEntryTimer);
+  public Timekeeper.Context startAppendEntryTimer() {
+    return appendEntryTimer.time();
   }
 
   public Timekeeper getEnqueuedTimer() {
