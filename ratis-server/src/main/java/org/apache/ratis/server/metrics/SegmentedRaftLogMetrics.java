@@ -142,8 +142,8 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     registry.counter(RAFT_LOG_APPEND_ENTRY_COUNT).inc();
   }
 
-  public Timer getRaftLogAppendEntryTimer() {
-    return getTimer(RAFT_LOG_APPEND_ENTRY_LATENCY);
+  public Timer.Context startAppendEntryTimer() {
+    return getTimer(RAFT_LOG_APPEND_ENTRY_LATENCY).time();
   }
 
   public Timer getRaftLogQueueTimer() {
