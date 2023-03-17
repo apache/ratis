@@ -677,7 +677,7 @@ class LeaderStateImpl implements LeaderState {
 
   private static LogAppender chooseUpToDateFollower(List<LogAppender> followers, TermIndex leaderLastEntry) {
     for(LogAppender f : followers) {
-      if (isFollowerUpToDate(f.getFollower(), leaderLastEntry) == null) {
+      if (isFollowerUpToDate(f.getFollower(), leaderLastEntry) == TransferLeadership.Result.SUCCESS) {
         return f;
       }
     }
