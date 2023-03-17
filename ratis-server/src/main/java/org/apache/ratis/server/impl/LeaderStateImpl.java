@@ -26,8 +26,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -663,52 +661,7 @@ class LeaderStateImpl implements LeaderState {
     return pendingStepDown.submitAsync(request);
   }
 
-  private synchronized TransferLeadership.Result sendStartLeaderElection(RaftPeerId follower, TermIndex lastEntry) {
-    final TermIndex currLastEntry = getLastEntry();
-    if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
-      return new TransferLeadership.Result(TransferLeadership.Result.Type.LAST_ENTRY_CHANGED,
-          "leader lastEntry changed from " + lastEntry + " to " + currLastEntry);
-    }
-    LOG.info("{}: sendStartLeaderElection to follower {} on term {}, lastEntry={}",
-        this, follower, currentTerm, lastEntry);
-
-    final StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
-        server.getMemberId(), follower, lastEntry);
-    final CompletableFuture<StartLeaderElectionReplyProto> f = CompletableFuture.supplyAsync(() -> {
-      server.getLeaderElectionMetrics().onTransferLeadership();
-      try {
-        return server.getServerRpc().startLeaderElection(r);
-      } catch (IOException e) {
-        throw new CompletionException("Failed to sendStartLeaderElection to follower " + follower, e);
-      }
-    }, server.getServerExecutor()).whenComplete((reply, exception) -> {
-      if (reply != null) {
-        LOG.info("{}: Received startLeaderElection reply from {}: success? {}",
-            this, follower, reply.getServerReply().getSuccess());
-      } else if (exception != null) {
-        LOG.warn(this + ": Failed to startLeaderElection for " + follower, exception);
-      }
-    });
-
-    if (f.isCompletedExceptionally()) { // already failed
-      try {
-        f.join();
-      } catch (Throwable t) {
-        return new TransferLeadership.Result(t);
-      }
-    }
-    return TransferLeadership.Result.SUCCESS;
-  }
-
-  TransferLeadership.Result sendStartLeaderElection(FollowerInfo transferee, TermIndex leaderLastEntry) {
-    final TransferLeadership.Result result = isFollowerUpToDate(transferee, leaderLastEntry);
-    if (result != TransferLeadership.Result.SUCCESS) {
-      return result;
-    }
-    return sendStartLeaderElection(transferee.getId(), leaderLastEntry);
-  }
-
-  private static TransferLeadership.Result isFollowerUpToDate(FollowerInfo follower, TermIndex leaderLastEntry) {
+  static TransferLeadership.Result isFollowerUpToDate(FollowerInfo follower, TermIndex leaderLastEntry) {
     if (follower == null) {
       return TransferLeadership.Result.NULL_FOLLOWER;
     } else if (leaderLastEntry != null) {
@@ -1094,7 +1047,7 @@ class LeaderStateImpl implements LeaderState {
     final TermIndex leaderLastEntry = getLastEntry();
     final LogAppender appender = chooseUpToDateFollower(highestPriorityInfos, leaderLastEntry);
     if (appender != null) {
-      server.getTransferLeadership().start(this, appender, leaderLastEntry);
+      server.getTransferLeadership().start(appender, leaderLastEntry);
     }
   }
 
