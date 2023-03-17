@@ -201,38 +201,38 @@ public class TransferLeadership {
     return Result.SUCCESS;
   }
 
-  private Result sendStartLeaderElection(FollowerInfo transferee, TermIndex leaderLastEntry) {
-    final Result result = isFollowerUpToDate(transferee, leaderLastEntry);
+  private Result sendStartLeaderElection(FollowerInfo follower, TermIndex leaderLastEntry) {
+    final Result result = isFollowerUpToDate(follower, leaderLastEntry);
     if (result != Result.SUCCESS) {
       return result;
     }
-    return sendStartLeaderElection(transferee.getId(), leaderLastEntry);
+    return sendStartLeaderElection(follower.getId(), leaderLastEntry);
   }
 
-  private Result sendStartLeaderElection(RaftPeerId follower, TermIndex lastEntry) {
+  private Result sendStartLeaderElection(RaftPeerId followerId, TermIndex lastEntry) {
     final TermIndex currLastEntry = server.getState().getLastEntry();
     if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
       return new Result(Result.Type.LAST_ENTRY_CHANGED,
           "leader lastEntry changed from " + lastEntry + " to " + currLastEntry);
     }
     LOG.info("{}: sendStartLeaderElection to follower {}, lastEntry={}",
-        server.getMemberId(), follower, lastEntry);
+        server.getMemberId(), followerId, lastEntry);
 
     final RaftProtos.StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
-        server.getMemberId(), follower, lastEntry);
+        server.getMemberId(), followerId, lastEntry);
     final CompletableFuture<RaftProtos.StartLeaderElectionReplyProto> f = CompletableFuture.supplyAsync(() -> {
       server.getLeaderElectionMetrics().onTransferLeadership();
       try {
         return server.getServerRpc().startLeaderElection(r);
       } catch (IOException e) {
-        throw new CompletionException("Failed to sendStartLeaderElection to follower " + follower, e);
+        throw new CompletionException("Failed to sendStartLeaderElection to follower " + followerId, e);
       }
     }, server.getServerExecutor()).whenComplete((reply, exception) -> {
       if (reply != null) {
         LOG.info("{}: Received startLeaderElection reply from {}: success? {}",
-            server.getMemberId(), follower, reply.getServerReply().getSuccess());
+            server.getMemberId(), followerId, reply.getServerReply().getSuccess());
       } else if (exception != null) {
-        LOG.warn(server.getMemberId() + ": Failed to startLeaderElection for " + follower, exception);
+        LOG.warn(server.getMemberId() + ": Failed to startLeaderElection for " + followerId, exception);
       }
     });
 
