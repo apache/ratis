@@ -247,15 +247,18 @@ public class TransferLeadership {
     return Result.SUCCESS;
   }
 
+  /**
+   * If the transferee has just append some entries and becomes up-to-date,
+   * send StartLeaderElection to it
+   */
   void onFollowerAppendEntriesReply(LeaderStateImpl leaderState, FollowerInfo follower) {
-    // If the transferee has just append some entries and becomes up-to-date,
-    // send StartLeaderElection to it
-    if (getTransferee().filter(t -> t.equals(follower.getId())).isPresent()) {
-      final Result error = sendStartLeaderElection(follower, leaderState.getLastEntry());
-      if (error == Result.SUCCESS) {
-        LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
-            server.getMemberId(), follower.getId());
-      }
+    if (!getTransferee().filter(t -> t.equals(follower.getId())).isPresent()) {
+      return;
+    }
+    final Result result = sendStartLeaderElection(follower, leaderState.getLastEntry());
+    if (result == Result.SUCCESS) {
+      LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
+          server.getMemberId(), follower.getId());
     }
   }
 
