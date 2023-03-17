@@ -188,8 +188,22 @@ public class TransferLeadership {
     return pending.get() != null;
   }
 
+  static Result isFollowerUpToDate(FollowerInfo follower, TermIndex leaderLastEntry) {
+    if (follower == null) {
+      return Result.NULL_FOLLOWER;
+    } else if (leaderLastEntry != null) {
+      final long followerMatchIndex = follower.getMatchIndex();
+      if (followerMatchIndex < leaderLastEntry.getIndex()) {
+        return new Result(Result.Type.NOT_UP_TO_DATE,
+            "followerMatchIndex = " + followerMatchIndex
+                + " < leaderLastEntry.getIndex() = " + leaderLastEntry.getIndex());
+      }
+    }
+    return Result.SUCCESS;
+  }
+
   private Result sendStartLeaderElection(FollowerInfo transferee, TermIndex leaderLastEntry) {
-    final Result result = LeaderStateImpl.isFollowerUpToDate(transferee, leaderLastEntry);
+    final Result result = isFollowerUpToDate(transferee, leaderLastEntry);
     if (result != Result.SUCCESS) {
       return result;
     }

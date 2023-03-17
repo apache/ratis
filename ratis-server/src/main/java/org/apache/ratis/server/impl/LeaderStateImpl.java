@@ -661,23 +661,10 @@ class LeaderStateImpl implements LeaderState {
     return pendingStepDown.submitAsync(request);
   }
 
-  static TransferLeadership.Result isFollowerUpToDate(FollowerInfo follower, TermIndex leaderLastEntry) {
-    if (follower == null) {
-      return TransferLeadership.Result.NULL_FOLLOWER;
-    } else if (leaderLastEntry != null) {
-      final long followerMatchIndex = follower.getMatchIndex();
-      if (followerMatchIndex < leaderLastEntry.getIndex()) {
-        return new TransferLeadership.Result(TransferLeadership.Result.Type.NOT_UP_TO_DATE,
-            "followerMatchIndex = " + followerMatchIndex
-                + " < leaderLastEntry.getIndex() = " + leaderLastEntry.getIndex());
-      }
-    }
-    return TransferLeadership.Result.SUCCESS;
-  }
-
   private static LogAppender chooseUpToDateFollower(List<LogAppender> followers, TermIndex leaderLastEntry) {
     for(LogAppender f : followers) {
-      if (isFollowerUpToDate(f.getFollower(), leaderLastEntry) == TransferLeadership.Result.SUCCESS) {
+      if (TransferLeadership.isFollowerUpToDate(f.getFollower(), leaderLastEntry)
+          == TransferLeadership.Result.SUCCESS) {
         return f;
       }
     }
