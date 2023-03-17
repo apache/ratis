@@ -194,9 +194,8 @@ public class TransferLeadership {
     } else if (leaderLastEntry != null) {
       final long followerMatchIndex = follower.getMatchIndex();
       if (followerMatchIndex < leaderLastEntry.getIndex()) {
-        return new Result(Result.Type.NOT_UP_TO_DATE,
-            "followerMatchIndex = " + followerMatchIndex
-                + " < leaderLastEntry.getIndex() = " + leaderLastEntry.getIndex());
+        return new Result(Result.Type.NOT_UP_TO_DATE, "followerMatchIndex = " + followerMatchIndex
+            + " < leaderLastEntry.getIndex() = " + leaderLastEntry.getIndex());
       }
     }
     return Result.SUCCESS;
