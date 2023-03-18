@@ -16,7 +16,7 @@
 
 Apache Ratis uses Apache Maven 3.3.9 or later to build the artifacts.
 You can use the bundled Maven Wrapper to build without a pre-installed Maven,
-by replacing `mvn` with the `mvnw` or `mvnw.cmd` script in the root path.
+by replacing `mvn` with the `mvnw` (*nix) or `mvnw.cmd` (Windows) script in the root path.
 
 Apache Ratis is written in Java 8.
 Therefore, it as well requires Java 8 or later.
