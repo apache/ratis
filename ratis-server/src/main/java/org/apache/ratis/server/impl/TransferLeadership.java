@@ -202,15 +202,15 @@ public class TransferLeadership {
   }
 
   private Result sendStartLeaderElection(FollowerInfo follower, TermIndex lastEntry) {
-    final Result result = isFollowerUpToDate(follower, lastEntry);
-    if (result != Result.SUCCESS) {
-      return result;
-    }
-
     final TermIndex currLastEntry = server.getState().getLastEntry();
     if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
       return new Result(Result.Type.LAST_ENTRY_CHANGED,
           "leader lastEntry changed from " + lastEntry + " to " + currLastEntry);
+    }
+
+    final Result result = isFollowerUpToDate(follower, lastEntry);
+    if (result != Result.SUCCESS) {
+      return result;
     }
 
     final RaftPeerId transferee = follower.getId();
