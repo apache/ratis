@@ -749,7 +749,7 @@ class LeaderStateImpl implements LeaderState {
     } else {
       eventQueue.submit(checkStagingEvent);
     }
-    server.getTransferLeadership().onFollowerAppendEntriesReply(this, follower);
+    server.getTransferLeadership().onFollowerAppendEntriesReply(follower);
   }
 
   @Override
@@ -1034,7 +1034,7 @@ class LeaderStateImpl implements LeaderState {
     final TermIndex leaderLastEntry = getLastEntry();
     final LogAppender appender = chooseUpToDateFollower(highestPriorityInfos, leaderLastEntry);
     if (appender != null) {
-      server.getTransferLeadership().start(appender, leaderLastEntry);
+      server.getTransferLeadership().start(appender);
     }
   }
 

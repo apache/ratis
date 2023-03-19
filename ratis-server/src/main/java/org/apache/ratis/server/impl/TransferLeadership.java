@@ -49,12 +49,10 @@ public class TransferLeadership {
 
   private static class Context {
     private final TransferLeadershipRequest request;
-    private final Supplier<TermIndex> leaderLastEntry;
     private final Supplier<LogAppender> transferee;
 
-    Context(TransferLeadershipRequest request, Supplier<TermIndex> leaderLastEntry, Supplier<LogAppender> transferee) {
+    Context(TransferLeadershipRequest request, Supplier<LogAppender> transferee) {
       this.request = request;
-      this.leaderLastEntry = leaderLastEntry;
       this.transferee = transferee;
     }
 
@@ -69,10 +67,6 @@ public class TransferLeadership {
     LogAppender getTransfereeLogAppender() {
       return transferee.get();
     }
-
-    TermIndex getLeaderLastEntry() {
-      return leaderLastEntry.get();
-    }
   }
 
   static class Result {
@@ -84,7 +78,6 @@ public class TransferLeadership {
       NOT_UP_TO_DATE,
       TIMED_OUT,
       FAILED_TO_START,
-      LAST_ENTRY_CHANGED,
       COMPLETED_EXCEPTIONALLY,
     }
 
@@ -201,12 +194,8 @@ public class TransferLeadership {
     return Result.SUCCESS;
   }
 
-  private Result sendStartLeaderElection(FollowerInfo follower, TermIndex lastEntry) {
-    final TermIndex currLastEntry = server.getState().getLastEntry();
-    if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
-      return new Result(Result.Type.LAST_ENTRY_CHANGED,
-          "leader lastEntry changed from " + lastEntry + " to " + currLastEntry);
-    }
+  private Result sendStartLeaderElection(FollowerInfo follower) {
+    final TermIndex lastEntry = server.getState().getLastEntry();
 
     final Result result = isFollowerUpToDate(follower, lastEntry);
     if (result != Result.SUCCESS) {
@@ -249,11 +238,11 @@ public class TransferLeadership {
    * If the transferee has just append some entries and becomes up-to-date,
    * send StartLeaderElection to it
    */
-  void onFollowerAppendEntriesReply(LeaderStateImpl leaderState, FollowerInfo follower) {
+  void onFollowerAppendEntriesReply(FollowerInfo follower) {
     if (!getTransferee().filter(t -> t.equals(follower.getId())).isPresent()) {
       return;
     }
-    final Result result = sendStartLeaderElection(follower, leaderState.getLastEntry());
+    final Result result = sendStartLeaderElection(follower);
     if (result == Result.SUCCESS) {
       LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
           server.getMemberId(), follower.getId());
@@ -268,7 +257,7 @@ public class TransferLeadership {
       return Result.NULL_LOG_APPENDER;
     }
     final FollowerInfo follower = appender.getFollower();
-    final Result result = sendStartLeaderElection(follower, context.getLeaderLastEntry());
+    final Result result = sendStartLeaderElection(follower);
     if (result.getType() == Result.Type.SUCCESS) {
       LOG.info("{}: {} sent StartLeaderElection to transferee {} immediately as it already has up-to-date log",
           server.getMemberId(), result, transferee);
@@ -280,18 +269,17 @@ public class TransferLeadership {
     return result;
   }
 
-  void start(LogAppender transferee, TermIndex leaderLastEntry) {
+  void start(LogAppender transferee) {
     // TransferLeadership will block client request, so we don't want wait too long.
     // If everything goes well, transferee should be elected within the min rpc timeout.
     final long timeout = server.properties().minRpcTimeoutMs();
     final TransferLeadershipRequest request = new TransferLeadershipRequest(ClientId.emptyClientId(),
         server.getId(), server.getMemberId().getGroupId(), 0, transferee.getFollowerId(), timeout);
-    start(new Context(request, () -> leaderLastEntry, () -> transferee));
+    start(new Context(request, () -> transferee));
   }
 
   CompletableFuture<RaftClientReply> start(LeaderStateImpl leaderState, TransferLeadershipRequest request) {
     final Context context = new Context(request,
-        JavaUtils.memoize(leaderState::getLastEntry),
         JavaUtils.memoize(() -> leaderState.getLogAppender(request.getNewLeader()).orElse(null)));
     return start(context);
   }
