@@ -58,12 +58,8 @@ public class TransferCommand extends AbstractRatisCommand {
     super.run(cl);
 
     String strAddr = cl.getOptionValue(ADDRESS_OPTION_NAME);
-    // TODO: Default timeout should be set to 0, which means let server decide (based on election timeout).
-    //       However, occasionally the request could timeout too fast while the transfer is in progress.
-    //       i.e. request timeout doesn't mean transfer leadership has failed.
-    //       Currently, Ratis shell returns merely based on the result of the request.
-    //       So we set a larger default timeout here (3s).
-    final TimeDuration timeoutDefault = TimeDuration.valueOf(3, TimeUnit.SECONDS);
+    // Default timeout is 0, which means let server decide (will use default request timeout).
+    final TimeDuration timeoutDefault = TimeDuration.ZERO;
     // Default timeout for legacy mode matches with the legacy command (version 2.4.x and older).
     final TimeDuration timeoutLegacy = TimeDuration.valueOf(60, TimeUnit.SECONDS);
     final Optional<TimeDuration> timeout = !cl.hasOption(TIMEOUT_OPTION_NAME) ? Optional.empty() :

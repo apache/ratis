@@ -260,7 +260,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
               long cost = System.currentTimeMillis() - start;
               Assert.assertTrue(cost > timeoutMs);
               Assert.assertTrue(e.getMessage().contains("Failed to transfer leadership to"));
-              Assert.assertTrue(e.getMessage().contains("timed out"));
+              Assert.assertTrue(e.getMessage().contains(TransferLeadership.Result.Type.TIMED_OUT.toString()));
             }
 
             return true;
@@ -283,7 +283,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
         // after transfer timeout, leader should accept request
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Assert.assertTrue(reply.getReplierId().equals(leader.getId().toString()));
+        Assert.assertEquals(leader.getId().toString(), reply.getReplierId());
         Assert.assertTrue(reply.isSuccess());
 
         deIsolate(cluster, newLeader.getId());

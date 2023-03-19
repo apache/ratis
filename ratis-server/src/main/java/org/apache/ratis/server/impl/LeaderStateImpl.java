@@ -26,8 +26,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -62,6 +60,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -424,6 +423,10 @@ class LeaderStateImpl implements LeaderState {
     return currentTerm;
   }
 
+  TermIndex getLastEntry() {
+    return server.getState().getLastEntry();
+  }
+
   @Override
   public boolean onFollowerTerm(FollowerInfo follower, long followerTerm) {
     if (isAttendingVote(follower) && followerTerm > getCurrentTerm()) {
@@ -658,46 +661,14 @@ class LeaderStateImpl implements LeaderState {
     return pendingStepDown.submitAsync(request);
   }
 
-  private synchronized void sendStartLeaderElection(RaftPeerId follower, TermIndex lastEntry) {
-    ServerState state = server.getState();
-    TermIndex currLastEntry = state.getLastEntry();
-    if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
-      LOG.warn("{} can not send StartLeaderElectionRequest to follower:{} because currLastEntry:{} " +
-              "did not match lastEntry:{}", this, follower, currLastEntry, lastEntry);
-      return;
-    }
-    LOG.info("{}: send StartLeaderElectionRequest to follower {} on term {}, lastEntry={}",
-        this, follower, currentTerm, lastEntry);
-
-    final StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
-        server.getMemberId(), follower, lastEntry);
-    CompletableFuture.supplyAsync(() -> {
-      server.getLeaderElectionMetrics().onTransferLeadership();
-      try {
-        StartLeaderElectionReplyProto replyProto = server.getServerRpc().startLeaderElection(r);
-        LOG.info("{} received {} reply of StartLeaderElectionRequest from follower:{}",
-            this, replyProto.getServerReply().getSuccess() ? "success" : "fail", follower);
-      } catch (IOException e) {
-        LOG.warn("{} send StartLeaderElectionRequest throw exception", this, e);
+  private static LogAppender chooseUpToDateFollower(List<LogAppender> followers, TermIndex leaderLastEntry) {
+    for(LogAppender f : followers) {
+      if (TransferLeadership.isFollowerUpToDate(f.getFollower(), leaderLastEntry)
+          == TransferLeadership.Result.SUCCESS) {
+        return f;
       }
-      return null;
-    });
-  }
-
-  boolean sendStartLeaderElection(FollowerInfo followerInfo) {
-    final RaftPeerId followerId = followerInfo.getId();
-    final TermIndex leaderLastEntry = server.getState().getLastEntry();
-    if (leaderLastEntry == null) {
-      sendStartLeaderElection(followerId, null);
-      return true;
     }
-
-    final long followerMatchIndex = followerInfo.getMatchIndex();
-    if (followerMatchIndex >= leaderLastEntry.getIndex()) {
-      sendStartLeaderElection(followerId, leaderLastEntry);
-      return true;
-    }
-    return false;
+    return null;
   }
 
   private void prepare() {
@@ -778,7 +749,7 @@ class LeaderStateImpl implements LeaderState {
     } else {
       eventQueue.submit(checkStagingEvent);
     }
-    server.getTransferLeadership().onFollowerAppendEntriesReply(this, follower);
+    server.getTransferLeadership().onFollowerAppendEntriesReply(follower);
   }
 
   @Override
@@ -1044,7 +1015,7 @@ class LeaderStateImpl implements LeaderState {
     }
     final int leaderPriority = leader.getPriority();
 
-    FollowerInfo highestPriorityInfo = null;
+    final List<LogAppender> highestPriorityInfos = new ArrayList<>();
     int highestPriority = Integer.MIN_VALUE;
     for (LogAppender logAppender : senders) {
       final RaftPeer follower = conf.getPeer(logAppender.getFollowerId());
@@ -1053,12 +1024,17 @@ class LeaderStateImpl implements LeaderState {
       }
       final int followerPriority = follower.getPriority();
       if (followerPriority > leaderPriority && followerPriority >= highestPriority) {
-        highestPriority = followerPriority;
-        highestPriorityInfo = logAppender.getFollower();
+        if (followerPriority > highestPriority) {
+          highestPriority = followerPriority;
+          highestPriorityInfos.clear();
+        }
+        highestPriorityInfos.add(logAppender);
       }
     }
-    if (highestPriorityInfo != null) {
-      sendStartLeaderElection(highestPriorityInfo);
+    final TermIndex leaderLastEntry = getLastEntry();
+    final LogAppender appender = chooseUpToDateFollower(highestPriorityInfos, leaderLastEntry);
+    if (appender != null) {
+      server.getTransferLeadership().start(appender);
     }
   }
 
