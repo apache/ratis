@@ -16,7 +16,7 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$DIR/../.." || exit 1
 
-source "${DIR}/../find-mvn.sh"
+source "${DIR}/../find_maven.sh"
 
 if [ ! "$SONAR_TOKEN" ]; then
   echo "SONAR_TOKEN environment variable should be set"

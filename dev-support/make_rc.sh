@@ -29,7 +29,7 @@ set -e
 # Set mvn and mvnopts
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "${DIR}/find-mvn.sh"
+source "${DIR}/find_maven.sh"
 
 if [ "$MAVEN" != "" ]; then
   MVN="${MAVEN}"

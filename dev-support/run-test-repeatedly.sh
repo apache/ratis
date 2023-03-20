@@ -25,7 +25,7 @@ TEST_PATTERN=$1
 TEST_NAME=`echo ${TEST_PATTERN} | cut -d# -f 1`
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "${DIR}/find-mvn.sh"
+source "${DIR}/find_maven.sh"
 
 set -ex
 
