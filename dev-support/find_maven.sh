@@ -17,9 +17,13 @@
 # limitations under the License.
 
 function find_maven() {
-    local DIR
-    DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-    ( cd "$DIR/.." || exit 1 ; echo "$( pwd -P )/mvnw" )
+    if [ "$MAVEN" != "" ]; then
+      echo "${MAVEN}"
+    else
+      local DIR
+      DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+      ( cd "$DIR/.." || exit 1 ; echo "$( pwd -P )/mvnw" )
+    fi
 }
 
 MVN="$( find_maven )"

@@ -15,7 +15,6 @@
 # limitations under the License.
 
 REPORT_DIR=${REPORT_DIR:-$PWD}
-MVN=${MVN:-"mvn"}
 
 _realpath() {
   if realpath "$@" > /dev/null; then

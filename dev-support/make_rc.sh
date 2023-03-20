@@ -31,9 +31,6 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 source "${DIR}/find_maven.sh"
 
-if [ "$MAVEN" != "" ]; then
-  MVN="${MAVEN}"
-fi
 mvnopts="-Xmx1g"
 if [ "$MAVEN_OPTS" != "" ]; then
   mvnopts="${MAVEN_OPTS}"
