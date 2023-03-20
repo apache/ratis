@@ -184,12 +184,16 @@ public class TransferLeadership {
   static Result isFollowerUpToDate(FollowerInfo follower, TermIndex leaderLastEntry) {
     if (follower == null) {
       return Result.NULL_FOLLOWER;
-    } else if (leaderLastEntry != null) {
-      final long followerMatchIndex = follower.getMatchIndex();
-      if (followerMatchIndex < leaderLastEntry.getIndex()) {
-        return new Result(Result.Type.NOT_UP_TO_DATE, "followerMatchIndex = " + followerMatchIndex
-            + " < leaderLastEntry.getIndex() = " + leaderLastEntry.getIndex());
-      }
+    }
+    if (leaderLastEntry == null) {
+      // The transferee is expecting leaderLastEntry to be non-null,
+      // return NOT_UP_TO_DATE to indicate TransferLeadership should wait.
+      return new Result(Result.Type.NOT_UP_TO_DATE, "leaderLastEntry is null");
+    }
+    final long followerMatchIndex = follower.getMatchIndex();
+    if (followerMatchIndex < leaderLastEntry.getIndex()) {
+      return new Result(Result.Type.NOT_UP_TO_DATE, "followerMatchIndex = " + followerMatchIndex
+          + " < leaderLastEntry.getIndex() = " + leaderLastEntry.getIndex());
     }
     return Result.SUCCESS;
   }
