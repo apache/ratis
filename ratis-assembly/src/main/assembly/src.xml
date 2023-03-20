@@ -93,14 +93,24 @@
       <directory>${project.basedir}/..</directory>
       <outputDirectory>.</outputDirectory>
       <includes>
+        <include>.mvn/wrapper/maven-wrapper.properties</include>
         <include>BUILDING.md</include>
         <include>LICENSE</include>
         <include>NOTICE</include>
         <include>README.md</include>
+        <include>mvnw.cmd</include>
         <include>pom.xml</include>
         <include>start-build-env.sh</include>
       </includes>
       <fileMode>0644</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/..</directory>
+      <outputDirectory>.</outputDirectory>
+      <includes>
+        <include>mvnw</include>
+      </includes>
+      <fileMode>0755</fileMode>
     </fileSet>
   </fileSets>
 </assembly>
