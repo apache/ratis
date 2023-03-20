@@ -16,6 +16,8 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../.." || exit 1
 
+source "${DIR}/../find_maven.sh"
+
 export MAVEN_OPTS="-Xmx4096m"
-mvn -V -B -Dmaven.javadoc.skip=true -DskipTests clean install "$@"
+${MVN} -V -B -Dmaven.javadoc.skip=true -DskipTests clean install "$@"
 exit $?
