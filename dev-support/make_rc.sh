@@ -93,7 +93,7 @@ fi
 
 
 mvnFun() {
-  MAVEN_OPTS="${mvnopts}" ${mvn} -Dmaven.repo.local="${repodir}" "$@"
+  MAVEN_OPTS="${mvnopts}" ${MVN} -Dmaven.repo.local="${repodir}" "$@"
 }
 
 prepare-src() {
