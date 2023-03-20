@@ -203,11 +203,12 @@ public class TransferLeadership {
     }
 
     final RaftPeerId transferee = follower.getId();
-    LOG.info("{}: sendStartLeaderElection to follower {}, lastEntry={}",
-        server.getMemberId(), transferee, lastEntry);
+    final long term = server.getState().getCurrentTerm();
+    LOG.info("{}: sendStartLeaderElection to follower {} in term {}, lastEntry={}",
+        server.getMemberId(), transferee, term, lastEntry);
 
     final RaftProtos.StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
-        server.getMemberId(), transferee, lastEntry);
+        server.getMemberId(), transferee, term, lastEntry);
     final CompletableFuture<RaftProtos.StartLeaderElectionReplyProto> f = CompletableFuture.supplyAsync(() -> {
       server.getLeaderElectionMetrics().onTransferLeadership();
       try {

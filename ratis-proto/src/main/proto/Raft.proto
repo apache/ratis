@@ -472,6 +472,7 @@ message SnapshotCreateRequestProto {
 message StartLeaderElectionRequestProto {
   RaftRpcRequestProto serverRequest = 1;
   TermIndexProto leaderLastEntry = 2;
+  uint64 term = 3;
 }
 
 message StartLeaderElectionReplyProto {

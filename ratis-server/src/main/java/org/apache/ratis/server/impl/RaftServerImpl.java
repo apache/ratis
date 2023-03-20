@@ -1660,11 +1660,19 @@ class RaftServerImpl implements RaftServer.Division,
     final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
     final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(r.getRaftGroupId());
     final TermIndex leaderLastEntry = TermIndex.valueOf(request.getLeaderLastEntry());
+    final long term = request.getTerm();
 
     CodeInjectionForTesting.execute(START_LEADER_ELECTION, getId(), leaderId, request);
 
-    LOG.debug("{}: receive startLeaderElection from:{}, leaderLastEntry:{},",
-        getMemberId(), leaderId, request.getLeaderLastEntry());
+    // check term != 0 for backward compatibility
+    if (term != 0 && term < getState().getCurrentTerm()) {
+      LOG.info("{}: rejects startLeaderElection from:{}, term: {}, leaderLastEntry:{}, because current term is {}",
+          getMemberId(), leaderId, term, request.getLeaderLastEntry(), getState().getCurrentTerm());
+      return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+    }
+    // TODO: handle the condition when term > currentTerm
+    LOG.debug("{}: receive startLeaderElection from:{}, term: {}, leaderLastEntry:{}",
+        getMemberId(), leaderId, term, request.getLeaderLastEntry());
 
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(leaderId, leaderGroupId);
