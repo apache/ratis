@@ -89,7 +89,7 @@ public interface RaftClient extends Closeable {
   }
 
   /** To build {@link RaftClient} objects. */
-  class Builder {
+  final class Builder {
     private ClientId clientId;
     private RaftClientRpc clientRpc;
     private RaftGroup group;
