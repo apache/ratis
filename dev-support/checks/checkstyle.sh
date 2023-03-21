@@ -16,6 +16,8 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../.." || exit 1
 
+source "${DIR}/../find_maven.sh"
+
 BASE_DIR="$(pwd -P)"
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/checkstyle"}
 mkdir -p "$REPORT_DIR"
@@ -24,10 +26,10 @@ REPORT_FILE="$REPORT_DIR/summary.txt"
 MAVEN_OPTIONS='-B -fae -Dcheckstyle.failOnViolation=false'
 
 declare -i rc
-mvn ${MAVEN_OPTIONS} checkstyle:check | tee  "${REPORT_DIR}/output.log"
+${MVN} ${MAVEN_OPTIONS} checkstyle:check | tee  "${REPORT_DIR}/output.log"
 rc=$?
 if [[ ${rc} -ne 0 ]]; then
-  mvn ${MAVEN_OPTIONS} clean test-compile checkstyle:check
+  ${MVN} ${MAVEN_OPTIONS} clean test-compile checkstyle:check
   rc=$?
   mkdir -p "$REPORT_DIR" # removed by mvn clean
 else
