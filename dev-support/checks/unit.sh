@@ -19,6 +19,8 @@ set -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../.." || exit 1
 
+source "${DIR}/../find_maven.sh"
+
 : ${ITERATIONS:="1"}
 
 declare -i ITERATIONS
@@ -39,7 +41,7 @@ for i in $(seq 1 ${ITERATIONS}); do
     mkdir -p "${REPORT_DIR}"
   fi
 
-  mvn -B -fae test "$@" \
+  ${MVN} -B -fae test "$@" \
     | tee "${REPORT_DIR}/output.log"
   irc=$?
 
