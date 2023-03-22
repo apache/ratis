@@ -108,7 +108,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
         .map(s -> serverRequestReply.getQueue(s.getId().toString()))
         .forEach(q -> q.delayTakeRequestTo.set(delayMs));
 
-    final long sleepMs = 3 * getTimeoutMax().toLong(TimeUnit.MILLISECONDS) / 2;
+    final long sleepMs = 3 * getTimeoutMax().toLong(TimeUnit.MILLISECONDS);
     Thread.sleep(sleepMs);
   }
 
