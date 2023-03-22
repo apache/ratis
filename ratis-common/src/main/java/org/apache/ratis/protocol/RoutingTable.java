@@ -52,7 +52,7 @@ public interface RoutingTable {
   }
 
   /** To build a {@link RoutingTable}. */
-  class Builder {
+  final class Builder {
     private final AtomicReference<Map<RaftPeerId, Set<RaftPeerId>>> ref = new AtomicReference<>(new HashMap<>());
 
     private Builder() {}
