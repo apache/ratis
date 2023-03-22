@@ -23,6 +23,10 @@
   <artifactId>ratis-test</artifactId>
   <name>Apache Ratis Test</name>
 
+  <properties>
+    <bouncycastle.version>1.70</bouncycastle.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <artifactId>ratis-common</artifactId>

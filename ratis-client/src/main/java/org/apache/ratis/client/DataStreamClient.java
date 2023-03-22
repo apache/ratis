@@ -46,7 +46,7 @@ public interface DataStreamClient extends DataStreamRpcApi, Closeable {
   }
 
   /** To build {@link DataStreamClient} objects */
-  class Builder {
+  final class Builder {
     private RaftPeer dataStreamServer;
     private DataStreamClientRpc dataStreamClientRpc;
     private RaftProperties properties;

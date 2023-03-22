@@ -44,10 +44,8 @@ public interface Expression extends Evaluable {
 
   int length();
 
-  class Utils {
-    private Utils() {
-
-    }
+  final class Utils {
+    private Utils() {}
 
     public static Message toMessage(final Expression e) {
       final byte[] buf = new byte[e.length()];

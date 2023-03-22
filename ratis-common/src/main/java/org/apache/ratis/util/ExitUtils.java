@@ -40,7 +40,7 @@ public interface ExitUtils {
     }
   }
 
-  class States {
+  final class States {
     private static final Logger LOG = LoggerFactory.getLogger(ExitUtils.class);
     private static final States INSTANCE = new States();
 

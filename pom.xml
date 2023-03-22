@@ -18,7 +18,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>23</version>
+    <version>25</version>
     <relativePath /> <!-- resolve from repository -->
   </parent>
 
@@ -160,6 +160,7 @@
 
 
   <properties>
+    <project.build.outputTimestamp>2023-01-01T00:00:00Z</project.build.outputTimestamp>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
      <!-- where to find the generated LICENSE files -->
@@ -169,26 +170,26 @@
     <license.bundles.dependencies>false</license.bundles.dependencies>
 
     <!-- Maven plugin versions -->
-    <maven-bundle-plugin.version>2.5.3</maven-bundle-plugin.version>
-    <maven-clover2-plugin.version>3.3.0</maven-clover2-plugin.version>
-    <maven-install-plugin.version>3.0.0-M1</maven-install-plugin.version>
-    <maven-pdf-plugin.version>1.2</maven-pdf-plugin.version>
-    <maven-stylus-skin.version>1.5</maven-stylus-skin.version>
-    <maven-surefire-plugin.version>3.0.0-M1</maven-surefire-plugin.version>
-    <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
-    <maven-assembly-plugin.version>3.4.1</maven-assembly-plugin.version>
+    <maven-bundle-plugin.version>5.1.8</maven-bundle-plugin.version>
+    <maven-checkstyle-plugin.version>3.2.1</maven-checkstyle-plugin.version>
+    <maven-clover2-plugin.version>4.0.6</maven-clover2-plugin.version>
+    <maven-pdf-plugin.version>1.6.1</maven-pdf-plugin.version>
+    <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
+    <wagon-ssh.version>3.5.3</wagon-ssh.version>
 
-    <checkstyle.version>9.3</checkstyle.version>
 
-    <protobuf-maven-plugin.version>0.5.1</protobuf-maven-plugin.version>
-    <license-maven-plugin.version>1.19</license-maven-plugin.version>
+    <!-- org.codehaus.mojo -->
+    <build-helper-maven-plugin.version>3.3.0</build-helper-maven-plugin.version>
+    <exec-maven-plugin.version>3.1.0</exec-maven-plugin.version>
+    <extra-enforcer-rules.version>1.6.1</extra-enforcer-rules.version>
+    <license-maven-plugin.version>4.1</license-maven-plugin.version>
+
+    <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
     <copy-rename-maven-plugin.version>1.0</copy-rename-maven-plugin.version>
 
-    <build-helper-maven-plugin.version>1.9</build-helper-maven-plugin.version>
-    <exec-maven-plugin.version>1.6.0</exec-maven-plugin.version>
+    <checkstyle.version>10.9.2</checkstyle.version>
     <spotbugs.version>4.2.1</spotbugs.version>
     <spotbugs-plugin.version>4.2.0</spotbugs-plugin.version>
-    <wagon-ssh.version>1.0</wagon-ssh.version>
 
     <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
     <distMgmtSnapshotsName>Apache Development Snapshot Repository</distMgmtSnapshotsName>
@@ -220,8 +221,7 @@
     <!--metrics-->
     <dropwizard.version>3.2.5</dropwizard.version>
 
-    <bouncycastle.version>1.70</bouncycastle.version>
-    <slf4j.version>1.7.36</slf4j.version>
+    <slf4j.version>2.0.7</slf4j.version>
   </properties>
 
   <dependencyManagement>
@@ -407,12 +407,6 @@
       </dependency>
 
       <dependency>
-        <groupId>com.beust</groupId>
-        <artifactId>jcommander</artifactId>
-        <version>1.72</version>
-      </dependency>
-
-      <dependency>
         <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-core</artifactId>
         <version>${dropwizard.version}</version>
@@ -492,12 +486,12 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-install-plugin</artifactId>
-          <version>${maven-install-plugin.version}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <configuration>
+            <source>8</source>
             <additionalJOptions>
               <additionalJOption>-Xmaxwarns</additionalJOption>
               <additionalJOption>10000</additionalJOption>
@@ -549,7 +543,6 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-assembly-plugin</artifactId>
-          <version>${maven-assembly-plugin.version}</version>
           <configuration>
             <!--Defer to the ratis-assembly sub-module.  It does all assembly-->
             <skipAssembly>true</skipAssembly>
@@ -891,7 +884,7 @@
                   <goal>jar</goal>
                 </goals>
                 <configuration>
-                  <destDir>${project.build.directory}</destDir>
+                  <outputDirectory>${project.build.directory}</outputDirectory>
                 </configuration>
               </execution>
             </executions>
@@ -936,7 +929,7 @@
               <dependency>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>extra-enforcer-rules</artifactId>
-                <version>1.0-beta-6</version>
+                <version>${extra-enforcer-rules.version}</version>
               </dependency>
             </dependencies>
             <executions>

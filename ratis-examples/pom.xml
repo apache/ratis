@@ -23,6 +23,10 @@
   <artifactId>ratis-examples</artifactId>
   <name>Apache Ratis Examples</name>
 
+  <properties>
+    <jcommander.version>1.82</jcommander.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.ratis</groupId>
@@ -95,6 +99,7 @@
     <dependency>
       <groupId>com.beust</groupId>
       <artifactId>jcommander</artifactId>
+      <version>${jcommander.version}</version>
     </dependency>
 
     <dependency>
