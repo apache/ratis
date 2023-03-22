@@ -316,6 +316,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       final RaftServer.Division currLeader = cluster.getLeader();
       LOG.info("try enforcing leader to " + newLeader + " but " +
           (currLeader == null ? "no leader for round " + i : "new leader is " + currLeader.getId()));
+      TimeDuration.ONE_SECOND.sleep();
     }
     LOG.info(cluster.printServers());
 
