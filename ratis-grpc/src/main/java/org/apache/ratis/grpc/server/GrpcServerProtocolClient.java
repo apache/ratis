@@ -140,8 +140,7 @@ public class GrpcServerProtocolClient implements Closeable {
   StreamObserver<InstallSnapshotRequestProto> installSnapshot(
       String name, TimeDuration timeout, int limit, StreamObserver<InstallSnapshotReplyProto> responseHandler) {
     return StreamObserverWithTimeout.newInstance(name, ServerStringUtils::toInstallSnapshotRequestString,
-        timeout, limit,
-        i -> asyncStub.withInterceptors(i).installSnapshot(responseHandler));
+        timeout, limit, i -> asyncStub.withInterceptors(i).installSnapshot(responseHandler));
   }
 
   // short-circuit the backoff timer and make them reconnect immediately.

@@ -24,7 +24,8 @@ import java.util.function.Supplier;
 public interface StringSupplier extends Supplier<String> {
   /**
    * @return a {@link StringSupplier} which uses the given {@link Supplier}
-   *         to override both {@link Supplier#get()} and {@link Object#toString()}. */
+   *         to override both {@link Supplier#get()} and {@link Object#toString()}.
+   */
   static StringSupplier get(Supplier<String> supplier) {
     return new StringSupplier() {
       @Override
