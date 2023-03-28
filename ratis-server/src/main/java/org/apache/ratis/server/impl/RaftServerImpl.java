@@ -545,6 +545,7 @@ class RaftServerImpl implements RaftServer.Division,
         role.shutdownFollowerState();
       }
       role.startFollowerState(this, reason);
+      firstElectionSinceStartup.set(false);
     }
     return metadataUpdated;
   }
@@ -1851,7 +1852,6 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   void onGroupLeaderElected() {
-    this.firstElectionSinceStartup.set(false);
     transferLeadership.complete(TransferLeadership.Result.SUCCESS);
   }
 }
