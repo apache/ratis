@@ -20,6 +20,7 @@ package org.apache.ratis.util;
 import org.apache.ratis.thirdparty.com.google.common.collect.Interner;
 import org.apache.ratis.thirdparty.com.google.common.collect.Interners;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.function.StringSupplier;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -138,13 +139,8 @@ public final class StringUtils {
     return stm.toString();
   }
 
-  public static Object stringSupplierAsObject(Supplier<String> supplier) {
-    return new Object() {
-      @Override
-      public String toString() {
-        return supplier.get();
-      }
-    };
+  public static StringSupplier stringSupplierAsObject(Supplier<String> supplier) {
+    return StringSupplier.get(supplier);
   }
 
   public static <K, V> String map2String(Map<K, V> map) {
