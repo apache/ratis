@@ -26,6 +26,7 @@ import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +54,9 @@ class GrpcTestClient implements Closeable {
   }
 
   static StreamObserverFactory withTimeout(TimeDuration timeout) {
-    return (stub, responseHandler) -> StreamObserverWithTimeout.newInstance("test", timeout, 2,
+    final String className = JavaUtils.getClassSimpleName(HelloRequest.class) + ":";
+    return (stub, responseHandler) -> StreamObserverWithTimeout.newInstance("test",
+        r -> className + r.getName(), timeout, 2,
         i -> stub.withInterceptors(i).hello(responseHandler));
   }
 
