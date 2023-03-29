@@ -215,4 +215,8 @@ public abstract class AbstractRatisCommand implements Command {
     }
     return ids;
   }
+
+  protected List<RaftPeer> filterServer(List<RaftPeer> peers, RaftPeerRole role) {
+    return peers.stream().filter(it -> it.getStartupRole() == role).collect(Collectors.toList());
+  }
 }

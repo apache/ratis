@@ -21,6 +21,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -69,7 +70,9 @@ public class RemoveCommand extends AbstractRatisCommand {
       final List<RaftPeer> remaining = getRaftGroup().getPeers().stream()
           .filter(raftPeer -> !ids.contains(raftPeer.getId())).collect(Collectors.toList());
       System.out.println("New peer list: " + remaining);
-      RaftClientReply reply = client.admin().setConfiguration(remaining);
+      RaftClientReply reply = client.admin().setConfiguration(
+          filterServer(remaining, RaftProtos.RaftPeerRole.FOLLOWER),
+          filterServer(remaining, RaftProtos.RaftPeerRole.LISTENER));
       processReply(reply, () -> "Failed to change raft peer");
     }
     return 0;

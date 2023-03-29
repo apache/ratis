@@ -21,6 +21,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.shell.cli.RaftUtils;
@@ -74,7 +75,9 @@ public class SetPriorityCommand extends AbstractRatisCommand {
           );
         }
       }
-      RaftClientReply reply = client.admin().setConfiguration(peers);
+      RaftClientReply reply = client.admin().setConfiguration(
+          filterServer(peers, RaftProtos.RaftPeerRole.FOLLOWER),
+          filterServer(peers, RaftProtos.RaftPeerRole.LISTENER));
       processReply(reply, () -> "Failed to set master priorities ");
     }
     return 0;
