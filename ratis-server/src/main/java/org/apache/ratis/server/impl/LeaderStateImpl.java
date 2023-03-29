@@ -364,7 +364,7 @@ class LeaderStateImpl implements LeaderState {
 
     final Collection<RaftPeer> listeners = conf.getAllPeers(RaftPeerRole.LISTENER);
     if (!listeners.isEmpty()) {
-      addSenders(listeners, placeHolderIndex, false);
+      addSenders(listeners, placeHolderIndex, true);
     }
   }
 
