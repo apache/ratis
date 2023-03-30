@@ -36,6 +36,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.FileListSnapshotInfo;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
@@ -116,11 +117,13 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
 
       // Check the installed snapshot file number on each Follower matches with the
       // leader snapshot.
-      for (RaftServer.Division follower : cluster.getFollowers()) {
-        final SnapshotInfo info = follower.getStateMachine().getLatestSnapshot();
-        Assert.assertNotNull(info);
-        Assert.assertEquals(3, info.getFiles().size());
-      }
+      JavaUtils.attempt(() -> {
+        for (RaftServer.Division follower : cluster.getFollowers()) {
+          final SnapshotInfo info = follower.getStateMachine().getLatestSnapshot();
+          Assert.assertNotNull(info);
+          Assert.assertEquals(3, info.getFiles().size());
+        }
+      }, 10, ONE_SECOND, "check snapshot", LOG);
     } finally {
       cluster.shutdown();
     }

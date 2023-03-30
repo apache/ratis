@@ -477,6 +477,7 @@ public class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   public CompletableFuture<Long> onSnapshotInstalled(long lastSnapshotIndex) {
+    updateSnapshotIndex(lastSnapshotIndex);
     fileLogWorker.syncWithSnapshot(lastSnapshotIndex);
     // TODO purge normal/tmp/corrupt snapshot files
     // if the last index in snapshot is larger than the index of the last

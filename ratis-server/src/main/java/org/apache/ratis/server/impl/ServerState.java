@@ -454,9 +454,11 @@ class ServerState implements Closeable {
     getStateMachineUpdater().notifyUpdater();
   }
 
-  void reloadStateMachine(long lastIndexInSnapshot) {
-    getLog().updateSnapshotIndex(lastIndexInSnapshot);
+  void reloadStateMachine(TermIndex snapshotTermIndex) {
     getStateMachineUpdater().reloadStateMachine();
+
+    getLog().onSnapshotInstalled(snapshotTermIndex.getIndex());
+    latestInstalledSnapshot.set(snapshotTermIndex);
   }
 
   @Override
@@ -482,12 +484,6 @@ class ServerState implements Closeable {
     StateMachine sm = server.getStateMachine();
     sm.pause(); // pause the SM to prepare for install snapshot
     snapshotManager.installSnapshot(request, sm);
-    updateInstalledSnapshotIndex(TermIndex.valueOf(request.getSnapshotChunk().getTermIndex()));
-  }
-
-  void updateInstalledSnapshotIndex(TermIndex lastTermIndexInSnapshot) {
-    getLog().onSnapshotInstalled(lastTermIndexInSnapshot.getIndex());
-    latestInstalledSnapshot.set(lastTermIndexInSnapshot);
   }
 
   private SnapshotInfo getLatestSnapshot() {
