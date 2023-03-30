@@ -538,7 +538,6 @@ message RoleInfoProto {
     FollowerInfoProto followerInfo = 5;
     CandidateInfoProto candidateInfo = 6;
   }
-  RaftConfigurationProto conf = 7;
 }
 
 message GroupListReplyProto {
@@ -552,4 +551,5 @@ message GroupInfoReplyProto {
   RoleInfoProto role = 3;
   bool isRaftStorageHealthy = 4;
   repeated CommitInfoProto commitInfos = 5;
+  RaftConfigurationProto conf = 6;
 }

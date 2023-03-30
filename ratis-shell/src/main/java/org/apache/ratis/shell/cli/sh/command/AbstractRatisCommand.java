@@ -40,6 +40,7 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * The base class for all the ratis shell {@link Command} classes.
@@ -218,31 +219,19 @@ public abstract class AbstractRatisCommand implements Command {
     return ids;
   }
 
-  protected List<RaftPeer> getClusterPeers(RaftPeerRole role) {
-    if (!groupInfoReply.getRoleInfoProto().hasConf()) {
-      if (role == RaftPeerRole.FOLLOWER) {
-        return new ArrayList<>(getRaftGroup().getPeers());
-      } else {
-        return Collections.emptyList();
-      }
+  protected Stream<RaftPeer> getPeerStream(RaftPeerRole role) {
+    final RaftConfigurationProto conf = groupInfoReply.getConf().orElse(null);
+    if (conf == null) {
+      // Assume all peers are followers in order preserve the pre-listener behaviors.
+      return role == RaftPeerRole.FOLLOWER ? getRaftGroup().getPeers().stream() : Stream.empty();
     }
-    RaftConfigurationProto conf = groupInfoReply.getRoleInfoProto().getConf();
+    final Set<RaftPeer> targets = (role == RaftPeerRole.LISTENER ? conf.getListenersList() : conf.getPeersList())
+        .stream()
+        .map(ProtoUtils::toRaftPeer)
+        .collect(Collectors.toSet());
     return getRaftGroup()
         .getPeers()
         .stream()
-        .filter(peer -> {
-          if (role == RaftPeerRole.LISTENER) {
-            return conf.getListenersList()
-                .stream()
-                .map(ProtoUtils::toRaftPeer)
-                .anyMatch(p -> p.equals(peer));
-          } else {
-            return conf.getPeersList()
-                .stream()
-                .map(ProtoUtils::toRaftPeer)
-                .anyMatch(p -> p.equals(peer));
-          }
-        })
-        .collect(Collectors.toList());
+        .filter(targets::contains);
   }
 }

@@ -21,7 +21,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -67,12 +67,13 @@ public class RemoveCommand extends AbstractRatisCommand {
           "Both " + PEER_ID_OPTION_NAME + " and " + ADDRESS_OPTION_NAME + " options are missing.");
     }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      final List<RaftPeer> peers = getClusterPeers(RaftProtos.RaftPeerRole.FOLLOWER).stream()
+      final List<RaftPeer> peers = getPeerStream(RaftPeerRole.FOLLOWER)
           .filter(raftPeer -> !ids.contains(raftPeer.getId())).collect(Collectors.toList());
-      final List<RaftPeer> listeners = getClusterPeers(RaftProtos.RaftPeerRole.LISTENER).stream()
+      final List<RaftPeer> listeners = getPeerStream(RaftPeerRole.LISTENER)
           .filter(raftPeer -> !ids.contains(raftPeer.getId())).collect(Collectors.toList());
       System.out.println("New peer list: " + peers);
-      RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
+      System.out.println("New listener list:  " + listeners);
+      final RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
       processReply(reply, () -> "Failed to change raft peer");
     }
     return 0;
