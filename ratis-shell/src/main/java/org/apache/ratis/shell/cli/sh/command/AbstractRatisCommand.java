@@ -25,10 +25,12 @@ import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.FollowerInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
@@ -216,7 +218,31 @@ public abstract class AbstractRatisCommand implements Command {
     return ids;
   }
 
-  protected List<RaftPeer> filterServer(List<RaftPeer> peers, RaftPeerRole role) {
-    return peers.stream().filter(it -> it.getStartupRole() == role).collect(Collectors.toList());
+  protected List<RaftPeer> getClusterPeers(RaftPeerRole role) {
+    if (!groupInfoReply.getRoleInfoProto().hasConf()) {
+      if (role == RaftPeerRole.FOLLOWER) {
+        return new ArrayList<>(getRaftGroup().getPeers());
+      } else {
+        return Collections.emptyList();
+      }
+    }
+    RaftConfigurationProto conf = groupInfoReply.getRoleInfoProto().getConf();
+    return getRaftGroup()
+        .getPeers()
+        .stream()
+        .filter(peer -> {
+          if (role == RaftPeerRole.LISTENER) {
+            return conf.getListenersList()
+                .stream()
+                .map(ProtoUtils::toRaftPeer)
+                .anyMatch(p -> p.equals(peer));
+          } else {
+            return conf.getPeersList()
+                .stream()
+                .map(ProtoUtils::toRaftPeer)
+                .anyMatch(p -> p.equals(peer));
+          }
+        })
+        .collect(Collectors.toList());
   }
 }

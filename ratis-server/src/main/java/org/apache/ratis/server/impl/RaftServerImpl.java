@@ -638,6 +638,9 @@ class RaftServerImpl implements RaftServer.Division,
     default:
       throw new IllegalStateException("incorrect role of server " + currentRole);
     }
+    RaftConfigurationProto raftConfigurationProto =
+        LogProtoUtils.toRaftConfigurationProtoBuilder(getRaftConf()).build();
+    roleInfo.setConf(raftConfigurationProto);
     return roleInfo.build();
   }
 

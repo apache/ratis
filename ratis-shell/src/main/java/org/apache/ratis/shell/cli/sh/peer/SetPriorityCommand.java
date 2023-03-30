@@ -65,7 +65,7 @@ public class SetPriorityCommand extends AbstractRatisCommand {
 
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
       List<RaftPeer> peers = new ArrayList<>();
-      for (RaftPeer peer : getRaftGroup().getPeers()) {
+      for (RaftPeer peer : getClusterPeers(RaftProtos.RaftPeerRole.FOLLOWER)) {
         if (!addressPriorityMap.containsKey(peer.getAddress())) {
           peers.add(RaftPeer.newBuilder(peer).build());
         } else {
@@ -75,9 +75,8 @@ public class SetPriorityCommand extends AbstractRatisCommand {
           );
         }
       }
-      RaftClientReply reply = client.admin().setConfiguration(
-          filterServer(peers, RaftProtos.RaftPeerRole.FOLLOWER),
-          filterServer(peers, RaftProtos.RaftPeerRole.LISTENER));
+      List<RaftPeer> listeners = getClusterPeers(RaftProtos.RaftPeerRole.LISTENER);
+      RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
       processReply(reply, () -> "Failed to set master priorities ");
     }
     return 0;

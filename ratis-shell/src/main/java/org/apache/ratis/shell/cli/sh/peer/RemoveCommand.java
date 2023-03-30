@@ -67,12 +67,12 @@ public class RemoveCommand extends AbstractRatisCommand {
           "Both " + PEER_ID_OPTION_NAME + " and " + ADDRESS_OPTION_NAME + " options are missing.");
     }
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      final List<RaftPeer> remaining = getRaftGroup().getPeers().stream()
+      final List<RaftPeer> peers = getClusterPeers(RaftProtos.RaftPeerRole.FOLLOWER).stream()
           .filter(raftPeer -> !ids.contains(raftPeer.getId())).collect(Collectors.toList());
-      System.out.println("New peer list: " + remaining);
-      RaftClientReply reply = client.admin().setConfiguration(
-          filterServer(remaining, RaftProtos.RaftPeerRole.FOLLOWER),
-          filterServer(remaining, RaftProtos.RaftPeerRole.LISTENER));
+      final List<RaftPeer> listeners = getClusterPeers(RaftProtos.RaftPeerRole.LISTENER).stream()
+          .filter(raftPeer -> !ids.contains(raftPeer.getId())).collect(Collectors.toList());
+      System.out.println("New peer list: " + peers);
+      RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
       processReply(reply, () -> "Failed to change raft peer");
     }
     return 0;

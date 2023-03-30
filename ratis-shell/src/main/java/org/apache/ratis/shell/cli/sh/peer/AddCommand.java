@@ -81,17 +81,17 @@ public class AddCommand extends AbstractRatisCommand {
     }
 
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      final Stream<RaftPeer> remaining = getRaftGroup().getPeers().stream();
-      final Stream<RaftPeer> adding = ids.stream().map(raftPeerId -> RaftPeer.newBuilder()
+      final List<RaftPeer> peers = getClusterPeers(RaftProtos.RaftPeerRole.FOLLOWER);
+      final List<RaftPeer> listeners = getClusterPeers(RaftProtos.RaftPeerRole.LISTENER);
+      final List<RaftPeer> adding = ids.stream().map(raftPeerId -> RaftPeer.newBuilder()
           .setId(raftPeerId)
           .setAddress(peersInfo.get(raftPeerId))
           .setPriority(0)
-          .build());
-      final List<RaftPeer> peers = Stream.concat(remaining, adding).collect(Collectors.toList());
+          .build())
+          .collect(Collectors.toList());
+      peers.addAll(adding);
       System.out.println("New peer list: " + peers);
-      RaftClientReply reply = client.admin().setConfiguration(
-          filterServer(peers, RaftProtos.RaftPeerRole.FOLLOWER),
-          filterServer(peers, RaftProtos.RaftPeerRole.LISTENER));
+      RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
       processReply(reply, () -> "Failed to change raft peer");
     }
     return 0;

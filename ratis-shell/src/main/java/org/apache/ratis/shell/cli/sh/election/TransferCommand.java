@@ -111,12 +111,11 @@ public class TransferCommand extends AbstractRatisCommand {
 
   private void setPriority(RaftClient client, RaftPeer target, int priority) throws IOException {
     printf("Changing priority of peer %s with address %s to %d%n", target.getId(), target.getAddress(), priority);
-    List<RaftPeer> peers = getRaftGroup().getPeers().stream()
+    List<RaftPeer> peers = getClusterPeers(RaftProtos.RaftPeerRole.FOLLOWER).stream()
         .map(peer -> peer == target ? RaftPeer.newBuilder(peer).setPriority(priority).build() : peer)
         .collect(Collectors.toList());
-    RaftClientReply reply = client.admin().setConfiguration(
-        filterServer(peers, RaftProtos.RaftPeerRole.FOLLOWER),
-        filterServer(peers, RaftProtos.RaftPeerRole.LISTENER));
+    final List<RaftPeer> listeners = getClusterPeers(RaftProtos.RaftPeerRole.LISTENER);
+    RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
     processReply(reply, () -> "Failed to set master priorities");
   }
 

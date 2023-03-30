@@ -538,6 +538,7 @@ message RoleInfoProto {
     FollowerInfoProto followerInfo = 5;
     CandidateInfoProto candidateInfo = 6;
   }
+  RaftConfigurationProto conf = 7;
 }
 
 message GroupListReplyProto {
