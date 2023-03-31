@@ -43,11 +43,11 @@ class FollowerInfoImpl implements FollowerInfo {
   private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex snapshotIndex = new RaftLogIndex("snapshotIndex", 0L);
-  private volatile boolean attendVote;
+  private volatile boolean caughtUp;
   private volatile boolean ackInstallSnapshotAttempt = false;
 
   FollowerInfoImpl(RaftGroupMemberId id, RaftPeer peer, Function<RaftPeerId, RaftPeer> getPeer,
-      Timestamp lastRpcTime, long nextIndex, boolean attendVote) {
+      Timestamp lastRpcTime, long nextIndex, boolean caughtUp) {
     this.name = id + "->" + peer.getId();
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
     this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
@@ -58,7 +58,7 @@ class FollowerInfoImpl implements FollowerInfo {
     this.lastRpcSendTime = new AtomicReference<>(lastRpcTime);
     this.lastHeartbeatSendTime = new AtomicReference<>(lastRpcTime);
     this.nextIndex = new RaftLogIndex("nextIndex", nextIndex);
-    this.attendVote = attendVote;
+    this.caughtUp = caughtUp;
   }
 
   @Override
@@ -140,17 +140,17 @@ class FollowerInfoImpl implements FollowerInfo {
   @Override
   public String toString() {
     return name + "(c" + getCommitIndex() + ",m" + getMatchIndex() + ",n" + getNextIndex()
-        + ", attendVote=" + attendVote +
+        + ", caughtUp=" + caughtUp +
         ", lastRpcSendTime=" + lastRpcSendTime.get().elapsedTimeMs() +
         ", lastRpcResponseTime=" + lastRpcResponseTime.get().elapsedTimeMs() + ")";
   }
 
-  void startAttendVote() {
-    attendVote = true;
+  void catchUp() {
+    caughtUp = true;
   }
 
-  boolean isAttendingVote() {
-    return attendVote;
+  boolean isCaughtUp() {
+    return caughtUp;
   }
 
   @Override

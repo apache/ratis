@@ -410,6 +410,32 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testAddFollowerWhenExistsListener() throws Exception {
+    try (final MiniRaftCluster cluster = newCluster(3, 1)) {
+      cluster.start();
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        List<RaftPeer> servers = cluster.getPeers();
+        Assert.assertEquals(4, servers.size());
+        List<RaftPeer> listener = new ArrayList<>(
+            leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER));
+        Assert.assertEquals(1, listener.size());
+        MiniRaftCluster.PeerChanges changes = cluster.addNewPeers(1, true, false);
+        ArrayList<RaftPeer> newPeers = new ArrayList<>(Arrays.asList(changes.newPeers));
+        newPeers.addAll(leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.FOLLOWER));
+        RaftClientReply reply = client.admin().setConfiguration(newPeers, listener);
+        Assert.assertTrue(reply.isSuccess());
+        Assert.assertEquals(4,
+            leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.FOLLOWER).size());
+        Assert.assertEquals(1,
+            leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER).size());
+      }
+      cluster.shutdown();
+    }
+  }
+
+  @Test
   public void testRemoveListener() throws Exception {
     try(final MiniRaftCluster cluster = newCluster(3,1)) {
       cluster.start();
