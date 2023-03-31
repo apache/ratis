@@ -539,7 +539,8 @@ public interface ClientProtoUtils {
         replyProto.getCommitInfosList(),
         ProtoUtils.toRaftGroup(replyProto.getGroup()),
         replyProto.getRole(),
-        replyProto.getIsRaftStorageHealthy());
+        replyProto.getIsRaftStorageHealthy(),
+        replyProto.hasConf()? replyProto.getConf(): null);
   }
 
   static Message toMessage(final ClientMessageEntryProto p) {

@@ -550,4 +550,5 @@ message GroupInfoReplyProto {
   RoleInfoProto role = 3;
   bool isRaftStorageHealthy = 4;
   repeated CommitInfoProto commitInfos = 5;
+  RaftConfigurationProto conf = 6;
 }
