@@ -17,10 +17,12 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 
 import java.util.Collection;
+import java.util.Optional;
 
 /**
  * The response of server information request. Sent from server to client.
@@ -30,21 +32,26 @@ public class GroupInfoReply extends RaftClientReply {
   private final RaftGroup group;
   private final RoleInfoProto roleInfoProto;
   private final boolean isRaftStorageHealthy;
+  private final RaftConfigurationProto conf;
 
   public GroupInfoReply(RaftClientRequest request, Collection<CommitInfoProto> commitInfos,
-      RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy) {
-    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(), request.getCallId(), commitInfos,
-        group, roleInfoProto, isRaftStorageHealthy);
+      RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy,
+      RaftConfigurationProto conf) {
+    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
+        request.getCallId(), commitInfos,
+        group, roleInfoProto, isRaftStorageHealthy, conf);
   }
 
   @SuppressWarnings("parameternumber")
   public GroupInfoReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
       Collection<CommitInfoProto> commitInfos,
-      RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy) {
+      RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy,
+      RaftConfigurationProto conf) {
     super(clientId, serverId, groupId, callId, true, null, null, 0L, commitInfos);
     this.group = group;
     this.roleInfoProto = roleInfoProto;
     this.isRaftStorageHealthy = isRaftStorageHealthy;
+    this.conf = conf;
   }
 
   public RaftGroup getGroup() {
@@ -57,5 +64,9 @@ public class GroupInfoReply extends RaftClientReply {
 
   public boolean isRaftStorageHealthy() {
     return isRaftStorageHealthy;
+  }
+
+  public Optional<RaftConfigurationProto> getConf() {
+    return Optional.ofNullable(conf);
   }
 }

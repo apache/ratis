@@ -21,6 +21,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.shell.cli.RaftUtils;
@@ -28,10 +29,10 @@ import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class SetPriorityCommand extends AbstractRatisCommand {
 
@@ -55,7 +56,7 @@ public class SetPriorityCommand extends AbstractRatisCommand {
     Map<String, Integer> addressPriorityMap = new HashMap<>();
     for (String optionValue : cl.getOptionValues(PEER_WITH_NEW_PRIORITY_OPTION_NAME)) {
       String[] str = optionValue.split("[|]");
-      if(str.length < 2) {
+      if (str.length < 2) {
         println("The format of the parameter is wrong");
         return -1;
       }
@@ -63,18 +64,14 @@ public class SetPriorityCommand extends AbstractRatisCommand {
     }
 
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      List<RaftPeer> peers = new ArrayList<>();
-      for (RaftPeer peer : getRaftGroup().getPeers()) {
-        if (!addressPriorityMap.containsKey(peer.getAddress())) {
-          peers.add(RaftPeer.newBuilder(peer).build());
-        } else {
-          peers.add(RaftPeer.newBuilder(peer)
-              .setPriority(addressPriorityMap.get(peer.getAddress()))
-              .build()
-          );
-        }
-      }
-      RaftClientReply reply = client.admin().setConfiguration(peers);
+      final List<RaftPeer> peers = getPeerStream(RaftPeerRole.FOLLOWER).map(peer -> {
+        final Integer newPriority = addressPriorityMap.get(peer.getAddress());
+        final int priority = newPriority != null ? newPriority : peer.getPriority();
+        return RaftPeer.newBuilder(peer).setPriority(priority).build();
+      }).collect(Collectors.toList());
+      final List<RaftPeer> listeners =
+          getPeerStream(RaftPeerRole.LISTENER).collect(Collectors.toList());
+      RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
       processReply(reply, () -> "Failed to set master priorities ");
     }
     return 0;

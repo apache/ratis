@@ -25,10 +25,12 @@ import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.FollowerInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
@@ -38,6 +40,7 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * The base class for all the ratis shell {@link Command} classes.
@@ -214,5 +217,21 @@ public abstract class AbstractRatisCommand implements Command {
       ids.add(peerId);
     }
     return ids;
+  }
+
+  protected Stream<RaftPeer> getPeerStream(RaftPeerRole role) {
+    final RaftConfigurationProto conf = groupInfoReply.getConf().orElse(null);
+    if (conf == null) {
+      // Assume all peers are followers in order preserve the pre-listener behaviors.
+      return role == RaftPeerRole.FOLLOWER ? getRaftGroup().getPeers().stream() : Stream.empty();
+    }
+    final Set<RaftPeer> targets = (role == RaftPeerRole.LISTENER ? conf.getListenersList() : conf.getPeersList())
+        .stream()
+        .map(ProtoUtils::toRaftPeer)
+        .collect(Collectors.toSet());
+    return getRaftGroup()
+        .getPeers()
+        .stream()
+        .filter(targets::contains);
   }
 }

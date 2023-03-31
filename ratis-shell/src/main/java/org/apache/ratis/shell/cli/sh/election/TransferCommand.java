@@ -21,6 +21,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
@@ -110,10 +111,11 @@ public class TransferCommand extends AbstractRatisCommand {
 
   private void setPriority(RaftClient client, RaftPeer target, int priority) throws IOException {
     printf("Changing priority of peer %s with address %s to %d%n", target.getId(), target.getAddress(), priority);
-    List<RaftPeer> peers = getRaftGroup().getPeers().stream()
+    final List<RaftPeer> peers = getPeerStream(RaftPeerRole.FOLLOWER)
         .map(peer -> peer == target ? RaftPeer.newBuilder(peer).setPriority(priority).build() : peer)
         .collect(Collectors.toList());
-    RaftClientReply reply = client.admin().setConfiguration(peers);
+    final List<RaftPeer> listeners = getPeerStream(RaftPeerRole.LISTENER).collect(Collectors.toList());
+    RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
     processReply(reply, () -> "Failed to set master priorities");
   }
 
