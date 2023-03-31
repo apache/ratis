@@ -364,7 +364,7 @@ class LeaderStateImpl implements LeaderState {
 
     final Collection<RaftPeer> listeners = conf.getAllPeers(RaftPeerRole.LISTENER);
     if (!listeners.isEmpty()) {
-      addSenders(listeners, placeHolderIndex, false);
+      addSenders(listeners, placeHolderIndex, true);
     }
   }
 
@@ -429,7 +429,7 @@ class LeaderStateImpl implements LeaderState {
 
   @Override
   public boolean onFollowerTerm(FollowerInfo follower, long followerTerm) {
-    if (isAttendingVote(follower) && followerTerm > getCurrentTerm()) {
+    if (isCaughtUp(follower) && followerTerm > getCurrentTerm()) {
       submitStepDownEvent(followerTerm, StepDownReason.HIGHER_TERM);
       return true;
     }
@@ -561,7 +561,7 @@ class LeaderStateImpl implements LeaderState {
   @Override
   public AppendEntriesRequestProto newAppendEntriesRequestProto(FollowerInfo follower,
       List<LogEntryProto> entries, TermIndex previous, long callId) {
-    final boolean initializing = isAttendingVote(follower);
+    final boolean initializing = isCaughtUp(follower);
     final RaftPeerId targetId = follower.getId();
     return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, currentTerm, entries,
         ServerImplUtils.effectiveCommitIndex(raftLog.getLastCommittedIndex(), previous, entries.size()),
@@ -581,10 +581,10 @@ class LeaderStateImpl implements LeaderState {
     return server.getRaftConf().getPeer(id, RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER);
   }
 
-  private Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote) {
+  private Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean caughtUp) {
     final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final List<LogAppender> newAppenders = newPeers.stream().map(peer -> {
-      final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, this::getPeer, t, nextIndex, attendVote);
+      final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, this::getPeer, t, nextIndex, caughtUp);
       followerInfoMap.put(peer.getId(), f);
       raftServerMetrics.addFollower(peer.getId());
       logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
@@ -726,7 +726,7 @@ class LeaderStateImpl implements LeaderState {
    * 3. Otherwise the peer is making progressing. Keep waiting.
    */
   private BootStrapProgress checkProgress(FollowerInfo follower, long committed) {
-    Preconditions.assertTrue(!isAttendingVote(follower));
+    Preconditions.assertTrue(!isCaughtUp(follower));
     final Timestamp progressTime = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-3L * server.getMaxTimeoutMs());
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
@@ -744,7 +744,7 @@ class LeaderStateImpl implements LeaderState {
 
   @Override
   public void onFollowerSuccessAppendEntries(FollowerInfo follower) {
-    if (isAttendingVote(follower)) {
+    if (isCaughtUp(follower)) {
       submitUpdateCommitEvent();
     } else {
       eventQueue.submit(checkStagingEvent);
@@ -766,7 +766,7 @@ class LeaderStateImpl implements LeaderState {
       // check progress for the new followers
       final EnumSet<BootStrapProgress> reports = getLogAppenders()
           .map(LogAppender::getFollower)
-          .filter(follower -> !isAttendingVote(follower))
+          .filter(follower -> !isCaughtUp(follower))
           .map(follower -> checkProgress(follower, commitIndex))
           .collect(Collectors.toCollection(() -> EnumSet.noneOf(BootStrapProgress.class)));
       if (reports.contains(BootStrapProgress.NOPROGRESS)) {
@@ -778,7 +778,7 @@ class LeaderStateImpl implements LeaderState {
             .map(LogAppender::getFollower)
             .filter(f -> server.getRaftConf().containsInConf(f.getId()))
             .map(FollowerInfoImpl.class::cast)
-            .forEach(FollowerInfoImpl::startAttendVote);
+            .forEach(FollowerInfoImpl::catchUp);
       }
     }
   }
@@ -1184,7 +1184,7 @@ class LeaderStateImpl implements LeaderState {
     void fail(BootStrapProgress progress) {
       final String message = this + ": Fail to set configuration " + newConf + " due to " + progress;
       LOG.debug(message);
-      stopAndRemoveSenders(s -> !isAttendingVote(s.getFollower()));
+      stopAndRemoveSenders(s -> !isCaughtUp(s.getFollower()));
 
       stagingState = null;
       // send back failure response to client's request
@@ -1214,8 +1214,8 @@ class LeaderStateImpl implements LeaderState {
     return getLogAppenders().filter(a -> a.getFollowerId().equals(id)).findAny();
   }
 
-  private static boolean isAttendingVote(FollowerInfo follower) {
-    return ((FollowerInfoImpl)follower).isAttendingVote();
+  private static boolean isCaughtUp(FollowerInfo follower) {
+    return ((FollowerInfoImpl)follower).isCaughtUp();
   }
 
   @Override
