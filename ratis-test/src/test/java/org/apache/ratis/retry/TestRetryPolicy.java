@@ -154,7 +154,7 @@ public class TestRetryPolicy extends BaseTest {
       Assert.assertEquals(0L, action.getSleepTime().getDuration());
     }
 
-    Thread.sleep(timeout.toLong(TimeUnit.MILLISECONDS));
+    timeout.sleep();
     for (RaftClientRequest request : requests) {
       final ClientRetryEvent event = new ClientRetryEvent(request, new Exception(), pending);
       final RetryPolicy.Action action = policy.handleAttemptFailure(event);
