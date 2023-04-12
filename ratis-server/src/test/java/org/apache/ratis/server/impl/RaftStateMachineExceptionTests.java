@@ -164,6 +164,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       Assert.assertNotNull(oldEntry);
       Assert.assertTrue(RetryCacheTestUtil.isFailed(oldEntry));
 
+      Thread.sleep(100);
       // At this point of time the old leader would have stepped down. wait for leader election to complete
       final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
       // retry
