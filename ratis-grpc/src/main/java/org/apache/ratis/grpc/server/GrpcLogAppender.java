@@ -177,7 +177,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       // For normal nodes, new entries should be sent ASAP
       // however for slow followers (especially when the follower is down),
       // keep sending without any wait time only ends up in high CPU load
-      return Math.max(getMinWaitTimeMs(), 0L);
+      return Math.max(getTimeToWaitUntilNextSend(), 0L);
     }
     return Math.min(getMinWaitTimeMs(), getHeartbeatWaitTimeMs());
   }
@@ -276,7 +276,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       }
     }
 
-    final long waitMs = getMinWaitTimeMs();
+    final long waitMs = getTimeToWaitUntilNextSend();
     if (waitMs > 0) {
       try {
         Thread.sleep(waitMs);

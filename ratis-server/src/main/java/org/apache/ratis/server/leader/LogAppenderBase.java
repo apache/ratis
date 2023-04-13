@@ -137,6 +137,10 @@ public abstract class LogAppenderBase implements LogAppender {
   }
 
   public long getMinWaitTimeMs() {
+    return waitTimeMinMs;
+  }
+
+  public long getTimeToWaitUntilNextSend() {
     return waitTimeMinMs - getFollower().getLastRpcSendTime().elapsedTimeMs();
   }
 
