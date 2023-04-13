@@ -180,7 +180,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       // keep sending without any wait time only ends up in high CPU load
       return Math.max(getMinWaitTimeMs(), 0L);
     }
-    return Math.min(getMinWaitTimeMs(), getHeartbeatWaitTimeMs());
+    return getHeartbeatWaitTimeMs();
   }
 
   private boolean isSlowFollower() {
