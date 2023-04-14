@@ -71,7 +71,7 @@ class GrpcTestServer implements Closeable {
 
     GreeterImpl(int slow, TimeDuration timeout) {
       this.slow = slow;
-      this.shortSleepTime = timeout.multiply(0.25);
+      this.shortSleepTime = timeout.multiply(0.1);
       this.longSleepTime = timeout.multiply(2);
     }
 
