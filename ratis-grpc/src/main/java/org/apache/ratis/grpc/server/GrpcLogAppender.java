@@ -129,6 +129,9 @@ public class GrpcLogAppender extends LogAppenderBase {
           " keep nextIndex ({}) unchanged and retry.", this, f.getNextIndex());
         return;
       }
+      if (request != null && request.isHeartbeat()) {
+        return;
+      }
       getFollower().decreaseNextIndex(nextIndex);
     } catch (IOException ie) {
       LOG.warn(this + ": Failed to getClient for " + getFollowerId(), ie);
