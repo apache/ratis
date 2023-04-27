@@ -20,6 +20,8 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 
 import java.io.Closeable;
@@ -72,7 +74,9 @@ public class FileChunkReader implements Closeable {
   public FileChunkProto readFileChunk(int chunkMaxSize) throws IOException {
     final long remaining = info.getFileSize() - offset;
     final int chunkLength = remaining < chunkMaxSize ? (int) remaining : chunkMaxSize;
-    final ByteString data = ByteString.readFrom(in, chunkLength);
+    final byte[] chunkBuffer = new byte[chunkLength];
+    IOUtils.readFully(in, chunkBuffer, 0, chunkBuffer.length);
+    final ByteString data = UnsafeByteOperations.unsafeWrap(chunkBuffer);
     // whether this chunk is the last chunk of current file
     final boolean isDone = offset + chunkLength == info.getFileSize();
     final ByteString fileDigest;
