@@ -123,9 +123,9 @@ public class GrpcLogAppender extends LogAppenderBase {
           .map(AppendEntriesRequest::getPreviousLog)
           .map(TermIndex::getIndex)
           .orElseGet(f::getMatchIndex);
-      if (onError && f.getMatchIndex() == 0 && request == null) {
-        LOG.warn("{}: Follower failed when matchIndex == 0, " +
-          " keep nextIndex ({}) unchanged and retry.", this, f.getNextIndex());
+      if (onError && request == null) {
+        LOG.warn("{}: Follower failed and request == null, " +
+            " keep nextIndex ({}) unchanged and retry.", this, f.getNextIndex());
         return;
       }
       if (request != null && request.isHeartbeat()) {
