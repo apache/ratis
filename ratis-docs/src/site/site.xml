@@ -35,6 +35,9 @@
             <item name="Getting Started" href="start/index.html"/>
             <item name="Concepts" href="concept/index.html"/>
             <item name="Ratis-shell" href="cli.html" />
+            <item name="Snapshot" href="snapshot.html" />
+            <item name="Metrics" href="metrics.html" />
+            <item name="Configurations" href="configurations.html" />
         </menu>
     </body>
 </project>

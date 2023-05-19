@@ -288,7 +288,6 @@ Ratis will temporarily stall the new IO Tasks.
 | **Description** | preserve logs when purging logs up to snapshot index |
 | **Type**        | long                                                 |
 | **Default**     | 0                                                    |
---------------------------------------------------------------------------------
 
 | **Property**    | `raft.server.log.segment.size.max`          |
 |:----------------|:--------------------------------------------|
@@ -307,28 +306,24 @@ Ratis will temporarily stall the new IO Tasks.
 | **Description** | the maximum byte size of segments caching log entries |
 | **Type**        | SizeInBytes                                           |
 | **Default**     | 200MB                                                 |
---------------------------------------------------------------------------------
 
 | **Property**    | `raft.server.log.preallocated.size` |
 |:----------------|:------------------------------------|
 | **Description** | preallocate size of log segment     |
 | **Type**        | SizeInBytes                         |
 | **Default**     | 4MB                                 |
---------------------------------------------------------------------------------
 
 | **Property**    | `raft.server.log.write.buffer.size`                         |
 |:----------------|:------------------------------------------------------------|
 | **Description** | size of direct byte buffer for SegmentedRaftLog FileChannel |
 | **Type**        | SizeInBytes                                                 |
 | **Default**     | 64KB                                                        |
---------------------------------------------------------------------------------
 
 | **Property**    | `raft.server.log.force.sync.num`                                                |
 |:----------------|:--------------------------------------------------------------------------------|
 | **Description** | perform RaftLog flush tasks when pending flush tasks num exceeds force.sync.num |
 | **Type**        | int                                                                             |
 | **Default**     | 128                                                                             |
---------------------------------------------------------------------------------
 
 | **Property**    | `raft.server.log.unsafe-flush.enabled`                                                        |
 |:----------------|:----------------------------------------------------------------------------------------------|
@@ -341,7 +336,6 @@ Ratis will temporarily stall the new IO Tasks.
 | **Description** | async-flush enables to flush the RaftLog asynchronously |
 | **Type**        | boolean                                                 |
 | **Default**     | false                                                   |
---------------------------------------------------------------------------------
 
 | **Property**    | `raft.server.log.corruption.policy`                          |
 |:----------------|:-------------------------------------------------------------|
@@ -488,7 +482,7 @@ The follower's statemachine is responsible for fetching and installing snapshot 
 | **Description** | maximumPoolSize for async request pool                   |
 | **Type**        | int                                                      |
 | **Default**     | 32                                                       |
---------------------------------------------------------------------------------
+
 
 | **Property**    | `raft.server.data-stream.async.write.thread.pool.cached` |
 |:----------------|:---------------------------------------------------------|
@@ -501,7 +495,7 @@ The follower's statemachine is responsible for fetching and installing snapshot 
 | **Description** | maximumPoolSize for async write pool                   |
 | **Type**        | int                                                    |
 | **Default**     | 16                                                     |
---------------------------------------------------------------------------------
+
 
 | **Property**    | `raft.server.data-stream.client.pool.size`  |
 |:----------------|:--------------------------------------------|
