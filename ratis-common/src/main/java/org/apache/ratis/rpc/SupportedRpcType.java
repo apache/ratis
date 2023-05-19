@@ -23,8 +23,7 @@ import org.apache.ratis.util.ReflectionUtils;
 /** The RPC types supported. */
 public enum SupportedRpcType implements RpcType {
   NETTY("org.apache.ratis.netty.NettyFactory"),
-  GRPC("org.apache.ratis.grpc.GrpcFactory"),
-  HADOOP("org.apache.ratis.hadooprpc.HadoopFactory");
+  GRPC("org.apache.ratis.grpc.GrpcFactory");
 
   /** Same as {@link #valueOf(String)} except that this method is case insensitive. */
   public static SupportedRpcType valueOfIgnoreCase(String s) {
