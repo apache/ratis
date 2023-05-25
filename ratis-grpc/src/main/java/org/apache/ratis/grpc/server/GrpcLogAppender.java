@@ -81,6 +81,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private final AutoCloseableReadWriteLock lock;
   private final StackTraceElement caller;
+  private final ErrorWaitStrategy errorWaitStrategy;
 
   public GrpcLogAppender(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     super(server, leaderState, f);
@@ -101,6 +102,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     lock = new AutoCloseableReadWriteLock(this);
     caller = LOG.isTraceEnabled()? JavaUtils.getCallerStackTraceElement(): null;
+    errorWaitStrategy = new ErrorWaitStrategy("5,1000,10,5000");
   }
 
   @Override
@@ -194,7 +196,9 @@ public class GrpcLogAppender extends LogAppenderBase {
   private void mayWait() {
     // use lastSend time instead of lastResponse time
     try {
-      getEventAwaitForSignal().await(getWaitTimeMs(), TimeUnit.MILLISECONDS);
+      long errWaitAddition = errorWaitStrategy.waitTimeMs();
+      getEventAwaitForSignal().await(getWaitTimeMs() + errWaitAddition,
+          TimeUnit.MILLISECONDS);
     } catch (InterruptedException ie) {
       LOG.warn(this + ": Wait interrupted by " + ie);
       Thread.currentThread().interrupt();
@@ -376,6 +380,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     private void onNextImpl(AppendEntriesReplyProto reply) {
       // update the last rpc time
       getFollower().updateLastRpcResponseTime();
+      errorWaitStrategy.resetErrCount();
 
       if (!firstResponseReceived) {
         firstResponseReceived = true;
@@ -417,6 +422,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         LOG.info("{} is already stopped", GrpcLogAppender.this);
         return;
       }
+      errorWaitStrategy.incrErrCount();
       GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
       AppendEntriesRequest request = pendingRequests.remove(GrpcUtil.getCallId(t), GrpcUtil.isHeartbeat(t));
@@ -426,6 +432,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     @Override
     public void onCompleted() {
       LOG.info("{}: follower responses appendEntries COMPLETED", this);
+      errorWaitStrategy.resetErrCount();
       resetClient(null, false);
     }
 
@@ -510,6 +517,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
       // update the last rpc time
       getFollower().updateLastRpcResponseTime();
+      errorWaitStrategy.resetErrCount();
 
       if (!firstResponseReceived) {
         firstResponseReceived = true;
@@ -573,6 +581,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         LOG.info("{} is stopped", GrpcLogAppender.this);
         return;
       }
+      errorWaitStrategy.incrErrCount();
       GrpcUtil.warn(LOG, () -> this + ": Failed InstallSnapshot", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
       resetClient(null, true);
@@ -584,6 +593,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       if (!isNotificationOnly || LOG.isDebugEnabled()) {
         LOG.info("{}: follower responded installSnapshot COMPLETED", this);
       }
+      errorWaitStrategy.resetErrCount();
       close();
     }
 
