@@ -323,6 +323,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   private void timeoutAppendRequest(long cid, boolean heartbeat) {
     final AppendEntriesRequest pending = pendingRequests.handleTimeout(cid, heartbeat);
     if (pending != null) {
+      errorWaitStrategy.incrErrCount();
       LOG.warn("{}: {} appendEntries Timeout, request={}", this, heartbeat ? "HEARTBEAT" : "", pending);
       grpcServerMetrics.onRequestTimeout(getFollowerId().toString(), heartbeat);
       pending.stopRequestTimer();
