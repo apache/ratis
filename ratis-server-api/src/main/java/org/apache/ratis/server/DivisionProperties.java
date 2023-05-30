@@ -52,7 +52,4 @@ public interface DivisionProperties {
 
   /** @return the rpc slowness timeout. */
   TimeDuration rpcSlownessTimeout();
-
-  /** @return the additional error wait delay value. */
-  String errorWaitDelayValue();
 }

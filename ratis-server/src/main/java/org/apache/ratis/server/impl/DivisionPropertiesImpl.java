@@ -28,7 +28,6 @@ class DivisionPropertiesImpl implements DivisionProperties {
   private final TimeDuration rpcTimeoutMax;
   private final TimeDuration rpcSleepTime;
   private final TimeDuration rpcSlownessTimeout;
-  private final String errorWaitDelayValue;
 
   DivisionPropertiesImpl(RaftProperties properties) {
     this.rpcTimeoutMin = RaftServerConfigKeys.Rpc.timeoutMin(properties);
@@ -38,7 +37,6 @@ class DivisionPropertiesImpl implements DivisionProperties {
 
     this.rpcSleepTime = RaftServerConfigKeys.Rpc.sleepTime(properties);
     this.rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
-    this.errorWaitDelayValue = RaftServerConfigKeys.Rpc.errorWaitDelayValue(properties);
   }
 
   @Override
@@ -59,10 +57,5 @@ class DivisionPropertiesImpl implements DivisionProperties {
   @Override
   public TimeDuration rpcSlownessTimeout() {
     return rpcSlownessTimeout;
-  }
-
-  @Override
-  public String errorWaitDelayValue() {
-    return errorWaitDelayValue;
   }
 }
