@@ -68,6 +68,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
         prop, SNAPSHOT_TRIGGER_THRESHOLD);
     RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(prop, true);
     RaftServerConfigKeys.Log.Appender.setSnapshotChunkSizeMax(prop, SizeInBytes.ONE_KB);
+    RaftServerConfigKeys.Log.Appender.setRetryPolicy(getProperties(), "1ms,1000");
   }
 
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 64;

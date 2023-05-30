@@ -25,6 +25,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -42,6 +43,7 @@ public abstract class MessageStreamApiTests<CLUSTER extends MiniRaftCluster> ext
   {
     Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
     Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    RaftServerConfigKeys.Log.Appender.setRetryPolicy(getProperties(), "1ms,1000");
   }
 
   public static final int NUM_SERVERS = 3;

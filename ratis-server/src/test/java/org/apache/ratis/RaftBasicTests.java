@@ -78,6 +78,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     RaftServerTestUtil.setStateMachineUpdaterLogLevel(Level.DEBUG);
 
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), TimeDuration.valueOf(5, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Log.Appender.setRetryPolicy(getProperties(), "1ms,1000");
   }
 
   public static final int NUM_SERVERS = 5;
