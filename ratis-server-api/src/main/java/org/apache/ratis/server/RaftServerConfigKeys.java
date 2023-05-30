@@ -745,7 +745,12 @@ public interface RaftServerConfigKeys {
     }
     
     String ERROR_WAIT_DELAY_VALUE = PREFIX + ".error.wait.delay";
-    String ERROR_WAIT_DELAY_VALUE_DEFAULT = "1s,5, 5s,10";
+    /*
+    * min wait time as 1ms (0 is not allowed) for first 5 retry
+    * next wait 1sec for next 5 retry
+    * further wait for 5sec for max times (5sec*490 times ~= 40min)
+     */
+    String ERROR_WAIT_DELAY_VALUE_DEFAULT = "1ms,5, 1s,10, 5s,500";
     static String errorWaitDelayValue(RaftProperties properties) {
       return properties.get(ERROR_WAIT_DELAY_VALUE, ERROR_WAIT_DELAY_VALUE_DEFAULT);
     }
