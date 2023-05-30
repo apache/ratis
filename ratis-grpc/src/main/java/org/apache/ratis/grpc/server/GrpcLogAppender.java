@@ -102,7 +102,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     lock = new AutoCloseableReadWriteLock(this);
     caller = LOG.isTraceEnabled()? JavaUtils.getCallerStackTraceElement(): null;
-    errorWaitStrategy = new ErrorWaitStrategy("5,1000,10,5000");
+    errorWaitStrategy = new ErrorWaitStrategy(getServer().properties().errorWaitDelayValue());
   }
 
   @Override

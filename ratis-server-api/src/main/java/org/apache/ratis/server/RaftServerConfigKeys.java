@@ -743,6 +743,15 @@ public interface RaftServerConfigKeys {
     static void setSlownessTimeout(RaftProperties properties, TimeDuration expiryTime) {
       setTimeDuration(properties::setTimeDuration, SLOWNESS_TIMEOUT_KEY, expiryTime);
     }
+    
+    String ERROR_WAIT_DELAY_VALUE = PREFIX + ".error.wait.delay";
+    String ERROR_WAIT_DELAY_VALUE_DEFAULT = "1s,5, 5s,10";
+    static String errorWaitDelayValue(RaftProperties properties) {
+      return properties.get(ERROR_WAIT_DELAY_VALUE, ERROR_WAIT_DELAY_VALUE_DEFAULT);
+    }
+    static void setErrorWaitDelayValue(RaftProperties properties, String expiryTime) {
+      properties.set(ERROR_WAIT_DELAY_VALUE, expiryTime);
+    }
   }
 
   /** server retry cache related */

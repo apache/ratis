@@ -17,45 +17,27 @@
  */
 package org.apache.ratis.util;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ratis.retry.MultipleLinearRandomRetry;
+import org.apache.ratis.retry.RetryPolicy;
 
 /*
  * Wait strategy for incremental wait based on error count.
- *
  */
-public class ErrorWaitStrategy {
+public class ErrorWaitStrategy implements RetryPolicy.Event {
+  private final MultipleLinearRandomRetry randomRetry;
   private final AtomicLong errCount = new AtomicLong(0);
   
-  private List<ErrTimeWait> waitStrategyList = new ArrayList<>();
-  
   /*
-  * create a strategy of wait with list of pair of error count and wait
-  * in milli sec, in order of ascending error count,
-  * eg: 5,1000,10,5000 where 5 is error count and 1000 is wait time, and so on
+  * create a strategy of wait with MultipleLinearRandomRetry.
+  * The format of the string is "t_1, n_1, t_2, n_2, ..." as input
+  * for MultipleLinearRandomRetry.
   * 
-  * @param conf wait strategy configuration
+  * @param retryVal wait strategy value
    */
-  public ErrorWaitStrategy(String conf) {
-    String[] split = conf.split(",");
-    if (split.length % 2 != 0) {
-      return;
-    }
-    
-    for (int i = 0; i < split.length; i += 2) {
-      try {
-        ErrTimeWait errTimeWait = new ErrTimeWait();
-        errTimeWait.errCount = Long.parseLong(split[i]);
-        errTimeWait.waitTime = Long.parseLong(split[i + 1]);
-        waitStrategyList.add(errTimeWait);
-      } catch (NumberFormatException ex) {
-        // ignore
-      }
-    }
-    // need check in reverse order if err count crosses limit
-    Collections.reverse(waitStrategyList);
+  public ErrorWaitStrategy(String retryVal) {
+    randomRetry = MultipleLinearRandomRetry.parseCommaSeparated(retryVal);
   }
   
   public void incrErrCount() {
@@ -67,20 +49,16 @@ public class ErrorWaitStrategy {
   }
   
   public long waitTimeMs() {
-    if (errCount.get() == 0) {
+    RetryPolicy.Action action = randomRetry.handleAttemptFailure(this);
+    if (!action.shouldRetry()) {
       return 0;
     }
     
-    for (ErrTimeWait errTimeWait : waitStrategyList) {
-      if (errCount.get() > errTimeWait.errCount) {
-        return errTimeWait.waitTime;
-      }
-    }
-    return 0;
+    return action.getSleepTime().toLong(TimeUnit.MILLISECONDS);
   }
-  
-  private class ErrTimeWait {
-    Long errCount;
-    Long waitTime;
+
+  @Override
+  public int getAttemptCount() {
+    return errCount.intValue();
   }
 }
