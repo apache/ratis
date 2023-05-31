@@ -70,7 +70,6 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     final SizeInBytes n = SizeInBytes.valueOf("8KB");
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, n);
     RaftServerConfigKeys.Log.Appender.setBufferByteLimit(prop, n);
-    RaftServerConfigKeys.Log.Appender.setRetryPolicy(getProperties(), "1ms,1000");
   }
 
   static SimpleMessage[] generateMsgs(int num) {

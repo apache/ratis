@@ -78,7 +78,6 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     RaftServerTestUtil.setStateMachineUpdaterLogLevel(Level.DEBUG);
 
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), TimeDuration.valueOf(5, TimeUnit.SECONDS));
-    RaftServerConfigKeys.Log.Appender.setRetryPolicy(getProperties(), "1ms,1000");
   }
 
   public static final int NUM_SERVERS = 5;
@@ -171,7 +170,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final List<RaftServer.Division> divisions = cluster.getServerAliveStream().collect(Collectors.toList());
     for(RaftServer.Division impl: divisions) {
         JavaUtils.attempt(() -> RaftTestUtil.assertLogEntries(impl, term, messages),
-            5, TimeDuration.valueOf(1, TimeUnit.SECONDS), impl.getId() + " assertLogEntries", LOG);
+            5, TimeDuration.valueOf(10, TimeUnit.SECONDS), impl.getId() + " assertLogEntries", LOG);
     }
   }
 

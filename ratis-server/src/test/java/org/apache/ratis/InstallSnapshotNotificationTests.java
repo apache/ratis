@@ -77,7 +77,6 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
     RaftServerConfigKeys.Log.setPurgeGap(prop, PURGE_GAP);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf(1024)); // 1k segment
-    RaftServerConfigKeys.Log.Appender.setRetryPolicy(getProperties(), "1ms,1000");
   }
 
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 64;

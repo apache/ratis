@@ -56,7 +56,6 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   {
     RaftServerConfigKeys.Log.Appender.setBufferByteLimit(getProperties(), SizeInBytes.valueOf("4KB"));
-    RaftServerConfigKeys.Log.Appender.setRetryPolicy(getProperties(), "1ms,1000");
   }
 
   @Test

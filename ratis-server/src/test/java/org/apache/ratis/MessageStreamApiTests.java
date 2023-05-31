@@ -43,7 +43,6 @@ public abstract class MessageStreamApiTests<CLUSTER extends MiniRaftCluster> ext
   {
     Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
     Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-    RaftServerConfigKeys.Log.Appender.setRetryPolicy(getProperties(), "1ms,1000");
   }
 
   public static final int NUM_SERVERS = 3;
