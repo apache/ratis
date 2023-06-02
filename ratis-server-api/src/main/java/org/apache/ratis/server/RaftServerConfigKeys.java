@@ -553,6 +553,21 @@ public interface RaftServerConfigKeys {
       static void setWaitTimeMin(RaftProperties properties, TimeDuration minDuration) {
         setTimeDuration(properties::setTimeDuration, WAIT_TIME_MIN_KEY, minDuration);
       }
+
+      String RETRY_POLICY_KEY = PREFIX + ".retry.policy";
+      /**
+       * The min wait time as 1ms (0 is not allowed) for first 10,
+       * (5 iteration with 2 times grpc client retry)
+       * next wait 1sec for next 20 retry (10 iteration with 2 times grpc client)
+       * further wait for 5sec for max times ((5sec*980)/2 times ~= 40min)
+       */
+      String RETRY_POLICY_DEFAULT = "1ms,10, 1s,20, 5s,1000";
+      static String retryPolicy(RaftProperties properties) {
+        return properties.get(RETRY_POLICY_KEY, RETRY_POLICY_DEFAULT);
+      }
+      static void setRetryPolicy(RaftProperties properties, String retryPolicy) {
+        properties.set(RETRY_POLICY_KEY, retryPolicy);
+      }
     }
   }
 
