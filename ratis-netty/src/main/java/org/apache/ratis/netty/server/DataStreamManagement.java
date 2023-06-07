@@ -96,6 +96,10 @@ public class DataStreamManagement {
           n -> streamFuture.thenCompose(stream -> writeToAsync(buf, options, stream, executor)
               .whenComplete((l, e) -> metrics.stop(context, e == null))));
     }
+
+    void cleanUp() {
+      streamFuture.thenAccept(DataStream::cleanUp);
+    }
   }
 
   static class RemoteStream {
@@ -374,31 +378,33 @@ public class DataStreamManagement {
       ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
     } catch (Throwable t) {
       LOG.warn("Failed to sendDataStreamException {} for {}", throwable, request, t);
+    } finally {
+      request.release();
     }
   }
 
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
-    final ByteBuf buf = request.slice();
     try {
-      readImpl(request, ctx, buf, getStreams);
+      readImpl(request, ctx, getStreams);
     } catch (Throwable t) {
       replyDataStreamException(t, request, ctx);
-      buf.release();
     }
   }
 
-  private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx, ByteBuf buf,
+  private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
     final boolean close = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
     ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
-      final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getStreams));
+      final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(
+          () -> newStreamInfo(request.slice(), getStreams));
       info = streams.computeIfAbsent(key, id -> supplier.get());
       if (!supplier.isInitialized()) {
-        streams.remove(key);
+        final StreamInfo removed = streams.remove(key);
+        removed.getLocal().cleanUp();
         throw new IllegalStateException("Failed to create a new stream for " + request
             + " since a stream already exists Key: " + key + " StreamInfo:" + info);
       }
@@ -408,10 +414,7 @@ public class DataStreamManagement {
           () -> new IllegalStateException("Failed to remove StreamInfo for " + request));
     } else {
       info = Optional.ofNullable(streams.get(key)).orElseThrow(
-          () -> {
-            streams.remove(key);
-            return new IllegalStateException("Failed to get StreamInfo for " + request);
-          });
+          () -> new IllegalStateException("Failed to get StreamInfo for " + request));
     }
 
     final CompletableFuture<Long> localWrite;
@@ -420,7 +423,7 @@ public class DataStreamManagement {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
-      localWrite = info.getLocal().write(buf, request.getWriteOptionList(), writeExecutor);
+      localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
@@ -439,11 +442,12 @@ public class DataStreamManagement {
         }, requestExecutor)).whenComplete((v, exception) -> {
       try {
         if (exception != null) {
-          streams.remove(key);
+          final StreamInfo removed = streams.remove(key);
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
+          removed.getLocal().cleanUp();
         }
       } finally {
-        buf.release();
+        request.release();
       }
     });
   }
