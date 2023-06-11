@@ -94,11 +94,6 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
     this.createProxy = createProxy;
   }
 
-  public PeerProxyMap(String name) {
-    this.name = name;
-    this.createProxy = this::createProxyImpl;
-  }
-
   public String getName() {
     return name;
   }
@@ -150,17 +145,13 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
     optional.ifPresent(proxy -> closeProxy(proxy, pp));
   }
 
-  /** @return true if the given throwable is handled; otherwise, the call is an no-op, return false. */
+  /** @return true if the given throwable is handled; otherwise, the call is a no-op, return false. */
   public boolean handleException(RaftPeerId serverId, Throwable e, boolean reconnect) {
     if (reconnect || IOUtils.shouldReconnect(e)) {
       resetProxy(serverId);
       return true;
     }
     return false;
-  }
-
-  public PROXY createProxyImpl(RaftPeer peer) throws IOException {
-    throw new UnsupportedOperationException();
   }
 
   @Override
