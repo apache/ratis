@@ -139,10 +139,6 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
         .orElseThrow(IllegalStateException::new);
   }
 
-  ClientId getPrimaryClientId(CLUSTER cluster, RaftPeer primary) {
-    return cluster.getDivision(primary.getId()).getRaftClient().getId();
-  }
-
   long runTestDataStream(CLUSTER cluster, int numStreams, int bufferSize, int bufferNum, boolean stepDownLeader) {
     final Iterable<RaftServer> servers = CollectionUtils.as(cluster.getServers(), s -> s);
     final RaftPeerId leader;

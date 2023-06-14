@@ -17,12 +17,26 @@
  */
 package org.apache.ratis.server;
 
-import org.apache.ratis.client.RaftClient;
+import java.io.Closeable;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.Optional;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.AdminAsynchronousProtocol;
+import org.apache.ratis.protocol.AdminProtocol;
+import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
+import org.apache.ratis.protocol.RaftClientProtocol;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -36,14 +50,6 @@ import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ReflectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Collection;
-import java.util.Objects;
-import java.util.Optional;
 
 /** Raft server interface */
 public interface RaftServer extends Closeable, RpcType.Get,
@@ -110,9 +116,6 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the data stream map of this division. */
     DataStreamMap getDataStreamMap();
-
-    /** @return the internal {@link RaftClient} of this division. */
-    RaftClient getRaftClient();
 
     /** @return the {@link ThreadGroup} the threads of this Division belong to. */
     ThreadGroup getThreadGroup();
