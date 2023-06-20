@@ -26,6 +26,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.conf.ConfUtils.*;
@@ -180,6 +181,16 @@ public interface NettyConfigKeys {
       }
       static void setWorkerGroupSize(RaftProperties properties, int num) {
         setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, num);
+      }
+
+      String CHANNEL_INACTIVE_GRACE_PERIOD_KEY = PREFIX + ".channel.inactive.grace-period";
+      TimeDuration CHANNEL_INACTIVE_GRACE_PERIOD_DEFAULT = TimeDuration.valueOf(10, TimeUnit.MINUTES);
+      static TimeDuration channelInactiveGracePeriod(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(CHANNEL_INACTIVE_GRACE_PERIOD_DEFAULT.getUnit()),
+            CHANNEL_INACTIVE_GRACE_PERIOD_KEY, CHANNEL_INACTIVE_GRACE_PERIOD_DEFAULT, getDefaultLog());
+      }
+      static void setChannelInactiveGracePeriod(RaftProperties properties, TimeDuration timeoutDuration) {
+        setTimeDuration(properties::setTimeDuration, CHANNEL_INACTIVE_GRACE_PERIOD_KEY, timeoutDuration);
       }
     }
   }
