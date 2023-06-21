@@ -383,6 +383,10 @@ public class DataStreamManagement {
     }
   }
 
+  void cleanUpOnChannelInactive(ClientInvocationId key) {
+    Optional.ofNullable(streams.remove(key)).ifPresent(removed -> removed.getLocal().cleanUp());
+  }
+
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
