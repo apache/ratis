@@ -101,13 +101,13 @@ class SegmentedRaftLogReader implements Closeable {
     }
 
     @Override
-    public void mark(int limit) {
+    public synchronized void mark(int limit) {
       super.mark(limit);
       markPos = curPos;
     }
 
     @Override
-    public void reset() throws IOException {
+    public synchronized void reset() throws IOException {
       if (markPos == -1) {
         throw new IOException("Not marked!");
       }
