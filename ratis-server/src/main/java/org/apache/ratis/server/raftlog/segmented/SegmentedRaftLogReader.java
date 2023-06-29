@@ -47,7 +47,7 @@ class SegmentedRaftLogReader implements Closeable {
    */
   static class LimitedInputStream extends FilterInputStream {
     private long curPos = 0;
-    private long markPos = -1;
+    private volatile long markPos = -1;
     private long limitPos = Long.MAX_VALUE;
 
     LimitedInputStream(InputStream is) {
