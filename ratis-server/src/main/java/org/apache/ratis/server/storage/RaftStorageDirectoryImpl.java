@@ -220,8 +220,9 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
       lockF.deleteOnExit();
       deletionHookAdded = true;
     }
+    RandomAccessFile file = new RandomAccessFile(lockF, "rws");
     FileLock res;
-    try (RandomAccessFile file = new RandomAccessFile(lockF, "rws")){
+    try {
       res = file.getChannel().tryLock();
       if (null == res) {
         LOG.error("Unable to acquire file lock on path " + lockF.toString());
@@ -233,11 +234,13 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
       // Cannot read from the locked file on Windows.
       LOG.error("It appears that another process "
           + "has already locked the storage directory: " + root, oe);
+      file.close();
       throw new IOException("Failed to lock storage " + this.root + ". The directory is already locked", oe);
     } catch(IOException e) {
       LOG.error("Failed to acquire lock on " + lockF
           + ". If this storage directory is mounted via NFS, "
           + "ensure that the appropriate nfs lock services are running.", e);
+      file.close();
       throw e;
     }
     if (!deletionHookAdded) {
