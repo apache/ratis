@@ -168,6 +168,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
     this.channelInactiveGracePeriod = NettyConfigKeys.DataStream.Server
         .channelInactiveGracePeriod(properties);
+
     this.proxies = new ProxiesPool(name, properties, parameters);
 
     final boolean useEpoll = NettyConfigKeys.DataStream.Server.useEpoll(properties);
@@ -221,8 +222,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return ref.getAndSet(null);
     }
   }
-
-
 
   private ChannelInboundHandler newChannelInboundHandlerAdapter(){
     return new ChannelInboundHandlerAdapter(){
