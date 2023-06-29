@@ -158,7 +158,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private final TimeDuration channelInactiveGracePeriod;
 
-
   public NettyServerStreamRpc(RaftServer server, Parameters parameters) {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.metrics = new NettyServerStreamRpcMetrics(this.name);
