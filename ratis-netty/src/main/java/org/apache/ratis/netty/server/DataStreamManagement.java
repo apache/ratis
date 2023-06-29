@@ -417,7 +417,8 @@ public class DataStreamManagement {
       TimeoutExecutor.getInstance().onTimeout(channelInactiveGracePeriod,
           () -> {
             for (ClientInvocationId clientInvocationId : ids) {
-              Optional.ofNullable(streams.remove(clientInvocationId)).ifPresent(removed -> removed.getLocal().cleanUp());
+              Optional.ofNullable(streams.remove(clientInvocationId)).ifPresent(removed ->
+                  removed.getLocal().cleanUp());
             }
           },
           LOG, () -> "Timeout check failed, clientInvocationIds=" + streamIds);
