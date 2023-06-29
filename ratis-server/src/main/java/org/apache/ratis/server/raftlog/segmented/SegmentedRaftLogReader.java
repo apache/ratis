@@ -47,7 +47,7 @@ class SegmentedRaftLogReader implements Closeable {
    */
   static class LimitedInputStream extends FilterInputStream {
     private long curPos = 0;
-    private long markPos = -1;
+    private volatile long markPos = -1;
     private long limitPos = Long.MAX_VALUE;
 
     LimitedInputStream(InputStream is) {
@@ -101,13 +101,13 @@ class SegmentedRaftLogReader implements Closeable {
     }
 
     @Override
-    public void mark(int limit) {
+    public synchronized void mark(int limit) {
       super.mark(limit);
       markPos = curPos;
     }
 
     @Override
-    public void reset() throws IOException {
+    public synchronized void reset() throws IOException {
       if (markPos == -1) {
         throw new IOException("Not marked!");
       }
