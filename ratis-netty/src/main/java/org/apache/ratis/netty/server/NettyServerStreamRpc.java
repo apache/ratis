@@ -28,7 +28,6 @@ import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.netty.NettyUtils;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
@@ -60,7 +59,6 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutExecutor;
 import org.apache.ratis.util.UncheckedAutoCloseable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -160,6 +158,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private final TimeDuration channelInactiveGracePeriod;
 
+
   public NettyServerStreamRpc(RaftServer server, Parameters parameters) {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.metrics = new NettyServerStreamRpcMetrics(this.name);
@@ -169,7 +168,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
     this.channelInactiveGracePeriod = NettyConfigKeys.DataStream.Server
         .channelInactiveGracePeriod(properties);
-
     this.proxies = new ProxiesPool(name, properties, parameters);
 
     final boolean useEpoll = NettyConfigKeys.DataStream.Server.useEpoll(properties);
@@ -224,6 +222,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     }
   }
 
+
+
   private ChannelInboundHandler newChannelInboundHandlerAdapter(){
     return new ChannelInboundHandlerAdapter(){
       private final RequestRef requestRef = new RequestRef();
@@ -244,15 +244,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
       @Override
       public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        // Delayed memory garbage cleanup
-        Optional.ofNullable(requestRef.getAndSetNull()).ifPresent(request -> {
-          ClientInvocationId clientInvocationId = ClientInvocationId
-              .valueOf(request.getClientId(), request.getStreamId());
-          TimeoutExecutor.getInstance().onTimeout(channelInactiveGracePeriod,
-              () -> requests.cleanUpOnChannelInactive(clientInvocationId),
-              LOG, () -> "Timeout check failed, clientInvocationId=" +
-                  clientInvocationId);
-        });
+        requests.cleanUpOnChannelInactive(ctx, channelInactiveGracePeriod);
       }
 
       @Override

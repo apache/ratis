@@ -50,26 +50,32 @@ import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
+import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
 import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
+import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.TimeoutExecutor;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -224,10 +230,29 @@ public class DataStreamManagement {
     }
   }
 
+  public static class RequestTracker {
+    private final Map<ChannelId, Set<ClientInvocationId>> ref = new ConcurrentHashMap<>();
+
+    public void add(ChannelId channelId,
+                    ClientInvocationId clientInvocationId) {
+      ref.computeIfAbsent(channelId, (e) -> new CopyOnWriteArraySet<>()).add(clientInvocationId);
+    }
+
+    public void remove(ChannelId channelId,
+                       ClientInvocationId clientInvocationId) {
+      Optional.ofNullable(ref.get(channelId)).ifPresent((ids) -> ids.remove(clientInvocationId));
+    }
+
+    public Set<ClientInvocationId> removeAll(ChannelId channelId) {
+      return ref.remove(channelId);
+    }
+  }
+
   private final RaftServer server;
   private final String name;
 
   private final StreamMap streams = new StreamMap();
+  private final RequestTracker requestTracker;
   private final Executor requestExecutor;
   private final Executor writeExecutor;
 
@@ -237,6 +262,7 @@ public class DataStreamManagement {
     this.server = server;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
+    this.requestTracker = new RequestTracker();
     final RaftProperties properties = server.getProperties();
     final boolean useCachedThreadPool = RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties);
     this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
@@ -383,8 +409,19 @@ public class DataStreamManagement {
     }
   }
 
-  void cleanUpOnChannelInactive(ClientInvocationId key) {
-    Optional.ofNullable(streams.remove(key)).ifPresent(removed -> removed.getLocal().cleanUp());
+  void cleanUpOnChannelInactive(ChannelHandlerContext ctx, TimeDuration channelInactiveGracePeriod) {
+    // Delayed memory garbage cleanup
+    Optional.ofNullable(requestTracker.removeAll(ctx.channel().id())).ifPresent(ids -> {
+      final String streamIds = Arrays.toString(ids.toArray());
+      LOG.info("server {} is disconnect, cleanup clientInvocationIds={}", ctx.channel(), streamIds);
+      TimeoutExecutor.getInstance().onTimeout(channelInactiveGracePeriod,
+          () -> {
+            for (ClientInvocationId clientInvocationId : ids) {
+              Optional.ofNullable(streams.remove(clientInvocationId)).ifPresent(removed -> removed.getLocal().cleanUp());
+            }
+          },
+          LOG, () -> "Timeout check failed, clientInvocationIds=" + streamIds);
+    });
   }
 
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
@@ -401,6 +438,11 @@ public class DataStreamManagement {
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
     final boolean close = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
     ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
+
+    // add to tracker
+    final ChannelId channelId = ctx.channel().id();
+    requestTracker.add(channelId, key);
+
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
       final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(
@@ -452,6 +494,7 @@ public class DataStreamManagement {
         }
       } finally {
         request.release();
+        requestTracker.remove(channelId, key);
       }
     });
   }
