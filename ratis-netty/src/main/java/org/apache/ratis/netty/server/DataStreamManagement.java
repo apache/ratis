@@ -230,21 +230,23 @@ public class DataStreamManagement {
     }
   }
 
-  public static class RequestTracker {
-    private final Map<ChannelId, Set<ClientInvocationId>> ref = new ConcurrentHashMap<>();
+  public static class ChannelMap {
+    private final Map<ChannelId, Map<ClientInvocationId, ClientInvocationId>> map = new ConcurrentHashMap<>();
 
     public void add(ChannelId channelId,
                     ClientInvocationId clientInvocationId) {
-      ref.computeIfAbsent(channelId, (e) -> new CopyOnWriteArraySet<>()).add(clientInvocationId);
+      map.computeIfAbsent(channelId, (e) -> new ConcurrentHashMap<>()).put(clientInvocationId, clientInvocationId);
     }
 
     public void remove(ChannelId channelId,
                        ClientInvocationId clientInvocationId) {
-      Optional.ofNullable(ref.get(channelId)).ifPresent((ids) -> ids.remove(clientInvocationId));
+      Optional.ofNullable(map.get(channelId)).ifPresent((ids) -> ids.remove(clientInvocationId));
     }
 
-    public Set<ClientInvocationId> removeAll(ChannelId channelId) {
-      return ref.remove(channelId);
+    public Set<ClientInvocationId> remove(ChannelId channelId) {
+      return Optional.ofNullable(map.remove(channelId))
+          .map(Map::keySet)
+          .orElse(Collections.emptySet());
     }
   }
 
@@ -252,7 +254,7 @@ public class DataStreamManagement {
   private final String name;
 
   private final StreamMap streams = new StreamMap();
-  private final RequestTracker requestTracker;
+  private final ChannelMap channels;
   private final Executor requestExecutor;
   private final Executor writeExecutor;
 
@@ -262,7 +264,7 @@ public class DataStreamManagement {
     this.server = server;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
-    this.requestTracker = new RequestTracker();
+    this.channels = new ChannelMap();
     final RaftProperties properties = server.getProperties();
     final boolean useCachedThreadPool = RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties);
     this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
@@ -409,19 +411,20 @@ public class DataStreamManagement {
     }
   }
 
-  void cleanUpOnChannelInactive(ChannelHandlerContext ctx, TimeDuration channelInactiveGracePeriod) {
+  void cleanUp(Set<ClientInvocationId> ids) {
+    for (ClientInvocationId clientInvocationId : ids) {
+      Optional.ofNullable(streams.remove(clientInvocationId))
+          .map(StreamInfo::getLocal)
+          .ifPresent(LocalStream::cleanUp);
+    }
+  }
+
+  void cleanUpOnChannelInactive(ChannelId channelId, TimeDuration channelInactiveGracePeriod) {
     // Delayed memory garbage cleanup
-    Optional.ofNullable(requestTracker.removeAll(ctx.channel().id())).ifPresent(ids -> {
-      final String streamIds = Arrays.toString(ids.toArray());
-      LOG.info("server {} is disconnect, cleanup clientInvocationIds={}", ctx.channel(), streamIds);
-      TimeoutExecutor.getInstance().onTimeout(channelInactiveGracePeriod,
-          () -> {
-            for (ClientInvocationId clientInvocationId : ids) {
-              Optional.ofNullable(streams.remove(clientInvocationId)).ifPresent(removed ->
-                  removed.getLocal().cleanUp());
-            }
-          },
-          LOG, () -> "Timeout check failed, clientInvocationIds=" + streamIds);
+    Optional.ofNullable(channels.remove(channelId)).ifPresent(ids -> {
+      LOG.info("Channel {} is inactive, cleanup clientInvocationIds={}", channelId, ids);
+      TimeoutExecutor.getInstance().onTimeout(channelInactiveGracePeriod, () -> cleanUp(ids),
+          LOG, () -> "Timeout check failed, clientInvocationIds=" + ids);
     });
   }
 
@@ -440,9 +443,9 @@ public class DataStreamManagement {
     final boolean close = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
     ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
 
-    // add to tracker
+    // add to ChannelMap
     final ChannelId channelId = ctx.channel().id();
-    requestTracker.add(channelId, key);
+    channels.add(channelId, key);
 
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
@@ -495,7 +498,7 @@ public class DataStreamManagement {
         }
       } finally {
         request.release();
-        requestTracker.remove(channelId, key);
+        channels.remove(channelId, key);
       }
     });
   }

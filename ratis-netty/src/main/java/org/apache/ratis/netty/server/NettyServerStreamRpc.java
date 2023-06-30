@@ -242,7 +242,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
       @Override
       public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        requests.cleanUpOnChannelInactive(ctx, channelInactiveGracePeriod);
+        requests.cleanUpOnChannelInactive(ctx.channel().id(), channelInactiveGracePeriod);
       }
 
       @Override
