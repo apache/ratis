@@ -222,6 +222,8 @@ public interface GrpcUtil {
         if (!managedChannel.awaitTermination(3, TimeUnit.SECONDS)) {
           LOG.warn("Timed out gracefully shutting down connection: {}. ", managedChannel);
         }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } catch (Exception e) {
         LOG.error("Unexpected exception while waiting for channel termination", e);
       }
@@ -234,6 +236,8 @@ public interface GrpcUtil {
         if (!managedChannel.awaitTermination(2, TimeUnit.SECONDS)) {
           LOG.warn("Timed out forcefully shutting down connection: {}. ", managedChannel);
         }
+      }catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } catch (Exception e) {
         LOG.error("Unexpected exception while waiting for channel termination", e);
       }
