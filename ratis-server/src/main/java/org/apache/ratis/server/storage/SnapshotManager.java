@@ -61,7 +61,7 @@ public class SnapshotManager {
   private final RaftPeerId selfId;
 
   private final Supplier<File> snapshotDir;
-  private final Supplier<File> tmp;
+  private final Supplier<File> snapshotTmpDir;
   private final Function<FileChunkProto, String> getRelativePath;
   private final Supplier<MessageDigest> digester = JavaUtils.memoize(MD5Hash::getDigester);
 
@@ -69,7 +69,7 @@ public class SnapshotManager {
     this.selfId = selfId;
     this.snapshotDir = MemoizedSupplier.valueOf(
         () -> Optional.ofNullable(smStorage.getSnapshotDir()).orElseGet(() -> dir.get().getStateMachineDir()));
-    this.tmp = MemoizedSupplier.valueOf(
+    this.snapshotTmpDir = MemoizedSupplier.valueOf(
         () -> Optional.ofNullable(smStorage.getTmpDir()).orElseGet(() -> dir.get().getTmpDir()));
 
     final Supplier<Path> smDir = MemoizedSupplier.valueOf(() -> dir.get().getStateMachineDir().toPath());
@@ -82,7 +82,7 @@ public class SnapshotManager {
     final long lastIncludedIndex = snapshotChunkRequest.getTermIndex().getIndex();
 
     // create a unique temporary directory
-    final File tmpDir =  new File(tmp.get(), "snapshot-" + snapshotChunkRequest.getRequestId());
+    final File tmpDir =  new File(this.snapshotTmpDir.get(), "snapshot-" + snapshotChunkRequest.getRequestId());
     FileUtils.createDirectories(tmpDir);
     tmpDir.deleteOnExit();
 

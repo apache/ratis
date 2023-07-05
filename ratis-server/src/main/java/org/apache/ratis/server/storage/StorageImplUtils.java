@@ -50,6 +50,7 @@ public final class StorageImplUtils {
   }
 
   /** Create a {@link RaftStorageImpl}. */
+  @SuppressWarnings("java:S2095")
   public static RaftStorageImpl newRaftStorage(File dir, SizeInBytes freeSpaceMin,
       RaftStorage.StartupOption option, Log.CorruptionPolicy logCorruptionPolicy) {
     return new RaftStorageImpl(dir, freeSpaceMin, option, logCorruptionPolicy);
@@ -136,14 +137,14 @@ public final class StorageImplUtils {
             + " for " + storageDirName);
       }
 
-      for (; !dirsPerVol.isEmpty(); ) {
+      while (!dirsPerVol.isEmpty()) {
         final File vol = chooseMin(dirsPerVol);
         final File dir = new File(vol, storageDirName);
         try {
           final RaftStorageImpl storage = newRaftStorage(dir, freeSpaceMin, StartupOption.FORMAT, logCorruptionPolicy);
           storage.initialize();
           return storage;
-        } catch (Throwable e) {
+        } catch (Exception e) {
           LOG.warn("Failed to initialize a new directory " + dir.getAbsolutePath(), e);
           dirsPerVol.remove(vol);
         }
@@ -166,10 +167,9 @@ public final class StorageImplUtils {
         final RaftStorageImpl storage = newRaftStorage(dir, freeSpaceMin, StartupOption.RECOVER, logCorruptionPolicy);
         storage.initialize();
         return storage;
-      } catch (Throwable e) {
-        if (e instanceof IOException) {
-          throw e;
-        }
+      } catch (IOException e) {
+        throw e;
+      } catch (Exception e) {
         throw new IOException("Failed to initialize the existing directory " + dir.getAbsolutePath(), e);
       }
     }
