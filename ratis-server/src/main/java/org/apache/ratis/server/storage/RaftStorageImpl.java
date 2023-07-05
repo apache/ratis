@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.storage;
 
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
@@ -39,7 +40,7 @@ public class RaftStorageImpl implements RaftStorage {
   private final StartupOption startupOption;
   private final CorruptionPolicy logCorruptionPolicy;
   private volatile StorageState state = StorageState.UNINITIALIZED;
-  private volatile RaftStorageMetadataFileImpl metaFile;
+  private final AtomicReference<RaftStorageMetadataFileImpl> metaFile = new AtomicReference<>();
 
   RaftStorageImpl(File dir, SizeInBytes freeSpaceMin, StartupOption option, CorruptionPolicy logCorruptionPolicy) {
     LOG.debug("newRaftStorage: {}, freeSpaceMin={}, option={}, logCorruptionPolicy={}",
@@ -91,9 +92,9 @@ public class RaftStorageImpl implements RaftStorage {
 
   private void format() throws IOException {
     storageDir.clearDirectory();
-    metaFile = new RaftStorageMetadataFileImpl(storageDir.getMetaFile());
-    metaFile.persist(RaftStorageMetadata.getDefault());
-    LOG.info("Storage directory " + storageDir.getRoot() + " has been successfully formatted.");
+    metaFile.set(new RaftStorageMetadataFileImpl(storageDir.getMetaFile()));
+    metaFile.get().persist(RaftStorageMetadata.getDefault());
+    LOG.info("Storage directory {} has been successfully formatted.", storageDir.getRoot());
   }
 
   private void cleanMetaTmpFile() throws IOException {
@@ -112,8 +113,8 @@ public class RaftStorageImpl implements RaftStorage {
       if (!f.exists()) {
         throw new FileNotFoundException("Metadata file " + f + " does not exists.");
       }
-      metaFile = new RaftStorageMetadataFileImpl(f);
-      final RaftStorageMetadata metadata = metaFile.getMetadata();
+      metaFile.set(new RaftStorageMetadataFileImpl(f));
+      final RaftStorageMetadata metadata = metaFile.get().getMetadata();
       LOG.info("Read {} from {}", metadata, f);
       return StorageState.NORMAL;
     } else if (storageState == StorageState.NOT_FORMATTED &&
@@ -137,7 +138,7 @@ public class RaftStorageImpl implements RaftStorage {
 
   @Override
   public RaftStorageMetadataFile getMetadataFile() {
-    return metaFile;
+    return metaFile.get();
   }
 
   public void writeRaftConfiguration(LogEntryProto conf) {

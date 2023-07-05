@@ -87,7 +87,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
   private static void clearDirectory(File dir) throws IOException {
     if (dir.exists()) {
-      LOG.info(dir + " already exists.  Deleting it ...");
+      LOG.info("{} already exists.  Deleting it ...", dir);
       FileUtils.deleteFully(dir);
     }
     FileUtils.createDirectories(dir);
@@ -135,16 +135,16 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
     String rootPath = root.getCanonicalPath();
     try { // check that storage exists
       if (!root.exists()) {
-        LOG.info("The storage directory " + rootPath + " does not exist. Creating ...");
+        LOG.info("The storage directory {} does not exist. Creating ...", rootPath);
         FileUtils.createDirectories(root);
       }
       // or is inaccessible
       if (!root.isDirectory()) {
-        LOG.warn(rootPath + " is not a directory");
+        LOG.warn("{} is not a directory", rootPath);
         return StorageState.NON_EXISTENT;
       }
       if (!Files.isWritable(root.toPath())) {
-        LOG.warn("The storage directory " + rootPath + " is not writable.");
+        LOG.warn("The storage directory {} is not writable.", rootPath);
         return StorageState.NON_EXISTENT;
       }
     } catch(SecurityException ex) {
@@ -158,9 +158,9 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
     // check enough space
     if (!hasEnoughSpace()) {
-      LOG.warn("There are not enough space left for directory " + rootPath
-          + " free space min required: " + freeSpaceMin
-          + " free space actual: " + root.getFreeSpace());
+      LOG.warn("There are not enough space left for directory {}"
+          + " free space min required: {} free space actual: {}",
+          rootPath, freeSpaceMin, root.getFreeSpace());
       return StorageState.NO_SPACE;
     }
 
@@ -225,11 +225,11 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
     try {
       res = file.getChannel().tryLock();
       if (null == res) {
-        LOG.error("Unable to acquire file lock on path " + lockF.toString());
+        LOG.error("Unable to acquire file lock on path {}", lockF);
         throw new OverlappingFileLockException();
       }
       file.write(JVM_NAME.getBytes(StandardCharsets.UTF_8));
-      LOG.info("Lock on " + lockF + " acquired by nodename " + JVM_NAME);
+      LOG.info("Lock on {} acquired by nodename {}", lockF, JVM_NAME);
     } catch (OverlappingFileLockException oe) {
       // Cannot read from the locked file on Windows.
       LOG.error("It appears that another process "
