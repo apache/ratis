@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 class BufferedWriteChannel implements Closeable {
 
-  @SuppressWarnings("java:S2095")
+  @SuppressWarnings("java:S2095") // return Closable
   static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
     final RandomAccessFile raf = new RandomAccessFile(file, "rw");
     final FileChannel fc = raf.getChannel();

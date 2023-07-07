@@ -40,7 +40,7 @@ public class RaftStorageImpl implements RaftStorage {
   private final StartupOption startupOption;
   private final CorruptionPolicy logCorruptionPolicy;
   private volatile StorageState state = StorageState.UNINITIALIZED;
-  private final AtomicReference<RaftStorageMetadataFileImpl> metaFile = new AtomicReference<>();
+  private final MetaFile metaFile = new MetaFile();
 
   RaftStorageImpl(File dir, SizeInBytes freeSpaceMin, StartupOption option, CorruptionPolicy logCorruptionPolicy) {
     LOG.debug("newRaftStorage: {}, freeSpaceMin={}, option={}, logCorruptionPolicy={}",
@@ -61,7 +61,8 @@ public class RaftStorageImpl implements RaftStorage {
         format();
         state = storageDir.analyzeStorage(false);
       } else {
-        state = analyzeAndRecoverStorage(true); // metaFile is initialized here
+        // metaFile is initialized here
+        state = analyzeAndRecoverStorage(true);
       }
     } catch (Throwable t) {
       unlockOnFailure(storageDir);
@@ -92,8 +93,7 @@ public class RaftStorageImpl implements RaftStorage {
 
   private void format() throws IOException {
     storageDir.clearDirectory();
-    metaFile.set(new RaftStorageMetadataFileImpl(storageDir.getMetaFile()));
-    metaFile.get().persist(RaftStorageMetadata.getDefault());
+    metaFile.set(storageDir.getMetaFile()).persist(RaftStorageMetadata.getDefault());
     LOG.info("Storage directory {} has been successfully formatted.", storageDir.getRoot());
   }
 
@@ -113,8 +113,7 @@ public class RaftStorageImpl implements RaftStorage {
       if (!f.exists()) {
         throw new FileNotFoundException("Metadata file " + f + " does not exists.");
       }
-      metaFile.set(new RaftStorageMetadataFileImpl(f));
-      final RaftStorageMetadata metadata = metaFile.get().getMetadata();
+      final RaftStorageMetadata metadata = metaFile.set(f).getMetadata();
       LOG.info("Read {} from {}", metadata, f);
       return StorageState.NORMAL;
     } else if (storageState == StorageState.NOT_FORMATTED &&
@@ -166,5 +165,19 @@ public class RaftStorageImpl implements RaftStorage {
   @Override
   public String toString() {
     return JavaUtils.getClassSimpleName(getClass()) + ":" + getStorageDir();
+  }
+
+  static class MetaFile {
+    private final AtomicReference<RaftStorageMetadataFileImpl> ref = new AtomicReference<>();
+
+    RaftStorageMetadataFile get() {
+      return ref.get();
+    }
+
+    RaftStorageMetadataFile set(File file) {
+      final RaftStorageMetadataFileImpl impl = new RaftStorageMetadataFileImpl(file);
+      ref.set(impl);
+      return impl;
+    }
   }
 }

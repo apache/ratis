@@ -50,7 +50,7 @@ public final class StorageImplUtils {
   }
 
   /** Create a {@link RaftStorageImpl}. */
-  @SuppressWarnings("java:S2095")
+  @SuppressWarnings("java:S2095") // return Closable
   public static RaftStorageImpl newRaftStorage(File dir, SizeInBytes freeSpaceMin,
       RaftStorage.StartupOption option, Log.CorruptionPolicy logCorruptionPolicy) {
     return new RaftStorageImpl(dir, freeSpaceMin, option, logCorruptionPolicy);
@@ -131,7 +131,7 @@ public final class StorageImplUtils {
       }
     }
 
-    @SuppressWarnings("java:S1181")
+    @SuppressWarnings("java:S1181") // catch Throwable
     private RaftStorageImpl format() throws IOException {
       if (!existingSubs.isEmpty()) {
         throw new IOException("Failed to " + option + ": One or more existing directories found " + existingSubs
@@ -152,7 +152,8 @@ public final class StorageImplUtils {
       }
       throw new IOException("Failed to FORMAT a new storage dir for " + storageDirName + " from " + dirsInConf);
     }
-    @SuppressWarnings("java:S1181")
+
+    @SuppressWarnings("java:S1181") // catch Throwable
     private RaftStorageImpl recover() throws IOException {
       final int size = existingSubs.size();
       if (size > 1) {
