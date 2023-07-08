@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.raftlog;
 
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftGroupMemberId;
@@ -78,7 +79,7 @@ public abstract class RaftLogBase implements RaftLog {
   private final TimeDuration stateMachineDataReadTimeout;
   private final long purgePreservation;
 
-  private volatile LogEntryProto lastMetadataEntry = null;
+  private final AtomicReference<LogEntryProto> lastMetadataEntry = new AtomicReference<>();
 
   protected RaftLogBase(RaftGroupMemberId memberId,
                     LongSupplier getSnapshotIndexFromStateMachine,
@@ -207,7 +208,7 @@ public abstract class RaftLogBase implements RaftLog {
       entry = LogProtoUtils.toLogEntryProto(newCommitIndex, term, nextIndex);
       appendEntry(entry);
     }
-    lastMetadataEntry = entry;
+    lastMetadataEntry.set(entry);
     return nextIndex;
   }
 
@@ -215,7 +216,7 @@ public abstract class RaftLogBase implements RaftLog {
     if (newCommitIndex <= 0) {
       // do not log the first conf entry
       return false;
-    } else if (Optional.ofNullable(lastMetadataEntry)
+    } else if (Optional.ofNullable(lastMetadataEntry.get())
         .filter(e -> e.getIndex() == newCommitIndex || e.getMetadataEntry().getCommitIndex() >= newCommitIndex)
         .isPresent()) {
       //log neither lastMetadataEntry, nor entries with a smaller commit index.
@@ -250,12 +251,12 @@ public abstract class RaftLogBase implements RaftLog {
   public final void open(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer) throws IOException {
     openImpl(lastIndexInSnapshot, e -> {
       if (e.hasMetadataEntry()) {
-        lastMetadataEntry = e;
+        lastMetadataEntry.set(e);
       } else if (consumer != null) {
         consumer.accept(e);
       }
     });
-    Optional.ofNullable(lastMetadataEntry).ifPresent(
+    Optional.ofNullable(lastMetadataEntry.get()).ifPresent(
         e -> commitIndex.updateToMax(e.getMetadataEntry().getCommitIndex(), infoIndexChange));
     state.open();
 
@@ -413,6 +414,9 @@ public abstract class RaftLogBase implements RaftLog {
         }
         throw t;
       } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
         final String err = getName() + ": Failed readStateMachineData for " + toLogEntryString(logEntry);
         LOG.error(err, e);
         throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));

@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.thirdparty.com.google.protobuf.AbstractMessage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -52,8 +53,9 @@ public final class LogProtoUtils {
       s = "(c:" + metadata.getCommitIndex() + ")";
     } else if (entry.hasConfigurationEntry()) {
       final RaftConfigurationProto config = entry.getConfigurationEntry();
-      s = "(current:" + config.getPeersList().stream().map(p -> p.toString()).collect(Collectors.joining(",")) +
-          ", old:" + config.getOldPeersList().stream().map(p -> p.toString()).collect(Collectors.joining(",")) + ")";
+      s = "(current:" + config.getPeersList().stream().map(AbstractMessage::toString).collect(Collectors.joining(",")) +
+          ", old:" + config.getOldPeersList().stream().map(AbstractMessage::toString).collect(Collectors.joining(","))
+          + ")";
     } else {
       s = "";
     }
@@ -71,7 +73,7 @@ public final class LogProtoUtils {
 
   public static String toLogEntriesShortString(List<LogEntryProto> entries) {
     return entries == null ? null
-        : entries.size() == 0 ? "<empty>"
+        : entries.isEmpty()? "<empty>"
         : "size=" + entries.size() + ", first=" + LogProtoUtils.toLogEntryString(entries.get(0));
   }
 
