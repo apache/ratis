@@ -244,6 +244,8 @@ class StateMachineUpdater implements Runnable {
         if (f != null) {
           futures.get().add(f);
           f.thenAccept(m -> notifyAppliedIndex(incremented));
+        } else {
+          notifyAppliedIndex(incremented);
         }
       } else {
         LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
