@@ -18,6 +18,7 @@
 package org.apache.ratis;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -71,6 +72,7 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
     RaftServerConfigKeys.Rpc.setTimeoutMin(p, TimeDuration.valueOf(3, TimeUnit.SECONDS));
     RaftServerConfigKeys.Rpc.setTimeoutMax(p, TimeDuration.valueOf(6, TimeUnit.SECONDS));
     RaftServerConfigKeys.Rpc.setRequestTimeout(p, TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    RaftClientConfigKeys.Rpc.setRequestTimeout(p, TimeDuration.valueOf(10, TimeUnit.SECONDS));
   }
 
   @Test

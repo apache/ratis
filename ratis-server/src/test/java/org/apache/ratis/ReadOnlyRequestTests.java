@@ -288,7 +288,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     }
 
     private void timeoutIncrement() {
-      sleepQuietly(2500);
+      sleepQuietly(5000);
       increment();
     }
 
