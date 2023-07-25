@@ -551,6 +551,12 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
 
+  void setFirstElection(Object reason) {
+    if (firstElectionSinceStartup.compareAndSet(true, false)) {
+      LOG.info("{}: set firstElectionSinceStartup to false for {}", getMemberId(), reason);
+    }
+  }
+
   /**
    * Change the server state to Follower if this server is in a different role or force is true.
    * @param newTerm The new term.
@@ -579,7 +585,7 @@ class RaftServerImpl implements RaftServer.Division,
         role.shutdownFollowerState();
       }
       role.startFollowerState(this, reason);
-      firstElectionSinceStartup.set(false);
+      setFirstElection(reason);
     }
     return metadataUpdated;
   }
