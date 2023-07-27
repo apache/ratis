@@ -75,7 +75,7 @@ class ServerState implements Closeable {
   /** local storage for log and snapshot */
   private RaftStorageImpl storage;
   private final SnapshotManager snapshotManager;
-  private volatile Timestamp lastNoLeaderTime;
+  private final AtomicReference<Timestamp> lastNoLeaderTime;
   private final TimeDuration noLeaderTimeout;
 
   private final ReadRequests readRequests;
@@ -151,7 +151,7 @@ class ServerState implements Closeable {
     snapshotManager = new SnapshotManager(id, storage.getStorageDir(), stateMachine.getStateMachineStorage());
 
     // On start the leader is null, start the clock now
-    this.lastNoLeaderTime = Timestamp.currentTime();
+    this.lastNoLeaderTime = new AtomicReference<>(Timestamp.currentTime());
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
 
     final LongSupplier getSnapshotIndexFromStateMachine = () -> Optional.ofNullable(stateMachine.getLatestSnapshot())
@@ -303,15 +303,15 @@ class ServerState implements Closeable {
   void setLeader(RaftPeerId newLeaderId, Object op) {
     final RaftPeerId oldLeaderId = leaderId.getAndSet(newLeaderId);
     if (!Objects.equals(oldLeaderId, newLeaderId)) {
-      String suffix;
+      final String suffix;
       if (newLeaderId == null) {
         // reset the time stamp when a null leader is assigned
-        lastNoLeaderTime = Timestamp.currentTime();
+        lastNoLeaderTime.set(Timestamp.currentTime());
         suffix = "";
       } else {
-        Timestamp previous = lastNoLeaderTime;
-        lastNoLeaderTime = null;
+        final Timestamp previous = lastNoLeaderTime.getAndSet(null);
         suffix = ", leader elected after " + previous.elapsedTimeMs() + "ms";
+        server.setFirstElection(op);
         server.getStateMachine().event().notifyLeaderChanged(getMemberId(), newLeaderId);
       }
       LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
@@ -323,14 +323,14 @@ class ServerState implements Closeable {
   }
 
   boolean shouldNotifyExtendedNoLeader() {
-    return Optional.ofNullable(lastNoLeaderTime)
+    return Optional.ofNullable(lastNoLeaderTime.get())
         .map(Timestamp::elapsedTime)
         .filter(t -> t.compareTo(noLeaderTimeout) > 0)
         .isPresent();
   }
 
   long getLastLeaderElapsedTimeMs() {
-    return Optional.ofNullable(lastNoLeaderTime).map(Timestamp::elapsedTimeMs).orElse(0L);
+    return Optional.ofNullable(lastNoLeaderTime.get()).map(Timestamp::elapsedTimeMs).orElse(0L);
   }
 
   void becomeLeader() {
