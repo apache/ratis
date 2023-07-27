@@ -79,8 +79,12 @@ class RoleInfo {
     return Objects.requireNonNull(leaderState.get(), "leaderState is null");
   }
 
-  LogEntryProto startLeaderState(RaftServerImpl server) {
-    return updateAndGet(leaderState, new LeaderStateImpl(server)).start();
+  void updateLeaderState(RaftServerImpl server) {
+    updateAndGet(leaderState, new LeaderStateImpl(server));
+  }
+
+  LogEntryProto startLeaderState() {
+    return leaderState.get().start();
   }
 
   void shutdownLeaderState(boolean allowNull) {
