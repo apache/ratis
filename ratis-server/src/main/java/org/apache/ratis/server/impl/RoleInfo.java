@@ -18,7 +18,6 @@
 
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.Preconditions;
@@ -79,8 +78,8 @@ class RoleInfo {
     return Objects.requireNonNull(leaderState.get(), "leaderState is null");
   }
 
-  LogEntryProto startLeaderState(RaftServerImpl server) {
-    return updateAndGet(leaderState, new LeaderStateImpl(server)).start();
+  LeaderStateImpl updateLeaderState(RaftServerImpl server) {
+    return updateAndGet(leaderState, new LeaderStateImpl(server));
   }
 
   void shutdownLeaderState(boolean allowNull) {
