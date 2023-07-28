@@ -105,7 +105,7 @@ class StateMachineUpdater implements Runnable {
     this.appliedIndex = new RaftLogIndex("appliedIndex", lastAppliedIndex);
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", lastAppliedIndex);
 
-    this.triggerSnapshotWhenStopEnabled = RaftServerConfigKeys.Snapshot.triggerSnapshotWhenStopEnabled(properties);
+    this.triggerSnapshotWhenStopEnabled = RaftServerConfigKeys.Snapshot.triggerWhenStopEnabled(properties);
     final boolean autoSnapshot = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties);
     this.autoSnapshotThreshold = autoSnapshot? RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties): null;
     final int numSnapshotFilesRetained = RaftServerConfigKeys.Snapshot.retentionFileNum(properties);
