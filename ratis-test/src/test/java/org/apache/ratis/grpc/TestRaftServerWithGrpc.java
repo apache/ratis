@@ -22,8 +22,12 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WATCH_REQUEST;
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WRITE_REQUEST;
 
+import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.util.JavaUtils;
+import org.slf4j.event.Level;
+import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.protocol.RaftGroup;
@@ -49,10 +53,10 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -62,6 +66,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.nio.channels.OverlappingFileLockException;
 import java.util.*;
@@ -75,7 +81,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @RunWith(Parameterized.class)
 public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
   {
-    Log4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.ALL);
+    Slf4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.TRACE);
   }
 
   public TestRaftServerWithGrpc(Boolean separateHeartbeat) {
@@ -302,35 +308,41 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       ExecutionException, InterruptedException {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftServerMetricsImpl raftServerMetrics = getRaftServerMetrics(leader);
+    final RatisMetricRegistry registry = raftServerMetrics.getRegistry();
 
     try (final RaftClient client = cluster.createClient()) {
       final CompletableFuture<RaftClientReply> f1 = client.async().send(new SimpleMessage("testing"));
       Assert.assertTrue(f1.get().isSuccess());
-      final DefaultTimekeeperImpl write = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(RAFT_CLIENT_WRITE_REQUEST);
-      Assert.assertTrue(write.getTimer().getCount() > 0);
+      final DefaultTimekeeperImpl write = (DefaultTimekeeperImpl) registry.timer(RAFT_CLIENT_WRITE_REQUEST);
+      JavaUtils.attempt(() -> Assert.assertTrue(write.getTimer().getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "writeTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f2 = client.async().sendReadOnly(new SimpleMessage("testing"));
       Assert.assertTrue(f2.get().isSuccess());
-      final DefaultTimekeeperImpl read = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(RAFT_CLIENT_READ_REQUEST);
-      Assert.assertTrue(read.getTimer().getCount() > 0);
+      final DefaultTimekeeperImpl read = (DefaultTimekeeperImpl) registry.timer(RAFT_CLIENT_READ_REQUEST);
+      JavaUtils.attempt(() -> Assert.assertTrue(read.getTimer().getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "readTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f3 = client.async().sendStaleRead(new SimpleMessage("testing"),
           0, leader.getId());
       Assert.assertTrue(f3.get().isSuccess());
-      final DefaultTimekeeperImpl staleRead = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(RAFT_CLIENT_STALE_READ_REQUEST);
-      Assert.assertTrue(staleRead.getTimer().getCount() > 0);
+      final DefaultTimekeeperImpl staleRead = (DefaultTimekeeperImpl) registry.timer(RAFT_CLIENT_STALE_READ_REQUEST);
+      JavaUtils.attempt(() -> Assert.assertTrue(staleRead.getTimer().getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "staleReadTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f4 = client.async().watch(0, RaftProtos.ReplicationLevel.ALL);
       Assert.assertTrue(f4.get().isSuccess());
-      final DefaultTimekeeperImpl watchAll = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(
+      final DefaultTimekeeperImpl watchAll = (DefaultTimekeeperImpl) registry.timer(
           String.format(RAFT_CLIENT_WATCH_REQUEST, "-ALL"));
-      Assert.assertTrue(watchAll.getTimer().getCount() > 0);
+      JavaUtils.attempt(() -> Assert.assertTrue(watchAll.getTimer().getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "watchAllTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f5 = client.async().watch(0, RaftProtos.ReplicationLevel.MAJORITY);
       Assert.assertTrue(f5.get().isSuccess());
-      final DefaultTimekeeperImpl watch = (DefaultTimekeeperImpl) raftServerMetrics.getTimer(
+      final DefaultTimekeeperImpl watch = (DefaultTimekeeperImpl) registry.timer(
           String.format(RAFT_CLIENT_WATCH_REQUEST, ""));
-      Assert.assertTrue(watch.getTimer().getCount() > 0);
+      JavaUtils.attempt(() -> Assert.assertTrue(watch.getTimer().getCount() > 0),
+          3, TimeDuration.ONE_SECOND, "watchTimer metrics", LOG);
     }
   }
 
@@ -338,5 +350,39 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     final SimpleMessage m = new SimpleMessage("m" + seqNum);
     return RaftClientTestUtil.newRaftClientRequest(client, serverId, seqNum, m,
         RaftClientRequest.writeRequestType(), ProtoUtils.toSlidingWindowEntry(seqNum, seqNum == 1L));
+  }
+
+  @Test
+  public void testTlsWithKeyAndTrustManager() throws Exception {
+    final RaftProperties p = getProperties();
+    RaftServerConfigKeys.Write.setElementLimit(p, 10);
+    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf("1MB"));
+    String[] ids = MiniRaftCluster.generateIds(3, 3);
+
+    KeyManager serverKeyManager = SecurityTestUtils.getKeyManager(SecurityTestUtils::getServerKeyStore);
+    TrustManager serverTrustManager = SecurityTestUtils.getTrustManager(SecurityTestUtils::getTrustStore);
+    KeyManager clientKeyManager = SecurityTestUtils.getKeyManager(SecurityTestUtils::getClientKeyStore);
+    TrustManager clientTrustManager = SecurityTestUtils.getTrustManager(SecurityTestUtils::getTrustStore);
+
+    GrpcTlsConfig serverConfig = new GrpcTlsConfig(serverKeyManager, serverTrustManager, true);
+    GrpcTlsConfig clientConfig = new GrpcTlsConfig(clientKeyManager, clientTrustManager, true);
+
+    final Parameters parameters = new Parameters();
+    GrpcConfigKeys.Server.setTlsConf(parameters, serverConfig);
+    GrpcConfigKeys.Admin.setTlsConf(parameters, clientConfig);
+    GrpcConfigKeys.Client.setTlsConf(parameters, clientConfig);
+
+    MiniRaftClusterWithGrpc cluster = null;
+    try {
+      cluster = new MiniRaftClusterWithGrpc(ids, new String[0], p, parameters);
+      cluster.start();
+      testRequestMetrics(cluster);
+    }  finally {
+      RaftServerConfigKeys.Write.setElementLimit(p, RaftServerConfigKeys.Write.ELEMENT_LIMIT_DEFAULT);
+      RaftServerConfigKeys.Write.setByteLimit(p, RaftServerConfigKeys.Write.BYTE_LIMIT_DEFAULT);
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
   }
 }

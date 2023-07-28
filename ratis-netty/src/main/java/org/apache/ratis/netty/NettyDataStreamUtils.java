@@ -56,7 +56,7 @@ public interface NettyDataStreamUtils {
         .setStreamOffset(request.getStreamOffset())
         .setType(request.getType())
         .setDataLength(request.getDataLength());
-    for (WriteOption option : request.getWriteOptions()) {
+    for (WriteOption option : request.getWriteOptionList()) {
       b.addOptions(DataStreamPacketHeaderProto.Option.forNumber(
           ((StandardWriteOption) option).ordinal()));
     }
@@ -105,7 +105,15 @@ public interface NettyDataStreamUtils {
   static void encodeDataStreamRequestByteBuffer(DataStreamRequestByteBuffer request, Consumer<Object> out,
       ByteBufAllocator allocator) {
     encodeDataStreamRequestHeader(request, out, allocator);
-    out.accept(Unpooled.wrappedBuffer(request.slice()));
+    encodeByteBuffer(request.slice(), out);
+  }
+
+  static void encodeByteBuffer(ByteBuffer buffer, Consumer<Object> out) {
+    if (buffer.remaining() == 0) {
+      out.accept(Unpooled.EMPTY_BUFFER); // to avoid EncoderException: must produce at least one message
+      return;
+    }
+    out.accept(Unpooled.wrappedBuffer(buffer));
   }
 
   static void encodeDataStreamRequestFilePositionCount(

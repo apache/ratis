@@ -21,6 +21,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -80,15 +81,18 @@ public class AddCommand extends AbstractRatisCommand {
     }
 
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
-      final Stream<RaftPeer> remaining = getRaftGroup().getPeers().stream();
+      final Stream<RaftPeer> remaining = getPeerStream(RaftPeerRole.FOLLOWER);
       final Stream<RaftPeer> adding = ids.stream().map(raftPeerId -> RaftPeer.newBuilder()
           .setId(raftPeerId)
           .setAddress(peersInfo.get(raftPeerId))
           .setPriority(0)
           .build());
       final List<RaftPeer> peers = Stream.concat(remaining, adding).collect(Collectors.toList());
+      final List<RaftPeer> listeners = getPeerStream(RaftPeerRole.LISTENER)
+          .collect(Collectors.toList());
       System.out.println("New peer list: " + peers);
-      RaftClientReply reply = client.admin().setConfiguration(peers);
+      System.out.println("New listener list:  " + listeners);
+      RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
       processReply(reply, () -> "Failed to change raft peer");
     }
     return 0;

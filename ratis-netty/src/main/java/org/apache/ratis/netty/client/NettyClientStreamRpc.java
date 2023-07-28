@@ -19,9 +19,12 @@
 package org.apache.ratis.netty.client;
 
 import org.apache.ratis.client.DataStreamClientRpc;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
+import org.apache.ratis.io.StandardWriteOption;
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.netty.NettyUtils;
@@ -51,6 +54,7 @@ import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
@@ -58,6 +62,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -68,7 +73,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER;
 
 public class NettyClientStreamRpc implements DataStreamClientRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyClientStreamRpc.class);
@@ -238,8 +246,38 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     }
   }
 
+  class OutstandingRequests {
+    private int count;
+    private long bytes;
+
+    synchronized boolean write(DataStreamRequest request) {
+      count++;
+      bytes += request.getDataLength();
+      final List<WriteOption> options = request.getWriteOptionList();
+      final boolean isClose = options.contains(StandardWriteOption.CLOSE);
+      final boolean isFlush = options.contains(StandardWriteOption.FLUSH);
+      final boolean flush = shouldFlush(isClose || isFlush, flushRequestCountMin, flushRequestBytesMin);
+      LOG.debug("Stream{} outstanding: count={}, bytes={}, options={}, flush? {}",
+          request.getStreamId(), count, bytes, options, flush);
+      return flush;
+    }
+
+    synchronized boolean shouldFlush(boolean force, int countMin, SizeInBytes bytesMin) {
+      if (force || count >= countMin || bytes >= bytesMin.getSize()) {
+        count = 0;
+        bytes = 0;
+        return true;
+      }
+      return false;
+    }
+  }
+
   private final String name;
   private final Connection connection;
+
+  private final int flushRequestCountMin;
+  private final SizeInBytes flushRequestBytesMin;
+  private final OutstandingRequests outstandingRequests = new OutstandingRequests();
 
   private final ConcurrentMap<ClientInvocationId, ReplyQueue> replies = new ConcurrentHashMap<>();
   private final TimeDuration replyQueueGracePeriod;
@@ -248,6 +286,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   public NettyClientStreamRpc(RaftPeer server, TlsConf tlsConf, RaftProperties properties) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
     this.replyQueueGracePeriod = NettyConfigKeys.DataStream.Client.replyQueueGracePeriod(properties);
+    this.flushRequestCountMin = RaftClientConfigKeys.DataStream.flushRequestCountMin(properties);
+    this.flushRequestBytesMin = RaftClientConfigKeys.DataStream.flushRequestBytesMin(properties);
 
     final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
@@ -307,7 +347,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       }
 
       @Override
-      public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+      public void channelInactive(ChannelHandlerContext ctx) {
         if (!connection.isClosed()) {
           connection.scheduleReconnect("channel is inactive", null);
         }
@@ -326,6 +366,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         }
         p.addLast(newEncoder());
         p.addLast(newEncoderDataStreamRequestFilePositionCount());
+        p.addLast(newEncoderByteBuffer());
         p.addLast(newDecoder());
         p.addLast(handler);
       }
@@ -346,6 +387,15 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       @Override
       protected void encode(ChannelHandlerContext ctx, DataStreamRequestFilePositionCount request, List<Object> out) {
         NettyDataStreamUtils.encodeDataStreamRequestFilePositionCount(request, out::add, ctx.alloc());
+      }
+    };
+  }
+
+  static MessageToMessageEncoder<ByteBuffer> newEncoderByteBuffer() {
+    return new MessageToMessageEncoder<ByteBuffer>() {
+      @Override
+      protected void encode(ChannelHandlerContext ctx, ByteBuffer request, List<Object> out) {
+        NettyDataStreamUtils.encodeByteBuffer(request, out::add);
       }
     };
   }
@@ -378,7 +428,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       return f;
     }
     LOG.debug("{}: write {}", this, request);
-    channel.writeAndFlush(request).addListener(future -> {
+    final Function<DataStreamRequest, ChannelFuture> writeMethod = outstandingRequests.write(request)?
+        channel::writeAndFlush: channel::write;
+    writeMethod.apply(request).addListener(future -> {
       if (!future.isSuccess()) {
         final IOException e = new IOException(this + ": Failed to send " + request, future.cause());
         LOG.error("Channel write failed", e);
@@ -390,7 +442,15 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   @Override
   public void close() {
-    connection.close();
+    final boolean flush = outstandingRequests.shouldFlush(true, 0, SizeInBytes.ZERO);
+    LOG.debug("flush? {}", flush);
+    if (flush) {
+      Optional.ofNullable(connection.getChannelUninterruptibly())
+          .map(c -> c.writeAndFlush(EMPTY_BYTE_BUFFER))
+          .ifPresent(f -> f.addListener(dummy -> connection.close()));
+    } else {
+      connection.close();
+    }
   }
 
   @Override

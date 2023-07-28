@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
@@ -38,11 +37,11 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogFormat;
 import org.apache.ratis.server.RaftServerConfigKeys.Log;
 import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
@@ -50,6 +49,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
+import org.slf4j.event.Level;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,7 +71,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    Log4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
   }
 
   static final int NUM_SERVERS = 3;
@@ -119,18 +119,22 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final RaftLog followerLog = follower.getRaftLog();
     final long followerLastIndex = followerLog.getLastEntryTermIndex().getIndex();
     Assert.assertTrue(followerLastIndex >= leaderLastIndex);
+    final long leaderFinalIndex = cluster.getLeader().getRaftLog().getLastEntryTermIndex().getIndex();
+    Assert.assertEquals(leaderFinalIndex, followerLastIndex);
 
     final File followerOpenLogFile = getOpenLogFile(follower);
     final File leaderOpenLogFile = getOpenLogFile(cluster.getDivision(leaderId));
 
     // shutdown all servers
-    for(RaftServer s : cluster.getServers()) {
-      s.close();
+    // shutdown followers first, so there won't be any new leader elected
+    for (RaftServer.Division d : cluster.getFollowers()) {
+      d.close();
     }
+    cluster.getDivision(leaderId).close();
 
     // truncate log and
     assertTruncatedLog(followerId, followerOpenLogFile, followerLastIndex, cluster);
-    assertTruncatedLog(leaderId, leaderOpenLogFile, leaderLastIndex, cluster);
+    assertTruncatedLog(leaderId, leaderOpenLogFile, leaderFinalIndex, cluster);
 
     // restart and write something.
     cluster.restart(false);

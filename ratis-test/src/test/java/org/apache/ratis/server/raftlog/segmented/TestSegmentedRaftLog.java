@@ -19,7 +19,6 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import static org.junit.Assert.assertTrue;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
@@ -40,11 +39,11 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -71,13 +70,14 @@ import java.util.function.Supplier;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.slf4j.event.Level;
 
 @RunWith(Parameterized.class)
 public class TestSegmentedRaftLog extends BaseTest {
   static {
-    Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.INFO);
-    Log4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.INFO);
-    Log4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.INFO);
   }
 
   private final Boolean smSyncFlush;
@@ -176,7 +176,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       final int size = (int) (range.end - range.start + 1);
       LogEntryProto[] entries = new LogEntryProto[size];
       try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-          segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null)) {
+          segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
         for (int i = 0; i < size; i++) {
           SimpleOperation m = new SimpleOperation("m" + (i + range.start));
           entries[i] = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, i + range.start);
@@ -232,7 +232,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       Assert.assertArrayEquals(entries, entriesFromLog);
       Assert.assertEquals(entries[entries.length - 1], getLastEntry(raftLog));
 
-      final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
+      final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.createRegistry(memberId);
 
       final DefaultTimekeeperImpl load = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("segmentLoadLatency");
       assertTrue(load.getTimer().getMeanRate() > 0);
@@ -320,7 +320,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         ex = e;
       }
       assertTrue(ex.getMessage().contains("Difference between entry index and RaftLog's latest snapshot " +
-          "index -1 is greater than 1"));
+          "index 999 is greater than 1"));
     }
   }
 
@@ -482,7 +482,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     int segmentSize = 200;
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
-    final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
+    final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.createRegistry(memberId);
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
     final DefaultTimekeeperImpl purge = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("purgeLog");
     assertTrue(purge.getTimer().getCount() > 0);
@@ -712,8 +712,8 @@ public class TestSegmentedRaftLog extends BaseTest {
       long start = System.nanoTime();
       for (int i = 0; i < entries.size(); i += 5) {
         // call append API
-        futures.add(raftLog.append(entries.get(i), entries.get(i + 1), entries.get(i + 2), entries.get(i + 3),
-            entries.get(i + 4)));
+        futures.add(raftLog.append(Arrays.asList(
+            entries.get(i), entries.get(i + 1), entries.get(i + 2), entries.get(i + 3), entries.get(i + 4))));
       }
       for (List<CompletableFuture<Long>> futureList: futures) {
         futureList.forEach(CompletableFuture::join);

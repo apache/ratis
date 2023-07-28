@@ -52,7 +52,7 @@ public interface RetryPolicies {
     private static final NoRetry NO_RETRY = new NoRetry();
   }
 
-  class RetryForeverNoSleep implements RetryPolicy {
+  final class RetryForeverNoSleep implements RetryPolicy {
     private RetryForeverNoSleep() {}
 
     @Override
@@ -66,7 +66,7 @@ public interface RetryPolicies {
     }
   }
 
-  class NoRetry implements RetryPolicy {
+  final class NoRetry implements RetryPolicy {
     private NoRetry() {}
 
     @Override
@@ -101,7 +101,7 @@ public interface RetryPolicies {
   }
 
   /** For any requests, keep retrying a limited number of attempts with a fixed sleep time between attempts. */
-  class RetryLimited extends RetryForeverWithSleep  {
+  final class RetryLimited extends RetryForeverWithSleep  {
     private final int maxAttempts;
     private final Supplier<String> myString;
 

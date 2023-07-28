@@ -49,23 +49,22 @@ import static org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto
 
 public class NettyRpcProxy implements Closeable {
   public static class PeerMap extends PeerProxyMap<NettyRpcProxy> {
-    private final EventLoopGroup group = new NioEventLoopGroup();
-    private final RaftProperties properties;
+    private final EventLoopGroup group;
 
     public PeerMap(String name, RaftProperties properties) {
-      super(name);
-      this.properties = properties;
+      this(name, properties, new NioEventLoopGroup());
     }
 
-    @Override
-    public NettyRpcProxy createProxyImpl(RaftPeer peer)
-            throws IOException {
-      try {
-        return new NettyRpcProxy(peer, properties, group);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw IOUtils.toInterruptedIOException("Failed connecting to " + peer, e);
-      }
+    private PeerMap(String name, RaftProperties properties, EventLoopGroup group) {
+      super(name, peer -> {
+        try {
+          return new NettyRpcProxy(peer, properties, group);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw IOUtils.toInterruptedIOException("Failed connecting to " + peer, e);
+        }
+      });
+      this.group = group;
     }
 
     @Override

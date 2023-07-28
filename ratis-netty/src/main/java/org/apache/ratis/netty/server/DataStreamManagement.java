@@ -18,7 +18,6 @@
 
 package org.apache.ratis.netty.server;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
@@ -51,11 +50,14 @@ import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
+import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
 import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
+import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.TimeoutExecutor;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +67,7 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -90,11 +93,16 @@ public class DataStreamManagement {
       this.metrics = metrics;
     }
 
-    CompletableFuture<Long> write(ByteBuf buf, WriteOption[] options, Executor executor) {
+    CompletableFuture<Long> write(ByteBuf buf, Iterable<WriteOption> options,
+                                  Executor executor) {
       final Timekeeper.Context context = metrics.start();
       return composeAsync(writeFuture, executor,
           n -> streamFuture.thenCompose(stream -> writeToAsync(buf, options, stream, executor)
               .whenComplete((l, e) -> metrics.stop(context, e == null))));
+    }
+
+    void cleanUp() {
+      streamFuture.thenAccept(DataStream::cleanUp);
     }
   }
 
@@ -112,7 +120,7 @@ public class DataStreamManagement {
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
       final Timekeeper.Context context = metrics.start();
       return composeAsync(sendFuture, executor,
-          n -> out.writeAsync(request.slice().nioBuffer(), request.getWriteOptions())
+          n -> out.writeAsync(request.slice().nioBuffer(), request.getWriteOptionList())
               .whenComplete((l, e) -> metrics.stop(context, e == null)));
     }
   }
@@ -123,7 +131,6 @@ public class DataStreamManagement {
     private final LocalStream local;
     private final Set<RemoteStream> remotes;
     private final RaftServer server;
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     private final AtomicReference<CompletableFuture<Void>> previous
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
@@ -221,10 +228,31 @@ public class DataStreamManagement {
     }
   }
 
+  public static class ChannelMap {
+    private final Map<ChannelId, Map<ClientInvocationId, ClientInvocationId>> map = new ConcurrentHashMap<>();
+
+    public void add(ChannelId channelId,
+                    ClientInvocationId clientInvocationId) {
+      map.computeIfAbsent(channelId, (e) -> new ConcurrentHashMap<>()).put(clientInvocationId, clientInvocationId);
+    }
+
+    public void remove(ChannelId channelId,
+                       ClientInvocationId clientInvocationId) {
+      Optional.ofNullable(map.get(channelId)).ifPresent((ids) -> ids.remove(clientInvocationId));
+    }
+
+    public Set<ClientInvocationId> remove(ChannelId channelId) {
+      return Optional.ofNullable(map.remove(channelId))
+          .map(Map::keySet)
+          .orElse(Collections.emptySet());
+    }
+  }
+
   private final RaftServer server;
   private final String name;
 
   private final StreamMap streams = new StreamMap();
+  private final ChannelMap channels;
   private final Executor requestExecutor;
   private final Executor writeExecutor;
 
@@ -234,6 +262,7 @@ public class DataStreamManagement {
     this.server = server;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
+    this.channels = new ChannelMap();
     final RaftProperties properties = server.getProperties();
     final boolean useCachedThreadPool = RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties);
     this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
@@ -282,13 +311,16 @@ public class DataStreamManagement {
     return future.updateAndGet(previous -> previous.thenComposeAsync(function, executor));
   }
 
-  static CompletableFuture<Long> writeToAsync(ByteBuf buf, WriteOption[] options, DataStream stream,
+  static CompletableFuture<Long> writeToAsync(ByteBuf buf,
+                                              Iterable<WriteOption> options,
+                                              DataStream stream,
       Executor defaultExecutor) {
     final Executor e = Optional.ofNullable(stream.getExecutor()).orElse(defaultExecutor);
     return CompletableFuture.supplyAsync(() -> writeTo(buf, options, stream), e);
   }
 
-  static long writeTo(ByteBuf buf, WriteOption[] options, DataStream stream) {
+  static long writeTo(ByteBuf buf, Iterable<WriteOption> options,
+                      DataStream stream) {
     final DataChannel channel = stream.getDataChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
@@ -372,31 +404,55 @@ public class DataStreamManagement {
       ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
     } catch (Throwable t) {
       LOG.warn("Failed to sendDataStreamException {} for {}", throwable, request, t);
+    } finally {
+      request.release();
     }
+  }
+
+  void cleanUp(Set<ClientInvocationId> ids) {
+    for (ClientInvocationId clientInvocationId : ids) {
+      Optional.ofNullable(streams.remove(clientInvocationId))
+          .map(StreamInfo::getLocal)
+          .ifPresent(LocalStream::cleanUp);
+    }
+  }
+
+  void cleanUpOnChannelInactive(ChannelId channelId, TimeDuration channelInactiveGracePeriod) {
+    // Delayed memory garbage cleanup
+    Optional.ofNullable(channels.remove(channelId)).ifPresent(ids -> {
+      LOG.info("Channel {} is inactive, cleanup clientInvocationIds={}", channelId, ids);
+      TimeoutExecutor.getInstance().onTimeout(channelInactiveGracePeriod, () -> cleanUp(ids),
+          LOG, () -> "Timeout check failed, clientInvocationIds=" + ids);
+    });
   }
 
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
-    final ByteBuf buf = request.slice();
     try {
-      readImpl(request, ctx, buf, getStreams);
+      readImpl(request, ctx, getStreams);
     } catch (Throwable t) {
       replyDataStreamException(t, request, ctx);
-      buf.release();
     }
   }
 
-  private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx, ByteBuf buf,
+  private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
-    boolean close = WriteOption.containsOption(request.getWriteOptions(), StandardWriteOption.CLOSE);
+    final boolean close = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
     ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
+
+    // add to ChannelMap
+    final ChannelId channelId = ctx.channel().id();
+    channels.add(channelId, key);
+
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
-      final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getStreams));
+      final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(
+          () -> newStreamInfo(request.slice(), getStreams));
       info = streams.computeIfAbsent(key, id -> supplier.get());
       if (!supplier.isInitialized()) {
-        streams.remove(key);
+        final StreamInfo removed = streams.remove(key);
+        removed.getLocal().cleanUp();
         throw new IllegalStateException("Failed to create a new stream for " + request
             + " since a stream already exists Key: " + key + " StreamInfo:" + info);
       }
@@ -406,10 +462,7 @@ public class DataStreamManagement {
           () -> new IllegalStateException("Failed to remove StreamInfo for " + request));
     } else {
       info = Optional.ofNullable(streams.get(key)).orElseThrow(
-          () -> {
-            streams.remove(key);
-            return new IllegalStateException("Failed to get StreamInfo for " + request);
-          });
+          () -> new IllegalStateException("Failed to get StreamInfo for " + request));
     }
 
     final CompletableFuture<Long> localWrite;
@@ -418,7 +471,7 @@ public class DataStreamManagement {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
-      localWrite = info.getLocal().write(buf, request.getWriteOptions(), writeExecutor);
+      localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
@@ -437,11 +490,13 @@ public class DataStreamManagement {
         }, requestExecutor)).whenComplete((v, exception) -> {
       try {
         if (exception != null) {
-          streams.remove(key);
+          final StreamInfo removed = streams.remove(key);
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
+          removed.getLocal().cleanUp();
         }
       } finally {
-        buf.release();
+        request.release();
+        channels.remove(channelId, key);
       }
     });
   }

@@ -27,13 +27,11 @@ import org.apache.ratis.grpc.metrics.MessageMetrics;
 class MetricServerCall<R,S> extends ForwardingServerCall.SimpleForwardingServerCall<R,S> {
   private final MessageMetrics metrics;
   private final String metricNamPrefix;
-  private final ServerCall<R,S> delegate;
 
   MetricServerCall(ServerCall<R,S> delegate,
                        String metricNamPrefix,
                        MessageMetrics metrics){
     super(delegate);
-    this.delegate = delegate;
     this.metricNamPrefix = metricNamPrefix;
     this.metrics = metrics;
 

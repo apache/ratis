@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
@@ -26,34 +27,38 @@ import org.apache.ratis.util.Timestamp;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 class FollowerInfoImpl implements FollowerInfo {
   private final String name;
   private final Consumer<Object> infoIndexChange;
   private final Consumer<Object> debugIndexChange;
 
-  private final RaftPeer peer;
+  private final AtomicReference<RaftPeer> peer;
+  private final Function<RaftPeerId, RaftPeer> getPeer;
   private final AtomicReference<Timestamp> lastRpcResponseTime;
   private final AtomicReference<Timestamp> lastRpcSendTime;
   private final AtomicReference<Timestamp> lastHeartbeatSendTime;
   private final RaftLogIndex nextIndex;
-  private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", 0L);
+  private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex snapshotIndex = new RaftLogIndex("snapshotIndex", 0L);
-  private volatile boolean attendVote;
+  private volatile boolean caughtUp;
   private volatile boolean ackInstallSnapshotAttempt = false;
 
-  FollowerInfoImpl(RaftGroupMemberId id, RaftPeer peer, Timestamp lastRpcTime, long nextIndex, boolean attendVote) {
+  FollowerInfoImpl(RaftGroupMemberId id, RaftPeer peer, Function<RaftPeerId, RaftPeer> getPeer,
+      Timestamp lastRpcTime, long nextIndex, boolean caughtUp) {
     this.name = id + "->" + peer.getId();
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
     this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
 
-    this.peer = peer;
+    this.peer = new AtomicReference<>(peer);
+    this.getPeer = getPeer;
     this.lastRpcResponseTime = new AtomicReference<>(lastRpcTime);
     this.lastRpcSendTime = new AtomicReference<>(lastRpcTime);
     this.lastHeartbeatSendTime = new AtomicReference<>(lastRpcTime);
     this.nextIndex = new RaftLogIndex("nextIndex", nextIndex);
-    this.attendVote = attendVote;
+    this.caughtUp = caughtUp;
   }
 
   @Override
@@ -93,17 +98,20 @@ class FollowerInfoImpl implements FollowerInfo {
 
   @Override
   public void decreaseNextIndex(long newNextIndex) {
-    nextIndex.updateUnconditionally(old -> old <= 0L? old: Math.min(old - 1, newNextIndex), infoIndexChange);
+    nextIndex.updateUnconditionally(old -> old <= 0L? old: Math.min(old - 1, newNextIndex),
+        message -> infoIndexChange.accept("decreaseNextIndex " + message));
   }
 
   @Override
   public void setNextIndex(long newNextIndex) {
-    nextIndex.updateUnconditionally(old -> newNextIndex >= 0 ? newNextIndex : old, infoIndexChange);
+    nextIndex.updateUnconditionally(old -> newNextIndex >= 0 ? newNextIndex : old,
+        message -> infoIndexChange.accept("setNextIndex " + message));
   }
 
   @Override
   public void updateNextIndex(long newNextIndex) {
-    nextIndex.updateToMax(newNextIndex, infoIndexChange);
+    nextIndex.updateToMax(newNextIndex,
+        message -> infoIndexChange.accept("decreaseNextIndex " + message));
   }
 
   @Override
@@ -132,22 +140,33 @@ class FollowerInfoImpl implements FollowerInfo {
   @Override
   public String toString() {
     return name + "(c" + getCommitIndex() + ",m" + getMatchIndex() + ",n" + getNextIndex()
-        + ", attendVote=" + attendVote +
+        + ", caughtUp=" + caughtUp +
         ", lastRpcSendTime=" + lastRpcSendTime.get().elapsedTimeMs() +
         ", lastRpcResponseTime=" + lastRpcResponseTime.get().elapsedTimeMs() + ")";
   }
 
-  void startAttendVote() {
-    attendVote = true;
+  void catchUp() {
+    caughtUp = true;
   }
 
-  boolean isAttendingVote() {
-    return attendVote;
+  boolean isCaughtUp() {
+    return caughtUp;
+  }
+
+  @Override
+  public RaftPeerId getId() {
+    return peer.get().getId();
   }
 
   @Override
   public RaftPeer getPeer() {
-    return peer;
+    final RaftPeer newPeer = getPeer.apply(getId());
+    if (newPeer != null) {
+      peer.set(newPeer);
+      return newPeer;
+    } else {
+      return peer.get();
+    }
   }
 
   @Override
@@ -158,6 +177,11 @@ class FollowerInfoImpl implements FollowerInfo {
   @Override
   public Timestamp getLastRpcResponseTime() {
     return lastRpcResponseTime.get();
+  }
+
+  @Override
+  public Timestamp getLastRpcSendTime() {
+    return lastRpcSendTime.get();
   }
 
   @Override

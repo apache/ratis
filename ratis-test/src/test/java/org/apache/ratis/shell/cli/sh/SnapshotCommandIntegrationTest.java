@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.shell.cli.sh;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
@@ -27,12 +26,13 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 import java.io.File;
 
@@ -41,9 +41,9 @@ public abstract class SnapshotCommandIntegrationTest <CLUSTER extends MiniRaftCl
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
 
   {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.WARN);
-    Log4jUtils.setLogLevel(RaftLog.LOG, Level.WARN);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(RaftLog.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.WARN);
   }
 
   {

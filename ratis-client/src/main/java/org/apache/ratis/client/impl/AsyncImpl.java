@@ -47,8 +47,18 @@ class AsyncImpl implements AsyncRpcApi {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> sendReadOnly(Message message) {
-    return send(RaftClientRequest.readRequestType(), message, null);
+  public CompletableFuture<RaftClientReply> sendReadOnly(Message message, RaftPeerId server) {
+    return send(RaftClientRequest.readRequestType(), message, server);
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> sendReadOnlyNonLinearizable(Message message) {
+    return send(RaftClientRequest.readRequestType(true), message, null);
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> sendReadOnlyUnordered(Message message, RaftPeerId server) {
+    return UnorderedAsync.send(RaftClientRequest.readRequestType(), message, server, client);
   }
 
   @Override
@@ -58,7 +68,7 @@ class AsyncImpl implements AsyncRpcApi {
 
   @Override
   public CompletableFuture<RaftClientReply> watch(long index, ReplicationLevel replication) {
-    return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), client);
+    return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), null, null, client);
   }
 
   @Override

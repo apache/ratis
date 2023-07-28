@@ -39,7 +39,9 @@
         <include>org.apache.ratis:ratis-server-api</include>
         <include>org.apache.ratis:ratis-server</include>
         <include>org.apache.ratis:ratis-test</include>
-        <include>org.apache.ratis:ratis-metrics</include>
+        <include>org.apache.ratis:ratis-metrics-api</include>
+        <include>org.apache.ratis:ratis-metrics-default</include>
+        <include>org.apache.ratis:ratis-metrics-dropwizard3</include>
         <include>org.apache.ratis:ratis-tools</include>
         <include>org.apache.ratis:ratis-resource-bundle</include>
       </includes>
@@ -51,14 +53,6 @@
     </moduleSet>
   </moduleSets>
   <fileSets>
-    <fileSet>
-      <directory>${project.basedir}/..</directory>
-      <outputDirectory>.</outputDirectory>
-      <includes>
-        <include>DISCLAIMER</include>
-      </includes>
-      <fileMode>0644</fileMode>
-    </fileSet>
     <fileSet>
       <directory>${project.basedir}/src/main/resources</directory>
       <outputDirectory>.</outputDirectory>

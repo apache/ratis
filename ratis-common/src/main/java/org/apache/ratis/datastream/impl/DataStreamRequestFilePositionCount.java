@@ -17,24 +17,25 @@
  */
 package org.apache.ratis.datastream.impl;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 
+import java.util.List;
+
 /**
  * Implements {@link DataStreamRequest} with {@link FilePositionCount}.
- *
+ * <p>
  * This class is immutable.
  */
 public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl implements DataStreamRequest {
   private final FilePositionCount file;
-  private WriteOption[] options;
+  private final List<WriteOption> options;
 
   public DataStreamRequestFilePositionCount(DataStreamRequestHeader header, FilePositionCount file) {
     super(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset());
-    this.options = header.getWriteOptions();
+    this.options = header.getWriteOptionList();
     this.file = file;
   }
 
@@ -49,8 +50,7 @@ public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl imp
   }
 
   @Override
-  @SuppressFBWarnings("EI_EXPOSE_REP")
-  public WriteOption[] getWriteOptions() {
+  public List<WriteOption> getWriteOptionList() {
     return options;
   }
 }

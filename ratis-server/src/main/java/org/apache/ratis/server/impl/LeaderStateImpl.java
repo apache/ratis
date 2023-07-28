@@ -26,8 +26,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -38,9 +36,10 @@ import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
+import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ReadRequests.AppendEntriesListener;
+import org.apache.ratis.server.impl.ReadIndexHeartbeats.AppendEntriesListener;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppender;
@@ -65,7 +64,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -77,12 +78,13 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.server.RaftServer.Division.LOG;
 import static org.apache.ratis.server.RaftServerConfigKeys.Write.FOLLOWER_GAP_RATIO_MAX_KEY;
@@ -163,7 +165,7 @@ class LeaderStateImpl implements LeaderState {
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();
         String s = this + ": poll() is interrupted";
-        if (!running) {
+        if (isStopped.get()) {
           LOG.info(s + " gracefully");
           return null;
         } else {
@@ -191,23 +193,16 @@ class LeaderStateImpl implements LeaderState {
    * Since each mutation induces a copy of the list, only bulk operations
    * (addAll and removeAll) are supported.
    */
-  static class SenderList {
+  static class SenderList implements Iterable<LogAppender> {
     private final List<LogAppender> senders;
 
     SenderList() {
       this.senders = new CopyOnWriteArrayList<>();
     }
 
-    Stream<LogAppender> stream() {
-      return senders.stream();
-    }
-
-    List<LogAppender> getSenders() {
-      return senders;
-    }
-
-    void forEach(Consumer<LogAppender> action) {
-      senders.forEach(action);
+    @Override
+    public Iterator<LogAppender> iterator() {
+      return senders.iterator();
     }
 
     void addAll(Collection<LogAppender> newSenders) {
@@ -228,6 +223,72 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
+  /** For caching {@link FollowerInfo}s.  This class is immutable. */
+  static class CurrentOldFollowerInfos {
+    private final RaftConfigurationImpl conf;
+    private final List<FollowerInfo> current;
+    private final List<FollowerInfo> old;
+
+    CurrentOldFollowerInfos(RaftConfigurationImpl conf, List<FollowerInfo> current, List<FollowerInfo> old) {
+      // set null when the sizes are not the same so that it will update next time.
+      this.conf = isSameSize(current, conf.getConf()) && isSameSize(old, conf.getOldConf())? conf: null;
+      this.current = Collections.unmodifiableList(current);
+      this.old = old == null? null: Collections.unmodifiableList(old);
+    }
+
+    RaftConfigurationImpl getConf() {
+      return conf;
+    }
+
+    List<FollowerInfo> getCurrent() {
+      return current;
+    }
+
+    List<FollowerInfo> getOld() {
+      return old;
+    }
+  }
+
+  static boolean isSameSize(List<FollowerInfo> infos, PeerConfiguration conf) {
+    return conf == null? infos == null: conf.size() == infos.size();
+  }
+
+  /** Use == to compare if the confs are the same object. */
+  static boolean isSameConf(CurrentOldFollowerInfos cached, RaftConfigurationImpl conf) {
+    return cached != null && cached.getConf() == conf;
+  }
+
+  static class FollowerInfoMap {
+    private final Map<RaftPeerId, FollowerInfo> map = new ConcurrentHashMap<>();
+
+    private volatile CurrentOldFollowerInfos followerInfos;
+
+    void put(RaftPeerId id, FollowerInfo info) {
+      map.put(id, info);
+    }
+
+    CurrentOldFollowerInfos getFollowerInfos(RaftConfigurationImpl conf) {
+      final CurrentOldFollowerInfos cached = followerInfos;
+      if (isSameConf(cached, conf)) {
+        return cached;
+      }
+
+      return update(conf);
+    }
+
+    synchronized CurrentOldFollowerInfos update(RaftConfigurationImpl conf) {
+      if (!isSameConf(followerInfos, conf)) { // compare again synchronized
+        followerInfos = new CurrentOldFollowerInfos(conf, getFollowerInfos(conf.getConf()),
+            Optional.ofNullable(conf.getOldConf()).map(this::getFollowerInfos).orElse(null));
+      }
+      return followerInfos;
+    }
+
+    private List<FollowerInfo> getFollowerInfos(PeerConfiguration peers) {
+      return peers.streamPeerIds().map(map::get).filter(Objects::nonNull).collect(Collectors.toList());
+    }
+  }
+
   private final StateUpdateEvent updateCommitEvent =
       new StateUpdateEvent(StateUpdateEvent.Type.UPDATE_COMMIT, -1, this::updateCommit);
   private final StateUpdateEvent checkStagingEvent =
@@ -238,8 +299,8 @@ class LeaderStateImpl implements LeaderState {
   private final RaftLog raftLog;
   private final long currentTerm;
   private volatile ConfigurationStagingState stagingState;
-  private List<List<RaftPeerId>> voterLists;
-  private final Map<RaftPeerId, FollowerInfo> peerIdFollowerInfoMap = new ConcurrentHashMap<>();
+
+  private final FollowerInfoMap followerInfoMap = new FollowerInfoMap();
 
   /**
    * The list of threads appending entries to followers.
@@ -251,7 +312,7 @@ class LeaderStateImpl implements LeaderState {
   private final PendingRequests pendingRequests;
   private final WatchRequests watchRequests;
   private final MessageStreamRequests messageStreamRequests;
-  private volatile boolean running = true;
+  private final AtomicBoolean isStopped = new AtomicBoolean();
 
   private final int stagingCatchupGap;
   private final long placeHolderIndex;
@@ -259,6 +320,8 @@ class LeaderStateImpl implements LeaderState {
   private final LogAppenderMetrics logAppenderMetrics;
   private final long followerMaxGapThreshold;
   private final PendingStepDown pendingStepDown;
+
+  private final ReadIndexHeartbeats readIndexHeartbeats;
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -272,13 +335,14 @@ class LeaderStateImpl implements LeaderState {
     this.currentTerm = state.getCurrentTerm();
 
     this.eventQueue = new EventQueue();
-    processor = new EventProcessor(this.name);
+    processor = new EventProcessor(this.name, server);
     raftServerMetrics = server.getRaftServerMetrics();
     logAppenderMetrics = new LogAppenderMetrics(server.getMemberId());
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
     this.pendingStepDown = new PendingStepDown(this);
+    this.readIndexHeartbeats = new ReadIndexHeartbeats();
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
     double followerGapRatioMax = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
 
@@ -296,13 +360,12 @@ class LeaderStateImpl implements LeaderState {
     placeHolderIndex = raftLog.getNextIndex();
 
     senders = new SenderList();
-    addSenders(others, placeHolderIndex, true, RaftPeerRole.FOLLOWER);
+    addSenders(others, placeHolderIndex, true);
 
     final Collection<RaftPeer> listeners = conf.getAllPeers(RaftPeerRole.LISTENER);
     if (!listeners.isEmpty()) {
-      addSenders(listeners, placeHolderIndex, false, RaftPeerRole.LISTENER);
+      addSenders(listeners, placeHolderIndex, true);
     }
-    voterLists = divideFollowers(conf);
   }
 
   LogEntryProto start() {
@@ -324,7 +387,10 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void stop() {
-    this.running = false;
+    if (!isStopped.compareAndSet(false, true)) {
+      LOG.info("{} is already stopped", this);
+      return;
+    }
     // do not interrupt event processor since it may be in the middle of logSync
     senders.forEach(LogAppender::stop);
     final NotLeaderException nle = server.generateNotLeaderException();
@@ -337,6 +403,8 @@ class LeaderStateImpl implements LeaderState {
       LOG.warn("{}: Caught exception in sendNotLeaderResponses", this, e);
     }
     messageStreamRequests.clear();
+    // TODO client should retry on NotLeaderException
+    readIndexHeartbeats.failListeners(nle);
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
@@ -355,9 +423,13 @@ class LeaderStateImpl implements LeaderState {
     return currentTerm;
   }
 
+  TermIndex getLastEntry() {
+    return server.getState().getLastEntry();
+  }
+
   @Override
   public boolean onFollowerTerm(FollowerInfo follower, long followerTerm) {
-    if (isAttendingVote(follower) && followerTerm > getCurrentTerm()) {
+    if (isCaughtUp(follower) && followerTerm > getCurrentTerm()) {
       submitStepDownEvent(followerTerm, StepDownReason.HIGHER_TERM);
       return true;
     }
@@ -369,7 +441,8 @@ class LeaderStateImpl implements LeaderState {
    */
   PendingRequest startSetConfiguration(SetConfigurationRequest request, List<RaftPeer> peersInNewConf) {
     LOG.info("{}: startSetConfiguration {}", this, request);
-    Preconditions.assertTrue(running && !inStagingState());
+    Preconditions.assertTrue(isRunning(), () -> this + " is not running.");
+    Preconditions.assertTrue(!inStagingState(), () -> this + " is already in staging state " + stagingState);
 
     final List<RaftPeer> listenersInNewConf = request.getArguments().getPeersInNewConf(RaftPeerRole.LISTENER);
     final Collection<RaftPeer> peersToBootStrap = server.getRaftConf().filterNotContainedInConf(peersInNewConf);
@@ -389,8 +462,8 @@ class LeaderStateImpl implements LeaderState {
       applyOldNewConf();
     } else {
       // update the LeaderState's sender list
-      addAndStartSenders(newPeers, RaftPeerRole.FOLLOWER);
-      addAndStartSenders(newListeners, RaftPeerRole.LISTENER);
+      addAndStartSenders(newPeers);
+      addAndStartSenders(newListeners);
     }
     return pending;
   }
@@ -475,12 +548,11 @@ class LeaderStateImpl implements LeaderState {
 
   private void updateConfiguration(long logIndex, RaftConfigurationImpl newConf) {
     Preconditions.assertTrue(logIndex == newConf.getLogEntryIndex());
-    voterLists = divideFollowers(newConf);
     server.getState().setRaftConf(newConf);
   }
 
   void updateFollowerCommitInfos(CommitInfoCache cache, List<CommitInfoProto> protos) {
-    for (LogAppender sender : senders.getSenders()) {
+    for (LogAppender sender : senders) {
       FollowerInfo info = sender.getFollower();
       protos.add(cache.update(info.getPeer(), info.getCommitIndex()));
     }
@@ -489,8 +561,8 @@ class LeaderStateImpl implements LeaderState {
   @Override
   public AppendEntriesRequestProto newAppendEntriesRequestProto(FollowerInfo follower,
       List<LogEntryProto> entries, TermIndex previous, long callId) {
-    final boolean initializing = isAttendingVote(follower);
-    final RaftPeerId targetId = follower.getPeer().getId();
+    final boolean initializing = isCaughtUp(follower);
+    final RaftPeerId targetId = follower.getId();
     return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, currentTerm, entries,
         ServerImplUtils.effectiveCommitIndex(raftLog.getLastCommittedIndex(), previous, entries.size()),
         initializing, previous, server.getCommitInfos(), callId);
@@ -499,48 +571,59 @@ class LeaderStateImpl implements LeaderState {
   /**
    * Update sender list for setConfiguration request
    */
-  void addAndStartSenders(Collection<RaftPeer> newPeers, RaftPeerRole role) {
+  private void addAndStartSenders(Collection<RaftPeer> newPeers) {
     if (!newPeers.isEmpty()) {
-      addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false, role).forEach(LogAppender::start);
+      addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false).forEach(LogAppender::start);
     }
   }
 
-  Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote,
-      RaftPeerRole role) {
+  private RaftPeer getPeer(RaftPeerId id) {
+    return server.getRaftConf().getPeer(id, RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER);
+  }
+
+  private Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean caughtUp) {
     final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
-    final List<LogAppender> newAppenders = newPeers.stream()
-        .map(peer -> {
-          final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, t, nextIndex, attendVote);
-          peerIdFollowerInfoMap.put(peer.getId(), f);
-          if (role == RaftPeerRole.FOLLOWER) {
-            raftServerMetrics.addFollower(peer.getId());
-            logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
-          }
-          return server.newLogAppender(this, f);
-        }).collect(Collectors.toList());
+    final List<LogAppender> newAppenders = newPeers.stream().map(peer -> {
+      final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, this::getPeer, t, nextIndex, caughtUp);
+      followerInfoMap.put(peer.getId(), f);
+      raftServerMetrics.addFollower(peer.getId());
+      logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
+      return server.newLogAppender(this, f);
+    }).collect(Collectors.toList());
     senders.addAll(newAppenders);
     return newAppenders;
   }
 
-  void stopAndRemoveSenders(Predicate<LogAppender> predicate) {
-    final List<LogAppender> toStop = senders.stream().filter(predicate).collect(Collectors.toList());
+  private void stopAndRemoveSenders(Predicate<LogAppender> predicate) {
+    stopAndRemoveSenders(getLogAppenders().filter(predicate).collect(Collectors.toList()));
+  }
+
+  private void stopAndRemoveSenders(Collection<LogAppender> toStop) {
     toStop.forEach(LogAppender::stop);
     senders.removeAll(toStop);
   }
 
+  boolean isRunning() {
+    if (isStopped.get()) {
+      return false;
+    }
+    final LeaderStateImpl current = server.getRole().getLeaderState().orElse(null);
+    return this == current;
+  }
+
   @Override
   public void restart(LogAppender sender) {
+    if (!isRunning()) {
+      LOG.warn("Failed to restart {}: {} is not running", sender, this);
+      return;
+    }
+
     final FollowerInfo info = sender.getFollower();
     LOG.info("{}: Restarting {} for {}", this, JavaUtils.getClassSimpleName(sender.getClass()), info.getName());
-    sender.stop();
-    senders.removeAll(Collections.singleton(sender));
+    stopAndRemoveSenders(Collections.singleton(sender));
 
-    final RaftPeer peer = info.getPeer();
-    if (server.getRaftConf().containsInConf(peer.getId())) {
-      addAndStartSenders(Collections.singleton(peer), RaftPeerRole.FOLLOWER);
-    } else if (server.getRaftConf().containsInConf(peer.getId(), RaftPeerRole.LISTENER)) {
-      addAndStartSenders(Collections.singleton(peer), RaftPeerRole.LISTENER);
-    }
+    Optional.ofNullable(getPeer(info.getId()))
+        .ifPresent(peer -> addAndStartSenders(Collections.singleton(peer)));
   }
 
   /**
@@ -568,7 +651,7 @@ class LeaderStateImpl implements LeaderState {
       LOG.warn(s, e);
       // the failure should happen while changing the state to follower
       // thus the in-memory state should have been updated
-      if (running) {
+      if (!isStopped.get()) {
         throw new IllegalStateException(s + " and running == true", e);
       }
     }
@@ -578,33 +661,19 @@ class LeaderStateImpl implements LeaderState {
     return pendingStepDown.submitAsync(request);
   }
 
-  private synchronized void sendStartLeaderElectionToHigherPriorityPeer(RaftPeerId follower, TermIndex lastEntry) {
-    ServerState state = server.getState();
-    TermIndex currLastEntry = state.getLastEntry();
-    if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
-      LOG.warn("{} can not send StartLeaderElectionRequest to follower:{} because currLastEntry:{} " +
-              "did not match lastEntry:{}", this, follower, currLastEntry, lastEntry);
-      return;
-    }
-
-    final StartLeaderElectionRequestProto r = ServerProtoUtils.toStartLeaderElectionRequestProto(
-        server.getMemberId(), follower, lastEntry);
-    CompletableFuture.supplyAsync(() -> {
-      server.getLeaderElectionMetrics().onTransferLeadership();
-      try {
-        StartLeaderElectionReplyProto replyProto = server.getServerRpc().startLeaderElection(r);
-        LOG.info("{} received {} reply of StartLeaderElectionRequest from follower:{}",
-            this, replyProto.getServerReply().getSuccess() ? "success" : "fail", follower);
-      } catch (IOException e) {
-        LOG.warn("{} send StartLeaderElectionRequest throw exception", this, e);
+  private static LogAppender chooseUpToDateFollower(List<LogAppender> followers, TermIndex leaderLastEntry) {
+    for(LogAppender f : followers) {
+      if (TransferLeadership.isFollowerUpToDate(f.getFollower(), leaderLastEntry)
+          == TransferLeadership.Result.SUCCESS) {
+        return f;
       }
-      return null;
-    });
+    }
+    return null;
   }
 
   private void prepare() {
     synchronized (server) {
-      if (running) {
+      if (isRunning()) {
         final ServerState state = server.getState();
         if (state.getRaftConf().isTransitional() && state.isConfCommitted()) {
           // the configuration is in transitional state, and has been committed
@@ -620,25 +689,25 @@ class LeaderStateImpl implements LeaderState {
    * state, such as changing to follower, or updating the committed index.
    */
   private class EventProcessor extends Daemon {
-    public EventProcessor(String name) {
-      setName(name);
+    public EventProcessor(String name, RaftServerImpl server) {
+      super(Daemon.newBuilder()
+          .setName(name).setThreadGroup(server.getThreadGroup()));
     }
     @Override
     public void run() {
       // apply an empty message; check if necessary to replicate (new) conf
       prepare();
 
-      while (running) {
+      while (isRunning()) {
         final StateUpdateEvent event = eventQueue.poll();
         synchronized(server) {
-          if (running) {
+          if (isRunning()) {
             if (event != null) {
               event.execute();
             } else if (inStagingState()) {
               checkStaging();
-            } else {
-              yieldLeaderToHigherPriorityPeer();
-              checkLeadership();
+            } else if (checkLeadership()) {
+              checkPeersForYieldingLeader();
             }
           }
         }
@@ -657,7 +726,7 @@ class LeaderStateImpl implements LeaderState {
    * 3. Otherwise the peer is making progressing. Keep waiting.
    */
   private BootStrapProgress checkProgress(FollowerInfo follower, long committed) {
-    Preconditions.assertTrue(!isAttendingVote(follower));
+    Preconditions.assertTrue(!isCaughtUp(follower));
     final Timestamp progressTime = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-3L * server.getMaxTimeoutMs());
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
@@ -673,26 +742,19 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  private Collection<BootStrapProgress> checkAllProgress(long committed) {
-    Preconditions.assertTrue(inStagingState());
-    return senders.stream()
-        .filter(sender -> !isAttendingVote(sender.getFollower()))
-        .map(sender -> checkProgress(sender.getFollower(), committed))
-        .collect(Collectors.toCollection(ArrayList::new));
-  }
-
   @Override
   public void onFollowerSuccessAppendEntries(FollowerInfo follower) {
-    if (isAttendingVote(follower)) {
+    if (isCaughtUp(follower)) {
       submitUpdateCommitEvent();
     } else {
       eventQueue.submit(checkStagingEvent);
     }
+    server.getTransferLeadership().onFollowerAppendEntriesReply(follower);
   }
 
   @Override
   public boolean isFollowerBootstrapping(FollowerInfo follower) {
-    return isBootStrappingPeer(follower.getPeer().getId());
+    return isBootStrappingPeer(follower.getId());
   }
 
   private void checkStaging() {
@@ -700,19 +762,23 @@ class LeaderStateImpl implements LeaderState {
       // it is possible that the bootstrapping is done. Then, fallback to UPDATE_COMMIT
       updateCommitEvent.execute();
     } else {
-      final long committedIndex = server.getState().getLog()
-          .getLastCommittedIndex();
-      Collection<BootStrapProgress> reports = checkAllProgress(committedIndex);
+      final long commitIndex = server.getState().getLog().getLastCommittedIndex();
+      // check progress for the new followers
+      final EnumSet<BootStrapProgress> reports = getLogAppenders()
+          .map(LogAppender::getFollower)
+          .filter(follower -> !isCaughtUp(follower))
+          .map(follower -> checkProgress(follower, commitIndex))
+          .collect(Collectors.toCollection(() -> EnumSet.noneOf(BootStrapProgress.class)));
       if (reports.contains(BootStrapProgress.NOPROGRESS)) {
         stagingState.fail(BootStrapProgress.NOPROGRESS);
       } else if (!reports.contains(BootStrapProgress.PROGRESSING)) {
         // all caught up!
         applyOldNewConf();
-        senders.stream()
+        getLogAppenders()
             .map(LogAppender::getFollower)
-            .filter(f -> server.getRaftConf().containsInConf(f.getPeer().getId()))
+            .filter(f -> server.getRaftConf().containsInConf(f.getId()))
             .map(FollowerInfoImpl.class::cast)
-            .forEach(FollowerInfoImpl::startAttendVote);
+            .forEach(FollowerInfoImpl::catchUp);
       }
     }
   }
@@ -782,7 +848,8 @@ class LeaderStateImpl implements LeaderState {
     final RaftPeerId selfId = server.getId();
     final RaftConfigurationImpl conf = server.getRaftConf();
 
-    final List<RaftPeerId> followers = voterLists.get(0);
+    final CurrentOldFollowerInfos infos = followerInfoMap.getFollowerInfos(conf);
+    final List<FollowerInfo> followers = infos.getCurrent();
     final boolean includeSelf = conf.containsInConf(selfId);
     if (followers.isEmpty() && !includeSelf) {
       return Optional.empty();
@@ -794,14 +861,14 @@ class LeaderStateImpl implements LeaderState {
     if (!conf.isTransitional()) {
       return Optional.of(newConf);
     } else { // configuration is in transitional state
-      final List<RaftPeerId> oldFollowers = voterLists.get(1);
+      final List<FollowerInfo> oldFollowers = infos.getOld();
       final boolean includeSelfInOldConf = conf.containsInOldConf(selfId);
       if (oldFollowers.isEmpty() && !includeSelfInOldConf) {
         return Optional.empty();
       }
 
       final long[] indicesInOldConf = getSorted(oldFollowers, includeSelfInOldConf, followerIndex, logIndex);
-      final MinMajorityMax oldConf = MinMajorityMax.valueOf(indicesInOldConf, followerMaxGapThreshold);
+      final MinMajorityMax oldConf = MinMajorityMax.valueOf(indicesInOldConf, gapThreshold);
       return Optional.of(newConf.combine(oldConf));
     }
   }
@@ -810,28 +877,29 @@ class LeaderStateImpl implements LeaderState {
     final RaftPeerId selfId = server.getId();
     final RaftConfigurationImpl conf = server.getRaftConf();
 
-    final List<RaftPeerId> followers = voterLists.get(0);
+    final CurrentOldFollowerInfos infos = followerInfoMap.getFollowerInfos(conf);
+    final List<FollowerInfo> followers = infos.getCurrent();
     final boolean includeSelf = conf.containsInConf(selfId);
     final boolean newConf = hasMajority(isAcked, followers, includeSelf);
 
     if (!conf.isTransitional()) {
       return newConf;
     } else {
-      final List<RaftPeerId> oldFollowers = voterLists.get(1);
+      final List<FollowerInfo> oldFollowers = infos.getOld();
       final boolean includeSelfInOldConf = conf.containsInOldConf(selfId);
       final boolean oldConf = hasMajority(isAcked, oldFollowers, includeSelfInOldConf);
       return newConf && oldConf;
     }
   }
 
-  private boolean hasMajority(Predicate<RaftPeerId> isAcked, List<RaftPeerId> followers, boolean includeSelf) {
+  private boolean hasMajority(Predicate<RaftPeerId> isAcked, List<FollowerInfo> followers, boolean includeSelf) {
     if (followers.isEmpty() && !includeSelf) {
       return true;
     }
 
     int count = includeSelf ? 1 : 0;
-    for (RaftPeerId follower: followers) {
-      if (isAcked.test(follower)) {
+    for (FollowerInfo follower: followers) {
+      if (isAcked.test(follower.getId())) {
         count++;
       }
     }
@@ -917,31 +985,14 @@ class LeaderStateImpl implements LeaderState {
     notifySenders();
   }
 
-  private List<FollowerInfo> getFollowerInfos(List<RaftPeerId> followerIDs) {
-    List<FollowerInfo> followerInfos = new ArrayList<>();
-    for (int i = 0; i < followerIDs.size(); i++) {
-      RaftPeerId id = followerIDs.get(i);
-      if (!peerIdFollowerInfoMap.containsKey(id)) {
-        throw new IllegalArgumentException("RaftPeerId:" + id +
-                " not in peerIdFollowerInfoMap of leader:" + server.getMemberId());
-      }
-
-      followerInfos.add(peerIdFollowerInfoMap.get(id));
-    }
-
-    return followerInfos;
-  }
-
-  private long[] getSorted(List<RaftPeerId> followerIDs, boolean includeSelf,
+  private long[] getSorted(List<FollowerInfo> followerInfos, boolean includeSelf,
       ToLongFunction<FollowerInfo> getFollowerIndex, LongSupplier getLogIndex) {
-    final int length = includeSelf ? followerIDs.size() + 1 : followerIDs.size();
+    final int length = includeSelf ? followerInfos.size() + 1 : followerInfos.size();
     if (length == 0) {
-      throw new IllegalArgumentException("followers.size() == "
-          + followerIDs.size() + " and includeSelf == " + includeSelf);
+      throw new IllegalArgumentException("followerInfos is empty and includeSelf == " + includeSelf);
     }
 
     final long[] indices = new long[length];
-    List<FollowerInfo> followerInfos = getFollowerInfos(followerIDs);
     for (int i = 0; i < followerInfos.size(); i++) {
       indices[i] = getFollowerIndex.applyAsLong(followerInfos.get(i));
     }
@@ -955,68 +1006,35 @@ class LeaderStateImpl implements LeaderState {
     return indices;
   }
 
-  private List<List<RaftPeerId>> divideFollowers(RaftConfigurationImpl conf) {
-    List<List<RaftPeerId>> lists = new ArrayList<>(2);
-    List<RaftPeerId> listForNew = senders.stream()
-        .map(LogAppender::getFollowerId)
-        .filter(conf::containsInConf)
-        .collect(Collectors.toList());
-    lists.add(listForNew);
-    if (conf.isTransitional()) {
-      List<RaftPeerId> listForOld = senders.stream()
-          .map(LogAppender::getFollowerId)
-          .filter(conf::containsInOldConf)
-          .collect(Collectors.toList());
-      lists.add(listForOld);
-    }
-    return lists;
-  }
-
-  private void yieldLeaderToHigherPriorityPeer() {
-    if (!server.getInfo().isLeader()) {
-      return;
-    }
-
+  private void checkPeersForYieldingLeader() {
     final RaftConfigurationImpl conf = server.getRaftConf();
     final RaftPeer leader = conf.getPeer(server.getId());
     if (leader == null) {
       LOG.error("{} the leader {} is not in the conf {}", this, server.getId(), conf);
       return;
     }
-    int leaderPriority = leader.getPriority();
+    final int leaderPriority = leader.getPriority();
 
-    for (LogAppender logAppender : senders.getSenders()) {
-      final FollowerInfo followerInfo = logAppender.getFollower();
-      final RaftPeerId followerID = followerInfo.getPeer().getId();
-      final RaftPeer follower = conf.getPeer(followerID);
+    final List<LogAppender> highestPriorityInfos = new ArrayList<>();
+    int highestPriority = Integer.MIN_VALUE;
+    for (LogAppender logAppender : senders) {
+      final RaftPeer follower = conf.getPeer(logAppender.getFollowerId());
       if (follower == null) {
-        if (conf.getPeer(followerID, RaftPeerRole.LISTENER) == null) {
-          LOG.error("{} the follower {} is not in the conf {}", this, followerID, conf);
-        }
         continue;
       }
       final int followerPriority = follower.getPriority();
-      if (followerPriority <= leaderPriority) {
-        continue;
+      if (followerPriority > leaderPriority && followerPriority >= highestPriority) {
+        if (followerPriority > highestPriority) {
+          highestPriority = followerPriority;
+          highestPriorityInfos.clear();
+        }
+        highestPriorityInfos.add(logAppender);
       }
-      final TermIndex leaderLastEntry = server.getState().getLastEntry();
-      if (leaderLastEntry == null) {
-        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} " +
-                "is higher than leader's:{} and leader's lastEntry is null",
-            this, followerID, currentTerm, followerPriority, leaderPriority);
-
-        sendStartLeaderElectionToHigherPriorityPeer(followerID, null);
-        return;
-      }
-
-      if (followerInfo.getMatchIndex() >= leaderLastEntry.getIndex()) {
-        LOG.info("{} send StartLeaderElectionRequest to follower:{} on term:{} because follower's priority:{} " +
-                "is higher than leader's:{} and follower's lastEntry index:{} catch up with leader's:{}",
-            this, followerID, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
-            leaderLastEntry.getIndex());
-        sendStartLeaderElectionToHigherPriorityPeer(followerID, leaderLastEntry);
-        return;
-      }
+    }
+    final TermIndex leaderLastEntry = getLastEntry();
+    final LogAppender appender = chooseUpToDateFollower(highestPriorityInfos, leaderLastEntry);
+    if (appender != null) {
+      server.getTransferLeadership().start(appender);
     }
   }
 
@@ -1039,7 +1057,7 @@ class LeaderStateImpl implements LeaderState {
       return true;
     }
 
-    final List<RaftPeerId> activePeers = senders.stream()
+    final List<RaftPeerId> activePeers = getLogAppenders()
         .filter(sender -> sender.getFollower()
                                 .getLastRpcResponseTime()
                                 .elapsedTimeMs() <= server.getMaxTimeoutMs())
@@ -1057,7 +1075,7 @@ class LeaderStateImpl implements LeaderState {
         + ". Election timeout: " + server.getMaxTimeoutMs() + "ms"
         + ". In charge for: " + server.getRole().getRoleElapsedTimeMs() + "ms"
         + ". Conf: " + conf);
-    senders.stream().map(LogAppender::getFollower).forEach(f -> LOG.warn("Follower {}", f));
+    getLogAppenders().map(LogAppender::getFollower).forEach(f -> LOG.warn("Follower {}", f));
 
     // step down as follower
     stepDown(currentTerm, StepDownReason.LOST_MAJORITY_HEARTBEATS);
@@ -1082,12 +1100,14 @@ class LeaderStateImpl implements LeaderState {
 
     // leader has not committed any entries in this term, reject
     if (server.getRaftLog().getTermIndex(readIndex).getTerm() != server.getState().getCurrentTerm()) {
-      return JavaUtils.completeExceptionally(new LeaderNotReadyException(server.getMemberId()));
+      return JavaUtils.completeExceptionally(new ReadIndexException(
+          "Failed to getReadIndex " + readIndex + " since the term is not yet committed.",
+          new LeaderNotReadyException(server.getMemberId())));
     }
 
     final MemoizedSupplier<AppendEntriesListener> supplier = MemoizedSupplier.valueOf(
         () -> new AppendEntriesListener(readIndex));
-    final AppendEntriesListener listener = server.getReadRequests().addAppendEntriesListener(
+    final AppendEntriesListener listener = readIndexHeartbeats.addAppendEntriesListener(
         readIndex, key -> supplier.get());
 
     // the readIndex is already acknowledged before
@@ -1096,13 +1116,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     if (supplier.isInitialized()) {
-      senders.forEach(sender -> {
-        try {
-          sender.triggerHeartbeat();
-        } catch (IOException e) {
-          LOG.warn("{}: {} cannot trigger heartbeat due to {}", this, sender, e);
-        }
-      });
+      senders.forEach(LogAppender::triggerHeartbeat);
     }
 
     return listener.getFuture();
@@ -1110,7 +1124,7 @@ class LeaderStateImpl implements LeaderState {
 
   @Override
   public void onAppendEntriesReply(LogAppender appender, RaftProtos.AppendEntriesReplyProto reply) {
-    server.getReadRequests().onAppendEntriesReply(appender, reply, this::hasMajority);
+    readIndexHeartbeats.onAppendEntriesReply(appender, reply, this::hasMajority);
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {
@@ -1122,7 +1136,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   long[] getFollowerNextIndices() {
-    return senders.stream().mapToLong(s -> s.getFollower().getNextIndex()).toArray();
+    return getLogAppenders().mapToLong(s -> s.getFollower().getNextIndex()).toArray();
   }
 
   static Map<RaftPeerId, RaftPeer> newMap(Collection<RaftPeer> peers, String str) {
@@ -1170,7 +1184,7 @@ class LeaderStateImpl implements LeaderState {
     void fail(BootStrapProgress progress) {
       final String message = this + ": Fail to set configuration " + newConf + " due to " + progress;
       LOG.debug(message);
-      stopAndRemoveSenders(s -> !isAttendingVote(s.getFollower()));
+      stopAndRemoveSenders(s -> !isCaughtUp(s.getFollower()));
 
       stagingState = null;
       // send back failure response to client's request
@@ -1186,19 +1200,22 @@ class LeaderStateImpl implements LeaderState {
   /**
    * @return the RaftPeer (address and id) information of the followers.
    */
-  List<RaftPeer> getFollowers() {
-    return Collections.unmodifiableList(senders.stream()
+  Stream<RaftPeer> getFollowers() {
+    return getLogAppenders()
         .map(sender -> sender.getFollower().getPeer())
-        .filter(peer -> server.getRaftConf().containsInConf(peer.getId()))
-        .collect(Collectors.toList()));
+        .filter(peer -> server.getRaftConf().containsInConf(peer.getId()));
   }
 
   Stream<LogAppender> getLogAppenders() {
-    return senders.stream();
+    return StreamSupport.stream(senders.spliterator(), false);
   }
 
-  private static boolean isAttendingVote(FollowerInfo follower) {
-    return ((FollowerInfoImpl)follower).isAttendingVote();
+  Optional<LogAppender> getLogAppender(RaftPeerId id) {
+    return getLogAppenders().filter(a -> a.getFollowerId().equals(id)).findAny();
+  }
+
+  private static boolean isCaughtUp(FollowerInfo follower) {
+    return ((FollowerInfoImpl)follower).isCaughtUp();
   }
 
   @Override
@@ -1209,7 +1226,7 @@ class LeaderStateImpl implements LeaderState {
       server.getStateMachine().leaderEvent().notifyFollowerSlowness(leaderInfo);
       server.getStateMachine().leaderEvent().notifyFollowerSlowness(leaderInfo, follower.getPeer());
     }
-    final RaftPeerId followerId = follower.getPeer().getId();
+    final RaftPeerId followerId = follower.getId();
     raftServerMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime.toLong(TimeUnit.NANOSECONDS));
   }
 

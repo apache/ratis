@@ -32,6 +32,8 @@ import org.apache.ratis.util.ConcurrentUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
 import java.util.function.Function;
 
 public interface NettyUtils {
@@ -54,6 +56,11 @@ public interface NettyUtils {
     if (trustManagerConfig == null) {
       return;
     }
+    final TrustManager trustManager = trustManagerConfig.getTrustManager();
+    if (trustManager != null) {
+      b.trustManager(trustManager);
+      return;
+    }
     final CertificatesConf certificates = trustManagerConfig.getTrustCertificates();
     if (certificates.isFileBased()) {
       b.trustManager(certificates.getFile());
@@ -64,6 +71,11 @@ public interface NettyUtils {
 
   static void setKeyManager(SslContextBuilder b, KeyManagerConf keyManagerConfig) {
     if (keyManagerConfig == null) {
+      return;
+    }
+    final KeyManager keyManager = keyManagerConfig.getKeyManager();
+    if (keyManager != null) {
+      b.keyManager(keyManager);
       return;
     }
     final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
@@ -77,6 +89,10 @@ public interface NettyUtils {
   }
 
   static SslContextBuilder initSslContextBuilderForServer(KeyManagerConf keyManagerConfig) {
+    final KeyManager keyManager = keyManagerConfig.getKeyManager();
+    if (keyManager != null) {
+      return SslContextBuilder.forServer(keyManager);
+    }
     final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
     final CertificatesConf certificates = keyManagerConfig.getKeyCertificates();
 

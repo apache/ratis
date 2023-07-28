@@ -19,7 +19,9 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.util.StreamObserverWithTimeout;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
@@ -79,19 +81,9 @@ public class GrpcServerProtocolClient implements Closeable {
 
     if (tlsConfig!= null) {
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
-      if (tlsConfig.isFileBasedConfig()) {
-        sslContextBuilder.trustManager(tlsConfig.getTrustStoreFile());
-      } else {
-        sslContextBuilder.trustManager(tlsConfig.getTrustStore());
-      }
+      GrpcUtil.setTrustManager(sslContextBuilder, tlsConfig.getTrustManager());
       if (tlsConfig.getMtlsEnabled()) {
-        if (tlsConfig.isFileBasedConfig()) {
-          sslContextBuilder.keyManager(tlsConfig.getCertChainFile(),
-              tlsConfig.getPrivateKeyFile());
-        } else {
-          sslContextBuilder.keyManager(tlsConfig.getPrivateKey(),
-              tlsConfig.getCertChain());
-        }
+        GrpcUtil.setKeyManager(sslContextBuilder, tlsConfig.getKeyManager());
       }
       try {
         channelBuilder.useTransportSecurity().sslContext(sslContextBuilder.build());
@@ -102,6 +94,7 @@ public class GrpcServerProtocolClient implements Closeable {
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
+    channelBuilder.disableRetry();
     return channelBuilder.flowControlWindow(flowControlWindow).build();
   }
 
@@ -145,9 +138,9 @@ public class GrpcServerProtocolClient implements Closeable {
   }
 
   StreamObserver<InstallSnapshotRequestProto> installSnapshot(
-      StreamObserver<InstallSnapshotReplyProto> responseHandler) {
-    return asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-        .installSnapshot(responseHandler);
+      String name, TimeDuration timeout, int limit, StreamObserver<InstallSnapshotReplyProto> responseHandler) {
+    return StreamObserverWithTimeout.newInstance(name, ServerStringUtils::toInstallSnapshotRequestString,
+        timeout, limit, i -> asyncStub.withInterceptors(i).installSnapshot(responseHandler));
   }
 
   // short-circuit the backoff timer and make them reconnect immediately.

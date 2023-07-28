@@ -34,10 +34,10 @@ import java.util.stream.Collectors;
 
 /**
  * The configuration of the raft cluster.
- *
+ * <p>
  * The configuration is stable if there is no on-going peer change. Otherwise,
  * the configuration is transitional, i.e. in the middle of a peer change.
- *
+ * <p>
  * The objects of this class are immutable.
  */
 final class RaftConfigurationImpl implements RaftConfiguration {
@@ -157,6 +157,13 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     }
   }
 
+  PeerConfiguration getConf() {
+    return conf;
+  }
+
+  PeerConfiguration getOldConf() {
+    return oldConf;
+  }
 
   boolean isHighestPriority(RaftPeerId peerId) {
     RaftPeer target = getPeer(peerId);
@@ -165,7 +172,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     }
     Collection<RaftPeer> peers = getCurrentPeers();
     for (RaftPeer peer : peers) {
-      if (peer.getPriority() >= target.getPriority() && !peer.equals(target)) {
+      if (peer.getPriority() > target.getPriority() && !peer.equals(target)) {
         return false;
       }
     }

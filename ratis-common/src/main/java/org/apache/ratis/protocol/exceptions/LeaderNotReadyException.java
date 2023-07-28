@@ -17,7 +17,9 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
+import org.apache.ratis.proto.RaftProtos.RaftGroupMemberIdProto;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.util.ProtoUtils;
 
 /**
  * This exception is sent from the server to a client. The server has just
@@ -26,14 +28,18 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
  * it cannot determine whether a request is just a retry.
  */
 public class LeaderNotReadyException extends ServerNotReadyException {
-  private final RaftGroupMemberId serverId;
+  private final RaftGroupMemberIdProto serverId;
 
   public LeaderNotReadyException(RaftGroupMemberId id) {
     super(id + " is in LEADER state but not ready yet.");
-    this.serverId = id;
+    this.serverId = ProtoUtils.toRaftGroupMemberIdProtoBuilder(id).build();
   }
 
   public RaftGroupMemberId getServerId() {
+    return ProtoUtils.toRaftGroupMemberId(serverId);
+  }
+
+  public RaftGroupMemberIdProto getRaftGroupMemberIdProto() {
     return serverId;
   }
 }

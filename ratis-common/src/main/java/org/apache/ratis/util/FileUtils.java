@@ -71,6 +71,21 @@ public interface FileUtils {
         () -> "Files.createDirectories " + dir);
   }
 
+  static void createDirectoriesDeleteExistingNonDirectory(File dir) throws IOException {
+    createDirectoriesDeleteExistingNonDirectory(dir.toPath());
+  }
+
+  static void createDirectoriesDeleteExistingNonDirectory(Path dir) throws IOException {
+    try {
+      createDirectories(dir);
+    } catch (FileAlreadyExistsException e) {
+      LOG.warn("Failed to create directory " + dir
+          + " since it already exists as a non-directory.  Trying to delete it ...", e);
+      delete(dir);
+      createDirectories(dir);
+    }
+  }
+
   static void move(File src, File dst) throws IOException {
     move(src.toPath(), dst.toPath());
   }
@@ -143,12 +158,30 @@ public interface FileUtils {
     deleteFully(source);
   }
 
-  /** The same as passing f.toPath() to {@link #delete(Path)}. */
-  static void deleteFileQuietly(File f) {
+  /**
+   * The same as passing f.toPath() to {@link #deletePathQuietly(Path)}.
+   *
+   * @param f file to delete
+   * @return true if the file is successfully deleted false otherwise
+   */
+  static boolean deleteFileQuietly(File f) {
+    return deletePathQuietly(f.toPath());
+  }
+
+  /**
+   * Delete the given path quietly.
+   * Only print a debug message in case that there is an exception,
+   *
+   * @param p path to delete
+   * @return true if the path is successfully deleted false otherwise
+   */
+  static boolean deletePathQuietly(Path p) {
     try {
-      delete(f.toPath());
+      delete(p);
+      return true;
     } catch (Exception ex) {
-      LOG.debug("File delete was not susccesful {}", f.getAbsoluteFile(), ex);
+      LOG.debug("Failed to delete " + p.toAbsolutePath(), ex);
+      return false;
     }
   }
 

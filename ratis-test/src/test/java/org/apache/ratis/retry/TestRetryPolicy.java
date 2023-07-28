@@ -130,7 +130,7 @@ public class TestRetryPolicy extends BaseTest {
     final RequestTypeDependentRetryPolicy.Builder b = RequestTypeDependentRetryPolicy.newBuilder();
     b.setRetryPolicy(RaftClientRequestProto.TypeCase.WRITE, RetryPolicies.retryForeverNoSleep());
     b.setRetryPolicy(RaftClientRequestProto.TypeCase.WATCH, RetryPolicies.retryForeverNoSleep());
-    TimeDuration timeout = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);
+    TimeDuration timeout = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     final RetryPolicy policy = b.setTimeout(RaftClientRequestProto.TypeCase.WRITE, timeout)
             .setTimeout(RaftClientRequestProto.TypeCase.WATCH, timeout).build();
     LOG.info("policy = {}", policy);
@@ -154,7 +154,7 @@ public class TestRetryPolicy extends BaseTest {
       Assert.assertEquals(0L, action.getSleepTime().getDuration());
     }
 
-    Thread.sleep(timeout.toLong(TimeUnit.MILLISECONDS) * 10);
+    timeout.sleep();
     for (RaftClientRequest request : requests) {
       final ClientRetryEvent event = new ClientRetryEvent(request, new Exception(), pending);
       final RetryPolicy.Action action = policy.handleAttemptFailure(event);

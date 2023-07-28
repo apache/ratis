@@ -24,17 +24,17 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeoutException;
 
-import static org.apache.ratis.util.ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_BYTE_SIZE_LIMIT;
-import static org.apache.ratis.util.ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_ELEMENT_LIMIT;
-import static org.apache.ratis.util.ResourceSemaphore.ResourceAcquireStatus.SUCCESS;
+import static org.apache.ratis.util.ResourceSemaphore.Group.SUCCESS;
 
 public class TestResourceSemaphore extends BaseTest {
   @Test(timeout = 5000)
   public void testGroup() throws InterruptedException, TimeoutException {
+    final int FAILED_IN_ELEMENT_LIMIT = 0;
+    final int FAILED_IN_BYTE_SIZE_LIMIT = 1;
     final ResourceSemaphore.Group g = new ResourceSemaphore.Group(3, 1);
 
     assertUsed(g, 0, 0);
-    assertAcquire(g, ResourceSemaphore.ResourceAcquireStatus.SUCCESS, 1, 1);
+    assertAcquire(g, SUCCESS, 1, 1);
     assertUsed(g, 1, 1);
     assertAcquire(g, FAILED_IN_BYTE_SIZE_LIMIT, 1, 1);
     assertUsed(g, 1, 1);
@@ -86,9 +86,8 @@ public class TestResourceSemaphore extends BaseTest {
     }
   }
 
-  static void assertAcquire(ResourceSemaphore.Group g, ResourceSemaphore.ResourceAcquireStatus expected,
-      int... permits) {
-    final ResourceSemaphore.ResourceAcquireStatus computed = g.tryAcquire(permits);
+  static void assertAcquire(ResourceSemaphore.Group g, int expected, int... permits) {
+    final int computed = g.tryAcquire(permits);
     Assert.assertEquals(expected, computed);
   }
 

@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -270,19 +271,10 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         .flowControlWindow(flowControlWindow.getSizeInt());
 
     if (tlsConfig != null) {
-      SslContextBuilder sslContextBuilder =
-          tlsConfig.isFileBasedConfig()?
-              SslContextBuilder.forServer(tlsConfig.getCertChainFile(),
-                  tlsConfig.getPrivateKeyFile()):
-              SslContextBuilder.forServer(tlsConfig.getPrivateKey(),
-                  tlsConfig.getCertChain());
+      SslContextBuilder sslContextBuilder = GrpcUtil.initSslContextBuilderForServer(tlsConfig.getKeyManager());
       if (tlsConfig.getMtlsEnabled()) {
         sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
-        if (tlsConfig.isFileBasedConfig()) {
-          sslContextBuilder.trustManager(tlsConfig.getTrustStoreFile());
-        } else {
-            sslContextBuilder.trustManager(tlsConfig.getTrustStore());
-        }
+        GrpcUtil.setTrustManager(sslContextBuilder, tlsConfig.getTrustManager());
       }
       sslContextBuilder = GrpcSslContexts.configure(sslContextBuilder, OPENSSL);
       try {

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -706,6 +707,11 @@ public class RaftProperties {
    */
   public void clear() {
     properties.clear();
+  }
+
+  /** @return the property entry set. */
+  Set<Map.Entry<String, String>> entrySet() {
+    return properties.entrySet();
   }
 
   @Override

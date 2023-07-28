@@ -106,6 +106,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     private final int id;
 
     HandlerDaemon(int id) {
+      super(newBuilder().setName("HandlerDaemon-" + id));
       this.id = id;
     }
 

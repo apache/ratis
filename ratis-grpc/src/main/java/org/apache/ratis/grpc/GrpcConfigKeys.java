@@ -19,13 +19,27 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.function.Consumer;
 
-import static org.apache.ratis.conf.ConfUtils.*;
+import static org.apache.ratis.conf.ConfUtils.get;
+import static org.apache.ratis.conf.ConfUtils.getBoolean;
+import static org.apache.ratis.conf.ConfUtils.getInt;
+import static org.apache.ratis.conf.ConfUtils.getSizeInBytes;
+import static org.apache.ratis.conf.ConfUtils.getTimeDuration;
+import static org.apache.ratis.conf.ConfUtils.printAll;
+import static org.apache.ratis.conf.ConfUtils.requireMax;
+import static org.apache.ratis.conf.ConfUtils.requireMin;
+import static org.apache.ratis.conf.ConfUtils.set;
+import static org.apache.ratis.conf.ConfUtils.setBoolean;
+import static org.apache.ratis.conf.ConfUtils.setInt;
+import static org.apache.ratis.conf.ConfUtils.setSizeInBytes;
+import static org.apache.ratis.conf.ConfUtils.setTimeDuration;
 
 public interface GrpcConfigKeys {
   Logger LOG = LoggerFactory.getLogger(GrpcConfigKeys.class);
@@ -234,14 +248,36 @@ public interface GrpcConfigKeys {
       setInt(properties::setInt, LEADER_OUTSTANDING_APPENDS_MAX_KEY, maxAppend);
     }
 
+    String INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_KEY = PREFIX + ".install_snapshot.request.element-limit";
+    int INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_DEFAULT = 8;
+    static int installSnapshotRequestElementLimit(RaftProperties properties) {
+      return getInt(properties::getInt, INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_KEY,
+          INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_DEFAULT, getDefaultLog(), requireMin(0));
+    }
+    static void setInstallSnapshotRequestElementLimit(RaftProperties properties, int elementLimit) {
+      setInt(properties::setInt, INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_KEY, elementLimit);
+    }
+
+    String INSTALL_SNAPSHOT_REQUEST_TIMEOUT_KEY = PREFIX + ".install_snapshot.request.timeout";
+    TimeDuration INSTALL_SNAPSHOT_REQUEST_TIMEOUT_DEFAULT = RaftServerConfigKeys.Rpc.REQUEST_TIMEOUT_DEFAULT;
+    static TimeDuration installSnapshotRequestTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(INSTALL_SNAPSHOT_REQUEST_TIMEOUT_DEFAULT.getUnit()),
+          INSTALL_SNAPSHOT_REQUEST_TIMEOUT_KEY, INSTALL_SNAPSHOT_REQUEST_TIMEOUT_DEFAULT, getDefaultLog());
+    }
+    static void setInstallSnapshotRequestTimeout(RaftProperties properties,
+                                                 TimeDuration installSnapshotRequestTimeout) {
+      setTimeDuration(properties::setTimeDuration,
+          INSTALL_SNAPSHOT_REQUEST_TIMEOUT_KEY, installSnapshotRequestTimeout);
+    }
+
     String HEARTBEAT_CHANNEL_KEY = PREFIX + ".heartbeat.channel";
     boolean HEARTBEAT_CHANNEL_DEFAULT = true;
     static boolean heartbeatChannel(RaftProperties properties) {
       return getBoolean(properties::getBoolean, HEARTBEAT_CHANNEL_KEY,
               HEARTBEAT_CHANNEL_DEFAULT, getDefaultLog());
     }
-    static void setHeartbeatChannel(RaftProperties properties, boolean useCached) {
-      setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useCached);
+    static void setHeartbeatChannel(RaftProperties properties, boolean useSeparate) {
+      setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useSeparate);
     }
   }
 

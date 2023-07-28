@@ -44,30 +44,44 @@ public class RaftLogIndex {
 
   public boolean setUnconditionally(long newIndex, Consumer<Object> log) {
     final long old = index.getAndSet(newIndex);
-    log.accept(StringUtils.stringSupplierAsObject(() -> name + ": setUnconditionally " + old + " -> " + newIndex));
-    return old != newIndex;
+    final boolean updated = old != newIndex;
+    if (updated) {
+      log.accept(StringUtils.stringSupplierAsObject(
+          () -> name + ": setUnconditionally " + old + " -> " + newIndex));
+    }
+    return updated;
   }
 
   public boolean updateUnconditionally(LongUnaryOperator update, Consumer<Object> log) {
     final long old = index.getAndUpdate(update);
     final long newIndex = update.applyAsLong(old);
-    log.accept(StringUtils.stringSupplierAsObject(() -> name + ": updateUnconditionally " + old + " -> " + newIndex));
-    return old != newIndex;
+    final boolean updated = old != newIndex;
+    if (updated) {
+      log.accept(StringUtils.stringSupplierAsObject(
+          () -> name + ": updateUnconditionally " + old + " -> " + newIndex));
+    }
+    return updated;
   }
 
   public boolean updateIncreasingly(long newIndex, Consumer<Object> log) {
     final long old = index.getAndSet(newIndex);
     Preconditions.assertTrue(old <= newIndex,
         () -> "Failed to updateIncreasingly for " + name + ": " + old + " -> " + newIndex);
-    log.accept(StringUtils.stringSupplierAsObject(() -> name + ": updateIncreasingly " + old + " -> " + newIndex));
-    return old != newIndex;
+    final boolean updated = old != newIndex;
+    if (updated) {
+      log.accept(StringUtils.stringSupplierAsObject(
+          () -> name + ": updateIncreasingly " + old + " -> " + newIndex));
+    }
+    return updated;
   }
 
   public boolean updateToMax(long newIndex, Consumer<Object> log) {
     final long old = index.getAndUpdate(oldIndex -> Math.max(oldIndex, newIndex));
     final boolean updated = old < newIndex;
-    log.accept(StringUtils.stringSupplierAsObject(
-        () -> name + ": updateToMax old=" + old + ", new=" + newIndex + ", updated? " + updated));
+    if (updated) {
+      log.accept(StringUtils.stringSupplierAsObject(
+          () -> name + ": updateToMax old=" + old + ", new=" + newIndex + ", updated? " + updated));
+    }
     return updated;
   }
 

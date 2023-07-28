@@ -26,7 +26,6 @@ import org.apache.ratis.grpc.metrics.MessageMetrics;
 @SuppressFBWarnings("URF_UNREAD_FIELD")
 public class MetricServerCallListener<R> extends ForwardingServerCallListener<R> {
   private final ServerCall.Listener<R> delegate;
-  private final String metricNamePrefix;
   private MessageMetrics metrics;
 
   MetricServerCallListener(
@@ -35,7 +34,6 @@ public class MetricServerCallListener<R> extends ForwardingServerCallListener<R>
       MessageMetrics metrics
   ){
     this.delegate = delegate;
-    this.metricNamePrefix = metricNamePrefix;
     this.metrics = metrics;
   }
 

@@ -117,6 +117,7 @@
       </plugin>
 
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
           <!--Else will use ratis-assembly as final name.-->
@@ -148,9 +149,9 @@
             </goals>
             <configuration>
               <descriptors>
-                <descriptor>src/main/assembly/bin.xml</descriptor>
                 <descriptor>src/main/assembly/examples-bin.xml</descriptor>
                 <descriptor>src/main/assembly/shell-bin.xml</descriptor>
+                <descriptor>src/main/assembly/bin.xml</descriptor>
                 <descriptor>src/main/assembly/bin-pkg.xml</descriptor>
               </descriptors>
               <finalName>apache-ratis-${project.version}-bin</finalName>
@@ -291,7 +292,11 @@
 
     <dependency>
       <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-metrics</artifactId>
+      <artifactId>ratis-metrics-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-metrics-default</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ratis</groupId>

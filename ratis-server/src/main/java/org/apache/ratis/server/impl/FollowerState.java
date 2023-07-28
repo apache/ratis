@@ -55,7 +55,6 @@ class FollowerState extends Daemon {
 
   static final Logger LOG = LoggerFactory.getLogger(FollowerState.class);
 
-  private final String name;
   private final Object reason;
   private final RaftServerImpl server;
 
@@ -65,8 +64,9 @@ class FollowerState extends Daemon {
   private final AtomicInteger outstandingOp = new AtomicInteger();
 
   FollowerState(RaftServerImpl server, Object reason) {
-    this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
-    this.setName(this.name);
+    super(newBuilder()
+        .setName(server.getMemberId() + "-" + JavaUtils.getClassSimpleName(FollowerState.class))
+        .setThreadGroup(server.getThreadGroup()));
     this.server = server;
     this.reason = reason;
   }
@@ -161,6 +161,6 @@ class FollowerState extends Daemon {
 
   @Override
   public String toString() {
-    return name;
+    return getName();
   }
 }

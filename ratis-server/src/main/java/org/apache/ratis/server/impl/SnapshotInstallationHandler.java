@@ -155,8 +155,9 @@ class SnapshotInstallationHandler {
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();
     final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
-    final long lastIncludedIndex = snapshotChunkRequest.getTermIndex().getIndex();
-    synchronized (this) {
+    final TermIndex lastIncluded = TermIndex.valueOf(snapshotChunkRequest.getTermIndex());
+    final long lastIncludedIndex = lastIncluded.getIndex();
+    synchronized (server) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
@@ -173,9 +174,9 @@ class SnapshotInstallationHandler {
         // Check and append the snapshot chunk. We simply put this in lock
         // considering a follower peer requiring a snapshot installation does not
         // have a lot of requests
-        Preconditions.assertTrue(state.getLog().getNextIndex() <= lastIncludedIndex,
-            "%s log's next id is %s, last included index in snapshot is %s",
-            getMemberId(), state.getLog().getNextIndex(), lastIncludedIndex);
+        Preconditions.assertTrue(state.getLog().getLastCommittedIndex() < lastIncludedIndex,
+            "%s log's commit index is %s, last included index in snapshot is %s",
+            getMemberId(), state.getLog().getLastCommittedIndex(), lastIncludedIndex);
 
         //TODO: We should only update State with installed snapshot once the request is done.
         state.installSnapshot(request);
@@ -183,7 +184,7 @@ class SnapshotInstallationHandler {
         // update the committed index
         // re-load the state machine if this is the last chunk
         if (snapshotChunkRequest.getDone()) {
-          state.reloadStateMachine(lastIncludedIndex);
+          state.reloadStateMachine(lastIncluded);
         }
       } finally {
         server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_COMPLETE);
@@ -203,7 +204,7 @@ class SnapshotInstallationHandler {
     final TermIndex firstAvailableLogTermIndex = TermIndex.valueOf(
         request.getNotification().getFirstAvailableTermIndex());
     final long firstAvailableLogIndex = firstAvailableLogTermIndex.getIndex();
-    synchronized (this) {
+    synchronized (server) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
@@ -305,7 +306,7 @@ class SnapshotInstallationHandler {
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
         server.getStateMachine().event().notifySnapshotInstalled(
-            InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, INVALID_LOG_INDEX, server.getRaftServer().getPeer());
+            InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, INVALID_LOG_INDEX, server.getPeer());
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, -1);
       }
@@ -316,14 +317,13 @@ class SnapshotInstallationHandler {
           .getAndSet(INVALID_TERM_INDEX);
       if (latestInstalledSnapshotTermIndex.getIndex() > INVALID_LOG_INDEX) {
         server.getStateMachine().pause();
-        state.updateInstalledSnapshotIndex(latestInstalledSnapshotTermIndex);
-        state.reloadStateMachine(latestInstalledSnapshotTermIndex.getIndex());
+        state.reloadStateMachine(latestInstalledSnapshotTermIndex);
         LOG.info("{}: InstallSnapshot notification result: {}, at index: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex);
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
         final long latestInstalledIndex = latestInstalledSnapshotTermIndex.getIndex();
         server.getStateMachine().event().notifySnapshotInstalled(
-            InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledIndex, server.getRaftServer().getPeer());
+            InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledIndex, server.getPeer());
         installedIndex.set(latestInstalledIndex);
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex.getIndex());

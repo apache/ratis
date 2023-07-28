@@ -17,23 +17,85 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.client.RaftClient;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.NoSuchFileException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.management.ObjectName;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
-import org.apache.ratis.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.CandidateInfoProto;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.FollowerInfoProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
+import org.apache.ratis.proto.RaftProtos.LeaderInfoProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.protocol.exceptions.ReadException;
-import org.apache.ratis.protocol.exceptions.SetConfigurationException;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.ratis.proto.RaftProtos.ReadIndexReplyProto;
+import org.apache.ratis.proto.RaftProtos.ReadIndexRequestProto;
+import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.proto.RaftProtos.ServerRpcProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
+import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
+import org.apache.ratis.protocol.ClientInvocationId;
+import org.apache.ratis.protocol.GroupInfoReply;
+import org.apache.ratis.protocol.GroupInfoRequest;
+import org.apache.ratis.protocol.LeaderElectionManagementRequest;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
+import org.apache.ratis.protocol.RaftClientProtocol;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.SnapshotManagementRequest;
+import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.protocol.exceptions.ReadException;
+import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
+import org.apache.ratis.protocol.exceptions.SetConfigurationException;
 import org.apache.ratis.protocol.exceptions.StaleReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
@@ -64,26 +126,19 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.ratis.util.*;
+import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.CollectionUtils;
+import org.apache.ratis.util.ConcurrentUtils;
+import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.JmxRegister;
+import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedSupplier;
-
-import javax.management.ObjectName;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.NoSuchFileException;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
@@ -97,7 +152,7 @@ import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
-    RaftClientProtocol, RaftClientAsynchronousProtocol{
+    RaftClientProtocol, RaftClientAsynchronousProtocol {
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
@@ -165,8 +220,6 @@ class RaftServerImpl implements RaftServer.Division,
   private final DataStreamMap dataStreamMap;
   private final RaftServerConfigKeys.Read.Option readOption;
 
-  private final MemoizedSupplier<RaftClient> raftClient;
-
   private final RetryCacheImpl retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
 
@@ -189,6 +242,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService clientExecutor;
 
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
+  private final ThreadGroup threadGroup;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
@@ -216,13 +270,9 @@ class RaftServerImpl implements RaftServer.Division,
         getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
+    this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
 
-    this.raftClient = JavaUtils.memoize(() -> RaftClient.newBuilder()
-        .setRaftGroup(group)
-        .setProperties(getRaftServer().getProperties())
-        .build());
-
-    this.transferLeadership = new TransferLeadership(this);
+    this.transferLeadership = new TransferLeadership(this, properties);
     this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
     this.snapshotInstallationHandler = new SnapshotInstallationHandler(this, properties);
 
@@ -275,6 +325,11 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
+  public ThreadGroup getThreadGroup() {
+    return threadGroup;
+  }
+
+  @Override
   public StateMachine getStateMachine() {
     return stateMachine;
   }
@@ -295,11 +350,6 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
-  public RaftClient getRaftClient() {
-    return raftClient.get();
-  }
-
-  @Override
   public RetryCacheImpl getRetryCache() {
     return retryCache;
   }
@@ -307,6 +357,10 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public RaftServerProxy getRaftServer() {
     return proxy;
+  }
+
+  TransferLeadership getTransferLeadership() {
+    return transferLeadership;
   }
 
   RaftServerRpc getServerRpc() {
@@ -485,14 +539,6 @@ class RaftServerImpl implements RaftServer.Division,
         LOG.warn("{}: Failed to unregister metric", getMemberId(), ignored);
       }
       try {
-        if (raftClient.isInitialized()) {
-          raftClient.get().close();
-        }
-      } catch (Exception ignored) {
-        LOG.warn("{}: Failed to close raft client", getMemberId(), ignored);
-      }
-
-      try {
         ConcurrentUtils.shutdownAndWait(clientExecutor);
       } catch (Exception ignored) {
         LOG.warn(getMemberId() + ": Failed to shutdown clientExecutor", ignored);
@@ -503,6 +549,12 @@ class RaftServerImpl implements RaftServer.Division,
         LOG.warn(getMemberId() + ": Failed to shutdown serverExecutor", ignored);
       }
     });
+  }
+
+  void setFirstElection(Object reason) {
+    if (firstElectionSinceStartup.compareAndSet(true, false)) {
+      LOG.info("{}: set firstElectionSinceStartup to false for {}", getMemberId(), reason);
+    }
   }
 
   /**
@@ -526,12 +578,14 @@ class RaftServerImpl implements RaftServer.Division,
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
         role.shutdownLeaderState(false);
+        state.setLeader(null, reason);
       } else if (old == RaftPeerRole.CANDIDATE) {
         role.shutdownLeaderElection();
       } else if (old == RaftPeerRole.FOLLOWER) {
         role.shutdownFollowerState();
       }
       role.startFollowerState(this, reason);
+      setFirstElection(reason);
     }
     return metadataUpdated;
   }
@@ -549,10 +603,11 @@ class RaftServerImpl implements RaftServer.Division,
     Preconditions.assertTrue(getInfo().isCandidate());
     role.shutdownLeaderElection();
     setRole(RaftPeerRole.LEADER, "changeToLeader");
+    final LeaderStateImpl leader = role.updateLeaderState(this);
     state.becomeLeader();
 
     // start sending AppendEntries RPC to followers
-    final LogEntryProto e = role.startLeaderState(this);
+    final LogEntryProto e = leader.start();
     getState().setRaftConf(e);
   }
 
@@ -567,7 +622,10 @@ class RaftServerImpl implements RaftServer.Division,
       role.getLeaderState().ifPresent(
           leader -> leader.updateFollowerCommitInfos(commitInfoCache, infos));
     } else {
-      getRaftConf().getAllPeers().stream()
+      RaftConfigurationImpl raftConf = getRaftConf();
+      Stream.concat(
+              raftConf.getAllPeers(RaftPeerRole.FOLLOWER).stream(),
+              raftConf.getAllPeers(RaftPeerRole.LISTENER).stream())
           .map(RaftPeer::getId)
           .filter(id -> !id.equals(getId()))
           .map(commitInfoCache::get)
@@ -579,7 +637,10 @@ class RaftServerImpl implements RaftServer.Division,
 
   GroupInfoReply getGroupInfo(GroupInfoRequest request) {
     final RaftStorageDirectory dir = state.getStorage().getStorageDir();
-    return new GroupInfoReply(request, getCommitInfos(), getGroup(), getRoleInfoProto(), dir.isHealthy());
+    final RaftConfigurationProto conf =
+        LogProtoUtils.toRaftConfigurationProtoBuilder(getRaftConf()).build();
+    return new GroupInfoReply(request, getCommitInfos(), getGroup(), getRoleInfoProto(),
+        dir.isHealthy(), conf);
   }
 
   RoleInfoProto getRoleInfoProto() {
@@ -878,9 +939,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final RaftClientRequest.Type type = request.getType();
     replyFuture.whenComplete((clientReply, exception) -> {
-      if (clientReply.isSuccess()) {
-        timerContext.ifPresent(Timekeeper.Context::stop);
-      }
+      timerContext.ifPresent(Timekeeper.Context::stop);
       if (exception != null || clientReply.getException() != null) {
         raftServerMetrics.incFailedRequestCount(type);
       }
@@ -913,8 +972,11 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync() {
-    final ReadIndexRequestProto request = ServerProtoUtils.toReadIndexRequestProto(
-        getMemberId(),  getInfo().getLeaderId());
+    final RaftPeerId leaderId = getInfo().getLeaderId();
+    if (leaderId == null) {
+      return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
+    }
+    final ReadIndexRequestProto request = ServerProtoUtils.toReadIndexRequestProto(getMemberId(), leaderId);
     try {
       return getServerRpc().async().readIndexAsync(request);
     } catch (IOException e) {
@@ -923,7 +985,8 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
-    if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
+    if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE
+        && !request.getType().getRead().getPreferNonLinearizable()) {
       /*
         Linearizable read using ReadIndex. See Raft paper section 6.4.
         1. First obtain readIndex from Leader.
@@ -936,11 +999,11 @@ class RaftServerImpl implements RaftServer.Division,
       if (leader != null) {
         replyFuture = leader.getReadIndex();
       } else {
-        replyFuture = sendReadIndexAsync().thenApply(reply -> {
+        replyFuture = sendReadIndexAsync().thenApply(reply   -> {
           if (reply.getServerReply().getSuccess()) {
             return reply.getReadIndex();
           } else {
-            throw new CompletionException(new ReadException(getId() +
+            throw new CompletionException(new ReadIndexException(getId() +
                 ": Failed to get read index from the leader: " + reply));
           }
         });
@@ -950,7 +1013,8 @@ class RaftServerImpl implements RaftServer.Division,
           .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
           .thenCompose(readIndex -> queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));
-    } else if (readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
+    } else if (readOption == RaftServerConfigKeys.Read.Option.DEFAULT
+        || request.getType().getRead().getPreferNonLinearizable()) {
        CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
        if (reply != null) {
          return reply;
@@ -967,6 +1031,8 @@ class RaftServerImpl implements RaftServer.Division,
       return newExceptionReply(request, (StateMachineException) e);
     } else if (e instanceof ReadException) {
       return newExceptionReply(request, (ReadException) e);
+    } else if (e instanceof ReadIndexException) {
+      return newExceptionReply(request, (ReadIndexException) e);
     } else {
       throw new CompletionException(e);
     }
@@ -1054,10 +1120,6 @@ class RaftServerImpl implements RaftServer.Division,
     return transferLeadership.isSteppingDown();
   }
 
-  void finishTransferLeadership() {
-    transferLeadership.finish(state.getLeaderId(), false);
-  }
-
   CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
       throws IOException {
     if (request.getNewLeader() == null) {
@@ -1100,7 +1162,7 @@ class RaftServerImpl implements RaftServer.Division,
         return logAndReturnTransferLeadershipFail(request, msg);
       }
 
-      return transferLeadership.start(request);
+      return transferLeadership.start(leaderState, request);
     }
   }
 
@@ -1161,7 +1223,8 @@ class RaftServerImpl implements RaftServer.Division,
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
     return role.getLeaderState().map(leader -> leader.submitStepDownRequestAsync(request))
-        .orElseGet(() -> CompletableFuture.completedFuture(newSuccessReply(request)));
+        .orElseGet(() -> CompletableFuture.completedFuture(
+            newExceptionReply(request, generateNotLeaderException())));
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
@@ -1322,15 +1385,18 @@ class RaftServerImpl implements RaftServer.Division,
       List<LogEntryProto> entries) {
     if (entries != null && !entries.isEmpty()) {
       final long index0 = entries.get(0).getIndex();
-
-      if (previous == null || previous.getTerm() == 0) {
-        Preconditions.assertTrue(index0 == 0,
-            "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
-            0, index0);
-      } else {
-        Preconditions.assertTrue(previous.getIndex() == index0 - 1,
-            "Unexpected Index: previous is %s but entries[%s].getIndex()=%s",
-            previous, 0, index0);
+      // Check if next entry's index is 1 greater than the snapshotIndex. If yes, then
+      // we do not have to check for the existence of previous.
+      if (index0 != state.getSnapshotIndex() + 1) {
+        if (previous == null || previous.getTerm() == 0) {
+          Preconditions.assertTrue(index0 == 0,
+              "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
+              0, index0);
+        } else {
+          Preconditions.assertTrue(previous.getIndex() == index0 - 1,
+              "Unexpected Index: previous is %s but entries[%s].getIndex()=%s",
+              previous, 0, index0);
+        }
       }
 
       for (int i = 0; i < entries.size(); i++) {
@@ -1439,6 +1505,10 @@ class RaftServerImpl implements RaftServer.Division,
     return commitInfoCache.update(getPeer(), state.getLog().getLastCommittedIndex());
   }
 
+  ExecutorService getServerExecutor() {
+    return serverExecutor;
+  }
+
   @SuppressWarnings("checkstyle:parameternumber")
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
@@ -1509,8 +1579,7 @@ class RaftServerImpl implements RaftServer.Division,
       final long installedIndex = snapshotInstallationHandler.getInstalledIndex();
       if (installedIndex >= RaftLog.LEAST_VALID_LOG_INDEX) {
         LOG.info("{}: Follower has completed install the snapshot {}.", this, installedIndex);
-        stateMachine.event().notifySnapshotInstalled(InstallSnapshotResult.SUCCESS, installedIndex,
-            getRaftServer().getPeer());
+        stateMachine.event().notifySnapshotInstalled(InstallSnapshotResult.SUCCESS, installedIndex, getPeer());
       }
     }
     return JavaUtils.allOf(futures).whenCompleteAsync(
@@ -1816,8 +1885,8 @@ class RaftServerImpl implements RaftServer.Division,
 
     @Override
     public List<String> getFollowers() {
-      return role.getLeaderState().map(LeaderStateImpl::getFollowers).orElse(Collections.emptyList())
-          .stream().map(RaftPeer::toString).collect(Collectors.toList());
+      return role.getLeaderState().map(LeaderStateImpl::getFollowers).orElseGet(Stream::empty)
+          .map(RaftPeer::toString).collect(Collectors.toList());
     }
 
     @Override
@@ -1828,6 +1897,6 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   void onGroupLeaderElected() {
-    this.firstElectionSinceStartup.set(false);
+    transferLeadership.complete(TransferLeadership.Result.SUCCESS);
   }
 }

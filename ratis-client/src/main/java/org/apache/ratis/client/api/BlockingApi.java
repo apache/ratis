@@ -26,8 +26,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 /**
  * Blocking API to support operations
  * such as sending message, read-message, stale-read-message and watch-request.
- *
- * Note that this API and {@link AsyncApi} support the same set of operations.
+ * <p>
+ * Note that this API supports a subset of the operations in {@link AsyncApi}.
  */
 public interface BlockingApi {
   /**
@@ -40,21 +40,30 @@ public interface BlockingApi {
    */
   RaftClientReply send(Message message) throws IOException;
 
+  /** The same as sendReadOnly(message, null). */
+  default RaftClientReply sendReadOnly(Message message) throws IOException {
+    return sendReadOnly(message, null);
+  }
+
   /**
    * Send the given readonly message to the raft service.
    *
    * @param message The request message.
-   * @return the reply.
-   */
-  RaftClientReply sendReadOnly(Message message) throws IOException;
-
-  /**
-   * Send the given readonly message to the given server (not the raft service)
-   * @param message The request message.
-   * @param server The target server
+   * @param server The target server.  When server == null, send the message to the leader.
    * @return the reply.
    */
   RaftClientReply sendReadOnly(Message message, RaftPeerId server) throws IOException;
+
+  /**
+   * Send the given readonly message to the raft service using non-linearizable read.
+   * This method is useful when linearizable read is enabled
+   * but this client prefers not using it for performance reason.
+   * When linearizable read is disabled, this method is the same as {@link #sendReadOnly(Message)}.
+   *
+   * @param message The request message.
+   * @return the reply.
+   */
+  RaftClientReply sendReadOnlyNonLinearizable(Message message) throws IOException;
 
   /**
    * Send the given stale-read message to the given server (not the raft service).

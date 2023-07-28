@@ -17,10 +17,10 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,7 +28,7 @@ import java.util.function.Consumer;
 
 public class TestTimeoutScheduler extends BaseTest {
   {
-    Log4jUtils.setLogLevel(TimeoutScheduler.LOG, Level.ALL);
+    Slf4jUtils.setLogLevel(TimeoutScheduler.LOG, Level.TRACE);
   }
 
   static class ErrorHandler implements Consumer<RuntimeException> {

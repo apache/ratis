@@ -52,6 +52,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
 import static org.apache.ratis.server.raftlog.segmented.LogSegment.getEntrySize;
+import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils.MAX_OP_SIZE;
 
 /**
  * Test basic functionality of {@link LogSegment}
@@ -92,7 +93,7 @@ public class TestLogSegment extends BaseTest {
 
     final LogEntryProto[] entries = new LogEntryProto[numEntries];
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize), null)) {
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (int i = 0; i < entries.length; i++) {
         SimpleOperation op = new SimpleOperation("m" + i);
         entries[i] = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i + startIndex);
@@ -169,7 +170,7 @@ public class TestLogSegment extends BaseTest {
     final File openSegmentFile = prepareLog(true, 0, 100, 0, isLastEntryPartiallyWritten);
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile,
-        LogSegmentStartEnd.valueOf(0), loadInitial, null, null);
+        LogSegmentStartEnd.valueOf(0), MAX_OP_SIZE, loadInitial, null, null);
     final int delta = isLastEntryPartiallyWritten? 1: 0;
     checkLogSegment(openSegment, 0, 99 - delta, true, openSegmentFile.length(), 0);
     storage.close();
@@ -179,7 +180,7 @@ public class TestLogSegment extends BaseTest {
     // load a closed segment (1000-1099)
     final File closedSegmentFile = prepareLog(false, 1000, 100, 1, false);
     LogSegment closedSegment = LogSegment.loadSegment(storage, closedSegmentFile,
-        LogSegmentStartEnd.valueOf(1000, 1099L), loadInitial, null, null);
+        LogSegmentStartEnd.valueOf(1000, 1099L), MAX_OP_SIZE, loadInitial, null, null);
     checkLogSegment(closedSegment, 1000, 1099, false,
         closedSegment.getTotalFileSize(), 1);
     Assert.assertEquals(loadInitial ? 0 : 1, closedSegment.getLoadingTimes());
@@ -188,7 +189,7 @@ public class TestLogSegment extends BaseTest {
   @Test
   public void testAppendEntries() throws Exception {
     final long start = 1000;
-    LogSegment segment = LogSegment.newOpenSegment(null, start, null);
+    LogSegment segment = LogSegment.newOpenSegment(null, start, MAX_OP_SIZE, null);
     long size = SegmentedRaftLogFormat.getHeaderLength();
     final long max = 8 * 1024 * 1024;
     checkLogSegment(segment, start, start - 1, true, size, 0);
@@ -214,7 +215,7 @@ public class TestLogSegment extends BaseTest {
     final File openSegmentFile = prepareLog(true, 0, 100, 0, true);
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile,
-        LogSegmentStartEnd.valueOf(0), true, null, raftLogMetrics);
+        LogSegmentStartEnd.valueOf(0), MAX_OP_SIZE, true, null, raftLogMetrics);
     checkLogSegment(openSegment, 0, 98, true, openSegmentFile.length(), 0);
     storage.close();
 
@@ -227,7 +228,7 @@ public class TestLogSegment extends BaseTest {
 
   @Test
   public void testAppendWithGap() throws Exception {
-    LogSegment segment = LogSegment.newOpenSegment(null, 1000, null);
+    LogSegment segment = LogSegment.newOpenSegment(null, 1000, MAX_OP_SIZE, null);
     SimpleOperation op = new SimpleOperation("m");
     final StateMachineLogEntryProto m = op.getLogEntryContent();
     try {
@@ -254,7 +255,7 @@ public class TestLogSegment extends BaseTest {
   public void testTruncate() throws Exception {
     final long term = 1;
     final long start = 1000;
-    LogSegment segment = LogSegment.newOpenSegment(null, start, null);
+    LogSegment segment = LogSegment.newOpenSegment(null, start, MAX_OP_SIZE, null);
     for (int i = 0; i < 100; i++) {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(
           new SimpleOperation("m" + i).getLogEntryContent(), term, i + start);
@@ -294,10 +295,11 @@ public class TestLogSegment extends BaseTest {
     for (int max : maxSizes) {
       for (int a : preallocated) {
         try(SegmentedRaftLogOutputStream ignored =
-                new SegmentedRaftLogOutputStream(file, false, max, a, ByteBuffer.allocateDirect(bufferSize), null)) {
+                new SegmentedRaftLogOutputStream(file, false, max, a, ByteBuffer.allocateDirect(bufferSize))) {
           Assert.assertEquals("max=" + max + ", a=" + a, file.length(), Math.min(max, a));
         }
-        try(SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, 0, INVALID_LOG_INDEX, true)) {
+        try(SegmentedRaftLogInputStream in = SegmentedRaftLogTestUtils.newSegmentedRaftLogInputStream(
+            file, 0, INVALID_LOG_INDEX, true)) {
           LogEntryProto entry = in.nextEntry();
           Assert.assertNull(entry);
         }
@@ -309,7 +311,7 @@ public class TestLogSegment extends BaseTest {
     Arrays.fill(content, (byte) 1);
     final long size;
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-        1024, 1024, ByteBuffer.allocateDirect(bufferSize), null)) {
+        1024, 1024, ByteBuffer.allocateDirect(bufferSize))) {
       SimpleOperation op = new SimpleOperation(new String(content));
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
       size = LogSegment.getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
@@ -317,8 +319,8 @@ public class TestLogSegment extends BaseTest {
     }
     Assert.assertEquals(file.length(),
         size + SegmentedRaftLogFormat.getHeaderLength());
-    try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, 0,
-        INVALID_LOG_INDEX, true)) {
+    try (SegmentedRaftLogInputStream in = SegmentedRaftLogTestUtils.newSegmentedRaftLogInputStream(
+        file, 0, INVALID_LOG_INDEX, true)) {
       LogEntryProto entry = in.nextEntry();
       Assert.assertArrayEquals(content,
           entry.getStateMachineLogEntry().getLogData().toByteArray());
@@ -344,7 +346,7 @@ public class TestLogSegment extends BaseTest {
     long totalSize = SegmentedRaftLogFormat.getHeaderLength();
     long preallocated = 16 * 1024;
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-        max.getSize(), 16 * 1024, ByteBuffer.allocateDirect(10 * 1024), null)) {
+        max.getSize(), 16 * 1024, ByteBuffer.allocateDirect(10 * 1024))) {
       Assert.assertEquals(preallocated, file.length());
       while (totalSize + entrySize < max.getSize()) {
         totalSize += entrySize;

@@ -72,6 +72,8 @@ class StateMachineUpdater implements Runnable {
   private final RaftServerImpl server;
   private final RaftLog raftLog;
 
+  private final boolean triggerSnapshotWhenStopEnabled;
+
   private final Long autoSnapshotThreshold;
   private final boolean purgeUptoSnapshotIndex;
 
@@ -103,6 +105,7 @@ class StateMachineUpdater implements Runnable {
     this.appliedIndex = new RaftLogIndex("appliedIndex", lastAppliedIndex);
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", lastAppliedIndex);
 
+    this.triggerSnapshotWhenStopEnabled = RaftServerConfigKeys.Snapshot.triggerWhenStopEnabled(properties);
     final boolean autoSnapshot = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties);
     this.autoSnapshotThreshold = autoSnapshot? RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties): null;
     final int numSnapshotFilesRetained = RaftServerConfigKeys.Snapshot.retentionFileNum(properties);
@@ -113,8 +116,8 @@ class StateMachineUpdater implements Runnable {
       }
     };
     this.purgeUptoSnapshotIndex = RaftServerConfigKeys.Log.purgeUptoSnapshotIndex(properties);
-
-    updater = new Daemon(this);
+    updater = Daemon.newBuilder().setName(name).setRunnable(this)
+        .setThreadGroup(server.getThreadGroup()).build();
     this.awaitForSignal = new AwaitForSignal(name);
     this.stateMachineMetrics = MemoizedSupplier.valueOf(
         () -> StateMachineMetrics.getStateMachineMetrics(server, appliedIndex, stateMachine));
@@ -244,6 +247,8 @@ class StateMachineUpdater implements Runnable {
         if (f != null) {
           futures.get().add(f);
           f.thenAccept(m -> notifyAppliedIndex(incremented));
+        } else {
+          notifyAppliedIndex(incremented);
         }
       } else {
         LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
@@ -315,7 +320,7 @@ class StateMachineUpdater implements Runnable {
     if (autoSnapshotThreshold == null) {
       return false;
     } else if (shouldStop()) {
-      return getLastAppliedIndex() - snapshotIndex.get() > 0;
+      return triggerSnapshotWhenStopEnabled && getLastAppliedIndex() - snapshotIndex.get() > 0;
     }
     return state == State.RUNNING &&
         getStateMachineLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold;

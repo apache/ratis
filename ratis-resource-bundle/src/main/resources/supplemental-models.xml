@@ -284,8 +284,8 @@ under the License.
   <supplement>
     <project>
       <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <name>SLF4J LOG4J-12 Binding</name>
+      <artifactId>slf4j-reload4j</artifactId>
+      <name>SLF4J Reload4j Binding</name>
 
       <licenses>
         <license>
@@ -293,7 +293,7 @@ under the License.
           <url>http://www.opensource.org/licenses/mit-license.php</url>
           <distribution>repo</distribution>
           <comments>
-            Copyright (c) 2004-2008 QOS.ch
+            Copyright (c) 2004-2017 QOS.ch
           </comments>
         </license>
       </licenses>

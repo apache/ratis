@@ -35,7 +35,7 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.LogSegmen
 import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog.SegmentRange;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -49,6 +49,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils.MAX_OP_SIZE;
+
 public class TestCacheEviction extends BaseTest {
   private static final CacheInvalidationPolicy policy = new CacheInvalidationPolicyDefault();
 
@@ -56,7 +58,7 @@ public class TestCacheEviction extends BaseTest {
     Assert.assertEquals(numSegments, cached.length);
     final LogSegmentList segments = new LogSegmentList(JavaUtils.getClassSimpleName(TestCacheEviction.class));
     for (int i = 0; i < numSegments; i++) {
-      LogSegment s = LogSegment.newCloseSegment(null, start, start + size - 1, null);
+      LogSegment s = LogSegment.newCloseSegment(null, start, start + size - 1, MAX_OP_SIZE, null);
       if (cached[i]) {
         s = Mockito.spy(s);
         Mockito.when(s.hasCache()).thenReturn(true);

@@ -42,13 +42,14 @@ class LogAppenderDaemon {
   private final LifeCycle lifeCycle;
   private final Daemon daemon;
 
-  private final LogAppender logAppender;
+  private final LogAppenderBase logAppender;
 
-  LogAppenderDaemon(LogAppender logAppender) {
+  LogAppenderDaemon(LogAppenderBase logAppender) {
     this.logAppender = logAppender;
     this.name = logAppender + "-" + JavaUtils.getClassSimpleName(getClass());
     this.lifeCycle = new LifeCycle(name);
-    this.daemon = new Daemon(this::run, name);
+    this.daemon = Daemon.newBuilder().setName(name).setRunnable(this::run)
+        .setThreadGroup(logAppender.getServer().getThreadGroup()).build();
   }
 
   public boolean isWorking() {
@@ -87,7 +88,7 @@ class LogAppenderDaemon {
       lifeCycle.transitionIfValid(EXCEPTION);
     } finally {
       if (lifeCycle.transitionAndGet(TRANSITION_FINALLY) == EXCEPTION) {
-        logAppender.getLeaderState().restart(logAppender);
+        logAppender.restart();
       }
     }
   }

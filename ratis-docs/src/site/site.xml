@@ -32,9 +32,12 @@
         </links>
 
         <menu name="Apache Ratis">
-            <item name="Getting Started" href="start/index.html"/>
-            <item name="Concepts" href="concept/index.html"/>
+            <item name="Concepts" href="concept/index.html" />
+            <item name="Configurations" href="configurations.html" />
+            <item name="Getting Started" href="start/index.html" />
+            <item name="Metrics" href="metrics.html" />
             <item name="Ratis-shell" href="cli.html" />
+            <item name="Snapshot" href="snapshot.html" />
         </menu>
     </body>
 </project>

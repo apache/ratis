@@ -27,6 +27,7 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.junit.Assert;
 import org.junit.Test;
@@ -40,6 +41,7 @@ public abstract class ServerPauseResumeTest <CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testPauseResume() throws Exception {
+    RaftServerConfigKeys.Log.Appender.setRetryPolicy(getProperties(), "1ms,1000");
     runWithNewCluster(NUM_SERVERS, this::runTestPauseResume);
   }
 

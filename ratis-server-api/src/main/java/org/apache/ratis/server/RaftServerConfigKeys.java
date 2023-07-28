@@ -114,8 +114,8 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, PROXY_SIZE_KEY, PROXY_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
-    static void setProxySize(RaftProperties properties, int port) {
-      setInt(properties::setInt, PROXY_SIZE_KEY, port);
+    static void setProxySize(RaftProperties properties, int size) {
+      setInt(properties::setInt, PROXY_SIZE_KEY, size);
     }
 
     String SERVER_CACHED_KEY = PREFIX + ".server.cached";
@@ -133,8 +133,8 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, SERVER_SIZE_KEY, SERVER_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
-    static void setServerSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, SERVER_SIZE_KEY, port);
+    static void setServerSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, SERVER_SIZE_KEY, size);
     }
 
     String CLIENT_CACHED_KEY = PREFIX + ".client.cached";
@@ -152,8 +152,8 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, CLIENT_SIZE_KEY, CLIENT_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
-    static void setClientSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, CLIENT_SIZE_KEY, port);
+    static void setClientSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, CLIENT_SIZE_KEY, size);
     }
   }
 
@@ -179,7 +179,7 @@ public interface RaftServerConfigKeys {
       LINEARIZABLE
     }
 
-    String OPTION_KEY = ".option";
+    String OPTION_KEY = PREFIX + ".option";
     Option OPTION_DEFAULT = Option.DEFAULT;
     static Option option(RaftProperties properties) {
       Option option =  get(properties::getEnum, OPTION_KEY, OPTION_DEFAULT, getDefaultLog());
@@ -543,6 +543,31 @@ public interface RaftServerConfigKeys {
       static void setInstallSnapshotEnabled(RaftProperties properties, boolean shouldInstallSnapshot) {
         setBoolean(properties::setBoolean, INSTALL_SNAPSHOT_ENABLED_KEY, shouldInstallSnapshot);
       }
+
+      String WAIT_TIME_MIN_KEY = PREFIX + ".wait-time.min";
+      TimeDuration WAIT_TIME_MIN_DEFAULT = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);
+      static TimeDuration waitTimeMin(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(WAIT_TIME_MIN_DEFAULT.getUnit()),
+            WAIT_TIME_MIN_KEY, WAIT_TIME_MIN_DEFAULT, getDefaultLog());
+      }
+      static void setWaitTimeMin(RaftProperties properties, TimeDuration minDuration) {
+        setTimeDuration(properties::setTimeDuration, WAIT_TIME_MIN_KEY, minDuration);
+      }
+
+      String RETRY_POLICY_KEY = PREFIX + ".retry.policy";
+      /**
+       * The min wait time as 1ms (0 is not allowed) for first 10,
+       * (5 iteration with 2 times grpc client retry)
+       * next wait 1sec for next 20 retry (10 iteration with 2 times grpc client)
+       * further wait for 5sec for max times ((5sec*980)/2 times ~= 40min)
+       */
+      String RETRY_POLICY_DEFAULT = "1ms,10, 1s,20, 5s,1000";
+      static String retryPolicy(RaftProperties properties) {
+        return properties.get(RETRY_POLICY_KEY, RETRY_POLICY_DEFAULT);
+      }
+      static void setRetryPolicy(RaftProperties properties, String retryPolicy) {
+        properties.set(RETRY_POLICY_KEY, retryPolicy);
+      }
     }
   }
 
@@ -557,8 +582,20 @@ public interface RaftServerConfigKeys {
       return getBoolean(properties::getBoolean,
           AUTO_TRIGGER_ENABLED_KEY, AUTO_TRIGGER_ENABLED_DEFAULT, getDefaultLog());
     }
-    static void setAutoTriggerEnabled(RaftProperties properties, boolean autoTriggerThreshold) {
-      setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerThreshold);
+    static void setAutoTriggerEnabled(RaftProperties properties, boolean autoTriggerEnabled) {
+      setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerEnabled);
+    }
+
+    /** whether trigger snapshot when stop raft server */
+    String TRIGGER_WHEN_STOP_ENABLED_KEY = PREFIX + ".trigger-when-stop.enabled";
+    /** by default let the state machine to trigger snapshot when stop */
+    boolean TRIGGER_WHEN_STOP_ENABLED_DEFAULT = true;
+    static boolean triggerWhenStopEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          TRIGGER_WHEN_STOP_ENABLED_KEY, TRIGGER_WHEN_STOP_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setTriggerWhenStopEnabled(RaftProperties properties, boolean triggerWhenStopEnabled) {
+      setBoolean(properties::setBoolean, TRIGGER_WHEN_STOP_ENABLED_KEY, triggerWhenStopEnabled);
     }
 
     /** The log index gap between to two snapshot creations. */
@@ -618,8 +655,8 @@ public interface RaftServerConfigKeys {
           requireMin(0), requireMax(65536));
     }
 
-    static void setAsyncRequestThreadPoolSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY, port);
+    static void setAsyncRequestThreadPoolSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY, size);
     }
 
     String ASYNC_WRITE_THREAD_POOL_SIZE_KEY = PREFIX + ".async.write.thread.pool.size";
@@ -631,8 +668,8 @@ public interface RaftServerConfigKeys {
           requireMin(0), requireMax(65536));
     }
 
-    static void setAsyncWriteThreadPoolSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, port);
+    static void setAsyncWriteThreadPoolSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, size);
     }
 
     String CLIENT_POOL_SIZE_KEY = PREFIX + ".client.pool.size";
@@ -785,8 +822,8 @@ public interface RaftServerConfigKeys {
       return getTimeDuration(properties.getTimeDuration(LEADER_STEP_DOWN_WAIT_TIME_DEFAULT.getUnit()),
           LEADER_STEP_DOWN_WAIT_TIME_KEY, LEADER_STEP_DOWN_WAIT_TIME_DEFAULT, getDefaultLog());
     }
-    static void setLeaderStepDownWaitTime(RaftProperties properties, TimeDuration noLeaderTimeout) {
-      setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, noLeaderTimeout);
+    static void setLeaderStepDownWaitTime(RaftProperties properties, TimeDuration leaderStepDownWaitTime) {
+      setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, leaderStepDownWaitTime);
     }
 
     String PRE_VOTE_KEY = PREFIX + ".pre-vote";

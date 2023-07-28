@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.MiniRaftCluster.PeerChanges;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -33,10 +32,11 @@ import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -47,7 +47,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   static {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;

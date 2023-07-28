@@ -18,50 +18,65 @@
 
 package org.apache.ratis.netty.server;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
 import org.apache.ratis.io.WriteOption;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+
 /**
  * Implements {@link DataStreamRequest} with {@link ByteBuf}.
- *
+ * <p>
  * This class is immutable.
  */
 public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements DataStreamRequest {
-  private final ByteBuf buf;
-  private final WriteOption[] options;
+  private final AtomicReference<ByteBuf> buf;
+  private final List<WriteOption> options;
 
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
-  public DataStreamRequestByteBuf(ClientId clientId, Type type, long streamId, long streamOffset, WriteOption[] options,
-      ByteBuf buf) {
+  public DataStreamRequestByteBuf(ClientId clientId, Type type, long streamId, long streamOffset,
+                                  Iterable<WriteOption> options, ByteBuf buf) {
     super(clientId, type, streamId, streamOffset);
-    this.buf = buf != null? buf.asReadOnly(): Unpooled.EMPTY_BUFFER;
-    this.options = options;
+    this.buf = new AtomicReference<>(buf != null? buf.asReadOnly(): Unpooled.EMPTY_BUFFER);
+    this.options = Collections.unmodifiableList(Lists.newArrayList(options));
   }
 
   public DataStreamRequestByteBuf(DataStreamRequestHeader header, ByteBuf buf) {
     this(header.getClientId(), header.getType(), header.getStreamId(), header.getStreamOffset(),
-        header.getWriteOptions(), buf);
+         header.getWriteOptionList(), buf);
+  }
+
+  ByteBuf getBuf() {
+    return Optional.ofNullable(buf.get()).orElseThrow(
+        () -> new IllegalStateException("buf is already released in " + this));
   }
 
   @Override
   public long getDataLength() {
-    return buf.readableBytes();
+    return getBuf().readableBytes();
   }
 
   public ByteBuf slice() {
-    return buf.slice();
+    return getBuf().slice();
+  }
+
+  public void release() {
+    final ByteBuf got = buf.getAndSet(null);
+    if (got != null) {
+      got.release();
+    }
   }
 
   @Override
-  @SuppressFBWarnings("EI_EXPOSE_REP")
-  public WriteOption[] getWriteOptions() {
+  public List<WriteOption> getWriteOptionList() {
     return options;
   }
 }

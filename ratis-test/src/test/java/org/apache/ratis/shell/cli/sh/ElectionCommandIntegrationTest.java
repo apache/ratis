@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.shell.cli.sh;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
@@ -25,14 +24,15 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 import java.util.concurrent.TimeUnit;
 
@@ -40,9 +40,9 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     extends AbstractCommandIntegrationTestWithGrpc implements MiniRaftCluster.Factory.Get<CLUSTER>{
 
   {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.WARN);
-    Log4jUtils.setLogLevel(RaftLog.LOG, Level.WARN);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(RaftLog.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.WARN);
   }
 
   {
@@ -71,6 +71,42 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     JavaUtils.attempt(() -> {
       Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferCommand", LOG);
+  }
+
+  @Test
+  public void testElectionTransferCommandToHigherPriority() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestElectionTransferCommandToHigherPriority);
+  }
+
+  void runTestElectionTransferCommandToHigherPriority(MiniRaftCluster cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final String address = getClusterAddress(cluster);
+
+    RaftServer.Division newLeader = cluster.getFollowers().get(0);
+    final StringPrintStream out = new StringPrintStream();
+    RatisShell shell = new RatisShell(out.getPrintStream());
+    Assert.assertTrue(cluster.getFollowers().contains(newLeader));
+
+    // set current leader's priority to 2
+    int ret = shell.run("peer", "setPriority", "-peers", address, "-addressPriority",
+        leader.getPeer().getAddress()+ "|" + 2);
+    Assert.assertEquals(0, ret);
+
+    // transfer to new leader will set its priority to 2 (with timeout 1s)
+    ret = shell.run("election", "transfer", "-peers", address, "-address",
+        newLeader.getPeer().getAddress(), "-timeout", "1");
+    Assert.assertEquals(0, ret);
+
+    JavaUtils.attempt(() -> Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId()),
+        10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferLeaderCommand", LOG);
+
+    // verify that priorities of new leader and old leader are both 2
+    ret = shell.run("group", "info", "-peers", address);
+    Assert.assertEquals(0 , ret);
+    String expected = String.format("\"%s\"%n  priority: %d", newLeader.getPeer().getAddress(), 2);
+    String expected2 = String.format("\"%s\"%n  priority: %d", leader.getPeer().getAddress(), 2);
+    Assert.assertTrue(out.toString().contains(expected));
+    Assert.assertTrue(out.toString().contains(expected2));
   }
 
   @Test
@@ -104,5 +140,23 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     JavaUtils.attempt(() -> {
       Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionPauseResumeCommand", LOG);
+  }
+
+  @Test
+  public void testElectionStepDownCommand() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestElectionStepDownCommand);
+  }
+
+  void runTestElectionStepDownCommand(MiniRaftCluster cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    String sb = getClusterAddress(cluster);
+    RaftServer.Division newLeader = cluster.getFollowers().get(0);
+    final StringPrintStream out = new StringPrintStream();
+    RatisShell shell = new RatisShell(out.getPrintStream());
+    Assert.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
+    Assert.assertEquals(2, cluster.getFollowers().size());
+    int ret = shell.run("election", "stepDown", "-peers", sb.toString());
+    Assert.assertEquals(0, ret);
+    Assert.assertEquals(3, cluster.getFollowers().size());
   }
 }

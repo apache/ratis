@@ -34,10 +34,10 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -56,6 +56,7 @@ public abstract class LogAppenderBase implements LogAppender {
   private final AwaitForSignal eventAwaitForSignal;
 
   private final AtomicBoolean heartbeatTrigger = new AtomicBoolean();
+  private final long waitTimeMinMs;
 
   protected LogAppenderBase(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -71,10 +72,12 @@ public abstract class LogAppenderBase implements LogAppender {
     this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
     this.daemon = new LogAppenderDaemon(this);
     this.eventAwaitForSignal = new AwaitForSignal(name);
+
+    this.waitTimeMinMs = RaftServerConfigKeys.Log.Appender.waitTimeMin(properties).toLong(TimeUnit.MILLISECONDS);
   }
 
   @Override
-  public void triggerHeartbeat() throws IOException {
+  public void triggerHeartbeat() {
     if (heartbeatTrigger.compareAndSet(false, true)) {
       notifyLogAppender();
     }
@@ -123,6 +126,18 @@ public abstract class LogAppenderBase implements LogAppender {
   @Override
   public void stop() {
     daemon.tryToClose();
+  }
+
+  void restart() {
+    if (!server.getInfo().isAlive()) {
+      LOG.warn("Failed to restart {}: server {} is not alive", this, server.getMemberId());
+      return;
+    }
+    getLeaderState().restart(this);
+  }
+
+  public long getMinWaitTimeMs() {
+    return waitTimeMinMs - getFollower().getLastRpcSendTime().elapsedTimeMs();
   }
 
   @Override

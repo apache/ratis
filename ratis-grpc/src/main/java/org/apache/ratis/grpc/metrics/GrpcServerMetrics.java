@@ -51,10 +51,10 @@ public class GrpcServerMetrics extends RatisMetrics {
   public static final String RATIS_GRPC_METRICS_REQUESTS_COUNT = "num_requests";
   public static final String RATIS_GRPC_INSTALL_SNAPSHOT_COUNT = "num_install_snapshot";
 
-  private final LongCounter requestRetry;
-  private final LongCounter requestInstallSnapshot;
+  private final LongCounter requestRetry = getRegistry().counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT);
+  private final LongCounter requestInstallSnapshot = getRegistry().counter(RATIS_GRPC_INSTALL_SNAPSHOT_COUNT);
 
-  private final Function<Boolean, LongCounter> requestCreate;
+  private final Function<Boolean, LongCounter> requestCreate = newHeartbeatCounter(RATIS_GRPC_METRICS_REQUESTS_COUNT);
 
   private final Map<String, Function<Boolean, LongCounter>> requestSuccess = new ConcurrentHashMap<>();
   private final Map<String, Function<Boolean, LongCounter>> requestTimeout = new ConcurrentHashMap<>();
@@ -66,15 +66,10 @@ public class GrpcServerMetrics extends RatisMetrics {
   private final Map<String, String> appendLogLatency = new ConcurrentHashMap<>();
 
   public GrpcServerMetrics(String serverId) {
-    registry = getMetricRegistryForGrpcServer(serverId);
-
-    requestRetry = registry.counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT);
-    requestInstallSnapshot = registry.counter(RATIS_GRPC_INSTALL_SNAPSHOT_COUNT);
-
-    requestCreate = newHeartbeatCounter(RATIS_GRPC_METRICS_REQUESTS_COUNT);
+    super(createRegistry(serverId));
   }
 
-  private RatisMetricRegistry getMetricRegistryForGrpcServer(String serverId) {
+  private static RatisMetricRegistry createRegistry(String serverId) {
     return create(new MetricRegistryInfo(serverId,
         RATIS_GRPC_METRICS_APP_NAME,
         RATIS_GRPC_METRICS_COMP_NAME, RATIS_GRPC_METRICS_DESC));
@@ -84,7 +79,7 @@ public class GrpcServerMetrics extends RatisMetrics {
     final Map<String, String> map = isHeartbeat ? heartbeatLatency : appendLogLatency;
     final String name = map.computeIfAbsent(follower,
         key -> String.format(RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + getHeartbeatSuffix(isHeartbeat), key));
-    return registry.timer(name);
+    return getRegistry().timer(name);
   }
 
   public void onRequestRetry() {
@@ -105,7 +100,7 @@ public class GrpcServerMetrics extends RatisMetrics {
   }
 
   private LongCounter newRequestNotLeader(String follower) {
-    return registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER, follower));
+    return getRegistry().counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER, follower));
   }
 
   public void onRequestNotLeader(String follower) {
@@ -113,7 +108,7 @@ public class GrpcServerMetrics extends RatisMetrics {
   }
 
   private LongCounter newRequestInconsistency(String follower) {
-    return registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY, follower));
+    return getRegistry().counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY, follower));
   }
 
   public void onRequestInconsistency(String follower) {
@@ -130,20 +125,11 @@ public class GrpcServerMetrics extends RatisMetrics {
   }
 
   public void addPendingRequestsCount(String follower, Supplier<Integer> pendinglogQueueSize) {
-    registry.gauge(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT, follower), () -> pendinglogQueueSize);
+    final String name = String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT, follower);
+    getRegistry().gauge(name, () -> pendinglogQueueSize);
   }
 
   public void onInstallSnapshot() {
     requestInstallSnapshot.inc();
-  }
-
-  private Function<Boolean, LongCounter> newHeartbeatCounter(String prefix) {
-    final LongCounter trueCounter = registry.counter(prefix + getHeartbeatSuffix(true));
-    final LongCounter falseCounter = registry.counter(prefix + getHeartbeatSuffix(false));
-    return b -> b? trueCounter : falseCounter;
-  }
-
-  public static String getHeartbeatSuffix(boolean heartbeat) {
-    return heartbeat ? "_heartbeat" : "";
   }
 }

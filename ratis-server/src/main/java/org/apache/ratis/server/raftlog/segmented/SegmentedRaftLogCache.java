@@ -32,12 +32,14 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AutoCloseableReadWriteLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
@@ -144,7 +146,7 @@ public class SegmentedRaftLogCache {
 
   static class LogSegmentList {
     private final Object name;
-    private final List<LogSegment> segments = new ArrayList<>();
+    private final List<LogSegment> segments = new CopyOnWriteArrayList<>();
     private final AutoCloseableReadWriteLock lock;
     private long sizeInBytes;
 
@@ -165,15 +167,11 @@ public class SegmentedRaftLogCache {
     }
 
     boolean isEmpty() {
-      try(AutoCloseableLock readLock = readLock()) {
-        return segments.isEmpty();
-      }
+      return segments.isEmpty();
     }
 
     int size() {
-      try(AutoCloseableLock readLock = readLock()) {
-        return segments.size();
-      }
+      return segments.size();
     }
 
     long getTotalFileSize() {
@@ -181,20 +179,11 @@ public class SegmentedRaftLogCache {
     }
 
     long getTotalCacheSize() {
-      try(AutoCloseableLock readLock = readLock()) {
-        long size = 0;
-        // TODO(runzhiwang): If there is performance problem, start a daemon thread to checkAndEvictCache.
-        for (LogSegment seg : segments) {
-          size += seg.getTotalCacheSize();
-        }
-        return size;
-      }
+      return segments.stream().mapToLong(LogSegment::getTotalCacheSize).sum();
     }
 
     long countCached() {
-      try(AutoCloseableLock readLock = readLock()) {
-        return segments.stream().filter(LogSegment::hasCache).count();
-      }
+      return segments.stream().filter(LogSegment::hasCache).count();
     }
 
     LogSegment getLast() {
@@ -204,9 +193,7 @@ public class SegmentedRaftLogCache {
     }
 
     LogSegment get(int i) {
-      try(AutoCloseableLock readLock = readLock()) {
-        return segments.get(i);
-      }
+      return segments.get(i);
     }
 
     int binarySearch(long index) {
@@ -332,8 +319,8 @@ public class SegmentedRaftLogCache {
           // to purge that.
           int startIndex = (overlappedSegment.getEndIndex() == index) ?
               segmentIndex : segmentIndex - 1;
-          for (int i = startIndex; i >= 0; i--) {
-            LogSegment segment = segments.remove(i);
+          for (int i = 0; i <= startIndex; i++) {
+            LogSegment segment = segments.remove(0); // must remove the first segment to avoid gaps.
             sizeInBytes -= segment.getTotalFileSize();
             list.add(SegmentFileInfo.newClosedSegmentFileInfo(segment));
           }
@@ -353,12 +340,18 @@ public class SegmentedRaftLogCache {
       clearOpenSegment.run();
       return info;
     }
+
+    @Override
+    public String toString() {
+      return name + ":" + segments;
+    }
   }
 
   private final String name;
   private volatile LogSegment openSegment;
   private final LogSegmentList closedSegments;
   private final RaftStorage storage;
+  private final SizeInBytes maxOpSize;
   private final SegmentedRaftLogMetrics raftLogMetrics;
 
   private final int maxCachedSegments;
@@ -376,6 +369,7 @@ public class SegmentedRaftLogCache {
     this.raftLogMetrics.addOpenSegmentSizeInBytes(this::getOpenSegmentSizeInBytes);
     this.maxCachedSegments = RaftServerConfigKeys.Log.segmentCacheNumMax(properties);
     this.maxSegmentCacheSize = RaftServerConfigKeys.Log.segmentCacheSizeMax(properties).getSize();
+    this.maxOpSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
   }
 
   int getMaxCachedSegments() {
@@ -385,7 +379,7 @@ public class SegmentedRaftLogCache {
   void loadSegment(LogSegmentPath pi, boolean keepEntryInCache,
       Consumer<LogEntryProto> logConsumer) throws IOException {
     final LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(), pi.getStartEnd(),
-        keepEntryInCache, logConsumer, raftLogMetrics);
+        maxOpSize, keepEntryInCache, logConsumer, raftLogMetrics);
     if (logSegment != null) {
       addSegment(logSegment);
     }
@@ -403,7 +397,7 @@ public class SegmentedRaftLogCache {
     return openSegment == null ? 0 : openSegment.getTotalFileSize();
   }
 
-  public long getTotalCacheSize() {
+  private long getTotalCacheSize() {
     return closedSegments.getTotalCacheSize() +
             Optional.ofNullable(openSegment).map(LogSegment::getTotalCacheSize).orElse(0L);
   }
@@ -443,7 +437,7 @@ public class SegmentedRaftLogCache {
   }
 
   void addOpenSegment(long startIndex) {
-    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex,raftLogMetrics));
+    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex, maxOpSize, raftLogMetrics));
   }
 
   private void setOpenSegment(LogSegment openSegment) {
