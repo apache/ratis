@@ -18,7 +18,6 @@
 
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.Preconditions;
