@@ -586,6 +586,18 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerEnabled);
     }
 
+    /** whether trigger snapshot when stop raft server */
+    String TRIGGER_WHEN_STOP_ENABLED_KEY = PREFIX + ".trigger-when-stop.enabled";
+    /** by default let the state machine to trigger snapshot when stop */
+    boolean TRIGGER_WHEN_STOP_ENABLED_DEFAULT = true;
+    static boolean triggerWhenStopEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          TRIGGER_WHEN_STOP_ENABLED_KEY, TRIGGER_WHEN_STOP_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setTriggerWhenStopEnabled(RaftProperties properties, boolean triggerWhenStopEnabled) {
+      setBoolean(properties::setBoolean, TRIGGER_WHEN_STOP_ENABLED_KEY, triggerWhenStopEnabled);
+    }
+
     /** The log index gap between to two snapshot creations. */
     String CREATION_GAP_KEY = PREFIX + ".creation.gap";
     long CREATION_GAP_DEFAULT = 1024;
