@@ -597,11 +597,11 @@ class RaftServerImpl implements RaftServer.Division,
     Preconditions.assertTrue(getInfo().isCandidate());
     role.shutdownLeaderElection();
     setRole(RaftPeerRole.LEADER, "changeToLeader");
-    role.updateLeaderState(this);
+    final LeaderStateImpl leader = role.updateLeaderState(this);
     state.becomeLeader();
 
     // start sending AppendEntries RPC to followers
-    final LogEntryProto e = role.startLeaderState();
+    final LogEntryProto e = leader.start();
     getState().setRaftConf(e);
   }
 
