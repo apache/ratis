@@ -47,6 +47,8 @@ public class Dm3MetricRegistriesImpl extends MetricRegistries {
 
   private final RefCountingMap<MetricRegistryInfo, RatisMetricRegistry> registries;
 
+  private final Object registerLock = new Object();
+
   public Dm3MetricRegistriesImpl() {
     this(new Dm3MetricRegistryFactoryImpl());
   }
@@ -60,11 +62,13 @@ public class Dm3MetricRegistriesImpl extends MetricRegistries {
   public RatisMetricRegistry create(MetricRegistryInfo info) {
     return registries.put(info, () -> {
       if (reporterRegistrations.isEmpty()) {
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("First MetricRegistry has been created without registering reporters. " +
-              "Hence registering JMX reporter by default.");
+        synchronized (registerLock) {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("First MetricRegistry has been created without registering reporters. " +
+                    "Hence registering JMX reporter by default.");
+          }
+          enableJmxReporter();
         }
-        enableJmxReporter();
       }
       RatisMetricRegistry registry = factory.create(info);
       reporterRegistrations.forEach(reg -> reg.accept(registry));
