@@ -595,6 +595,14 @@ First election timeout is introduced to reduce unavailable time when a RaftGroup
 | **Type**        | TimeDuration                                                               |
 | **Default**     | 10s                                                                        |
 
+
+| **Property**    | `raft.server.leaderelection.leader.lease.timeout-bound.ratio` |
+|:----------------|:--------------------------------------------------------------|
+| **Description** | maximum bound ratio of leader lease timeout                   |
+| **Type**        | int, ranging from (0,100]                                     |
+| **Default**     | 90                                                            |
+
+
 | **Property**    | `raft.server.leaderelection.pre-vote` |
 |:----------------|:--------------------------------------|
 | **Description** | enable pre-vote                       |
