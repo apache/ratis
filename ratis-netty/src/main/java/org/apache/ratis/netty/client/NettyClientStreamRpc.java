@@ -33,6 +33,7 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
@@ -51,26 +52,21 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
+import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -112,39 +108,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       if (!ignoreShutdown) {
         workerGroup.shutdownGracefully();
       }
-    }
-  }
-
-  static class ReplyQueue implements Iterable<CompletableFuture<DataStreamReply>> {
-    static final ReplyQueue EMPTY = new ReplyQueue();
-
-    private final Queue<CompletableFuture<DataStreamReply>> queue = new ConcurrentLinkedQueue<>();
-    private int emptyId;
-
-    /** @return an empty ID if the queue is empty; otherwise, the queue is non-empty, return null. */
-    synchronized Integer getEmptyId() {
-      return queue.isEmpty()? emptyId: null;
-    }
-
-    synchronized boolean offer(CompletableFuture<DataStreamReply> f) {
-      if (queue.offer(f)) {
-        emptyId++;
-        return true;
-      }
-      return false;
-    }
-
-    CompletableFuture<DataStreamReply> poll() {
-      return queue.poll();
-    }
-
-    int size() {
-      return queue.size();
-    }
-
-    @Override
-    public Iterator<CompletableFuture<DataStreamReply>> iterator() {
-      return queue.iterator();
     }
   }
 
@@ -275,17 +238,19 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   private final String name;
   private final Connection connection;
 
+  private final NettyClientReplies replies = new NettyClientReplies();
+  private final TimeDuration requestTimeout;
+  private final TimeDuration closeTimeout;
+
   private final int flushRequestCountMin;
   private final SizeInBytes flushRequestBytesMin;
   private final OutstandingRequests outstandingRequests = new OutstandingRequests();
 
-  private final ConcurrentMap<ClientInvocationId, ReplyQueue> replies = new ConcurrentHashMap<>();
-  private final TimeDuration replyQueueGracePeriod;
-  private final TimeoutExecutor timeoutScheduler = TimeoutExecutor.getInstance();
-
   public NettyClientStreamRpc(RaftPeer server, TlsConf tlsConf, RaftProperties properties) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
-    this.replyQueueGracePeriod = NettyConfigKeys.DataStream.Client.replyQueueGracePeriod(properties);
+    this.requestTimeout = RaftClientConfigKeys.DataStream.requestTimeout(properties);
+    this.closeTimeout = requestTimeout.multiply(2);
+
     this.flushRequestCountMin = RaftClientConfigKeys.DataStream.flushRequestCountMin(properties);
     this.flushRequestBytesMin = RaftClientConfigKeys.DataStream.flushRequestBytesMin(properties);
 
@@ -299,8 +264,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   private ChannelInboundHandler getClientHandler(){
     return new ChannelInboundHandlerAdapter(){
 
-      private ClientInvocationId clientInvocationId;
-
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
         if (!(msg instanceof DataStreamReply)) {
@@ -309,29 +272,19 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         }
         final DataStreamReply reply = (DataStreamReply) msg;
         LOG.debug("{}: read {}", this, reply);
-        clientInvocationId = ClientInvocationId.valueOf(reply.getClientId(), reply.getStreamId());
-        final ReplyQueue queue = reply.isSuccess() ? replies.get(clientInvocationId) :
-                replies.remove(clientInvocationId);
-        if (queue != null) {
-          final CompletableFuture<DataStreamReply> f = queue.poll();
-          if (f != null) {
-            f.complete(reply);
+        final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(
+            reply.getClientId(), reply.getStreamId());
+        final NettyClientReplies.ReplyMap replyMap = replies.getReplyMap(clientInvocationId);
+        if (replyMap == null) {
+          LOG.error("{}: {} replyMap not found for reply: {}", this, clientInvocationId, reply);
+          return;
+        }
 
-            if (!reply.isSuccess() && queue.size() > 0) {
-              final IllegalStateException e = new IllegalStateException(
-                  this + ": an earlier request failed with " + reply);
-              queue.forEach(future -> future.completeExceptionally(e));
-            }
-
-            final Integer emptyId = queue.getEmptyId();
-            if (emptyId != null) {
-              timeoutScheduler.onTimeout(replyQueueGracePeriod,
-                  // remove the queue if the same queue has been empty for the entire grace period.
-                  () -> replies.computeIfPresent(clientInvocationId,
-                      (key, q) -> q == queue && emptyId.equals(q.getEmptyId())? null: q),
-                  LOG, () -> "Timeout check failed, clientInvocationId=" + clientInvocationId);
-            }
-          }
+        try {
+          replyMap.receiveReply(reply);
+        } catch (Throwable cause) {
+          LOG.warn(name + ": channelRead error:", cause);
+          replyMap.completeExceptionally(cause);
         }
       }
 
@@ -339,10 +292,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         LOG.warn(name + ": exceptionCaught", cause);
 
-        Optional.ofNullable(clientInvocationId)
-            .map(replies::remove)
-            .orElse(ReplyQueue.EMPTY)
-            .forEach(f -> f.completeExceptionally(cause));
         ctx.close();
       }
 
@@ -417,24 +366,45 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   public CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
     final CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
     ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
-    final ReplyQueue q = replies.computeIfAbsent(clientInvocationId, key -> new ReplyQueue());
-    if (!q.offer(f)) {
-      f.completeExceptionally(new IllegalStateException(this + ": Failed to offer a future for " + request));
-      return f;
+    final boolean isClose = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
+
+    final NettyClientReplies.ReplyMap replyMap = replies.getReplyMap(clientInvocationId);
+    final ChannelFuture channelFuture;
+    final Channel channel;
+    final NettyClientReplies.RequestEntry requestEntry = new NettyClientReplies.RequestEntry(request);
+    final NettyClientReplies.ReplyEntry replyEntry;
+    LOG.debug("{}: write begin {}", this, request);
+    synchronized (replyMap) {
+      channel = connection.getChannelUninterruptibly();
+      if (channel == null) {
+        f.completeExceptionally(new AlreadyClosedException(this + ": Failed to send " + request));
+        return f;
+      }
+      replyEntry = replyMap.submitRequest(requestEntry, isClose, f);
+      final Function<DataStreamRequest, ChannelFuture> writeMethod = outstandingRequests.write(request)?
+          channel::writeAndFlush: channel::write;
+      channelFuture = writeMethod.apply(request);
     }
-    final Channel channel = connection.getChannelUninterruptibly();
-    if (channel == null) {
-      f.completeExceptionally(new AlreadyClosedException(this + ": Failed to send " + request));
-      return f;
-    }
-    LOG.debug("{}: write {}", this, request);
-    final Function<DataStreamRequest, ChannelFuture> writeMethod = outstandingRequests.write(request)?
-        channel::writeAndFlush: channel::write;
-    writeMethod.apply(request).addListener(future -> {
+    channelFuture.addListener(future -> {
       if (!future.isSuccess()) {
-        final IOException e = new IOException(this + ": Failed to send " + request, future.cause());
-        LOG.error("Channel write failed", e);
+        final IOException e = new IOException(this + ": Failed to send " + request + " to " + channel.remoteAddress(),
+            future.cause());
         f.completeExceptionally(e);
+        replyMap.fail(requestEntry);
+        LOG.error("Channel write failed", e);
+      } else {
+        LOG.debug("{}: write after {}", this, request);
+
+        final TimeDuration timeout = isClose ? closeTimeout : requestTimeout;
+        // if reply success cancel this future
+        final ScheduledFuture<?> timeoutFuture = channel.eventLoop().schedule(() -> {
+          if (!f.isDone()) {
+            f.completeExceptionally(new TimeoutIOException(
+                "Timeout " + timeout + ": Failed to send " + request + " channel: " + channel));
+            replyMap.fail(requestEntry);
+          }
+        }, timeout.toLong(timeout.getUnit()), timeout.getUnit());
+        replyEntry.setTimeoutFuture(timeoutFuture);
       }
     });
     return f;
