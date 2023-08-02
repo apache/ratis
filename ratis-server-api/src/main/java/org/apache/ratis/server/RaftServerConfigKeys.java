@@ -773,7 +773,7 @@ public interface RaftServerConfigKeys {
 
     String LEADER_LEASE_TIMEOUT_BOUND_RATIO_KEY = PREFIX + ".leader.lease.timeout-bound.ratio";
     int LEADER_LEASE_TIMEOUT_BOUND_RATIO_DEFAULT = 90;
-    static int getLeaderLeaseTimeoutRatio(RaftProperties properties) {
+    static int leaderLeaseTimeoutRatio(RaftProperties properties) {
       return getInt(properties::getInt, LEADER_LEASE_TIMEOUT_BOUND_RATIO_KEY,
           LEADER_LEASE_TIMEOUT_BOUND_RATIO_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(100));
