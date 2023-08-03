@@ -46,6 +46,7 @@ public class MetricRegistriesImpl extends MetricRegistries {
   private final MetricRegistryFactoryImpl factory;
 
   private final RefCountingMap<MetricRegistryInfo, RatisMetricRegistry> registries;
+  private final Object registerLock = new Object();
 
   public MetricRegistriesImpl() {
     this(new MetricRegistryFactoryImpl());
@@ -60,12 +61,17 @@ public class MetricRegistriesImpl extends MetricRegistries {
   public RatisMetricRegistry create(MetricRegistryInfo info) {
     return registries.put(info, () -> {
       if (reporterRegistrations.isEmpty()) {
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("First MetricRegistry has been created without registering reporters. " +
-              "Hence registering JMX reporter by default.");
+        synchronized (registerLock) {
+          if (reporterRegistrations.isEmpty()) {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("First MetricRegistry has been created without registering reporters. " +
+                  "Hence registering JMX reporter by default.");
+            }
+            enableJmxReporter();
+          }
         }
-        enableJmxReporter();
       }
+
       RatisMetricRegistry registry = factory.create(info);
       reporterRegistrations.forEach(reg -> reg.accept(registry));
       return registry;
