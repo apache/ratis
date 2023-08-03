@@ -36,8 +36,8 @@ class DivisionPropertiesImpl implements DivisionProperties {
     Preconditions.assertTrue(rpcTimeoutMax.compareTo(rpcTimeoutMin) >= 0,
         "rpcTimeoutMax = %s < rpcTimeoutMin = %s", rpcTimeoutMax, rpcTimeoutMin);
 
-    final double leaderLeaseBoundRatio = RaftServerConfigKeys.Rpc.leaderLeaseTimeoutBoundRatio(properties) * 1.0 / 100;
-    this.leaderLeaseTimeout = this.rpcTimeoutMin.multiply(leaderLeaseBoundRatio);
+    final double leaderLeaseTimeoutRatio = RaftServerConfigKeys.Read.leaderLeaseTimeoutRatio(properties);
+    this.leaderLeaseTimeout = this.rpcTimeoutMin.multiply(leaderLeaseTimeoutRatio);
     Preconditions.assertTrue(rpcTimeoutMin.compareTo(leaderLeaseTimeout) >= 0,
         "rpcTimeoutMin = %s < leaderLeaseTimeout = %s", rpcTimeoutMin, leaderLeaseTimeout);
 

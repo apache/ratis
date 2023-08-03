@@ -76,6 +76,15 @@ public interface ConfUtils {
     };
   }
 
+  static BiConsumer<String, Double> requireMin(double min) {
+    return (key, value) -> {
+      if (value < min) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " < min = " + min);
+      }
+    };
+  }
+
   static BiConsumer<String, Double> requireMax(double max) {
     return (key, value) -> {
       if (value > max) {
