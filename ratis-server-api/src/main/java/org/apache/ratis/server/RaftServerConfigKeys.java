@@ -192,6 +192,18 @@ public interface RaftServerConfigKeys {
       set(properties::setEnum, OPTION_KEY, option);
     }
 
+    String LEADER_LEASE_TIMEOUT_RATIO_KEY = PREFIX + ".leader.lease.timeout.ratio";
+    double LEADER_LEASE_TIMEOUT_RATIO_DEFAULT = 0.9;
+    static double leaderLeaseTimeoutRatio(RaftProperties properties) {
+      return getDouble(properties::getDouble, LEADER_LEASE_TIMEOUT_RATIO_KEY,
+          LEADER_LEASE_TIMEOUT_RATIO_DEFAULT, getDefaultLog(),
+          requireMin(0.0), requireMax(1.0));
+    }
+
+    static void setLeaderLeaseTimeoutRatio(RaftProperties properties, double ratio) {
+      setDouble(properties::setDouble, LEADER_LEASE_TIMEOUT_RATIO_KEY, ratio);
+    }
+
     interface ReadAfterWriteConsistent {
       String PREFIX = RaftServerConfigKeys.PREFIX + ".read-after-write-consistent";
 
