@@ -187,7 +187,7 @@ treat the peer as caught-up. Increase this number when write throughput is high.
 
 | **Property**    | `raft.server.read.leader.lease.timeout.ratio` |
 |:----------------|:----------------------------------------------|
-| **Description** | maximum bound ratio of leader lease timeout   |
+| **Description** | maximum timeout ratio of leader lease         |
 | **Type**        | double, ranging from (0.0,1.0)                |
 | **Default**     | 0.9                                           |
 
@@ -601,8 +601,6 @@ First election timeout is introduced to reduce unavailable time when a RaftGroup
 | **Description** | when a leader steps down, it can't be re-elected until `wait-time` elapsed |
 | **Type**        | TimeDuration                                                               |
 | **Default**     | 10s                                                                        |
-
-
 
 | **Property**    | `raft.server.leaderelection.pre-vote` |
 |:----------------|:--------------------------------------|

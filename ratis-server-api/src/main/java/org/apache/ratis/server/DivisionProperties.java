@@ -47,14 +47,6 @@ public interface DivisionProperties {
     return maxRpcTimeout().toIntExact(TimeUnit.MILLISECONDS);
   }
 
-  /** @return the bound of leader lease timeout */
-  TimeDuration leaderLeaseTimeout();
-
-  /** @return the bound of leader lease timeout in milliseconds */
-  default int leaderLeaseTimeoutMs() {
-    return leaderLeaseTimeout().toIntExact(TimeUnit.MILLISECONDS);
-  }
-
   /** @return the rpc sleep time period. */
   TimeDuration rpcSleepTime();
 

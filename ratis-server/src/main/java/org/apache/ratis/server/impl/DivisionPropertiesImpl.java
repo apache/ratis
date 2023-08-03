@@ -55,7 +55,7 @@ class DivisionPropertiesImpl implements DivisionProperties {
     return rpcTimeoutMax;
   }
 
-  @Override
+  /** @return the ratio of leader lease timeout */
   public TimeDuration leaderLeaseTimeout() {
     return leaderLeaseTimeout;
   }
