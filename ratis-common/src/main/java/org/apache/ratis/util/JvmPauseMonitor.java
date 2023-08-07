@@ -88,14 +88,16 @@ public class JvmPauseMonitor {
   }
 
   private static final TimeDuration SLEEP_TIME = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);
-  private static final TimeDuration WARN_THRESHOLD = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
+  private final TimeDuration sleepDeviationThreshold;
 
   private final String name;
   private final AtomicReference<Thread> threadRef = new AtomicReference<>();
   private final CheckedConsumer<TimeDuration, IOException> handler;
 
-  public JvmPauseMonitor(Object name, CheckedConsumer<TimeDuration, IOException> handler) {
+  public JvmPauseMonitor(Object name, TimeDuration sleepDeviationThreshold,
+      CheckedConsumer<TimeDuration, IOException> handler) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "-" + name;
+    this.sleepDeviationThreshold = sleepDeviationThreshold;
     this.handler = handler;
   }
 
@@ -119,7 +121,7 @@ public class JvmPauseMonitor {
       return;
     }
 
-    if (extraSleep.compareTo(WARN_THRESHOLD) > 0) {
+    if (extraSleep.compareTo(sleepDeviationThreshold) > 0) {
       final Map<String, GcInfo> after = getGcTimes();
       LOG.warn("{}: {}", this, toString(before, extraSleep, after));
     }
