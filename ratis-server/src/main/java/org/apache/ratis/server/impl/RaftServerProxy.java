@@ -219,9 +219,10 @@ class RaftServerProxy implements RaftServer {
         RaftServerConfigKeys.ThreadPool.proxySize(properties),
         id + "-impl");
 
+    final TimeDuration sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     final TimeDuration rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
-    this.pauseMonitor = new JvmPauseMonitor(id,
+    this.pauseMonitor = new JvmPauseMonitor(id, sleepDeviationThreshold,
         extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime));
     this.threadGroup = threadGroup == null ? new ThreadGroup(this.id.toString()) : threadGroup;
   }
