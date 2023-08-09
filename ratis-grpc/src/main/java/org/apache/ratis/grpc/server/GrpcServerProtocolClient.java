@@ -26,6 +26,7 @@ import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
+import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc;
@@ -128,12 +129,12 @@ public class GrpcServerProtocolClient implements Closeable {
         .readIndex(request, s);
   }
 
-  StreamObserver<AppendEntriesRequestProto> appendEntries(
+  CallStreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseHandler, boolean isHeartbeat) {
     if (isHeartbeat && useSeparateHBChannel) {
-      return hbAsyncStub.appendEntries(responseHandler);
+      return (CallStreamObserver<AppendEntriesRequestProto>) hbAsyncStub.appendEntries(responseHandler);
     } else {
-      return asyncStub.appendEntries(responseHandler);
+      return (CallStreamObserver<AppendEntriesRequestProto>) asyncStub.appendEntries(responseHandler);
     }
   }
 
