@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
@@ -150,12 +151,17 @@ class PeerConfiguration {
 
   boolean hasMajority(Collection<RaftPeerId> others, RaftPeerId selfId) {
     Preconditions.assertTrue(!others.contains(selfId));
-    int num = 0;
-    if (contains(selfId)) {
-      num++;
+    return hasMajority(others::contains, contains(selfId));
+  }
+
+  boolean hasMajority(Predicate<RaftPeerId> activePeers, boolean includeSelf) {
+    if (peers.isEmpty() && !includeSelf) {
+      return true;
     }
-    for (RaftPeerId other : others) {
-      if (contains(other)) {
+
+    int num = includeSelf ? 1 : 0;
+    for (RaftPeerId peerId: peers.keySet()) {
+      if (activePeers.test(peerId)) {
         num++;
       }
     }

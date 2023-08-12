@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -238,6 +239,20 @@ final class RaftConfigurationImpl implements RaftConfiguration {
         (oldConf == null || oldConf.hasMajority(others, selfId));
   }
 
+  /** @return true if the self id together with the acknowledged followers reach majority. */
+  boolean hasMajority(Predicate<RaftPeerId> followers, RaftPeerId selfId) {
+    final boolean includeInCurrent = containsInConf(selfId);
+    final boolean hasMajorityInNewConf = conf.hasMajority(followers, includeInCurrent);
+
+    if (!isTransitional()) {
+      return hasMajorityInNewConf;
+    } else {
+      final boolean includeInOldConf = containsInOldConf(selfId);
+      final boolean hasMajorityInOldConf = oldConf.hasMajority(followers, includeInOldConf);
+      return hasMajorityInOldConf && hasMajorityInNewConf;
+    }
+  }
+
   int getMajorityCount() {
     return conf.getMajorityCount();
   }
@@ -246,6 +261,11 @@ final class RaftConfigurationImpl implements RaftConfiguration {
   boolean majorityRejectVotes(Collection<RaftPeerId> rejects) {
     return conf.majorityRejectVotes(rejects) ||
             (oldConf != null && oldConf.majorityRejectVotes(rejects));
+  }
+
+  /** @return true if only one voting member (the leader) in the cluster */
+  boolean isSingleton() {
+    return getCurrentPeers().size() == 1 && getPreviousPeers().size() <= 1;
   }
 
   @Override
