@@ -875,36 +875,7 @@ class LeaderStateImpl implements LeaderState {
 
   private boolean hasMajority(Predicate<RaftPeerId> isAcked) {
     final RaftPeerId selfId = server.getId();
-    final RaftConfigurationImpl conf = server.getRaftConf();
-
-    final CurrentOldFollowerInfos infos = followerInfoMap.getFollowerInfos(conf);
-    final List<FollowerInfo> followers = infos.getCurrent();
-    final boolean includeSelf = conf.containsInConf(selfId);
-    final boolean newConf = hasMajority(isAcked, followers, includeSelf);
-
-    if (!conf.isTransitional()) {
-      return newConf;
-    } else {
-      final List<FollowerInfo> oldFollowers = infos.getOld();
-      final boolean includeSelfInOldConf = conf.containsInOldConf(selfId);
-      final boolean oldConf = hasMajority(isAcked, oldFollowers, includeSelfInOldConf);
-      return newConf && oldConf;
-    }
-  }
-
-  private boolean hasMajority(Predicate<RaftPeerId> isAcked, List<FollowerInfo> followers, boolean includeSelf) {
-    if (followers.isEmpty() && !includeSelf) {
-      return true;
-    }
-
-    int count = includeSelf ? 1 : 0;
-    for (FollowerInfo follower: followers) {
-      if (isAcked.test(follower.getId())) {
-        count++;
-      }
-    }
-    final int size = includeSelf ? followers.size() + 1 : followers.size();
-    return count > size / 2;
+    return server.getRaftConf().hasMajority(isAcked, selfId);
   }
 
   private void updateCommit(LogEntryHeader[] entriesToCommit) {
@@ -1094,7 +1065,7 @@ class LeaderStateImpl implements LeaderState {
     final long readIndex = server.getRaftLog().getLastCommittedIndex();
 
     // if group contains only one member, fast path
-    if (server.getRaftConf().getCurrentPeers().size() == 1) {
+    if (server.getRaftConf().isSingleton()) {
       return CompletableFuture.completedFuture(readIndex);
     }
 
