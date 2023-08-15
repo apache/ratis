@@ -73,7 +73,7 @@ public class RaftMetaConfCommand extends AbstractRatisCommand {
           .setConfigurationEntry(RaftProtos.RaftConfigurationProto.newBuilder()
               .addAllPeers(raftPeerProtos).build())
           .setIndex(index + 1).build();
-      System.out.println("Generate new LogEntryProto info is:\n"+ generateLogEntryProto);
+      System.out.println("Generate new LogEntryProto info is:\n" + generateLogEntryProto);
       generateLogEntryProto.writeTo(out);
     }
     return 0;
