@@ -37,7 +37,6 @@ import java.util.List;
 
 public class RaftMetaConfCommand extends AbstractRatisCommand {
   public static final String PATH_OPTION_NAME = "path";
-  public static final String LOG_ENTRY_INDEX_OPTION_NAME = "index";
 
   private static final String RAFT_META_CONF = "raft-meta.conf";
   private static final String NEW_RAFT_META_CONF = "new-raft-meta.conf";
@@ -66,20 +65,14 @@ public class RaftMetaConfCommand extends AbstractRatisCommand {
           .setId(ByteString.copyFrom(peerId.getBytes(StandardCharsets.UTF_8))).setAddress(peer)
           .setStartupRole(RaftProtos.RaftPeerRole.FOLLOWER).build());
     }
-    long index;
-    if (cl.hasOption(LOG_ENTRY_INDEX_OPTION_NAME)) {
-      index = Long.parseLong(cl.getOptionValue(LOG_ENTRY_INDEX_OPTION_NAME));
-    } else {
-      try (InputStream in = new FileInputStream(new File(path, RAFT_META_CONF))) {
-        index = RaftProtos.LogEntryProto.newBuilder().mergeFrom(in).build().getIndex() + 1;
-        System.out.println("Index in the original file is: " + (index - 1));
-      }
-    }
-    try (OutputStream out = new FileOutputStream(new File(path, NEW_RAFT_META_CONF))) {
+    try (InputStream in = new FileInputStream(new File(path, RAFT_META_CONF));
+         OutputStream out = new FileOutputStream(new File(path, NEW_RAFT_META_CONF))) {
+      long index = RaftProtos.LogEntryProto.newBuilder().mergeFrom(in).build().getIndex();
+      System.out.println("Index in the original file is: " + index);
       RaftProtos.LogEntryProto generateLogEntryProto = RaftProtos.LogEntryProto.newBuilder()
           .setConfigurationEntry(RaftProtos.RaftConfigurationProto.newBuilder()
               .addAllPeers(raftPeerProtos).build())
-          .setIndex(index).build();
+          .setIndex(index + 1).build();
       System.out.println("Generate new LogEntryProto info is:\n"+ generateLogEntryProto);
       generateLogEntryProto.writeTo(out);
     }
@@ -90,9 +83,8 @@ public class RaftMetaConfCommand extends AbstractRatisCommand {
   public String getUsage() {
     return String.format("%s"
             + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-            + " -%s <PATH>"
-            + " [-%s <LOG_ENTRY_INDEX>]",
-        getCommandName(), PEER_OPTION_NAME, PATH_OPTION_NAME, LOG_ENTRY_INDEX_OPTION_NAME);
+            + " -%s <PATH>",
+        getCommandName(), PEER_OPTION_NAME, PATH_OPTION_NAME);
   }
 
   @Override
@@ -116,13 +108,6 @@ public class RaftMetaConfCommand extends AbstractRatisCommand {
                 .hasArg()
                 .required()
                 .desc("The parent path of raft-meta.conf")
-            .build())
-        .addOption(
-            Option.builder()
-                .option(LOG_ENTRY_INDEX_OPTION_NAME)
-                .hasArg()
-                .desc("The log entry index in raft-meta.conf(If index is specified directly, "
-                    + "the original file will be ignored)")
             .build());
   }
 
