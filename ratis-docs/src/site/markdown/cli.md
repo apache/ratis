@@ -77,7 +77,7 @@ The following command can be invoked in order to get the basic usage:
 $ ratis sh
 Usage: ratis sh [generic options]
          [election [transfer] [stepDown] [pause] [resume]]
-         [group [info] [list]]
+         [group [info] [list] [raftMetaConf]]
          [peer [add] [remove] [setPriority]]
          [snapshot [create]]
 ```
@@ -125,7 +125,7 @@ $ ratis sh election resume -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PO
 ## group
 The `group` command manages ratis groups.
 It has the following subcommands:
-`info`, `list`
+`info`, `list`, `raftMetaConf`
 
 ### group info
 Display the information of a specific raft group.
@@ -137,6 +137,12 @@ $ ratis sh group info -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [
 Display the group information of a specific raft server
 ```
 $ ratis sh group list -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [-groupid <RAFT_GROUP_ID>]  <[-serverAddress <P0_HOST:P0_PORT>]|[-peerId <peerId0>]>
+```
+
+### group raftMetaConf
+Generate a new raft-meta.conf file, which is used to move a raft node to a new node
+```
+$ ratis sh group raftMetaConf -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> -path <PARENT_PATH_OF_RAFT_META_CONF>
 ```
 
 ## peer
