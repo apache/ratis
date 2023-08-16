@@ -21,6 +21,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -60,12 +61,15 @@ public class RaftMetaConfCommand extends AbstractRatisCommand {
   public int run(CommandLine cl) throws IOException {
     String peersStr = cl.getOptionValue(PEER_OPTION_NAME);
     String path = cl.getOptionValue(PATH_OPTION_NAME);
+    if (peersStr == null || path == null || peersStr.isEmpty() || path.isEmpty()) {
+      System.out.println("peers or path can't be empty.");
+      return -1;
+    }
     List<RaftProtos.RaftPeerProto> raftPeerProtos = new ArrayList<>();
-    for (String peer : peersStr.split(",")) {
-      String[] peerInfos = peer.split(":");
-      String peerId = peerInfos[0] + "_" + peerInfos[1];
+    for (String address : peersStr.split(",")) {
+      String peerId = RaftUtils.getPeerId(parseInetSocketAddress(address)).toString();
       raftPeerProtos.add(RaftProtos.RaftPeerProto.newBuilder()
-          .setId(ByteString.copyFrom(peerId.getBytes(StandardCharsets.UTF_8))).setAddress(peer)
+          .setId(ByteString.copyFrom(peerId.getBytes(StandardCharsets.UTF_8))).setAddress(address)
           .setStartupRole(RaftProtos.RaftPeerRole.FOLLOWER).build());
     }
     try (InputStream in = new FileInputStream(new File(path, RAFT_META_CONF));
