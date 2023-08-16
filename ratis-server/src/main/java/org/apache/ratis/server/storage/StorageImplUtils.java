@@ -87,7 +87,8 @@ public final class StorageImplUtils {
    * {@link StartupOption#RECOVER}:
    * - When there are more than one existing directories, throw an exception.
    * - When there is an existing directory, if it fails to initialize, throw an exception but not try a new directory.
-   * - When there is no existing directory, throw an exception.
+   * - When there is no existing directory, if only one directory is specified in the configuration, format it;
+   *   otherwise, there are >1 directories specified, throw an exception.
    *
    * @param storageDirName the storage directory name
    * @param option the startup option
@@ -125,7 +126,8 @@ public final class StorageImplUtils {
       if (option == StartupOption.FORMAT) {
         return format();
       } else if (option == StartupOption.RECOVER) {
-        return recover();
+        final RaftStorageImpl recovered = recover();
+        return recovered != null? recovered: format();
       } else {
         throw new IllegalArgumentException("Illegal option: " + option);
       }
@@ -160,6 +162,10 @@ public final class StorageImplUtils {
         throw new IOException("Failed to " + option + ": More than one existing directories found "
             + existingSubs + " for " + storageDirName);
       } else if (size == 0) {
+        if (dirsInConf.size() == 1) {
+          // fallback to FORMAT
+          return null;
+        }
         throw new IOException("Failed to " + option + ": Storage directory not found for "
             + storageDirName + " from " + dirsInConf);
       }

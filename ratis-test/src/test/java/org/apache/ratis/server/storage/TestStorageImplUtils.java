@@ -18,6 +18,8 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.junit.AfterClass;
@@ -39,7 +41,7 @@ import java.util.stream.IntStream;
 /**
  * Test cases to verify ServerState.
  */
-public class TestStorageImplUtils {
+public class TestStorageImplUtils extends BaseTest {
 
   private static final Supplier<File> rootTestDir = JavaUtils.memoize(
       () -> new File(BaseTest.getRootTestDir(),
@@ -127,5 +129,49 @@ public class TestStorageImplUtils {
       String expectedErrMsg = "No storage directory found.";
       Assert.assertEquals(expectedErrMsg, ex.getMessage());
     }
+  }
+
+  /**
+   * When there is only one directory specified in conf, auto format it.
+   */
+  @Test
+  public void testAutoFormatSingleDirectory() throws Exception {
+    final File testDir = new File(rootTestDir.get(), UUID.randomUUID().toString());
+    FileUtils.createDirectories(testDir);
+
+    final RaftProperties properties = new RaftProperties();
+    RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(testDir));
+
+    final RaftStorageImpl storage = StorageImplUtils.initRaftStorage(
+        "group-1", RaftStorage.StartupOption.RECOVER, properties);
+    Assert.assertNotNull(storage);
+    storage.close();
+  }
+
+  /**
+   * When there are multiple directories specified in conf, do not auto format.
+   */
+  @Test
+  public void testAutoFormatMultiDirectories() throws Exception {
+    final File testDir = new File(rootTestDir.get(), UUID.randomUUID().toString());
+    final List<File> directories = new ArrayList<>();
+    IntStream.range(0, 3).mapToObj((i) -> new File(testDir,
+        Integer.toString(i))).forEach((dir) -> {
+      try {
+        FileUtils.createDirectories(dir);
+        directories.add(dir);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    });
+
+    final RaftProperties properties = new RaftProperties();
+    RaftServerConfigKeys.setStorageDir(properties, directories);
+
+    final Throwable ioe = testFailureCase("Do not auto format multi directories",
+        () -> StorageImplUtils.initRaftStorage(
+            "group-1", RaftStorage.StartupOption.RECOVER, properties),
+        IOException.class);
+    Assert.assertTrue(ioe.getMessage().contains("Failed to RECOVER: Storage directory not found"));
   }
 }
