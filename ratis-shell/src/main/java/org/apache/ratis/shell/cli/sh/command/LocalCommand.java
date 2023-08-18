@@ -22,21 +22,18 @@ import org.apache.ratis.shell.cli.sh.local.RaftMetaConfCommand;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Command for local operation, which no need to connect to ratis server
  */
 public class LocalCommand extends AbstractParentCommand {
 
-  private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
+  private static final List<Supplier<AbstractCommand>> SUB_COMMAND_CONSTRUCTORS
       = Collections.unmodifiableList(Arrays.asList(RaftMetaConfCommand::new));
 
-  /**
-   * @param context command context
-   */
-  public LocalCommand(Context context) {
-    super(context, SUB_COMMAND_CONSTRUCTORS);
+  public LocalCommand() {
+    super(SUB_COMMAND_CONSTRUCTORS);
   }
 
   @Override

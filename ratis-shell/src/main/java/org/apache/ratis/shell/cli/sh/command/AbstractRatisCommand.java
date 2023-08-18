@@ -45,22 +45,10 @@ import java.util.stream.Stream;
 /**
  * The base class for all the ratis shell {@link Command} classes.
  */
-public abstract class AbstractRatisCommand implements Command {
+public abstract class AbstractRatisCommand extends AbstractCommand {
   public static final String PEER_OPTION_NAME = "peers";
   public static final String GROUPID_OPTION_NAME = "groupid";
   public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.randomId();
-
-  public static InetSocketAddress parseInetSocketAddress(String address) {
-    try {
-      final String[] hostPortPair = address.split(":");
-      if (hostPortPair.length < 2) {
-        throw new IllegalArgumentException("Unexpected address format <HOST:PORT>.");
-      }
-      return new InetSocketAddress(hostPortPair[0], Integer.parseInt(hostPortPair[1]));
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to parse the server address parameter \"" + address + "\".", e);
-    }
-  }
 
   /**
    * Execute a given function with input parameter from the members of a list.

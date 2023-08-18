@@ -22,6 +22,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.sh.command.AbstractCommand;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -40,17 +41,14 @@ import java.util.List;
  * Command for generate a new raft-meta.conf file based on original raft-meta.conf and new peers,
  * which is used to move a raft node to a new node.
  */
-public class RaftMetaConfCommand extends AbstractRatisCommand {
+public class RaftMetaConfCommand extends AbstractCommand {
+  public static final String PEER_OPTION_NAME = "peers";
   public static final String PATH_OPTION_NAME = "path";
 
   private static final String RAFT_META_CONF = "raft-meta.conf";
   private static final String NEW_RAFT_META_CONF = "new-raft-meta.conf";
 
-  /**
-   * @param context command context
-   */
-  public RaftMetaConfCommand(Context context) {
-    super(context);
+  public RaftMetaConfCommand() {
   }
 
   @Override
