@@ -17,8 +17,7 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
-import org.apache.ratis.shell.cli.sh.group.GroupInfoCommand;
-import org.apache.ratis.shell.cli.sh.group.GroupListCommand;
+import org.apache.ratis.shell.cli.sh.local.RaftMetaConfCommand;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,23 +25,23 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * Command for the ratis group
+ * Command for local operation, which no need to connect to ratis server
  */
-public class GroupCommand extends AbstractParentCommand {
+public class LocalCommand extends AbstractParentCommand {
 
   private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
-          = Collections.unmodifiableList(Arrays.asList(
-          GroupInfoCommand::new, GroupListCommand::new));
+      = Collections.unmodifiableList(Arrays.asList(RaftMetaConfCommand::new));
+
   /**
    * @param context command context
    */
-  public GroupCommand(Context context) {
+  public LocalCommand(Context context) {
     super(context, SUB_COMMAND_CONSTRUCTORS);
   }
 
   @Override
   public String getCommandName() {
-    return "group";
+    return "local";
   }
 
   @Override
@@ -54,6 +53,7 @@ public class GroupCommand extends AbstractParentCommand {
    * @return command's description
    */
   public static String description() {
-    return "Manage ratis groups; see the sub-commands for the details.";
+    return "Command for local operation, which no need to connect to ratis server; "
+        + "see the sub-commands for the details.";
   }
 }

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.shell.cli.sh.group;
+package org.apache.ratis.shell.cli.sh.local;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
@@ -37,7 +37,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Command for generate a new raft-meta.conf file, which is used to move a raft node to a new node.
+ * Command for generate a new raft-meta.conf file based on original raft-meta.conf and new peers,
+ * which is used to move a raft node to a new node.
  */
 public class RaftMetaConfCommand extends AbstractRatisCommand {
   public static final String PATH_OPTION_NAME = "path";
@@ -122,7 +123,7 @@ public class RaftMetaConfCommand extends AbstractRatisCommand {
    * @return command's description
    */
   public static String description() {
-    return "Generate a new raft-meta.conf file.";
+    return "Generate a new raft-meta.conf file based on original raft-meta.conf and new peers.";
   }
 }
 

@@ -77,9 +77,10 @@ The following command can be invoked in order to get the basic usage:
 $ ratis sh
 Usage: ratis sh [generic options]
          [election [transfer] [stepDown] [pause] [resume]]
-         [group [info] [list] [raftMetaConf]]
+         [group [info] [list]]
          [peer [add] [remove] [setPriority]]
          [snapshot [create]]
+         [local [raftMetaConf]]
 ```
 
 ## generic options
@@ -125,7 +126,7 @@ $ ratis sh election resume -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PO
 ## group
 The `group` command manages ratis groups.
 It has the following subcommands:
-`info`, `list`, `raftMetaConf`
+`info`, `list`
 
 ### group info
 Display the information of a specific raft group.
@@ -137,12 +138,6 @@ $ ratis sh group info -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [
 Display the group information of a specific raft server
 ```
 $ ratis sh group list -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> [-groupid <RAFT_GROUP_ID>]  <[-serverAddress <P0_HOST:P0_PORT>]|[-peerId <peerId0>]>
-```
-
-### group raftMetaConf
-Generate a new raft-meta.conf file, which is used to move a raft node to a new node
-```
-$ ratis sh group raftMetaConf -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> -path <PARENT_PATH_OF_RAFT_META_CONF>
 ```
 
 ## peer
@@ -177,4 +172,15 @@ It has the following subcommands:
 Trigger the specified server take snapshot.
 ```
 $ ratis sh snapshot create -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> -peerId <peerId0> [-groupid <RAFT_GROUP_ID>]
+```
+
+## local
+The `local` command is used to process local operation, which no need to connect to ratis server.
+It has the following subcommands:
+`raftMetaConf`
+
+### local raftMetaConf
+Generate a new raft-meta.conf file based on original raft-meta.conf and new peers, which is used to move a raft node to a new node.
+```
+$ ratis sh local raftMetaConf -peers <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT> -path <PARENT_PATH_OF_RAFT_META_CONF>
 ```
