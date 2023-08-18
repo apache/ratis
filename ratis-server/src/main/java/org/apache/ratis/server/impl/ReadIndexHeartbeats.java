@@ -85,8 +85,12 @@ class ReadIndexHeartbeats {
     private final CompletableFuture<Long> future = new CompletableFuture<>();
     private final ConcurrentHashMap<RaftPeerId, HeartbeatAck> replies = new ConcurrentHashMap<>();
 
-    AppendEntriesListener(long commitIndex) {
+    AppendEntriesListener(long commitIndex, Iterable<LogAppender> logAppenders) {
       this.commitIndex = commitIndex;
+      for (LogAppender a : logAppenders) {
+        a.triggerHeartbeat();
+        replies.put(a.getFollowerId(), new HeartbeatAck(a));
+      }
     }
 
     CompletableFuture<Long> getFuture() {
@@ -159,8 +163,7 @@ class ReadIndexHeartbeats {
   private final AppendEntriesListeners appendEntriesListeners = new AppendEntriesListeners();
   private final RaftLogIndex ackedCommitIndex = new RaftLogIndex("ackedCommitIndex", RaftLog.INVALID_LOG_INDEX);
 
-  AppendEntriesListener addAppendEntriesListener(long commitIndex,
-                                                              Function<Long, AppendEntriesListener> constructor) {
+  AppendEntriesListener addAppendEntriesListener(long commitIndex, Function<Long, AppendEntriesListener> constructor) {
     if (commitIndex <= ackedCommitIndex.get()) {
       return null;
     }

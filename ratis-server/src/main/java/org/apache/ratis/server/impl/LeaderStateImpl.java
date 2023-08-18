@@ -54,7 +54,6 @@ import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
@@ -1076,18 +1075,12 @@ class LeaderStateImpl implements LeaderState {
           new LeaderNotReadyException(server.getMemberId())));
     }
 
-    final MemoizedSupplier<AppendEntriesListener> supplier = MemoizedSupplier.valueOf(
-        () -> new AppendEntriesListener(readIndex));
     final AppendEntriesListener listener = readIndexHeartbeats.addAppendEntriesListener(
-        readIndex, key -> supplier.get());
+        readIndex, i -> new AppendEntriesListener(i, senders));
 
     // the readIndex is already acknowledged before
     if (listener == null) {
       return CompletableFuture.completedFuture(readIndex);
-    }
-
-    if (supplier.isInitialized()) {
-      senders.forEach(LogAppender::triggerHeartbeat);
     }
 
     return listener.getFuture();
