@@ -20,20 +20,21 @@ package org.apache.ratis.shell.cli.sh.local;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractCommand;
-import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,7 +49,11 @@ public class RaftMetaConfCommand extends AbstractCommand {
   private static final String RAFT_META_CONF = "raft-meta.conf";
   private static final String NEW_RAFT_META_CONF = "new-raft-meta.conf";
 
-  public RaftMetaConfCommand() {
+  /**
+   * @param context command context
+   */
+  public RaftMetaConfCommand(Context context) {
+    super(context);
   }
 
   @Override
@@ -61,25 +66,25 @@ public class RaftMetaConfCommand extends AbstractCommand {
     String peersStr = cl.getOptionValue(PEER_OPTION_NAME);
     String path = cl.getOptionValue(PATH_OPTION_NAME);
     if (peersStr == null || path == null || peersStr.isEmpty() || path.isEmpty()) {
-      System.out.println("peers or path can't be empty.");
+      printf("peers or path can't be empty.");
       return -1;
     }
-    List<RaftProtos.RaftPeerProto> raftPeerProtos = new ArrayList<>();
+    List<RaftPeerProto> raftPeerProtos = new ArrayList<>();
     for (String address : peersStr.split(",")) {
       String peerId = RaftUtils.getPeerId(parseInetSocketAddress(address)).toString();
-      raftPeerProtos.add(RaftProtos.RaftPeerProto.newBuilder()
+      raftPeerProtos.add(RaftPeerProto.newBuilder()
           .setId(ByteString.copyFrom(peerId.getBytes(StandardCharsets.UTF_8))).setAddress(address)
-          .setStartupRole(RaftProtos.RaftPeerRole.FOLLOWER).build());
+          .setStartupRole(RaftPeerRole.FOLLOWER).build());
     }
-    try (InputStream in = new FileInputStream(new File(path, RAFT_META_CONF));
-         OutputStream out = new FileOutputStream(new File(path, NEW_RAFT_META_CONF))) {
-      long index = RaftProtos.LogEntryProto.newBuilder().mergeFrom(in).build().getIndex();
-      System.out.println("Index in the original file is: " + index);
-      RaftProtos.LogEntryProto generateLogEntryProto = RaftProtos.LogEntryProto.newBuilder()
-          .setConfigurationEntry(RaftProtos.RaftConfigurationProto.newBuilder()
+    try (InputStream in = Files.newInputStream(Paths.get(path, RAFT_META_CONF));
+         OutputStream out = Files.newOutputStream(Paths.get(path, NEW_RAFT_META_CONF))) {
+      long index = LogEntryProto.newBuilder().mergeFrom(in).build().getIndex();
+      printf("Index in the original file is: " + index + "\n");
+      LogEntryProto generateLogEntryProto = LogEntryProto.newBuilder()
+          .setConfigurationEntry(RaftConfigurationProto.newBuilder()
               .addAllPeers(raftPeerProtos).build())
           .setIndex(index + 1).build();
-      System.out.println("Generate new LogEntryProto info is:\n" + generateLogEntryProto);
+      printf("Generate new LogEntryProto info is:\n" + generateLogEntryProto);
       generateLogEntryProto.writeTo(out);
     }
     return 0;
@@ -89,7 +94,7 @@ public class RaftMetaConfCommand extends AbstractCommand {
   public String getUsage() {
     return String.format("%s"
             + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-            + " -%s <PATH>",
+            + " -%s <PARENT_PATH_OF_RAFT_META_CONF>",
         getCommandName(), PEER_OPTION_NAME, PATH_OPTION_NAME);
   }
 

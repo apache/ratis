@@ -77,12 +77,7 @@ public class RatisShell extends AbstractShell {
       if (cls.getPackage().getName().equals(pkgName + ".command")
           && !Modifier.isAbstract(cls.getModifiers())) {
         // Only instantiate a concrete class
-        final Command cmd;
-        if (cls.getSimpleName().equals("LocalCommand")) {
-          cmd = ReflectionUtils.newInstance(cls);
-        } else {
-          cmd = ReflectionUtils.newInstance(cls, classArgs, objectArgs);
-        }
+        final Command cmd = ReflectionUtils.newInstance(cls, classArgs, objectArgs);
         commandsMap.put(cmd.getCommandName(), cmd);
       }
     }

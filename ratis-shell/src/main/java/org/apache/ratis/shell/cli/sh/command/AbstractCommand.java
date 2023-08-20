@@ -19,12 +19,19 @@ package org.apache.ratis.shell.cli.sh.command;
 
 import org.apache.ratis.shell.cli.Command;
 
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 
 /**
  * The base class for all the ratis shell {@link Command} classes.
  */
 public abstract class AbstractCommand implements Command {
+
+  private final PrintStream printStream;
+
+  protected AbstractCommand(Context context) {
+    printStream = context.getPrintStream();
+  }
 
   public static InetSocketAddress parseInetSocketAddress(String address) {
     try {
@@ -36,5 +43,17 @@ public abstract class AbstractCommand implements Command {
     } catch (Exception e) {
       throw new IllegalArgumentException("Failed to parse the server address parameter \"" + address + "\".", e);
     }
+  }
+
+  protected PrintStream getPrintStream() {
+    return printStream;
+  }
+
+  protected void printf(String format, Object... args) {
+    printStream.printf(format, args);
+  }
+
+  protected void println(Object message) {
+    printStream.println(message);
   }
 }

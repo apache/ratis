@@ -24,28 +24,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public abstract class AbstractParentCommand implements Command {
   private final Map<String, Command> subs;
 
-  public AbstractParentCommand(Context context, List<Function<Context, AbstractRatisCommand>> subCommandConstructors) {
+  public AbstractParentCommand(Context context, List<Function<Context, Command>> subCommandConstructors) {
     this.subs = Collections.unmodifiableMap(subCommandConstructors.stream()
         .map(constructor -> constructor.apply(context))
         .collect(Collectors.toMap(Command::getCommandName, Function.identity(),
         (a, b) -> {
           throw new IllegalStateException("Found duplicated commands: " + a + " and " + b);
           }, LinkedHashMap::new)));
-  }
-
-  public AbstractParentCommand(List<Supplier<AbstractCommand>> subCommands) {
-    this.subs = Collections.unmodifiableMap(subCommands.stream()
-        .map(subCommand -> subCommand.get())
-        .collect(Collectors.toMap(Command::getCommandName, Function.identity(),
-        (a, b) -> {
-            throw new IllegalStateException("Found duplicated commands: " + a + " and " + b);
-            }, LinkedHashMap::new)));
   }
 
   @Override

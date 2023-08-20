@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
+import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.sh.election.PauseCommand;
 import org.apache.ratis.shell.cli.sh.election.ResumeCommand;
 import org.apache.ratis.shell.cli.sh.election.StepDownCommand;
@@ -28,7 +29,7 @@ import java.util.List;
 import java.util.function.Function;
 
 public class ElectionCommand extends AbstractParentCommand {
-  private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
+  private static final List<Function<Context, Command>> SUB_COMMAND_CONSTRUCTORS
       = Collections.unmodifiableList(Arrays.asList(
       TransferCommand::new, StepDownCommand::new, PauseCommand::new, ResumeCommand::new));
 

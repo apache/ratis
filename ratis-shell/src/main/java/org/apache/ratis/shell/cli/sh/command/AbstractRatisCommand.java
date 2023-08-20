@@ -74,12 +74,11 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
     return null;
   }
 
-  private final PrintStream printStream;
   private RaftGroup raftGroup;
   private GroupInfoReply groupInfoReply;
 
   protected AbstractRatisCommand(Context context) {
-    printStream = context.getPrintStream();
+    super(context);
   }
 
   @Override
@@ -140,18 +139,6 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
                     .desc("Peer addresses seperated by comma")
                     .build())
             .addOption(GROUPID_OPTION_NAME, true, "Raft group id");
-  }
-
-  protected PrintStream getPrintStream() {
-    return printStream;
-  }
-
-  protected void printf(String format, Object... args) {
-    printStream.printf(format, args);
-  }
-
-  protected void println(Object message) {
-    printStream.println(message);
   }
 
   protected RaftGroup getRaftGroup() {
