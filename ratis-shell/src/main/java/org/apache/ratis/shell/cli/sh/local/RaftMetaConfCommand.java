@@ -79,7 +79,7 @@ public class RaftMetaConfCommand extends AbstractCommand {
     try (InputStream in = Files.newInputStream(Paths.get(path, RAFT_META_CONF));
          OutputStream out = Files.newOutputStream(Paths.get(path, NEW_RAFT_META_CONF))) {
       long index = LogEntryProto.newBuilder().mergeFrom(in).build().getIndex();
-      printf("Index in the original file is: " + index + "\n");
+      println("Index in the original file is: " + index);
       LogEntryProto generateLogEntryProto = LogEntryProto.newBuilder()
           .setConfigurationEntry(RaftConfigurationProto.newBuilder()
               .addAllPeers(raftPeerProtos).build())
