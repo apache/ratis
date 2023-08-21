@@ -20,7 +20,6 @@ package org.apache.ratis.shell.cli.sh.command;
 import org.apache.commons.cli.Option;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
@@ -34,7 +33,6 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -43,7 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * The base class for all the ratis shell {@link Command} classes.
+ * The base class for the ratis shell which need to connect to server.
  */
 public abstract class AbstractRatisCommand extends AbstractCommand {
   public static final String PEER_OPTION_NAME = "peers";
