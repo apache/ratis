@@ -18,31 +18,31 @@
 package org.apache.ratis.shell.cli.sh.command;
 
 import org.apache.ratis.shell.cli.Command;
-import org.apache.ratis.shell.cli.sh.election.PauseCommand;
-import org.apache.ratis.shell.cli.sh.election.ResumeCommand;
-import org.apache.ratis.shell.cli.sh.election.StepDownCommand;
-import org.apache.ratis.shell.cli.sh.election.TransferCommand;
+import org.apache.ratis.shell.cli.sh.local.RaftMetaConfCommand;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
-public class ElectionCommand extends AbstractParentCommand {
+/**
+ * Command for local operation, which no need to connect to ratis server
+ */
+public class LocalCommand extends AbstractParentCommand {
+
   private static final List<Function<Context, Command>> SUB_COMMAND_CONSTRUCTORS
-      = Collections.unmodifiableList(Arrays.asList(
-      TransferCommand::new, StepDownCommand::new, PauseCommand::new, ResumeCommand::new));
+      = Collections.unmodifiableList(Arrays.asList(RaftMetaConfCommand::new));
 
   /**
    * @param context command context
    */
-  public ElectionCommand(Context context) {
+  public LocalCommand(Context context) {
     super(context, SUB_COMMAND_CONSTRUCTORS);
   }
 
   @Override
   public String getCommandName() {
-    return "election";
+    return "local";
   }
 
   @Override
@@ -54,6 +54,7 @@ public class ElectionCommand extends AbstractParentCommand {
    * @return command's description
    */
   public static String description() {
-    return "Manage ratis leader election; see the sub-commands for the details.";
+    return "Command for local operation, which no need to connect to ratis server; "
+        + "see the sub-commands for the details.";
   }
 }

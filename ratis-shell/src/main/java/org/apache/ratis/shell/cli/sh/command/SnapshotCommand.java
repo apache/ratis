@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
+import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.sh.snapshot.TakeSnapshotCommand;
 
 import java.util.Arrays;
@@ -28,7 +29,7 @@ import java.util.function.Function;
  * Command for the ratis snapshot
  */
 public class SnapshotCommand extends AbstractParentCommand {
-  private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
+  private static final List<Function<Context, Command>> SUB_COMMAND_CONSTRUCTORS
       = Collections.unmodifiableList(Arrays.asList(TakeSnapshotCommand::new));
 
   /**

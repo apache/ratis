@@ -20,7 +20,6 @@ package org.apache.ratis.shell.cli.sh.command;
 import org.apache.commons.cli.Option;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
@@ -34,7 +33,6 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -43,24 +41,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * The base class for all the ratis shell {@link Command} classes.
+ * The base class for the ratis shell which need to connect to server.
  */
-public abstract class AbstractRatisCommand implements Command {
+public abstract class AbstractRatisCommand extends AbstractCommand {
   public static final String PEER_OPTION_NAME = "peers";
   public static final String GROUPID_OPTION_NAME = "groupid";
   public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.randomId();
-
-  public static InetSocketAddress parseInetSocketAddress(String address) {
-    try {
-      final String[] hostPortPair = address.split(":");
-      if (hostPortPair.length < 2) {
-        throw new IllegalArgumentException("Unexpected address format <HOST:PORT>.");
-      }
-      return new InetSocketAddress(hostPortPair[0], Integer.parseInt(hostPortPair[1]));
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to parse the server address parameter \"" + address + "\".", e);
-    }
-  }
 
   /**
    * Execute a given function with input parameter from the members of a list.
@@ -86,12 +72,11 @@ public abstract class AbstractRatisCommand implements Command {
     return null;
   }
 
-  private final PrintStream printStream;
   private RaftGroup raftGroup;
   private GroupInfoReply groupInfoReply;
 
   protected AbstractRatisCommand(Context context) {
-    printStream = context.getPrintStream();
+    super(context);
   }
 
   @Override
@@ -152,18 +137,6 @@ public abstract class AbstractRatisCommand implements Command {
                     .desc("Peer addresses seperated by comma")
                     .build())
             .addOption(GROUPID_OPTION_NAME, true, "Raft group id");
-  }
-
-  protected PrintStream getPrintStream() {
-    return printStream;
-  }
-
-  protected void printf(String format, Object... args) {
-    printStream.printf(format, args);
-  }
-
-  protected void println(Object message) {
-    printStream.println(message);
   }
 
   protected RaftGroup getRaftGroup() {

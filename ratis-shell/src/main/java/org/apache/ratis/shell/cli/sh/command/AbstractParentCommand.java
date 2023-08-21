@@ -26,11 +26,10 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public abstract class AbstractParentCommand extends AbstractRatisCommand{
+public abstract class AbstractParentCommand implements Command {
   private final Map<String, Command> subs;
 
-  public AbstractParentCommand(Context context, List<Function<Context, AbstractRatisCommand>> subCommandConstructors) {
-    super(context);
+  public AbstractParentCommand(Context context, List<Function<Context, Command>> subCommandConstructors) {
     this.subs = Collections.unmodifiableMap(subCommandConstructors.stream()
         .map(constructor -> constructor.apply(context))
         .collect(Collectors.toMap(Command::getCommandName, Function.identity(),
