@@ -151,6 +151,13 @@ public interface StateMachine extends Closeable {
     default void notifyLeaderChanged(RaftGroupMemberId groupMemberId, RaftPeerId newLeaderId) {}
 
     /**
+     * Notify the {@link StateMachine} that current node has become the leader and recovered successfully.
+     * Note that only leader will call this function.
+     *
+     */
+    default void notifyLeaderReady() {}
+
+    /**
      * Notify the {@link StateMachine} a term-index update event.
      * This method will be invoked when a {@link MetadataProto}
      * or {@link RaftConfigurationProto} is processed.
