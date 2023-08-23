@@ -427,6 +427,10 @@ class LeaderStateImpl implements LeaderState {
     return server.getState().getLastEntry();
   }
 
+  long getPlaceHolderIndex() {
+    return placeHolderIndex;
+  }
+
   @Override
   public boolean onFollowerTerm(FollowerInfo follower, long followerTerm) {
     if (isCaughtUp(follower) && followerTerm > getCurrentTerm()) {
