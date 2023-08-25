@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 /**
  * Detect pauses in JVM causing by GC or other problems in the machine.
  */
-public class JvmPauseMonitor {
+public final class JvmPauseMonitor {
   static final Logger LOG = LoggerFactory.getLogger(JvmPauseMonitor.class);
   private static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
 
