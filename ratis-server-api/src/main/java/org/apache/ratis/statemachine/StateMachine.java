@@ -228,6 +228,11 @@ public interface StateMachine extends Closeable {
      * Notify {@link StateMachine} that this server is no longer the leader.
      */
     default void notifyNotLeader(Collection<TransactionContext> pendingEntries) throws IOException {}
+
+    /**
+     * Notify the {@link StateMachine} that this server becomes ready after changed to leader.
+     */
+    default void notifyLeaderReady() {}
   }
 
   /**
