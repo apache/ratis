@@ -74,7 +74,7 @@ import java.util.stream.Stream;
 class RaftServerProxy implements RaftServer {
   /**
    * A map: {@link RaftGroupId} -> {@link RaftServerImpl} futures.
-   *
+   * <p>
    * The map is synchronized for mutations and the bulk {@link #getGroupIds()}/{@link #getAll()} methods
    * but the (non-bulk) {@link #get(RaftGroupId)} and {@link #containsGroup(RaftGroupId)} methods are not.
    * The thread safety and atomicity guarantees for the non-bulk methods are provided by {@link ConcurrentMap}.
@@ -222,8 +222,10 @@ class RaftServerProxy implements RaftServer {
     final TimeDuration sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     final TimeDuration rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
-    this.pauseMonitor = new JvmPauseMonitor(id, sleepDeviationThreshold,
-        extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime));
+    this.pauseMonitor = JvmPauseMonitor.newBuilder().setName(id)
+        .setSleepDeviationThreshold(sleepDeviationThreshold)
+        .setHandler(extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime))
+        .build();
     this.threadGroup = threadGroup == null ? new ThreadGroup(this.id.toString()) : threadGroup;
   }
 
