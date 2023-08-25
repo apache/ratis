@@ -316,6 +316,7 @@ class LeaderStateImpl implements LeaderState {
 
   private final int stagingCatchupGap;
   private final long placeHolderIndex;
+  private final AtomicBoolean isReady = new AtomicBoolean();
   private final RaftServerMetricsImpl raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
   private final long followerMaxGapThreshold;
@@ -383,7 +384,14 @@ class LeaderStateImpl implements LeaderState {
   }
 
   boolean isReady() {
-    return server.getState().getLastAppliedIndex() >= placeHolderIndex;
+    return isReady.get();
+  }
+
+  void checkReady(LogEntryProto entry) {
+    if (entry.getTerm() == currentTerm && entry.getIndex() == placeHolderIndex) {
+      isReady.set(true);
+      server.getStateMachine().leaderEvent().notifyLeaderReady();
+    }
   }
 
   void stop() {
@@ -425,10 +433,6 @@ class LeaderStateImpl implements LeaderState {
 
   TermIndex getLastEntry() {
     return server.getState().getLastEntry();
-  }
-
-  long getPlaceHolderIndex() {
-    return placeHolderIndex;
   }
 
   @Override

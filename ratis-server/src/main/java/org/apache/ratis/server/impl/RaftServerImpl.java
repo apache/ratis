@@ -1802,9 +1802,7 @@ class RaftServerImpl implements RaftServer.Division,
       // the new conf in the metadata file and notify the StateMachine.
       state.writeRaftConfiguration(next);
       stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(), next.getConfigurationEntry());
-      if (isFirstLogAppliedByCurrentLeaderInCurrentTerm(next)) {
-        stateMachine.event().notifyLeaderReady();
-      }
+      role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
     } else if (next.hasStateMachineLogEntry()) {
       // check whether there is a TransactionContext because we are the leader.
       TransactionContext trx = role.getLeaderState()
@@ -1826,11 +1824,6 @@ class RaftServerImpl implements RaftServer.Division,
       }
     }
     return null;
-  }
-
-  boolean isFirstLogAppliedByCurrentLeaderInCurrentTerm(LogEntryProto entry) {
-    return role.getLeaderState().map(leader -> leader.getCurrentTerm() == entry.getTerm() &&
-        leader.getPlaceHolderIndex() == entry.getIndex()).orElse(false);
   }
 
   /**
