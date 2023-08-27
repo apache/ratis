@@ -123,8 +123,10 @@ public class GrpcLogAppender extends LogAppenderBase {
   private void resetClient(AppendEntriesRequest request, boolean onError) {
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       getClient().resetConnectBackoff();
-      appendLogRequestObserver.stop();
-      appendLogRequestObserver = null;
+      if (appendLogRequestObserver != null) {
+        appendLogRequestObserver.stop();
+        appendLogRequestObserver = null;
+      }
       firstResponseReceived = false;
       // clear the pending requests queue and reset the next index of follower
       pendingRequests.clear();
