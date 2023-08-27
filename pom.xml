@@ -184,7 +184,7 @@
     <build-helper-maven-plugin.version>3.3.0</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>3.1.0</exec-maven-plugin.version>
     <extra-enforcer-rules.version>1.6.1</extra-enforcer-rules.version>
-    <license-maven-plugin.version>4.1</license-maven-plugin.version>
+    <license-maven-plugin.version>2.2.0</license-maven-plugin.version>
 
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
     <copy-rename-maven-plugin.version>1.0</copy-rename-maven-plugin.version>
@@ -747,7 +747,7 @@
         <version>${maven-checkstyle-plugin.version}</version>
         <configuration>
           <configLocation>dev-support/checkstyle.xml</configLocation>
-          <failOnViolation>false</failOnViolation>
+          <failOnViolation>true</failOnViolation>
           <linkXRef>false</linkXRef>
         </configuration>
       </plugin>
