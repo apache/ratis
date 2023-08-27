@@ -32,8 +32,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-public class JvmPauseMonitor {
-  public static final Logger LOG = LoggerFactory.getLogger(JvmPauseMonitor.class);
+/**
+ * Detect pauses in JVM causing by GC or other problems in the machine.
+ */
+public final class JvmPauseMonitor {
+  static final Logger LOG = LoggerFactory.getLogger(JvmPauseMonitor.class);
   private static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
 
   static final class GcInfo {
@@ -87,16 +90,54 @@ public class JvmPauseMonitor {
         + extraSleepTime.toString(TimeUnit.SECONDS, 3) + gc;
   }
 
-  private static final TimeDuration SLEEP_TIME = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);
+  /** To build {@link JvmPauseMonitor}. */
+  public static class Builder {
+    private Object name = "default";
+    private TimeDuration sleepDeviationThreshold = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
+    private TimeDuration sleepTime = sleepDeviationThreshold;
+    private CheckedConsumer<TimeDuration, IOException> handler = t -> {};
+
+    public Builder setName(Object name) {
+      this.name = name;
+      return this;
+    }
+
+    public Builder setSleepTime(TimeDuration sleepTime) {
+      this.sleepTime = sleepTime;
+      return this;
+    }
+
+    public Builder setSleepDeviationThreshold(TimeDuration sleepDeviationThreshold) {
+      this.sleepDeviationThreshold = sleepDeviationThreshold;
+      return this;
+    }
+
+    public Builder setHandler(CheckedConsumer<TimeDuration, IOException> handler) {
+      this.handler = handler;
+      return this;
+    }
+
+    public JvmPauseMonitor build() {
+      return new JvmPauseMonitor(name, sleepTime, sleepDeviationThreshold, handler);
+    }
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  private final TimeDuration sleepTime;
   private final TimeDuration sleepDeviationThreshold;
 
   private final String name;
   private final AtomicReference<Thread> threadRef = new AtomicReference<>();
   private final CheckedConsumer<TimeDuration, IOException> handler;
 
-  public JvmPauseMonitor(Object name, TimeDuration sleepDeviationThreshold,
+  private JvmPauseMonitor(Object name, TimeDuration sleepTime, TimeDuration sleepDeviationThreshold,
       CheckedConsumer<TimeDuration, IOException> handler) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "-" + name;
+    // use min -- if the sleep time is too long, it may not be able to detect the given deviation.
+    this.sleepTime = TimeDuration.min(sleepTime, sleepDeviationThreshold);
     this.sleepDeviationThreshold = sleepDeviationThreshold;
     this.handler = handler;
   }
@@ -116,7 +157,7 @@ public class JvmPauseMonitor {
     final Map<String, GcInfo> before = getGcTimes();
     final TimeDuration extraSleep;
     try {
-      extraSleep = SLEEP_TIME.sleep();
+      extraSleep = sleepTime.sleep();
     } catch (InterruptedException ie) {
       return;
     }
@@ -140,7 +181,9 @@ public class JvmPauseMonitor {
   /** Start this monitor. */
   public void start() {
     final MemoizedSupplier<Thread> supplier = JavaUtils.memoize(() -> Daemon.newBuilder()
-        .setName("JvmPauseMonitor" + THREAD_COUNT.getAndIncrement()).setRunnable(this::run).build());
+        .setName(JavaUtils.getClassSimpleName(getClass()) + THREAD_COUNT.getAndIncrement())
+        .setRunnable(this::run)
+        .build());
     Optional.of(threadRef.updateAndGet(previous -> Optional.ofNullable(previous).orElseGet(supplier)))
         .filter(t -> supplier.isInitialized())
         .ifPresent(Thread::start);
