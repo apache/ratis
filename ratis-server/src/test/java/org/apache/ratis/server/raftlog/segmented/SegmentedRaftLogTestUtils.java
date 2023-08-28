@@ -17,18 +17,16 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.server.raftlog.RaftLogConf;
 import org.apache.ratis.util.Slf4jUtils;
 import org.slf4j.event.Level;
 
 import java.io.File;
 
 public interface SegmentedRaftLogTestUtils {
-  SizeInBytes MAX_OP_SIZE = SizeInBytes.valueOf("32MB");
-
   static SegmentedRaftLogInputStream newSegmentedRaftLogInputStream(File log,
       long startIndex, long endIndex, boolean isOpen) {
-    return new SegmentedRaftLogInputStream(log, startIndex, endIndex, isOpen, MAX_OP_SIZE, null);
+    return new SegmentedRaftLogInputStream(log, startIndex, endIndex, isOpen, RaftLogConf.get(), null);
   }
 
   static void setRaftLogWorkerLogLevel(Level level) {

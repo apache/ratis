@@ -27,6 +27,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogBase;
+import org.apache.ratis.server.raftlog.RaftLogConf;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -182,9 +183,9 @@ public class SegmentedRaftLog extends RaftLogBase {
   private final ServerLogMethods server;
   private final RaftStorage storage;
   private final StateMachine stateMachine;
+  private final RaftLogConf conf;
   private final SegmentedRaftLogCache cache;
   private final SegmentedRaftLogWorker fileLogWorker;
-  private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
   private final SegmentedRaftLogMetrics metrics;
 
@@ -198,8 +199,8 @@ public class SegmentedRaftLog extends RaftLogBase {
     this.server = newServerLogMethods(server, notifyTruncatedLogEntry);
     this.storage = storage;
     this.stateMachine = stateMachine;
-    segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    this.cache = new SegmentedRaftLogCache(memberId, storage, properties, getRaftLogMetrics());
+    this.conf = RaftLogConf.get(properties);
+    this.cache = new SegmentedRaftLogCache(memberId, storage, conf, getRaftLogMetrics());
     this.fileLogWorker = new SegmentedRaftLogWorker(memberId, stateMachine,
         submitUpdateCommitEvent, server, storage, properties, getRaftLogMetrics());
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
@@ -423,6 +424,7 @@ public class SegmentedRaftLog extends RaftLogBase {
   }
 
   private boolean isSegmentFull(LogSegment segment, LogEntryProto entry) {
+    final long segmentMaxSize = conf.getSegmentMaxSize();
     if (segment.getTotalFileSize() >= segmentMaxSize) {
       return true;
     } else {

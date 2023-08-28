@@ -25,6 +25,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogConf;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
@@ -351,35 +352,32 @@ public class SegmentedRaftLogCache {
   private volatile LogSegment openSegment;
   private final LogSegmentList closedSegments;
   private final RaftStorage storage;
-  private final SizeInBytes maxOpSize;
+  private final RaftLogConf conf;
   private final SegmentedRaftLogMetrics raftLogMetrics;
 
-  private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
-  private final long maxSegmentCacheSize;
 
-  SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties,
+  SegmentedRaftLogCache(Object name, RaftStorage storage, RaftLogConf conf,
       SegmentedRaftLogMetrics raftLogMetrics) {
     this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
+    this.conf = conf;
+
     this.raftLogMetrics = raftLogMetrics;
     this.raftLogMetrics.addClosedSegmentsNum(this::getCachedSegmentNum);
     this.raftLogMetrics.addClosedSegmentsSizeInBytes(this::getClosedSegmentsSizeInBytes);
     this.raftLogMetrics.addOpenSegmentSizeInBytes(this::getOpenSegmentSizeInBytes);
-    this.maxCachedSegments = RaftServerConfigKeys.Log.segmentCacheNumMax(properties);
-    this.maxSegmentCacheSize = RaftServerConfigKeys.Log.segmentCacheSizeMax(properties).getSize();
-    this.maxOpSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
   }
 
   int getMaxCachedSegments() {
-    return maxCachedSegments;
+    return conf.getMaxCachedSegments();
   }
 
   void loadSegment(LogSegmentPath pi, boolean keepEntryInCache,
       Consumer<LogEntryProto> logConsumer) throws IOException {
     final LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(), pi.getStartEnd(),
-        maxOpSize, keepEntryInCache, logConsumer, raftLogMetrics);
+        conf, keepEntryInCache, logConsumer, raftLogMetrics);
     if (logSegment != null) {
       addSegment(logSegment);
     }
@@ -403,12 +401,13 @@ public class SegmentedRaftLogCache {
   }
 
   boolean shouldEvict() {
-    return closedSegments.countCached() > maxCachedSegments || getTotalCacheSize() > maxSegmentCacheSize;
+    return closedSegments.countCached() > getMaxCachedSegments()
+        || getTotalCacheSize() > conf.getMaxSegmentCacheSize();
   }
 
   void evictCache(long[] followerIndices, long safeEvictIndex, long lastAppliedIndex) {
     List<LogSegment> toEvict = evictionPolicy.evict(followerIndices,
-        safeEvictIndex, lastAppliedIndex, closedSegments, maxCachedSegments);
+        safeEvictIndex, lastAppliedIndex, closedSegments, getMaxCachedSegments());
     for (LogSegment s : toEvict) {
       s.evictCache();
     }
@@ -437,7 +436,7 @@ public class SegmentedRaftLogCache {
   }
 
   void addOpenSegment(long startIndex) {
-    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex, maxOpSize, raftLogMetrics));
+    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex, conf, raftLogMetrics));
   }
 
   private void setOpenSegment(LogSegment openSegment) {

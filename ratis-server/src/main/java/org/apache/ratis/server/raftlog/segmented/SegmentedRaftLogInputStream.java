@@ -25,10 +25,10 @@ import java.util.Optional;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
+import org.apache.ratis.server.raftlog.RaftLogConf;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.OpenCloseState;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,12 +67,12 @@ public class SegmentedRaftLogInputStream implements Closeable {
   private final boolean isOpen;
   private final OpenCloseState state;
   private SegmentedRaftLogReader reader;
-  private final SizeInBytes maxOpSize;
+  private final RaftLogConf conf;
   private final SegmentedRaftLogMetrics raftLogMetrics;
 
   SegmentedRaftLogInputStream(File log, long startIndex, long endIndex, boolean isOpen,
-      SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics) {
-    this.maxOpSize = maxOpSize;
+      RaftLogConf conf, SegmentedRaftLogMetrics raftLogMetrics) {
+    this.conf = conf;
     if (isOpen) {
       Preconditions.assertTrue(endIndex == INVALID_LOG_INDEX);
     } else {
@@ -91,7 +91,7 @@ public class SegmentedRaftLogInputStream implements Closeable {
     state.open();
     boolean initSuccess = false;
     try {
-      reader = new SegmentedRaftLogReader(logFile, maxOpSize, raftLogMetrics);
+      reader = new SegmentedRaftLogReader(logFile, conf, raftLogMetrics);
       initSuccess = reader.verifyHeader();
     } finally {
       if (!initSuccess) {
@@ -190,11 +190,11 @@ public class SegmentedRaftLogInputStream implements Closeable {
    * @return Result of the validation
    * @throws IOException
    */
-  static LogValidation scanEditLog(File file, long maxTxIdToScan, SizeInBytes maxOpSize)
+  static LogValidation scanEditLog(File file, long maxTxIdToScan, RaftLogConf conf)
       throws IOException {
     SegmentedRaftLogInputStream in;
     try {
-      in = new SegmentedRaftLogInputStream(file, INVALID_LOG_INDEX, INVALID_LOG_INDEX, false, maxOpSize, null);
+      in = new SegmentedRaftLogInputStream(file, INVALID_LOG_INDEX, INVALID_LOG_INDEX, false, conf, null);
       // read the header, initialize the inputstream
       in.init();
     } catch (EOFException e) {

@@ -22,18 +22,19 @@ import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.protocol.exceptions.ChecksumException;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogConf;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedInputStream;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.PureJavaCrc32C;
-import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.file.Files;
 import java.util.Optional;
 import java.util.zip.Checksum;
 
@@ -138,17 +139,16 @@ class SegmentedRaftLogReader implements Closeable {
   private final DataInputStream in;
   private byte[] temp = new byte[4096];
   private final Checksum checksum;
+  private final RaftLogConf conf;
   private final SegmentedRaftLogMetrics raftLogMetrics;
-  private final SizeInBytes maxOpSize;
 
-  SegmentedRaftLogReader(File file, SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics)
-      throws FileNotFoundException {
+  SegmentedRaftLogReader(File file, RaftLogConf conf, SegmentedRaftLogMetrics raftLogMetrics)
+      throws IOException {
     this.file = file;
-    this.limiter = new LimitedInputStream(
-        new BufferedInputStream(new FileInputStream(file)));
+    this.limiter = new LimitedInputStream(new BufferedInputStream(Files.newInputStream(file.toPath())));
     in = new DataInputStream(limiter);
     checksum = new PureJavaCrc32C();
-    this.maxOpSize = maxOpSize;
+    this.conf = conf;
     this.raftLogMetrics = raftLogMetrics;
   }
 
@@ -229,7 +229,7 @@ class SegmentedRaftLogReader implements Closeable {
     return Optional.ofNullable(decodeEntry()).map(LogEntryProto::getIndex).orElse(RaftLog.INVALID_LOG_INDEX);
   }
 
-  void verifyTerminator() throws IOException {
+  private void verifyTerminator() throws IOException {
      // The end of the log should contain 0x00 bytes.
      // If it contains other bytes, the log itself may be corrupt.
     limiter.clearLimit();
@@ -242,7 +242,13 @@ class SegmentedRaftLogReader implements Closeable {
         }
         for (idx = 0; idx < numRead; idx++) {
           if (!SegmentedRaftLogFormat.isTerminator(temp[idx])) {
-            throw new IOException("Read extra bytes after the terminator!");
+            final long pos = limiter.getPos() - numRead + idx;
+            final String err = "Unexpected byte after terminator: " + temp[idx] + " at pos " + pos;
+            if (conf.isUnsafeFlush()) {
+              LOG.warn(err + " (unsafe flush enabled)");
+            } else {
+              throw new IOException(err);
+            }
           }
         }
       } finally {
@@ -269,7 +275,7 @@ class SegmentedRaftLogReader implements Closeable {
    * @return The log entry, or null if we hit EOF.
    */
   private LogEntryProto decodeEntry() throws IOException {
-    final int max = maxOpSize.getSizeInt();
+    final int max = conf.getMaxOpSize().getSizeInt();
     limiter.setLimit(max);
     in.mark(max);
 
@@ -293,7 +299,7 @@ class SegmentedRaftLogReader implements Closeable {
     int entryLength = CodedInputStream.readRawVarint32(nextByte, in);
     if (entryLength > max) {
       throw new IOException("Entry has size " + entryLength
-          + ", but MAX_OP_SIZE = " + maxOpSize);
+          + ", but MAX_OP_SIZE = " + conf.getMaxOpSize());
     }
 
     final int varintLength = CodedOutputStream.computeUInt32SizeNoTag(

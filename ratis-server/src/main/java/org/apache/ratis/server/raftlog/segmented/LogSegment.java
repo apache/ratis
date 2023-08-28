@@ -24,6 +24,7 @@ import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
+import org.apache.ratis.server.raftlog.RaftLogConf;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -31,7 +32,6 @@ import org.apache.ratis.thirdparty.com.google.common.cache.CacheLoader;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,31 +103,31 @@ public final class LogSegment implements Comparable<Long> {
     }
   }
 
-  static LogSegment newOpenSegment(RaftStorage storage, long start, SizeInBytes maxOpSize,
+  static LogSegment newOpenSegment(RaftStorage storage, long start, RaftLogConf conf,
       SegmentedRaftLogMetrics raftLogMetrics) {
     Preconditions.assertTrue(start >= 0);
-    return new LogSegment(storage, true, start, start - 1, maxOpSize, raftLogMetrics);
+    return new LogSegment(storage, true, start, start - 1, conf, raftLogMetrics);
   }
 
   @VisibleForTesting
   static LogSegment newCloseSegment(RaftStorage storage,
-      long start, long end, SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics) {
+      long start, long end, RaftLogConf conf, SegmentedRaftLogMetrics raftLogMetrics) {
     Preconditions.assertTrue(start >= 0 && end >= start);
-    return new LogSegment(storage, false, start, end, maxOpSize, raftLogMetrics);
+    return new LogSegment(storage, false, start, end, conf, raftLogMetrics);
   }
 
-  static LogSegment newLogSegment(RaftStorage storage, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
+  static LogSegment newLogSegment(RaftStorage storage, LogSegmentStartEnd startEnd, RaftLogConf conf,
       SegmentedRaftLogMetrics metrics) {
-    return startEnd.isOpen()? newOpenSegment(storage, startEnd.getStartIndex(), maxOpSize, metrics)
-        : newCloseSegment(storage, startEnd.getStartIndex(), startEnd.getEndIndex(), maxOpSize, metrics);
+    return startEnd.isOpen()? newOpenSegment(storage, startEnd.getStartIndex(), conf, metrics)
+        : newCloseSegment(storage, startEnd.getStartIndex(), startEnd.getEndIndex(), conf, metrics);
   }
 
-  public static int readSegmentFile(File file, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
+  public static int readSegmentFile(File file, LogSegmentStartEnd startEnd, RaftLogConf conf,
       CorruptionPolicy corruptionPolicy, SegmentedRaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer)
       throws IOException {
     int count = 0;
     try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(
-        file, startEnd.getStartIndex(), startEnd.getEndIndex(), startEnd.isOpen(), maxOpSize, raftLogMetrics)) {
+        file, startEnd.getStartIndex(), startEnd.getEndIndex(), startEnd.isOpen(), conf, raftLogMetrics)) {
       for(LogEntryProto prev = null, next; (next = in.nextEntry()) != null; prev = next) {
         if (prev != null) {
           Preconditions.assertTrue(next.getIndex() == prev.getIndex() + 1,
@@ -155,13 +155,14 @@ public final class LogSegment implements Comparable<Long> {
     return count;
   }
 
-  static LogSegment loadSegment(RaftStorage storage, File file, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
+  static LogSegment loadSegment(RaftStorage storage, File file, LogSegmentStartEnd startEnd, RaftLogConf conf,
       boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer, SegmentedRaftLogMetrics raftLogMetrics)
       throws IOException {
-    final LogSegment segment = newLogSegment(storage, startEnd, maxOpSize, raftLogMetrics);
+    final LogSegment segment = newLogSegment(storage, startEnd, conf, raftLogMetrics);
     final CorruptionPolicy corruptionPolicy = CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
     final boolean isOpen = startEnd.isOpen();
-    final int entryCount = readSegmentFile(file, startEnd, maxOpSize, corruptionPolicy, raftLogMetrics, entry -> {
+    final int entryCount = readSegmentFile(file, startEnd, conf, corruptionPolicy, raftLogMetrics,
+        entry -> {
       segment.append(keepEntryInCache || isOpen, entry, Op.LOAD_SEGMENT_FILE);
       if (logConsumer != null) {
         logConsumer.accept(entry);
@@ -233,7 +234,7 @@ public final class LogSegment implements Comparable<Long> {
       // the on-disk log file should be truncated but has not been done yet.
       final AtomicReference<LogEntryProto> toReturn = new AtomicReference<>();
       final LogSegmentStartEnd startEnd = LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen);
-      readSegmentFile(file, startEnd, maxOpSize,
+      readSegmentFile(file, startEnd, conf,
           getLogCorruptionPolicy(), raftLogMetrics, entry -> {
         final TermIndex ti = TermIndex.valueOf(entry);
         putEntryCache(ti, entry, Op.LOAD_SEGMENT_FILE);
@@ -258,7 +259,7 @@ public final class LogSegment implements Comparable<Long> {
   /** Segment end index, inclusive. */
   private volatile long endIndex;
   private RaftStorage storage;
-  private final SizeInBytes maxOpSize;
+  private final RaftLogConf conf;
   private final LogEntryLoader cacheLoader;
   /** later replace it with a metric */
   private final AtomicInteger loadingTimes = new AtomicInteger();
@@ -272,13 +273,13 @@ public final class LogSegment implements Comparable<Long> {
    */
   private final Map<TermIndex, LogEntryProto> entryCache = new ConcurrentHashMap<>();
 
-  private LogSegment(RaftStorage storage, boolean isOpen, long start, long end, SizeInBytes maxOpSize,
+  private LogSegment(RaftStorage storage, boolean isOpen, long start, long end, RaftLogConf conf,
       SegmentedRaftLogMetrics raftLogMetrics) {
     this.storage = storage;
     this.isOpen = isOpen;
     this.startIndex = start;
     this.endIndex = end;
-    this.maxOpSize = maxOpSize;
+    this.conf = conf;
     this.cacheLoader = new LogEntryLoader(raftLogMetrics);
   }
 
