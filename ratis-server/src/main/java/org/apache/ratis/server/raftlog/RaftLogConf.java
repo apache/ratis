@@ -41,18 +41,16 @@ public final class RaftLogConf {
   }
 
   private final long segmentMaxSize;
-
   private final int maxCachedSegments;
   private final long maxSegmentCacheSize;
-  private final SizeInBytes maxOpSize;
   private final boolean unsafeFlush;
+  private final SizeInBytes maxOpSize;
 
   private RaftLogConf(RaftProperties properties) {
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.maxCachedSegments = RaftServerConfigKeys.Log.segmentCacheNumMax(properties);
     this.maxSegmentCacheSize = RaftServerConfigKeys.Log.segmentCacheSizeMax(properties).getSize();
     this.unsafeFlush = RaftServerConfigKeys.Log.unsafeFlushEnabled(properties);
-
     this.maxOpSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
   }
 
@@ -68,11 +66,11 @@ public final class RaftLogConf {
     return maxSegmentCacheSize;
   }
 
-  public SizeInBytes getMaxOpSize() {
-    return maxOpSize;
-  }
-
   public boolean isUnsafeFlush() {
     return unsafeFlush;
+  }
+
+  public SizeInBytes getMaxOpSize() {
+    return maxOpSize;
   }
 }

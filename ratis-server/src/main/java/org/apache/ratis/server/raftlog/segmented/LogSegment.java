@@ -161,8 +161,7 @@ public final class LogSegment implements Comparable<Long> {
     final LogSegment segment = newLogSegment(storage, startEnd, conf, raftLogMetrics);
     final CorruptionPolicy corruptionPolicy = CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
     final boolean isOpen = startEnd.isOpen();
-    final int entryCount = readSegmentFile(file, startEnd, conf, corruptionPolicy, raftLogMetrics,
-        entry -> {
+    final int entryCount = readSegmentFile(file, startEnd, conf, corruptionPolicy, raftLogMetrics, entry -> {
       segment.append(keepEntryInCache || isOpen, entry, Op.LOAD_SEGMENT_FILE);
       if (logConsumer != null) {
         logConsumer.accept(entry);

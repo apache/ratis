@@ -18,10 +18,12 @@
 
 package org.apache.ratis.tools;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
+import org.apache.ratis.server.raftlog.RaftLogConf;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.server.raftlog.segmented.LogSegment;
 import org.apache.ratis.util.SizeInBytes;
@@ -34,17 +36,17 @@ public final class ParseRatisLog {
 
   private final File file;
   private final Function<StateMachineLogEntryProto, String> smLogToString;
-  private final SizeInBytes maxOpSize;
+  private final RaftLogConf conf;
 
   private long numConfEntries;
   private long numMetadataEntries;
   private long numStateMachineEntries;
   private long numInvalidEntries;
 
-  private ParseRatisLog(File f , Function<StateMachineLogEntryProto, String> smLogToString, SizeInBytes maxOpSize) {
+  private ParseRatisLog(File f , Function<StateMachineLogEntryProto, String> smLogToString, RaftLogConf conf) {
     this.file = f;
     this.smLogToString = smLogToString;
-    this.maxOpSize = maxOpSize;
+    this.conf = conf;
     this.numConfEntries = 0;
     this.numMetadataEntries = 0;
     this.numStateMachineEntries = 0;
@@ -59,7 +61,7 @@ public final class ParseRatisLog {
     }
 
     System.out.println("Processing Raft Log file: " + file.getAbsolutePath() + " size:" + file.length());
-    final int entryCount = LogSegment.readSegmentFile(file, pi.getStartEnd(), maxOpSize,
+    final int entryCount = LogSegment.readSegmentFile(file, pi.getStartEnd(), conf,
         RaftServerConfigKeys.Log.CorruptionPolicy.EXCEPTION, null, this::processLogEntry);
     System.out.println("Num Total Entries: " + entryCount);
     System.out.println("Num Conf Entries: " + numConfEntries);
@@ -106,7 +108,9 @@ public final class ParseRatisLog {
     }
 
     public ParseRatisLog build() {
-      return new ParseRatisLog(file, smLogToString, maxOpSize);
+      final RaftProperties properties = new RaftProperties();
+      RaftServerConfigKeys.Log.Appender.setBufferByteLimit(properties, maxOpSize);
+      return new ParseRatisLog(file, smLogToString, RaftLogConf.get(properties));
     }
   }
 }
