@@ -289,29 +289,28 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  /** When Leader startup, append a log entry . */
   private class StartupLogEntry {
     /** The log index at leader startup. */
     private final long startIndex = appendConfiguration(RaftConfigurationImpl.newBuilder()
         .setConf(server.getRaftConf().getConf())
         .setLogEntryIndex(raftLog.getNextIndex())
         .build());
-    /** Is the log entry applied? */
-    private final AtomicBoolean applied = new AtomicBoolean();
+    /** This future will be completed after the log entry is applied. */
+    private final CompletableFuture<Long> appliedIndexFuture = new CompletableFuture<>();
 
-    boolean checkStartIndex(long appliedIndex) {
+    boolean isApplied(LogEntryProto logEntry) {
+      if (appliedIndexFuture.isDone()) {
+        return true;
+      }
+      final long appliedIndex = logEntry != null? logEntry.getIndex(): server.getState().getLastAppliedIndex();
       if (appliedIndex >= startIndex) {
-        applied.set(true);
+        appliedIndexFuture.complete(appliedIndex);
         LOG.info("leader is ready since appliedIndex == {} >= startIndex == {}",
             appliedIndex, startIndex);
         return true;
       } else {
         return false;
       }
-    }
-
-    boolean isApplied() {
-      return applied.get() || checkStartIndex(server.getState().getLastAppliedIndex());
     }
   }
 
@@ -401,19 +400,19 @@ class LeaderStateImpl implements LeaderState {
     // Also this message can help identify the last committed index and the conf.
     CodeInjectionForTesting.execute(APPEND_PLACEHOLDER,
         server.getId().toString(), null);
-    // append the startup log entry to RaftLog
+    // Initialize startup log entry and append it to the RaftLog
     startupLogEntry.get();
     processor.start();
     senders.forEach(LogAppender::start);
   }
 
   boolean isReady() {
-    return startupLogEntry.isInitialized() && startupLogEntry.get().isApplied();
+    return startupLogEntry.isInitialized() && startupLogEntry.get().isApplied(null);
   }
 
   void checkReady(LogEntryProto entry) {
     Preconditions.assertTrue(startupLogEntry.isInitialized());
-    if (entry.getTerm() == getCurrentTerm() && startupLogEntry.get().checkStartIndex(entry.getIndex())) {
+    if (entry.getTerm() == getCurrentTerm() && startupLogEntry.get().isApplied(entry)) {
       server.getStateMachine().leaderEvent().notifyLeaderReady();
     }
   }
