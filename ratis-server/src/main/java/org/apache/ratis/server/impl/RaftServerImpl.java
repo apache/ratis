@@ -607,8 +607,7 @@ class RaftServerImpl implements RaftServer.Division,
     state.becomeLeader();
 
     // start sending AppendEntries RPC to followers
-    final LogEntryProto e = leader.start();
-    getState().setRaftConf(e);
+    leader.start();
   }
 
   @Override
