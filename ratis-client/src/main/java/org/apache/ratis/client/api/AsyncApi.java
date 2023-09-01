@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.client.api;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
@@ -62,7 +61,7 @@ public interface AsyncApi {
    * @param message The request message.
    * @return the reply.
    */
-  CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message) throws IOException;
+  CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message);
 
 
   /**

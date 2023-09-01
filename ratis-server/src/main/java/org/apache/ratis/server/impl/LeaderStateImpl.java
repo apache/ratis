@@ -26,7 +26,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -1101,7 +1100,7 @@ class LeaderStateImpl implements LeaderState {
 
     // if group contains only one member, fast path
     if (server.getRaftConf().isSingleton()) {
-        return CompletableFuture.completedFuture(readIndex);
+      return CompletableFuture.completedFuture(readIndex);
     }
 
     // leader has not committed any entries in this term, reject
