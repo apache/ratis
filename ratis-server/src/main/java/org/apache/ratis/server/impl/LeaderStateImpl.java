@@ -26,6 +26,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -50,6 +51,7 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.thirdparty.org.checkerframework.checker.units.qual.A;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.Daemon;
@@ -1089,16 +1091,22 @@ class LeaderStateImpl implements LeaderState {
    * 4. If majority respond success, returns readIndex.
    * @return current readIndex.
    */
-  CompletableFuture<Long> getReadIndex() {
-    final long readIndex = server.getRaftLog().getLastCommittedIndex();
+  CompletableFuture<Long> getReadIndex(Long readAfterWriteConsistentIndex) {
+    final long readIndex;
+    if (readAfterWriteConsistentIndex != null) {
+      readIndex = readAfterWriteConsistentIndex;
+    } else {
+      readIndex = server.getRaftLog().getLastCommittedIndex();
+    }
 
     // if group contains only one member, fast path
     if (server.getRaftConf().isSingleton()) {
-      return CompletableFuture.completedFuture(readIndex);
+        return CompletableFuture.completedFuture(readIndex);
     }
 
     // leader has not committed any entries in this term, reject
-    if (server.getRaftLog().getTermIndex(readIndex).getTerm() != getCurrentTerm()) {
+    // TODO: wait for leader to become ready instead of failing the request.
+    if (!isReady()) {
       return JavaUtils.completeExceptionally(new ReadIndexException(
           "Failed to getReadIndex " + readIndex + " since the term is not yet committed.",
           new LeaderNotReadyException(server.getMemberId())));

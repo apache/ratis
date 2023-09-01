@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -49,6 +50,11 @@ class AsyncImpl implements AsyncRpcApi {
   @Override
   public CompletableFuture<RaftClientReply> sendReadOnly(Message message, RaftPeerId server) {
     return send(RaftClientRequest.readRequestType(), message, server);
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message) throws IOException {
+    return send(RaftClientRequest.readAfterWriteConsistentRequestType(), message, null);
   }
 
   @Override

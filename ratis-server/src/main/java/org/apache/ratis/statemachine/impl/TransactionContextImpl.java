@@ -29,6 +29,7 @@ import org.apache.ratis.util.Preconditions;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Implementation of {@link TransactionContext}
@@ -67,6 +68,8 @@ public class TransactionContextImpl implements TransactionContext {
 
   /** Committed LogEntry. */
   private LogEntryProto logEntry;
+
+  private final CompletableFuture<Long> logIndexFuture = new CompletableFuture<>();
 
   private TransactionContextImpl(RaftPeerRole serverRole, RaftClientRequest clientRequest, StateMachine stateMachine,
       StateMachineLogEntryProto stateMachineLogEntry) {
@@ -107,6 +110,7 @@ public class TransactionContextImpl implements TransactionContext {
   TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
     this(serverRole, null, stateMachine, logEntry.getStateMachineLogEntry());
     this.logEntry = logEntry;
+    this.logIndexFuture.complete(logEntry.getIndex());
   }
 
   @Override
@@ -145,7 +149,13 @@ public class TransactionContextImpl implements TransactionContext {
     Preconditions.assertTrue(serverRole == RaftPeerRole.LEADER);
     Preconditions.assertNull(logEntry, "logEntry");
     Objects.requireNonNull(stateMachineLogEntry, "stateMachineLogEntry == null");
+
+    logIndexFuture.complete(index);
     return logEntry = LogProtoUtils.toLogEntryProto(stateMachineLogEntry, term, index);
+  }
+
+  public CompletableFuture<Long> getLogIndexFuture() {
+    return logIndexFuture;
   }
 
   @Override

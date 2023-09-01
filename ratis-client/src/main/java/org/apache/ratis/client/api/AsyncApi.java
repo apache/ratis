@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.api;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
@@ -54,6 +55,15 @@ public interface AsyncApi {
    * @return a future of the reply.
    */
   CompletableFuture<RaftClientReply> sendReadOnly(Message message, RaftPeerId server);
+
+  /**
+   * Send the given readonly message asynchronously to the raft service.
+   * The result will be read-after-write consistent, i.e. reflecting the latest successful write by the same client.
+   * @param message The request message.
+   * @return the reply.
+   */
+  CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message) throws IOException;
+
 
   /**
    * Send the given readonly message asynchronously to the raft service using non-linearizable read.

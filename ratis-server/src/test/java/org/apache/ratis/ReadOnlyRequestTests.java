@@ -43,6 +43,7 @@ import org.slf4j.event.Level;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -241,6 +242,37 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
       // readOnly will success after re-election
       final RaftClientReply replySuccess = client.io().sendReadOnly(queryMessage);
       Assert.assertEquals(1, retrieve(clientReply));
+    }
+  }
+
+  @Test
+  public void testReadAfterWrite() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::testReadAfterWriteImpl);
+  }
+
+  private void testReadAfterWriteImpl(CLUSTER cluster) throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+    try (RaftClient client = cluster.createClient()) {
+      // test blocking read-after-write
+      client.io().send(incrementMessage);
+      final RaftClientReply blockReply = client.io().sendReadAfterWrite(queryMessage);
+      Assert.assertEquals(1, retrieve(blockReply));
+
+      // test asynchronous read-after-write
+      client.async().send(incrementMessage);
+      client.async().sendReadAfterWrite(queryMessage).thenAccept(reply -> {
+        Assert.assertEquals(2, retrieve(reply));
+      });
+
+      for (int i = 0; i < 20; i++) {
+        client.async().send(incrementMessage);
+      }
+      final CompletableFuture<RaftClientReply> linearizable = client.async().sendReadOnly(queryMessage);
+      final CompletableFuture<RaftClientReply> readAfterWrite = client.async().sendReadAfterWrite(queryMessage);
+
+      CompletableFuture.allOf(linearizable, readAfterWrite).get();
+      // read-after-write is more consistent than linearizable read
+      Assert.assertTrue(retrieve(readAfterWrite.get()) >= retrieve(linearizable.get()));
     }
   }
 
