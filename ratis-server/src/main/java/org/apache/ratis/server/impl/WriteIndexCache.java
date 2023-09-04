@@ -59,9 +59,8 @@ class WriteIndexCache {
   CompletableFuture<Long> getWriteIndexFuture(RaftClientRequest request) {
     if (request != null && request.getType().getRead().getReadAfterWriteConsistent()) {
       final AtomicReference<CompletableFuture<Long>> ref = cache.getIfPresent(request.getClientId());
-      final CompletableFuture<Long> future = ref != null? ref.get(): null;
-      if (future != null) {
-        return future;
+      if (ref != null) {
+        return ref.get();
       }
     }
     return CompletableFuture.completedFuture(null);

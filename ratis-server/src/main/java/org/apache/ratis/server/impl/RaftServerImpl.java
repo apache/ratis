@@ -158,6 +158,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
+  static final String APPEND_TRANSACTION = CLASS_NAME + ".appendTransaction";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
 
@@ -807,6 +808,9 @@ class RaftServerImpl implements RaftServer.Division,
    */
   private CompletableFuture<RaftClientReply> appendTransaction(
       RaftClientRequest request, TransactionContextImpl context, CacheEntry cacheEntry) throws IOException {
+    CodeInjectionForTesting.execute(APPEND_TRANSACTION, getId(),
+        request.getClientId(), request, context, cacheEntry);
+
     assertLifeCycleState(LifeCycle.States.RUNNING);
     CompletableFuture<RaftClientReply> reply;
 

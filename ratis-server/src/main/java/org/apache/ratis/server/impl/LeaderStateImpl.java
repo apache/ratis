@@ -1096,6 +1096,7 @@ class LeaderStateImpl implements LeaderState {
     } else {
       readIndex = server.getRaftLog().getLastCommittedIndex();
     }
+    LOG.debug("readIndex={}, readAfterWriteConsistentIndex={}", readIndex, readAfterWriteConsistentIndex);
 
     // if group contains only one member, fast path
     if (server.getRaftConf().isSingleton()) {
