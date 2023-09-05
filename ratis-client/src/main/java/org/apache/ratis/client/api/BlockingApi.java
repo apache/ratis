@@ -66,6 +66,14 @@ public interface BlockingApi {
   RaftClientReply sendReadOnlyNonLinearizable(Message message) throws IOException;
 
   /**
+   * Send the given readonly message to the raft service.
+   * The result will be read-after-write consistent, i.e. reflecting the latest successful write by the same client.
+   * @param message The request message.
+   * @return the reply.
+   */
+  RaftClientReply sendReadAfterWrite(Message message) throws IOException;
+
+  /**
    * Send the given stale-read message to the given server (not the raft service).
    * If the server commit index is larger than or equal to the given min-index, the request will be processed.
    * Otherwise, the server throws a {@link org.apache.ratis.protocol.exceptions.StaleReadException}.

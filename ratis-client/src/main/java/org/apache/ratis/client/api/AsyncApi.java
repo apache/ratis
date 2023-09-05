@@ -56,6 +56,15 @@ public interface AsyncApi {
   CompletableFuture<RaftClientReply> sendReadOnly(Message message, RaftPeerId server);
 
   /**
+   * Send the given readonly message asynchronously to the raft service.
+   * The result will be read-after-write consistent, i.e. reflecting the latest successful write by the same client.
+   * @param message The request message.
+   * @return the reply.
+   */
+  CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message);
+
+
+  /**
    * Send the given readonly message asynchronously to the raft service using non-linearizable read.
    * This method is useful when linearizable read is enabled
    * but this client prefers not using it for performance reason.

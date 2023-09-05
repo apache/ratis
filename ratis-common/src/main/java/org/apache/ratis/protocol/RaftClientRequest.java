@@ -35,9 +35,11 @@ public class RaftClientRequest extends RaftClientMessage {
   private static final Type WATCH_DEFAULT = new Type(
       WatchRequestTypeProto.newBuilder().setIndex(0L).setReplication(ReplicationLevel.MAJORITY).build());
 
+  private static final Type READ_AFTER_WRITE_CONSISTENT_DEFAULT
+      = new Type(ReadRequestTypeProto.newBuilder().setReadAfterWriteConsistent(true).build());
   private static final Type READ_DEFAULT = new Type(ReadRequestTypeProto.getDefaultInstance());
-  private static final Type
-      READ_NONLINEARIZABLE_DEFAULT = new Type(ReadRequestTypeProto.newBuilder().setPreferNonLinearizable(true).build());
+  private static final Type READ_NONLINEARIZABLE_DEFAULT
+      = new Type(ReadRequestTypeProto.newBuilder().setPreferNonLinearizable(true).build());
   private static final Type STALE_READ_DEFAULT = new Type(StaleReadRequestTypeProto.getDefaultInstance());
 
   public static Type writeRequestType() {
@@ -58,6 +60,10 @@ public class RaftClientRequest extends RaftClientMessage {
         .setMessageId(messageId)
         .setEndOfRequest(endOfRequest)
         .build());
+  }
+
+  public static Type readAfterWriteConsistentRequestType() {
+    return READ_AFTER_WRITE_CONSISTENT_DEFAULT;
   }
 
   public static Type readRequestType() {
@@ -95,7 +101,9 @@ public class RaftClientRequest extends RaftClientMessage {
     }
 
     public static Type valueOf(ReadRequestTypeProto read) {
-      return read.getPreferNonLinearizable()? READ_NONLINEARIZABLE_DEFAULT: READ_DEFAULT;
+      return read.getPreferNonLinearizable()? READ_NONLINEARIZABLE_DEFAULT
+          : read.getReadAfterWriteConsistent()? READ_AFTER_WRITE_CONSISTENT_DEFAULT
+          : READ_DEFAULT;
     }
 
     public static Type valueOf(StaleReadRequestTypeProto staleRead) {
@@ -219,7 +227,10 @@ public class RaftClientRequest extends RaftClientMessage {
         case MESSAGESTREAM:
           return toString(getMessageStream());
         case READ:
-          return "RO";
+          final ReadRequestTypeProto read = getRead();
+          return read.getReadAfterWriteConsistent()? "RaW"
+              : read.getPreferNonLinearizable()? "RO(pNL)"
+              : "RO";
         case STALEREAD:
           return "StaleRead(" + getStaleRead().getMinIndex() + ")";
         case WATCH:

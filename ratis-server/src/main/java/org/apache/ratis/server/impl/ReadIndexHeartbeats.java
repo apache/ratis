@@ -167,6 +167,7 @@ class ReadIndexHeartbeats {
     if (commitIndex <= ackedCommitIndex.get()) {
       return null;
     }
+    LOG.debug("listen commitIndex {}", commitIndex);
     return appendEntriesListeners.add(commitIndex, constructor);
   }
 
