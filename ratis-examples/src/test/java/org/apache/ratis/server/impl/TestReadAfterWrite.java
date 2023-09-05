@@ -128,8 +128,10 @@ public class TestReadAfterWrite
     LOG.info("readAfterWrite.get");
     try {
       // readAfterWrite should time out
-      readAfterWrite.get(100, TimeUnit.MILLISECONDS);
-      Assert.fail();
+      final RaftClientReply reply = readAfterWrite.get(100, TimeUnit.MILLISECONDS);
+      final DoubleValue result = (DoubleValue) Expression.Utils.bytes2Expression(
+          reply.getMessage().getContent().toByteArray(), 0);
+      Assert.fail("result=" + result + ", reply=" + reply);
     } catch (TimeoutException e) {
       LOG.info("Good", e);
     }

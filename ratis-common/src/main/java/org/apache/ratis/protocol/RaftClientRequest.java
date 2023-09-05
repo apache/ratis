@@ -227,7 +227,10 @@ public class RaftClientRequest extends RaftClientMessage {
         case MESSAGESTREAM:
           return toString(getMessageStream());
         case READ:
-          return "RO";
+          final ReadRequestTypeProto read = getRead();
+          return read.getReadAfterWriteConsistent()? "RaW"
+              : read.getPreferNonLinearizable()? "RO(pNL)"
+              : "RO";
         case STALEREAD:
           return "StaleRead(" + getStaleRead().getMinIndex() + ")";
         case WATCH:
