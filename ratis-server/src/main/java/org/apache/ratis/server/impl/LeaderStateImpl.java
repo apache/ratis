@@ -1089,8 +1089,14 @@ class LeaderStateImpl implements LeaderState {
    * 4. If majority respond success, returns readIndex.
    * @return current readIndex.
    */
-  CompletableFuture<Long> getReadIndex() {
-    final long readIndex = server.getRaftLog().getLastCommittedIndex();
+  CompletableFuture<Long> getReadIndex(Long readAfterWriteConsistentIndex) {
+    final long readIndex;
+    if (readAfterWriteConsistentIndex != null) {
+      readIndex = readAfterWriteConsistentIndex;
+    } else {
+      readIndex = server.getRaftLog().getLastCommittedIndex();
+    }
+    LOG.debug("readIndex={}, readAfterWriteConsistentIndex={}", readIndex, readAfterWriteConsistentIndex);
 
     // if group contains only one member, fast path
     if (server.getRaftConf().isSingleton()) {
@@ -1098,7 +1104,8 @@ class LeaderStateImpl implements LeaderState {
     }
 
     // leader has not committed any entries in this term, reject
-    if (server.getRaftLog().getTermIndex(readIndex).getTerm() != getCurrentTerm()) {
+    // TODO: wait for leader to become ready instead of failing the request.
+    if (!isReady()) {
       return JavaUtils.completeExceptionally(new ReadIndexException(
           "Failed to getReadIndex " + readIndex + " since the term is not yet committed.",
           new LeaderNotReadyException(server.getMemberId())));

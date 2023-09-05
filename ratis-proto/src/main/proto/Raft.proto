@@ -241,6 +241,7 @@ message InstallSnapshotReplyProto {
 
 message ReadIndexRequestProto {
   RaftRpcRequestProto serverRequest = 1;
+  RaftClientRequestProto clientRequest = 2; // clientRequest is used to support read-after-write consistency
 }
 
 message ReadIndexReplyProto {
@@ -295,6 +296,7 @@ message ForwardRequestTypeProto {
 
 message ReadRequestTypeProto {
   bool preferNonLinearizable = 1;
+  bool readAfterWriteConsistent = 2;
 }
 
 message StaleReadRequestTypeProto {

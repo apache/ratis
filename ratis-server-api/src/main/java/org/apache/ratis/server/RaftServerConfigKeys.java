@@ -191,6 +191,23 @@ public interface RaftServerConfigKeys {
     static void setOption(RaftProperties properties, Option option) {
       set(properties::setEnum, OPTION_KEY, option);
     }
+
+    interface ReadAfterWriteConsistent {
+      String PREFIX = RaftServerConfigKeys.PREFIX + ".read-after-write-consistent";
+
+      String WRITE_INDEX_CACHE_EXPIRY_TIME_KEY = PREFIX + "write-index-cache.expiry-time";
+      /** Must be larger than {@link Read#TIMEOUT_DEFAULT}. */
+      TimeDuration WRITE_INDEX_CACHE_EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+
+      static TimeDuration writeIndexCacheExpiryTime(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(WRITE_INDEX_CACHE_EXPIRY_TIME_DEFAULT.getUnit()),
+            WRITE_INDEX_CACHE_EXPIRY_TIME_KEY, WRITE_INDEX_CACHE_EXPIRY_TIME_DEFAULT, getDefaultLog());
+      }
+
+      static void setWriteIndexCacheExpiryTime(RaftProperties properties, TimeDuration expiryTime) {
+        setTimeDuration(properties::setTimeDuration, WRITE_INDEX_CACHE_EXPIRY_TIME_KEY, expiryTime);
+      }
+    }
   }
 
   interface Write {

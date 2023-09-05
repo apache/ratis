@@ -125,6 +125,7 @@ import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
@@ -157,6 +158,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
+  static final String APPEND_TRANSACTION = CLASS_NAME + ".appendTransaction";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
 
@@ -222,6 +224,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final RetryCacheImpl retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
+  private final WriteIndexCache writeIndexCache;
 
   private final RaftServerJmxAdapter jmxAdapter;
   private final LeaderElectionMetrics leaderElectionMetrics;
@@ -262,6 +265,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.retryCache = new RetryCacheImpl(properties);
     this.dataStreamMap = new DataStreamMapImpl(id);
     this.readOption = RaftServerConfigKeys.Read.option(properties);
+    this.writeIndexCache = new WriteIndexCache(properties);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
@@ -803,7 +807,10 @@ class RaftServerImpl implements RaftServer.Division,
    * Handle a normal update request from client.
    */
   private CompletableFuture<RaftClientReply> appendTransaction(
-      RaftClientRequest request, TransactionContext context, CacheEntry cacheEntry) throws IOException {
+      RaftClientRequest request, TransactionContextImpl context, CacheEntry cacheEntry) throws IOException {
+    CodeInjectionForTesting.execute(APPEND_TRANSACTION, getId(),
+        request.getClientId(), request, context, cacheEntry);
+
     assertLifeCycleState(LifeCycle.States.RUNNING);
     CompletableFuture<RaftClientReply> reply;
 
@@ -816,6 +823,8 @@ class RaftServerImpl implements RaftServer.Division,
 
       // append the message to its local log
       final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
+      writeIndexCache.add(request.getClientId(), context.getLogIndexFuture());
+
       final PendingRequests.Permit permit = leaderState.tryAcquirePendingRequest(request.getMessage());
       if (permit == null) {
         cacheEntry.failWithException(new ResourceUnavailableException(
@@ -923,7 +932,8 @@ class RaftServerImpl implements RaftServer.Division,
           // TODO: this client request will not be added to pending requests until
           // later which means that any failure in between will leave partial state in
           // the state machine. We should call cancelTransaction() for failed requests
-          TransactionContext context = stateMachine.startTransaction(filterDataStreamRaftClientRequest(request));
+          final TransactionContextImpl context = (TransactionContextImpl) stateMachine.startTransaction(
+              filterDataStreamRaftClientRequest(request));
           if (context.getException() != null) {
             final StateMachineException e = new StateMachineException(getMemberId(), context.getException());
             final RaftClientReply exceptionReply = newExceptionReply(request, e);
@@ -970,17 +980,22 @@ class RaftServerImpl implements RaftServer.Division,
     return getState().getReadRequests();
   }
 
-  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync() {
+  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(RaftClientRequest clientRequest) {
     final RaftPeerId leaderId = getInfo().getLeaderId();
     if (leaderId == null) {
       return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
     }
-    final ReadIndexRequestProto request = ServerProtoUtils.toReadIndexRequestProto(getMemberId(), leaderId);
+    final ReadIndexRequestProto request =
+        ServerProtoUtils.toReadIndexRequestProto(clientRequest, getMemberId(), leaderId);
     try {
       return getServerRpc().async().readIndexAsync(request);
     } catch (IOException e) {
       return JavaUtils.completeExceptionally(e);
     }
+  }
+
+  private CompletableFuture<Long> getReadIndex(RaftClientRequest request, LeaderStateImpl leader) {
+    return writeIndexCache.getWriteIndexFuture(request).thenCompose(leader::getReadIndex);
   }
 
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
@@ -996,9 +1011,9 @@ class RaftServerImpl implements RaftServer.Division,
 
       final CompletableFuture<Long> replyFuture;
       if (leader != null) {
-        replyFuture = leader.getReadIndex();
+        replyFuture = getReadIndex(request, leader);
       } else {
-        replyFuture = sendReadIndexAsync().thenApply(reply   -> {
+        replyFuture = sendReadIndexAsync(request).thenApply(reply   -> {
           if (reply.getServerReply().getSuccess()) {
             return reply.getReadIndex();
           } else {
@@ -1454,7 +1469,7 @@ class RaftServerImpl implements RaftServer.Division,
           ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, INVALID_LOG_INDEX));
     }
 
-    return leader.getReadIndex()
+    return getReadIndex(ClientProtoUtils.toRaftClientRequest(request.getClientRequest()), leader)
         .thenApply(index -> ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), true, index))
         .exceptionally(throwable ->
             ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, INVALID_LOG_INDEX));
@@ -1754,14 +1769,11 @@ class RaftServerImpl implements RaftServer.Division,
   /**
    * The log has been submitted to the state machine. Use the future to update
    * the pending requests and retry cache.
-   * @param logEntry the log entry that has been submitted to the state machine
    * @param stateMachineFuture the future returned by the state machine
    *                           from which we will get transaction result later
    */
   private CompletableFuture<Message> replyPendingRequest(
-      LogEntryProto logEntry, CompletableFuture<Message> stateMachineFuture) {
-    Preconditions.assertTrue(logEntry.hasStateMachineLogEntry());
-    final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
+      ClientInvocationId invocationId, long logIndex, CompletableFuture<Message> stateMachineFuture) {
     // update the retry cache
     final CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
     Preconditions.assertTrue(cacheEntry != null);
@@ -1772,7 +1784,6 @@ class RaftServerImpl implements RaftServer.Division,
       retryCache.refreshEntry(new CacheEntry(cacheEntry.getKey()));
     }
 
-    final long logIndex = logEntry.getIndex();
     return stateMachineFuture.whenComplete((reply, exception) -> {
       final RaftClientReply.Builder b = newReplyBuilder(invocationId, logIndex);
       final RaftClientReply r;
@@ -1805,19 +1816,21 @@ class RaftServerImpl implements RaftServer.Division,
     } else if (next.hasStateMachineLogEntry()) {
       // check whether there is a TransactionContext because we are the leader.
       TransactionContext trx = role.getLeaderState()
-          .map(leader -> leader.getTransactionContext(next.getIndex())).orElseGet(
-              () -> TransactionContext.newBuilder()
+          .map(leader -> leader.getTransactionContext(next.getIndex()))
+          .orElseGet(() -> TransactionContext.newBuilder()
                   .setServerRole(role.getCurrentRole())
                   .setStateMachine(stateMachine)
                   .setLogEntry(next)
                   .build());
+      final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
+      writeIndexCache.add(invocationId.getClientId(), ((TransactionContextImpl) trx).getLogIndexFuture());
 
       try {
         // Let the StateMachine inject logic for committed transactions in sequential order.
         trx = stateMachine.applyTransactionSerial(trx);
 
         final CompletableFuture<Message> stateMachineFuture = stateMachine.applyTransaction(trx);
-        return replyPendingRequest(next, stateMachineFuture);
+        return replyPendingRequest(invocationId, next.getIndex(), stateMachineFuture);
       } catch (Exception e) {
         throw new RaftLogIOException(e);
       }
