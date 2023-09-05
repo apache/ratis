@@ -538,8 +538,6 @@ Note that `slowness.timeout` is use in two places:
 | **Description** | expire time of retry cache entry     |
 | **Type**        | TimeDuration                         |
 | **Default**     | 60s                                  |
-Note that we should set an expiration time longer than the total retry waiting duration of clients 
-in order to ensure exactly-once semantic.
 
 | **Property**    | `raft.server.retrycache.statistics.expire-time` |
 |:----------------|:------------------------------------------------|
