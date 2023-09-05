@@ -1777,7 +1777,7 @@ class RaftServerImpl implements RaftServer.Division,
     // update the retry cache
     final CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
     Preconditions.assertTrue(cacheEntry != null);
-    if (getInfo().isLeader() && !cacheEntry.isCompletedNormally()) {
+    if (getInfo().isLeader() && cacheEntry.isCompletedNormally()) {
       LOG.warn("{} retry cache entry of leader should be pending: {}", this, cacheEntry);
     }
     if (cacheEntry.isFailed()) {

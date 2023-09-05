@@ -793,6 +793,7 @@ public interface RaftServerConfigKeys {
   interface RetryCache {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".retrycache";
 
+    /** We should set expiry time longer than total client retry to guarantee exactly-once semantic */
     String EXPIRY_TIME_KEY = PREFIX + ".expirytime";
     TimeDuration EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
     static TimeDuration expiryTime(RaftProperties properties) {
