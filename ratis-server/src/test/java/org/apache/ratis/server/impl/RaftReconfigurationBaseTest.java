@@ -365,7 +365,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       // start the two new peers
       LOG.info("Start new peers");
       for (RaftPeer np : c1.newPeers) {
-        cluster.restartServer(np.getId(), true);
+        cluster.restartServer(np.getId(), false);
       }
       Assert.assertTrue(client.admin().setConfiguration(c1.allPeersInNewConf).isSuccess());
     }
@@ -422,7 +422,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           ONE_SECOND.sleep();
           LOG.info("start new peer(s): {}", c1.newPeers);
           for(RaftPeer p : c1.newPeers) {
-            cluster.restartServer(p.getId(), true);
+            cluster.restartServer(p.getId(), false);
           }
         }
 
@@ -504,7 +504,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       LOG.info("start new peers: {}", Arrays.asList(c1.newPeers));
       for (RaftPeer np : c1.newPeers) {
-        cluster.restartServer(np.getId(), true);
+        cluster.restartServer(np.getId(), false);
       }
 
       try {

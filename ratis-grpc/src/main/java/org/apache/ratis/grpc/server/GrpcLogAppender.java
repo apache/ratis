@@ -420,6 +420,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           grpcServerMetrics.onRequestSuccess(getFollowerId().toString(), reply.getIsHearbeat());
           getLeaderState().onFollowerCommitIndex(getFollower(), reply.getFollowerCommit());
           if (getFollower().updateMatchIndex(reply.getMatchIndex())) {
+            getFollower().increaseNextIndex(reply.getMatchIndex() + 1);
             getLeaderState().onFollowerSuccessAppendEntries(getFollower());
           }
           break;
@@ -433,7 +434,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         case INCONSISTENCY:
           grpcServerMetrics.onRequestInconsistency(getFollowerId().toString());
           LOG.warn("{}: received {} reply with nextIndex {}", this, reply.getResult(), reply.getNextIndex());
-          updateNextIndex(reply.getNextIndex());
+          updateNextIndex(Math.max(getFollower().getMatchIndex() + 1, reply.getNextIndex()));
           break;
         default:
           throw new IllegalStateException("Unexpected reply result: " + reply.getResult());
