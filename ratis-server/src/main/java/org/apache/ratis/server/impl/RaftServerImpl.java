@@ -838,6 +838,7 @@ class RaftServerImpl implements RaftServer.Division,
     assertLifeCycleState(LifeCycle.States.RUNNING);
     LOG.debug("{}: receive client request({})", getMemberId(), request);
     final Optional<Timer> timer = Optional.ofNullable(raftServerMetrics.getClientRequestTimer(request.getType()));
+    final Optional<Timer.Context> timerContext = timer.map(Timer::time);
 
     final CompletableFuture<RaftClientReply> replyFuture;
 
@@ -897,7 +898,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final RaftClientRequest.Type type = request.getType();
     replyFuture.whenComplete((clientReply, exception) -> {
-      timer.map(Timer::time).ifPresent(Timer.Context::stop);
+      timerContext.ifPresent(Timer.Context::stop);
       if (exception != null || clientReply.getException() != null) {
         raftServerMetrics.incFailedRequestCount(type);
       }
