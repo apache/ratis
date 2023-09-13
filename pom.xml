@@ -219,7 +219,7 @@
     <testsThreadCount>4</testsThreadCount>
 
     <!--metrics-->
-    <dropwizard.version>3.2.5</dropwizard.version>
+    <dropwizard.version>4.2.9</dropwizard.version>
 
     <slf4j.version>2.0.7</slf4j.version>
   </properties>
@@ -409,6 +409,12 @@
       <dependency>
         <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-core</artifactId>
+        <version>${dropwizard.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.dropwizard.metrics</groupId>
+        <artifactId>metrics-jmx</artifactId>
         <version>${dropwizard.version}</version>
       </dependency>
 

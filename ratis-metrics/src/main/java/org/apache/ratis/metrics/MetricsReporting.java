@@ -21,8 +21,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import com.codahale.metrics.ConsoleReporter;
-import com.codahale.metrics.JmxReporter;
-import com.codahale.metrics.JmxReporter.Builder;
+import com.codahale.metrics.jmx.JmxReporter;
+import com.codahale.metrics.jmx.JmxReporter.Builder;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
