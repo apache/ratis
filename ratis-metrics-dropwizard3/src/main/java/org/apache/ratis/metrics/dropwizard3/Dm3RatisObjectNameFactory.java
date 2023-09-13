@@ -18,7 +18,7 @@
 
 package org.apache.ratis.metrics.dropwizard3;
 
-import com.codahale.metrics.ObjectNameFactory;
+import com.codahale.metrics.jmx.ObjectNameFactory;
 
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;

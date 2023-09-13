@@ -25,7 +25,7 @@
   <name>Apache Ratis Metrics Dropwizard 3 Implementation</name>
 
   <properties>
-    <dropwizard3.version>3.2.5</dropwizard3.version>
+    <dropwizard3.version>4.2.7</dropwizard3.version>
   </properties>
 
   <dependencies>
@@ -71,20 +71,13 @@
     </dependency>
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
-      <artifactId>metrics-jvm</artifactId>
+      <artifactId>metrics-jmx</artifactId>
       <version>${dropwizard3.version}</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
-      <artifactId>metrics-ganglia</artifactId>
+      <artifactId>metrics-jvm</artifactId>
       <version>${dropwizard3.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.acplt</groupId>
-          <artifactId>oncrpc</artifactId>
-        </exclusion>
-      </exclusions>
       <optional>true</optional>
     </dependency>
 

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.metrics.dropwizard3;
 
+import com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
@@ -28,7 +29,6 @@ import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricSet;
-import com.codahale.metrics.JmxReporter;
 
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 

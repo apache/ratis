@@ -17,12 +17,12 @@
  */
 package org.apache.ratis.metrics.dropwizard3;
 
+import com.codahale.metrics.jmx.JmxReporter;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.util.TimeDuration;
 
 import com.codahale.metrics.ConsoleReporter;
 import com.codahale.metrics.ScheduledReporter;
-import com.codahale.metrics.JmxReporter;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
