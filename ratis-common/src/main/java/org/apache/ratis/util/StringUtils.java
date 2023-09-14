@@ -115,7 +115,7 @@ public final class StringUtils {
       s.append(format("%02x", bytes.get()));
     }
     // This cast avoids compatability issues with Java 8
-    // In Java < 9 ByteBuffer doesn't have a "flip()" method.
+    // In Java 8 ByteBuffer doesn't have a "flip()" method.
     ((Buffer) bytes).flip();
     return s.toString();
   }
