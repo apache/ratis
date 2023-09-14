@@ -24,6 +24,7 @@ import org.apache.ratis.util.function.StringSupplier;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -113,7 +114,9 @@ public final class StringUtils {
     for(; bytes.remaining() > 0; ) {
       s.append(format("%02x", bytes.get()));
     }
-    bytes.flip();
+    // This cast avoids compatability issues with Java 8
+    // In Java < 9 ByteBuffer doesn't have a "flip()" method.
+    ((Buffer) bytes).flip();
     return s.toString();
   }
 
