@@ -167,17 +167,18 @@ public interface GrpcUtil {
       StreamObserver<REPLY_PROTO> responseObserver,
       CheckedSupplier<CompletableFuture<REPLY>, IOException> supplier,
       Function<REPLY, REPLY_PROTO> toProto) {
-    asyncCall(responseObserver, supplier, toProto, e -> {});
+    asyncCall(responseObserver, supplier, toProto, throwable -> {});
   }
 
   static <REPLY, REPLY_PROTO> void asyncCall(
           StreamObserver<REPLY_PROTO> responseObserver,
           CheckedSupplier<CompletableFuture<REPLY>, IOException> supplier,
           Function<REPLY, REPLY_PROTO> toProto,
-          Consumer<Exception> warning) {
+          Consumer<Throwable> warning) {
     try {
       supplier.get().whenComplete((reply, exception) -> {
         if (exception != null) {
+          warning.accept(exception);
           responseObserver.onError(GrpcUtil.wrapException(exception));
         } else {
           responseObserver.onNext(toProto.apply(reply));
