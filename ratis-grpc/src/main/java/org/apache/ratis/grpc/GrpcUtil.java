@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.protocol.RaftClientReply;
+import java.util.function.Consumer;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.security.TlsConf.TrustManagerConf;
@@ -47,7 +47,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface GrpcUtil {
-  static final Logger LOG = LoggerFactory.getLogger(GrpcUtil.class);
+  Logger LOG = LoggerFactory.getLogger(GrpcUtil.class);
 
   Metadata.Key<String> EXCEPTION_TYPE_KEY =
       Metadata.Key.of("exception-type", Metadata.ASCII_STRING_MARSHALLER);
@@ -163,13 +163,22 @@ public interface GrpcUtil {
     return e;
   }
 
-  static <REPLY extends RaftClientReply, REPLY_PROTO> void asyncCall(
+  static <REPLY, REPLY_PROTO> void asyncCall(
       StreamObserver<REPLY_PROTO> responseObserver,
       CheckedSupplier<CompletableFuture<REPLY>, IOException> supplier,
       Function<REPLY, REPLY_PROTO> toProto) {
+    asyncCall(responseObserver, supplier, toProto, throwable -> {});
+  }
+
+  static <REPLY, REPLY_PROTO> void asyncCall(
+          StreamObserver<REPLY_PROTO> responseObserver,
+          CheckedSupplier<CompletableFuture<REPLY>, IOException> supplier,
+          Function<REPLY, REPLY_PROTO> toProto,
+          Consumer<Throwable> warning) {
     try {
-      supplier.get().whenCompleteAsync((reply, exception) -> {
+      supplier.get().whenComplete((reply, exception) -> {
         if (exception != null) {
+          warning.accept(exception);
           responseObserver.onError(GrpcUtil.wrapException(exception));
         } else {
           responseObserver.onNext(toProto.apply(reply));
@@ -177,6 +186,7 @@ public interface GrpcUtil {
         }
       });
     } catch (Exception e) {
+      warning.accept(e);
       responseObserver.onError(GrpcUtil.wrapException(e));
     }
   }

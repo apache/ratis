@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.grpc.server;
 
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
@@ -212,16 +214,9 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
   @Override
   public void readIndex(ReadIndexRequestProto request, StreamObserver<ReadIndexReplyProto> responseObserver) {
-    try {
-      server.readIndexAsync(request).thenAccept(reply -> {
-        responseObserver.onNext(reply);
-        responseObserver.onCompleted();
-      });
-    } catch (Throwable e) {
-      GrpcUtil.warn(LOG,
-          () -> getId() + ": Failed readIndex " + ProtoUtils.toString(request.getServerRequest()), e);
-      responseObserver.onError(GrpcUtil.wrapException(e));
-    }
+    final Consumer<Throwable> warning = e -> GrpcUtil.warn(LOG,
+            () -> getId() + ": Failed readIndex " + ProtoUtils.toString(request.getServerRequest()), e);
+    GrpcUtil.asyncCall(responseObserver, () -> server.readIndexAsync(request), Function.identity(), warning);
   }
 
   @Override
