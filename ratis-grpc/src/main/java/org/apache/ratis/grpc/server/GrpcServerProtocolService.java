@@ -213,9 +213,16 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   @Override
   public void readIndex(ReadIndexRequestProto request, StreamObserver<ReadIndexReplyProto> responseObserver) {
     try {
-      server.readIndexAsync(request).thenAccept(reply -> {
-        responseObserver.onNext(reply);
-        responseObserver.onCompleted();
+      server.readIndexAsync(request).whenComplete((reply, ex) -> {
+        if (ex != null) {
+          responseObserver.onError(GrpcUtil.wrapException(ex));
+        } else if (reply != null) {
+          responseObserver.onNext(reply);
+          responseObserver.onCompleted();
+        } else {
+          responseObserver.onError(GrpcUtil.wrapException(
+                  new IOException("Failed to get readIndex: request=" + request)));
+        }
       });
     } catch (Throwable e) {
       GrpcUtil.warn(LOG,
