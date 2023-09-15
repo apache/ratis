@@ -176,7 +176,7 @@ public interface GrpcUtil {
           Function<REPLY, REPLY_PROTO> toProto,
           Consumer<Exception> warning) {
     try {
-      supplier.get().whenCompleteAsync((reply, exception) -> {
+      supplier.get().whenComplete((reply, exception) -> {
         if (exception != null) {
           responseObserver.onError(GrpcUtil.wrapException(exception));
         } else {
