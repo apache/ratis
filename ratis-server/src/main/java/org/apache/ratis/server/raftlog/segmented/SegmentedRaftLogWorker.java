@@ -657,6 +657,21 @@ class SegmentedRaftLogWorker {
     void execute() throws IOException {
       freeSegmentedRaftLogOutputStream();
 
+      if (segments.getToDelete() != null && segments.getToDelete().length > 0) {
+        long minStart = segments.getToDelete()[0].getStartIndex();
+        for (SegmentFileInfo del : segments.getToDelete()) {
+          final File delFile = del.getFile(storage);
+          Preconditions.assertTrue(delFile.exists(),
+              "File %s to be deleted does not exist", delFile);
+          FileUtils.deleteFile(delFile);
+          LOG.info("{}: Deleted log file {}", name, delFile);
+          minStart = Math.min(minStart, del.getStartIndex());
+        }
+        if (segments.getToTruncate() == null) {
+          lastWrittenIndex = minStart - 1;
+        }
+      }
+
       if (segments.getToTruncate() != null) {
         final File fileToTruncate = segments.getToTruncate().getFile(storage);
         Preconditions.assertTrue(fileToTruncate.exists(),
@@ -674,20 +689,7 @@ class SegmentedRaftLogWorker {
         // update lastWrittenIndex
         lastWrittenIndex = segments.getToTruncate().getNewEndIndex();
       }
-      if (segments.getToDelete() != null && segments.getToDelete().length > 0) {
-        long minStart = segments.getToDelete()[0].getStartIndex();
-        for (SegmentFileInfo del : segments.getToDelete()) {
-          final File delFile = del.getFile(storage);
-          Preconditions.assertTrue(delFile.exists(),
-              "File %s to be deleted does not exist", delFile);
-          FileUtils.deleteFile(delFile);
-          LOG.info("{}: Deleted log file {}", name, delFile);
-          minStart = Math.min(minStart, del.getStartIndex());
-        }
-        if (segments.getToTruncate() == null) {
-          lastWrittenIndex = minStart - 1;
-        }
-      }
+
       if (stateMachineFuture != null) {
         IOUtils.getFromFuture(stateMachineFuture, () -> this + "-truncateStateMachineData");
       }
