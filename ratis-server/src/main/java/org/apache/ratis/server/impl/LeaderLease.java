@@ -24,21 +24,21 @@ import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.Timestamp;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class LeaderLease {
+class LeaderLease {
 
   private final long leaseTimeoutMs;
   // TODO invalidate leader lease when stepDown / transferLeader
   private final AtomicReference<Timestamp> lease = new AtomicReference<>(Timestamp.currentTime());
 
-  public LeaderLease(RaftProperties properties) {
+  LeaderLease(RaftProperties properties) {
     final double leaseRatio = RaftServerConfigKeys.Read.leaderLeaseTimeoutRatio(properties);
     Preconditions.assertTrue(leaseRatio > 0.0 && leaseRatio <= 1.0,
         "leader ratio should sit in (0,1], now is " + leaseRatio);
@@ -51,29 +51,39 @@ public class LeaderLease {
     return lease.get().elapsedTimeMs() < leaseTimeoutMs;
   }
 
-  void extendLeaderLease(Stream<FollowerInfo> allFollowers, Predicate<List<RaftPeerId>> hasMajority) {
-    // check the latest heartbeats of all peers (including those in transitional)
-    final List<RaftPeerId> activePeers = new ArrayList<>();
-    final List<Timestamp> lastRespondedAppendEntriesSendTimes = new ArrayList<>();
+  /**
+   * try extending the lease based on group heartbeats
+   * @param old nullable
+   */
+  void extend(List<FollowerInfo> current, List<FollowerInfo> old, Predicate<List<RaftPeerId>> hasMajority) {
+    final List<RaftPeerId> activePeers =
+        // check the latest heartbeats of all peers (including those in transitional)
+        Stream.concat(current.stream(), Optional.ofNullable(old).map(List::stream).orElse(Stream.empty()))
+            .filter(f -> f.getLastRespondedAppendEntriesSendTime().elapsedTimeMs() < leaseTimeoutMs)
+            .map(FollowerInfo::getId)
+            .collect(Collectors.toList());
 
-    allFollowers.forEach(follower -> {
-      final Timestamp lastRespondedAppendEntriesSendTime = follower.getLastRespondedAppendEntriesSendTime();
-      lastRespondedAppendEntriesSendTimes.add(lastRespondedAppendEntriesSendTime);
-      if (lastRespondedAppendEntriesSendTime.elapsedTimeMs() < leaseTimeoutMs) {
-        activePeers.add(follower.getId());
-      }
-    });
-
-    if (hasMajority.test(activePeers)) {
-      // can extend leader lease
-      if (lastRespondedAppendEntriesSendTimes.isEmpty()) {
-        lease.set(Timestamp.currentTime());
-      } else {
-        Collections.sort(lastRespondedAppendEntriesSendTimes);
-        final Timestamp newLease =
-            lastRespondedAppendEntriesSendTimes.get(lastRespondedAppendEntriesSendTimes.size() / 2);
-        lease.set(newLease);
-      }
+    if (!hasMajority.test(activePeers)) {
+      return;
     }
+
+    lease.set(Timestamp.earliest(getMaxOfMajorityAck(current), getMaxOfMajorityAck(old)));
+  }
+
+  /**
+   * return maximum timestamp at when the majority of followers are known to be active
+   * return {@link Timestamp#currentTime()} if peers are empty
+   */
+  private Timestamp getMaxOfMajorityAck(List<FollowerInfo> peers) {
+    if (peers == null || peers.isEmpty()) {
+      return Timestamp.currentTime();
+    }
+
+    final List<Timestamp> lastRespondedAppendEntriesSendTimes = peers.stream()
+        .map(FollowerInfo::getLastRespondedAppendEntriesSendTime)
+        .sorted()
+        .collect(Collectors.toList());
+
+    return lastRespondedAppendEntriesSendTimes.get(lastRespondedAppendEntriesSendTimes.size() / 2);
   }
 }

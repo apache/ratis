@@ -77,7 +77,8 @@ class LogAppenderDefault extends LogAppenderBase {
         final Timestamp sendTime = Timestamp.currentTime();
         getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
         final AppendEntriesReplyProto r = getServerRpc().appendEntries(request);
-        getFollower().updateLastAppendEntriesResponseTime(sendTime);
+        getFollower().updateLastRpcResponseTime();
+        getFollower().updateLastRespondedAppendEntriesSendTime(sendTime);
 
         getLeaderState().onFollowerCommitIndex(getFollower(), r.getFollowerCommit());
         return r;

@@ -211,8 +211,7 @@ class FollowerInfoImpl implements FollowerInfo {
   }
 
   @Override
-  public void updateLastAppendEntriesResponseTime(Timestamp sendTime) {
-    updateLastRpcResponseTime();
+  public void updateLastRespondedAppendEntriesSendTime(Timestamp sendTime) {
     lastRespondedAppendEntriesSendTime.set(sendTime);
   }
 }

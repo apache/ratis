@@ -247,11 +247,6 @@ class LeaderStateImpl implements LeaderState {
     List<FollowerInfo> getOld() {
       return old;
     }
-
-    Stream<FollowerInfo> getCurrentAndOld() {
-      return Stream.concat(current.stream(),
-          Optional.ofNullable(old).map(List::stream).orElse(Stream.empty()));
-    }
   }
 
   static boolean isSameSize(List<FollowerInfo> infos, PeerConfiguration conf) {
@@ -1142,7 +1137,7 @@ class LeaderStateImpl implements LeaderState {
     // try extending the leader lease
     final RaftConfigurationImpl conf = server.getRaftConf();
     final CurrentOldFollowerInfos info = followerInfoMap.getFollowerInfos(conf);
-    lease.extendLeaderLease(info.getCurrentAndOld(), peers -> conf.hasMajority(peers, server.getId()));
+    lease.extend(info.getCurrent(), info.getOld(), peers -> conf.hasMajority(peers, server.getId()));
 
     return checkLeaderLease();
   }

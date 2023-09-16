@@ -106,5 +106,5 @@ public interface FollowerInfo {
   Timestamp getLastRespondedAppendEntriesSendTime();
 
   /** Update lastRpcResponseTime and LastRespondedAppendEntriesSendTime */
-  void updateLastAppendEntriesResponseTime(Timestamp sendTime);
+  void updateLastRespondedAppendEntriesSendTime(Timestamp sendTime);
 }

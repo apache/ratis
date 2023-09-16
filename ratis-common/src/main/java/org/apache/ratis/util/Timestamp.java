@@ -51,6 +51,10 @@ public final class Timestamp implements Comparable<Timestamp> {
     return a.compareTo(b) > 0? a: b;
   }
 
+  public static Timestamp earliest(Timestamp a, Timestamp b) {
+    return a.compareTo(b) > 0? b: a;
+  }
+
   private final long nanos;
 
   private Timestamp(long nanos) {

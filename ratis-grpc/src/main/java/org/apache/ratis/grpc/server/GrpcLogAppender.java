@@ -390,10 +390,10 @@ public class GrpcLogAppender extends LogAppenderBase {
       AppendEntriesRequest request = pendingRequests.remove(reply);
       if (request != null) {
         request.stopRequestTimer(); // Update completion time
-        getFollower().updateLastAppendEntriesResponseTime(request.getSendTime()); // Update the last rpc time
-      } else {
-        getFollower().updateLastRpcResponseTime();
+        getFollower().updateLastRespondedAppendEntriesSendTime(request.getSendTime());
       }
+      getFollower().updateLastRpcResponseTime();
+
 
       if (LOG.isDebugEnabled()) {
         LOG.debug("{}: received {} reply {}, request={}",
