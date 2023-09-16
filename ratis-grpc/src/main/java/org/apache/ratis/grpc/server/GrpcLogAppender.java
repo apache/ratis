@@ -394,7 +394,6 @@ public class GrpcLogAppender extends LogAppenderBase {
       }
       getFollower().updateLastRpcResponseTime();
 
-
       if (LOG.isDebugEnabled()) {
         LOG.debug("{}: received {} reply {}, request={}",
             this, firstResponseReceived? "a": "the first",
