@@ -51,6 +51,20 @@ public class SegmentedRaftLogCache {
   public static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogCache.class);
 
   static final class SegmentFileInfo {
+    static final SegmentFileInfo[] EMPTY_ARRAY = {};
+    static final Comparator<SegmentFileInfo> REVERSED_ORDER = Comparator.comparingLong(SegmentFileInfo::getStartIndex)
+        .thenComparingLong(SegmentFileInfo::getEndIndex)
+        .reversed();
+
+    static SegmentFileInfo[] toSortedArray(List<SegmentFileInfo> list) {
+      if (list == null) {
+        return EMPTY_ARRAY;
+      }
+      final SegmentFileInfo[] array = list.toArray(EMPTY_ARRAY);
+      Arrays.sort(array, REVERSED_ORDER);
+      return array;
+    }
+
     static SegmentFileInfo newClosedSegmentFileInfo(LogSegment ls) {
       Objects.requireNonNull(ls, "ls == null");
       Preconditions.assertTrue(!ls.isOpen(), () -> ls + " is OPEN");
@@ -121,8 +135,7 @@ public class SegmentedRaftLogCache {
 
     TruncationSegments(SegmentFileInfo toTruncate,
                        List<SegmentFileInfo> toDelete) {
-      this.toDelete = toDelete == null ? null :
-          toDelete.toArray(new SegmentFileInfo[toDelete.size()]);
+      this.toDelete = SegmentFileInfo.toSortedArray(toDelete);
       this.toTruncate = toTruncate;
     }
 
