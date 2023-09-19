@@ -177,7 +177,6 @@ public class SegmentedRaftLogCache {
   }
 
   static class LogSegmentList {
-
     private final Object name;
     private final List<LogSegment> segments = new CopyOnWriteArrayList<>();
     private final AutoCloseableReadWriteLock lock;
