@@ -36,6 +36,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.AwaitToRun;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.StringUtils;
@@ -183,6 +184,7 @@ public class SegmentedRaftLog extends RaftLogBase {
   private final RaftStorage storage;
   private final StateMachine stateMachine;
   private final SegmentedRaftLogCache cache;
+  private final AwaitToRun cacheEviction;
   private final SegmentedRaftLogWorker fileLogWorker;
   private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
@@ -200,6 +202,7 @@ public class SegmentedRaftLog extends RaftLogBase {
     this.stateMachine = stateMachine;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.cache = new SegmentedRaftLogCache(memberId, storage, properties, getRaftLogMetrics());
+    this.cacheEviction = new AwaitToRun(memberId + "-cacheEviction", this::checkAndEvictCache).start();
     this.fileLogWorker = new SegmentedRaftLogWorker(memberId, stateMachine,
         submitUpdateCommitEvent, server, storage, properties, getRaftLogMetrics());
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
@@ -278,7 +281,7 @@ public class SegmentedRaftLog extends RaftLogBase {
 
     // the entry is not in the segment's cache. Load the cache without holding the lock.
     getRaftLogMetrics().onRaftLogCacheMiss();
-    checkAndEvictCache();
+    cacheEviction.signal();
     return segment.loadCache(record);
   }
 
@@ -399,8 +402,7 @@ public class SegmentedRaftLog extends RaftLogBase {
         fileLogWorker.rollLogSegment(currentOpenSegment);
       }
 
-      //TODO(runzhiwang): If there is performance problem, start a daemon thread to checkAndEvictCache
-      checkAndEvictCache();
+      cacheEviction.signal();
 
       // If the entry has state machine data, then the entry should be inserted
       // to statemachine first and then to the cache. Not following the order
@@ -505,6 +507,7 @@ public class SegmentedRaftLog extends RaftLogBase {
   public void close() throws IOException {
     try(AutoCloseableLock writeLock = writeLock()) {
       super.close();
+      cacheEviction.close();
       cache.close();
     }
     fileLogWorker.close();

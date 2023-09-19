@@ -59,6 +59,9 @@ public class AwaitForSignal {
     }
     lock.lock();
     try {
+      if (signaled.get().get()) {
+        return true;
+      }
       return condition.await(time, unit);
     } finally {
       lock.unlock();
