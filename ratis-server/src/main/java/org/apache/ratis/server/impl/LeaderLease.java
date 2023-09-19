@@ -67,14 +67,17 @@ class LeaderLease {
       return;
     }
 
-    lease.set(Timestamp.earliest(getMaxOfMajorityAck(current), getMaxOfMajorityAck(old)));
+    // update the new lease
+    final Timestamp newLease =
+        Timestamp.earliest(getMaxTimestampWithMajorityAck(current), getMaxTimestampWithMajorityAck(old));
+    lease.set(newLease);
   }
 
   /**
    * return maximum timestamp at when the majority of followers are known to be active
    * return {@link Timestamp#currentTime()} if peers are empty
    */
-  private Timestamp getMaxOfMajorityAck(List<FollowerInfo> peers) {
+  private Timestamp getMaxTimestampWithMajorityAck(List<FollowerInfo> peers) {
     if (peers == null || peers.isEmpty()) {
       return Timestamp.currentTime();
     }

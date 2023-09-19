@@ -51,6 +51,7 @@ public final class Timestamp implements Comparable<Timestamp> {
     return a.compareTo(b) > 0? a: b;
   }
 
+  /** @return the earliest timestamp. */
   public static Timestamp earliest(Timestamp a, Timestamp b) {
     return a.compareTo(b) > 0? b: a;
   }
