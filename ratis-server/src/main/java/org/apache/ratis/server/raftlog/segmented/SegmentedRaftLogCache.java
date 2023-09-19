@@ -25,7 +25,6 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.LogSegmentList.LogSegmentListCacheInfo;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
@@ -145,25 +144,39 @@ public class SegmentedRaftLogCache {
     }
   }
 
-  static class LogSegmentList {
-
-    static class LogSegmentListCacheInfo {
-      private final long totalCacheSize;
-      private final long cachedCount;
-
-      LogSegmentListCacheInfo(long totalCacheSize, long cachedCount) {
-        this.totalCacheSize = totalCacheSize;
-        this.cachedCount = cachedCount;
+  private static class CacheInfo {
+    static CacheInfo get(List<LogSegment> list) {
+      long size = 0L;
+      long count = 0L;
+      for (LogSegment segment: list) {
+        if (segment.hasCache()) {
+          count++;
+          size += segment.getTotalCacheSize();
+        }
       }
-
-      public long getTotalCacheSize() {
-        return totalCacheSize;
-      }
-
-      public long getCachedCount() {
-        return cachedCount;
-      }
+      return new CacheInfo(size, count);
     }
+
+    /** Total cache size in bytes. */
+    private final long size;
+    /** The number of cached segments. */
+    private final long count;
+
+    CacheInfo(long size, long count) {
+      this.size = size;
+      this.count = count;
+    }
+
+    public long getSize() {
+      return size;
+    }
+
+    public long getCount() {
+      return count;
+    }
+  }
+
+  static class LogSegmentList {
 
     private final Object name;
     private final List<LogSegment> segments = new CopyOnWriteArrayList<>();
@@ -198,21 +211,12 @@ public class SegmentedRaftLogCache {
       return sizeInBytes;
     }
 
-    LogSegmentListCacheInfo getCacheInfo() {
-      long totalCacheSize = 0L;
-      long cachedCount = 0L;
-      for (LogSegment segment: segments) {
-        if (segment.hasCache()) {
-          cachedCount++;
-        }
-        // TODO: Should we only increment when hasCache = true?
-        totalCacheSize += segment.getTotalCacheSize();
-      }
-      return new LogSegmentListCacheInfo(totalCacheSize, cachedCount);
+    CacheInfo getCacheInfo() {
+      return CacheInfo.get(segments);
     }
 
     long countCached() {
-      return getCacheInfo().getCachedCount();
+      return segments.stream().filter(LogSegment::hasCache).count();
     }
 
     LogSegment getLast() {
@@ -426,17 +430,15 @@ public class SegmentedRaftLogCache {
     return openSegment == null ? 0 : openSegment.getTotalFileSize();
   }
 
-  private long getTotalCacheSize(LogSegmentListCacheInfo
-                                     closedSegmentsCacheInfo) {
-    return closedSegmentsCacheInfo.getTotalCacheSize() +
-        Optional.ofNullable(openSegment).map(LogSegment::getTotalCacheSize).orElse(0L);
-  }
-
   boolean shouldEvict() {
-    LogSegmentListCacheInfo closedSegmentsCacheInfo = closedSegments
-        .getCacheInfo();
-    return closedSegmentsCacheInfo.getCachedCount() > maxCachedSegments ||
-        getTotalCacheSize(closedSegmentsCacheInfo) > maxSegmentCacheSize;
+    final CacheInfo closedSegmentsCacheInfo = closedSegments.getCacheInfo();
+    if (closedSegmentsCacheInfo.getCount() > maxCachedSegments) {
+      return true;
+    }
+
+    final long size = closedSegmentsCacheInfo.getSize()
+        + Optional.ofNullable(openSegment).map(LogSegment::getTotalCacheSize).orElse(0L);
+    return size > maxSegmentCacheSize;
   }
 
   void evictCache(long[] followerIndices, long safeEvictIndex, long lastAppliedIndex) {
