@@ -385,24 +385,28 @@ public class SegmentedRaftLog extends RaftLogBase {
       final Timekeeper.Context appendEntryTimerContext = getRaftLogMetrics().startAppendEntryTimer();
       validateLogEntry(entry);
       final LogSegment currentOpenSegment = cache.getOpenSegment();
+      boolean rollOpenSegment = false;
       if (currentOpenSegment == null) {
         cache.addOpenSegment(entry.getIndex());
         fileLogWorker.startLogSegment(entry.getIndex());
       } else if (isSegmentFull(currentOpenSegment, entry)) {
-        cache.rollOpenSegment(true);
-        fileLogWorker.rollLogSegment(currentOpenSegment);
-      } else if (currentOpenSegment.numOfEntries() > 0 &&
-          currentOpenSegment.getLastTermIndex().getTerm() != entry.getTerm()) {
-        // the term changes
-        final long currentTerm = currentOpenSegment.getLastTermIndex().getTerm();
-        Preconditions.assertTrue(currentTerm < entry.getTerm(),
-            "open segment's term %s is larger than the new entry's term %s",
-            currentTerm, entry.getTerm());
-        cache.rollOpenSegment(true);
-        fileLogWorker.rollLogSegment(currentOpenSegment);
+        rollOpenSegment = true;
+      } else {
+        final TermIndex last = currentOpenSegment.getLastTermIndex();
+        if (last != null && last.getTerm() != entry.getTerm()) {
+          // the term changes
+          Preconditions.assertTrue(last.getTerm() < entry.getTerm(),
+              "open segment's term %s is larger than the new entry's term %s",
+              last.getTerm(), entry.getTerm());
+          rollOpenSegment = true;
+        }
       }
 
-      cacheEviction.signal();
+      if (rollOpenSegment) {
+        cache.rollOpenSegment(true);
+        fileLogWorker.rollLogSegment(currentOpenSegment);
+        cacheEviction.signal();
+      }
 
       // If the entry has state machine data, then the entry should be inserted
       // to statemachine first and then to the cache. Not following the order
