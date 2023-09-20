@@ -112,8 +112,8 @@ class PendingRequests {
       this.resource = new RequestLimits(elementLimit, megabyteLimit);
       this.raftServerMetrics = raftServerMetrics;
 
-      raftServerMetrics.addNumPendingRequestsGauge(resource::getElementCount);
-      raftServerMetrics.addNumPendingRequestsMegaByteSize(resource::getMegaByteSize);
+      raftServerMetrics.addNumPendingRequestsGauge(() -> resource.getElementCount());
+      raftServerMetrics.addNumPendingRequestsMegaByteSize(() -> resource.getMegaByteSize());
     }
 
     Permit tryAcquire(Message message) {
