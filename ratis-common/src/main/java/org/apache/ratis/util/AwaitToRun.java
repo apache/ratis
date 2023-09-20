@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class AwaitToRun implements AutoCloseable {
   public static final Logger LOG = LoggerFactory.getLogger(AwaitToRun.class);
 
-  private class RunnableImpl implements Runnable {
+  private final class RunnableImpl implements Runnable {
     private final Runnable runMethod;
 
     private RunnableImpl(Runnable runMethod) {
