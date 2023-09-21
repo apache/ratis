@@ -23,8 +23,7 @@
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>2.5.2-a4398bf-SNAPSHOT</version>
-    <relativePath>..</relativePath>
+    <version>2.5.2-c97b814-SNAPSHOT</version>
   </parent>
 
   <artifactId>ratis-resource-bundle</artifactId>
