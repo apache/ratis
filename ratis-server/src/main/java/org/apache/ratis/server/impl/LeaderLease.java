@@ -77,16 +77,18 @@ class LeaderLease {
    * return maximum timestamp at when the majority of followers are known to be active
    * return {@link Timestamp#currentTime()} if peers are empty
    */
-  private Timestamp getMaxTimestampWithMajorityAck(List<FollowerInfo> peers) {
-    if (peers == null || peers.isEmpty()) {
+  private Timestamp getMaxTimestampWithMajorityAck(List<FollowerInfo> followers) {
+    if (followers == null || followers.isEmpty()) {
       return Timestamp.currentTime();
     }
 
-    final List<Timestamp> lastRespondedAppendEntriesSendTimes = peers.stream()
+    final int mid = followers.size() / 2;
+    return followers.stream()
         .map(FollowerInfo::getLastRespondedAppendEntriesSendTime)
         .sorted()
-        .collect(Collectors.toList());
-
-    return lastRespondedAppendEntriesSendTimes.get(lastRespondedAppendEntriesSendTimes.size() / 2);
+        .limit(mid+1)
+        .skip(mid)
+        .iterator()
+        .next();
   }
 }
