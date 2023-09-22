@@ -28,18 +28,12 @@ class DivisionPropertiesImpl implements DivisionProperties {
   private final TimeDuration rpcTimeoutMax;
   private final TimeDuration rpcSleepTime;
   private final TimeDuration rpcSlownessTimeout;
-  private final TimeDuration leaderLeaseTimeout;
 
   DivisionPropertiesImpl(RaftProperties properties) {
     this.rpcTimeoutMin = RaftServerConfigKeys.Rpc.timeoutMin(properties);
     this.rpcTimeoutMax = RaftServerConfigKeys.Rpc.timeoutMax(properties);
     Preconditions.assertTrue(rpcTimeoutMax.compareTo(rpcTimeoutMin) >= 0,
         "rpcTimeoutMax = %s < rpcTimeoutMin = %s", rpcTimeoutMax, rpcTimeoutMin);
-
-    final double leaderLeaseTimeoutRatio = RaftServerConfigKeys.Read.leaderLeaseTimeoutRatio(properties);
-    this.leaderLeaseTimeout = this.rpcTimeoutMin.multiply(leaderLeaseTimeoutRatio);
-    Preconditions.assertTrue(rpcTimeoutMin.compareTo(leaderLeaseTimeout) >= 0,
-        "rpcTimeoutMin = %s < leaderLeaseTimeout = %s", rpcTimeoutMin, leaderLeaseTimeout);
 
     this.rpcSleepTime = RaftServerConfigKeys.Rpc.sleepTime(properties);
     this.rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
@@ -53,11 +47,6 @@ class DivisionPropertiesImpl implements DivisionProperties {
   @Override
   public TimeDuration maxRpcTimeout() {
     return rpcTimeoutMax;
-  }
-
-  /** @return the ratio of leader lease timeout */
-  public TimeDuration leaderLeaseTimeout() {
-    return leaderLeaseTimeout;
   }
 
   @Override

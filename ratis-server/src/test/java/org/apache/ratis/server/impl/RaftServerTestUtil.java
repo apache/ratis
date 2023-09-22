@@ -147,6 +147,12 @@ public class RaftServerTestUtil {
     return getLeaderState(server).map(LeaderStateImpl::getLogAppenders).orElse(null);
   }
 
+  public static void assertLeaderLease(RaftServer.Division leader, boolean hasLease) {
+    final LeaderStateImpl l = getLeaderState(leader).orElse(null);
+    Assert.assertNotNull(l);
+    Assert.assertEquals(l.hasLease(), hasLease);
+  }
+
   public static void restartLogAppenders(RaftServer.Division server) {
     final LeaderStateImpl leaderState = getLeaderState(server).orElseThrow(
         () -> new IllegalStateException(server + " is not the leader"));
