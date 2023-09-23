@@ -24,7 +24,7 @@
 
   <artifactId>ratis</artifactId>
   <groupId>org.apache.ratis</groupId>
-  <version>2.5.2-a4398bf-SNAPSHOT</version>
+  <version>2.5.2-c97b814-SNAPSHOT</version>
   <name>Apache Ratis</name>
   <packaging>pom</packaging>
   <description>
@@ -182,7 +182,7 @@
     <build-helper-maven-plugin.version>3.3.0</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>3.1.0</exec-maven-plugin.version>
     <extra-enforcer-rules.version>1.6.1</extra-enforcer-rules.version>
-    <license-maven-plugin.version>4.1</license-maven-plugin.version>
+    <license-maven-plugin.version>2.2.0</license-maven-plugin.version>
 
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
     <copy-rename-maven-plugin.version>1.0</copy-rename-maven-plugin.version>
@@ -219,7 +219,7 @@
     <testsThreadCount>4</testsThreadCount>
 
     <!--metrics-->
-    <dropwizard.version>3.2.5</dropwizard.version>
+    <dropwizard.version>4.2.9</dropwizard.version>
 
     <slf4j.version>2.0.7</slf4j.version>
   </properties>
@@ -414,13 +414,13 @@
 
       <dependency>
         <groupId>io.dropwizard.metrics</groupId>
-        <artifactId>metrics-jvm</artifactId>
+        <artifactId>metrics-jmx</artifactId>
         <version>${dropwizard.version}</version>
       </dependency>
 
       <dependency>
         <groupId>io.dropwizard.metrics</groupId>
-        <artifactId>metrics-ganglia</artifactId>
+        <artifactId>metrics-jvm</artifactId>
         <version>${dropwizard.version}</version>
       </dependency>
 
