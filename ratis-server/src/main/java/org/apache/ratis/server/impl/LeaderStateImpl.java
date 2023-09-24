@@ -1114,7 +1114,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     // if lease is allowed, check lease first
-    if (option == RaftServerConfigKeys.Read.Option.LEASE && checkLeaderLease()) {
+    if (option == RaftServerConfigKeys.Read.Option.LEASE && hasLease()) {
       return CompletableFuture.completedFuture(readIndex);
     }
 
