@@ -176,14 +176,17 @@ public interface RaftServerConfigKeys {
       DEFAULT,
 
       /** Use ReadIndex (see Raft Paper section 6.4). Maintains linearizability */
-      LINEARIZABLE
+      LINEARIZABLE,
+
+      /** Use Leader lease. Efficient than ReadIndex if clock drift is bounded */
+      LEASE
     }
 
     String OPTION_KEY = PREFIX + ".option";
     Option OPTION_DEFAULT = Option.DEFAULT;
     static Option option(RaftProperties properties) {
       Option option =  get(properties::getEnum, OPTION_KEY, OPTION_DEFAULT, getDefaultLog());
-      if (option != Option.DEFAULT && option != Option.LINEARIZABLE) {
+      if (option != Option.DEFAULT && option != Option.LINEARIZABLE && option != Option.LEASE) {
         throw new IllegalArgumentException("Unexpected read option: " + option);
       }
       return option;
