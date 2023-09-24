@@ -1000,7 +1000,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
     if (request.getType().getRead().getPreferNonLinearizable()
-        || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) { // read-bypass
+        || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       final CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
        if (reply != null) {
          return reply;
@@ -1009,7 +1009,7 @@ class RaftServerImpl implements RaftServer.Division,
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE
         || readOption == RaftServerConfigKeys.Read.Option.LEASE){
       /*
-        Linearizable read using ReadIndex/Lease. See Raft paper section 6.4.
+        Linearizable read using ReadIndex. See Raft paper section 6.4.
         1. First obtain readIndex from Leader.
         2. Then waits for statemachine to advance at least as far as readIndex.
         3. Finally, query the statemachine and return the result.
