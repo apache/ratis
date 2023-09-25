@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
@@ -178,14 +179,27 @@ public abstract class RaftLogBase implements RaftLog {
       }
 
       // build the log entry after calling the StateMachine
-      final LogEntryProto e = operation.initLogEntry(term, nextIndex);
+      final LogEntryProto entry = operation.initLogEntry(term, nextIndex);
 
-      int entrySize = e.getSerializedSize();
+      final int entrySize = entry.getSerializedSize();
       if (entrySize > maxBufferSize) {
         throw new StateMachineException(memberId, new RaftLogIOException(
             "Log entry size " + entrySize + " exceeds the max buffer limit of " + maxBufferSize));
       }
-      appendEntry(e);
+      appendEntry(entry).whenComplete((index, e) -> {
+        if (index != nextIndex) {
+          LOG.error("{}: Indices mismatched: returned index={} but nextIndex={} for log entry {}",
+              name, index, nextIndex, LogProtoUtils.toLogEntryString(entry));
+          if (e != null) {
+            LOG.error("Failed to write log entry " + TermIndex.valueOf(entry), e);
+          }
+          try {
+            close();
+          } catch (IOException ioe) {
+            LOG.error("Failed to close " + name, ioe);
+          }
+        }
+      });
       return nextIndex;
     }
   }
