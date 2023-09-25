@@ -420,7 +420,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           grpcServerMetrics.onRequestSuccess(getFollowerId().toString(), reply.getIsHearbeat());
           getLeaderState().onFollowerCommitIndex(getFollower(), reply.getFollowerCommit());
           if (getFollower().updateMatchIndex(reply.getMatchIndex())) {
-            getFollower().increaseNextIndex(reply.getMatchIndex() + 1);
+            getFollower().updateNextIndex(reply.getMatchIndex() + 1);
             getLeaderState().onFollowerSuccessAppendEntries(getFollower());
           }
           break;
