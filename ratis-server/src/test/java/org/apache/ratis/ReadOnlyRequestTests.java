@@ -73,12 +73,12 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testLinearizableRead() throws Exception {
     getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, false);
     runWithNewCluster(NUM_SERVERS, this::testReadOnlyImpl);
   }
 
   @Test
   public void testLeaseRead() throws Exception {
-    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LEASE);
     runWithNewCluster(NUM_SERVERS, this::testReadOnlyImpl);
   }
 
@@ -103,12 +103,12 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testLinearizableReadTimeout() throws Exception {
     getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, false);
     runWithNewCluster(NUM_SERVERS, this::testReadOnlyTimeoutImpl);
   }
 
   @Test
   public void testLeaseReadTimeout() throws Exception {
-    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LEASE);
     runWithNewCluster(NUM_SERVERS, this::testReadOnlyTimeoutImpl);
   }
 
@@ -138,12 +138,12 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testFollowerLinearizableRead() throws Exception {
     getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, false);
     runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyImpl);
   }
 
   @Test
   public void testFollowerLeaseRead() throws Exception {
-    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LEASE);
     runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyImpl);
   }
 
@@ -174,12 +174,12 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testFollowerLinearizableReadParallel() throws Exception {
     getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, false);
     runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyParallelImpl);
   }
 
   @Test
   public void testFollowerLeaseReadParallel() throws Exception {
-    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LEASE);
     runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyParallelImpl);
   }
 
@@ -209,12 +209,12 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testFollowerLinearizableReadFailWhenLeaderDown() throws Exception {
     getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, false);
     runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyFailWhenLeaderDownImpl);
   }
 
   @Test
   public void testFollowerLeaseReadWhenLeaderDown() throws Exception {
-    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LEASE);
     runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyFailWhenLeaderDownImpl);
   }
 
@@ -249,12 +249,12 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testFollowerReadOnlyRetryWhenLeaderDown() throws Exception {
     getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, false);
     runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyRetryWhenLeaderDown);
   }
 
   @Test
   public void testFollowerLeaseReadRetryWhenLeaderDown() throws Exception {
-    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LEASE);
     runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyRetryWhenLeaderDown);
   }
 
