@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class LeaderLease {
+
   private final boolean enabled;
   private final long leaseTimeoutMs;
   // TODO invalidate leader lease when stepDown / transferLeader

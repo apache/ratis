@@ -194,7 +194,7 @@ public interface RaftServerConfigKeys {
 
     String LEADER_LEASE_ENABLED_KEY = PREFIX + ".leader.lease.enabled";
     boolean LEADER_LEASE_ENABLED_DEFAULT = true;
-    static boolean  leaderLeaseEnabled(RaftProperties properties) {
+    static boolean leaderLeaseEnabled(RaftProperties properties) {
       return getBoolean(properties::getBoolean, LEADER_LEASE_ENABLED_KEY,
           LEADER_LEASE_ENABLED_DEFAULT, getDefaultLog());
     }

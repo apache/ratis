@@ -185,6 +185,14 @@ treat the peer as caught-up. Increase this number when write throughput is high.
 
 --------------------------------------------------------------------------------
 
+| **Property**    | `raft.server.read.leader.lease.enabled`                    |
+|:----------------|:-----------------------------------------------------------|
+| **Description** | whether to enable lease in linearizable read-only requests |
+| **Type**        | boolean                                                    |
+| **Default**     | true                                                       |
+
+--------------------------------------------------------------------------------
+
 | **Property**    | `raft.server.read.leader.lease.timeout.ratio` |
 |:----------------|:----------------------------------------------|
 | **Description** | maximum timeout ratio of leader lease         |
