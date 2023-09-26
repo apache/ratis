@@ -438,6 +438,7 @@ class LeaderStateImpl implements LeaderState {
     messageStreamRequests.clear();
     // TODO client should retry on NotLeaderException
     readIndexHeartbeats.failListeners(nle);
+    lease.getAndSetEnabled(false);
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
@@ -675,6 +676,7 @@ class LeaderStateImpl implements LeaderState {
 
   private void stepDown(long term, StepDownReason reason) {
     try {
+      lease.getAndSetEnabled(false);
       server.changeToFollowerAndPersistMetadata(term, false, reason);
       pendingStepDown.complete(server::newSuccessReply);
     } catch(IOException e) {
@@ -953,6 +955,7 @@ class LeaderStateImpl implements LeaderState {
       pendingRequests.replySetConfiguration(server::newSuccessReply);
       // if the leader is not included in the current configuration, step down
       if (!conf.containsInConf(server.getId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER)) {
+        lease.getAndSetEnabled(false);
         LOG.info("{} is not included in the new configuration {}. Will shutdown server...", this, conf);
         try {
           // leave some time for all RPC senders to send out new conf entry
@@ -1114,7 +1117,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     // if lease is enabled, check lease first
-    if (lease.isEnabled() && hasLease()) {
+    if (hasLease()) {
       return CompletableFuture.completedFuture(readIndex);
     }
 
@@ -1135,6 +1138,10 @@ class LeaderStateImpl implements LeaderState {
     readIndexHeartbeats.onAppendEntriesReply(appender, reply, this::hasMajority);
   }
 
+  boolean getAndSetLeaseEnabled(boolean newValue) {
+    return lease.getAndSetEnabled(newValue);
+  }
+
   boolean hasLease() {
     if (checkLeaderLease()) {
       return true;
@@ -1149,7 +1156,8 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private boolean checkLeaderLease() {
-    return isReady() && (server.getRaftConf().isSingleton() || lease.isValid());
+    return isRunning() && isReady()
+        && (server.getRaftConf().isSingleton() || lease.isValid());
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {
