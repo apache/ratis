@@ -652,6 +652,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testLeaderLease() throws Exception {
     // use a strict lease
+    RaftServerConfigKeys.Read.setLeaderLeaseEnabled(getProperties(), true);
     RaftServerConfigKeys.Read.setLeaderLeaseTimeoutRatio(getProperties(), 0.5);
     runWithNewCluster(3, c -> runLeaseTest(c, this::runTestLeaderLease));
   }
@@ -679,6 +680,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testLeaderLeaseDuringReconfiguration() throws Exception {
     // use a strict lease
+    RaftServerConfigKeys.Read.setLeaderLeaseEnabled(getProperties(), true);
     RaftServerConfigKeys.Read.setLeaderLeaseTimeoutRatio(getProperties(), 0.5);
     runWithNewCluster(3, c -> runLeaseTest(c, this::runTestLeaderLeaseDuringReconfiguration));
   }
