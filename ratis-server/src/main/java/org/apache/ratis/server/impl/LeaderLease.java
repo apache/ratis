@@ -49,8 +49,8 @@ class LeaderLease {
         .toIntExact(TimeUnit.MILLISECONDS);
   }
 
-  boolean getAndSetEnabled(boolean enabled) {
-    return this.enabled.getAndSet(enabled);
+  boolean getAndSetEnabled(boolean newValue) {
+    return enabled.getAndSet(newValue);
   }
 
   boolean isValid() {
