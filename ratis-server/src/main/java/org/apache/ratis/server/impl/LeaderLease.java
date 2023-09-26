@@ -33,18 +33,23 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class LeaderLease {
-
+  private final boolean enabled;
   private final long leaseTimeoutMs;
   // TODO invalidate leader lease when stepDown / transferLeader
   private final AtomicReference<Timestamp> lease = new AtomicReference<>(Timestamp.currentTime());
 
   LeaderLease(RaftProperties properties) {
+    this.enabled = RaftServerConfigKeys.Read.leaderLeaseEnabled(properties);
     final double leaseRatio = RaftServerConfigKeys.Read.leaderLeaseTimeoutRatio(properties);
     Preconditions.assertTrue(leaseRatio > 0.0 && leaseRatio <= 1.0,
         "leader ratio should sit in (0,1], now is " + leaseRatio);
     this.leaseTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties)
         .multiply(leaseRatio)
         .toIntExact(TimeUnit.MILLISECONDS);
+  }
+
+  boolean isEnabled() {
+    return enabled;
   }
 
   boolean isValid() {

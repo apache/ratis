@@ -1091,7 +1091,7 @@ class LeaderStateImpl implements LeaderState {
    * 4. If majority respond success, returns readIndex.
    * @return current readIndex.
    */
-  CompletableFuture<Long> getReadIndex(RaftServerConfigKeys.Read.Option option, Long readAfterWriteConsistentIndex) {
+  CompletableFuture<Long> getReadIndex(Long readAfterWriteConsistentIndex) {
     final long readIndex;
     if (readAfterWriteConsistentIndex != null) {
       readIndex = readAfterWriteConsistentIndex;
@@ -1113,8 +1113,8 @@ class LeaderStateImpl implements LeaderState {
           new LeaderNotReadyException(server.getMemberId())));
     }
 
-    // if lease is allowed, check lease first
-    if (option == RaftServerConfigKeys.Read.Option.LEASE && hasLease()) {
+    // if lease is enabled, check lease first
+    if (lease.isEnabled() && hasLease()) {
       return CompletableFuture.completedFuture(readIndex);
     }
 

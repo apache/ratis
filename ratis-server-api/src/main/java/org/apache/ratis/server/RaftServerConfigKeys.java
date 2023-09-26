@@ -176,23 +176,30 @@ public interface RaftServerConfigKeys {
       DEFAULT,
 
       /** Use ReadIndex (see Raft Paper section 6.4). Maintains linearizability */
-      LINEARIZABLE,
-
-      /** Use Leader lease. Efficient than ReadIndex if clock drift is bounded */
-      LEASE
+      LINEARIZABLE
     }
 
     String OPTION_KEY = PREFIX + ".option";
     Option OPTION_DEFAULT = Option.DEFAULT;
     static Option option(RaftProperties properties) {
       Option option =  get(properties::getEnum, OPTION_KEY, OPTION_DEFAULT, getDefaultLog());
-      if (option != Option.DEFAULT && option != Option.LINEARIZABLE && option != Option.LEASE) {
+      if (option != Option.DEFAULT && option != Option.LINEARIZABLE) {
         throw new IllegalArgumentException("Unexpected read option: " + option);
       }
       return option;
     }
     static void setOption(RaftProperties properties, Option option) {
       set(properties::setEnum, OPTION_KEY, option);
+    }
+
+    String LEADER_LEASE_ENABLED_KEY = PREFIX + ".leader.lease.enabled";
+    boolean LEADER_LEASE_ENABLED_DEFAULT = true;
+    static boolean  leaderLeaseEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, LEADER_LEASE_ENABLED_KEY,
+          LEADER_LEASE_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setLeaderLeaseEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, LEADER_LEASE_ENABLED_KEY, enabled);
     }
 
     String LEADER_LEASE_TIMEOUT_RATIO_KEY = PREFIX + ".leader.lease.timeout.ratio";

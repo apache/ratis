@@ -995,7 +995,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<Long> getReadIndex(RaftClientRequest request, LeaderStateImpl leader) {
-    return writeIndexCache.getWriteIndexFuture(request).thenCompose(index -> leader.getReadIndex(readOption, index));
+    return writeIndexCache.getWriteIndexFuture(request).thenCompose(leader::getReadIndex);
   }
 
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
@@ -1006,8 +1006,7 @@ class RaftServerImpl implements RaftServer.Division,
          return reply;
        }
        return queryStateMachine(request);
-    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE
-        || readOption == RaftServerConfigKeys.Read.Option.LEASE){
+    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE){
       /*
         Linearizable read using ReadIndex. See Raft paper section 6.4.
         1. First obtain readIndex from Leader.
