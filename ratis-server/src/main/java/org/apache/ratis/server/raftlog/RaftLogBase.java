@@ -178,25 +178,27 @@ public abstract class RaftLogBase implements RaftLog {
       }
 
       // build the log entry after calling the StateMachine
-      final LogEntryProto entry = operation.initLogEntry(term, nextIndex);
+      final LogEntryProto e = operation.initLogEntry(term, nextIndex);
 
-      final int entrySize = entry.getSerializedSize();
+      int entrySize = e.getSerializedSize();
       if (entrySize > maxBufferSize) {
         throw new StateMachineException(memberId, new RaftLogIOException(
             "Log entry size " + entrySize + " exceeds the max buffer limit of " + maxBufferSize));
       }
-      appendEntry(entry).whenComplete((index, e) -> {
-        if (index != nextIndex) {
+      appendEntry(e).whenComplete((returned, t) -> {
+        if (t != null) {
+          LOG.error(name + ": Failed to write log entry " + LogProtoUtils.toLogEntryString(e), t);
+        } else if (returned != nextIndex) {
           LOG.error("{}: Indices mismatched: returned index={} but nextIndex={} for log entry {}",
-              name, index, nextIndex, LogProtoUtils.toLogEntryString(entry));
-          if (e != null) {
-            LOG.error("Failed to write log entry " + TermIndex.valueOf(entry), e);
-          }
-          try {
-            close();
-          } catch (IOException ioe) {
-            LOG.error("Failed to close " + name, ioe);
-          }
+              name, returned, nextIndex, LogProtoUtils.toLogEntryString(e));
+        } else {
+          return; // no error
+        }
+
+        try {
+          close(); // close due to error
+        } catch (IOException ioe) {
+          LOG.error("Failed to close " + name, ioe);
         }
       });
       return nextIndex;
