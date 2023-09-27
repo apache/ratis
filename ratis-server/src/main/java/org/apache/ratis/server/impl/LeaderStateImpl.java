@@ -1143,6 +1143,10 @@ class LeaderStateImpl implements LeaderState {
   }
 
   boolean hasLease() {
+    if (!lease.isEnabled()) {
+      return false;
+    }
+
     if (checkLeaderLease()) {
       return true;
     }

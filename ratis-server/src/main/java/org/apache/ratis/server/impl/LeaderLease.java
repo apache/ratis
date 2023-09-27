@@ -53,8 +53,12 @@ class LeaderLease {
     return enabled.getAndSet(newValue);
   }
 
+  boolean isEnabled() {
+    return enabled.get();
+  }
+
   boolean isValid() {
-    return enabled.get() && lease.get().elapsedTimeMs() < leaseTimeoutMs;
+    return isEnabled() && lease.get().elapsedTimeMs() < leaseTimeoutMs;
   }
 
   /**
