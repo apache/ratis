@@ -33,6 +33,7 @@ import org.apache.ratis.util.DataQueue;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.TimeDuration;
 
 import java.util.Collections;
 import java.util.List;
@@ -56,7 +57,7 @@ public abstract class LogAppenderBase implements LogAppender {
   private final AwaitForSignal eventAwaitForSignal;
 
   private final AtomicBoolean heartbeatTrigger = new AtomicBoolean();
-  private final long waitTimeMinMs;
+  private final TimeDuration waitTimeMin;
 
   protected LogAppenderBase(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -73,7 +74,7 @@ public abstract class LogAppenderBase implements LogAppender {
     this.daemon = new LogAppenderDaemon(this);
     this.eventAwaitForSignal = new AwaitForSignal(name);
 
-    this.waitTimeMinMs = RaftServerConfigKeys.Log.Appender.waitTimeMin(properties).toLong(TimeUnit.MILLISECONDS);
+    this.waitTimeMin = RaftServerConfigKeys.Log.Appender.waitTimeMin(properties);
   }
 
   @Override
@@ -136,8 +137,12 @@ public abstract class LogAppenderBase implements LogAppender {
     getLeaderState().restart(this);
   }
 
-  public long getMinWaitTimeMs() {
-    return waitTimeMinMs - getFollower().getLastRpcSendTime().elapsedTimeMs();
+  protected TimeDuration getWaitTimeMin() {
+    return waitTimeMin;
+  }
+
+  protected TimeDuration getRemainingWaitTime() {
+    return waitTimeMin.add(getFollower().getLastRpcSendTime().elapsedTime().negate());
   }
 
   @Override
@@ -203,7 +208,8 @@ public abstract class LogAppenderBase implements LogAppender {
     }
 
     final List<LogEntryProto> protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
-        (entry, time, exception) -> LOG.warn("Failed to get {} in {}: {}", entry, time, exception));
+        (entry, time, exception) -> LOG.warn("Failed to get " + entry
+            + " in " + time.toString(TimeUnit.MILLISECONDS, 3), exception));
     buffer.clear();
     assertProtos(protos, followerNext, previous, snapshotIndex);
     return leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
