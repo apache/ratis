@@ -192,6 +192,16 @@ public interface RaftServerConfigKeys {
       set(properties::setEnum, OPTION_KEY, option);
     }
 
+    String LEADER_LEASE_ENABLED_KEY = PREFIX + ".leader.lease.enabled";
+    boolean LEADER_LEASE_ENABLED_DEFAULT = false;
+    static boolean leaderLeaseEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, LEADER_LEASE_ENABLED_KEY,
+          LEADER_LEASE_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setLeaderLeaseEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, LEADER_LEASE_ENABLED_KEY, enabled);
+    }
+
     String LEADER_LEASE_TIMEOUT_RATIO_KEY = PREFIX + ".leader.lease.timeout.ratio";
     double LEADER_LEASE_TIMEOUT_RATIO_DEFAULT = 0.9;
     static double leaderLeaseTimeoutRatio(RaftProperties properties) {

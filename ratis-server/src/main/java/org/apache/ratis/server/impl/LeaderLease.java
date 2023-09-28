@@ -27,6 +27,7 @@ import org.apache.ratis.util.Timestamp;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -34,11 +35,12 @@ import java.util.stream.Stream;
 
 class LeaderLease {
 
+  private final AtomicBoolean enabled;
   private final long leaseTimeoutMs;
-  // TODO invalidate leader lease when stepDown / transferLeader
   private final AtomicReference<Timestamp> lease = new AtomicReference<>(Timestamp.currentTime());
 
   LeaderLease(RaftProperties properties) {
+    this.enabled = new AtomicBoolean(RaftServerConfigKeys.Read.leaderLeaseEnabled(properties));
     final double leaseRatio = RaftServerConfigKeys.Read.leaderLeaseTimeoutRatio(properties);
     Preconditions.assertTrue(leaseRatio > 0.0 && leaseRatio <= 1.0,
         "leader ratio should sit in (0,1], now is " + leaseRatio);
@@ -47,8 +49,16 @@ class LeaderLease {
         .toIntExact(TimeUnit.MILLISECONDS);
   }
 
+  boolean getAndSetEnabled(boolean newValue) {
+    return enabled.getAndSet(newValue);
+  }
+
+  boolean isEnabled() {
+    return enabled.get();
+  }
+
   boolean isValid() {
-    return lease.get().elapsedTimeMs() < leaseTimeoutMs;
+    return isEnabled() && lease.get().elapsedTimeMs() < leaseTimeoutMs;
   }
 
   /**

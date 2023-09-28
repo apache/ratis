@@ -295,6 +295,9 @@ public class TransferLeadership {
     if (previous != null) {
       return createReplyFutureFromPreviousRequest(request, previous);
     }
+    // disable the lease before transferring leader
+    final boolean previousLeaseEnabled = server.getRole().getLeaderState()
+        .map(l -> l.getAndSetLeaseEnabled(false)).orElse(false);
     final PendingRequest pendingRequest = supplier.get();
     final Result result = tryTransferLeadership(context);
     final Result.Type type = result.getType();
@@ -308,6 +311,12 @@ public class TransferLeadership {
               timeout.toString(TimeUnit.SECONDS, 3))),
           LOG, () -> "Failed to handle timeout");
     }
+    // reset back lease if the current transfer fails
+    pendingRequest.getReplyFuture().whenCompleteAsync((reply, ex) -> {
+      if (ex != null || !reply.isSuccess()) {
+        server.getRole().getLeaderState().ifPresent(l -> l.getAndSetLeaseEnabled(previousLeaseEnabled));
+      }
+    });
     return pendingRequest.getReplyFuture();
   }
 

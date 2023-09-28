@@ -43,7 +43,6 @@ import org.slf4j.event.Level;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -69,16 +68,21 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     final RaftProperties p = getProperties();
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         CounterStateMachine.class, StateMachine.class);
-
-    p.setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
   }
 
   @Test
   public void testLinearizableRead() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::testLinearizableReadImpl);
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::testReadOnlyImpl);
   }
 
-  private void testLinearizableReadImpl(CLUSTER cluster) throws Exception {
+  @Test
+  public void testLeaseRead() throws Exception {
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, true);
+    runWithNewCluster(NUM_SERVERS, this::testReadOnlyImpl);
+  }
+
+  private void testReadOnlyImpl(CLUSTER cluster) throws Exception {
     try {
       RaftTestUtil.waitForLeader(cluster);
       final RaftPeerId leaderId = cluster.getLeader().getId();
@@ -98,10 +102,17 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testLinearizableReadTimeout() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::testLinearizableReadTimeoutImpl);
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::testReadOnlyTimeoutImpl);
   }
 
-  private void testLinearizableReadTimeoutImpl(CLUSTER cluster) throws Exception {
+  @Test
+  public void testLeaseReadTimeout() throws Exception {
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, true);
+    runWithNewCluster(NUM_SERVERS, this::testReadOnlyTimeoutImpl);
+  }
+
+  private void testReadOnlyTimeoutImpl(CLUSTER cluster) throws Exception {
     try {
       RaftTestUtil.waitForLeader(cluster);
       final RaftPeerId leaderId = cluster.getLeader().getId();
@@ -126,10 +137,17 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testFollowerLinearizableRead() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::testFollowerLinearizableReadImpl);
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyImpl);
   }
 
-  private void testFollowerLinearizableReadImpl(CLUSTER cluster) throws Exception {
+  @Test
+  public void testFollowerLeaseRead() throws Exception {
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, true);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyImpl);
+  }
+
+  private void testFollowerReadOnlyImpl(CLUSTER cluster) throws Exception {
     try {
       RaftTestUtil.waitForLeader(cluster);
 
@@ -155,10 +173,17 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testFollowerLinearizableReadParallel() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::testFollowerLinearizableReadParallelImpl);
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyParallelImpl);
   }
 
-  private void testFollowerLinearizableReadParallelImpl(CLUSTER cluster) throws Exception {
+  @Test
+  public void testFollowerLeaseReadParallel() throws Exception {
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, true);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyParallelImpl);
+  }
+
+  private void testFollowerReadOnlyParallelImpl(CLUSTER cluster) throws Exception {
     try {
       RaftTestUtil.waitForLeader(cluster);
 
@@ -183,10 +208,17 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testFollowerLinearizableReadFailWhenLeaderDown() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::testFollowerLinearizableReadFailWhenLeaderDownImpl);
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyFailWhenLeaderDownImpl);
   }
 
-  private void testFollowerLinearizableReadFailWhenLeaderDownImpl(CLUSTER cluster) throws Exception {
+  @Test
+  public void testFollowerLeaseReadWhenLeaderDown() throws Exception {
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, true);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyFailWhenLeaderDownImpl);
+  }
+
+  private void testFollowerReadOnlyFailWhenLeaderDownImpl(CLUSTER cluster) throws Exception {
     try {
       RaftTestUtil.waitForLeader(cluster);
 
@@ -215,11 +247,18 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
-  public void testFollowerLinearizableReadRetryWhenLeaderDown() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::testFollowerLinearizableReadRetryWhenLeaderDown);
+  public void testFollowerReadOnlyRetryWhenLeaderDown() throws Exception {
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyRetryWhenLeaderDown);
   }
 
-  private void testFollowerLinearizableReadRetryWhenLeaderDown(CLUSTER cluster) throws Exception {
+  @Test
+  public void testFollowerLeaseReadRetryWhenLeaderDown() throws Exception {
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, true);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyRetryWhenLeaderDown);
+  }
+
+  private void testFollowerReadOnlyRetryWhenLeaderDown(CLUSTER cluster) throws Exception {
     // only retry on readIndexException
     final RetryPolicy retryPolicy = ExceptionDependentRetry
         .newBuilder()

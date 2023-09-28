@@ -999,8 +999,14 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
-    if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE
-        && !request.getType().getRead().getPreferNonLinearizable()) {
+    if (request.getType().getRead().getPreferNonLinearizable()
+        || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
+      final CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
+       if (reply != null) {
+         return reply;
+       }
+       return queryStateMachine(request);
+    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE){
       /*
         Linearizable read using ReadIndex. See Raft paper section 6.4.
         1. First obtain readIndex from Leader.
@@ -1027,13 +1033,6 @@ class RaftServerImpl implements RaftServer.Division,
           .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
           .thenCompose(readIndex -> queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));
-    } else if (readOption == RaftServerConfigKeys.Read.Option.DEFAULT
-        || request.getType().getRead().getPreferNonLinearizable()) {
-       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null, false);
-       if (reply != null) {
-         return reply;
-       }
-       return queryStateMachine(request);
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
     }
