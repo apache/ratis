@@ -37,6 +37,7 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog.Task;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -435,8 +436,8 @@ class SegmentedRaftLogWorker {
     addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
 
-  Task writeLogEntry(LogEntryProto entry) {
-    return addIOTask(new WriteLog(entry));
+  Task writeLogEntry(LogEntryProto entry, TransactionContext context) {
+    return addIOTask(new WriteLog(entry, context));
   }
 
   Task truncate(TruncationSegments ts, long index) {
@@ -483,7 +484,7 @@ class SegmentedRaftLogWorker {
     private final CompletableFuture<?> stateMachineFuture;
     private final CompletableFuture<Long> combined;
 
-    WriteLog(LogEntryProto entry) {
+    WriteLog(LogEntryProto entry, TransactionContext context) {
       this.entry = LogProtoUtils.removeStateMachineData(entry);
       if (this.entry == entry) {
         final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
@@ -498,7 +499,7 @@ class SegmentedRaftLogWorker {
       } else {
         try {
           // this.entry != entry iff the entry has state machine data
-          this.stateMachineFuture = stateMachine.data().write(entry);
+          this.stateMachineFuture = stateMachine.data().write(entry, context);
         } catch (Exception e) {
           LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
               + ", entry=" + LogProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);

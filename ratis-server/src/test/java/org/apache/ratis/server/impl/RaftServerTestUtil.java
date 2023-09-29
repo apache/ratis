@@ -182,10 +182,15 @@ public class RaftServerTestUtil {
     final RaftServerImpl server = Mockito.mock(RaftServerImpl.class);
     Mockito.when(server.getInfo()).thenReturn(info);
 
-    return new SegmentedRaftLog(memberId, server, null,
-        server::notifyTruncatedLogEntry,
-        server::submitUpdateCommitEvent,
-        storage, () -> -1, properties);
+    return SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setServer(server)
+        .setNotifyTruncatedLogEntry(server::notifyTruncatedLogEntry)
+        .setGetTransactionContext(server::getTransactionContext)
+        .setSubmitUpdateCommitEvent(server::submitUpdateCommitEvent)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build();
   }
 
   public static boolean isHighestPriority(RaftConfiguration config, RaftPeerId peerId) {

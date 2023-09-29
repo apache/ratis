@@ -185,7 +185,7 @@ public abstract class RaftLogBase implements RaftLog {
         throw new StateMachineException(memberId, new RaftLogIOException(
             "Log entry size " + entrySize + " exceeds the max buffer limit of " + maxBufferSize));
       }
-      appendEntry(e).whenComplete((returned, t) -> {
+      appendEntry(e, operation).whenComplete((returned, t) -> {
         if (t != null) {
           LOG.error(name + ": Failed to write log entry " + LogProtoUtils.toLogEntryString(e), t);
         } else if (returned != nextIndex) {
@@ -343,10 +343,15 @@ public abstract class RaftLogBase implements RaftLog {
 
   @Override
   public final CompletableFuture<Long> appendEntry(LogEntryProto entry) {
-    return runner.runSequentially(() -> appendEntryImpl(entry));
+    return appendEntry(entry, null);
   }
 
-  protected abstract CompletableFuture<Long> appendEntryImpl(LogEntryProto entry);
+  @Override
+  public final CompletableFuture<Long> appendEntry(LogEntryProto entry, TransactionContext context) {
+    return runner.runSequentially(() -> appendEntryImpl(entry, context));
+  }
+
+  protected abstract CompletableFuture<Long> appendEntryImpl(LogEntryProto entry, TransactionContext context);
 
   @Override
   public final List<CompletableFuture<Long>> append(List<LogEntryProto> entries) {

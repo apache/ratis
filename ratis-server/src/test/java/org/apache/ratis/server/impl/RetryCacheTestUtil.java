@@ -81,8 +81,14 @@ public class RetryCacheTestUtil {
     when(server.getRetryCache()).thenReturn((RetryCacheImpl) retryCache);
     when(server.getMemberId()).thenReturn(memberId);
     doCallRealMethod().when(server).notifyTruncatedLogEntry(any(LogEntryProto.class));
-    return new SegmentedRaftLog(memberId, server, null,
-        server::notifyTruncatedLogEntry, server::submitUpdateCommitEvent,
-        storage, () -> -1, properties);
+    return SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setServer(server)
+        .setNotifyTruncatedLogEntry(server::notifyTruncatedLogEntry)
+        .setGetTransactionContext(server::getTransactionContext)
+        .setSubmitUpdateCommitEvent(server::submitUpdateCommitEvent)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build();
   }
 }

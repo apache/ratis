@@ -239,7 +239,7 @@ public class FileStore implements Closeable {
       uc = files.get(relative).asUnderConstruction();
     } catch (FileNotFoundException e) {
       return FileStoreCommon.completeExceptionally(
-          index, "Failed to write to " + relative, e);
+          index, "Failed to submitCommit to " + relative, e);
     }
 
     return uc.submitCommit(offset, size, converter, committer, getId(), index)
