@@ -192,6 +192,28 @@ public interface RaftServerConfigKeys {
       set(properties::setEnum, OPTION_KEY, option);
     }
 
+    String LEADER_LEASE_ENABLED_KEY = PREFIX + ".leader.lease.enabled";
+    boolean LEADER_LEASE_ENABLED_DEFAULT = false;
+    static boolean leaderLeaseEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, LEADER_LEASE_ENABLED_KEY,
+          LEADER_LEASE_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setLeaderLeaseEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, LEADER_LEASE_ENABLED_KEY, enabled);
+    }
+
+    String LEADER_LEASE_TIMEOUT_RATIO_KEY = PREFIX + ".leader.lease.timeout.ratio";
+    double LEADER_LEASE_TIMEOUT_RATIO_DEFAULT = 0.9;
+    static double leaderLeaseTimeoutRatio(RaftProperties properties) {
+      return getDouble(properties::getDouble, LEADER_LEASE_TIMEOUT_RATIO_KEY,
+          LEADER_LEASE_TIMEOUT_RATIO_DEFAULT, getDefaultLog(),
+          requireMin(0.0), requireMax(1.0));
+    }
+
+    static void setLeaderLeaseTimeoutRatio(RaftProperties properties, double ratio) {
+      setDouble(properties::setDouble, LEADER_LEASE_TIMEOUT_RATIO_KEY, ratio);
+    }
+
     interface ReadAfterWriteConsistent {
       String PREFIX = RaftServerConfigKeys.PREFIX + ".read-after-write-consistent";
 

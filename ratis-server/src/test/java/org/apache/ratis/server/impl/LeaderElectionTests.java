@@ -43,6 +43,7 @@ import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
+import org.apache.ratis.util.function.CheckedBiConsumer;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -639,6 +640,89 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
           20, HUNDRED_MILLIS, "check new leader", LOG);
     }
   }
+
+  private void runLeaseTest(CLUSTER cluster, CheckedBiConsumer<CLUSTER, Long, Exception> testCase) throws Exception {
+    final double leaseRatio = RaftServerConfigKeys.Read.leaderLeaseTimeoutRatio(getProperties());
+    final long leaseTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(getProperties())
+        .multiply(leaseRatio)
+        .toIntExact(TimeUnit.MILLISECONDS);
+    testCase.accept(cluster, leaseTimeoutMs);
+  }
+
+  @Test
+  public void testLeaderLease() throws Exception {
+    // use a strict lease
+    RaftServerConfigKeys.Read.setLeaderLeaseEnabled(getProperties(), true);
+    RaftServerConfigKeys.Read.setLeaderLeaseTimeoutRatio(getProperties(), 0.5);
+    runWithNewCluster(3, c -> runLeaseTest(c, this::runTestLeaderLease));
+  }
+
+  void runTestLeaderLease(CLUSTER cluster, long leaseTimeoutMs) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    try (final RaftClient client = cluster.createClient(leader.getId())) {
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+
+      Assert.assertTrue(leader.getInfo().isLeader());
+      Assert.assertTrue(leader.getInfo().isLeaderReady());
+      RaftServerTestUtil.assertLeaderLease(leader, true);
+
+      isolate(cluster, leader.getId());
+      Thread.sleep(leaseTimeoutMs);
+
+      Assert.assertTrue(leader.getInfo().isLeader());
+      Assert.assertTrue(leader.getInfo().isLeaderReady());
+      RaftServerTestUtil.assertLeaderLease(leader, false);
+    } finally {
+      deIsolate(cluster, leader.getId());
+    }
+  }
+
+  @Test
+  public void testLeaderLeaseDuringReconfiguration() throws Exception {
+    // use a strict lease
+    RaftServerConfigKeys.Read.setLeaderLeaseEnabled(getProperties(), true);
+    RaftServerConfigKeys.Read.setLeaderLeaseTimeoutRatio(getProperties(), 0.5);
+    runWithNewCluster(3, c -> runLeaseTest(c, this::runTestLeaderLeaseDuringReconfiguration));
+  }
+
+  void runTestLeaderLeaseDuringReconfiguration(CLUSTER cluster, long leaseTimeoutMs) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    try (final RaftClient client = cluster.createClient(leader.getId())) {
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+
+      Assert.assertTrue(leader.getInfo().isLeader());
+      Assert.assertTrue(leader.getInfo().isLeaderReady());
+      RaftServerTestUtil.assertLeaderLease(leader, true);
+
+      final List<RaftServer.Division> followers = cluster.getFollowers();
+      final MiniRaftCluster.PeerChanges changes = cluster.addNewPeers(2, true);
+
+      // blocking the original 2 followers
+      BlockRequestHandlingInjection.getInstance().blockReplier(followers.get(0).getId().toString());
+      BlockRequestHandlingInjection.getInstance().blockReplier(followers.get(1).getId().toString());
+
+      // start reconfiguration in another thread, shall fail eventually
+      new Thread(() -> {
+        try {
+          client.admin().setConfiguration(changes.allPeersInNewConf);
+        } catch (IOException e) {
+          System.out.println("as expected: " + e.getMessage());
+        }
+      }).start();
+
+      Thread.sleep(leaseTimeoutMs);
+
+      Assert.assertTrue(leader.getInfo().isLeader());
+      Assert.assertTrue(leader.getInfo().isLeaderReady());
+      RaftServerTestUtil.assertLeaderLease(leader, false);
+
+    } finally {
+      BlockRequestHandlingInjection.getInstance().unblockAll();
+    }
+  }
+
+
+
 
   private static RaftServerImpl createMockServer(boolean alive) {
     final DivisionInfo info = mock(DivisionInfo.class);

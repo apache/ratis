@@ -348,6 +348,7 @@ class LeaderStateImpl implements LeaderState {
   private final PendingStepDown pendingStepDown;
 
   private final ReadIndexHeartbeats readIndexHeartbeats;
+  private final LeaderLease lease;
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -369,6 +370,7 @@ class LeaderStateImpl implements LeaderState {
     this.messageStreamRequests = new MessageStreamRequests(server.getMemberId());
     this.pendingStepDown = new PendingStepDown(this);
     this.readIndexHeartbeats = new ReadIndexHeartbeats();
+    this.lease = new LeaderLease(properties);
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
     double followerGapRatioMax = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
 
@@ -436,6 +438,7 @@ class LeaderStateImpl implements LeaderState {
     messageStreamRequests.clear();
     // TODO client should retry on NotLeaderException
     readIndexHeartbeats.failListeners(nle);
+    lease.getAndSetEnabled(false);
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
@@ -673,6 +676,7 @@ class LeaderStateImpl implements LeaderState {
 
   private void stepDown(long term, StepDownReason reason) {
     try {
+      lease.getAndSetEnabled(false);
       server.changeToFollowerAndPersistMetadata(term, false, reason);
       pendingStepDown.complete(server::newSuccessReply);
     } catch(IOException e) {
@@ -951,6 +955,7 @@ class LeaderStateImpl implements LeaderState {
       pendingRequests.replySetConfiguration(server::newSuccessReply);
       // if the leader is not included in the current configuration, step down
       if (!conf.containsInConf(server.getId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER)) {
+        lease.getAndSetEnabled(false);
         LOG.info("{} is not included in the new configuration {}. Will shutdown server...", this, conf);
         try {
           // leave some time for all RPC senders to send out new conf entry
@@ -1111,6 +1116,12 @@ class LeaderStateImpl implements LeaderState {
           new LeaderNotReadyException(server.getMemberId())));
     }
 
+    // if lease is enabled, check lease first
+    if (hasLease()) {
+      return CompletableFuture.completedFuture(readIndex);
+    }
+
+    // send heartbeats and wait for majority acknowledgments
     final AppendEntriesListener listener = readIndexHeartbeats.addAppendEntriesListener(
         readIndex, i -> new AppendEntriesListener(i, senders));
 
@@ -1125,6 +1136,32 @@ class LeaderStateImpl implements LeaderState {
   @Override
   public void onAppendEntriesReply(LogAppender appender, RaftProtos.AppendEntriesReplyProto reply) {
     readIndexHeartbeats.onAppendEntriesReply(appender, reply, this::hasMajority);
+  }
+
+  boolean getAndSetLeaseEnabled(boolean newValue) {
+    return lease.getAndSetEnabled(newValue);
+  }
+
+  boolean hasLease() {
+    if (!lease.isEnabled()) {
+      return false;
+    }
+
+    if (checkLeaderLease()) {
+      return true;
+    }
+
+    // try extending the leader lease
+    final RaftConfigurationImpl conf = server.getRaftConf();
+    final CurrentOldFollowerInfos info = followerInfoMap.getFollowerInfos(conf);
+    lease.extend(info.getCurrent(), info.getOld(), peers -> conf.hasMajority(peers, server.getId()));
+
+    return checkLeaderLease();
+  }
+
+  private boolean checkLeaderLease() {
+    return isRunning() && isReady()
+        && (server.getRaftConf().isSingleton() || lease.isValid());
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {

@@ -101,4 +101,10 @@ public interface FollowerInfo {
 
   /** @return the latest heartbeat send time. */
   Timestamp getLastHeartbeatSendTime();
+
+  /** @return the send time of last responded rpc */
+  Timestamp getLastRespondedAppendEntriesSendTime();
+
+  /** Update lastRpcResponseTime and LastRespondedAppendEntriesSendTime */
+  void updateLastRespondedAppendEntriesSendTime(Timestamp sendTime);
 }
