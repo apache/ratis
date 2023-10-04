@@ -48,7 +48,6 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelPipeline;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
-import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
@@ -83,7 +82,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     static EventLoopGroup newWorkerGroup(RaftProperties properties) {
       return NettyUtils.newEventLoopGroup(
           JavaUtils.getClassSimpleName(NettyClientStreamRpc.class) + "-workerGroup",
-          NettyConfigKeys.DataStream.Client.workerGroupSize(properties), false);
+          NettyConfigKeys.DataStream.Client.workerGroupSize(properties),
+          NettyConfigKeys.DataStream.Client.useEpoll(properties));
     }
 
     private final EventLoopGroup workerGroup;
@@ -149,7 +149,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     private ChannelFuture connect() {
       return new Bootstrap()
           .group(getWorkerGroup())
-          .channel(NioSocketChannel.class)
+          .channel(NettyUtils.getSocketChannelClass(getWorkerGroup()))
           .handler(channelInitializerSupplier.get())
           .option(ChannelOption.SO_KEEPALIVE, true)
           .connect(address)

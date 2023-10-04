@@ -23,9 +23,15 @@ import org.apache.ratis.security.TlsConf.KeyManagerConf;
 import org.apache.ratis.security.TlsConf.PrivateKeyConf;
 import org.apache.ratis.security.TlsConf.TrustManagerConf;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
+import org.apache.ratis.thirdparty.io.netty.channel.ServerChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.epoll.Epoll;
 import org.apache.ratis.thirdparty.io.netty.channel.epoll.EpollEventLoopGroup;
+import org.apache.ratis.thirdparty.io.netty.channel.epoll.EpollServerSocketChannel;
+import org.apache.ratis.thirdparty.io.netty.channel.epoll.EpollSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
+import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
+import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
+import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.ConcurrentUtils;
@@ -141,5 +147,15 @@ public interface NettyUtils {
     }
     LOG.debug("buildSslContext for {} from {} returns {}", name, tlsConf, sslContext.getClass().getName());
     return sslContext;
+  }
+
+  static Class<? extends SocketChannel> getSocketChannelClass(EventLoopGroup eventLoopGroup) {
+    return eventLoopGroup instanceof EpollEventLoopGroup ?
+        EpollSocketChannel.class : NioSocketChannel.class;
+  }
+
+  static Class<? extends ServerChannel> getServerChannelClass(EventLoopGroup eventLoopGroup) {
+    return eventLoopGroup instanceof EpollEventLoopGroup ?
+        EpollServerSocketChannel.class : NioServerSocketChannel.class;
   }
 }

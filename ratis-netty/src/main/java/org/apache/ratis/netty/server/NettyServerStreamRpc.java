@@ -45,10 +45,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelInitializer;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelPipeline;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
-import org.apache.ratis.thirdparty.io.netty.channel.epoll.EpollEventLoopGroup;
-import org.apache.ratis.thirdparty.io.netty.channel.epoll.EpollServerSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
-import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
@@ -184,8 +181,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
             host == null || host.isEmpty() ? new InetSocketAddress(port) : new InetSocketAddress(host, port);
     this.channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
-        .channel(bossGroup instanceof EpollEventLoopGroup ?
-            EpollServerSocketChannel.class : NioServerSocketChannel.class)
+        .channel(NettyUtils.getServerChannelClass(bossGroup))
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(newChannelInitializer(sslContext))
         .childOption(ChannelOption.SO_KEEPALIVE, true)

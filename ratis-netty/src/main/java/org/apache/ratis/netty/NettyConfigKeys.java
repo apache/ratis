@@ -48,6 +48,9 @@ public interface NettyConfigKeys {
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = 0;
 
+    String USE_EPOLL_KEY = PREFIX + ".use-epoll";
+    boolean USE_EPOLL_DEFAULT = true;
+
     static String host(RaftProperties properties) {
       return get(properties::get, HOST_KEY, HOST_DEFAULT, getDefaultLog());
     }
@@ -63,6 +66,13 @@ public interface NettyConfigKeys {
 
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
+    }
+
+    static boolean useEpoll(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, USE_EPOLL_KEY, USE_EPOLL_DEFAULT, getDefaultLog());
+    }
+    static void setUseEpoll(RaftProperties properties, boolean enable) {
+      setBoolean(properties::setBoolean, USE_EPOLL_KEY, enable);
     }
   }
 
@@ -110,6 +120,15 @@ public interface NettyConfigKeys {
         ConfUtils.setTlsConf((key, value) -> parameters.put(key, value, TLS_CONF_CLASS), TLS_CONF_PARAMETER, conf);
       }
 
+      String USE_EPOLL_KEY = PREFIX + ".use-epoll";
+      boolean USE_EPOLL_DEFAULT = true;
+      static boolean useEpoll(RaftProperties properties) {
+        return getBoolean(properties::getBoolean, USE_EPOLL_KEY, USE_EPOLL_DEFAULT, getDefaultLog());
+      }
+      static void setUseEpoll(RaftProperties properties, boolean enable) {
+        setBoolean(properties::setBoolean, USE_EPOLL_KEY, enable);
+      }
+
       String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
       int WORKER_GROUP_SIZE_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
       static int workerGroupSize(RaftProperties properties) {
@@ -155,7 +174,7 @@ public interface NettyConfigKeys {
       }
 
       String USE_EPOLL_KEY = PREFIX + ".use-epoll";
-      boolean USE_EPOLL_DEFAULT = false;
+      boolean USE_EPOLL_DEFAULT = true;
       static boolean useEpoll(RaftProperties properties) {
         return getBoolean(properties::getBoolean, USE_EPOLL_KEY, USE_EPOLL_DEFAULT, getDefaultLog());
       }
