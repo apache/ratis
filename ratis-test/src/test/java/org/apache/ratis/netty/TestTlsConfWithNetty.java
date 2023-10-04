@@ -131,7 +131,7 @@ public class TestTlsConfWithNetty {
     public NettyTestServer(int port, SslContext sslContext) {
       this.channelFuture = new ServerBootstrap()
           .group(bossGroup, workerGroup)
-          .channel(NettyUtils.getServerChannel(bossGroup))
+          .channel(NettyUtils.getServerChannelClass(bossGroup))
           .handler(new LoggingHandler(getClass(), LogLevel.INFO))
           .childHandler(newChannelInitializer(sslContext))
           .bind(port)

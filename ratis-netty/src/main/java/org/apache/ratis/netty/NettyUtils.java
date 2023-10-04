@@ -149,12 +149,12 @@ public interface NettyUtils {
     return sslContext;
   }
 
-  static Class<? extends SocketChannel> getSocketChannel(EventLoopGroup eventLoopGroup) {
+  static Class<? extends SocketChannel> getSocketChannelClass(EventLoopGroup eventLoopGroup) {
     return eventLoopGroup instanceof EpollEventLoopGroup ?
         EpollSocketChannel.class : NioSocketChannel.class;
   }
 
-  static Class<? extends ServerChannel> getServerChannel(EventLoopGroup eventLoopGroup) {
+  static Class<? extends ServerChannel> getServerChannelClass(EventLoopGroup eventLoopGroup) {
     return eventLoopGroup instanceof EpollEventLoopGroup ?
         EpollServerSocketChannel.class : NioServerSocketChannel.class;
   }

@@ -181,7 +181,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
             host == null || host.isEmpty() ? new InetSocketAddress(port) : new InetSocketAddress(host, port);
     this.channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
-        .channel(NettyUtils.getServerChannel(bossGroup))
+        .channel(NettyUtils.getServerChannelClass(bossGroup))
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(newChannelInitializer(sslContext))
         .childOption(ChannelOption.SO_KEEPALIVE, true)

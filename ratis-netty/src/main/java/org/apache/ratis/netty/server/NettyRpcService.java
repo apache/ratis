@@ -126,7 +126,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
             host == null || host.isEmpty() ? new InetSocketAddress(port) : new InetSocketAddress(host, port);
     this.channel = JavaUtils.memoize(() -> new ServerBootstrap()
         .group(bossGroup, workerGroup)
-        .channel(NettyUtils.getServerChannel(bossGroup))
+        .channel(NettyUtils.getServerChannelClass(bossGroup))
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(initializer)
         .bind(socketAddress));

@@ -149,7 +149,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     private ChannelFuture connect() {
       return new Bootstrap()
           .group(getWorkerGroup())
-          .channel(NettyUtils.getSocketChannel(getWorkerGroup()))
+          .channel(NettyUtils.getSocketChannelClass(getWorkerGroup()))
           .handler(channelInitializerSupplier.get())
           .option(ChannelOption.SO_KEEPALIVE, true)
           .connect(address)
