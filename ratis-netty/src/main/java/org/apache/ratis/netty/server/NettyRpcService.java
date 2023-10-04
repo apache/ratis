@@ -31,7 +31,6 @@ import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
-import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
@@ -127,7 +126,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
             host == null || host.isEmpty() ? new InetSocketAddress(port) : new InetSocketAddress(host, port);
     this.channel = JavaUtils.memoize(() -> new ServerBootstrap()
         .group(bossGroup, workerGroup)
-        .channel(NioServerSocketChannel.class)
+        .channel(NettyUtils.getServerChannel(bossGroup))
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(initializer)
         .bind(socketAddress));

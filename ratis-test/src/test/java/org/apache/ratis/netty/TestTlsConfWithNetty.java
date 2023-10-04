@@ -33,7 +33,6 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelPipeline;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
-import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
@@ -132,7 +131,7 @@ public class TestTlsConfWithNetty {
     public NettyTestServer(int port, SslContext sslContext) {
       this.channelFuture = new ServerBootstrap()
           .group(bossGroup, workerGroup)
-          .channel(NioServerSocketChannel.class)
+          .channel(NettyUtils.getServerChannel(bossGroup))
           .handler(new LoggingHandler(getClass(), LogLevel.INFO))
           .childHandler(newChannelInitializer(sslContext))
           .bind(port)
