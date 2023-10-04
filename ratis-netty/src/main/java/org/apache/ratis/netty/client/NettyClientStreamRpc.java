@@ -83,7 +83,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     static EventLoopGroup newWorkerGroup(RaftProperties properties) {
       return NettyUtils.newEventLoopGroup(
           JavaUtils.getClassSimpleName(NettyClientStreamRpc.class) + "-workerGroup",
-          NettyConfigKeys.DataStream.Client.workerGroupSize(properties), false);
+          NettyConfigKeys.DataStream.Client.workerGroupSize(properties),
+          NettyConfigKeys.DataStream.Client.useEpoll(properties));
     }
 
     private final EventLoopGroup workerGroup;

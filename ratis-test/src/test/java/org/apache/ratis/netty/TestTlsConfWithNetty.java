@@ -38,6 +38,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
+import org.apache.ratis.util.JavaUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -120,8 +121,12 @@ public class TestTlsConfWithNetty {
   static class NettyTestServer implements Closeable {
     private static final Logger LOG = LoggerFactory.getLogger(NettyTestServer.class);
 
-    private final EventLoopGroup bossGroup = new NioEventLoopGroup(3);
-    private final EventLoopGroup workerGroup = new NioEventLoopGroup(3);
+    static final String CLASS_NAME = JavaUtils.getClassSimpleName(NettyTestServer.class);
+
+    private final EventLoopGroup bossGroup = NettyUtils.newEventLoopGroup(
+        CLASS_NAME + "-bossGroup", 3, true);
+    private final EventLoopGroup workerGroup = NettyUtils.newEventLoopGroup(
+        CLASS_NAME + "-workerGroup", 3, true);
     private final ChannelFuture channelFuture;
 
     public NettyTestServer(int port, SslContext sslContext) {

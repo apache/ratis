@@ -20,6 +20,7 @@ package org.apache.ratis.netty.server;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyRpcProxy;
+import org.apache.ratis.netty.NettyUtils;
 import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.GroupListReply;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -83,8 +84,8 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
 
   private final RaftServer server;
 
-  private final EventLoopGroup bossGroup = new NioEventLoopGroup();
-  private final EventLoopGroup workerGroup = new NioEventLoopGroup();
+  private final EventLoopGroup bossGroup;
+  private final EventLoopGroup workerGroup;
   private final MemoizedSupplier<ChannelFuture> channel;
   private final InetSocketAddress socketAddress;
 
@@ -116,6 +117,10 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
         p.addLast(new InboundHandler());
       }
     };
+
+    final boolean useEpoll = NettyConfigKeys.Server.useEpoll(server.getProperties());
+    this.bossGroup = NettyUtils.newEventLoopGroup(CLASS_NAME + "-bossGroup", 0, useEpoll);
+    this.workerGroup = NettyUtils.newEventLoopGroup(CLASS_NAME + "-workerGroup",0, useEpoll);
 
     final String host = NettyConfigKeys.Server.host(server.getProperties());
     final int port = NettyConfigKeys.Server.port(server.getProperties());
