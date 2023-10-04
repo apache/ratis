@@ -26,13 +26,10 @@ import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.util.Timestamp;
 
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 class FollowerInfoImpl implements FollowerInfo {
   private final String name;
-  private final Consumer<Object> infoIndexChange;
-  private final Consumer<Object> debugIndexChange;
 
   private final AtomicReference<RaftPeer> peer;
   private final Function<RaftPeerId, RaftPeer> getPeer;
@@ -50,8 +47,6 @@ class FollowerInfoImpl implements FollowerInfo {
   FollowerInfoImpl(RaftGroupMemberId id, RaftPeer peer, Function<RaftPeerId, RaftPeer> getPeer,
       Timestamp lastRpcTime, long nextIndex, boolean caughtUp) {
     this.name = id + "->" + peer.getId();
-    this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
-    this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
 
     this.peer = new AtomicReference<>(peer);
     this.getPeer = getPeer;
@@ -63,6 +58,30 @@ class FollowerInfoImpl implements FollowerInfo {
     this.caughtUp = caughtUp;
   }
 
+  private void info(Object message) {
+    if (LOG.isInfoEnabled()) {
+      LOG.info("{}: {}", name, message);
+    }
+  }
+
+  private void info(String prefix, Object message) {
+    if (LOG.isInfoEnabled()) {
+      LOG.info("{}: {} {}", name, prefix, message);
+    }
+  }
+
+  private void debug(Object message) {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("{}: {}", name, message);
+    }
+  }
+
+  private void debug(String prefix, Object message) {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("{}: {} {}", name, prefix, message);
+    }
+  }
+
   @Override
   public long getMatchIndex() {
     return matchIndex.get();
@@ -70,7 +89,7 @@ class FollowerInfoImpl implements FollowerInfo {
 
   @Override
   public boolean updateMatchIndex(long newMatchIndex) {
-    return matchIndex.updateToMax(newMatchIndex, debugIndexChange);
+    return matchIndex.updateToMax(newMatchIndex, this::debug);
   }
 
   @Override
@@ -80,7 +99,7 @@ class FollowerInfoImpl implements FollowerInfo {
 
   @Override
   public boolean updateCommitIndex(long newCommitIndex) {
-    return commitIndex.updateToMax(newCommitIndex, debugIndexChange);
+    return commitIndex.updateToMax(newCommitIndex, this::debug);
   }
 
   @Override
@@ -95,32 +114,32 @@ class FollowerInfoImpl implements FollowerInfo {
 
   @Override
   public void increaseNextIndex(long newNextIndex) {
-    nextIndex.updateIncreasingly(newNextIndex, debugIndexChange);
+    nextIndex.updateIncreasingly(newNextIndex, this::debug);
   }
 
   @Override
   public void decreaseNextIndex(long newNextIndex) {
     nextIndex.updateUnconditionally(old -> old <= 0L? old: Math.min(old - 1, newNextIndex),
-        message -> infoIndexChange.accept("decreaseNextIndex " + message));
+        message -> info("decreaseNextIndex", message));
   }
 
   @Override
   public void setNextIndex(long newNextIndex) {
     nextIndex.updateUnconditionally(old -> newNextIndex >= 0 ? newNextIndex : old,
-        message -> infoIndexChange.accept("setNextIndex " + message));
+        message -> info("setNextIndex", message));
   }
 
   @Override
   public void updateNextIndex(long newNextIndex) {
     nextIndex.updateToMax(newNextIndex,
-        message -> infoIndexChange.accept("decreaseNextIndex " + message));
+        message -> debug("updateNextIndex", message));
   }
 
   @Override
   public void setSnapshotIndex(long newSnapshotIndex) {
-    snapshotIndex.setUnconditionally(newSnapshotIndex, infoIndexChange);
-    matchIndex.setUnconditionally(newSnapshotIndex, infoIndexChange);
-    nextIndex.setUnconditionally(newSnapshotIndex + 1, infoIndexChange);
+    snapshotIndex.setUnconditionally(newSnapshotIndex, this::info);
+    matchIndex.setUnconditionally(newSnapshotIndex, this::info);
+    nextIndex.setUnconditionally(newSnapshotIndex + 1, this::info);
   }
 
   @Override

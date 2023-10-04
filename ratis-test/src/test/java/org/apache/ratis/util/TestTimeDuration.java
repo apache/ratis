@@ -27,9 +27,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.util.TimeDuration.Abbreviation;
-import static org.apache.ratis.util.TimeDuration.LOG;
 import static org.apache.ratis.util.TimeDuration.parse;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -249,14 +249,35 @@ public class TestTimeDuration {
 
   @Test(timeout = 1000)
   public void testCompareTo() {
-    assertTrue(TimeDuration.ONE_SECOND.compareTo(TimeDuration.ONE_MINUTE) < 0);
-    assertTrue(TimeDuration.ONE_MINUTE.compareTo(TimeDuration.ONE_SECOND) > 0);
+    assertTimeDurationCompareTo(TimeDuration.ONE_MINUTE, TimeDuration.ONE_SECOND);
 
-    assertTrue(TimeDuration.valueOf(15, TimeUnit.SECONDS).compareTo(TimeDuration.ONE_MINUTE) < 0);
-    assertTrue(TimeDuration.ONE_MINUTE.compareTo(TimeDuration.valueOf(15, TimeUnit.SECONDS)) > 0);
+    final TimeDuration fifteenSecond = TimeDuration.valueOf(15, TimeUnit.SECONDS);
+    assertTimeDurationCompareTo(TimeDuration.ONE_DAY, fifteenSecond);
 
-    assertEquals(0, TimeDuration.valueOf(60, TimeUnit.SECONDS).compareTo(TimeDuration.ONE_MINUTE));
-    assertEquals(0, TimeDuration.ONE_MINUTE.compareTo(TimeDuration.valueOf(60, TimeUnit.SECONDS)));
+    assertTimeDurationEquals(TimeDuration.ONE_MINUTE, fifteenSecond.multiply(4));
+    assertTimeDurationEquals(TimeDuration.ONE_DAY, TimeDuration.ONE_MINUTE.multiply(60).multiply(24));
+  }
+
+  static void assertTimeDurationEquals(TimeDuration left, TimeDuration right) {
+    assertEquals(0, left.compareTo(right));
+    assertEquals(0, right.compareTo(left));
+    assertEquals(left, right);
+    assertEquals(right, left);
+  }
+
+  static void assertTimeDurationCompareTo(TimeDuration larger, TimeDuration smaller) {
+    assertTrue(smaller.compareTo(larger) < 0);
+    assertTrue(larger.compareTo(smaller) > 0);
+    assertEquals(smaller, TimeDuration.min(smaller, larger));
+    assertEquals(smaller, TimeDuration.min(larger, smaller));
+    assertEquals(larger, TimeDuration.max(smaller, larger));
+    assertEquals(larger, TimeDuration.max(larger, smaller));
+
+    final TimeDuration diff = larger.add(smaller.negate());
+    assertTrue(diff.isPositive());
+    assertTrue(diff.isNonNegative());
+    assertFalse(diff.isNegative());
+    assertFalse(diff.isNonPositive());
   }
 
   private static void assertHigherLower(TimeUnit lower, TimeUnit higher) {

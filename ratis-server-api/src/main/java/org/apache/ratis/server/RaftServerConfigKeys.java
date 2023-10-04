@@ -584,7 +584,7 @@ public interface RaftServerConfigKeys {
       }
 
       String WAIT_TIME_MIN_KEY = PREFIX + ".wait-time.min";
-      TimeDuration WAIT_TIME_MIN_DEFAULT = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);
+      TimeDuration WAIT_TIME_MIN_DEFAULT = TimeDuration.ONE_MILLISECOND;
       static TimeDuration waitTimeMin(RaftProperties properties) {
         return getTimeDuration(properties.getTimeDuration(WAIT_TIME_MIN_DEFAULT.getUnit()),
             WAIT_TIME_MIN_KEY, WAIT_TIME_MIN_DEFAULT, getDefaultLog());

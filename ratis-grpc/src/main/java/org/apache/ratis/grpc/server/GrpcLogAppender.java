@@ -192,7 +192,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       // For normal nodes, new entries should be sent ASAP
       // however for slow followers (especially when the follower is down),
       // keep sending without any wait time only ends up in high CPU load
-      return Math.max(getMinWaitTimeMs(), 0L);
+      return TimeDuration.max(getRemainingWaitTime(), TimeDuration.ZERO).toLong(TimeUnit.MILLISECONDS);
     }
     return getHeartbeatWaitTimeMs();
   }
@@ -246,14 +246,16 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   static class StreamObservers {
-    public static final int DEFAULT_WAIT_FOR_READY_MS = 10;
     private final CallStreamObserver<AppendEntriesRequestProto> appendLog;
     private final CallStreamObserver<AppendEntriesRequestProto> heartbeat;
+    private final TimeDuration waitForReady;
     private volatile boolean running = true;
 
-    StreamObservers(GrpcServerProtocolClient client, AppendLogResponseHandler handler, boolean separateHeartbeat) {
+    StreamObservers(GrpcServerProtocolClient client, AppendLogResponseHandler handler, boolean separateHeartbeat,
+        TimeDuration waitTimeMin) {
       this.appendLog = client.appendEntries(handler, false);
       this.heartbeat = separateHeartbeat? client.appendEntries(handler, true): null;
+      this.waitForReady = waitTimeMin.isPositive()? waitTimeMin: TimeDuration.ONE_MILLISECOND;
     }
 
     void onNext(AppendEntriesRequestProto proto)
@@ -267,7 +269,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       }
       // stall for stream to be ready.
       while (!stream.isReady() && running) {
-        sleep(DEFAULT_WAIT_FOR_READY_MS, isHeartBeat);
+        sleep(waitForReady, isHeartBeat);
       }
       stream.onNext(proto);
     }
@@ -307,23 +309,23 @@ public class GrpcLogAppender extends LogAppenderBase {
       increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
         appendLogRequestObserver = new StreamObservers(
-            getClient(), new AppendLogResponseHandler(), useSeparateHBChannel);
+            getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
       }
     }
 
-    final long waitMs = getMinWaitTimeMs();
-    if (waitMs > 0) {
-      sleep(waitMs, heartbeat);
+    final TimeDuration remaining = getRemainingWaitTime();
+    if (remaining.isPositive()) {
+      sleep(remaining, heartbeat);
     }
     if (isRunning()) {
       sendRequest(request, pending);
     }
   }
 
-  private static void sleep(long waitMs, boolean heartbeat)
+  private static void sleep(TimeDuration waitTime, boolean heartbeat)
       throws InterruptedIOException {
     try {
-      Thread.sleep(waitMs);
+      waitTime.sleep();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException(

@@ -1049,7 +1049,7 @@ class LeaderStateImpl implements LeaderState {
    */
 
   public boolean checkLeadership() {
-    if (!server.getInfo().isLeader()) {
+    if (!server.getRole().getLeaderState().filter(leader -> leader == this).isPresent()) {
       return false;
     }
     // The initial value of lastRpcResponseTime in FollowerInfo is set by
