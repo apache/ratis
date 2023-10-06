@@ -62,6 +62,15 @@ public interface RaftClientConfigKeys {
         TimeDuration timeoutDuration) {
       setTimeDuration(properties::setTimeDuration, WATCH_REQUEST_TIMEOUT_KEY, timeoutDuration);
     }
+
+    String USE_EPOLL_KEY = PREFIX + ".use-epoll";
+    boolean USE_EPOLL_DEFAULT = true;
+    static boolean useEpoll(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, USE_EPOLL_KEY, USE_EPOLL_DEFAULT, getDefaultLog());
+    }
+    static void setUseEpoll(RaftProperties properties, boolean enable) {
+      setBoolean(properties::setBoolean, USE_EPOLL_KEY, enable);
+    }
   }
 
   interface Async {
