@@ -76,6 +76,24 @@ public interface NettyConfigKeys {
     }
   }
 
+  interface Client {
+    Logger LOG = LoggerFactory.getLogger(Client.class);
+    static Consumer<String> getDefaultLog() {
+      return LOG::debug;
+    }
+
+    String PREFIX = NettyConfigKeys.PREFIX + ".client";
+
+    String USE_EPOLL_KEY = PREFIX + ".use-epoll";
+    boolean USE_EPOLL_DEFAULT = true;
+    static boolean useEpoll(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, USE_EPOLL_KEY, USE_EPOLL_DEFAULT, getDefaultLog());
+    }
+    static void setUseEpoll(RaftProperties properties, boolean enable) {
+      setBoolean(properties::setBoolean, USE_EPOLL_KEY, enable);
+    }
+  }
+
   interface DataStream {
     Logger LOG = LoggerFactory.getLogger(DataStream.class);
     static Consumer<String> getDefaultLog() {
