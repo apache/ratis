@@ -22,7 +22,6 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
-import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufEncoder;
@@ -52,7 +51,8 @@ public class NettyRpcProxy implements Closeable {
     private final EventLoopGroup group;
 
     public PeerMap(String name, RaftProperties properties) {
-      this(name, properties, new NioEventLoopGroup());
+      this(name, properties, NettyUtils.newEventLoopGroup(name, 0,
+          NettyConfigKeys.Client.useEpoll(properties)));
     }
 
     private PeerMap(String name, RaftProperties properties, EventLoopGroup group) {

@@ -23,7 +23,6 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInitializer;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
-import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.util.JavaUtils;
@@ -47,7 +46,7 @@ public class NettyClient implements Closeable {
     lifeCycle.startAndTransition(
         () -> channel = new Bootstrap()
             .group(group)
-            .channel(NioSocketChannel.class)
+            .channel(NettyUtils.getSocketChannelClass(group))
             .handler(new LoggingHandler(LogLevel.INFO))
             .handler(initializer)
             .connect(address)
