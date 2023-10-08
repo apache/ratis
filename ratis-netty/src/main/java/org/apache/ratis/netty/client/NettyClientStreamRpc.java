@@ -40,6 +40,7 @@ import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.Channel;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelFutureListener;
+import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandler;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInboundHandler;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInboundHandlerAdapter;
@@ -313,40 +314,44 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         if (sslContext != null) {
           p.addLast("ssl", sslContext.newHandler(ch.alloc(), address.getHostName(), address.getPort()));
         }
-        p.addLast(newEncoder());
-        p.addLast(newEncoderDataStreamRequestFilePositionCount());
-        p.addLast(newEncoderByteBuffer());
+        p.addLast(ENCODER);
+        p.addLast(ENCODER_FILE_POSITION_COUNT);
+        p.addLast(ENCODER_BYTE_BUFFER);
         p.addLast(newDecoder());
         p.addLast(handler);
       }
     };
   }
 
-  static MessageToMessageEncoder<DataStreamRequestByteBuffer> newEncoder() {
-    return new MessageToMessageEncoder<DataStreamRequestByteBuffer>() {
-      @Override
-      protected void encode(ChannelHandlerContext context, DataStreamRequestByteBuffer request, List<Object> out) {
-        NettyDataStreamUtils.encodeDataStreamRequestByteBuffer(request, out::add, context.alloc());
-      }
-    };
+  static final MessageToMessageEncoder<DataStreamRequestByteBuffer> ENCODER = new Encoder();
+
+  @ChannelHandler.Sharable
+  static class Encoder extends MessageToMessageEncoder<DataStreamRequestByteBuffer> {
+    @Override
+    protected void encode(ChannelHandlerContext context, DataStreamRequestByteBuffer request, List<Object> out) {
+      NettyDataStreamUtils.encodeDataStreamRequestByteBuffer(request, out::add, context.alloc());
+    }
   }
 
-  static MessageToMessageEncoder<DataStreamRequestFilePositionCount> newEncoderDataStreamRequestFilePositionCount() {
-    return new MessageToMessageEncoder<DataStreamRequestFilePositionCount>() {
-      @Override
-      protected void encode(ChannelHandlerContext ctx, DataStreamRequestFilePositionCount request, List<Object> out) {
-        NettyDataStreamUtils.encodeDataStreamRequestFilePositionCount(request, out::add, ctx.alloc());
-      }
-    };
+  static final MessageToMessageEncoder<DataStreamRequestFilePositionCount> ENCODER_FILE_POSITION_COUNT
+      = new EncoderFilePositionCount();
+
+  @ChannelHandler.Sharable
+  static class EncoderFilePositionCount extends MessageToMessageEncoder<DataStreamRequestFilePositionCount> {
+    @Override
+    protected void encode(ChannelHandlerContext ctx, DataStreamRequestFilePositionCount request, List<Object> out) {
+      NettyDataStreamUtils.encodeDataStreamRequestFilePositionCount(request, out::add, ctx.alloc());
+    }
   }
 
-  static MessageToMessageEncoder<ByteBuffer> newEncoderByteBuffer() {
-    return new MessageToMessageEncoder<ByteBuffer>() {
-      @Override
-      protected void encode(ChannelHandlerContext ctx, ByteBuffer request, List<Object> out) {
-        NettyDataStreamUtils.encodeByteBuffer(request, out::add);
-      }
-    };
+  static final MessageToMessageEncoder<ByteBuffer> ENCODER_BYTE_BUFFER = new EncoderByteBuffer();
+
+  @ChannelHandler.Sharable
+  static class EncoderByteBuffer extends MessageToMessageEncoder<ByteBuffer> {
+    @Override
+    protected void encode(ChannelHandlerContext ctx, ByteBuffer request, List<Object> out) {
+      NettyDataStreamUtils.encodeByteBuffer(request, out::add);
+    }
   }
 
   static ByteToMessageDecoder newDecoder() {
