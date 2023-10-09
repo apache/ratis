@@ -38,6 +38,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
+import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandler;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInboundHandler;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInboundHandlerAdapter;
@@ -258,7 +259,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
           p.addLast("ssl", sslContext.newHandler(ch.alloc()));
         }
         p.addLast(newDecoder());
-        p.addLast(newEncoder());
+        p.addLast(ENCODER);
         p.addLast(newChannelInboundHandlerAdapter());
       }
     };
@@ -277,13 +278,14 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  static MessageToMessageEncoder<DataStreamReplyByteBuffer> newEncoder() {
-    return new MessageToMessageEncoder<DataStreamReplyByteBuffer>() {
-      @Override
-      protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> out) {
-        NettyDataStreamUtils.encodeDataStreamReplyByteBuffer(reply, out::add, context.alloc());
-      }
-    };
+  static final MessageToMessageEncoder<DataStreamReplyByteBuffer> ENCODER = new Encoder();
+
+  @ChannelHandler.Sharable
+  static class Encoder extends MessageToMessageEncoder<DataStreamReplyByteBuffer> {
+    @Override
+    protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> out) {
+      NettyDataStreamUtils.encodeDataStreamReplyByteBuffer(reply, out::add, context.alloc());
+    }
   }
 
   @Override
