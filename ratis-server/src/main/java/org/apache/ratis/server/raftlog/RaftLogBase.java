@@ -185,7 +185,22 @@ public abstract class RaftLogBase implements RaftLog {
         throw new StateMachineException(memberId, new RaftLogIOException(
             "Log entry size " + entrySize + " exceeds the max buffer limit of " + maxBufferSize));
       }
-      appendEntry(e);
+      appendEntry(e).whenComplete((returned, t) -> {
+        if (t != null) {
+          LOG.error(name + ": Failed to write log entry " + LogProtoUtils.toLogEntryString(e), t);
+        } else if (returned != nextIndex) {
+          LOG.error("{}: Indices mismatched: returned index={} but nextIndex={} for log entry {}",
+              name, returned, nextIndex, LogProtoUtils.toLogEntryString(e));
+        } else {
+          return; // no error
+        }
+
+        try {
+          close(); // close due to error
+        } catch (IOException ioe) {
+          LOG.error("Failed to close " + name, ioe);
+        }
+      });
       return nextIndex;
     }
   }
