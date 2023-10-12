@@ -49,6 +49,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -170,10 +171,18 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
    */
   @Test
   public void testAddNewFollowers() throws Exception {
-    runWithNewCluster(1, this::testAddNewFollowers);
+    final int numRequests = SNAPSHOT_TRIGGER_THRESHOLD*2 - 1; // trigger a snapshot
+    runWithNewCluster(1, c -> testAddNewFollowers(c, numRequests));
   }
 
-  private void testAddNewFollowers(CLUSTER cluster) throws Exception {
+  @Test
+  public void testAddNewFollowersNoSnapshot() throws Exception {
+    final int numRequests = SNAPSHOT_TRIGGER_THRESHOLD/8;  // do not trigger a snapshot;
+    runWithNewCluster(1, c -> testAddNewFollowers(c, numRequests));
+  }
+
+  private void testAddNewFollowers(CLUSTER cluster, int numRequests) throws Exception {
+    final boolean shouldInstallSnapshot = numRequests >= SNAPSHOT_TRIGGER_THRESHOLD;
     leaderSnapshotInfoRef.set(null);
     final List<LogSegmentPath> logs;
     int i = 0;
@@ -182,24 +191,27 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final RaftPeerId leaderId = cluster.getLeader().getId();
 
       try(final RaftClient client = cluster.createClient(leaderId)) {
-        for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-          RaftClientReply
-              reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        for (; i < numRequests; i++) {
+          final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
           Assert.assertTrue(reply.isSuccess());
         }
       }
 
-      // wait for the snapshot to be done
-      final RaftServer.Division leader = cluster.getLeader();
-      final long nextIndex = leader.getRaftLog().getNextIndex();
-      LOG.info("nextIndex = {}", nextIndex);
-      final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
-          nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
-      JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
-        return null;
-      }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
-      logs = LogSegmentPath.getLogSegmentPaths(leader.getRaftStorage());
+      if (shouldInstallSnapshot) {
+        // wait for the snapshot to be done
+        final RaftServer.Division leader = cluster.getLeader();
+        final long nextIndex = leader.getRaftLog().getNextIndex();
+        LOG.info("nextIndex = {}", nextIndex);
+        final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
+            nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
+        JavaUtils.attemptRepeatedly(() -> {
+          Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+          return null;
+        }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
+        logs = LogSegmentPath.getLogSegmentPaths(leader.getRaftStorage());
+      } else {
+        logs = Collections.emptyList();
+      }
     } finally {
       cluster.shutdown();
     }
@@ -238,8 +250,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       // Check the installed snapshot index on each Follower matches with the
       // leader snapshot.
       for (RaftServer.Division follower : cluster.getFollowers()) {
-        Assert.assertEquals(leaderSnapshotInfo.getIndex(),
-            RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
+        final long expected = shouldInstallSnapshot ? leaderSnapshotInfo.getIndex() : RaftLog.INVALID_LOG_INDEX;
+        Assert.assertEquals(expected, RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
+        RaftSnapshotBaseTest.assertLogContent(follower, false);
       }
 
       // restart the peer and check if it can correctly handle conf change

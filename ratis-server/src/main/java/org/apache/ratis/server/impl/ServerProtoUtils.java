@@ -25,6 +25,8 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.util.Preconditions;
 
 import java.util.Collection;
 import java.util.List;
@@ -90,24 +92,22 @@ final class ServerProtoUtils {
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, InstallSnapshotResult result, long installedSnapshotIndex) {
-    final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, isSuccess(result));
-    final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
-        .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result);
-    if (installedSnapshotIndex > 0) {
-      builder.setSnapshotIndex(installedSnapshotIndex);
-    }
-    return builder.build();
+    final boolean success = isSuccess(result);
+    Preconditions.assertTrue(success || installedSnapshotIndex == RaftLog.INVALID_LOG_INDEX,
+        () -> "result=" + result + " but installedSnapshotIndex=" + installedSnapshotIndex);
+    final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId, replyId, success);
+    return InstallSnapshotReplyProto.newBuilder()
+        .setServerReply(rb)
+        .setTerm(currentTerm)
+        .setResult(result)
+        .setSnapshotIndex(installedSnapshotIndex > 0? installedSnapshotIndex: 0)
+        .build();
   }
 
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId,
-      InstallSnapshotResult result) {
-    final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, isSuccess(result));
-    final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
-        .newBuilder().setServerReply(rb).setResult(result);
-    return builder.build();
+      long currentTerm, InstallSnapshotResult result) {
+    return toInstallSnapshotReplyProto(requestorId, replyId, currentTerm, result, RaftLog.INVALID_LOG_INDEX);
   }
 
   static ReadIndexRequestProto toReadIndexRequestProto(

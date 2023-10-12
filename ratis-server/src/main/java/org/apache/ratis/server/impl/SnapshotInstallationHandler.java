@@ -143,7 +143,7 @@ class SnapshotInstallationHandler {
 
     // There is a mismatch between configurations on leader and follower.
     final InstallSnapshotReplyProto failedReply = ServerProtoUtils.toInstallSnapshotReplyProto(
-        leaderId, getMemberId(), InstallSnapshotResult.CONF_MISMATCH);
+        leaderId, getMemberId(), state.getCurrentTerm(), InstallSnapshotResult.CONF_MISMATCH);
     LOG.error("{}: Configuration Mismatch ({}): Leader {} has it set to {} but follower {} has it set to {}",
         getMemberId(), RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
         leaderId, request.hasSnapshotChunk(), server.getId(), installSnapshotEnabled);
@@ -209,7 +209,7 @@ class SnapshotInstallationHandler {
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final InstallSnapshotReplyProto reply = ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, InstallSnapshotResult.NOT_LEADER, -1);
+            currentTerm, InstallSnapshotResult.NOT_LEADER);
         LOG.warn("{}: Failed to recognize leader for installSnapshot notification.", getMemberId());
         return reply;
       }
@@ -308,7 +308,7 @@ class SnapshotInstallationHandler {
         server.getStateMachine().event().notifySnapshotInstalled(
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, INVALID_LOG_INDEX, server.getPeer());
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, -1);
+            currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
       }
 
       // If a snapshot has been installed, return SNAPSHOT_INSTALLED with the installed snapshot index and reset
@@ -335,7 +335,7 @@ class SnapshotInstallationHandler {
             InstallSnapshotResult.IN_PROGRESS);
       }
       return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
-          currentTerm, InstallSnapshotResult.IN_PROGRESS, -1);
+          currentTerm, InstallSnapshotResult.IN_PROGRESS);
     }
   }
 
