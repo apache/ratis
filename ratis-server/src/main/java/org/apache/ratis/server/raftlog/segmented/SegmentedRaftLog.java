@@ -26,6 +26,7 @@ import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
@@ -34,6 +35,7 @@ import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncateIndices;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AwaitToRun;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
@@ -80,7 +83,7 @@ import org.apache.ratis.util.UncheckedAutoCloseable;
  * in segments should be no smaller than the last index of snapshot, otherwise
  * we may have hole when append further log.
  */
-public class SegmentedRaftLog extends RaftLogBase {
+public final class SegmentedRaftLog extends RaftLogBase {
   /**
    * I/O task definitions.
    */
@@ -145,6 +148,10 @@ public class SegmentedRaftLog extends RaftLogBase {
     /** Notify the server that a log entry is being truncated. */
     default void notifyTruncatedLogEntry(TermIndex ti) {
     }
+
+    default TransactionContext getTransactionContext(LogEntryProto entry, boolean createNew) {
+      return null;
+    }
   }
 
   /**
@@ -152,7 +159,8 @@ public class SegmentedRaftLog extends RaftLogBase {
    * Otherwise, the server is non-null, return the implementation using the given server.
    */
   private ServerLogMethods newServerLogMethods(RaftServer.Division impl,
-      Consumer<LogEntryProto> notifyTruncatedLogEntry) {
+      Consumer<LogEntryProto> notifyTruncatedLogEntry,
+      BiFunction<LogEntryProto, Boolean, TransactionContext> getTransactionContext) {
     if (impl == null) {
       return ServerLogMethods.DUMMY;
     }
@@ -177,6 +185,11 @@ public class SegmentedRaftLog extends RaftLogBase {
           LOG.error("{}: Failed to read log {}", getName(), ti, e);
         }
       }
+
+      @Override
+      public TransactionContext getTransactionContext(LogEntryProto entry, boolean createNew) {
+        return getTransactionContext.apply(entry, createNew);
+      }
     };
   }
 
@@ -190,22 +203,19 @@ public class SegmentedRaftLog extends RaftLogBase {
   private final boolean stateMachineCachingEnabled;
   private final SegmentedRaftLogMetrics metrics;
 
-  @SuppressWarnings("parameternumber")
-  public SegmentedRaftLog(RaftGroupMemberId memberId, RaftServer.Division server,
-      StateMachine stateMachine, Consumer<LogEntryProto> notifyTruncatedLogEntry, Runnable submitUpdateCommitEvent,
-      RaftStorage storage, LongSupplier snapshotIndexSupplier, RaftProperties properties) {
-    super(memberId, snapshotIndexSupplier, properties);
-    this.metrics = new SegmentedRaftLogMetrics(memberId);
+  private SegmentedRaftLog(Builder b) {
+    super(b.memberId, b.snapshotIndexSupplier, b.properties);
+    this.metrics = new SegmentedRaftLogMetrics(b.memberId);
 
-    this.server = newServerLogMethods(server, notifyTruncatedLogEntry);
-    this.storage = storage;
-    this.stateMachine = stateMachine;
-    segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    this.cache = new SegmentedRaftLogCache(memberId, storage, properties, getRaftLogMetrics());
-    this.cacheEviction = new AwaitToRun(memberId + "-cacheEviction", this::checkAndEvictCache).start();
-    this.fileLogWorker = new SegmentedRaftLogWorker(memberId, stateMachine,
-        submitUpdateCommitEvent, server, storage, properties, getRaftLogMetrics());
-    stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
+    this.server = newServerLogMethods(b.server, b.notifyTruncatedLogEntry, b.getTransactionContext);
+    this.storage = b.storage;
+    this.stateMachine = b.stateMachine;
+    this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(b.properties).getSize();
+    this.cache = new SegmentedRaftLogCache(b.memberId, storage, b.properties, getRaftLogMetrics());
+    this.cacheEviction = new AwaitToRun(b.memberId + "-cacheEviction", this::checkAndEvictCache).start();
+    this.fileLogWorker = new SegmentedRaftLogWorker(b.memberId, stateMachine,
+        b.submitUpdateCommitEvent, b.server, storage, b.properties, getRaftLogMetrics());
+    stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(b.properties);
   }
 
   @Override
@@ -298,7 +308,7 @@ public class SegmentedRaftLog extends RaftLogBase {
     try {
       CompletableFuture<ByteString> future = null;
       if (stateMachine != null) {
-        future = stateMachine.data().read(entry).exceptionally(ex -> {
+        future = stateMachine.data().read(entry, server.getTransactionContext(entry, false)).exceptionally(ex -> {
           stateMachine.event().notifyLogFailed(ex, entry);
           throw new CompletionException("Failed to read state machine data for log entry " + entry, ex);
         });
@@ -376,7 +386,7 @@ public class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
+  protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry, TransactionContext context) {
     checkLogState();
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", getName(), LogProtoUtils.toLogEntryString(entry));
@@ -412,7 +422,7 @@ public class SegmentedRaftLog extends RaftLogBase {
       // to statemachine first and then to the cache. Not following the order
       // will leave a spurious entry in the cache.
       CompletableFuture<Long> writeFuture =
-          fileLogWorker.writeLogEntry(entry).getFuture();
+          fileLogWorker.writeLogEntry(entry, context).getFuture();
       if (stateMachineCachingEnabled) {
         // The stateMachineData will be cached inside the StateMachine itself.
         cache.appendEntry(LogProtoUtils.removeStateMachineData(entry),
@@ -460,7 +470,8 @@ public class SegmentedRaftLog extends RaftLogBase {
         futures = new ArrayList<>(entries.size() - index);
       }
       for (int i = index; i < entries.size(); i++) {
-        futures.add(appendEntry(entries.get(i)));
+        final LogEntryProto entry = entries.get(i);
+        futures.add(appendEntry(entry, server.getTransactionContext(entry, true)));
       }
       return futures;
     }
@@ -527,5 +538,74 @@ public class SegmentedRaftLog extends RaftLogBase {
   @Override
   public String toLogEntryString(LogEntryProto logEntry) {
     return LogProtoUtils.toLogEntryString(logEntry, stateMachine::toStateMachineLogEntryString);
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  public static final class Builder {
+    private RaftGroupMemberId memberId;
+    private RaftServer.Division server;
+    private StateMachine stateMachine;
+    private Consumer<LogEntryProto> notifyTruncatedLogEntry;
+    private BiFunction<LogEntryProto, Boolean, TransactionContext> getTransactionContext;
+    private Runnable submitUpdateCommitEvent;
+    private RaftStorage storage;
+    private LongSupplier snapshotIndexSupplier = () -> RaftLog.INVALID_LOG_INDEX;
+    private RaftProperties properties;
+
+    private Builder() {}
+
+    public Builder setMemberId(RaftGroupMemberId memberId) {
+      this.memberId = memberId;
+      return this;
+    }
+
+    public Builder setServer(RaftServer.Division server) {
+      this.server = server;
+      this.stateMachine = server.getStateMachine();
+      return this;
+    }
+
+    public Builder setStateMachine(StateMachine stateMachine) {
+      this.stateMachine = stateMachine;
+      return this;
+    }
+
+    public Builder setNotifyTruncatedLogEntry(Consumer<LogEntryProto> notifyTruncatedLogEntry) {
+      this.notifyTruncatedLogEntry = notifyTruncatedLogEntry;
+      return this;
+    }
+
+    public Builder setGetTransactionContext(
+        BiFunction<LogEntryProto, Boolean, TransactionContext> getTransactionContext) {
+      this.getTransactionContext = getTransactionContext;
+      return this;
+    }
+
+    public Builder setSubmitUpdateCommitEvent(Runnable submitUpdateCommitEvent) {
+      this.submitUpdateCommitEvent = submitUpdateCommitEvent;
+      return this;
+    }
+
+    public Builder setStorage(RaftStorage storage) {
+      this.storage = storage;
+      return this;
+    }
+
+    public Builder setSnapshotIndexSupplier(LongSupplier snapshotIndexSupplier) {
+      this.snapshotIndexSupplier = snapshotIndexSupplier;
+      return this;
+    }
+
+    public Builder setProperties(RaftProperties properties) {
+      this.properties = properties;
+      return this;
+    }
+
+    public SegmentedRaftLog build() {
+      return new SegmentedRaftLog(this);
+    }
   }
 }

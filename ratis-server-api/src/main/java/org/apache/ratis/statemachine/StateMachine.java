@@ -80,12 +80,30 @@ public interface StateMachine extends Closeable {
     }
 
     /**
+     * Read asynchronously the state machine data from this state machine.
+     *
+     * @return a future for the read task.
+     */
+    default CompletableFuture<ByteString> read(LogEntryProto entry, TransactionContext context) {
+      return read(entry);
+    }
+
+    /**
      * Write asynchronously the state machine data in the given log entry to this state machine.
      *
      * @return a future for the write task
      */
     default CompletableFuture<?> write(LogEntryProto entry) {
       return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Write asynchronously the state machine data in the given log entry to this state machine.
+     *
+     * @return a future for the write task
+     */
+    default CompletableFuture<?> write(LogEntryProto entry, TransactionContext context) {
+      return write(entry);
     }
 
     /**
@@ -483,13 +501,29 @@ public interface StateMachine extends Closeable {
    * and then build a {@link TransactionContext}.
    * The implementation should also be light-weighted.
    *
-   * @return null if the request should be rejected.
-   *         Otherwise, return a transaction with the content to be written to the log.
+   * @return a transaction with the content to be written to the log.
    * @throws IOException thrown by the state machine while validation
    *
    * @see TransactionContext.Builder
    */
   TransactionContext startTransaction(RaftClientRequest request) throws IOException;
+
+  /**
+   * Start a transaction for the given log entry for non-leaders.
+   * This method can be invoked in parallel when there are multiple requests.
+   * The implementation should prepare a {@link StateMachineLogEntryProto},
+   * and then build a {@link TransactionContext}.
+   * The implementation should also be light-weighted.
+   *
+   * @return a transaction with the content to be written to the log.
+   */
+  default TransactionContext startTransaction(LogEntryProto entry, RaftPeerRole role) {
+    return TransactionContext.newBuilder()
+        .setStateMachine(this)
+        .setLogEntry(entry)
+        .setServerRole(role)
+        .build();
+  }
 
   /**
    * This is called before the transaction passed from the StateMachine is appended to the raft log.

@@ -135,6 +135,7 @@ import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.JmxRegister;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -222,6 +223,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final DataStreamMap dataStreamMap;
   private final RaftServerConfigKeys.Read.Option readOption;
 
+  private final TransactionManager transactionManager = new TransactionManager();
   private final RetryCacheImpl retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
   private final WriteIndexCache writeIndexCache;
@@ -1784,6 +1786,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     return stateMachineFuture.whenComplete((reply, exception) -> {
+      transactionManager.remove(logIndex);
       final RaftClientReply.Builder b = newReplyBuilder(invocationId, logIndex);
       final RaftClientReply r;
       if (exception == null) {
@@ -1801,6 +1804,27 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
 
+  TransactionContext getTransactionContext(LogEntryProto entry, Boolean createNew) {
+    if (!entry.hasStateMachineLogEntry()) {
+      return null;
+    }
+
+    final Optional<LeaderStateImpl> leader = getRole().getLeaderState();
+    if (leader.isPresent()) {
+      final TransactionContext context = leader.get().getTransactionContext(entry.getIndex());
+      if (context != null) {
+        return context;
+      }
+    }
+
+    if (!createNew) {
+      return transactionManager.get(entry.getIndex());
+    }
+    return transactionManager.computeIfAbsent(entry.getIndex(),
+        // call startTransaction only once
+        MemoizedSupplier.valueOf(() -> stateMachine.startTransaction(entry, getInfo().getCurrentRole())));
+  }
+
   CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) throws RaftLogIOException {
     if (!next.hasStateMachineLogEntry()) {
       stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
@@ -1813,14 +1837,7 @@ class RaftServerImpl implements RaftServer.Division,
       stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(), next.getConfigurationEntry());
       role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
     } else if (next.hasStateMachineLogEntry()) {
-      // check whether there is a TransactionContext because we are the leader.
-      TransactionContext trx = role.getLeaderState()
-          .map(leader -> leader.getTransactionContext(next.getIndex()))
-          .orElseGet(() -> TransactionContext.newBuilder()
-                  .setServerRole(role.getCurrentRole())
-                  .setStateMachine(stateMachine)
-                  .setLogEntry(next)
-                  .build());
+      TransactionContext trx = getTransactionContext(next, true);
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
       writeIndexCache.add(invocationId.getClientId(), ((TransactionContextImpl) trx).getLogIndexFuture());
 

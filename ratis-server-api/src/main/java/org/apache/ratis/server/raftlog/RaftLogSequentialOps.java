@@ -122,6 +122,14 @@ interface RaftLogSequentialOps {
   CompletableFuture<Long> appendEntry(LogEntryProto entry);
 
   /**
+   * Append asynchronously an entry.
+   * Used by the leader.
+   */
+  default CompletableFuture<Long> appendEntry(LogEntryProto entry, TransactionContext context) {
+    return appendEntry(entry);
+  }
+
+  /**
    * The same as append(Arrays.asList(entries)).
    *
    * @deprecated use {@link #append(List)}

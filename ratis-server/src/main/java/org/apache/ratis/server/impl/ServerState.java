@@ -177,11 +177,16 @@ class ServerState {
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
       log = new MemoryRaftLog(memberId, getSnapshotIndexFromStateMachine, prop);
     } else {
-      log = new SegmentedRaftLog(memberId, server,
-          server.getStateMachine(),
-          server::notifyTruncatedLogEntry,
-          server::submitUpdateCommitEvent,
-          storage, getSnapshotIndexFromStateMachine, prop);
+      log = SegmentedRaftLog.newBuilder()
+          .setMemberId(memberId)
+          .setServer(server)
+          .setNotifyTruncatedLogEntry(server::notifyTruncatedLogEntry)
+          .setGetTransactionContext(server::getTransactionContext)
+          .setSubmitUpdateCommitEvent(server::submitUpdateCommitEvent)
+          .setStorage(storage)
+          .setSnapshotIndexSupplier(getSnapshotIndexFromStateMachine)
+          .setProperties(prop)
+          .build();
     }
     log.open(log.getSnapshotIndex(), logConsumer);
     return log;

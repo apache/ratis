@@ -136,14 +136,21 @@ public class TestSegmentedRaftLog extends BaseTest {
   }
 
   static SegmentedRaftLog newSegmentedRaftLog(RaftStorage storage, RaftProperties properties) {
-    return new SegmentedRaftLog(memberId, null, null, null, null, storage,
-        () -> -1, properties);
+    return SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build();
   }
 
   private SegmentedRaftLog newSegmentedRaftLogWithSnapshotIndex(RaftStorage storage, RaftProperties properties,
                                                                 LongSupplier getSnapshotIndexFromStateMachine) {
-    return new SegmentedRaftLog(memberId, null, null, null, null, storage,
-        getSnapshotIndexFromStateMachine, properties);
+    return SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setStorage(storage)
+        .setSnapshotIndexSupplier(getSnapshotIndexFromStateMachine)
+        .setProperties(properties)
+        .build();
   }
 
   @Before
@@ -576,7 +583,12 @@ public class TestSegmentedRaftLog extends BaseTest {
     final List<LogEntryProto> entries = prepareLogEntries(range, null, true, new ArrayList<>());
 
     final SimpleStateMachine4Testing sm = new SimpleStateMachine4Testing();
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, () -> -1, properties)) {
+    try (SegmentedRaftLog raftLog = SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setStateMachine(sm)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build()) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
 
       int next = 0;
@@ -641,7 +653,12 @@ public class TestSegmentedRaftLog extends BaseTest {
     };
 
     Throwable ex = null; // TimeoutIOException
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, () -> -1, properties)) {
+    try (SegmentedRaftLog raftLog = SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setStateMachine(sm)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build()) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // SegmentedRaftLogWorker should catch TimeoutIOException
       CompletableFuture<Long> f = raftLog.appendEntry(entry);
