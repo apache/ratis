@@ -181,6 +181,22 @@ public abstract class LogAppenderBase implements LogAppender {
     return null;
   }
 
+  protected long getNextIndexForInconsistency(long requestFirstIndex, long replyNextIndex) {
+    long next = replyNextIndex;
+    final long i = getFollower().getMatchIndex() + 1;
+    if (i > next && i != requestFirstIndex) {
+      // Ideally, we should set nextIndex to a value greater than matchIndex.
+      // However, we must not resend the same first entry due to some special cases (e.g. the log is empty).
+      // Otherwise, the follower will reply INCONSISTENCY again.
+      next = i;
+    }
+    if (next == requestFirstIndex && next > RaftLog.LEAST_VALID_LOG_INDEX) {
+      // Avoid resending the same first entry.
+      next--;
+    }
+    return next;
+  }
+
   @Override
   public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat)
       throws RaftLogIOException {

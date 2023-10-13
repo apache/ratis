@@ -87,22 +87,28 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
   public static void assertLeaderContent(MiniRaftCluster cluster) throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
-    final RaftLog leaderLog = leader.getRaftLog();
-    final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
-    final LogEntryProto e = leaderLog.get(lastIndex);
+    assertLogContent(leader, true);
+  }
+
+  public static void assertLogContent(RaftServer.Division server, boolean isLeader) throws Exception {
+    final RaftLog log = server.getRaftLog();
+    final long lastIndex = log.getLastEntryTermIndex().getIndex();
+    final LogEntryProto e = log.get(lastIndex);
     Assert.assertTrue(e.hasMetadataEntry());
 
     JavaUtils.attemptRepeatedly(() -> {
-      Assert.assertEquals(leaderLog.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
+      Assert.assertEquals(log.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
       return null;
     }, 50, BaseTest.HUNDRED_MILLIS, "CheckMetadataEntry", LOG);
 
-    SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(leader);
-    Assert.assertTrue("Is not notified as a leader", simpleStateMachine.isNotifiedAsLeader());
+    SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(server);
+    if (isLeader) {
+      Assert.assertTrue("Not notified as a leader", simpleStateMachine.isNotifiedAsLeader());
+    }
     final LogEntryProto[] entries = simpleStateMachine.getContent();
     long message = 0;
     for (int i = 0; i < entries.length; i++) {
-      LOG.info("{}) {} {}", i, message, entries[i]);
+      LOG.info("{}) {} {}", i, message, entries[i].toString().replace("\n", ", "));
       if (entries[i].hasStateMachineLogEntry()) {
         final SimpleMessage m = new SimpleMessage("m" + message++);
         Assert.assertArrayEquals(m.getContent().toByteArray(),
