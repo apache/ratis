@@ -415,6 +415,9 @@ class ServerState {
         getStateMachineUpdater().stopAndJoin();
       }
     } catch (Throwable e) {
+      if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+      }
       LOG.warn(getMemberId() + ": Failed to join " + getStateMachineUpdater(), e);
     }
     LOG.info("{}: applyIndex: {}", getMemberId(), getLastAppliedIndex());

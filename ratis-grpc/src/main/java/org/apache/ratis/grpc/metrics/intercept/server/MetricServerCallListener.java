@@ -30,7 +30,6 @@ public class MetricServerCallListener<R> extends ForwardingServerCallListener<R>
 
   MetricServerCallListener(
       ServerCall.Listener<R> delegate,
-      String metricNamePrefix,
       MessageMetrics metrics
   ){
     this.delegate = delegate;

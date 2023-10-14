@@ -73,11 +73,6 @@ public class StepDownCommand extends AbstractRatisCommand {
     return description();
   }
 
-  @Override
-  public Options getOptions() {
-    return super.getOptions();
-  }
-
   /**
    * @return command's description
    */

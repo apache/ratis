@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 class SnapshotManagementRequestHandler {
-  public static final Logger LOG = LoggerFactory.getLogger(TransferLeadership.class);
+  public static final Logger LOG = LoggerFactory.getLogger(SnapshotManagementRequestHandler.class);
 
   class PendingRequest {
     private final SnapshotManagementRequest request;

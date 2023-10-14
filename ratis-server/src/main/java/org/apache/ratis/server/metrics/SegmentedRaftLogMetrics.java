@@ -187,6 +187,7 @@ public class SegmentedRaftLogMetrics extends RaftLogMetricsBase {
     return Timekeeper.start(purgeTimer);
   }
 
+  @Override
   public void onStateMachineDataWriteTimeout() {
     numStateMachineDataWriteTimeout.inc();
   }

@@ -102,7 +102,6 @@ public class GrpcServerProtocolClient implements Closeable {
   @Override
   public void close() {
     LOG.info("{} Close channels", raftPeerId);
-    CompletableFuture<Void> future1;
     if (useSeparateHBChannel) {
       GrpcUtil.shutdownManagedChannel(hbChannel);
     }

@@ -76,7 +76,7 @@ public class MetricServerInterceptor implements ServerInterceptor, Closeable {
     String metricNamePrefix = getMethodMetricPrefix(method);
     ServerCall<R,S> monitoringCall = new MetricServerCall<>(call, metricNamePrefix, metrics);
     return new MetricServerCallListener<>(
-        next.startCall(monitoringCall, requestHeaders), metricNamePrefix, metrics);
+        next.startCall(monitoringCall, requestHeaders), metrics);
   }
 
   @Override

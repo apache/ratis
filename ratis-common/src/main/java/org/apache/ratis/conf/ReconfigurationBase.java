@@ -114,7 +114,7 @@ public abstract class ReconfigurationBase implements Reconfigurable {
    * Construct a ReconfigurableBase with the {@link RaftProperties}
    * @param properties raft properties.
    */
-  public ReconfigurationBase(String name, RaftProperties properties) {
+  protected ReconfigurationBase(String name, RaftProperties properties) {
     this.name = name;
     this.properties = properties;
     this.context = new Context();

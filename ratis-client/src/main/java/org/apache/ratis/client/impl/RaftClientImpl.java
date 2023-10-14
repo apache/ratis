@@ -350,7 +350,7 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   private void refreshPeers(Collection<RaftPeer> newPeers) {
-    if (newPeers != null && newPeers.size() > 0) {
+    if (newPeers != null && !newPeers.isEmpty()) {
       peers.set(newPeers);
       // also refresh the rpc proxies for these peers
       clientRpc.addRaftPeers(newPeers);

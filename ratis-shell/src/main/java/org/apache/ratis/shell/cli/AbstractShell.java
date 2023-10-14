@@ -43,7 +43,7 @@ public abstract class AbstractShell implements Closeable {
   /**
    * Creates a new instance of {@link AbstractShell}.
    */
-  public AbstractShell(Context context) {
+  protected AbstractShell(Context context) {
     closer = Closer.create();
     mCommands = loadCommands(context);
     // Register all loaded commands under closer.
