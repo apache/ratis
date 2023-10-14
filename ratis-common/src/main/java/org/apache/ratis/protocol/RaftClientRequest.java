@@ -86,7 +86,7 @@ public class RaftClientRequest extends RaftClientMessage {
     return new Type(WatchRequestTypeProto.newBuilder().setIndex(index).setReplication(replication).build());
   }
 
-  /** The type of a request (oneof write, read, staleRead, watch; see the message RaftClientRequestProto). */
+  /** The type of {@link RaftClientRequest} corresponding to {@link RaftClientRequestProto.TypeCase}. */
   public static final class Type {
     public static Type valueOf(WriteRequestTypeProto write) {
       return WRITE_DEFAULT;
@@ -160,8 +160,24 @@ public class RaftClientRequest extends RaftClientMessage {
       this(WATCH, watch);
     }
 
-    public boolean is(RaftClientRequestProto.TypeCase tCase) {
-      return getTypeCase().equals(tCase);
+    public boolean is(RaftClientRequestProto.TypeCase t) {
+      return getTypeCase() == t;
+    }
+
+    public boolean isReadOnly() {
+      switch (getTypeCase()) {
+        case READ:
+        case STALEREAD:
+        case WATCH:
+          return true;
+        case WRITE:
+        case MESSAGESTREAM:
+        case DATASTREAM:
+        case FORWARD:
+          return false;
+        default:
+          throw new IllegalStateException("Unexpected type case: " + getTypeCase());
+      }
     }
 
     public RaftClientRequestProto.TypeCase getTypeCase() {
@@ -258,8 +274,7 @@ public class RaftClientRequest extends RaftClientMessage {
     private long timeoutMs;
 
     public RaftClientRequest build() {
-      return new RaftClientRequest(
-          clientId, serverId, groupId, callId, toLeader, message, type, slidingWindowEntry, routingTable, timeoutMs);
+      return new RaftClientRequest(this);
     }
 
     public Builder setClientId(ClientId clientId) {
@@ -343,29 +358,38 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private final boolean toLeader;
 
-  protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
-      boolean toLeader, Type type) {
-    this(clientId, serverId, groupId, callId, toLeader, null, type, null, null, 0);
+  /** Construct a request for sending to the given server. */
+  protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
+    this(newBuilder()
+        .setClientId(clientId)
+        .setServerId(serverId)
+        .setGroupId(groupId)
+        .setCallId(callId)
+        .setType(type));
   }
 
-  protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type,
+  /** Construct a request for sending to the Leader. */
+  protected RaftClientRequest(ClientId clientId, RaftPeerId leaderId, RaftGroupId groupId, long callId, Type type,
       long timeoutMs) {
-    this(clientId, serverId, groupId, callId, true, null, type, null, null, timeoutMs);
+    this(newBuilder()
+        .setClientId(clientId)
+        .setLeaderId(leaderId)
+        .setGroupId(groupId)
+        .setCallId(callId)
+        .setType(type)
+        .setTimeoutMs(timeoutMs));
   }
 
-  @SuppressWarnings("parameternumber")
-  private RaftClientRequest(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-      long callId, boolean toLeader, Message message, Type type, SlidingWindowEntry slidingWindowEntry,
-      RoutingTable routingTable, long timeoutMs) {
-    super(clientId, serverId, groupId, callId);
-    this.toLeader = toLeader;
+  private RaftClientRequest(Builder b) {
+    super(b.clientId, b.serverId, b.groupId, b.callId);
+    this.toLeader = b.toLeader;
 
-    this.message = message;
-    this.type = type;
-    this.slidingWindowEntry = slidingWindowEntry != null? slidingWindowEntry: SlidingWindowEntry.getDefaultInstance();
-    this.routingTable = routingTable;
-    this.timeoutMs = timeoutMs;
+    this.message = b.message;
+    this.type = b.type;
+    this.slidingWindowEntry = b.slidingWindowEntry != null ? b.slidingWindowEntry
+        : SlidingWindowEntry.getDefaultInstance();
+    this.routingTable = b.routingTable;
+    this.timeoutMs = b.timeoutMs;
   }
 
   @Override
@@ -391,6 +415,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public boolean is(RaftClientRequestProto.TypeCase typeCase) {
     return getType().is(typeCase);
+  }
+
+  public boolean isReadOnly() {
+    return getType().isReadOnly();
   }
 
   public RoutingTable getRoutingTable() {
