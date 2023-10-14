@@ -167,7 +167,7 @@ public class SetConfigurationRequest extends RaftClientRequest {
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, Arguments arguments) {
-    super(clientId, serverId, groupId, callId, true, writeRequestType());
+    super(clientId, serverId, groupId, callId, writeRequestType(), 0);
     this.arguments = arguments;
   }
 
