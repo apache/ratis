@@ -160,8 +160,24 @@ public class RaftClientRequest extends RaftClientMessage {
       this(WATCH, watch);
     }
 
-    public boolean is(RaftClientRequestProto.TypeCase tCase) {
-      return getTypeCase().equals(tCase);
+    public boolean is(RaftClientRequestProto.TypeCase t) {
+      return getTypeCase() == t;
+    }
+
+    public boolean isReadOnly() {
+      switch (getTypeCase()) {
+        case READ:
+        case STALEREAD:
+        case WATCH:
+          return true;
+        case WRITE:
+        case MESSAGESTREAM:
+        case DATASTREAM:
+        case FORWARD:
+          return false;
+        default:
+          throw new IllegalStateException("Unexpected type case: " + getTypeCase());
+      }
     }
 
     public RaftClientRequestProto.TypeCase getTypeCase() {
@@ -391,6 +407,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public boolean is(RaftClientRequestProto.TypeCase typeCase) {
     return getType().is(typeCase);
+  }
+
+  public boolean isReadOnly() {
+    return getType().isReadOnly();
   }
 
   public RoutingTable getRoutingTable() {
