@@ -388,8 +388,8 @@ public final class RaftClientImpl implements RaftClient {
     final boolean reconnect = changeLeader || clientRpc.shouldReconnect(ioe);
     if (reconnect) {
       if (changeLeader && oldLeader.equals(getLeaderId())) {
-        LOG.debug("{} {}: client change Leader from {} to {} ex={}", groupId,
-            clientId, oldLeader, newLeader, ioe.getClass().getName());
+        LOG.debug("{} changes Leader from {} to {} for {}",
+            clientId, oldLeader, newLeader, groupId, ioe);
         this.leaderId = newLeader;
       }
       clientRpc.handleException(oldLeader, ioe, true);

@@ -236,7 +236,12 @@ public final class RaftPeer {
 
   @Override
   public String toString() {
-    final String rpc = address != null? "|rpc:" + address: "";
+    final String rpc = address != null? "|" + address: "";
+    return id + rpc;
+  }
+
+  public String getDetails() {
+    final String prefix = toString();
     final String admin = adminAddress != null && !Objects.equals(address, adminAddress)
         ? "|admin:" + adminAddress : "";
     final String client = clientAddress != null && !Objects.equals(address, clientAddress)
@@ -244,7 +249,7 @@ public final class RaftPeer {
     final String data = dataStreamAddress != null? "|dataStream:" + dataStreamAddress: "";
     final String p = "|priority:" + priority;
     final String role = "|startupRole:" + startupRole;
-    return id + rpc + admin + client + data + p + role;
+    return prefix + admin + client + data + p + role;
   }
 
   @Override

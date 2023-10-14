@@ -53,7 +53,7 @@ public final class LeaderElectionManagementRequest extends RaftClientRequest{
 
   public LeaderElectionManagementRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Op op) {
-    super(clientId, serverId, groupId, callId, false, readRequestType());
+    super(clientId, serverId, groupId, callId, readRequestType());
     this.op = op;
   }
 
