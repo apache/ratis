@@ -52,7 +52,7 @@ public abstract class RaftId {
     return ByteStringUtils.unsafeWrap(array);
   }
 
-  static abstract class Factory<ID extends RaftId> {
+  abstract static class Factory<ID extends RaftId> {
     private final Cache<UUID, ID> cache = CacheBuilder.newBuilder()
         .weakValues()
         .build();
