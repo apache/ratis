@@ -23,34 +23,39 @@ import java.util.UUID;
 
 /**
  * The id of a raft group.
- *
+ * <p>
  * This is a value-based class.
  */
 public final class RaftGroupId extends RaftId {
-  private static final RaftGroupId EMPTY_GROUP_ID = new RaftGroupId(ZERO_UUID_BYTESTRING);
+  private static final Factory<RaftGroupId> FACTORY = new Factory<RaftGroupId>() {
+    @Override
+    RaftGroupId newInstance(UUID uuid, ByteString bytes) {
+      return bytes == null? new RaftGroupId(uuid) : new RaftGroupId(uuid, bytes);
+    }
+  };
 
   public static RaftGroupId emptyGroupId() {
-    return EMPTY_GROUP_ID;
+    return FACTORY.emptyId();
   }
 
   public static RaftGroupId randomId() {
-    return new RaftGroupId(UUID.randomUUID());
+    return FACTORY.randomId();
   }
 
   public static RaftGroupId valueOf(UUID uuid) {
-    return new RaftGroupId(uuid);
+    return FACTORY.valueOf(uuid);
   }
 
-  public static RaftGroupId valueOf(ByteString data) {
-    return new RaftGroupId(data);
+  public static RaftGroupId valueOf(ByteString bytes) {
+    return FACTORY.valueOf(bytes);
   }
 
   private RaftGroupId(UUID id) {
     super(id);
   }
 
-  private RaftGroupId(ByteString data) {
-    super(data);
+  private RaftGroupId(UUID uuid, ByteString bytes) {
+    super(uuid, bytes);
   }
 
   @Override

@@ -29,8 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
- * Id of Raft Peer which is globally unique.
- *
+ * ID of Raft Peer which is globally unique.
+ * <p>
  * This is a value-based class.
  */
 public final class RaftPeerId {
@@ -64,14 +64,13 @@ public final class RaftPeerId {
 
   private RaftPeerId(ByteString id) {
     this.id = Objects.requireNonNull(id, "id == null");
-    Preconditions.assertTrue(id.size() > 0, "id is empty.");
+    Preconditions.assertTrue(!id.isEmpty(), "id is empty.");
     this.idString = id.toString(StandardCharsets.UTF_8);
     this.raftPeerIdProto = JavaUtils.memoize(this::buildRaftPeerIdProto);
   }
 
   private RaftPeerIdProto buildRaftPeerIdProto() {
-    final RaftPeerIdProto.Builder builder = RaftPeerIdProto.newBuilder().setId(id);
-    return builder.build();
+    return RaftPeerIdProto.newBuilder().setId(id).build();
   }
 
   public RaftPeerIdProto getRaftPeerIdProto() {
