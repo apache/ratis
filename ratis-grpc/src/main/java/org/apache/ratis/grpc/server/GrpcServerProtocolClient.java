@@ -39,7 +39,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * This is a RaftClient implementation that supports streaming data to the raft
@@ -102,7 +101,6 @@ public class GrpcServerProtocolClient implements Closeable {
   @Override
   public void close() {
     LOG.info("{} Close channels", raftPeerId);
-    CompletableFuture<Void> future1;
     if (useSeparateHBChannel) {
       GrpcUtil.shutdownManagedChannel(hbChannel);
     }

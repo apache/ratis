@@ -249,6 +249,9 @@ class LeaderElection implements Runnable {
         }
       }
     } catch(Exception e) {
+      if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+      }
       final LifeCycle.State state = lifeCycle.getCurrentState();
       if (state.isClosingOrClosed()) {
         LOG.info("{}: {} is safely ignored since this is already {}",
@@ -426,7 +429,7 @@ class LeaderElection implements Runnable {
         if (r.getServerReply().getSuccess()) {
           votedPeers.add(replierId);
           // If majority and all peers with higher priority have voted, candidate pass vote
-          if (higherPriorityPeers.size() == 0 && conf.hasMajority(votedPeers, server.getId())) {
+          if (higherPriorityPeers.isEmpty() && conf.hasMajority(votedPeers, server.getId())) {
             return logAndReturn(phase, Result.PASSED, responses, exceptions);
           }
         } else {

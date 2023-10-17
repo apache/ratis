@@ -50,13 +50,13 @@ public interface CacheInvalidationPolicy {
         long safeEvictIndex, long lastAppliedIndex,
         LogSegmentList segments, final int maxCachedSegments) {
       try(AutoCloseableLock readLock = segments.readLock()) {
-        return evictImpl(followerNextIndices, safeEvictIndex, lastAppliedIndex, segments, maxCachedSegments);
+        return evictImpl(followerNextIndices, safeEvictIndex, lastAppliedIndex, segments);
       }
     }
 
     private List<LogSegment> evictImpl(long[] followerNextIndices,
         long safeEvictIndex, long lastAppliedIndex,
-        LogSegmentList segments, final int maxCachedSegments) {
+        LogSegmentList segments) {
       List<LogSegment> result = new ArrayList<>();
       int safeIndex = segments.size() - 1;
       for (; safeIndex >= 0; safeIndex--) {

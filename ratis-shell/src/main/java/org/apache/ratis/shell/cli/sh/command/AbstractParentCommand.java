@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 public abstract class AbstractParentCommand implements Command {
   private final Map<String, Command> subs;
 
-  public AbstractParentCommand(Context context, List<Function<Context, Command>> subCommandConstructors) {
+  protected AbstractParentCommand(Context context, List<Function<Context, Command>> subCommandConstructors) {
     this.subs = Collections.unmodifiableMap(subCommandConstructors.stream()
         .map(constructor -> constructor.apply(context))
         .collect(Collectors.toMap(Command::getCommandName, Function.identity(),

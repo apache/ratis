@@ -310,6 +310,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, workerGroup,
           timeout -> LOG.warn("{}: workerGroup shutdown timeout in " + timeout, this));
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       LOG.error(this + ": Interrupted close()", e);
     }
 

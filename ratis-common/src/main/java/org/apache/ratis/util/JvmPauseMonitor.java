@@ -159,6 +159,7 @@ public final class JvmPauseMonitor {
     try {
       extraSleep = sleepTime.sleep();
     } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
       return;
     }
 
