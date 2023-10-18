@@ -82,7 +82,7 @@ public class CounterStateMachine extends BaseStateMachine {
 
   private final TimeDuration simulatedSlowness;
 
-  CounterStateMachine(TimeDuration simulatedSlowness) {
+  public CounterStateMachine(TimeDuration simulatedSlowness) {
     this.simulatedSlowness = simulatedSlowness;
   }
   CounterStateMachine() {
