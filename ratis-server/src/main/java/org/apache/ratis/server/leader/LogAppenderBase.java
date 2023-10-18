@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongUnaryOperator;
 
 /**
  * An abstract implementation of {@link LogAppender}.
@@ -196,6 +197,25 @@ public abstract class LogAppenderBase implements LogAppender {
     }
     return next;
   }
+
+  protected LongUnaryOperator getNextIndexForError(long newNextIndex) {
+    return oldNextIndex -> {
+      final long m = getFollower().getMatchIndex() + 1;
+      final long n = oldNextIndex <= 0L ? oldNextIndex : Math.min(oldNextIndex - 1, newNextIndex);
+      if (m > n) {
+        if (m > newNextIndex) {
+          LOG.info("Set nextIndex to matchIndex + 1 (= " + m + ")");
+        }
+        return m;
+      } else if (oldNextIndex <= 0L) {
+        return oldNextIndex; // no change.
+      } else {
+        LOG.info("Decrease nextIndex to " + n);
+        return n;
+      }
+    };
+  }
+
 
   @Override
   public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat)

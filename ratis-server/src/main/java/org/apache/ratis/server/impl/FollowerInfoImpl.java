@@ -27,6 +27,7 @@ import org.apache.ratis.util.Timestamp;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.LongUnaryOperator;
 
 class FollowerInfoImpl implements FollowerInfo {
   private final String name;
@@ -133,6 +134,12 @@ class FollowerInfoImpl implements FollowerInfo {
   public void updateNextIndex(long newNextIndex) {
     nextIndex.updateToMax(newNextIndex,
         message -> debug("updateNextIndex", message));
+  }
+
+  @Override
+  public void computeNextIndex(LongUnaryOperator op) {
+    nextIndex.updateUnconditionally(op,
+        message -> info("computeNextIndex", message));
   }
 
   @Override
