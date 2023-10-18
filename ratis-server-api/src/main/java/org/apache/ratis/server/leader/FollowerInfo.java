@@ -23,6 +23,8 @@ import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.function.LongUnaryOperator;
+
 /**
  * Information of a follower, provided the local server is the Leader
  */
@@ -83,6 +85,9 @@ public interface FollowerInfo {
 
   /** Update the nextIndex for this follower. */
   void updateNextIndex(long newNextIndex);
+
+  /** Set the nextIndex for this follower. */
+  void computeNextIndex(LongUnaryOperator op);
 
   /** @return the lastRpcResponseTime . */
   Timestamp getLastRpcResponseTime();
