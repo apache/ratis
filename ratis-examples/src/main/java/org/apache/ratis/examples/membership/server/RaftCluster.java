@@ -76,7 +76,8 @@ public class RaftCluster {
     for (Integer port : newPorts) {
       CServer server = members.get(port);
       if (server == null) {
-        RaftGroup group = newPeerGroup(port);
+        // New peer always start with an empty group.
+        RaftGroup group = RaftGroup.valueOf(GROUP_ID);
         server = new CServer(group, peerId(port), port);
         peerToStart.add(server);
       }
@@ -166,20 +167,6 @@ public class RaftCluster {
           .setAddress(LOCAL_ADDR + ":" + port)
           .build());
     }
-    members.values().stream().map(CServer::getPeer).forEach(peers::add);
-    return RaftGroup.valueOf(GROUP_ID, peers);
-  }
-
-  /**
-   * Configure the raft group for a new peer.
-   */
-  private RaftGroup newPeerGroup(int port) {
-    RaftPeer currentPeer = RaftPeer.newBuilder()
-        .setId(peerId(port))
-        .setAddress(LOCAL_ADDR + ":" + port)
-        .build();
-    List<RaftPeer> peers = new ArrayList<>();
-    peers.add(currentPeer);
     members.values().stream().map(CServer::getPeer).forEach(peers::add);
     return RaftGroup.valueOf(GROUP_ID, peers);
   }
