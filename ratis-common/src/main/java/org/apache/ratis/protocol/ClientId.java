@@ -19,34 +19,38 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
-import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Id of Raft client. Should be globally unique so that raft peers can use it
+ * The id of RaftClient. Should be globally unique so that raft peers can use it
  * to correctly identify retry requests from the same client.
  */
 public final class ClientId extends RaftId {
-  private static final ClientId EMPTY_CLIENT_ID = new ClientId(ZERO_UUID_BYTESTRING);
+  private static final Factory<ClientId> FACTORY = new Factory<ClientId>() {
+    @Override
+    ClientId newInstance(UUID uuid, ByteString bytes) {
+      return bytes == null? new ClientId(uuid): new ClientId(uuid, bytes);
+    }
+  };
 
   public static ClientId emptyClientId() {
-    return EMPTY_CLIENT_ID;
+    return FACTORY.emptyId();
   }
 
   public static ClientId randomId() {
-    return new ClientId(UUID.randomUUID());
+    return FACTORY.randomId();
   }
 
-  public static ClientId valueOf(ByteString data) {
-    return Optional.ofNullable(data).filter(d -> !d.isEmpty()).map(ClientId::new).orElse(EMPTY_CLIENT_ID);
+  public static ClientId valueOf(ByteString bytes) {
+    return FACTORY.valueOf(bytes);
   }
 
   public static ClientId valueOf(UUID uuid) {
-    return new ClientId(uuid);
+    return FACTORY.valueOf(uuid);
   }
 
-  private ClientId(ByteString data) {
-    super(data);
+  private ClientId(UUID uuid, ByteString bytes) {
+    super(uuid, bytes);
   }
 
   private ClientId(UUID uuid) {

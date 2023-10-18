@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -22,10 +22,29 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.UUID;
+
 public class TestRaftId extends BaseTest {
   @Override
   public int getGlobalTimeoutSeconds() {
     return 1;
+  }
+
+  @Test
+  public void testRaftId() {
+    assertRaftId(RaftId.ZERO_UUID, RaftId.ZERO_UUID_BYTESTRING);
+    assertRaftId(UUID.randomUUID(), null);
+  }
+
+  static void assertRaftId(UUID original, ByteString expected) {
+    final ByteString bytes = RaftId.toByteString(original);
+    if (expected != null) {
+      Assert.assertEquals(expected, bytes);
+    }
+    final UUID computed = RaftId.toUuid(bytes);
+
+    Assert.assertEquals(original, computed);
+    Assert.assertEquals(bytes, RaftId.toByteString(computed));
   }
 
   @Test

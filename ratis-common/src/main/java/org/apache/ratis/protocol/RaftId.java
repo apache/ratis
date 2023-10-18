@@ -17,13 +17,17 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
+import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteStringUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 /** Unique identifier implemented using {@link UUID}. */
@@ -32,24 +36,52 @@ public abstract class RaftId {
   static final ByteString ZERO_UUID_BYTESTRING = toByteString(ZERO_UUID);
   private static final int BYTE_LENGTH = 16;
 
-  private static void checkLength(int length, String name) {
-    Preconditions.assertTrue(length == BYTE_LENGTH,
-        "%s = %s != BYTE_LENGTH = %s", name, length, BYTE_LENGTH);
-  }
-
-  private static UUID toUuid(ByteString bytes) {
+  static UUID toUuid(ByteString bytes) {
     Objects.requireNonNull(bytes, "bytes == null");
-    checkLength(bytes.size(), "bytes.size()");
+    Preconditions.assertSame(BYTE_LENGTH, bytes.size(), "bytes.size()");
     final ByteBuffer buf = bytes.asReadOnlyByteBuffer();
     return new UUID(buf.getLong(), buf.getLong());
   }
 
-  private static ByteString toByteString(UUID uuid) {
+  static ByteString toByteString(UUID uuid) {
     Objects.requireNonNull(uuid, "uuid == null");
-    final ByteBuffer buf = ByteBuffer.wrap(new byte[BYTE_LENGTH]);
-    buf.putLong(uuid.getMostSignificantBits());
-    buf.putLong(uuid.getLeastSignificantBits());
-    return ByteString.copyFrom(buf.array());
+    final byte[] array = new byte[BYTE_LENGTH];
+    ByteBuffer.wrap(array)
+        .putLong(uuid.getMostSignificantBits())
+        .putLong(uuid.getLeastSignificantBits());
+    return ByteStringUtils.unsafeWrap(array);
+  }
+
+  abstract static class Factory<ID extends RaftId> {
+    private final Cache<UUID, ID> cache = CacheBuilder.newBuilder()
+        .weakValues()
+        .build();
+
+    abstract ID newInstance(UUID uuid, ByteString bytes);
+
+    private ID valueOf(UUID uuid, ByteString bytes) {
+      try {
+        return cache.get(uuid, () -> newInstance(uuid, bytes));
+      } catch (ExecutionException e) {
+        throw new IllegalStateException("Failed to valueOf(" + uuid + ")", e);
+      }
+    }
+
+    final ID valueOf(UUID uuid) {
+      return valueOf(uuid, null);
+    }
+
+    final ID valueOf(ByteString bytes) {
+      return bytes != null? valueOf(toUuid(bytes), bytes): emptyId();
+    }
+
+    ID emptyId() {
+      return valueOf(ZERO_UUID, ZERO_UUID_BYTESTRING);
+    }
+
+    ID randomId() {
+      return valueOf(UUID.randomUUID(), null);
+    }
   }
 
   private final UUID uuid;
@@ -68,8 +100,9 @@ public abstract class RaftId {
         () -> "Failed to create " + JavaUtils.getClassSimpleName(getClass()) + ": UUID " + ZERO_UUID + " is reserved.");
   }
 
-  RaftId(ByteString uuidBytes) {
-    this(toUuid(uuidBytes), () -> uuidBytes);
+  RaftId(UUID uuid, ByteString bytes) {
+    this(uuid, () -> bytes);
+    Preconditions.assertTrue(toUuid(bytes).equals(uuid));
   }
 
   /** @return the last 12 hex digits. */
