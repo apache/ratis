@@ -52,6 +52,7 @@ import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
+import static org.apache.ratis.server.RaftConfiguration.SHUTDOWN_NEW_PEER;
 import static org.apache.ratis.server.RaftServer.Division.LOG;
 
 /**
@@ -368,7 +369,18 @@ class ServerState {
 
   void setRaftConf(LogEntryProto entry) {
     if (entry.hasConfigurationEntry()) {
-      setRaftConf(LogProtoUtils.toRaftConfiguration(entry));
+      RaftConfigurationImpl conf = (RaftConfigurationImpl) LogProtoUtils.toRaftConfiguration(entry);
+
+      if (conf.isTransitional() && (memberId.getPeerId().toString().equals("node-3")
+          || memberId.getPeerId().toString().equals("node-4"))) {
+        try {
+          RaftConfiguration.LatchMap.get(SHUTDOWN_NEW_PEER).await();
+        } catch (InterruptedException e) {
+          return;
+        }
+      }
+
+      setRaftConf(conf);
     }
   }
 

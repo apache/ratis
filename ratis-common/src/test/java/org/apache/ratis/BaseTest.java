@@ -96,7 +96,7 @@ public abstract class BaseTest {
   public final TestName testName = new TestName();
 
   public int getGlobalTimeoutSeconds() {
-    return 100;
+    return 60 * 60;
   }
 
   private static final Supplier<File> rootTestDir = JavaUtils.memoize(

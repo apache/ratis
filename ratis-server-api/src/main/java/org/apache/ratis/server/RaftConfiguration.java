@@ -22,6 +22,9 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * A configuration is a subset of the members in a {@link org.apache.ratis.protocol.RaftGroup}.
@@ -38,6 +41,12 @@ import java.util.Collection;
  * @see org.apache.ratis.proto.RaftProtos.RaftPeerRole
  */
 public interface RaftConfiguration {
+
+  String APPLY_OLD_NEW_CONF = "applyOldNewConf";
+  String SHUTDOWN_NEW_PEER = "shutDownNewPeer";
+
+  Map<String, CountDownLatch> LatchMap = new HashMap<>();
+
   /**
    * @return the peer corresponding to the given id;
    *         or return null if the peer is not in this configuration.

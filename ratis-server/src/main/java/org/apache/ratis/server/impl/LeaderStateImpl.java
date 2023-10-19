@@ -38,6 +38,7 @@ import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ReadIndexHeartbeats.AppendEntriesListener;
 import org.apache.ratis.server.leader.FollowerInfo;
@@ -86,6 +87,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static org.apache.ratis.server.RaftConfiguration.APPLY_OLD_NEW_CONF;
 import static org.apache.ratis.server.RaftServer.Division.LOG;
 import static org.apache.ratis.server.RaftServerConfigKeys.Write.FOLLOWER_GAP_RATIO_MAX_KEY;
 
@@ -571,6 +573,7 @@ class LeaderStateImpl implements LeaderState {
     final RaftConfigurationImpl oldNewConf= stagingState.generateOldNewConf(current, state.getLog().getNextIndex());
     // apply the (old, new) configuration to log, and use it as the current conf
     appendConfiguration(oldNewConf);
+    RaftConfiguration.LatchMap.get(APPLY_OLD_NEW_CONF).countDown();
 
     this.stagingState = null;
     notifySenders();
