@@ -59,6 +59,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -127,6 +129,47 @@ public final class RaftClientImpl implements RaftClient {
     }
   }
 
+  static class RepliedCallIds {
+    private final Object name;
+    /** The replied callIds. */
+    private Set<Long> replied = new TreeSet<>();
+    /**
+     * Map: callId to-be-sent -> replied callIds to-be-included.
+     * When retrying the same callId, the request will include the same set of replied callIds.
+     *
+     * @see RaftClientRequest#getRepliedCallIds()
+     */
+    private final ConcurrentMap<Long, Set<Long>> sent = new ConcurrentHashMap<>();
+
+    RepliedCallIds(Object name) {
+      this.name = name;
+    }
+
+    /** The given callId is replied. */
+    void add(long repliedCallId) {
+      LOG.debug("{}: add replied callId {}", name, repliedCallId);
+      synchronized (this) {
+        // synchronized to avoid adding to a previous set.
+        replied.add(repliedCallId);
+      }
+      sent.remove(repliedCallId);
+    }
+
+    /** @return the replied callIds for the given callId. */
+    Iterable<Long> get(long callId) {
+      final Supplier<Set<Long>> supplier = MemoizedSupplier.valueOf(this::getAndReset);
+      final Set<Long> set = Collections.unmodifiableSet(sent.computeIfAbsent(callId, cid -> supplier.get()));
+      LOG.debug("{}: get {} returns {}", name, callId, set);
+      return set;
+    }
+
+    private synchronized Set<Long> getAndReset() {
+      final Set<Long> previous = replied;
+      replied = new TreeSet<>();
+      return previous;
+    }
+  }
+
   private final ClientId clientId;
   private final RaftClientRpc clientRpc;
   private final RaftPeerList peers = new RaftPeerList();
@@ -134,6 +177,8 @@ public final class RaftClientImpl implements RaftClient {
   private final RetryPolicy retryPolicy;
 
   private volatile RaftPeerId leaderId;
+  /** The callIds of the replied requests. */
+  private final RepliedCallIds repliedCallIds;
 
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
@@ -158,6 +203,7 @@ public final class RaftClientImpl implements RaftClient {
 
     this.leaderId = Objects.requireNonNull(computeLeaderId(leaderId, group),
         () -> "this.leaderId is set to null, leaderId=" + leaderId + ", group=" + group);
+    this.repliedCallIds = new RepliedCallIds(clientId);
     this.retryPolicy = Objects.requireNonNull(retryPolicy, "retry policy can't be null");
 
     clientRpc.addRaftPeers(group.getPeers());
@@ -241,7 +287,8 @@ public final class RaftClientImpl implements RaftClient {
     if (server != null) {
       b.setServerId(server);
     } else {
-      b.setLeaderId(getLeaderId());
+      b.setLeaderId(getLeaderId())
+       .setRepliedCallIds(repliedCallIds.get(callId));
     }
     return b.setClientId(clientId)
         .setGroupId(groupId)
@@ -307,8 +354,14 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   RaftClientReply handleReply(RaftClientRequest request, RaftClientReply reply) {
-    if (request.isToLeader() && reply != null && reply.getException() == null) {
-      LEADER_CACHE.put(reply.getRaftGroupId(), reply.getServerId());
+    if (request.isToLeader() && reply != null) {
+      if (!request.getType().isReadOnly()) {
+        repliedCallIds.add(reply.getCallId());
+      }
+
+      if (reply.getException() == null) {
+        LEADER_CACHE.put(reply.getRaftGroupId(), reply.getServerId());
+      }
     }
     return reply;
   }

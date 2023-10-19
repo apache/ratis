@@ -21,7 +21,9 @@ import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
+import java.util.Collections;
 import java.util.Objects;
+import java.util.Optional;
 
 import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.*;
 
@@ -266,6 +268,7 @@ public class RaftClientRequest extends RaftClientMessage {
     private RaftGroupId groupId;
     private long callId;
     private boolean toLeader;
+    private Iterable<Long> repliedCallIds = Collections.emptyList();
 
     private Message message;
     private Type type;
@@ -301,6 +304,11 @@ public class RaftClientRequest extends RaftClientMessage {
 
     public Builder setCallId(long callId) {
       this.callId = callId;
+      return this;
+    }
+
+    public Builder setRepliedCallIds(Iterable<Long> repliedCallIds) {
+      this.repliedCallIds = repliedCallIds;
       return this;
     }
 
@@ -350,6 +358,7 @@ public class RaftClientRequest extends RaftClientMessage {
   private final Message message;
   private final Type type;
 
+  private final Iterable<Long> repliedCallIds;
   private final SlidingWindowEntry slidingWindowEntry;
 
   private final RoutingTable routingTable;
@@ -386,8 +395,8 @@ public class RaftClientRequest extends RaftClientMessage {
 
     this.message = b.message;
     this.type = b.type;
-    this.slidingWindowEntry = b.slidingWindowEntry != null ? b.slidingWindowEntry
-        : SlidingWindowEntry.getDefaultInstance();
+    this.repliedCallIds = Optional.ofNullable(b.repliedCallIds).orElseGet(Collections::emptyList);
+    this.slidingWindowEntry = b.slidingWindowEntry;
     this.routingTable = b.routingTable;
     this.timeoutMs = b.timeoutMs;
   }
@@ -399,6 +408,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public boolean isToLeader() {
     return toLeader;
+  }
+
+  public Iterable<Long> getRepliedCallIds() {
+    return repliedCallIds;
   }
 
   public SlidingWindowEntry getSlidingWindowEntry() {

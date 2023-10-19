@@ -82,11 +82,10 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  public static RaftClient assertReply(RaftClientReply reply, RaftClient client, long callId) {
+  public static void assertReply(RaftClientReply reply, RaftClient client, long callId) {
     Assert.assertEquals(client.getId(), reply.getClientId());
     Assert.assertEquals(callId, reply.getCallId());
     Assert.assertTrue(reply.isSuccess());
-    return client;
   }
 
   public void assertServer(MiniRaftCluster cluster, ClientId clientId, long callId, long oldLastApplied) throws Exception {
