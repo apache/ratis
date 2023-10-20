@@ -231,7 +231,7 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutputRpc stream(ByteBuffer headerMessage, RoutingTable routingTable) {
-    if (routingTable != null) {
+    if (routingTable != null && routingTable.getPrimary() != null) {
       // Validate that the primary peer is equal to the primary peer passed
       // by the RoutingTable
       Preconditions.assertTrue(
