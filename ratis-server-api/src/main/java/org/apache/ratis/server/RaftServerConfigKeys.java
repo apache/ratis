@@ -215,9 +215,9 @@ public interface RaftServerConfigKeys {
     }
 
     interface ReadAfterWriteConsistent {
-      String PREFIX = RaftServerConfigKeys.PREFIX + ".read-after-write-consistent";
+      String PREFIX = Read.PREFIX + ".read-after-write-consistent";
 
-      String WRITE_INDEX_CACHE_EXPIRY_TIME_KEY = PREFIX + "write-index-cache.expiry-time";
+      String WRITE_INDEX_CACHE_EXPIRY_TIME_KEY = PREFIX + ".write-index-cache.expiry-time";
       /** Must be larger than {@link Read#TIMEOUT_DEFAULT}. */
       TimeDuration WRITE_INDEX_CACHE_EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
 
