@@ -54,9 +54,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -114,8 +115,8 @@ public interface DataStreamTestUtils {
       }
     };
     FileUtils.createDirectories(f.getParentFile());
-    try(FileOutputStream out = new FileOutputStream(f)) {
-      final long transferred = out.getChannel().transferFrom(source, 0, size);
+    try(FileChannel out = FileUtils.newFileChannel(f, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+      final long transferred = out.transferFrom(source, 0, size);
       Assert.assertEquals(size, transferred);
     }
   }

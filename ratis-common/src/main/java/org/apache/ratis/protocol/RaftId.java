@@ -20,7 +20,7 @@ package org.apache.ratis.protocol;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteStringUtils;
+import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
@@ -49,7 +49,7 @@ public abstract class RaftId {
     ByteBuffer.wrap(array)
         .putLong(uuid.getMostSignificantBits())
         .putLong(uuid.getLeastSignificantBits());
-    return ByteStringUtils.unsafeWrap(array);
+    return UnsafeByteOperations.unsafeWrap(array);
   }
 
   abstract static class Factory<ID extends RaftId> {

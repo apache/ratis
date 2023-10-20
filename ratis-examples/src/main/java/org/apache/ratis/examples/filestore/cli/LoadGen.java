@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -22,11 +22,12 @@ import com.beust.jcommander.Parameters;
 import org.apache.ratis.examples.filestore.FileStoreClient;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
+import org.apache.ratis.util.FileUtils;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -97,8 +98,7 @@ public class LoadGen extends Client {
       CompletableFuture.supplyAsync(() -> {
         List<CompletableFuture<Long>> futures = new ArrayList<>();
         File file = new File(path);
-        try (FileInputStream fis = new FileInputStream(file)) {
-          final FileChannel in = fis.getChannel();
+        try (FileChannel in = FileUtils.newFileChannel(file, StandardOpenOption.READ)) {
           for (long offset = 0L; offset < getFileSizeInBytes(); ) {
             offset += write(in, offset, client, file.getName(), futures);
           }

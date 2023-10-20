@@ -20,6 +20,7 @@ package org.apache.ratis.security;
 import org.apache.ratis.security.TlsConf.Builder;
 import org.apache.ratis.security.TlsConf.CertificatesConf;
 import org.apache.ratis.security.TlsConf.PrivateKeyConf;
+import org.apache.ratis.util.FileUtils;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.Assert;
@@ -32,8 +33,8 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileReader;
+import java.io.InputStream;
 import java.net.URL;
 import java.security.KeyFactory;
 import java.security.KeyStore;
@@ -110,7 +111,7 @@ public interface SecurityTestUtils {
       // Read certificates
       X509Certificate[] certificate = new X509Certificate[1];
       CertificateFactory fact = CertificateFactory.getInstance("X.509");
-      try (FileInputStream is = new FileInputStream(getResource(certPath))) {
+      try (InputStream is = FileUtils.newInputStream(getResource(certPath))) {
         certificate[0] = (X509Certificate) fact.generateCertificate(is);
       }
       return certificate;

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,14 +26,15 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -238,8 +239,7 @@ public class DataStream extends Client {
 
       final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
       final DataStreamOutput out = client.getStreamOutput(file.getName(), fileSize, routingTable);
-      try (FileInputStream fis = new FileInputStream(file)) {
-        final FileChannel in = fis.getChannel();
+      try (FileChannel in = FileUtils.newFileChannel(file, StandardOpenOption.READ)) {
         for (long offset = 0L; offset < fileSize; ) {
           offset += write(in, out, offset, futures);
         }

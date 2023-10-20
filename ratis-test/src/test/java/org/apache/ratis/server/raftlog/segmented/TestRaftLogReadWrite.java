@@ -35,10 +35,11 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -201,10 +202,10 @@ public class TestRaftLogReadWrite extends BaseTest {
     // make sure the file contains padding
     Assert.assertEquals(4 * 1024 * 1024, openSegment.length());
 
-    try (FileOutputStream fout = new FileOutputStream(openSegment, true)) {
-      ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[]{-1, 1});
-      fout.getChannel()
-          .write(byteBuffer, 16 * 1024 * 1024 - 10);
+    try (FileChannel fout = FileUtils.newFileChannel(openSegment, StandardOpenOption.WRITE)) {
+      final byte[] array = {-1, 1};
+      final int written = fout.write(ByteBuffer.wrap(array), 16 * 1024 * 1024 - 10);
+      Assert.assertEquals(array.length, written);
     }
 
     List<LogEntryProto> list = new ArrayList<>();

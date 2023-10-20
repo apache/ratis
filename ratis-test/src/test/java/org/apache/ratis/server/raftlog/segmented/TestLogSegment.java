@@ -108,9 +108,11 @@ public class TestLogSegment extends BaseTest {
       // 0 < truncatedEntrySize < entrySize
       final long fileLength = file.length();
       final long truncatedFileLength = fileLength - (entrySize - truncatedEntrySize);
+      Assert.assertTrue(truncatedFileLength < fileLength);
       LOG.info("truncate last entry: entry(size={}, truncated={}), file(length={}, truncated={})",
           entrySize, truncatedEntrySize, fileLength, truncatedFileLength);
       FileUtils.truncateFile(file, truncatedFileLength);
+      Assert.assertEquals(truncatedFileLength, file.length());
     }
 
     storage.close();
