@@ -199,6 +199,16 @@ treat the peer as caught-up. Increase this number when write throughput is high.
 | **Type**        | double, ranging from (0.0,1.0)                |
 | **Default**     | 0.9                                           |
 
+### Read After Write - Configurations related to read-after-write-consistency
+
+
+| **Property**    | `raft.server.read.read-after-write-consistent.write-index-cache.expiry-time`   |
+|:----------------|:-------------------------------------------------------------------------------|
+| **Description** | expiration time for server's memorized last written index of a specific client |
+| **Type**        | TimeDuration                                                                   |
+| **Default**     | 60s                                                                            |
+
+
 
 ### Write - Configurations related to write requests.
 
@@ -454,6 +464,19 @@ The follower's statemachine is responsible for fetching and installing snapshot 
 | **Type**        | TimeDuration                                   |
 | **Default**     | 10ms                                           |
 
+
+| **Property**    | `raft.server.log.appender.retry.policy` |
+|:----------------|:----------------------------------------|
+| **Description** | retry policy under error conditions     |
+| **Type**        | string                                  |
+| **Default**     | 1ms,10, 1s,20, 5s,1000                  |
+
+"1ms,10, 1s,20, 5s,1000" means
+The min wait time as 1ms (0 is not allowed) for first 10,
+(5 iteration with 2 times grpc client retry),
+next wait 1sec for next 20 retry (10 iteration with 2 times grpc client)
+further wait for 5sec for max times ((5sec*980)/2 times ~= 40min)
+
 --------------------------------------------------------------------------------
 
 ### Snapshot - Configurations related to snapshot.
@@ -463,6 +486,14 @@ The follower's statemachine is responsible for fetching and installing snapshot 
 | **Description** | whether to trigger snapshot when log size exceeds limit                 |
 | **Type**        | boolean                                                                 |
 | **Default**     | false, by default let the state machine to decide when to do checkpoint |
+
+
+| **Property**    | `raft.server.snapshot.trigger-when-stop.enabled`   |
+|:----------------|:---------------------------------------------------|
+| **Description** | whether to trigger snapshot when raft server stops |
+| **Type**        | boolean                                            |
+| **Default**     | true                                               |
+
 
 | **Property**    | `raft.server.snapshot.creation.gap`                  |
 |:----------------|:-----------------------------------------------------|
