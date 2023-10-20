@@ -62,6 +62,11 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     runWithNewCluster(NUM_SERVERS, this::testStreamWrites);
   }
 
+  @Test
+  public void testStreamWithInvalidRoutingTable() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestInvalidPrimaryInRoutingTable);
+  }
+
   void testStreamWrites(CLUSTER cluster) throws Exception {
     waitForLeader(cluster);
     runTestDataStreamOutput(cluster);
@@ -94,6 +99,31 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
 
     watchOrSleep(cluster, reply.join().getLogIndex());
     assertLogEntry(cluster, request);
+  }
+
+  void runTestInvalidPrimaryInRoutingTable(CLUSTER cluster) throws Exception {
+    final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
+
+    RaftPeer notPrimary = null;
+    for (RaftPeer peer: cluster.getGroup().getPeers()) {
+      if (!peer.equals(primaryServer)) {
+        notPrimary = peer;
+        break;
+      }
+    }
+
+    Assert.assertNotNull(
+        "Cannot find peer other than the primary", notPrimary);
+    Assert.assertNotEquals(primaryServer, notPrimary);
+
+    try (RaftClient client = cluster.createClient(primaryServer)) {
+      RoutingTable routingTableWithWrongPrimary =
+          getRoutingTable(cluster.getGroup().getPeers(), notPrimary);
+      testFailureCase("",
+          () -> client.getDataStreamApi().stream(null,
+              routingTableWithWrongPrimary),
+          IllegalStateException.class);
+    }
   }
 
   void runTestWriteFile(CLUSTER cluster, int i,

@@ -62,6 +62,11 @@ public class TestDataStreamSslWithRpcTypeGrpcAndDataStreamTypeNetty
 
   @Ignore
   @Override
+  public void testStreamWithInvalidRoutingTable() {
+  }
+
+  @Ignore
+  @Override
   public void testMultipleStreamsMultipleServers() {
   }
 
