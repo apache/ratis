@@ -7,6 +7,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyFactory;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -64,6 +65,70 @@ public class TestMembership {
   public static void after() {
     delete(new File(TEST_BASE));
     executorService.shutdown();
+  }
+
+  @Test
+  public void testShutdown() throws Exception {
+    RaftConfiguration.LatchMap.put(APPLY_OLD_NEW_CONF, new CountDownLatch(0));
+    RaftConfiguration.LatchMap.put(SHUTDOWN_NEW_PEER, new CountDownLatch(0));
+
+    RaftServer[] servers = new RaftServer[5];
+    RaftPeer[] peers = new RaftPeer[] {
+        RaftPeer.newBuilder()
+            .setId("node-0")
+            .setAddress(LOCAL_ADDR + ":21011")
+            .setPriority(0)
+            .build(),
+        RaftPeer.newBuilder()
+            .setId("node-1")
+            .setAddress(LOCAL_ADDR + ":21012")
+            .setPriority(0)
+            .build(),
+        RaftPeer.newBuilder()
+            .setId("node-2")
+            .setAddress(LOCAL_ADDR + ":21013")
+            .setPriority(0)
+            .build(),
+        RaftPeer.newBuilder()
+            .setId("node-3")
+            .setAddress(LOCAL_ADDR + ":21014")
+            .setPriority(0)
+            .build(),
+        RaftPeer.newBuilder()
+            .setId("node-4")
+            .setAddress(LOCAL_ADDR + ":21015")
+            .setPriority(0)
+            .build()
+    };
+
+    // 1. Start raft servers.
+    // Servers {node-0, node-1} form the initial raft cluster.
+    // Then node-2 is added.
+    servers[0] = startServer(RaftGroup.valueOf(GROUP_ID, peers[0], peers[1]), peers[0], RaftStorage.StartupOption.FORMAT);
+    servers[1] = startServer(RaftGroup.valueOf(GROUP_ID, peers[0], peers[1]), peers[1], RaftStorage.StartupOption.FORMAT);
+    servers[2] = startServer(RaftGroup.valueOf(GROUP_ID), peers[2], RaftStorage.StartupOption.FORMAT);
+    while (findLeader(servers) == -1) {
+      // Wait for leader.
+    }
+
+    // 2. Add 1 conf log entry and 10 normal log entries.
+    RaftClient client = createClient(peers[0], peers[1], peers[2]);
+    // Add a conf log entry. Then RaftServerImpl#getRaftConf().getLogEntryIndex() will be greater than 0.
+    // This is a condition in RaftServerImpl#shouldSendShutdown().
+    assertTrue(client.admin().setConfiguration(Arrays.copyOfRange(peers, 0, 3)).isSuccess());
+    // Commit raft log, otherwise the conf log will be the latest log.
+    // This is a condition in RaftServerImpl#shouldSendShutdown().
+    for (int i = 0; i < 10; i++) {
+      client.io().send(Message.valueOf("abc"));
+    }
+
+    // 3. Start {node-3} with {C_old, peer}.
+    servers[3] = startServer(RaftGroup.valueOf(GROUP_ID, peers[0], peers[1], peers[2], peers[3]), peers[3], RaftStorage.StartupOption.FORMAT, false);
+
+    // Expect to see log "Expect this log because node-3 get SHUTDOWN msg and is closed."
+    while (servers[3].getDivision(GROUP_ID).getInfo().isAlive()) {
+      Thread.sleep(1000);
+    }
   }
 
   @Test
@@ -177,6 +242,11 @@ public class TestMembership {
 
   private RaftServer startServer(RaftGroup group, RaftPeer currentPeer,
       RaftStorage.StartupOption option) throws IOException, InterruptedException {
+    return startServer(group, currentPeer, option, true);
+  }
+
+  private RaftServer startServer(RaftGroup group, RaftPeer currentPeer,
+      RaftStorage.StartupOption option, boolean waitAlive) throws IOException, InterruptedException {
     final RaftProperties properties = new RaftProperties();
 
     final int port = NetUtils.createSocketAddr(currentPeer.getAddress()).getPort();
@@ -194,9 +264,12 @@ public class TestMembership {
         .setOption(option)
         .build();
     server.start();
-    do {
-      Thread.sleep(1000L);
-    } while (!server.getDivision(GROUP_ID).getInfo().isAlive());
+
+    if (waitAlive) {
+      do {
+        Thread.sleep(1000L);
+      } while (!server.getDivision(GROUP_ID).getInfo().isAlive());
+    }
     return server;
   }
 
