@@ -81,9 +81,11 @@ public interface RoutingTable {
     }
 
     public RoutingTable build() {
-      return Optional.ofNullable(ref.getAndSet(null))
-          .map(RoutingTable::newRoutingTable)
-          .orElseThrow(() -> new IllegalStateException("RoutingTable Already built"));
+      final Map<RaftPeerId, Set<RaftPeerId>> map = ref.getAndSet(null);
+      if (map == null) {
+        throw new IllegalStateException("RoutingTable is already built.");
+      }
+      return RoutingTable.newRoutingTable(map);
     }
 
     static RaftPeerId validate(Map<RaftPeerId, Set<RaftPeerId>> map) {
