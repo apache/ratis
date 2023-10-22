@@ -87,10 +87,7 @@ public interface RoutingTable {
     }
 
     static RaftPeerId validate(Map<RaftPeerId, Set<RaftPeerId>> map) {
-      if (map != null && !map.isEmpty()) {
-        return new Builder.Validation(map).run();
-      }
-      return null;
+      return new Builder.Validation(map).run();
     }
 
     /** Validate if a map represents a valid routing table. */
@@ -164,7 +161,10 @@ public interface RoutingTable {
 
   /** @return a new {@link RoutingTable} represented by the given map. */
   static RoutingTable newRoutingTable(Map<RaftPeerId, Set<RaftPeerId>> map){
-    RaftPeerId primary = Builder.validate(map);
+    if (map == null || map.isEmpty()) {
+      return null;
+    }
+    final RaftPeerId primary = Builder.validate(map);
 
     final Supplier<RoutingTableProto> proto = JavaUtils.memoize(
         () -> RoutingTableProto.newBuilder().addAllRoutes(ProtoUtils.toRouteProtos(map)).build());

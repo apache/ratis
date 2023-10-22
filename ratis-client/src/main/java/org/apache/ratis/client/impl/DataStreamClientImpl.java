@@ -231,13 +231,11 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutputRpc stream(ByteBuffer headerMessage, RoutingTable routingTable) {
-    if (routingTable != null && routingTable.getPrimary() != null) {
-      // Validate that the primary peer is equal to the primary peer passed
-      // by the RoutingTable
-      Preconditions.assertTrue(
-          dataStreamServer.getId().equals(routingTable.getPrimary()),
-          "The primary peer in the routing table is not the same " +
-              "with the one specified in the client");
+    if (routingTable != null) {
+      // Validate that the primary peer is equal to the primary peer passed by the RoutingTable
+      Preconditions.assertTrue(dataStreamServer.getId().equals(routingTable.getPrimary()),
+          () -> "Primary peer mismatched: the routing table has " + routingTable.getPrimary()
+              + " but the client has " + dataStreamServer.getId());
     }
     final Message message =
         Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
