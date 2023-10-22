@@ -45,11 +45,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -168,12 +169,12 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
           FileUtils.createDirectories(snapshotRoot);
           FileUtils.createDirectories(file1.getParentFile());
           FileUtils.createDirectories(file2.getParentFile());
-          FileUtils.createNewFile(file1.toPath());
-          FileUtils.createNewFile(file2.toPath());
+          FileUtils.newOutputStream(file1.toPath(), StandardOpenOption.CREATE_NEW);
+          FileUtils.newOutputStream(file2.toPath(), StandardOpenOption.CREATE_NEW);
           // write 4MB data to simulate multiple chunk scene
           final byte[] data = new byte[4096];
           Arrays.fill(data, (byte)0x01);
-          try (FileOutputStream fout = new FileOutputStream(file2)) {
+          try (OutputStream fout = FileUtils.newOutputStream(file2)) {
               fout.write(data);
           }
         }
