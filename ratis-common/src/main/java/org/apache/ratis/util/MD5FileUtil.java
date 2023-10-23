@@ -150,14 +150,13 @@ public abstract class MD5FileUtil {
 
   private static void saveMD5File(File dataFile, String digestString)
       throws IOException {
-    if (getMatcher(digestString) == null) {
+    final String md5Line = digestString + " *" + dataFile.getName() + "\n";
+    if (getMatcher(md5Line.trim()) == null) {
       throw new IllegalArgumentException("Invalid md5 string: " + getDoesNotMatchString(digestString));
     }
-    File md5File = getDigestFileForFile(dataFile);
-    String md5Line = digestString + " *" + dataFile.getName() + "\n";
 
-    try (AtomicFileOutputStream afos
-         = new AtomicFileOutputStream(md5File)) {
+    final File md5File = getDigestFileForFile(dataFile);
+    try (AtomicFileOutputStream afos = new AtomicFileOutputStream(md5File)) {
       afos.write(md5Line.getBytes(StandardCharsets.UTF_8));
     }
 
