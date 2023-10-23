@@ -344,7 +344,7 @@ class LeaderElection implements Runnable {
         case REJECTED:
         case DISCOVERED_A_NEW_TERM:
           final long term = r.maxTerm(server.getState().getCurrentTerm());
-          LOG.info("This log will repeat because node-3 and node-4 keep rejecting requestVote.");
+          LOG.info("ratis-server/src/main/java/org/apache/ratis/server/impl/LeaderElection.java");
           server.changeToFollowerAndPersistMetadata(term, false, r);
           return false;
         default: throw new IllegalArgumentException("Unable to process result " + r.result);

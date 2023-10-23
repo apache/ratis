@@ -68,6 +68,69 @@ public class TestMembership {
   }
 
   @Test
+  public void testAddOneToOne() throws Exception {
+    // Control test procedure.
+    RaftConfiguration.LatchMap.put(APPLY_OLD_NEW_CONF, new CountDownLatch(1));
+    RaftConfiguration.LatchMap.put(SHUTDOWN_NEW_PEER, new CountDownLatch(1));
+
+    RaftServer[] servers = new RaftServer[2];
+    RaftPeer[] peers = new RaftPeer[] {
+        RaftPeer.newBuilder()
+            .setId("node-0")
+            .setAddress(LOCAL_ADDR + ":21011")
+            .setPriority(0)
+            .build(),
+        RaftPeer.newBuilder()
+            .setId("node-1")
+            .setAddress(LOCAL_ADDR + ":21012")
+            .setPriority(0)
+            .build()
+    };
+
+    // 1. Start raft servers.
+    // Servers {node-0} form the initial raft cluster.
+    // Servers {node-1} is new peer. It starts with empty group.
+    servers[0] = startServer(RaftGroup.valueOf(GROUP_ID, peers[0]), peers[0], RaftStorage.StartupOption.FORMAT);
+    while (findLeader(servers) == -1) {
+      // Wait for leader.
+    }
+    servers[1] = startServer(RaftGroup.valueOf(GROUP_ID), peers[1], RaftStorage.StartupOption.FORMAT);
+
+    // 2. Trigger setConfiguration.
+    RaftClient client = createClient(peers[0]);
+    Future<RaftClientReply> future = executorService.submit(
+        () -> client.admin().setConfiguration(peers));
+
+    // 3. Wait leader calling LeaderStateImpl#applyOldNewConf.
+    // {node-0} conf will be updated to transitional/old_new conf. But {node-1}
+    // conf will remain empty because SHUTDOWN_NEW_PEER latch.
+    RaftConfiguration.LatchMap.get(APPLY_OLD_NEW_CONF).await();
+
+    // 4. Shutdown node-1, then recover SHUTDOWN_NEW_PEER latch. node-1 can
+    // handle transitional conf now.
+    System.out.println("Shutdown 1 before they appendEntries old_new_conf.");
+    shutdownServer(servers, 1);
+    RaftConfiguration.LatchMap.get(SHUTDOWN_NEW_PEER).countDown();
+
+    // 5. Wait 1s for leader to notice it is no leader and trigger election. Because we have stopped
+    // node-1, and leader's conf is old_new_conf.
+    Thread.sleep(1000L);
+    int leaderIndex = findLeader(servers);
+    assertEquals(-1 ,leaderIndex);
+
+    // 6. Start {node-1}. Now every peer is running without any latch.
+    servers[1] = startServer(RaftGroup.valueOf(GROUP_ID), peers[1], RaftStorage.StartupOption.RECOVER);
+
+    // 7. We can't elect a new leader anymore. Because {node-1} has an empty conf. They
+    // won't vote for {node-0}.
+    // We will see repeated log: This log will repeat because new peers keep rejecting requestVote.
+    RaftClientReply reply = future.get();
+    if (!reply.isSuccess()) {
+      throw reply.getException();
+    }
+  }
+
+  @Test
   public void testShutdown() throws Exception {
     RaftConfiguration.LatchMap.put(APPLY_OLD_NEW_CONF, new CountDownLatch(0));
     RaftConfiguration.LatchMap.put(SHUTDOWN_NEW_PEER, new CountDownLatch(0));
