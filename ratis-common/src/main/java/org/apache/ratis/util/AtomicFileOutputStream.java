@@ -76,11 +76,15 @@ public class AtomicFileOutputStream extends FilterOutputStream {
     }
     try {
       super.close();
+      FileUtils.move(tmpFile, outFile, StandardCopyOption.REPLACE_EXISTING);
     } catch (Exception e) {
-      FileUtils.deleteFile(tmpFile);
+      try {
+        FileUtils.deleteIfExists(tmpFile);
+      } catch (IOException ioe) {
+        e.addSuppressed(ioe);
+      }
       throw e;
     }
-    FileUtils.move(tmpFile, outFile, StandardCopyOption.REPLACE_EXISTING);
   }
 
   /**
