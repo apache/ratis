@@ -84,7 +84,7 @@ public class CServer implements Closeable {
     return server.getPeer();
   }
 
-  private static final FileVisitor deleter = new SimpleFileVisitor<Path>() {
+  private static final FileVisitor DELETER = new SimpleFileVisitor<Path>() {
     @Override
     public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
       Files.delete(dir);
@@ -101,7 +101,7 @@ public class CServer implements Closeable {
   @Override
   public void close() throws IOException {
     server.close();
-    Files.walkFileTree(storageDir.toPath(), deleter);
+    Files.walkFileTree(storageDir.toPath(), DELETER);
   }
 
   @Override

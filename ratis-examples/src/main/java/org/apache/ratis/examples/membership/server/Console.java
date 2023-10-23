@@ -40,7 +40,7 @@ public class Console {
       + "\tquery                     Query the value of counter.\n"
       + "\tquit                      Quit.";
 
-  private final Scanner sc = new Scanner(System.in);
+  private final Scanner sc = new Scanner(System.in, "UTF-8");
   private final RaftCluster cluster = new RaftCluster();
 
   private void init() {
@@ -111,7 +111,7 @@ public class Console {
     int port = Integer.parseInt(args[index]);
     List<Integer> ports = new ArrayList<>();
     ports.addAll(cluster.ports());
-    if (ports.remove(new Integer(port))) {
+    if (ports.remove(Integer.valueOf(port))) {
       cluster.update(ports);
     } else {
       System.out.println("Invalid port " + port);
