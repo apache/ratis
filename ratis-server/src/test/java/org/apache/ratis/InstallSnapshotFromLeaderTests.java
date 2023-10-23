@@ -169,12 +169,11 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
           FileUtils.createDirectories(snapshotRoot);
           FileUtils.createDirectories(file1.getParentFile());
           FileUtils.createDirectories(file2.getParentFile());
-          FileUtils.newOutputStream(file1.toPath(), StandardOpenOption.CREATE_NEW);
-          FileUtils.newOutputStream(file2.toPath(), StandardOpenOption.CREATE_NEW);
+          FileUtils.newOutputStream(file1, StandardOpenOption.CREATE_NEW).close();
           // write 4MB data to simulate multiple chunk scene
-          final byte[] data = new byte[4096];
+          final byte[] data = new byte[4 << 20];
           Arrays.fill(data, (byte)0x01);
-          try (OutputStream fout = FileUtils.newOutputStream(file2)) {
+          try (OutputStream fout = FileUtils.newOutputStream(file2, StandardOpenOption.CREATE_NEW)) {
               fout.write(data);
           }
         }
