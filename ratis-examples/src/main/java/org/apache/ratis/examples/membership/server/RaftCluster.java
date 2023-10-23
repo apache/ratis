@@ -102,15 +102,12 @@ public class RaftCluster {
     System.out.println(peersInfo(oldPeers, "C_old"));
     System.out.println(peersInfo(newPeers, "C_new"));
     if (members.size() > 0) {
-      RaftClient client = createClient();
-      try {
+      try (RaftClient client = createClient()) {
         RaftClientReply reply = client.admin().setConfiguration(newPeers.stream()
             .map(CServer::getPeer).collect(Collectors.toList()));
         if (!reply.isSuccess()) {
           throw reply.getException();
         }
-      } finally {
-        client.close();
       }
     }
 

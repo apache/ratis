@@ -30,17 +30,12 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.common.base.MoreObjects;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 
 /**
@@ -84,24 +79,10 @@ public class CServer implements Closeable {
     return server.getPeer();
   }
 
-  private static final FileVisitor DELETER = new SimpleFileVisitor<Path>() {
-    @Override
-    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-      Files.delete(dir);
-      return FileVisitResult.CONTINUE;
-    }
-
-    @Override
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      Files.delete(file);
-      return FileVisitResult.CONTINUE;
-    }
-  };
-
   @Override
   public void close() throws IOException {
     server.close();
-    Files.walkFileTree(storageDir.toPath(), DELETER);
+    FileUtils.deleteFully(storageDir);
   }
 
   @Override
