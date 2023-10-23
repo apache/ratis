@@ -47,13 +47,15 @@ public interface NettyUtils {
   Logger LOG = LoggerFactory.getLogger(NettyUtils.class);
 
   class Print {
-    private static final AtomicBoolean printedEpollUnavailabilityCause = new AtomicBoolean();
+    private static final AtomicBoolean PRINTED_EPOLL_UNAVAILABILITY_CAUSE = new AtomicBoolean();
+
+    private Print() {}
 
     static void epollUnavailability(String message) {
       if (!LOG.isWarnEnabled()) {
         return;
       }
-      if (printedEpollUnavailabilityCause.compareAndSet(false, true)) {
+      if (PRINTED_EPOLL_UNAVAILABILITY_CAUSE.compareAndSet(false, true)) {
         LOG.warn(message, new IllegalStateException("Epoll is unavailable.", Epoll.unavailabilityCause()));
       } else {
         LOG.warn(message);
