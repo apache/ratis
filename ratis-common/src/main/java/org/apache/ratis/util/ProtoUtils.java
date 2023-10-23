@@ -234,6 +234,9 @@ public interface ProtoUtils {
   }
 
   static String toString(SlidingWindowEntry proto) {
+    if (proto == null) {
+      return null;
+    }
     return proto.getSeqNum() + (proto.getIsFirst()? "*": "");
   }
 

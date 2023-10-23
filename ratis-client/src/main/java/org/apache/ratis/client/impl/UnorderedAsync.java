@@ -103,7 +103,7 @@ public interface UnorderedAsync {
           if (LOG.isTraceEnabled()) {
             LOG.trace(clientId + ": attempt #" + attemptCount + " failed~ " + request, e);
           } else {
-            LOG.debug("{}: attempt #{} failed {} with {}", clientId, attemptCount, request, e);
+            LOG.debug("{}: attempt #{} failed {} with {}", clientId, attemptCount, request, e.toString());
           }
           e = JavaUtils.unwrapCompletionException(e);
 

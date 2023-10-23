@@ -40,12 +40,10 @@ import org.apache.ratis.proto.RaftProtos.RaftRpcReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.RouteProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
-import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.proto.RaftProtos.SnapshotCreateRequestProto;
 import org.apache.ratis.proto.RaftProtos.SnapshotManagementRequestProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineExceptionProto;
 import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
-import org.apache.ratis.proto.RaftProtos.WriteRequestTypeProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.GroupInfoReply;
@@ -110,55 +108,30 @@ public interface ClientProtoUtils {
         .setSuccess(success);
   }
 
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
+      ByteString requestorId, RaftPeerId replyId, RaftGroupId groupId) {
+    return RaftRpcRequestProto.newBuilder()
+        .setRequestorId(requestorId)
+        .setReplyId(replyId.toByteString())
+        .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId));
+  }
+
+  /** For server requests. */
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(RaftGroupMemberId requestorId, RaftPeerId replyId) {
-    return toRaftRpcRequestProtoBuilder(requestorId.getPeerId().toByteString(),
-        replyId.toByteString(), requestorId.getGroupId(), null, false, null, null, 0);
+    return toRaftRpcRequestProtoBuilder(requestorId.getPeerId().toByteString(), replyId, requestorId.getGroupId());
   }
 
-  @SuppressWarnings("parameternumber")
-  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      ByteString requesterId, ByteString replyId, RaftGroupId groupId, Long callId, boolean toLeader,
-      SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable, long timeoutMs) {
-    if (slidingWindowEntry == null) {
-      slidingWindowEntry = SlidingWindowEntry.getDefaultInstance();
-    }
+  /** For client requests. */
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(RaftClientRequest request) {
+    final RaftRpcRequestProto.Builder b = toRaftRpcRequestProtoBuilder(
+        request.getClientId().toByteString(), request.getServerId(), request.getRaftGroupId());
 
-    RaftRpcRequestProto.Builder b = RaftRpcRequestProto.newBuilder()
-        .setRequestorId(requesterId)
-        .setReplyId(replyId)
-        .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId))
-        .setCallId(Optional.ofNullable(callId).orElseGet(CallId::getDefault))
-        .setToLeader(toLeader)
-        .setSlidingWindowEntry(slidingWindowEntry)
-        .setTimeoutMs(timeoutMs);
+    Optional.ofNullable(request.getSlidingWindowEntry()).ifPresent(b::setSlidingWindowEntry);
+    Optional.ofNullable(request.getRoutingTable()).map(RoutingTable::toProto).ifPresent(b::setRoutingTable);
 
-    if (routingTable != null) {
-      b.setRoutingTable(routingTable.toProto());
-    }
-
-    return b;
-  }
-
-  @SuppressWarnings("parameternumber")
-  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      ClientId requesterId, RaftPeerId replyId, RaftGroupId groupId, long callId, boolean toLeader,
-      SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable, long timeoutMs) {
-    return toRaftRpcRequestProtoBuilder(
-        requesterId.toByteString(), replyId.toByteString(), groupId, callId, toLeader, slidingWindowEntry, routingTable,
-        timeoutMs);
-  }
-
-  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      RaftClientRequest request) {
-    return toRaftRpcRequestProtoBuilder(
-        request.getClientId(),
-        request.getServerId(),
-        request.getRaftGroupId(),
-        request.getCallId(),
-        request.isToLeader(),
-        request.getSlidingWindowEntry(),
-        request.getRoutingTable(),
-        request.getTimeoutMs());
+    return b.setCallId(request.getCallId())
+        .setToLeader(request.isToLeader())
+        .setTimeoutMs(request.getTimeoutMs());
   }
 
   static RaftClientRequest.Type toRaftClientRequestType(RaftClientRequestProto p) {
@@ -211,12 +184,14 @@ public interface ClientProtoUtils {
     } else {
       b.setServerId(perrId);
     }
+    if (request.hasSlidingWindowEntry()) {
+      b.setSlidingWindowEntry(request.getSlidingWindowEntry());
+    }
     return b.setClientId(ClientId.valueOf(request.getRequestorId()))
         .setGroupId(ProtoUtils.toRaftGroupId(request.getRaftGroupId()))
         .setCallId(request.getCallId())
         .setMessage(toMessage(p.getMessage()))
         .setType(type)
-        .setSlidingWindowEntry(request.getSlidingWindowEntry())
         .setRoutingTable(getRoutingTable(request))
         .setTimeoutMs(request.getTimeoutMs())
         .build();
@@ -262,17 +237,6 @@ public interface ClientProtoUtils {
     }
 
     return b.build();
-  }
-
-  static RaftClientRequestProto toRaftClientRequestProto(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
-      long seqNum, ByteString content) {
-    return RaftClientRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(
-            clientId, serverId, groupId, callId, false, ProtoUtils.toSlidingWindowEntry(seqNum, false), null, 0))
-        .setWrite(WriteRequestTypeProto.getDefaultInstance())
-        .setMessage(toClientMessageEntryProtoBuilder(content))
-        .build();
   }
 
   static StateMachineExceptionProto.Builder toStateMachineExceptionProtoBuilder(StateMachineException e) {
