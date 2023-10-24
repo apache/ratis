@@ -81,6 +81,16 @@ public interface RaftServerConfigKeys {
     setInt(properties::setInt, SLEEP_DEVIATION_THRESHOLD_KEY, thresholdMs);
   }
 
+  String CLOSE_THRESHOLD_KEY = PREFIX + ".close.threshold";
+  TimeDuration CLOSE_THRESHOLD_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+  static TimeDuration closeThreshold(RaftProperties properties) {
+    return getTimeDuration(properties.getTimeDuration(CLOSE_THRESHOLD_DEFAULT.getUnit()),
+        CLOSE_THRESHOLD_KEY, CLOSE_THRESHOLD_DEFAULT, getDefaultLog());
+  }
+  static void setCloseThreshold(RaftProperties properties, int thresholdMs) {
+    setInt(properties::setInt, CLOSE_THRESHOLD_KEY, thresholdMs);
+  }
+
   /**
    * When bootstrapping a new peer, If the gap between the match index of the
    * peer and the leader's latest committed index is less than this gap, we
