@@ -222,11 +222,11 @@ class RaftServerProxy implements RaftServer {
         id + "-impl"));
 
     final TimeDuration sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
-    final TimeDuration rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
+    final TimeDuration closeThreshold = RaftServerConfigKeys.closeThreshold(properties);
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.pauseMonitor = JvmPauseMonitor.newBuilder().setName(id)
         .setSleepDeviationThreshold(sleepDeviationThreshold)
-        .setHandler(extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime))
+        .setHandler(extraSleep -> handleJvmPause(extraSleep, closeThreshold, leaderStepDownWaitTime))
         .build();
     this.threadGroup = threadGroup == null ? new ThreadGroup(this.id.toString()) : threadGroup;
   }
