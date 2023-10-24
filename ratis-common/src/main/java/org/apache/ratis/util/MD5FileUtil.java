@@ -45,7 +45,10 @@ public abstract class MD5FileUtil {
   private static final Pattern LINE_PATTERN = Pattern.compile(LINE_REGEX);
 
   static Matcher getMatcher(String md5) {
-    return Optional.of(LINE_PATTERN.matcher(md5)).filter(Matcher::matches).orElse(null);
+    return Optional.ofNullable(md5)
+        .map(LINE_PATTERN::matcher)
+        .filter(Matcher::matches)
+        .orElse(null);
   }
 
   static String getDoesNotMatchString(String line) {
@@ -71,7 +74,7 @@ public abstract class MD5FileUtil {
   private static String readFirstLine(File f) throws IOException {
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(
         FileUtils.newInputStream(f), StandardCharsets.UTF_8))) {
-      return Optional.ofNullable(reader.readLine()).map(String::trim).orElse("");
+      return Optional.ofNullable(reader.readLine()).map(String::trim).orElse(null);
     } catch (IOException ioe) {
       throw new IOException("Failed to read file: " + f, ioe);
     }
