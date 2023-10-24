@@ -40,10 +40,28 @@ import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 public interface NettyUtils {
   Logger LOG = LoggerFactory.getLogger(NettyUtils.class);
+
+  class Print {
+    private static final AtomicBoolean PRINTED_EPOLL_UNAVAILABILITY_CAUSE = new AtomicBoolean();
+
+    private Print() {}
+
+    static void epollUnavailability(String message) {
+      if (!LOG.isWarnEnabled()) {
+        return;
+      }
+      if (PRINTED_EPOLL_UNAVAILABILITY_CAUSE.compareAndSet(false, true)) {
+        LOG.warn(message, new IllegalStateException("Epoll is unavailable.", Epoll.unavailabilityCause()));
+      } else {
+        LOG.warn(message);
+      }
+    }
+  }
 
   static EventLoopGroup newEventLoopGroup(String name, int size, boolean useEpoll) {
     if (useEpoll) {
@@ -51,8 +69,8 @@ public interface NettyUtils {
         LOG.info("Create EpollEventLoopGroup for {}; Thread size is {}.", name, size);
         return new EpollEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-"));
       } else {
-        LOG.warn("Failed to create EpollEventLoopGroup for " + name + "; fall back on NioEventLoopGroup.",
-            Epoll.unavailabilityCause());
+        Print.epollUnavailability("Failed to create EpollEventLoopGroup for " + name
+            + "; fall back on NioEventLoopGroup.");
       }
     }
     return new NioEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-"));
