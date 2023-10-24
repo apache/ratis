@@ -132,6 +132,7 @@ class BlockingImpl implements BlockingApi {
       try {
         sleepTime.sleep();
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         throw new InterruptedIOException("retry policy=" + retryPolicy);
       }
     }

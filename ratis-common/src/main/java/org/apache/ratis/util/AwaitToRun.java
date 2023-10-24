@@ -42,7 +42,7 @@ public class AwaitToRun implements AutoCloseable {
 
     @Override
     public void run() {
-      for (; ; ) {
+      while(!Thread.currentThread().isInterrupted()) {
         try {
           awaitForSignal.await();
         } catch (InterruptedException e) {

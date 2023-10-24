@@ -133,6 +133,7 @@ public final class RaftClientImpl implements RaftClient {
   private final RaftGroupId groupId;
   private final RetryPolicy retryPolicy;
 
+  @SuppressWarnings("java:S3077")
   private volatile RaftPeerId leaderId;
 
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
