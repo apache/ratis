@@ -44,6 +44,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SlidingWindow;
 
 import java.io.IOException;
@@ -230,6 +231,12 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutputRpc stream(ByteBuffer headerMessage, RoutingTable routingTable) {
+    if (routingTable != null) {
+      // Validate that the primary peer is equal to the primary peer passed by the RoutingTable
+      Preconditions.assertTrue(dataStreamServer.getId().equals(routingTable.getPrimary()),
+          () -> "Primary peer mismatched: the routing table has " + routingTable.getPrimary()
+              + " but the client has " + dataStreamServer.getId());
+    }
     final Message message =
         Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
     RaftClientRequest request = RaftClientRequest.newBuilder()

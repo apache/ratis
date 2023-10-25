@@ -43,6 +43,9 @@ public interface RoutingTable {
   /** @return the successor peers of the given peer. */
   Set<RaftPeerId> getSuccessors(RaftPeerId peerId);
 
+  /** @return the primary peer. */
+  RaftPeerId getPrimary();
+
   /** @return the proto of this {@link RoutingTable}. */
   RoutingTableProto toProto();
 
@@ -78,15 +81,15 @@ public interface RoutingTable {
     }
 
     public RoutingTable build() {
-      return Optional.ofNullable(ref.getAndSet(null))
-          .map(RoutingTable::newRoutingTable)
-          .orElseThrow(() -> new IllegalStateException("RoutingTable Already built"));
+      final Map<RaftPeerId, Set<RaftPeerId>> map = ref.getAndSet(null);
+      if (map == null) {
+        throw new IllegalStateException("RoutingTable is already built.");
+      }
+      return RoutingTable.newRoutingTable(map);
     }
 
-    static void validate(Map<RaftPeerId, Set<RaftPeerId>> map) {
-      if (map != null && !map.isEmpty()) {
-        new Builder.Validation(map).run();
-      }
+    static RaftPeerId validate(Map<RaftPeerId, Set<RaftPeerId>> map) {
+      return new Builder.Validation(map).run();
     }
 
     /** Validate if a map represents a valid routing table. */
@@ -131,10 +134,11 @@ public interface RoutingTable {
         this.unreachablePeers = allPeers;
       }
 
-      private void run() {
+      private RaftPeerId run() {
         depthFirstSearch(primary);
         Preconditions.assertTrue(unreachablePeers.isEmpty() ,
             () -> "Invalid routing table: peer(s) " + unreachablePeers +  " are unreachable, " + this);
+        return primary;
       }
 
       private void depthFirstSearch(RaftPeerId current) {
@@ -159,7 +163,10 @@ public interface RoutingTable {
 
   /** @return a new {@link RoutingTable} represented by the given map. */
   static RoutingTable newRoutingTable(Map<RaftPeerId, Set<RaftPeerId>> map){
-    Builder.validate(map);
+    if (map == null || map.isEmpty()) {
+      return null;
+    }
+    final RaftPeerId primary = Builder.validate(map);
 
     final Supplier<RoutingTableProto> proto = JavaUtils.memoize(
         () -> RoutingTableProto.newBuilder().addAllRoutes(ProtoUtils.toRouteProtos(map)).build());
@@ -167,6 +174,11 @@ public interface RoutingTable {
       @Override
       public Set<RaftPeerId> getSuccessors(RaftPeerId peerId) {
         return Optional.ofNullable(map.get(peerId)).orElseGet(Collections::emptySet);
+      }
+
+      @Override
+      public RaftPeerId getPrimary() {
+        return primary;
       }
 
       @Override
