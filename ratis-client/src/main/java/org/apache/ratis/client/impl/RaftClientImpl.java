@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import jdk.nashorn.internal.ir.annotations.Immutable;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
@@ -133,7 +134,7 @@ public final class RaftClientImpl implements RaftClient {
   private final RaftGroupId groupId;
   private final RetryPolicy retryPolicy;
 
-  @SuppressWarnings("java:S3077")
+  @Immutable
   private volatile RaftPeerId leaderId;
 
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
