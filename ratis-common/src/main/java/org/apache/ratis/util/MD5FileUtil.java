@@ -23,14 +23,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.security.DigestInputStream;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,8 +41,19 @@ public abstract class MD5FileUtil {
   // Keep the checksum and data in the same block format instead of individual files.
 
   public static final String MD5_SUFFIX = ".md5";
-  private static final Pattern LINE_REGEX =
-      Pattern.compile("([0-9a-f]{32}) [ *](.+)");
+  private static final String LINE_REGEX = "([0-9a-f]{32}) [ *](.+)";
+  private static final Pattern LINE_PATTERN = Pattern.compile(LINE_REGEX);
+
+  static Matcher getMatcher(String md5) {
+    return Optional.ofNullable(md5)
+        .map(LINE_PATTERN::matcher)
+        .filter(Matcher::matches)
+        .orElse(null);
+  }
+
+  static String getDoesNotMatchString(String line) {
+    return "\"" + line + "\" does not match the pattern " + LINE_REGEX;
+  }
 
   /**
    * Verify that the previously saved md5 for the given file matches
@@ -60,36 +70,14 @@ public abstract class MD5FileUtil {
     }
   }
 
-  /**
-   * Read the md5 file stored alongside the given data file and match the md5
-   * file content.
-   * @param md5File the file containing data
-   * @return a matcher with two matched groups where group(1) is the md5 string
-   *         and group(2) is the data file path.
-   */
-  private static Matcher readStoredMd5(File md5File) throws IOException {
-    BufferedReader reader =
-          new BufferedReader(new InputStreamReader(new FileInputStream(
-            md5File), StandardCharsets.UTF_8));
-    String md5Line;
-    try {
-      md5Line = reader.readLine();
-      if (md5Line == null) {
-        md5Line = "";
-      }
-      md5Line = md5Line.trim();
+  /** Read the first line of the given file. */
+  private static String readFirstLine(File f) throws IOException {
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+        FileUtils.newInputStream(f), StandardCharsets.UTF_8))) {
+      return Optional.ofNullable(reader.readLine()).map(String::trim).orElse(null);
     } catch (IOException ioe) {
-      throw new IOException("Error reading md5 file at " + md5File, ioe);
-    } finally {
-      IOUtils.cleanup(LOG, reader);
+      throw new IOException("Failed to read file: " + f, ioe);
     }
-
-    Matcher matcher = LINE_REGEX.matcher(md5Line);
-    if (!matcher.matches()) {
-      throw new IOException("Invalid MD5 file " + md5File + ": the content \""
-          + md5Line + "\" does not match the expected pattern.");
-    }
-    return matcher;
   }
 
   /**
@@ -103,7 +91,9 @@ public abstract class MD5FileUtil {
       return null;
     }
 
-    final Matcher matcher = readStoredMd5(md5File);
+    final String md5 = readFirstLine(md5File);
+    final Matcher matcher = Optional.ofNullable(getMatcher(md5)).orElseThrow(() -> new IOException(
+        "Invalid MD5 file " + md5File + ": the content " + getDoesNotMatchString(md5)));
     String storedHash = matcher.group(1);
     File referencedFile = new File(matcher.group(2));
 
@@ -122,9 +112,15 @@ public abstract class MD5FileUtil {
    * Read dataFile and compute its MD5 checksum.
    */
   public static MD5Hash computeMd5ForFile(File dataFile) throws IOException {
+    final int bufferSize = SizeInBytes.ONE_MB.getSizeInt();
     final MessageDigest digester = MD5Hash.getDigester();
-    try (DigestInputStream dis = new DigestInputStream(Files.newInputStream(dataFile.toPath()), digester)) {
-      IOUtils.readFully(dis, 128*1024);
+    try (FileChannel in = FileUtils.newFileChannel(dataFile, StandardOpenOption.READ)) {
+      final long fileSize = in.size();
+      for (int offset = 0; offset < fileSize; ) {
+        final int readSize = Math.toIntExact(Math.min(fileSize - offset, bufferSize));
+        digester.update(in.map(FileChannel.MapMode.READ_ONLY, offset, readSize));
+        offset += readSize;
+      }
     }
     return new MD5Hash(digester.digest());
   }
@@ -157,31 +153,18 @@ public abstract class MD5FileUtil {
 
   private static void saveMD5File(File dataFile, String digestString)
       throws IOException {
-    File md5File = getDigestFileForFile(dataFile);
-    String md5Line = digestString + " *" + dataFile.getName() + "\n";
+    final String md5Line = digestString + " *" + dataFile.getName() + "\n";
+    if (getMatcher(md5Line.trim()) == null) {
+      throw new IllegalArgumentException("Invalid md5 string: " + getDoesNotMatchString(digestString));
+    }
 
-    try (AtomicFileOutputStream afos
-         = new AtomicFileOutputStream(md5File)) {
+    final File md5File = getDigestFileForFile(dataFile);
+    try (AtomicFileOutputStream afos = new AtomicFileOutputStream(md5File)) {
       afos.write(md5Line.getBytes(StandardCharsets.UTF_8));
     }
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("Saved MD5 " + digestString + " to " + md5File);
-    }
-  }
-
-  public static void renameMD5File(File oldDataFile, File newDataFile)
-      throws IOException {
-    final File fromFile = getDigestFileForFile(oldDataFile);
-    if (!fromFile.exists()) {
-      throw new FileNotFoundException(fromFile + " does not exist.");
-    }
-
-    final String digestString = readStoredMd5(fromFile).group(1);
-    saveMD5File(newDataFile, digestString);
-
-    if (!fromFile.delete()) {
-      LOG.warn("deleting  " + fromFile.getAbsolutePath() + " FAILED");
     }
   }
 

@@ -22,11 +22,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public interface FileUtils {
@@ -48,17 +53,82 @@ public interface FileUtils {
     final long original = f.length();
     LogUtils.runAndLog(LOG,
         () -> {
-          try (FileOutputStream out = new FileOutputStream(f, true)) {
-            out.getChannel().truncate(target);
+          try (FileChannel channel = FileChannel.open(f.toPath(), StandardOpenOption.WRITE)) {
+            channel.truncate(target);
           }
         },
-        () -> "FileOutputStream.getChannel().truncate " + f + " length: " + original + " -> " + target);
+        () -> "FileChannel.truncate " + f + " length: " + original + " -> " + target);
   }
 
-  static OutputStream createNewFile(Path p) throws IOException {
+  static InputStream newInputStream(String s, OpenOption... options) throws IOException {
+    return newInputStream(Paths.get(s), options);
+  }
+
+  static InputStream newInputStream(File f, OpenOption... options) throws IOException {
+    return newInputStream(f.toPath(), options);
+  }
+
+  static InputStream newInputStream(Path p, OpenOption... options) throws IOException {
     return LogUtils.supplyAndLog(LOG,
-        () -> Files.newOutputStream(p, StandardOpenOption.CREATE_NEW),
-        () -> "Files.newOutputStream " + StandardOpenOption.CREATE_NEW + " " + p);
+        () -> Files.newInputStream(p, options),
+        () -> "Files.newInputStream " + p + " with options " + Arrays.asList(options));
+  }
+
+  static OutputStream newOutputStream(File f, OpenOption... options) throws IOException {
+    return newOutputStream(f.toPath(), options);
+  }
+
+  static OutputStream newOutputStream(Path p, OpenOption... options) throws IOException {
+    return LogUtils.supplyAndLog(LOG,
+        () -> Files.newOutputStream(p, options),
+        () -> "Files.newOutputStream " + p + " with options " + Arrays.asList(options));
+  }
+
+  static OutputStream newOutputStream(FileChannel channel, boolean forceAtClose) {
+    final byte[] single = {0};
+    return new OutputStream() {
+      @Override
+      public void write(int b) throws IOException {
+        single[0] = (byte) b;
+        write(single);
+      }
+
+      @Override
+      public void write(byte[] b, int off, int len) throws IOException {
+        for(; len > 0; ) {
+          final int written = channel.write(ByteBuffer.wrap(b, off, len));
+          off += written;
+          len -= written;
+        }
+      }
+
+      @Override
+      public void close() throws IOException {
+        try (FileChannel c = channel) {
+          if (forceAtClose) {
+            c.force(true);
+          }
+        }
+      }
+    };
+  }
+
+  static OutputStream newOutputStreamForceAtClose(Path p, OpenOption... options) throws IOException {
+    return newOutputStream(newFileChannel(p, options), true);
+  }
+
+  static OutputStream newOutputStreamForceAtClose(File f, OpenOption... options) throws IOException {
+    return newOutputStreamForceAtClose(f.toPath(), options);
+  }
+
+  static FileChannel newFileChannel(File f, OpenOption... options) throws IOException {
+    return newFileChannel(f.toPath(), options);
+  }
+
+  static FileChannel newFileChannel(Path p, OpenOption... options) throws IOException {
+    return LogUtils.supplyAndLog(LOG,
+        () -> FileChannel.open(p, options),
+        () -> "FileChannel.open " + p + " with options " + Arrays.asList(options));
   }
 
   static void createDirectories(File dir) throws IOException {
@@ -86,19 +156,35 @@ public interface FileUtils {
     }
   }
 
-  static void move(File src, File dst) throws IOException {
-    move(src.toPath(), dst.toPath());
+  static void move(File src, File dst, CopyOption... options) throws IOException {
+    move(src.toPath(), dst.toPath(), options);
   }
 
-  static void move(Path src, Path dst) throws IOException {
+  static void move(Path src, Path dst, CopyOption... options) throws IOException {
+    Objects.requireNonNull(options, "options == null");
+    final List<CopyOption> original = Arrays.asList(options);
+    final boolean atomicMove = original.contains(StandardCopyOption.ATOMIC_MOVE);
+    if (atomicMove) {
+      LogUtils.runAndLog(LOG,
+          () -> Files.move(src, dst, options),
+          () -> "Files.move " + src + " to " + dst + " with options " + original);
+      return;
+    }
+
+    final CopyOption[] optionsWithAtomicMove = new CopyOption[options.length + 1];
+    optionsWithAtomicMove[0] = StandardCopyOption.ATOMIC_MOVE;
+    System.arraycopy(options, 0, optionsWithAtomicMove, 1, options.length);
+
+    final Supplier<String> suffix = () -> original.isEmpty() ? "" : " with options " + original;
     try {
       LogUtils.runAndLog(LOG,
-        () -> Files.move(src, dst, StandardCopyOption.ATOMIC_MOVE),
-        () -> "Atomic Files.move " + src + " to " + dst);
+          () -> Files.move(src, dst, optionsWithAtomicMove),
+          () -> "Atomic Files.move " + src + " to " + dst + suffix.get());
     } catch (AtomicMoveNotSupportedException e) {
+      // Fallback to non-atomic move.
       LogUtils.runAndLog(LOG,
-        () -> Files.move(src, dst),
-        () -> "Atomic move not supported. Fallback to Files.move " + src + " to " + dst);
+          () -> Files.move(src, dst, options),
+          () -> "Atomic move not supported. Fallback to Files.move " + src + " to " + dst + suffix.get());
     }
   }
 
@@ -196,6 +282,24 @@ public interface FileUtils {
         () -> "Files.delete " + p);
   }
 
+  /**
+   * Use {@link Files#deleteIfExists(Path)} to delete the given path.
+   * This method may print log messages using {@link #LOG}.
+   */
+  static void deleteIfExists(Path p) throws IOException {
+    LogUtils.runAndLog(LOG,
+        () -> Files.deleteIfExists(p),
+        () -> "Files.deleteIfExists " + p);
+  }
+
+  /**
+   * Use {@link Files#deleteIfExists(Path)} to delete the given path.
+   * This method may print log messages using {@link #LOG}.
+   */
+  static void deleteIfExists(File f) throws IOException {
+    deleteIfExists(f.toPath());
+  }
+
   /** The same as passing f.toPath() to {@link #deleteFully(Path)}. */
   static void deleteFully(File f) throws IOException {
     LOG.trace("deleteFully {}", f);
@@ -204,12 +308,9 @@ public interface FileUtils {
 
   /**
    * Delete fully the given path.
-   *
    * (1) If it is a file, the file will be deleted.
-   *
    * (2) If it is a directory, the directory and all its contents will be recursively deleted.
    *     If an exception is thrown, the directory may possibly be partially deleted.*
-   *
    * (3) If it is a symlink, the symlink will be deleted but the symlink target will not be deleted.
    */
   static void deleteFully(Path p) throws IOException {
