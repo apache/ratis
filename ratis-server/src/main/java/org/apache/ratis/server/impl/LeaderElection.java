@@ -387,6 +387,9 @@ class LeaderElection implements Runnable {
           // if some higher priority peer did not response when timeout, but candidate get majority,
           // candidate pass vote
           return logAndReturn(phase, Result.PASSED, responses, exceptions);
+        } else if (conf.isSingleMode(server.getId())) {
+          // if candidate is in single mode, candidate pass vote.
+          return logAndReturn(phase, Result.PASSED, responses, exceptions);
         } else {
           return logAndReturn(phase, Result.TIMEOUT, responses, exceptions);
         }
