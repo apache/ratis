@@ -114,17 +114,17 @@ public class TestRaftConfiguration extends BaseTest {
         .build();
     assertTrue(config.changeMajority(raftPeersWithPriority(1, 4, 5)));
 
-    // Case 5: {1, 2, 3} --> {1, 2, 4, 5}.
+    // Case 5: {1, 2, 3} --> {1, 2, 3, 4, 5}.
     config = RaftConfigurationImpl.newBuilder()
         .setConf(new PeerConfiguration(raftPeersWithPriority(1, 2, 3)))
         .build();
-    assertTrue(config.changeMajority(raftPeersWithPriority(1, 2, 4, 5)));
+    assertFalse(config.changeMajority(raftPeersWithPriority(1, 2, 3, 4, 5)));
 
     // Case 6: {1, 2, 3, 4, 5} --> {1, 2}.
     config = RaftConfigurationImpl.newBuilder()
         .setConf(new PeerConfiguration(raftPeersWithPriority(1, 2, 3, 4, 5)))
         .build();
-    assertTrue(config.changeMajority(raftPeersWithPriority(1, 2)));
+    assertFalse(config.changeMajority(raftPeersWithPriority(1, 2)));
 
     // Case 7: {1, 2, 3, 4, 5} --> {1, 2, 3}.
     config = RaftConfigurationImpl.newBuilder()

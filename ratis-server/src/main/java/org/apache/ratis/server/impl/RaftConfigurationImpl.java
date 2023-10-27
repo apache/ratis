@@ -233,8 +233,8 @@ final class RaftConfigurationImpl implements RaftConfiguration {
   }
 
   /**
-   * @return true if the changed peers number reaches majority or the group is changing from single
-   * mode to HA mode.
+   * @return true if the new peers number reaches half of new peers number or the group is changing
+   * from single mode to HA mode.
    */
   boolean changeMajority(Collection<RaftPeer> newMembers) {
     Preconditions.assertNull(oldConf, "Conf must be stable.");
@@ -246,14 +246,12 @@ final class RaftConfigurationImpl implements RaftConfiguration {
       }
     }
 
-    int removedPeersCount = conf.size() - newMembers.size() + newPeersCount;
-    int changed = Math.max(newPeersCount, removedPeersCount);
-
-    if (conf.size() == 1 && newMembers.size() == 2 && changed == 1) {
+    if (conf.size() == 1 && newMembers.size() == 2 && newPeersCount == 1) {
       // Change from single peer to HA mode. This is a special case, skip majority verification.
       return false;
     }
-    return changed > (conf.size() / 2);
+    // Make sure peers in conf don't need new peer's vote to reach majority.
+    return newPeersCount >= newMembers.size() / 2 + newMembers.size() % 2;
   }
 
   /** @return True if the selfId is in single mode. */
