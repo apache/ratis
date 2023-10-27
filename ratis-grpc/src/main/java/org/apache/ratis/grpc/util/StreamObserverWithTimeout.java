@@ -84,6 +84,7 @@ public final class StreamObserverWithTimeout<T> implements StreamObserver<T> {
       try {
         acquired = semaphore.tryAcquire(timeout.getDuration(), timeout.getUnit());
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         throw new IllegalStateException("Interrupted onNext " + request, e);
       }
     }
