@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
+import javax.annotation.concurrent.Immutable;
 import org.apache.ratis.proto.RaftProtos.RaftPeerIdProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
@@ -33,6 +34,7 @@ import java.util.function.Supplier;
  * <p>
  * This is a value-based class.
  */
+@Immutable
 public final class RaftPeerId {
   private static final Map<ByteString, RaftPeerId> BYTE_STRING_MAP = new ConcurrentHashMap<>();
   private static final Map<String, RaftPeerId> STRING_MAP = new ConcurrentHashMap<>();
