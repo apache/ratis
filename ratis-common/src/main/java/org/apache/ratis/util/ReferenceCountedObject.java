@@ -62,6 +62,11 @@ public interface ReferenceCountedObject<T> {
    */
   boolean release();
 
+  /** The same as wrap(value, EMPTY, EMPTY), where EMPTY is an empty method. */
+  static <V> ReferenceCountedObject<V> wrap(V value) {
+    return wrap(value, () -> {}, () -> {});
+  }
+
   /**
    * Wrap the given value as a {@link ReferenceCountedObject}.
    *
@@ -81,8 +86,11 @@ public interface ReferenceCountedObject<T> {
 
       @Override
       public V get() {
-        if (count.get() < 0) {
+        final int previous = count.get();
+        if (previous < 0) {
           throw new IllegalStateException("Failed to get: object has already been completely released.");
+        } else if (previous == 0) {
+          throw new IllegalStateException("Failed to get: object has not yet been retained.");
         }
         return value;
       }

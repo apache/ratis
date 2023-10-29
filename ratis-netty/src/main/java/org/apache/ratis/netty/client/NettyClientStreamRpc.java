@@ -56,6 +56,7 @@ import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -69,7 +70,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -81,52 +81,32 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   private static class WorkerGroupGetter implements Supplier<EventLoopGroup> {
 
-    private static class RefCountedWorkerGroup implements ReferenceCountedObject<EventLoopGroup> {
-      private final AtomicInteger count = new AtomicInteger();
-      private final AtomicReference<EventLoopGroup> value = new AtomicReference<>();
+    private static final AtomicReference<ReferenceCountedObject<EventLoopGroup>> SHARED_WORKER_GROUP =
+        new AtomicReference<>();
 
-      @Override
-      public synchronized EventLoopGroup get() {
-        if (count.get() < 0) {
-          throw new IllegalStateException("Failed to get: object has already been completely released.");
-        }
-        return value.get();
-      }
-
-      @Override
-      public synchronized EventLoopGroup retain() {
-        // n <  0: exception
-        // n >= 0: n++
-        final int previous = count.getAndUpdate(n -> n < 0? n : n + 1);
-        if (previous < 0) {
-          throw new IllegalStateException("Failed to retain: object has already been completely released.");
-        } else if (previous == 0) {
-          // TODO: Find a way to pass RaftProperties
-          // New shared worker group will be created when previously there is
-          // no active connections
-          return value.updateAndGet(g -> g != null ? g: newWorkerGroup(new RaftProperties()));
-        }
-        return value.get();
-      }
-
-      @Override
-      public synchronized boolean release() {
-        // n <= 0: exception
-        // n >= 1: n--
-        final int previous = count.getAndUpdate(n -> n <= 0? -1: n - 1);
-        if (previous <= 0) {
-          throw new IllegalStateException("Failed to release: object has already been completely released.");
-        } else if (previous == 1) {
-          // Shutdown the event loop group when there are no active connection,
-          // subsequent retain will create a new shared worker group.
-          EventLoopGroup previousEventLoopGroup = value.getAndSet(null);
-          previousEventLoopGroup.shutdownGracefully();
-        }
-        return previous == 1;
+    static WorkerGroupGetter newInstance(RaftProperties properties) {
+      final boolean shared = NettyConfigKeys.DataStream.Client.workerGroupShare(properties);
+      if (shared) {
+        final Supplier<ReferenceCountedObject<EventLoopGroup>> supplier = MemoizedSupplier.valueOf(
+            () -> ReferenceCountedObject.wrap(newWorkerGroup((properties))));
+        final ReferenceCountedObject<EventLoopGroup> sharedWorkerGroup = SHARED_WORKER_GROUP.updateAndGet(
+            g -> g != null ? g : supplier.get());
+        return new WorkerGroupGetter(sharedWorkerGroup.get()) {
+          @Override
+          void shutdownGracefully() {
+            final ReferenceCountedObject<EventLoopGroup> returned = SHARED_WORKER_GROUP.updateAndGet(ref -> {
+              Preconditions.assertSame(sharedWorkerGroup, ref, "SHARED_WORKER_GROUP");
+              return ref.release() ? null : ref;
+            });
+            if (returned == null) {
+              workerGroup.shutdownGracefully();
+            }
+          }
+        };
+      } else {
+        return new WorkerGroupGetter(newWorkerGroup(properties));
       }
     }
-
-    private static final RefCountedWorkerGroup SHARED_WORKER_GROUP = new RefCountedWorkerGroup();
 
     static EventLoopGroup newWorkerGroup(RaftProperties properties) {
       return NettyUtils.newEventLoopGroup(
@@ -135,33 +115,19 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
           NettyConfigKeys.DataStream.Client.useEpoll(properties));
     }
 
-    private final EventLoopGroup workerGroup;
-    private final boolean isSharedWorkerGroup;
+    final EventLoopGroup workerGroup;
 
-    WorkerGroupGetter(RaftProperties properties) {
-      isSharedWorkerGroup = NettyConfigKeys.DataStream.Client.workerGroupShare(properties);
-      if (isSharedWorkerGroup) {
-        SHARED_WORKER_GROUP.retain();
-        workerGroup = null;
-      } else {
-        workerGroup = newWorkerGroup(properties);
-      }
+    private WorkerGroupGetter(EventLoopGroup workerGroup) {
+      this.workerGroup = workerGroup;
     }
 
     @Override
-    public EventLoopGroup get() {
-      if (isSharedWorkerGroup) {
-        return SHARED_WORKER_GROUP.get();
-      }
+    public final EventLoopGroup get() {
       return workerGroup;
     }
 
     void shutdownGracefully() {
-      if (isSharedWorkerGroup) {
-        SHARED_WORKER_GROUP.release();
-      } else {
-        workerGroup.shutdownGracefully();
-      }
+      workerGroup.shutdownGracefully();
     }
   }
 
@@ -310,8 +276,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
     final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
-    this.connection = new Connection(address,
-        new WorkerGroupGetter(properties),
+    this.connection = new Connection(address, WorkerGroupGetter.newInstance(properties),
         () -> newChannelInitializer(address, sslContext, getClientHandler()));
   }
 
