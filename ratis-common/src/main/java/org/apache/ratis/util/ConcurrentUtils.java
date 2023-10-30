@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 /**
  * Utilities related to concurrent programming.
@@ -153,13 +154,14 @@ public interface ConcurrentUtils {
   }
 
   /**
-   * The same as collection.parallelStream().forEach(action) except that
+   * The same as {@link Collection#parallelStream()}.forEach(action) except that
    * (1) this method is asynchronous,
-   * (2) an executor can be passed to this method, and
+   * (2) this method has an executor parameter, and
    * (3) the action can throw a checked exception.
    *
-   * @param collection The given collection.
-   * @param action To act on each element in the collection.
+   * @param stream The stream to be processed.
+   * @param size The estimated size of the stream.
+   * @param action To act on each element in the stream.
    * @param executor To execute the action.
    * @param <E> The element type.
    * @param <THROWABLE> the exception type.
@@ -172,14 +174,27 @@ public interface ConcurrentUtils {
    * @see java.util.stream.Stream#forEach(Consumer)
    */
   static <E, THROWABLE extends Throwable> CompletableFuture<Void> parallelForEachAsync(
-      Collection<E> collection, CheckedConsumer<? super E, THROWABLE> action, Executor executor) {
-    final List<CompletableFuture<E>> futures = new ArrayList<>(collection.size());
-    collection.forEach(element -> {
+      Stream<E> stream, int size, CheckedConsumer<? super E, THROWABLE> action, Executor executor) {
+    final List<CompletableFuture<E>> futures = new ArrayList<>(size);
+    stream.forEach(element -> {
       final CompletableFuture<E> f = new CompletableFuture<>();
       futures.add(f);
       executor.execute(() -> accept(action, element, f));
     });
     return JavaUtils.allOf(futures);
+  }
+
+  /** The same as parallelForEachAsync(collection.stream(), collection.size(), action, executor). */
+  static <E, THROWABLE extends Throwable> CompletableFuture<Void> parallelForEachAsync(
+      Collection<E> collection, CheckedConsumer<? super E, THROWABLE> action, Executor executor) {
+    return parallelForEachAsync(collection.stream(), collection.size(), action, executor);
+  }
+
+  /** The same as parallelForEachAsync(collection.stream(), collection.size(), action, executor). */
+  static <THROWABLE extends Throwable> CompletableFuture<Void> parallelForEachAsync(
+      int size, CheckedConsumer<Integer, THROWABLE> action, Executor executor) {
+    final AtomicInteger i = new AtomicInteger();
+    return parallelForEachAsync(Stream.generate(i::getAndIncrement).limit(size), size, action, executor);
   }
 
   static <E, THROWABLE extends Throwable> void accept(

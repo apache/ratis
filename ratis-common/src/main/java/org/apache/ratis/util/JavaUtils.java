@@ -152,6 +152,12 @@ public interface JavaUtils {
     return doPrivileged(() -> System.getProperty(key), () -> "get system property " + key);
   }
 
+  static String getEnv(String variable) {
+    final String value = System.getenv().get(variable);
+    LOG.info("ENV: {} = {}", variable, value);
+    return value;
+  }
+
   /**
    * Similar to {@link System#setProperty(String, String)}
    * except that this method may invoke {@link AccessController#doPrivileged(PrivilegedAction)}
@@ -275,6 +281,9 @@ public interface JavaUtils {
   }
 
   static <T> CompletableFuture<Void> allOf(Collection<CompletableFuture<T>> futures) {
+    if (futures == null || futures.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
     return CompletableFuture.allOf(futures.toArray(EMPTY_COMPLETABLE_FUTURE_ARRAY));
   }
 

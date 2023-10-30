@@ -23,6 +23,7 @@ import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.TimeDuration;
 
@@ -76,6 +77,7 @@ public final class CounterServer implements Closeable {
         .setProperties(properties)
         .setServerId(peer.getId())
         .setStateMachine(counterStateMachine)
+        .setOption(RaftStorage.StartupOption.RECOVER)
         .build();
   }
 

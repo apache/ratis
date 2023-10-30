@@ -21,18 +21,22 @@ package org.apache.ratis.examples.common;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -40,22 +44,46 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Constants across servers and clients
  */
 public final class Constants {
+  private static final Logger LOG = LoggerFactory.getLogger(Constants.class);
+
+  private static final String CONF_FILE_NAME = "conf.properties";
+  private static final List<String> CONF_FILE_DEFAULTS = Collections.unmodifiableList(Arrays.asList(
+      "examples/conf/" + CONF_FILE_NAME, // for release tarball layout
+      "ratis-examples/src/main/resources/" + CONF_FILE_NAME)); // for source tree layout
+  private static final String CONF_FILE_ENV_VAR_NAME = "RATIS_EXAMPLE_CONF";
+
+  static Path getConfPath() {
+    final String env = JavaUtils.getEnv(CONF_FILE_ENV_VAR_NAME);
+    final Stream<String> s = Stream.concat(
+        Optional.ofNullable(env).map(Stream::of).orElseGet(Stream::empty),
+        CONF_FILE_DEFAULTS.stream());
+    for(final Iterator<String> i = s.iterator(); i.hasNext(); ) {
+      final Path p = Paths.get(i.next());
+      if (Files.exists(p)) {
+        LOG.info("Using conf file {}", p);
+        return p;
+      }
+    }
+    throw new IllegalArgumentException("Conf file not found: please set environment variable \""
+        + CONF_FILE_ENV_VAR_NAME + "\"");
+  }
+
   public static final List<RaftPeer> PEERS;
   public static final String PATH;
   public static final List<TimeDuration> SIMULATED_SLOWNESS;
 
   static {
     final Properties properties = new Properties();
-    final String conf = "ratis-examples/src/main/resources/conf.properties";
-    try(InputStream inputStream = new FileInputStream(conf);
-        Reader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
-        BufferedReader bufferedReader = new BufferedReader(reader)) {
-      properties.load(bufferedReader);
+    final Path conf = getConfPath();
+    try(BufferedReader in = new BufferedReader(new InputStreamReader(
+        Files.newInputStream(conf), StandardCharsets.UTF_8))) {
+      properties.load(in);
     } catch (IOException e) {
       throw new IllegalStateException("Failed to load " + conf, e);
     }
