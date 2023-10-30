@@ -81,20 +81,20 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   private static class WorkerGroupGetter implements Supplier<EventLoopGroup> {
 
-    private static final AtomicReference<ReferenceCountedObject<EventLoopGroup>> SHARED_WORKER_GROUP =
-        new AtomicReference<>();
+    private static final AtomicReference<ReferenceCountedObject<Supplier<EventLoopGroup>>> SHARED_WORKER_GROUP
+        = new AtomicReference<>();
 
     static WorkerGroupGetter newInstance(RaftProperties properties) {
       final boolean shared = NettyConfigKeys.DataStream.Client.workerGroupShare(properties);
       if (shared) {
-        final Supplier<ReferenceCountedObject<EventLoopGroup>> supplier = MemoizedSupplier.valueOf(
-            () -> ReferenceCountedObject.wrap(newWorkerGroup((properties))));
-        final ReferenceCountedObject<EventLoopGroup> sharedWorkerGroup = SHARED_WORKER_GROUP.updateAndGet(
+        final Supplier<ReferenceCountedObject<Supplier<EventLoopGroup>>> supplier = MemoizedSupplier.valueOf(
+            () -> ReferenceCountedObject.wrap(MemoizedSupplier.valueOf(() -> newWorkerGroup(properties))));
+        final ReferenceCountedObject<Supplier<EventLoopGroup>> sharedWorkerGroup = SHARED_WORKER_GROUP.updateAndGet(
             g -> g != null ? g : supplier.get());
-        return new WorkerGroupGetter(sharedWorkerGroup.retain()) {
+        return new WorkerGroupGetter(sharedWorkerGroup.retain().get()) {
           @Override
           void shutdownGracefully() {
-            final ReferenceCountedObject<EventLoopGroup> returned = SHARED_WORKER_GROUP.updateAndGet(ref -> {
+            final ReferenceCountedObject<Supplier<EventLoopGroup>> returned = SHARED_WORKER_GROUP.updateAndGet(ref -> {
               Preconditions.assertSame(sharedWorkerGroup, ref, "SHARED_WORKER_GROUP");
               return ref.release() ? null : ref;
             });
