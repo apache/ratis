@@ -102,7 +102,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
               return previous.join().release() ? null : previous;
             });
             if (returned == null) {
-              workerGroup.shutdownGracefully();
+              get().shutdownGracefully();
             }
           }
         };
@@ -118,7 +118,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
           NettyConfigKeys.DataStream.Client.useEpoll(properties));
     }
 
-    final EventLoopGroup workerGroup;
+    private final EventLoopGroup workerGroup;
 
     private WorkerGroupGetter(EventLoopGroup workerGroup) {
       this.workerGroup = workerGroup;
