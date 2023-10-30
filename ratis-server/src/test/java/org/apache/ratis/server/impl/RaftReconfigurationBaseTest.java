@@ -174,6 +174,26 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     });
   }
 
+  @Test
+  public void testChangeMajority() throws Exception {
+    runWithNewCluster(1, cluster -> {
+      RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+
+      try (final RaftClient client = cluster.createClient(leaderId)) {
+        final PeerChanges c1 = cluster.addNewPeers(2, true);
+
+        SetConfigurationRequest.Arguments arguments = SetConfigurationRequest.Arguments.newBuilder()
+            .setServersInCurrentConf(cluster.getPeers())
+            .setServersInNewConf(c1.allPeersInNewConf)
+            .setMode(SetConfigurationRequest.Mode.COMPARE_AND_SET)
+            .build();
+        assertThrows("Expect change majority error.", SetConfigurationException.class,
+            () -> client.admin().setConfiguration(arguments));
+      }
+    });
+  }
+
   /**
    * remove 2 peers (5 peers -> 3 peers), no leader change
    */
@@ -409,17 +429,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   @Test
   public void testBootstrapReconfWithSingleNodeAddTwo() throws Exception {
     // originally 1 peer, add 2 more
-    runWithNewCluster(1, cluster -> {
-      RaftTestUtil.waitForLeader(cluster);
-      final RaftPeerId leaderId = cluster.getLeader().getId();
-
-      try (final RaftClient client = cluster.createClient(leaderId)) {
-        final PeerChanges c1 = cluster.addNewPeers(2, true);
-
-        assertThrows("Expect change majority error.", SetConfigurationException.class,
-            () -> client.admin().setConfiguration(c1.allPeersInNewConf));
-      }
-    });
+    runWithNewCluster(1, cluster -> runTestBootstrapReconf(2, true, cluster));
   }
 
   @Test
