@@ -1311,7 +1311,8 @@ class RaftServerImpl implements RaftServer.Division,
         pending.setReply(newSuccessReply(request));
         return pending.getFuture();
       }
-      if (current.changeMajority(serversInNewConf)) {
+      if (arguments.getMode() != SetConfigurationRequest.Mode.SET_UNCONDITIONALLY
+          && current.changeMajority(serversInNewConf)) {
         throw new SetConfigurationException("Failed to set configuration: request " + request
             + " changes a majority set of the current configuration " + current);
       }
