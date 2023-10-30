@@ -91,7 +91,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
             () -> ReferenceCountedObject.wrap(newWorkerGroup((properties))));
         final ReferenceCountedObject<EventLoopGroup> sharedWorkerGroup = SHARED_WORKER_GROUP.updateAndGet(
             g -> g != null ? g : supplier.get());
-        return new WorkerGroupGetter(sharedWorkerGroup.get()) {
+        return new WorkerGroupGetter(sharedWorkerGroup.retain()) {
           @Override
           void shutdownGracefully() {
             final ReferenceCountedObject<EventLoopGroup> returned = SHARED_WORKER_GROUP.updateAndGet(ref -> {
