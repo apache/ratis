@@ -81,22 +81,25 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   private static class WorkerGroupGetter implements Supplier<EventLoopGroup> {
 
-    private static final AtomicReference<ReferenceCountedObject<Supplier<EventLoopGroup>>> SHARED_WORKER_GROUP
+    private static final AtomicReference<CompletableFuture<ReferenceCountedObject<EventLoopGroup>>> SHARED_WORKER_GROUP
         = new AtomicReference<>();
 
     static WorkerGroupGetter newInstance(RaftProperties properties) {
       final boolean shared = NettyConfigKeys.DataStream.Client.workerGroupShare(properties);
       if (shared) {
-        final Supplier<ReferenceCountedObject<Supplier<EventLoopGroup>>> supplier = MemoizedSupplier.valueOf(
-            () -> ReferenceCountedObject.wrap(MemoizedSupplier.valueOf(() -> newWorkerGroup(properties))));
-        final ReferenceCountedObject<Supplier<EventLoopGroup>> sharedWorkerGroup = SHARED_WORKER_GROUP.updateAndGet(
-            g -> g != null ? g : supplier.get());
-        return new WorkerGroupGetter(sharedWorkerGroup.retain().get()) {
+        final CompletableFuture<ReferenceCountedObject<EventLoopGroup>> created = new CompletableFuture<>();
+        final CompletableFuture<ReferenceCountedObject<EventLoopGroup>> current
+            = SHARED_WORKER_GROUP.updateAndGet(g -> g != null ? g : created);
+        if (current == created) {
+          created.complete(ReferenceCountedObject.wrap(newWorkerGroup(properties)));
+        }
+        return new WorkerGroupGetter(current.join().retain()) {
           @Override
           void shutdownGracefully() {
-            final ReferenceCountedObject<Supplier<EventLoopGroup>> returned = SHARED_WORKER_GROUP.updateAndGet(ref -> {
-              Preconditions.assertSame(sharedWorkerGroup, ref, "SHARED_WORKER_GROUP");
-              return ref.release() ? null : ref;
+            final CompletableFuture<ReferenceCountedObject<EventLoopGroup>> returned
+                = SHARED_WORKER_GROUP.updateAndGet(previous -> {
+              Preconditions.assertSame(current, previous, "SHARED_WORKER_GROUP");
+              return previous.join().release() ? null : previous;
             });
             if (returned == null) {
               workerGroup.shutdownGracefully();
