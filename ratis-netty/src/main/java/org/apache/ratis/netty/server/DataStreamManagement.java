@@ -326,9 +326,11 @@ public class DataStreamManagement {
     for (ByteBuffer buffer : buf.nioBuffers()) {
       final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.wrap(buffer, buf::retain, buf::release);
       try {
-        byteWritten += channel.write(wrapped);
+        byteWritten += channel.write(wrapped.retain());
       } catch (Throwable t) {
         throw new CompletionException(t);
+      } finally {
+        wrapped.release();
       }
     }
 
