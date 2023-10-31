@@ -189,7 +189,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         }
       }
 
-      // Two levels of MemoizedSupplier for as a side-effect-free function:
+      // Two levels of MemoizedSupplier as a side-effect-free function:
       // AtomicReference.getAndUpdate may call the update function multiple times and discard the old objects.
       // The outer supplier creates only an inner supplier, which can be discarded without any leakage.
       // The inner supplier will be invoked (i.e. connect) ONLY IF it is successfully set to the reference.

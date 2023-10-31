@@ -287,7 +287,8 @@ public class DataStreamManagement {
     final Division division = server.getDivision(request.getRaftGroupId());
     final ClientInvocationId invocationId = ClientInvocationId.valueOf(request);
     final CompletableFuture<DataStream> created = new CompletableFuture<>();
-    final CompletableFuture<DataStream> returned = division.getDataStreamMap().computeIfAbsent(invocationId, key -> created);
+    final CompletableFuture<DataStream> returned = division.getDataStreamMap()
+        .computeIfAbsent(invocationId, key -> created);
     if (returned != created) {
       throw new AlreadyExistsException("A DataStream already exists for " + invocationId);
     }
