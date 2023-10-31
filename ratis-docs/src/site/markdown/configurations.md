@@ -318,7 +318,7 @@ Ratis will temporarily stall the new IO Tasks.
 |:----------------|:--------------------------------------------|
 | **Description** | max file size for a single Raft Log Segment |
 | **Type**        | SizeInBytes                                 |
-| **Default**     | 8MB                                         |
+| **Default**     | 32MB                                        |
 
 | **Property**    | `raft.server.log.segment.cache.num.max`                                     |
 |:----------------|:----------------------------------------------------------------------------|
