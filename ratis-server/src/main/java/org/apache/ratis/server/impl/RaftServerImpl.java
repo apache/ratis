@@ -59,6 +59,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
+import org.apache.ratis.server.util.DirectBufferCleaner;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
@@ -849,7 +850,7 @@ class RaftServerImpl implements RaftServer.Division,
       // first check the server's leader state
       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null,
           !request.is(TypeCase.READ) && !request.is(TypeCase.WATCH));
-      if (reply != null) {
+      if (reply != null ) {
         return reply;
       }
 

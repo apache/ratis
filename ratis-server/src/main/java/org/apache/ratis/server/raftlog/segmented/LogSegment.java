@@ -19,6 +19,7 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -26,6 +27,7 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.server.util.DirectBufferCleaner;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheLoader;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
@@ -376,11 +378,11 @@ public final class LogSegment implements Comparable<Long> {
   /**
    * Remove records from the given index (inclusive)
    */
-  synchronized void truncate(long fromIndex) {
+  synchronized void truncate(long fromIndex, RaftGroupId groupId) {
     Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
     for (long index = endIndex; index >= fromIndex; index--) {
       LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
-      removeEntryCache(removed.getTermIndex(), Op.REMOVE_CACHE);
+      removeEntryCache(removed.getTermIndex(), Op.REMOVE_CACHE, groupId);
       totalFileSize = removed.offset;
     }
     isOpen = false;
@@ -405,9 +407,9 @@ public final class LogSegment implements Comparable<Long> {
         (this.getEndIndex() < l ? -1 : 1);
   }
 
-  synchronized void clear() {
+  synchronized void clear(RaftGroupId groupId) {
     records.clear();
-    evictCache();
+    evictCache(groupId);
     endIndex = startIndex - 1;
   }
 
@@ -415,24 +417,34 @@ public final class LogSegment implements Comparable<Long> {
     return loadingTimes.get();
   }
 
-  void evictCache() {
+  void evictCache(RaftGroupId groupId) {
+    LOG.info("{} - Evicting LogSegment  with {} cache entries, total cache size {}, total file size {}", groupId, entryCache.size(), totalCacheSize.get(), totalFileSize);
+    DirectBufferCleaner.INSTANCE.clean(groupId, startIndex, endIndex);
     entryCache.clear();
     totalCacheSize.set(0);
   }
 
+//  public static Map<ByteString, LogSegment> allBuffers = Collections.synchronizedMap(new IdentityHashMap<>());
   void putEntryCache(TermIndex key, LogEntryProto value, Op op) {
+//    ByteString logData = value.getStateMachineLogEntry().getLogData();
+//    allBuffers.putIfAbsent(logData, this);
+//    if (!logData.isEmpty() && !DirectBufferCleaner.INSTANCE.handles.containsKey(logData)) {
+//      (new Exception("Unknown value added to cache " + key)).printStackTrace();
+//    }
     final LogEntryProto previous = entryCache.put(key, value);
     long previousSize = 0;
     if (previous != null) {
       // Different threads maybe load LogSegment file into cache at the same time, so duplicate maybe happen
       previousSize = getEntrySize(value, Op.REMOVE_CACHE);
+//      DirectBufferCleaner.INSTANCE.clean(previous);
     }
     totalCacheSize.getAndAdd(getEntrySize(value, op) - previousSize);
   }
 
-  void removeEntryCache(TermIndex key, Op op) {
+  void removeEntryCache(TermIndex key, Op op, RaftGroupId groupId) {
     LogEntryProto value = entryCache.remove(key);
     if (value != null) {
+      DirectBufferCleaner.INSTANCE.clean(groupId, value);
       totalCacheSize.getAndAdd(-getEntrySize(value, op));
     }
   }

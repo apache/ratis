@@ -20,6 +20,7 @@ package org.apache.ratis.server.raftlog.segmented;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
@@ -265,18 +266,18 @@ public class TestLogSegment extends BaseTest {
 
     // truncate an open segment (remove 1080~1099)
     long newSize = segment.getLogRecord(start + 80).getOffset();
-    segment.truncate(start + 80);
+    segment.truncate(start + 80, RaftGroupId.randomId());
     Assert.assertEquals(80, segment.numOfEntries());
     checkLogSegment(segment, start, start + 79, false, newSize, term);
 
     // truncate a closed segment (remove 1050~1079)
     newSize = segment.getLogRecord(start + 50).getOffset();
-    segment.truncate(start + 50);
+    segment.truncate(start + 50, RaftGroupId.randomId());
     Assert.assertEquals(50, segment.numOfEntries());
     checkLogSegment(segment, start, start + 49, false, newSize, term);
 
     // truncate all the remaining entries
-    segment.truncate(start);
+    segment.truncate(start, RaftGroupId.randomId());
     Assert.assertEquals(0, segment.numOfEntries());
     checkLogSegment(segment, start, start - 1, false,
         SegmentedRaftLogFormat.getHeaderLength(), term);

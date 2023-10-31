@@ -19,10 +19,18 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.util.ZeroCopyMessageMarshaller;
+import org.apache.ratis.grpc.util.ZeroCopyReadinessChecker;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
+import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.server.util.DirectBufferCleaner;
+import org.apache.ratis.thirdparty.io.grpc.MethodDescriptor;
+import org.apache.ratis.thirdparty.io.grpc.ServerCallHandler;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
@@ -35,6 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -45,11 +54,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
   private static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolService.class);
+  private ZeroCopyMessageMarshaller<RaftClientRequestProto> zeroCopyRequestMarshaller =
+      new ZeroCopyMessageMarshaller<>(RaftClientRequestProto.getDefaultInstance());
+  private final boolean zeroCopyEnabled;
+
+//  private OneCopyMessageMarshaller<RaftClientRequestProto> oneCopyRequestMarshaller =
+//      new OneCopyMessageMarshaller<>(RaftClientRequestProto.getDefaultInstance());
 
   private static class PendingOrderedRequest implements SlidingWindow.ServerSideRequest<RaftClientReply> {
     private final RaftClientRequest request;
@@ -137,10 +153,11 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
   private final OrderedStreamObservers orderedStreamObservers = new OrderedStreamObservers();
 
   GrpcClientProtocolService(Supplier<RaftPeerId> idSupplier, RaftClientAsynchronousProtocol protocol,
-      ExecutorService executor) {
+      ExecutorService executor, boolean zeroCopyEnabled) {
     this.idSupplier = idSupplier;
     this.protocol = protocol;
     this.executor = executor;
+    this.zeroCopyEnabled = zeroCopyEnabled;
   }
 
   RaftPeerId getId() {
@@ -162,6 +179,43 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
   @Override
   public StreamObserver<RaftClientRequestProto> unordered(StreamObserver<RaftClientReplyProto> responseObserver) {
     return new UnorderedRequestStreamObserver(responseObserver);
+  }
+
+  /**
+   * Bind this grpc service with zero-copy marshaller for
+   * ordered and unordered methods if zero-copy is enabled.
+   */
+  public ServerServiceDefinition bindServiceWithZeroCopy() {
+    ServerServiceDefinition orig = super.bindService();
+    if (!ZeroCopyReadinessChecker.isReady()) {
+      LOG.info("Zero copy is not ready.");
+      return orig;
+    }
+    if (!zeroCopyEnabled) {
+      LOG.info("Zero copy is disabled");
+      return orig;
+    }
+
+    ServerServiceDefinition.Builder builder =
+        ServerServiceDefinition.builder(orig.getServiceDescriptor().getName());
+
+    addZeroCopyMethod(orig, builder, RaftClientProtocolServiceGrpc.getOrderedMethod());
+    addZeroCopyMethod(orig, builder, RaftClientProtocolServiceGrpc.getUnorderedMethod());
+
+    return builder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  private void addZeroCopyMethod(ServerServiceDefinition orig,
+      ServerServiceDefinition.Builder builder,
+      MethodDescriptor<RaftClientRequestProto, RaftClientReplyProto> origMethod) {
+    MethodDescriptor<RaftClientRequestProto, RaftClientReplyProto> newMethod = origMethod.toBuilder()
+            .setRequestMarshaller(zeroCopyRequestMarshaller)
+            .build();
+    ServerCallHandler<RaftClientRequestProto, RaftClientReplyProto> serverCallHandler =
+        (ServerCallHandler<RaftClientRequestProto, RaftClientReplyProto>) orig.getMethod(newMethod.getFullMethodName())
+            .getServerCallHandler();
+    builder.addMethod(newMethod, serverCallHandler);
   }
 
   private final AtomicInteger streamCount = new AtomicInteger();
@@ -220,11 +274,11 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
       return isClosed.get();
     }
 
-    CompletableFuture<Void> processClientRequest(RaftClientRequest request, Consumer<RaftClientReply> replyHandler) {
+    CompletableFuture<Void> processClientRequest(RaftClientRequest request, Consumer<RaftClientReply> replyHandler, BiConsumer<RaftClientReply, Throwable> cleaner) {
       try {
         final String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + request : "";
         return protocol.submitClientRequestAsync(request
-        ).thenAcceptAsync(replyHandler, executor
+        ).whenCompleteAsync(cleaner).thenAcceptAsync(replyHandler, executor
         ).exceptionally(exception -> {
           // TODO: the exception may be from either raft or state machine.
           // Currently we skip all the following responses when getting an
@@ -237,14 +291,23 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
       }
     }
 
-    abstract void processClientRequest(RaftClientRequest request);
+    abstract void processClientRequest(RaftClientRequest request, BiConsumer<RaftClientReply, Throwable> cleaner);
 
     @Override
     public void onNext(RaftClientRequestProto request) {
+      InputStream handle = zeroCopyRequestMarshaller.popStream(request);
+      BiConsumer<RaftClientReply, Throwable> cleaner = (r, e) -> {
+        if (r != null && r.isSuccess() && request.getTypeCase().equals(TypeCase.WRITE)) {
+          DirectBufferCleaner.INSTANCE.watch(r, handle);
+        } else {
+          org.apache.ratis.thirdparty.io.grpc.internal.GrpcUtil.closeQuietly(handle);
+        }
+      };
       try {
         final RaftClientRequest r = ClientProtoUtils.toRaftClientRequest(request);
-        processClientRequest(r);
+        processClientRequest(r, cleaner);
       } catch (Exception e) {
+        org.apache.ratis.thirdparty.io.grpc.internal.GrpcUtil.closeQuietly(handle);
         responseError(e, () -> "onNext for " + ClientProtoUtils.toString(request) + " in " + name);
       }
     }
@@ -278,14 +341,14 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
     }
 
     @Override
-    void processClientRequest(RaftClientRequest request) {
+    void processClientRequest(RaftClientRequest request, BiConsumer<RaftClientReply, Throwable> cleaner) {
       final CompletableFuture<Void> f = processClientRequest(request, reply -> {
         if (!reply.isSuccess()) {
           LOG.info("Failed " + request + ", reply=" + reply);
         }
         final RaftClientReplyProto proto = ClientProtoUtils.toRaftClientReplyProto(reply);
         responseNext(proto);
-      });
+      }, cleaner);
       final long callId = request.getCallId();
       put(callId, f);
       f.thenAccept(dummy -> remove(callId));
@@ -327,14 +390,14 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
       return groupId.get();
     }
 
-    void processClientRequest(PendingOrderedRequest pending) {
+    void processClientRequest(PendingOrderedRequest pending, BiConsumer<RaftClientReply, Throwable> cleaner) {
       final long seq = pending.getSeqNum();
       processClientRequest(pending.getRequest(),
-          reply -> slidingWindow.receiveReply(seq, reply, this::sendReply));
+          reply -> slidingWindow.receiveReply(seq, reply, this::sendReply), cleaner);
     }
 
     @Override
-    void processClientRequest(RaftClientRequest r) {
+    void processClientRequest(RaftClientRequest r, BiConsumer<RaftClientReply, Throwable> cleaner) {
       if (isClosed()) {
         final AlreadyClosedException exception = new AlreadyClosedException(getName() + ": the stream is closed");
         responseError(exception, () -> "processClientRequest (stream already closed) for " + r);
@@ -350,10 +413,11 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
             + ": The group (" + requestGroupId + ") of " + r.getClientId()
             + " does not match the group (" + updated + ") of the " + JavaUtils.getClassSimpleName(getClass()));
         responseError(exception, () -> "processClientRequest (Group mismatched) for " + r);
+        cleaner.accept(null, exception);
         return;
       }
 
-      slidingWindow.receivedRequest(pending, this::processClientRequest);
+      slidingWindow.receivedRequest(pending, x ->  this.processClientRequest(x, cleaner));
     }
 
     private void sendReply(PendingOrderedRequest ready) {

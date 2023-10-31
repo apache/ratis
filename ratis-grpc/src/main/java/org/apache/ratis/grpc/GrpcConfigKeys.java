@@ -229,6 +229,17 @@ public interface GrpcConfigKeys {
       setInt(properties::setInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY, port);
     }
 
+    String ZERO_COPY_ENABLED = PREFIX + ".zerocopy.enabled";
+    boolean ZERO_COPY_ENABLED_DEFAULT = false;
+    static boolean zeroCopyEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, ZERO_COPY_ENABLED,
+          ZERO_COPY_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static  void setZeroCopyEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, ZERO_COPY_ENABLED, enabled);
+    }
+
+
     String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
     Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
     static GrpcTlsConfig tlsConf(Parameters parameters) {
