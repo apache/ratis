@@ -18,14 +18,18 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheStats;
+import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 
@@ -33,6 +37,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 class RetryCacheImpl implements RetryCache {
   static class CacheEntry implements Entry {
@@ -181,13 +186,15 @@ class RetryCacheImpl implements RetryCache {
   }
 
   CacheEntry getOrCreateEntry(ClientInvocationId key) {
-    final CacheEntry entry;
+    return getOrCreateEntry(key, () -> new CacheEntry(key));
+  }
+
+  private CacheEntry getOrCreateEntry(ClientInvocationId key, Supplier<CacheEntry> constructor) {
     try {
-      entry = cache.get(key, () -> new CacheEntry(key));
+      return cache.get(key, constructor::get);
     } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
+      throw new IllegalStateException("Failed to get " + key, e);
     }
-    return entry;
   }
 
   CacheEntry refreshEntry(CacheEntry newEntry) {
@@ -195,16 +202,11 @@ class RetryCacheImpl implements RetryCache {
     return newEntry;
   }
 
-  CacheQueryResult queryCache(ClientInvocationId key) {
-    final CacheEntry newEntry = new CacheEntry(key);
-    final CacheEntry cacheEntry;
-    try {
-      cacheEntry = cache.get(key, () -> newEntry);
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
-
-    if (cacheEntry == newEntry) {
+  CacheQueryResult queryCache(RaftClientRequest request) {
+    final ClientInvocationId key = ClientInvocationId.valueOf(request);
+    final MemoizedSupplier<CacheEntry> newEntry = MemoizedSupplier.valueOf(() -> new CacheEntry(key));
+    final CacheEntry cacheEntry = getOrCreateEntry(key, newEntry);
+    if (newEntry.isInitialized()) {
       // this is the entry we just newly created
       return new CacheQueryResult(cacheEntry, false);
     } else if (!cacheEntry.isDone() || !cacheEntry.isFailed()){
@@ -221,11 +223,22 @@ class RetryCacheImpl implements RetryCache {
       if (currentEntry == cacheEntry || currentEntry == null) {
         // if the failed entry has not got replaced by another retry, or the
         // failed entry got invalidated, we add a new cache entry
-        return new CacheQueryResult(refreshEntry(newEntry), false);
+        return new CacheQueryResult(refreshEntry(newEntry.get()), false);
       } else {
         return new CacheQueryResult(currentEntry, true);
       }
     }
+  }
+
+  void invalidateRepliedRequests(RaftClientRequest request) {
+    final ClientId clientId = request.getClientId();
+    final Iterable<Long> callIds = request.getRepliedCallIds();
+    if (!callIds.iterator().hasNext()) {
+      return;
+    }
+
+    LOG.debug("invalidateRepliedRequests callIds {} for {}", callIds, clientId);
+    cache.invalidateAll(CollectionUtils.as(callIds, callId -> ClientInvocationId.valueOf(clientId, callId)));
   }
 
   @Override
@@ -240,10 +253,8 @@ class RetryCacheImpl implements RetryCache {
 
   @Override
   public synchronized void close() {
-    if (cache != null) {
-      cache.invalidateAll();
-      statistics.set(null);
-    }
+    cache.invalidateAll();
+    statistics.set(null);
   }
 
   static CompletableFuture<RaftClientReply> failWithReply(

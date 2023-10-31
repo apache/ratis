@@ -22,11 +22,11 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A long ID for RPC calls.
- *
+ * <p>
  * This class is threadsafe.
  */
 public final class CallId {
-  private static final AtomicLong CALL_ID_COUNTER = new AtomicLong();
+  private static final AtomicLong CALL_ID_COUNTER = new AtomicLong(1);
 
   private static final Comparator<Long> COMPARATOR = (left, right) -> {
     final long diff = left - right;

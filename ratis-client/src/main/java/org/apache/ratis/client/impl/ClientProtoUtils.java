@@ -131,6 +131,7 @@ public interface ClientProtoUtils {
 
     return b.setCallId(request.getCallId())
         .setToLeader(request.isToLeader())
+        .addAllRepliedCallIds(request.getRepliedCallIds())
         .setTimeoutMs(request.getTimeoutMs());
   }
 
@@ -192,6 +193,7 @@ public interface ClientProtoUtils {
         .setCallId(request.getCallId())
         .setMessage(toMessage(p.getMessage()))
         .setType(type)
+        .setRepliedCallIds(request.getRepliedCallIdsList())
         .setRoutingTable(getRoutingTable(request))
         .setTimeoutMs(request.getTimeoutMs())
         .build();

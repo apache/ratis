@@ -900,6 +900,8 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> replyFuture(RaftClientRequest request) throws IOException {
+    retryCache.invalidateRepliedRequests(request);
+
     final TypeCase type = request.getType().getTypeCase();
     switch (type) {
       case STALEREAD:
@@ -925,7 +927,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     // query the retry cache
-    final RetryCacheImpl.CacheQueryResult queryResult = retryCache.queryCache(ClientInvocationId.valueOf(request));
+    final RetryCacheImpl.CacheQueryResult queryResult = retryCache.queryCache(request);
     final CacheEntry cacheEntry = queryResult.getEntry();
     if (queryResult.isRetry()) {
       // return the cached future.
@@ -1784,7 +1786,7 @@ class RaftServerImpl implements RaftServer.Division,
       ClientInvocationId invocationId, long logIndex, CompletableFuture<Message> stateMachineFuture) {
     // update the retry cache
     final CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
-    Preconditions.assertTrue(cacheEntry != null);
+    Objects.requireNonNull(cacheEntry , "cacheEntry == null");
     if (getInfo().isLeader() && cacheEntry.isCompletedNormally()) {
       LOG.warn("{} retry cache entry of leader should be pending: {}", this, cacheEntry);
     }

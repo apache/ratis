@@ -126,7 +126,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   static class Blocking {
     enum Type {
-      START_TRANSACTION, READ_STATE_MACHINE_DATA, WRITE_STATE_MACHINE_DATA, FLUSH_STATE_MACHINE_DATA
+      START_TRANSACTION, APPLY_TRANSACTION, READ_STATE_MACHINE_DATA, WRITE_STATE_MACHINE_DATA, FLUSH_STATE_MACHINE_DATA
     }
 
     private final EnumMap<Type, CompletableFuture<Void>> maps = new EnumMap<>(Type.class);
@@ -243,7 +243,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
+    blocking.await(Blocking.Type.APPLY_TRANSACTION);
     LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
+    LOG.info("applyTransaction for log index {}", entry.getIndex());
+
     put(entry);
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
 
@@ -384,6 +387,13 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
   public void unblockStartTransaction() {
     blocking.unblock(Blocking.Type.START_TRANSACTION);
+  }
+
+  public void blockApplyTransaction() {
+    blocking.block(Blocking.Type.APPLY_TRANSACTION);
+  }
+  public void unblockApplyTransaction() {
+    blocking.unblock(Blocking.Type.APPLY_TRANSACTION);
   }
 
   public void blockWriteStateMachineData() {

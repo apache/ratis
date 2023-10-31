@@ -21,6 +21,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.CallId;
@@ -38,5 +39,9 @@ public interface RaftClientTestUtil {
   static RaftClientRequest newRaftClientRequest(RaftClient client, RaftPeerId server,
       long callId, Message message, RaftClientRequest.Type type, SlidingWindowEntry slidingWindowEntry) {
     return ((RaftClientImpl)client).newRaftClientRequest(server, callId, message, type, slidingWindowEntry);
+  }
+
+  static void handleReply(RaftClientRequest request, RaftClientReply reply, RaftClient client) {
+    ((RaftClientImpl)client).handleReply(request, reply);
   }
 }

@@ -23,6 +23,8 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RAFT_CLIENT_WRITE_REQUEST;
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.protocol.ClientInvocationId;
+import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.util.JavaUtils;
 import org.slf4j.event.Level;
 import org.apache.ratis.conf.Parameters;
@@ -183,18 +185,30 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       final RaftClientRpc rpc = client.getClientRpc();
 
       final AtomicLong seqNum = new AtomicLong();
+      final ClientInvocationId invocationId;
       {
         // send a request using rpc directly
-        final RaftClientRequest request = newRaftClientRequest(client, leader.getId(), seqNum.incrementAndGet());
+        final RaftClientRequest request = newRaftClientRequest(client, seqNum.incrementAndGet());
+        Assert.assertEquals(client.getId(), request.getClientId());
         final CompletableFuture<RaftClientReply> f = rpc.sendRequestAsync(request);
-        Assert.assertTrue(f.get().isSuccess());
+        final RaftClientReply reply = f.get();
+        Assert.assertTrue(reply.isSuccess());
+        RaftClientTestUtil.handleReply(request, reply, client);
+        invocationId = ClientInvocationId.valueOf(request.getClientId(), request.getCallId());
+        final RetryCache.Entry entry = leader.getRetryCache().getIfPresent(invocationId);
+        Assert.assertNotNull(entry);
+        LOG.info("cache entry {}", entry);
       }
 
       // send another request which will be blocked
       final SimpleStateMachine4Testing stateMachine = SimpleStateMachine4Testing.get(leader);
       stateMachine.blockStartTransaction();
-      final RaftClientRequest requestBlocked = newRaftClientRequest(client, leader.getId(), seqNum.incrementAndGet());
+      final RaftClientRequest requestBlocked = newRaftClientRequest(client, seqNum.incrementAndGet());
       final CompletableFuture<RaftClientReply> futureBlocked = rpc.sendRequestAsync(requestBlocked);
+
+      JavaUtils.attempt(() -> Assert.assertNull(leader.getRetryCache().getIfPresent(invocationId)),
+          10, HUNDRED_MILLIS, "invalidate cache entry", LOG);
+      LOG.info("cache entry not found for {}", invocationId);
 
       // change leader
       RaftTestUtil.changeLeader(cluster, leader.getId());
@@ -206,7 +220,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       stateMachine.unblockStartTransaction();
 
       // send one more request which should timeout.
-      final RaftClientRequest requestTimeout = newRaftClientRequest(client, leader.getId(), seqNum.incrementAndGet());
+      final RaftClientRequest requestTimeout = newRaftClientRequest(client, seqNum.incrementAndGet());
       rpc.handleException(leader.getId(), new Exception(), true);
       final CompletableFuture<RaftClientReply> f = rpc.sendRequestAsync(requestTimeout);
       testFailureCase("request should timeout", f::get,
@@ -346,9 +360,9 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     }
   }
 
-  static RaftClientRequest newRaftClientRequest(RaftClient client, RaftPeerId serverId, long seqNum) {
+  static RaftClientRequest newRaftClientRequest(RaftClient client, long seqNum) {
     final SimpleMessage m = new SimpleMessage("m" + seqNum);
-    return RaftClientTestUtil.newRaftClientRequest(client, serverId, seqNum, m,
+    return RaftClientTestUtil.newRaftClientRequest(client, null, seqNum, m,
         RaftClientRequest.writeRequestType(), ProtoUtils.toSlidingWindowEntry(seqNum, seqNum == 1L));
   }
 
