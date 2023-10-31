@@ -22,16 +22,18 @@ import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.TimeDuration;
@@ -42,6 +44,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
@@ -83,10 +86,11 @@ public class CounterStateMachine extends BaseStateMachine {
   private final TimeDuration simulatedSlowness;
 
   public CounterStateMachine(TimeDuration simulatedSlowness) {
-    this.simulatedSlowness = simulatedSlowness;
+    this.simulatedSlowness = simulatedSlowness.isPositive()? simulatedSlowness: null;
   }
-  CounterStateMachine() {
-    this.simulatedSlowness = TimeDuration.ZERO;
+
+  public CounterStateMachine() {
+    this(TimeDuration.ZERO);
   }
 
   /** @return the current state. */
@@ -100,13 +104,13 @@ public class CounterStateMachine extends BaseStateMachine {
   }
 
   private synchronized int incrementCounter(TermIndex termIndex) {
-    try {
-      if (!simulatedSlowness.equals(TimeDuration.ZERO)) {
+    if (simulatedSlowness != null) {
+      try {
         simulatedSlowness.sleep();
+      } catch (InterruptedException e) {
+        LOG.warn("{}: get interrupted in simulated slowness sleep before apply transaction", this);
+        Thread.currentThread().interrupt();
       }
-    } catch (InterruptedException e) {
-      LOG.warn("{}: get interrupted in simulated slowness sleep before apply transaction", this);
-      Thread.currentThread().interrupt();
     }
     updateLastAppliedTermIndex(termIndex);
     return counter.incrementAndGet();
@@ -173,19 +177,18 @@ public class CounterStateMachine extends BaseStateMachine {
    * Load the state of the state machine from the {@link #storage}.
    *
    * @param snapshot the information of the snapshot being loaded
-   * @return the index of the snapshot or -1 if snapshot is invalid
    * @throws IOException if it failed to read from storage
    */
-  private long load(SingleFileSnapshotInfo snapshot) throws IOException {
+  private void load(SingleFileSnapshotInfo snapshot) throws IOException {
     //check null
     if (snapshot == null) {
-      return RaftLog.INVALID_LOG_INDEX;
+      return;
     }
     //check if the snapshot file exists.
     final Path snapshotPath = snapshot.getFile().getPath();
     if (!Files.exists(snapshotPath)) {
       LOG.warn("The snapshot file {} does not exist for snapshot {}", snapshotPath, snapshot);
-      return RaftLog.INVALID_LOG_INDEX;
+      return;
     }
 
     // verify md5
@@ -205,8 +208,6 @@ public class CounterStateMachine extends BaseStateMachine {
 
     //update state
     updateState(last, counterValue);
-
-    return last.getIndex();
   }
 
   /**
@@ -221,7 +222,21 @@ public class CounterStateMachine extends BaseStateMachine {
     if (!CounterCommand.GET.matches(command)) {
       return JavaUtils.completeExceptionally(new IllegalArgumentException("Invalid Command: " + command));
     }
-    return CompletableFuture.completedFuture(Message.valueOf(counter.toString()));
+    return CompletableFuture.completedFuture(Message.valueOf(toByteString(counter.get())));
+  }
+
+  /**
+   * Validate the request and then build a {@link TransactionContext}.
+   */
+  @Override
+  public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
+    final TransactionContext transaction = super.startTransaction(request);
+    //check if the command is valid
+    final ByteString command = request.getMessage().getContent();
+    if (!CounterCommand.INCREMENT.matches(command)) {
+      transaction.setException(new IllegalArgumentException("Invalid Command: " + command));
+    }
+    return transaction;
   }
 
   /**
@@ -233,22 +248,22 @@ public class CounterStateMachine extends BaseStateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     final LogEntryProto entry = trx.getLogEntry();
-
-    //check if the command is valid
-    final String command = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
-    if (!CounterCommand.INCREMENT.matches(command)) {
-      return JavaUtils.completeExceptionally(new IllegalArgumentException("Invalid Command: " + command));
-    }
     //increment the counter and update term-index
     final TermIndex termIndex = TermIndex.valueOf(entry);
-    final long incremented = incrementCounter(termIndex);
+    final int incremented = incrementCounter(termIndex);
 
     //if leader, log the incremented value and the term-index
-    if (trx.getServerRole() == RaftPeerRole.LEADER) {
-      LOG.info("{}: Increment to {}", termIndex, incremented);
+    if (LOG.isDebugEnabled() && trx.getServerRole() == RaftPeerRole.LEADER) {
+      LOG.debug("{}: Increment to {}", termIndex, incremented);
     }
 
     //return the new value of the counter to the client
-    return CompletableFuture.completedFuture(Message.valueOf(String.valueOf(incremented)));
+    return CompletableFuture.completedFuture(Message.valueOf(toByteString(incremented)));
+  }
+
+  static ByteString toByteString(int n) {
+    final byte[] array = new byte[4];
+    ByteBuffer.wrap(array).putInt(n);
+    return UnsafeByteOperations.unsafeWrap(array);
   }
 }

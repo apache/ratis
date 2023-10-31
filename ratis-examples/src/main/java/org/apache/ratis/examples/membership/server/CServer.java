@@ -31,7 +31,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.common.base.MoreObjects;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.TimeDuration;
 
 import java.io.Closeable;
 import java.io.File;
@@ -59,7 +58,7 @@ public class CServer implements Closeable {
     NettyConfigKeys.Server.setPort(properties, port);
 
     // create the counter state machine which holds the counter value.
-    final CounterStateMachine counterStateMachine = new CounterStateMachine(TimeDuration.ZERO);
+    final CounterStateMachine counterStateMachine = new CounterStateMachine();
 
     // build the Raft server.
     this.server = RaftServer.newBuilder()

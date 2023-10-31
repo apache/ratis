@@ -18,6 +18,7 @@
 package org.apache.ratis.examples.counter;
 
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 /**
  * The supported commands the Counter example.
@@ -37,5 +38,10 @@ public enum CounterCommand {
   /** Does the given command string match this command? */
   public boolean matches(String command) {
     return name().equalsIgnoreCase(command);
+  }
+
+  /** Does the given command string match this command? */
+  public boolean matches(ByteString command) {
+    return message.getContent().equals(command);
   }
 }
