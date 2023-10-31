@@ -381,7 +381,7 @@ public interface RaftServerConfigKeys {
     }
 
     String SEGMENT_SIZE_MAX_KEY = PREFIX + ".segment.size.max";
-    SizeInBytes SEGMENT_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("8MB");
+    SizeInBytes SEGMENT_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("32MB");
     static SizeInBytes segmentSizeMax(RaftProperties properties) {
       return getSizeInBytes(properties::getSizeInBytes,
           SEGMENT_SIZE_MAX_KEY, SEGMENT_SIZE_MAX_DEFAULT, getDefaultLog());
