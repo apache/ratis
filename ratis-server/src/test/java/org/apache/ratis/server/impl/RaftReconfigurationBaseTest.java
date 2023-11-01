@@ -433,7 +433,17 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   @Test
   public void testBootstrapReconfWithSingleNodeAddTwo() throws Exception {
     // originally 1 peer, add 2 more
-    runWithNewCluster(1, cluster -> runTestBootstrapReconf(2, true, cluster));
+    runWithNewCluster(1, cluster -> {
+      RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+
+      try (final RaftClient client = cluster.createClient(leaderId)) {
+        final PeerChanges c1 = cluster.addNewPeers(2, true);
+
+        assertThrows("Expect change majority error.", SetConfigurationException.class,
+            () -> client.admin().setConfiguration(c1.allPeersInNewConf));
+      }
+    });
   }
 
   @Test
