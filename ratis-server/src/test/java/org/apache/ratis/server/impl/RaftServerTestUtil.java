@@ -32,6 +32,7 @@ import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -41,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -133,6 +135,10 @@ public class RaftServerTestUtil {
 
   public static RaftConfiguration newRaftConfiguration(Collection<RaftPeer> peers) {
     return RaftConfigurationImpl.newBuilder().setConf(peers).build();
+  }
+
+  public static void setRaftConf(RaftServer proxy, RaftGroupId groupId, RaftConfiguration conf) {
+    ((RaftServerImpl)getDivision(proxy, groupId)).getState().setRaftConf(conf);
   }
 
   public static RaftServerRpc getServerRpc(RaftServer.Division server) {

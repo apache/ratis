@@ -237,22 +237,18 @@ final class RaftConfigurationImpl implements RaftConfiguration {
    * changing from single mode to HA mode.
    */
   boolean changeMajority(Collection<RaftPeer> newMembers) {
-    Preconditions.assertNull(oldConf, "Conf must be stable.");
-    int newPeersCount = 0;
-    for (RaftPeer peer : newMembers) {
-      final RaftPeer inConf = conf.getPeer(peer.getId());
-      if (inConf == null) {
-        newPeersCount++;
-      }
-    }
+    Preconditions.assertNull(oldConf, "oldConf");
+    final long newPeersCount = newMembers.stream().map(RaftPeer::getId).filter(id -> conf.getPeer(id) == null).count();
 
     if (conf.size() == 1 && newMembers.size() == 2 && newPeersCount == 1) {
       // Change from single peer to HA mode. This is a special case, skip majority verification.
       return false;
     }
+
     // If newPeersCount reaches majority number of new conf size, the cluster may end with infinity
     // election. See https://issues.apache.org/jira/browse/RATIS-1912 for more details.
-    return newPeersCount >= newMembers.size() / 2 + newMembers.size() % 2;
+    final long oldPeersCount = newMembers.size() - newPeersCount;
+    return newPeersCount >= oldPeersCount;
   }
 
   /** @return True if the selfId is in single mode. */
@@ -260,8 +256,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     if (isStable()) {
       return conf.size() == 1;
     } else {
-      return oldConf.size() == 1 && oldConf.contains(selfId) && conf.size() == 2 && conf.contains(
-          selfId);
+      return oldConf.size() == 1 && oldConf.contains(selfId) && conf.size() == 2 && conf.contains(selfId);
     }
   }
 

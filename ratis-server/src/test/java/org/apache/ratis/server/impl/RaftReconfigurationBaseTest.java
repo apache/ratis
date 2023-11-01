@@ -167,10 +167,14 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           .setLogEntryIndex(Long.MAX_VALUE / 2)
           .build();
       Assert.assertTrue(oldNewConf.isSingleMode(curPeer.getId()));
-      leaderServer.setRaftConf(groupId, oldNewConf);
-      leaderServer.triggerElection(groupId);
+      RaftServerTestUtil.setRaftConf(leaderServer, groupId, oldNewConf);
+      try(RaftClient client = cluster.createClient()) {
+        client.admin().transferLeadership(null, leaderServer.getId(), 1000);
+      }
 
-      RaftTestUtil.waitForLeader(cluster);
+      final RaftServer.Division newLeader = RaftTestUtil.waitForLeader(cluster);
+      Assert.assertEquals(leaderServer.getId(), newLeader.getId());
+      Assert.assertEquals(oldNewConf, newLeader.getRaftConf());
     });
   }
 

@@ -41,7 +41,6 @@ import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.ServerFactory;
 import org.apache.ratis.server.storage.RaftStorage.StartupOption;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JvmPauseMonitor;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -369,7 +368,7 @@ class RaftServerProxy implements RaftServer {
     return getImpl(ProtoUtils.toRaftGroupId(proto.getRaftGroupId()));
   }
 
-  public RaftServerImpl getImpl(RaftGroupId groupId) throws IOException {
+  private RaftServerImpl getImpl(RaftGroupId groupId) throws IOException {
     Objects.requireNonNull(groupId, "groupId == null");
     return IOUtils.getFromFuture(getImplFuture(groupId), this::getId);
   }
@@ -390,21 +389,6 @@ class RaftServerProxy implements RaftServer {
   @Override
   public LifeCycle.State getLifeCycleState() {
     return lifeCycle.getCurrentState();
-  }
-
-  @VisibleForTesting
-  void setRaftConf(RaftGroupId groupId, RaftConfigurationImpl conf) throws IOException {
-    getImpl(groupId).getState().setRaftConf(conf);
-  }
-
-  @VisibleForTesting
-  void triggerElection(RaftGroupId groupId) throws IOException {
-    RaftServerImpl impl = getImpl(groupId);
-    Preconditions.assertTrue(impl.getInfo().isLeader(),
-        "Only leader can perform trigger election.");
-
-    long newTerm = impl.getState().getCurrentTerm() + 1;
-    impl.changeToFollowerAndPersistMetadata(newTerm, true, "Trigger election for test.");
   }
 
   ThreadGroup getThreadGroup() {
