@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -32,7 +33,6 @@ import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -46,7 +46,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class RaftServerTestUtil {
@@ -201,5 +205,45 @@ public class RaftServerTestUtil {
 
   public static boolean isHighestPriority(RaftConfiguration config, RaftPeerId peerId) {
     return ((RaftConfigurationImpl)config).isHighestPriority(peerId);
+  }
+
+  public interface ConsumerWithIOException {
+    void accept(Collection<RaftPeer> peesToSetConf) throws IOException;
+  }
+
+  public static void runWithMinorityPeers(MiniRaftCluster cluster, Collection<RaftPeer> peersInNewConf,
+      ConsumerWithIOException consumer) throws IOException {
+    Collection<RaftPeer> peers = parseMinorityPeers(cluster, peersInNewConf);
+    while (peers != null) {
+      consumer.accept(peers);
+      peers = parseMinorityPeers(cluster, peersInNewConf);
+    }
+  }
+
+  private static Collection<RaftPeer> parseMinorityPeers(MiniRaftCluster cluster, Collection<RaftPeer> peersInNewConf) {
+    RaftConfigurationImpl conf = (RaftConfigurationImpl) cluster.getLeader().getRaftConf();
+    Set<RaftPeer> peers = new HashSet<>(conf.getCurrentPeers());
+
+    // Add new peers to construct minority conf peers.
+    List<RaftPeer> peersToAdd = peersInNewConf.stream().filter(
+        peer -> !conf.containsInConf(peer.getId(), RaftProtos.RaftPeerRole.FOLLOWER)).collect(Collectors.toList());
+    if (!peersToAdd.isEmpty()) {
+      for (RaftPeer peer : peersToAdd) {
+        if (peers.add(peer) && conf.changeMajority(peers)) {
+          peers.remove(peer);
+          break;
+        }
+      }
+      return peers;
+    }
+
+    // All new peers has been added. Handle the removed peers.
+    List<RaftPeer> peersToRemove = peers.stream().filter(peer -> !peersInNewConf.contains(peer)).collect(Collectors.toList());
+    if (!peersToRemove.isEmpty()) {
+      return peersInNewConf;
+    }
+
+    // The peers in new conf are the same as current conf, return null.
+    return null;
   }
 }
