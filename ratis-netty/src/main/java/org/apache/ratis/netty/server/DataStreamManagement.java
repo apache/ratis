@@ -46,6 +46,7 @@ import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServer.Division;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
@@ -275,22 +276,24 @@ public class DataStreamManagement {
     this.nettyServerStreamRpcMetrics = metrics;
   }
 
+  private CompletableFuture<DataStream> stream(RaftClientRequest request, StateMachine stateMachine) {
+    final RequestMetrics metrics = getMetrics().newRequestMetrics(RequestType.STATE_MACHINE_STREAM);
+    final Timekeeper.Context context = metrics.start();
+    return stateMachine.data().stream(request)
+        .whenComplete((r, e) -> metrics.stop(context, e == null));
+  }
+
   private CompletableFuture<DataStream> computeDataStreamIfAbsent(RaftClientRequest request) throws IOException {
     final Division division = server.getDivision(request.getRaftGroupId());
     final ClientInvocationId invocationId = ClientInvocationId.valueOf(request);
-    final MemoizedSupplier<CompletableFuture<DataStream>> supplier = JavaUtils.memoize(
-        () -> {
-          final RequestMetrics metrics = getMetrics().newRequestMetrics(RequestType.STATE_MACHINE_STREAM);
-          final Timekeeper.Context context = metrics.start();
-          return division.getStateMachine().data().stream(request)
-              .whenComplete((r, e) -> metrics.stop(context, e == null));
-        });
-    final CompletableFuture<DataStream> f = division.getDataStreamMap()
-        .computeIfAbsent(invocationId, key -> supplier.get());
-    if (!supplier.isInitialized()) {
+    final CompletableFuture<DataStream> created = new CompletableFuture<>();
+    final CompletableFuture<DataStream> returned = division.getDataStreamMap()
+        .computeIfAbsent(invocationId, key -> created);
+    if (returned != created) {
       throw new AlreadyExistsException("A DataStream already exists for " + invocationId);
     }
-    return f;
+    stream(request, division.getStateMachine()).whenComplete(JavaUtils.asBiConsumer(created));
+    return created;
   }
 
   private StreamInfo newStreamInfo(ByteBuf buf,

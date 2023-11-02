@@ -120,18 +120,23 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     private final Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier;
 
     /** The {@link ChannelFuture} is null when this connection is closed. */
-    private final AtomicReference<ChannelFuture> ref;
+    private final AtomicReference<Supplier<ChannelFuture>> ref;
 
     Connection(InetSocketAddress address, WorkerGroupGetter workerGroup,
         Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier) {
       this.address = address;
       this.workerGroup = workerGroup;
       this.channelInitializerSupplier = channelInitializerSupplier;
-      this.ref = new AtomicReference<>(connect());
+      this.ref = new AtomicReference<>(MemoizedSupplier.valueOf(this::connect));
+    }
+
+    ChannelFuture getChannelFuture() {
+      final Supplier<ChannelFuture> referenced = ref.get();
+      return referenced != null? referenced.get(): null;
     }
 
     Channel getChannelUninterruptibly() {
-      final ChannelFuture future = ref.get();
+      final ChannelFuture future = getChannelFuture();
       if (future == null) {
         return null; //closed
       }
@@ -176,7 +181,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
     private synchronized ChannelFuture reconnect() {
       // concurrent reconnect double check
-      ChannelFuture channelFuture = ref.get();
+      final ChannelFuture channelFuture = getChannelFuture();
       if (channelFuture != null) {
         Channel channel = channelFuture.syncUninterruptibly().channel();
         if (channel.isActive()) {
@@ -184,19 +189,24 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         }
       }
 
-      final MemoizedSupplier<ChannelFuture> supplier = MemoizedSupplier.valueOf(this::connect);
-      final ChannelFuture previous = ref.getAndUpdate(prev -> prev == null? null: supplier.get());
+      // Two levels of MemoizedSupplier as a side-effect-free function:
+      // AtomicReference.getAndUpdate may call the update function multiple times and discard the old objects.
+      // The outer supplier creates only an inner supplier, which can be discarded without any leakage.
+      // The inner supplier will be invoked (i.e. connect) ONLY IF it is successfully set to the reference.
+      final MemoizedSupplier<Supplier<ChannelFuture>> supplier = MemoizedSupplier.valueOf(
+          () -> MemoizedSupplier.valueOf(this::connect));
+      final Supplier<ChannelFuture> previous = ref.getAndUpdate(prev -> prev == null? null: supplier.get());
       if (previous != null) {
-        previous.channel().close();
+        previous.get().channel().close();
       }
-      return supplier.isInitialized() ? supplier.get() : null;
+      return getChannelFuture();
     }
 
     void close() {
-      final ChannelFuture previous = ref.getAndSet(null);
+      final Supplier<ChannelFuture> previous = ref.getAndSet(null);
       if (previous != null) {
         // wait channel closed, do shutdown workerGroup
-        previous.channel().close().addListener((future) -> workerGroup.shutdownGracefully());
+        previous.get().channel().close().addListener(future -> workerGroup.shutdownGracefully());
       }
     }
 
