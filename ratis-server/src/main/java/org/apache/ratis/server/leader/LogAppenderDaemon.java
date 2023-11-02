@@ -22,6 +22,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 
 import java.io.InterruptedIOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
 
 import org.apache.ratis.util.LifeCycle.State;
@@ -43,6 +44,7 @@ class LogAppenderDaemon {
   private final Daemon daemon;
 
   private final LogAppenderBase logAppender;
+  private final CompletableFuture<State> closeFuture = new CompletableFuture<>();
 
   LogAppenderDaemon(LogAppenderBase logAppender) {
     this.logAppender = logAppender;
@@ -84,12 +86,14 @@ class LogAppenderDaemon {
     } catch (InterruptedIOException e) {
       LOG.info(this + " I/O was interrupted: " + e);
     } catch (Throwable e) {
-      LOG.error(this + " failed", e);
+      LOG.warn(this + " failed", e);
       lifeCycle.transitionIfValid(EXCEPTION);
     } finally {
-      if (lifeCycle.transitionAndGet(TRANSITION_FINALLY) == EXCEPTION) {
+      final State finalState = lifeCycle.transitionAndGet(TRANSITION_FINALLY);
+      if (finalState == EXCEPTION) {
         logAppender.restart();
       }
+      closeFuture.complete(finalState);
     }
   }
 
@@ -103,10 +107,11 @@ class LogAppenderDaemon {
     }
   };
 
-  public void tryToClose() {
+  public CompletableFuture<State> tryToClose() {
     if (lifeCycle.transition(TRY_TO_CLOSE) == CLOSING) {
       daemon.interrupt();
     }
+    return closeFuture;
   }
 
   static final UnaryOperator<State> TRY_TO_CLOSE = current -> {

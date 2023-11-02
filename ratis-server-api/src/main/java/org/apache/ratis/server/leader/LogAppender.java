@@ -33,6 +33,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * A {@link LogAppender} is for the leader to send appendEntries to a particular follower.
@@ -68,8 +70,33 @@ public interface LogAppender {
   /** Is this {@link LogAppender} running? */
   boolean isRunning();
 
-  /** Stop this {@link LogAppender}. */
-  void stop();
+  /**
+   * Stop this {@link LogAppender} asynchronously.
+   * @deprecated override {@link #stopAsync()} instead.
+   */
+  @Deprecated
+  default void stop() {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Stop this {@link LogAppender} asynchronously.
+   *
+   * @return a future of the final state.
+   */
+  default CompletableFuture<?> stopAsync() {
+    stop();
+    return CompletableFuture.supplyAsync(() -> {
+      for (; isRunning(); ) {
+        try {
+          Thread.sleep(10);
+        } catch (InterruptedException e) {
+          throw new CompletionException("stopAsync interrupted", e);
+        }
+      }
+      return null;
+    });
+  }
 
   /** @return the leader state. */
   LeaderState getLeaderState();

@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -82,17 +83,17 @@ class RoleInfo {
     return updateAndGet(leaderState, new LeaderStateImpl(server));
   }
 
-  void shutdownLeaderState(boolean allowNull) {
+  CompletableFuture<Void> shutdownLeaderState(boolean allowNull) {
     final LeaderStateImpl leader = leaderState.getAndSet(null);
     if (leader == null) {
       if (!allowNull) {
         throw new NullPointerException("leaderState == null");
       }
+      return CompletableFuture.completedFuture(null);
     } else {
       LOG.info("{}: shutdown {}", id, leader);
-      leader.stop();
+      return leader.stop();
     }
-    // TODO: make sure that StateMachineUpdater has applied all transactions that have context
   }
 
   Optional<FollowerState> getFollowerState() {
