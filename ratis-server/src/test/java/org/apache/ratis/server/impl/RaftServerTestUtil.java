@@ -36,6 +36,7 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.function.CheckedConsumer;
 import org.junit.Assert;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
@@ -207,12 +208,8 @@ public class RaftServerTestUtil {
     return ((RaftConfigurationImpl)config).isHighestPriority(peerId);
   }
 
-  public interface ConsumerWithIOException {
-    void accept(Collection<RaftPeer> peesToSetConf) throws IOException;
-  }
-
   public static void runWithMinorityPeers(MiniRaftCluster cluster, Collection<RaftPeer> peersInNewConf,
-      ConsumerWithIOException consumer) throws IOException {
+      CheckedConsumer<Collection<RaftPeer>, IOException> consumer) throws IOException {
     Collection<RaftPeer> peers = parseMinorityPeers(cluster, peersInNewConf);
     while (peers != null) {
       consumer.accept(peers);
