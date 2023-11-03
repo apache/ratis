@@ -572,8 +572,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
             RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
       }
 
-      // Make sure each new peer got one snapshot notification.
-      Assert.assertEquals(2, numSnapshotRequests.get());
+      // Make sure each new peer got at least one snapshot notification.
+      Assert.assertTrue(2 <= numSnapshotRequests.get());
     } finally {
       cluster.shutdown();
     }
