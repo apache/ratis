@@ -25,6 +25,7 @@ import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRI
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -57,6 +58,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -239,7 +241,8 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
           newPeers, true, false);
       // trigger setConfiguration
-      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
       for (String newPeer : newPeers) {
         final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));
@@ -301,7 +304,8 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
           newPeers, true, false);
       // trigger setConfiguration
-      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
       for (String newPeer : newPeers) {
         final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));

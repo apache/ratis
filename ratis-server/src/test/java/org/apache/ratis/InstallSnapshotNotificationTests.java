@@ -49,6 +49,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -242,7 +243,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
           true);
       // trigger setConfiguration
-      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
       RaftServerTestUtil
           .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
@@ -391,7 +393,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
           true);
       // trigger setConfiguration
-      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
       RaftServerTestUtil
           .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
 
@@ -478,7 +481,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       // add one new peer
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
       // trigger setConfiguration
-      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
       RaftServerTestUtil
           .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
@@ -556,7 +560,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
           true);
       // trigger setConfiguration
-      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
       RaftServerTestUtil.waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
 
@@ -567,8 +572,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
             RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
       }
 
-      // Make sure each new peer got one snapshot notification.
-      Assert.assertEquals(2, numSnapshotRequests.get());
+      // Make sure each new peer got at least one snapshot notification.
+      Assert.assertTrue(2 <= numSnapshotRequests.get());
     } finally {
       cluster.shutdown();
     }

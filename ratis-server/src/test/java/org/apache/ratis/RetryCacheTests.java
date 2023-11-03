@@ -28,6 +28,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -139,7 +140,8 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       RaftPeer[] allPeers = cluster.removePeers(2, true,
               asList(change.newPeers)).allPeersInNewConf;
       // trigger setConfiguration
-      cluster.setConfiguration(allPeers);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(allPeers),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
       final RaftPeerId newLeaderId = JavaUtils.attemptRepeatedly(() -> {
         final RaftPeerId id = RaftTestUtil.waitForLeader(cluster).getId();

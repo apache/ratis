@@ -61,6 +61,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
+import static org.junit.Assert.assertThrows;
 
 public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -142,6 +143,58 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       // wait for the new configuration to take effect
       waitAndCheckNewConf(cluster, allPeers, 0, null);
+    });
+  }
+
+  /**
+   * Test leader election when changing cluster from single mode to HA mode.
+   */
+  @Test
+  public void testLeaderElectionWhenChangeFromSingleToHA() throws Exception {
+    runWithNewCluster(1, cluster -> {
+      RaftTestUtil.waitForLeader(cluster);
+
+      RaftGroupId groupId = cluster.getGroup().getGroupId();
+      RaftPeer curPeer = cluster.getGroup().getPeers().iterator().next();
+      RaftPeer newPeer = cluster.addNewPeers(1, true, true).newPeers[0];
+
+      RaftServerProxy leaderServer = cluster.getServer(curPeer.getId());
+
+      // Update leader conf to transitional single mode.
+      RaftConfigurationImpl oldNewConf = RaftConfigurationImpl.newBuilder()
+          .setOldConf(new PeerConfiguration(Arrays.asList(curPeer)))
+          .setConf(new PeerConfiguration(Arrays.asList(curPeer, newPeer)))
+          .setLogEntryIndex(Long.MAX_VALUE / 2)
+          .build();
+      Assert.assertTrue(oldNewConf.isSingleMode(curPeer.getId()));
+      RaftServerTestUtil.setRaftConf(leaderServer, groupId, oldNewConf);
+      try(RaftClient client = cluster.createClient()) {
+        client.admin().transferLeadership(null, leaderServer.getId(), 1000);
+      }
+
+      final RaftServer.Division newLeader = RaftTestUtil.waitForLeader(cluster);
+      Assert.assertEquals(leaderServer.getId(), newLeader.getId());
+      Assert.assertEquals(oldNewConf, newLeader.getRaftConf());
+    });
+  }
+
+  @Test
+  public void testChangeMajority() throws Exception {
+    runWithNewCluster(1, cluster -> {
+      RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+
+      try (final RaftClient client = cluster.createClient(leaderId)) {
+        final PeerChanges c1 = cluster.addNewPeers(2, true);
+
+        SetConfigurationRequest.Arguments arguments = SetConfigurationRequest.Arguments.newBuilder()
+            .setServersInCurrentConf(cluster.getPeers())
+            .setServersInNewConf(c1.allPeersInNewConf)
+            .setMode(SetConfigurationRequest.Mode.COMPARE_AND_SET)
+            .build();
+        assertThrows("Expect change majority error.", SetConfigurationException.class,
+            () -> client.admin().setConfiguration(arguments));
+      }
     });
   }
 
@@ -380,7 +433,17 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   @Test
   public void testBootstrapReconfWithSingleNodeAddTwo() throws Exception {
     // originally 1 peer, add 2 more
-    runWithNewCluster(1, cluster -> runTestBootstrapReconf(2, true, cluster));
+    runWithNewCluster(1, cluster -> {
+      RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+
+      try (final RaftClient client = cluster.createClient(leaderId)) {
+        final PeerChanges c1 = cluster.addNewPeers(2, true);
+
+        assertThrows("Expect change majority error.", SetConfigurationException.class,
+            () -> client.admin().setConfiguration(c1.allPeersInNewConf));
+      }
+    });
   }
 
   @Test

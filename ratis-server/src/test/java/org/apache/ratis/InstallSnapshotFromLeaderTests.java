@@ -21,6 +21,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -111,7 +112,8 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
           true);
       // trigger setConfiguration
-      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
       RaftServerTestUtil
           .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);

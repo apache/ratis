@@ -329,7 +329,8 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       }
       LOG.info(chosen + ") setConfiguration: " + cluster.printServers(groups[chosen].getGroupId()));
       try (final RaftClient client = cluster.createClient(groups[chosen])) {
-        client.admin().setConfiguration(allPeers.toArray(RaftPeer.emptyArray()));
+        RaftServerTestUtil.runWithMinorityPeers(cluster, allPeers,
+            peers -> client.admin().setConfiguration(peers.toArray(RaftPeer.emptyArray())));
       }
 
       Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));

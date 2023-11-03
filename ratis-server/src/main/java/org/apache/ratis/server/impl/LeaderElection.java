@@ -104,7 +104,7 @@ class LeaderElection implements Runnable {
     ELECTION
   }
 
-  enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN, NOT_IN_CONF}
+  enum Result {PASSED, SINGLE_MODE_PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN, NOT_IN_CONF}
 
   private static class ResultAndTerm {
     private final Result result;
@@ -331,6 +331,7 @@ class LeaderElection implements Runnable {
 
       switch (r.getResult()) {
         case PASSED:
+        case SINGLE_MODE_PASSED:
           return true;
         case NOT_IN_CONF:
         case SHUTDOWN:
@@ -379,6 +380,7 @@ class LeaderElection implements Runnable {
     Collection<RaftPeerId> votedPeers = new ArrayList<>();
     Collection<RaftPeerId> rejectedPeers = new ArrayList<>();
     Set<RaftPeerId> higherPriorityPeers = getHigherPriorityPeers(conf);
+    final boolean singleMode = conf.isSingleMode(server.getId());
 
     while (waitForNum > 0 && shouldRun(electionTerm)) {
       final TimeDuration waitTime = timeout.elapsedTime().apply(n -> -n);
@@ -387,6 +389,9 @@ class LeaderElection implements Runnable {
           // if some higher priority peer did not response when timeout, but candidate get majority,
           // candidate pass vote
           return logAndReturn(phase, Result.PASSED, responses, exceptions);
+        } else if (singleMode) {
+          // if candidate is in single mode, candidate pass vote.
+          return logAndReturn(phase, Result.SINGLE_MODE_PASSED, responses, exceptions);
         } else {
           return logAndReturn(phase, Result.TIMEOUT, responses, exceptions);
         }
@@ -418,7 +423,7 @@ class LeaderElection implements Runnable {
         }
 
         // If any peer with higher priority rejects vote, candidate can not pass vote
-        if (!r.getServerReply().getSuccess() && higherPriorityPeers.contains(replierId)) {
+        if (!r.getServerReply().getSuccess() && higherPriorityPeers.contains(replierId) && !singleMode) {
           return logAndReturn(phase, Result.REJECTED, responses, exceptions);
         }
 
@@ -447,6 +452,8 @@ class LeaderElection implements Runnable {
     // received all the responses
     if (conf.hasMajority(votedPeers, server.getId())) {
       return logAndReturn(phase, Result.PASSED, responses, exceptions);
+    } else if (singleMode) {
+      return logAndReturn(phase, Result.SINGLE_MODE_PASSED, responses, exceptions);
     } else {
       return logAndReturn(phase, Result.REJECTED, responses, exceptions);
     }
