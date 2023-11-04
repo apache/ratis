@@ -47,7 +47,12 @@ public class TestReferenceCountedObject {
         value, retained::getAndIncrement, released::getAndIncrement);
 
     assertValues(retained, 0, released, 0);
-    Assert.assertEquals(value, ref.get());
+    try {
+      ref.get();
+      Assert.fail();
+    } catch (IllegalStateException e) {
+      e.printStackTrace(System.out);
+    }
     assertValues(retained, 0, released, 0);
 
     Assert.assertEquals(value, ref.retain());

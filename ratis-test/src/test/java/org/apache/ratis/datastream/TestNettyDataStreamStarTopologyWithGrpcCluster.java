@@ -19,6 +19,7 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RoutingTable;
@@ -41,6 +42,8 @@ public class TestNettyDataStreamStarTopologyWithGrpcCluster
     RaftClientConfigKeys.DataStream.setFlushRequestCountMin(p, 4);
     RaftClientConfigKeys.DataStream.setFlushRequestBytesMin(p, SizeInBytes.valueOf("10MB"));
     RaftClientConfigKeys.DataStream.setOutstandingRequestsMax(p, 2 << 16);
+
+    NettyConfigKeys.DataStream.Client.setWorkerGroupSize(p,100);
   }
 
   @Override

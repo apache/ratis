@@ -158,7 +158,7 @@ public interface NettyConfigKeys {
       }
 
       String WORKER_GROUP_SHARE_KEY = PREFIX + ".worker-group.share";
-      boolean WORKER_GROUP_SHARE_DEFAULT = false;
+      boolean WORKER_GROUP_SHARE_DEFAULT = true;
       static boolean workerGroupShare(RaftProperties properties) {
         return getBoolean(properties::getBoolean, WORKER_GROUP_SHARE_KEY,
             WORKER_GROUP_SHARE_DEFAULT, getDefaultLog());

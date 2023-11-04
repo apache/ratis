@@ -328,10 +328,13 @@ public class DataStreamManagement {
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
       final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.wrap(buffer, buf::retain, buf::release);
+      wrapped.retain();
       try {
         byteWritten += channel.write(wrapped);
       } catch (Throwable t) {
         throw new CompletionException(t);
+      } finally {
+        wrapped.release();
       }
     }
 
