@@ -214,6 +214,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final DivisionProperties divisionProperties;
   private final TimeDuration leaderStepDownWaitTime;
+  private final boolean memberMajorityAddEnabled;
   private final TimeDuration sleepDeviationThreshold;
 
   private final LifeCycle lifeCycle;
@@ -259,7 +260,8 @@ class RaftServerImpl implements RaftServer.Division,
 
     final RaftProperties properties = proxy.getProperties();
     this.divisionProperties = new DivisionPropertiesImpl(properties);
-    leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
+    this.leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
+    this.memberMajorityAddEnabled = RaftServerConfigKeys.LeaderElection.memberMajorityAdd(properties);
     this.sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     this.proxy = proxy;
 
@@ -1314,8 +1316,11 @@ class RaftServerImpl implements RaftServer.Division,
         return pending.getFuture();
       }
       if (current.changeMajority(serversInNewConf)) {
-        throw new SetConfigurationException("Failed to set configuration: request " + request
-            + " changes a majority set of the current configuration " + current);
+        if (!memberMajorityAddEnabled) {
+          throw new SetConfigurationException("Failed to set configuration: request " + request
+              + " changes a majority set of the current configuration " + current);
+        }
+        LOG.warn("Try to add/replace a majority of servers in a single setConf: {}", request);
       }
 
       getRaftServer().addRaftPeers(serversInNewConf);

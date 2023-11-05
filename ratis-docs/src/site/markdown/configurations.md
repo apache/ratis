@@ -646,7 +646,7 @@ First election timeout is introduced to reduce unavailable time when a RaftGroup
 | **Property**    | `raft.server.leaderelection.pre-vote` |
 |:----------------|:--------------------------------------|
 | **Description** | enable pre-vote                       |
-| **Type**        | bool                                  |
+| **Type**        | boolean                               |
 | **Default**     | true                                  |
 
 In Pre-Vote, the candidate does not change its term and try to learn
@@ -654,3 +654,20 @@ if a majority of the cluster would be willing to grant the candidate their votes
 (if the candidate’s log is sufficiently up-to-date, 
 and the voters have not received heartbeats from a valid leader
 for at least a baseline election timeout).
+
+| **Property**    | `raft.server.leaderelection.member.majority-add` |
+|:----------------|:-------------------------------------------------|
+| **Description** | enable majority-add                              |
+| **Type**        | boolean                                          |
+| **Default**     | false                                            |
+
+Does it allow *majority-add*, i.e. adding a majority of members in a single setConf?
+
+- Note that, when a single setConf removes and adds members at the same time,
+the majority is counted after the removal.
+For examples,
+  1. setConf to a 3-member group by adding 2 new members is NOT a majority-add.
+  2. However, setConf to a 3-member group by removing 2 of members and adding 2 new members is a majority-add.
+
+- Note also that adding 1 new member to an 1-member group is always allowed,
+  although it is a majority-add.

@@ -881,9 +881,28 @@ public interface RaftServerConfigKeys {
     static boolean preVote(RaftProperties properties) {
       return getBoolean(properties::getBoolean, PRE_VOTE_KEY, PRE_VOTE_DEFAULT, getDefaultLog());
     }
-
     static void setPreVote(RaftProperties properties, boolean enablePreVote) {
       setBoolean(properties::setBoolean, PRE_VOTE_KEY, enablePreVote);
+    }
+
+    /**
+     * Does it allow majority-add, i.e. adding a majority of members in a single setConf?
+     * <p>
+     * Note that, when a single setConf removes and adds members at the same time,
+     * the majority is counted after the removal.
+     * For examples, setConf to a 3-member group by adding 2 new members is NOT a majority-add.
+     * However, setConf to a 3-member group by removing 2 of members and adding 2 new members is a majority-add.
+     * <p>
+     * Note also that adding 1 new member to an 1-member group is always allowed,
+     * although it is a majority-add.
+     */
+    String MEMBER_MAJORITY_ADD_KEY = PREFIX + ".member.majority-add";
+    boolean MEMBER_MAJORITY_ADD_DEFAULT = false;
+    static boolean memberMajorityAdd(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, MEMBER_MAJORITY_ADD_KEY, MEMBER_MAJORITY_ADD_DEFAULT, getDefaultLog());
+    }
+    static void setMemberMajorityAdd(RaftProperties properties, boolean enableMemberMajorityAdd) {
+      setBoolean(properties::setBoolean, MEMBER_MAJORITY_ADD_KEY, enableMemberMajorityAdd);
     }
   }
 
