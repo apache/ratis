@@ -239,7 +239,7 @@ public interface GrpcConfigKeys {
     }
 
     String LEADER_OUTSTANDING_APPENDS_MAX_KEY = PREFIX + ".leader.outstanding.appends.max";
-    int LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT = 128;
+    int LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT = 8;
     static int leaderOutstandingAppendsMax(RaftProperties properties) {
       return getInt(properties::getInt,
           LEADER_OUTSTANDING_APPENDS_MAX_KEY, LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT, getDefaultLog(), requireMin(0));

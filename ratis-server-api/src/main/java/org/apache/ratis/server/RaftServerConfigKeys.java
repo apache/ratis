@@ -837,7 +837,7 @@ public interface RaftServerConfigKeys {
     }
 
     String STATISTICS_EXPIRY_TIME_KEY = PREFIX + ".statistics.expirytime";
-    TimeDuration STATISTICS_EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(100, TimeUnit.MICROSECONDS);
+    TimeDuration STATISTICS_EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     static TimeDuration statisticsExpiryTime(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(STATISTICS_EXPIRY_TIME_DEFAULT.getUnit()),
           STATISTICS_EXPIRY_TIME_KEY, STATISTICS_EXPIRY_TIME_DEFAULT, getDefaultLog());
