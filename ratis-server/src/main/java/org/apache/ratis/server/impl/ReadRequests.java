@@ -105,7 +105,7 @@ class ReadRequests {
     }
     final CompletableFuture<Long> f = readIndexQueue.add(readIndex);
     final long current = stateMachine.getLastAppliedTermIndex().getIndex();
-    if (current >= lastApplied) {
+    if (current > lastApplied) {
       readIndexQueue.complete(current);
     }
     return f;
