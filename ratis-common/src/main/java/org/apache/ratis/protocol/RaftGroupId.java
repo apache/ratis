@@ -50,7 +50,7 @@ public final class RaftGroupId extends RaftId {
   }
 
   private RaftGroupId(ByteString data) {
-    super(data);
+    super(ByteString.copyFrom(data.asReadOnlyByteBuffer()));
   }
 
   @Override

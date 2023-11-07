@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.exceptions.ReadException;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -36,6 +37,7 @@ import org.apache.ratis.util.ReflectionUtils;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.stream.Collectors;
 
 /**
  * Reply from server to client
@@ -162,7 +164,16 @@ public class RaftClientReply extends RaftClientMessage {
     this.message = message;
     this.exception = exception;
     this.logIndex = logIndex;
-    this.commitInfos = commitInfos != null? commitInfos: Collections.emptyList();
+    this.commitInfos = commitInfos != null?
+        commitInfos.stream().map(x -> {
+          try {
+            return CommitInfoProto.parseFrom(x.toByteArray());
+          } catch (
+              InvalidProtocolBufferException e) {
+            throw new RuntimeException(e);
+          }
+        }).collect(Collectors.toList())
+        : Collections.emptyList();
 
     if (exception != null) {
       Preconditions.assertTrue(!success,

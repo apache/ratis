@@ -38,7 +38,7 @@ public final class RaftPeerId {
   private static final Map<String, RaftPeerId> STRING_MAP = new ConcurrentHashMap<>();
 
   public static RaftPeerId valueOf(ByteString id) {
-    return BYTE_STRING_MAP.computeIfAbsent(id, RaftPeerId::new);
+    return BYTE_STRING_MAP.computeIfAbsent(ByteString.copyFrom(id.asReadOnlyByteBuffer()), RaftPeerId::new);
   }
 
   public static RaftPeerId valueOf(String id) {
