@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -219,9 +220,9 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   @Override
-  public void stop() {
+  public CompletableFuture<LifeCycle.State> stopAsync() {
     grpcServerMetrics.unregister();
-    super.stop();
+    return super.stopAsync();
   }
 
   @Override

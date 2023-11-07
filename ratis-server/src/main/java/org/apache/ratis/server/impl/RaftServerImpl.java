@@ -528,7 +528,7 @@ class RaftServerImpl implements RaftServer.Division,
         LOG.warn("{}: Failed to shutdown LeaderElection", getMemberId(), e);
       }
       try{
-        role.shutdownLeaderState(true);
+        role.shutdownLeaderState(true).join();
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown LeaderState monitor", getMemberId(), e);
       }

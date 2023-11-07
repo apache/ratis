@@ -31,6 +31,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.AwaitForSignal;
 import org.apache.ratis.util.DataQueue;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -38,6 +39,7 @@ import org.apache.ratis.util.TimeDuration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongUnaryOperator;
@@ -126,8 +128,8 @@ public abstract class LogAppenderBase implements LogAppender {
   }
 
   @Override
-  public void stop() {
-    daemon.tryToClose();
+  public CompletableFuture<LifeCycle.State> stopAsync() {
+    return daemon.tryToClose();
   }
 
   void restart() {

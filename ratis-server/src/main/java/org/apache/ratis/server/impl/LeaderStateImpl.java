@@ -221,6 +221,14 @@ class LeaderStateImpl implements LeaderState {
     boolean removeAll(Collection<LogAppender> c) {
       return senders.removeAll(c);
     }
+
+    CompletableFuture<Void> stopAll() {
+      final CompletableFuture<?>[] futures = new CompletableFuture<?>[senders.size()];
+      for(int i = 0; i < futures.length; i++) {
+        futures[i] = senders.get(i).stopAsync();
+      }
+      return CompletableFuture.allOf(futures);
+    }
   }
 
   /** For caching {@link FollowerInfo}s.  This class is immutable. */
@@ -419,13 +427,13 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  void stop() {
+  CompletableFuture<Void> stop() {
     if (!isStopped.compareAndSet(false, true)) {
       LOG.info("{} is already stopped", this);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
     // do not interrupt event processor since it may be in the middle of logSync
-    senders.forEach(LogAppender::stop);
+    final CompletableFuture<Void> f = senders.stopAll();
     final NotLeaderException nle = server.generateNotLeaderException();
     final Collection<CommitInfoProto> commitInfos = server.getCommitInfos();
     try {
@@ -443,6 +451,7 @@ class LeaderStateImpl implements LeaderState {
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
     pendingRequests.close();
+    return f;
   }
 
   void notifySenders() {
@@ -631,7 +640,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private void stopAndRemoveSenders(Collection<LogAppender> toStop) {
-    toStop.forEach(LogAppender::stop);
+    toStop.forEach(LogAppender::stopAsync);
     senders.removeAll(toStop);
   }
 
