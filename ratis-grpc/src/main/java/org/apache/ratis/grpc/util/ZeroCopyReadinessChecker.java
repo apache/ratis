@@ -45,8 +45,9 @@ public final class ZeroCopyReadinessChecker {
       String detachableClassName =
           knownLengthClassName.substring(0, knownLengthClassName.lastIndexOf('.') + 1)
               + "Detachable";
-      Class<?> detachableClass = Class.forName(detachableClassName);
-      detachableClassExists = (detachableClass != null);
+      // check if class exists.
+      Class.forName(detachableClassName);
+      detachableClassExists = true;
     } catch (ClassNotFoundException ex) {
       LOG.debug("io.grpc.Detachable not found", ex);
     }
@@ -58,8 +59,9 @@ public final class ZeroCopyReadinessChecker {
       String unsafeByteOperationsClassName =
           messageLiteClassName.substring(0, messageLiteClassName.lastIndexOf('.') + 1)
               + "UnsafeByteOperations";
-      Class<?> unsafeByteOperationsClass = Class.forName(unsafeByteOperationsClassName);
-      unsafeByteOperationsClassExists = (unsafeByteOperationsClass != null);
+      // check if class exists.
+      Class.forName(unsafeByteOperationsClassName);
+      unsafeByteOperationsClassExists = true;
     } catch (ClassNotFoundException ex) {
       LOG.debug("com.google.protobuf.UnsafeByteOperations not found", ex);
     }
