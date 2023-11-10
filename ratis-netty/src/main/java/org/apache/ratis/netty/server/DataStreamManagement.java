@@ -59,6 +59,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
+import org.apache.ratis.util.UncheckedAutoCloseable;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -327,14 +328,12 @@ public class DataStreamManagement {
     final DataChannel channel = stream.getDataChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
-      final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.wrap(buffer, buf::retain, buf::release);
-      wrapped.retain();
-      try {
+      final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.wrap(
+          buffer, buf::retain, ignored -> buf.release());
+      try(UncheckedAutoCloseable ignore = wrapped.retainAndReleaseOnClose()) {
         byteWritten += channel.write(wrapped);
       } catch (Throwable t) {
         throw new CompletionException(t);
-      } finally {
-        wrapped.release();
       }
     }
 
