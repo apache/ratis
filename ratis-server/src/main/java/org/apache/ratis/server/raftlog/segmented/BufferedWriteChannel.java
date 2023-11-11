@@ -18,15 +18,17 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
+import org.apache.ratis.util.function.CheckedConsumer;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -34,24 +36,28 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Provides a buffering layer in front of a FileChannel for writing.
- *
+ * <p>
  * This class is NOT threadsafe.
  */
 class BufferedWriteChannel implements Closeable {
-
   @SuppressWarnings("java:S2095") // return Closable
   static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
-    final RandomAccessFile raf = new RandomAccessFile(file, "rw");
-    final FileChannel fc = raf.getChannel();
+    final long size = file.length(); // 0L if the file does not exist.
+    final FileChannel fc;
     if (append) {
-      fc.position(fc.size());
+      fc = FileUtils.newFileChannel(file, StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+      Preconditions.assertSame(size, fc.size(), "fc.size");
     } else {
-      fc.truncate(0);
+      fc = FileUtils.newFileChannel(file, StandardOpenOption.WRITE, StandardOpenOption.CREATE,
+          StandardOpenOption.TRUNCATE_EXISTING);
+      Preconditions.assertSame(0, fc.size(), "fc.size");
     }
     Preconditions.assertSame(fc.size(), fc.position(), "fc.position");
-    return new BufferedWriteChannel(fc, buffer);
+    final String name = file + (append? " (append)": "");
+    return new BufferedWriteChannel(name, fc, buffer);
   }
 
+  private final String name;
   private final FileChannel fileChannel;
   private final ByteBuffer writeBuffer;
   private boolean forced = true;
@@ -59,29 +65,55 @@ class BufferedWriteChannel implements Closeable {
       = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
 
-  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer) {
+  BufferedWriteChannel(String name, FileChannel fileChannel, ByteBuffer byteBuffer) {
+    this.name = name;
     this.fileChannel = fileChannel;
     this.writeBuffer = byteBuffer;
   }
 
-  void write(byte[] b) throws IOException {
-    write(b, b.length);
+  int writeBufferPosition() {
+    return writeBuffer.position();
   }
-  void write(byte[] b, int len) throws IOException {
-    int offset = 0;
-    while (offset < len) {
-      int toPut = Math.min(len - offset, writeBuffer.remaining());
-      writeBuffer.put(b, offset, toPut);
-      offset += toPut;
-      if (writeBuffer.remaining() == 0) {
-        flushBuffer();
-      }
+
+  /**
+   * Write to buffer.
+   *
+   * @param writeSize the size to write.
+   * @param writeMethod write exactly the writeSize of bytes to the buffer and advance buffer position.
+   */
+  void writeToBuffer(int writeSize, CheckedConsumer<ByteBuffer, IOException> writeMethod) throws IOException {
+    if (writeSize > writeBuffer.capacity()) {
+      throw new IOException("writeSize = " + writeSize
+          + " > writeBuffer.capacity() = " + writeBuffer.capacity());
     }
+    if (writeSize > writeBuffer.remaining()) {
+      flushBuffer();
+    }
+    final int pos = writeBufferPosition();
+    final int lim = writeBuffer.limit();
+    writeMethod.accept(writeBuffer);
+    final int written = writeBufferPosition() - pos;
+    Preconditions.assertSame(writeSize, written, "written");
+    Preconditions.assertSame(lim, writeBuffer.limit(), "writeBuffer.limit()");
+  }
+
+  /** Write the content of the given buffer to {@link #fileChannel}. */
+  void writeToChannel(ByteBuffer buffer) throws IOException {
+    if (buffer != writeBuffer) {
+      Preconditions.assertSame(0, writeBufferPosition(), "writeBuffer.position()");
+    }
+    final int length = buffer.remaining();
+    int written = 0;
+    for(; written < length; ) {
+      written += fileChannel.write(buffer);
+    }
+    Preconditions.assertSame(length, written, "written");
+    forced = false;
   }
 
   void preallocateIfNecessary(long size, CheckedBiFunction<FileChannel, Long, Long, IOException> preallocate)
       throws IOException {
-    final long outstanding = writeBuffer.position() + size;
+    final long outstanding = writeBufferPosition() + size;
     if (fileChannel.position() + outstanding > fileChannel.size()) {
       preallocate.apply(fileChannel, outstanding);
     }
@@ -115,26 +147,19 @@ class BufferedWriteChannel implements Closeable {
     try {
       fileChannel.force(false);
     } catch (IOException e) {
-      LogSegment.LOG.error("Failed to flush channel", e);
-      throw new CompletionException(e);
+      throw new CompletionException("Failed to force channel " + this, e);
     }
     return null;
   }
 
-  /**
-   * Write any data in the buffer to the file.
-   *
-   * @throws IOException if the write fails.
-   */
+  /** Flush the data from the {@link #writeBuffer} to {@link #fileChannel}. */
   private void flushBuffer() throws IOException {
-    if (writeBuffer.position() == 0) {
+    if (writeBufferPosition() == 0) {
       return; // nothing to flush
     }
 
     writeBuffer.flip();
-    do {
-      fileChannel.write(writeBuffer);
-    } while (writeBuffer.hasRemaining());
+    writeToChannel(writeBuffer);
     writeBuffer.clear();
     forced = false;
   }
@@ -156,5 +181,10 @@ class BufferedWriteChannel implements Closeable {
     } finally {
       fileChannel.close();
     }
+  }
+
+  @Override
+  public String toString() {
+    return name;
   }
 }

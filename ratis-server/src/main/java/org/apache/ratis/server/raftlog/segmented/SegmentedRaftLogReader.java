@@ -182,7 +182,7 @@ class SegmentedRaftLogReader implements Closeable {
     throw new CorruptedFileException(file, "Log header mismatched: expected header length="
         + SegmentedRaftLogFormat.getHeaderLength() + ", read length=" + readLength + ", match length=" + matchLength
         + ", header in file=" + StringUtils.bytes2HexString(temp, 0, readLength)
-        + ", expected header=" + SegmentedRaftLogFormat.applyHeaderTo(StringUtils::bytes2HexString));
+        + ", expected header=" + StringUtils.bytes2HexString(SegmentedRaftLogFormat.getHeaderBytebuffer()));
   }
 
   /**

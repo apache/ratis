@@ -18,25 +18,23 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.function.CheckedFunction;
 
-import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 public interface SegmentedRaftLogFormat {
   class Internal {
     private static final byte[] HEADER_BYTES = "RaftLog1".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] HEADER_BYTES_CLONE = HEADER_BYTES.clone();
+    private static final ByteBuffer HEADER_BYTEBUFFER = ByteBuffer.wrap(HEADER_BYTES).asReadOnlyBuffer();
     private static final byte TERMINATOR_BYTE = 0;
-
-    private static void assertHeader() {
-      Preconditions.assertTrue(Arrays.equals(HEADER_BYTES, HEADER_BYTES_CLONE));
-    }
   }
 
   static int getHeaderLength() {
     return Internal.HEADER_BYTES.length;
+  }
+
+  static ByteBuffer getHeaderBytebuffer() {
+    return Internal.HEADER_BYTEBUFFER.duplicate();
   }
 
   static int matchHeader(byte[] bytes, int offset, int length) {
@@ -47,12 +45,6 @@ public interface SegmentedRaftLogFormat {
       }
     }
     return length;
-  }
-
-  static <T> T applyHeaderTo(CheckedFunction<byte[], T, IOException> function) throws IOException {
-    final T t = function.apply(Internal.HEADER_BYTES);
-    Internal.assertHeader(); // assert that the header is unmodified by the function.
-    return t;
   }
 
   static byte getTerminator() {
