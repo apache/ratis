@@ -40,11 +40,12 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private static final ByteBuffer FILL;
   private static final int BUFFER_SIZE = 1024 * 1024; // 1 MB
   static {
-    FILL = ByteBuffer.allocateDirect(BUFFER_SIZE);
-    for (int i = 0; i < FILL.capacity(); i++) {
-      FILL.put(SegmentedRaftLogFormat.getTerminator());
+    final ByteBuffer buffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
+    for (int i = 0; i < BUFFER_SIZE; i++) {
+      buffer.put(SegmentedRaftLogFormat.getTerminator());
     }
-    FILL.flip();
+    buffer.flip();
+    FILL = buffer.asReadOnlyBuffer();
   }
 
   private final File file;
@@ -150,8 +151,11 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private long preallocate(FileChannel fc, long outstanding) throws IOException {
     final long actual = actualPreallocateSize(outstanding, segmentMaxSize - fc.size(), preallocatedSize);
     Preconditions.assertTrue(actual >= outstanding);
+    final long pos = fc.position();
+    LOG.info("Pre-allocate {} bytes (pos={}, size={}) for {}", actual, fc.position(), fc.size(), this);
     final long allocated = IOUtils.preallocate(fc, actual, FILL);
-    LOG.debug("Pre-allocated {} bytes for {}", allocated, this);
+    fc.position(pos);
+    LOG.info("Pre-allocated {} bytes (pos={}, size={}) for {}", allocated, fc.position(), fc.size(), this);
     return allocated;
   }
 

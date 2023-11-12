@@ -19,13 +19,17 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.apache.ratis.util.function.CheckedConsumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
@@ -40,20 +44,25 @@ import java.util.concurrent.atomic.AtomicReference;
  * This class is NOT threadsafe.
  */
 class BufferedWriteChannel implements Closeable {
+  static final Logger LOG = LoggerFactory.getLogger(BufferedWriteChannel.class);
+
   @SuppressWarnings("java:S2095") // return Closable
   static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
+    final RandomAccessFile raf = new RandomAccessFile(file, "rw");
+    final FileChannel fc = raf.getChannel();
     final long size = file.length(); // 0L if the file does not exist.
-    final FileChannel fc;
     if (append) {
-      fc = FileUtils.newFileChannel(file, StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+      fc.position(size);
       Preconditions.assertSame(size, fc.size(), "fc.size");
     } else {
-      fc = FileUtils.newFileChannel(file, StandardOpenOption.WRITE, StandardOpenOption.CREATE,
-          StandardOpenOption.TRUNCATE_EXISTING);
+      if (size > 0) {
+        fc.truncate(0);
+      }
       Preconditions.assertSame(0, fc.size(), "fc.size");
     }
     Preconditions.assertSame(fc.size(), fc.position(), "fc.position");
-    final String name = file + (append? " (append)": "");
+    final String name = file.getName() + (append? " (append)": "");
+    LOG.info("open {} at position {}", name, fc.position());
     return new BufferedWriteChannel(name, fc, buffer);
   }
 
@@ -99,9 +108,7 @@ class BufferedWriteChannel implements Closeable {
 
   /** Write the content of the given buffer to {@link #fileChannel}. */
   void writeToChannel(ByteBuffer buffer) throws IOException {
-    if (buffer != writeBuffer) {
-      Preconditions.assertSame(0, writeBufferPosition(), "writeBuffer.position()");
-    }
+    Preconditions.assertSame(0, writeBufferPosition(), "writeBuffer.position()");
     final int length = buffer.remaining();
     int written = 0;
     for(; written < length; ) {

@@ -732,7 +732,8 @@ class SegmentedRaftLogWorker {
   }
 
   private void allocateSegmentedRaftLogOutputStream(File file, boolean append) throws IOException {
-    Preconditions.assertTrue(out == null && writeBuffer.position() == 0);
+    Preconditions.assertNull(out, "out");
+    Preconditions.assertSame(0, writeBuffer.position(), "writeBuffer.position()");
     out = new SegmentedRaftLogOutputStream(file, append, segmentMaxSize,
         preallocatedSize, writeBuffer);
   }

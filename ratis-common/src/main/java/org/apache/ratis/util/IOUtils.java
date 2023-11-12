@@ -126,22 +126,6 @@ public interface IOUtils {
     }
   }
 
-  /**
-   * Write a ByteBuffer to a FileChannel at a given offset,
-   * handling short writes.
-   *
-   * @param fc               The FileChannel to write to
-   * @param buf              The input buffer
-   * @param offset           The offset in the file to start writing at
-   * @throws IOException     On I/O error
-   */
-  static void writeFully(FileChannel fc, ByteBuffer buf, long offset)
-      throws IOException {
-    do {
-      offset += fc.write(buf, offset);
-    } while (buf.remaining() > 0);
-  }
-
   static long preallocate(FileChannel fc, long size, ByteBuffer fill) throws IOException {
     Preconditions.assertSame(0, fill.position(), "fill.position");
     Preconditions.assertSame(fill.capacity(), fill.limit(), "fill.limit");
@@ -153,8 +137,9 @@ public interface IOUtils {
       final int n = remaining < required? remaining: Math.toIntExact(required);
       final ByteBuffer buffer = fill.slice();
       buffer.limit(n);
-      IOUtils.writeFully(fc, buffer, fc.size());
-      allocated += n;
+
+      final int written = fc.write(buffer, fc.size());
+      allocated += written;
     }
     return allocated;
   }

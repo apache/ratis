@@ -30,7 +30,7 @@ public interface SegmentedRaftLogFormat {
     static {
       final byte[] bytes = "RaftLog1".getBytes(StandardCharsets.UTF_8);
       final ByteBuffer header = ByteBuffer.allocateDirect(bytes.length);
-      header.put(bytes);
+      header.put(bytes).flip();
       HEADER = header.asReadOnlyBuffer();
     }
   }
