@@ -48,7 +48,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
     FILL = buffer.asReadOnlyBuffer();
   }
 
-  private final File file;
+  private final String name;
   private final BufferedWriteChannel out; // buffered FileChannel for writing
   private final PureJavaCrc32C checksum = new PureJavaCrc32C();
 
@@ -58,7 +58,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   public SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
       long preallocatedSize, ByteBuffer byteBuffer)
       throws IOException {
-    this.file = file;
+    this.name = JavaUtils.getClassSimpleName(getClass()) + "(" + file.getName() + ")";
     this.segmentMaxSize = segmentMaxSize;
     this.preallocatedSize = preallocatedSize;
     this.out = BufferedWriteChannel.open(file, append, byteBuffer);
@@ -149,13 +149,15 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   }
 
   private long preallocate(FileChannel fc, long outstanding) throws IOException {
-    final long actual = actualPreallocateSize(outstanding, segmentMaxSize - fc.size(), preallocatedSize);
+    final long size = fc.size();
+    final long actual = actualPreallocateSize(outstanding, segmentMaxSize - size, preallocatedSize);
     Preconditions.assertTrue(actual >= outstanding);
     final long pos = fc.position();
-    LOG.info("Pre-allocate {} bytes (pos={}, size={}) for {}", actual, fc.position(), fc.size(), this);
+    LOG.debug("Preallocate {} bytes (pos={}, size={}) for {}", actual, pos, size, this);
     final long allocated = IOUtils.preallocate(fc, actual, FILL);
-    fc.position(pos);
-    LOG.info("Pre-allocated {} bytes (pos={}, size={}) for {}", allocated, fc.position(), fc.size(), this);
+    Preconditions.assertSame(pos, fc.position(), "fc.position()");
+    Preconditions.assertSame(actual, allocated, "allocated");
+    Preconditions.assertSame(size + allocated, fc.size(), "fc.size()");
     return allocated;
   }
 
@@ -165,6 +167,6 @@ public class SegmentedRaftLogOutputStream implements Closeable {
 
   @Override
   public String toString() {
-    return JavaUtils.getClassSimpleName(getClass()) + "(" + file + ")";
+    return name;
   }
 }
