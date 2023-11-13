@@ -18,8 +18,6 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -32,7 +30,6 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.StandardOpenOption;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
