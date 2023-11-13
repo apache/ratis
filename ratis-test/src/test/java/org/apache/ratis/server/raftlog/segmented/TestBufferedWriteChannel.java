@@ -79,7 +79,7 @@ public class TestBufferedWriteChannel extends BaseTest {
 
     @Override
     public long position() {
-      throw new UnsupportedOperationException();
+      return position;
     }
 
     @Override

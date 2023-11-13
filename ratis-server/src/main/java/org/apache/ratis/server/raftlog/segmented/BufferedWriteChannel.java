@@ -107,8 +107,10 @@ class BufferedWriteChannel implements Closeable {
   void writeToChannel(ByteBuffer buffer) throws IOException {
     Preconditions.assertSame(0, writeBufferPosition(), "writeBuffer.position()");
     final int length = buffer.remaining();
-    LOG.debug("Write {} bytes (pos={}, size={}) to channel {}",
-        length, fileChannel.position(), fileChannel.size(), this);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Write {} bytes (pos={}, size={}) to channel {}",
+          length, fileChannel.position(), fileChannel.size(), this);
+    }
     int written = 0;
     for(; written < length; ) {
       written += fileChannel.write(buffer);
