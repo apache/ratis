@@ -102,21 +102,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <artifactId>maven-jar-plugin</artifactId>
-        <executions>
-          <execution>
-            <!-- Replace the "default" jar-plugin execution -->
-            <!-- This is a super-dirty hack to work around Yetus
-                 PreCommit not using the package lifecycle phase -->
-            <id>default-jar</id>
-            <phase>process-classes</phase>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
       <!-- Modify the generated source to use our shaded protobuf -->
       <plugin>
         <groupId>com.google.code.maven-replacer-plugin</groupId>
