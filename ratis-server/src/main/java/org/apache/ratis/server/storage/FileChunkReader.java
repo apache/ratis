@@ -21,12 +21,12 @@ import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -57,11 +57,17 @@ public class FileChunkReader implements Closeable {
     final File f = info.getPath().toFile();
     if (info.getFileDigest() == null) {
       digester = MD5Hash.getDigester();
-      this.in = new DigestInputStream(new FileInputStream(f), digester);
+      this.in = new DigestInputStream(FileUtils.newInputStream(f), digester);
     } else {
       digester = null;
-      this.in = new FileInputStream(f);
+      this.in = FileUtils.newInputStream(f);
     }
+  }
+
+  static ByteString readFileChunk(int chunkLength, InputStream in) throws IOException {
+    final byte[] chunkBuffer = new byte[chunkLength];
+    IOUtils.readFully(in, chunkBuffer, 0, chunkBuffer.length);
+    return UnsafeByteOperations.unsafeWrap(chunkBuffer);
   }
 
   /**
@@ -74,9 +80,7 @@ public class FileChunkReader implements Closeable {
   public FileChunkProto readFileChunk(int chunkMaxSize) throws IOException {
     final long remaining = info.getFileSize() - offset;
     final int chunkLength = remaining < chunkMaxSize ? (int) remaining : chunkMaxSize;
-    final byte[] chunkBuffer = new byte[chunkLength];
-    IOUtils.readFully(in, chunkBuffer, 0, chunkBuffer.length);
-    final ByteString data = UnsafeByteOperations.unsafeWrap(chunkBuffer);
+    final ByteString data = readFileChunk(chunkLength, in);
     // whether this chunk is the last chunk of current file
     final boolean isDone = offset + chunkLength == info.getFileSize();
     final ByteString fileDigest;

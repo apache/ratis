@@ -184,6 +184,7 @@
     <build-helper-maven-plugin.version>3.3.0</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>3.1.0</exec-maven-plugin.version>
     <extra-enforcer-rules.version>1.6.1</extra-enforcer-rules.version>
+    <restrict-imports-enforcer-rules.version>2.4.0</restrict-imports-enforcer-rules.version>
     <license-maven-plugin.version>2.2.0</license-maven-plugin.version>
 
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
@@ -529,7 +530,36 @@
               </requireJavaVersion>
             </rules>
           </configuration>
+          <dependencies>
+            <dependency>
+              <groupId>de.skuzzle.enforcer</groupId>
+              <artifactId>restrict-imports-enforcer-rule</artifactId>
+              <version>${restrict-imports-enforcer-rules.version}</version>
+            </dependency>
+          </dependencies>
+          <executions>
+            <execution>
+              <id>bannedImports-finalizers</id>
+              <phase>process-sources</phase>
+              <goals>
+                <goal>enforce</goal>
+              </goals>
+              <configuration>
+                <rules>
+                  <restrictImports>
+                    <includeTestCode>false</includeTestCode>
+                    <reason>Classes (e.g. FileInputStream, FileOutputStream) overriding the Object.finalize() method will cause gc to run a much longer time. As stated in Effective Java, there is a severe performance penalty for using finalizers.</reason>
+                    <bannedImports>
+                      <bannedImport>java.io.FileInputStream</bannedImport>
+                      <bannedImport>java.io.FileOutputStream</bannedImport>
+                    </bannedImports>
+                  </restrictImports>
+                </rules>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
+
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-assembly-plugin</artifactId>

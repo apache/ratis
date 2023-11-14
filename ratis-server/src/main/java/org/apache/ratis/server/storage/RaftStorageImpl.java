@@ -17,21 +17,23 @@
  */
 package org.apache.ratis.server.storage;
 
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.NoSuchFileException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
+import org.apache.ratis.util.AtomicFileOutputStream;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.nio.file.Files;
 import java.util.Optional;
 
 /** The storage of a {@link org.apache.ratis.server.RaftServer}. */
@@ -98,7 +100,7 @@ public class RaftStorageImpl implements RaftStorage {
   }
 
   private void cleanMetaTmpFile() throws IOException {
-    Files.deleteIfExists(storageDir.getMetaTmpFile().toPath());
+    FileUtils.deleteIfExists(storageDir.getMetaTmpFile());
   }
 
   private StorageState analyzeAndRecoverStorage(boolean toLock) throws IOException {
@@ -142,7 +144,7 @@ public class RaftStorageImpl implements RaftStorage {
 
   public void writeRaftConfiguration(LogEntryProto conf) {
     File confFile = storageDir.getMetaConfFile();
-    try (FileOutputStream fio = new FileOutputStream(confFile)) {
+    try (OutputStream fio = new AtomicFileOutputStream(confFile)) {
       conf.writeTo(fio);
     } catch (Exception e) {
       LOG.error("Failed writing configuration to file:" + confFile, e);
@@ -151,10 +153,10 @@ public class RaftStorageImpl implements RaftStorage {
 
   public RaftConfiguration readRaftConfiguration() {
     File confFile = storageDir.getMetaConfFile();
-    try (FileInputStream fio = new FileInputStream(confFile)) {
+    try (InputStream fio = FileUtils.newInputStream(confFile)) {
       LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
       return LogProtoUtils.toRaftConfiguration(confProto);
-    } catch (FileNotFoundException e) {
+    } catch (FileNotFoundException | NoSuchFileException e) {
       return null;
     } catch (Exception e) {
       LOG.error("Failed reading configuration from file:" + confFile, e);

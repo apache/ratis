@@ -34,14 +34,13 @@ import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MD5FileUtil;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -97,8 +96,8 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     final File snapshotFile =  storage.getSnapshotFile(last.getTerm(), last.getIndex());
     LOG.info("Taking a snapshot to file {}", snapshotFile);
 
-    try(ObjectOutputStream out = new ObjectOutputStream(
-        new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
+    try(ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(
+        FileUtils.newOutputStream(snapshotFile)))) {
       out.writeObject(copy);
     } catch(IOException ioe) {
       LOG.warn("Failed to write snapshot file \"" + snapshotFile
@@ -130,8 +129,8 @@ public class ArithmeticStateMachine extends BaseStateMachine {
 
     final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
     try(AutoCloseableLock writeLock = writeLock();
-        ObjectInputStream in = new ObjectInputStream(
-            new BufferedInputStream(new FileInputStream(snapshotFile)))) {
+        ObjectInputStream in = new ObjectInputStream(new BufferedInputStream(
+            FileUtils.newInputStream(snapshotFile)))) {
       reset();
       setLastAppliedTermIndex(last);
       variables.putAll(JavaUtils.cast(in.readObject()));

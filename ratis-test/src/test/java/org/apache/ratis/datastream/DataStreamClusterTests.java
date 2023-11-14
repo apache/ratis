@@ -32,13 +32,15 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.CollectionUtils;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedConsumer;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.FileInputStream;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -151,8 +153,8 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     return new CheckedConsumer<DataStreamOutputImpl, Exception>() {
       @Override
       public void accept(DataStreamOutputImpl out) throws Exception {
-        try (FileInputStream in = new FileInputStream(f)) {
-          final long transferred = in.getChannel().transferTo(0, size, out.getWritableByteChannel());
+        try (FileChannel in = FileUtils.newFileChannel(f, StandardOpenOption.READ)) {
+          final long transferred = in.transferTo(0, size, out.getWritableByteChannel());
           Assert.assertEquals(size, transferred);
         }
       }

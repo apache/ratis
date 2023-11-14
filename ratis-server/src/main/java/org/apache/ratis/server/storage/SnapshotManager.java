@@ -27,7 +27,6 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.MemoizedSupplier;
@@ -37,11 +36,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
-import java.security.DigestOutputStream;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.util.Optional;
 import java.util.function.Function;
@@ -77,6 +77,28 @@ public class SnapshotManager {
         new File(dir.get().getRoot(), c.getFilename()).toPath()).toString();
   }
 
+  private FileChannel open(FileChunkProto chunk, File tmpSnapshotFile) throws IOException {
+    final FileChannel out;
+    final boolean exists = tmpSnapshotFile.exists();
+    if (chunk.getOffset() == 0) {
+      // if offset is 0, delete any existing temp snapshot file if it has the same last index.
+      if (exists) {
+        FileUtils.deleteFully(tmpSnapshotFile);
+      }
+      // create the temp snapshot file and put padding inside
+      out = FileUtils.newFileChannel(tmpSnapshotFile, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+      digester.get().reset();
+    } else {
+      if (!exists) {
+        throw new FileNotFoundException("Chunk offset is non-zero but file is not found: " + tmpSnapshotFile
+            + ", chunk=" + chunk);
+      }
+      out = FileUtils.newFileChannel(tmpSnapshotFile, StandardOpenOption.WRITE)
+          .position(chunk.getOffset());
+    }
+    return out;
+  }
+
   public void installSnapshot(InstallSnapshotRequestProto request, StateMachine stateMachine) throws IOException {
     final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
     final long lastIncludedIndex = snapshotChunkRequest.getTermIndex().getIndex();
@@ -103,30 +125,15 @@ public class SnapshotManager {
       final File tmpSnapshotFile = new File(tmpDir, getRelativePath.apply(chunk));
       FileUtils.createDirectoriesDeleteExistingNonDirectory(tmpSnapshotFile.getParentFile());
 
-      FileOutputStream out = null;
-      try {
-        // if offset is 0, delete any existing temp snapshot file if it has the
-        // same last index.
-        if (chunk.getOffset() == 0) {
-          if (tmpSnapshotFile.exists()) {
-            FileUtils.deleteFully(tmpSnapshotFile);
-          }
-          // create the temp snapshot file and put padding inside
-          out = new FileOutputStream(tmpSnapshotFile);
-          digester.get().reset();
-        } else {
-          Preconditions.assertTrue(tmpSnapshotFile.exists());
-          out = new FileOutputStream(tmpSnapshotFile, true);
-          FileChannel fc = out.getChannel();
-          fc.position(chunk.getOffset());
-        }
+      try (FileChannel out = open(chunk, tmpSnapshotFile)) {
+        final ByteBuffer data = chunk.getData().asReadOnlyByteBuffer();
+        digester.get().update(data.duplicate());
 
-        // write data to the file
-        try (DigestOutputStream digestOut = new DigestOutputStream(out, digester.get())) {
-          digestOut.write(chunk.getData().toByteArray());
+        int written = 0;
+        for(; data.remaining() > 0; ) {
+          written += out.write(data);
         }
-      } finally {
-        IOUtils.cleanup(null, out);
+        Preconditions.assertSame(chunk.getData().size(), written, "written");
       }
 
       // rename the temp snapshot file if this is the last chunk. also verify
