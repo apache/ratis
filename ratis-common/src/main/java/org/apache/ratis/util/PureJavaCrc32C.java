@@ -23,6 +23,7 @@ package org.apache.ratis.util;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.zip.Checksum;
 
 /**
@@ -96,20 +97,22 @@ public class PureJavaCrc32C implements Checksum {
   public void update(ByteBuffer b) {
     int localCrc = crc;
 
+    b.order(ByteOrder.LITTLE_ENDIAN);
     int off = b.position();
     int len = b.remaining();
     while(len > 7) {
-      final int c0 =(b.get(off+0) ^ localCrc) & 0xff;
-      final int c1 =(b.get(off+1) ^ (localCrc >>>= 8)) & 0xff;
-      final int c2 =(b.get(off+2) ^ (localCrc >>>= 8)) & 0xff;
-      final int c3 =(b.get(off+3) ^ (localCrc >>>= 8)) & 0xff;
+      final long n = b.getLong(off);
+      final int c0 =(((int)(n >> 0*8)) ^ localCrc) & 0xff;
+      final int c1 =(((int)(n >> 1*8)) ^ (localCrc >>>= 8)) & 0xff;
+      final int c2 =(((int)(n >> 2*8)) ^ (localCrc >>>= 8)) & 0xff;
+      final int c3 =(((int)(n >> 3*8)) ^ (localCrc >>>= 8)) & 0xff;
       localCrc = (T[T8_7_START + c0] ^ T[T8_6_START + c1])
           ^ (T[T8_5_START + c2] ^ T[T8_4_START + c3]);
 
-      final int c4 = b.get(off+4) & 0xff;
-      final int c5 = b.get(off+5) & 0xff;
-      final int c6 = b.get(off+6) & 0xff;
-      final int c7 = b.get(off+7) & 0xff;
+      final int c4 = ((int)(n >> 4*8)) & 0xff;
+      final int c5 = ((int)(n >> 5*8)) & 0xff;
+      final int c6 = ((int)(n >> 6*8)) & 0xff;
+      final int c7 = ((int)(n >> 7*8)) & 0xff;
 
       localCrc ^= (T[T8_3_START + c4] ^ T[T8_2_START + c5])
           ^ (T[T8_1_START + c6] ^ T[T8_0_START + c7]);
@@ -118,12 +121,19 @@ public class PureJavaCrc32C implements Checksum {
       len -= 8;
     }
 
+    if (len > 3) {
+      final int n = b.getInt(off);
+      localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ (n >> 0*8)) & 0xff)];
+      localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ (n >> 1*8)) & 0xff)];
+      localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ (n >> 2*8)) & 0xff)];
+      localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ (n >> 3*8)) & 0xff)];
+
+      off += 4;
+      len -= 4;
+    }
+
     /* loop unroll - duff's device style */
     switch(len) {
-      case 7: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
-      case 6: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
-      case 5: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
-      case 4: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
       case 3: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
       case 2: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
       case 1: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
