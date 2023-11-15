@@ -101,20 +101,21 @@ public class PureJavaCrc32C implements Checksum {
     int off = b.position();
     int len = b.remaining();
     while(len > 7) {
-      final long n = b.getLong(off);
-      final int c0 =(((int)(n >> 0*8)) ^ localCrc) & 0xff;
-      final int c1 =(((int)(n >> 1*8)) ^ (localCrc >>>= 8)) & 0xff;
-      final int c2 =(((int)(n >> 2*8)) ^ (localCrc >>>= 8)) & 0xff;
-      final int c3 =(((int)(n >> 3*8)) ^ (localCrc >>>= 8)) & 0xff;
+      final long value = b.getLong(off);
+      final int m = (int) value;
+      final int n = (int)(value >> 4*8);
+      final int c0 =((m >> 0*8) ^ (localCrc >> 0*8)) & 0xff;
+      final int c1 =((m >> 1*8) ^ (localCrc >> 1*8)) & 0xff;
+      final int c2 =((m >> 2*8) ^ (localCrc >> 2*8)) & 0xff;
+      final int c3 =((m >> 3*8) ^ (localCrc >> 3*8)) & 0xff;
+      final int c4 = (n >> 0*8) & 0xff;
+      final int c5 = (n >> 1*8) & 0xff;
+      final int c6 = (n >> 2*8) & 0xff;
+      final int c7 = (n >> 3*8) & 0xff;
+
       localCrc = (T[T8_7_START + c0] ^ T[T8_6_START + c1])
-          ^ (T[T8_5_START + c2] ^ T[T8_4_START + c3]);
-
-      final int c4 = ((int)(n >> 4*8)) & 0xff;
-      final int c5 = ((int)(n >> 5*8)) & 0xff;
-      final int c6 = ((int)(n >> 6*8)) & 0xff;
-      final int c7 = ((int)(n >> 7*8)) & 0xff;
-
-      localCrc ^= (T[T8_3_START + c4] ^ T[T8_2_START + c5])
+          ^ (T[T8_5_START + c2] ^ T[T8_4_START + c3])
+          ^ (T[T8_3_START + c4] ^ T[T8_2_START + c5])
           ^ (T[T8_1_START + c6] ^ T[T8_0_START + c7]);
 
       off += 8;
@@ -132,13 +133,17 @@ public class PureJavaCrc32C implements Checksum {
       len -= 4;
     }
 
-    /* loop unroll - duff's device style */
-    switch(len) {
-      case 3: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
-      case 2: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
-      case 1: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off++)) & 0xff)];
-      default:
-        /* nothing */
+    if (len > 1) {
+      final int n = b.getShort(off);
+      localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ (n >> 0*8)) & 0xff)];
+      localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ (n >> 1*8)) & 0xff)];
+
+      off += 2;
+      len -= 2;
+    }
+
+    if (len > 0) {
+      localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b.get(off)) & 0xff)];
     }
     // Publish crc out to object
     crc = localCrc;
