@@ -699,25 +699,6 @@ public class TestSegmentedRaftLog extends BaseTest {
   }
 
   @Test
-  public void testSegmentedRaftLogFormatInternalHeader() throws Exception {
-    testFailureCase("testSegmentedRaftLogFormatInternalHeader",
-        () -> SegmentedRaftLogFormat.applyHeaderTo(header -> {
-          LOG.info("header  = " + new String(header, StandardCharsets.UTF_8));
-          header[0]++; // try changing the internal header
-          LOG.info("header' = " + new String(header, StandardCharsets.UTF_8));
-          return null;
-        }), IllegalStateException.class);
-
-    // reset the header
-    SegmentedRaftLogFormat.applyHeaderTo(header -> {
-      LOG.info("header'  = " + new String(header, StandardCharsets.UTF_8));
-      header[0] -= 1; // try changing the internal header
-      LOG.info("header'' = " + new String(header, StandardCharsets.UTF_8));
-      return null;
-    });
-  }
-
-  @Test
   public void testAsyncFlushPerf1() throws Exception {
     List<SegmentRange> ranges = prepareRanges(0, 50, 20000, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);

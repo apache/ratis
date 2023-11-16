@@ -185,7 +185,7 @@ class SegmentedRaftLogReader implements Closeable {
     throw new CorruptedFileException(file, "Log header mismatched: expected header length="
         + SegmentedRaftLogFormat.getHeaderLength() + ", read length=" + readLength + ", match length=" + matchLength
         + ", header in file=" + StringUtils.bytes2HexString(temp, 0, readLength)
-        + ", expected header=" + SegmentedRaftLogFormat.applyHeaderTo(StringUtils::bytes2HexString));
+        + ", expected header=" + StringUtils.bytes2HexString(SegmentedRaftLogFormat.getHeaderBytebuffer()));
   }
 
   /**
@@ -245,7 +245,8 @@ class SegmentedRaftLogReader implements Closeable {
         }
         for (idx = 0; idx < numRead; idx++) {
           if (!SegmentedRaftLogFormat.isTerminator(temp[idx])) {
-            throw new IOException("Read extra bytes after the terminator!");
+            throw new IOException("Read extra bytes after the terminator at position "
+                + (limiter.getPos() - numRead + idx) + " in " + file);
           }
         }
       } finally {

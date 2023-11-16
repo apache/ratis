@@ -50,7 +50,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -149,7 +148,6 @@ class SegmentedRaftLogWorker {
   private final StateMachine stateMachine;
   private final SegmentedRaftLogMetrics raftLogMetrics;
   private final ByteBuffer writeBuffer;
-  private final AtomicReference<byte[]> sharedBuffer;
 
   /**
    * The number of entries that have been written into the SegmentedRaftLogOutputStream but
@@ -210,7 +208,12 @@ class SegmentedRaftLogWorker {
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
     final int logEntryLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
     // 4 bytes (serialized size) + logEntryLimit + 4 bytes (checksum)
-    this.sharedBuffer = new AtomicReference<>(new byte[logEntryLimit + 8]);
+    if (bufferSize < logEntryLimit + 8) {
+      throw new IllegalArgumentException(RaftServerConfigKeys.Log.WRITE_BUFFER_SIZE_KEY
+          + " (= " + bufferSize
+          + ") is less than " + RaftServerConfigKeys.Log.Appender.BUFFER_BYTE_LIMIT_KEY
+          + " + 8 (= " + (logEntryLimit + 8) + ")");
+    }
     this.unsafeFlush = RaftServerConfigKeys.Log.unsafeFlushEnabled(properties);
     this.asyncFlush = RaftServerConfigKeys.Log.asyncFlushEnabled(properties);
     if (asyncFlush && unsafeFlush) {
@@ -235,7 +238,6 @@ class SegmentedRaftLogWorker {
 
   void close() {
     this.running = false;
-    sharedBuffer.set(null);
     Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
     ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND.multiply(3),
         workerThreadExecutor, timeout -> LOG.warn("{}: shutdown timeout in " + timeout, name));
@@ -730,8 +732,9 @@ class SegmentedRaftLogWorker {
   }
 
   private void allocateSegmentedRaftLogOutputStream(File file, boolean append) throws IOException {
-    Preconditions.assertTrue(out == null && writeBuffer.position() == 0);
+    Preconditions.assertNull(out, "out");
+    Preconditions.assertSame(0, writeBuffer.position(), "writeBuffer.position()");
     out = new SegmentedRaftLogOutputStream(file, append, segmentMaxSize,
-        preallocatedSize, writeBuffer, sharedBuffer::get);
+        preallocatedSize, writeBuffer);
   }
 }

@@ -342,7 +342,7 @@ Ratis will temporarily stall the new IO Tasks.
 |:----------------|:------------------------------------------------------------|
 | **Description** | size of direct byte buffer for SegmentedRaftLog FileChannel |
 | **Type**        | SizeInBytes                                                 |
-| **Default**     | 64KB                                                        |
+| **Default**     | 8MB                                                         |
 
 | **Property**    | `raft.server.log.force.sync.num`                                                |
 |:----------------|:--------------------------------------------------------------------------------|

@@ -18,41 +18,39 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.function.CheckedFunction;
 
-import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 public interface SegmentedRaftLogFormat {
   class Internal {
-    private static final byte[] HEADER_BYTES = "RaftLog1".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] HEADER_BYTES_CLONE = HEADER_BYTES.clone();
+    private static final ByteBuffer HEADER;
     private static final byte TERMINATOR_BYTE = 0;
 
-    private static void assertHeader() {
-      Preconditions.assertTrue(Arrays.equals(HEADER_BYTES, HEADER_BYTES_CLONE));
+    static {
+      final byte[] bytes = "RaftLog1".getBytes(StandardCharsets.UTF_8);
+      final ByteBuffer header = ByteBuffer.allocateDirect(bytes.length);
+      header.put(bytes).flip();
+      HEADER = header.asReadOnlyBuffer();
     }
   }
 
   static int getHeaderLength() {
-    return Internal.HEADER_BYTES.length;
+    return Internal.HEADER.remaining();
+  }
+
+  static ByteBuffer getHeaderBytebuffer() {
+    return Internal.HEADER.duplicate();
   }
 
   static int matchHeader(byte[] bytes, int offset, int length) {
     Preconditions.assertTrue(length <= getHeaderLength());
     for(int i = 0; i < length; i++) {
-      if (bytes[offset + i] != Internal.HEADER_BYTES[i]) {
+      if (bytes[offset + i] != Internal.HEADER.get(i)) {
         return i;
       }
     }
     return length;
-  }
-
-  static <T> T applyHeaderTo(CheckedFunction<byte[], T, IOException> function) throws IOException {
-    final T t = function.apply(Internal.HEADER_BYTES);
-    Internal.assertHeader(); // assert that the header is unmodified by the function.
-    return t;
   }
 
   static byte getTerminator() {

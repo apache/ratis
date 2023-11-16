@@ -424,7 +424,7 @@ public interface RaftServerConfigKeys {
     }
 
     String WRITE_BUFFER_SIZE_KEY = PREFIX + ".write.buffer.size";
-    SizeInBytes WRITE_BUFFER_SIZE_DEFAULT =SizeInBytes.valueOf("64KB");
+    SizeInBytes WRITE_BUFFER_SIZE_DEFAULT = SizeInBytes.valueOf("8MB");
     static SizeInBytes writeBufferSize(RaftProperties properties) {
       return getSizeInBytes(properties::getSizeInBytes,
           WRITE_BUFFER_SIZE_KEY, WRITE_BUFFER_SIZE_DEFAULT, getDefaultLog());

@@ -54,6 +54,7 @@ import org.slf4j.event.Level;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -218,14 +219,12 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       MiniRaftCluster cluster, Logger LOG) throws Exception {
     Preconditions.assertTrue(partialLength < SegmentedRaftLogFormat.getHeaderLength());
     try(final RandomAccessFile raf = new RandomAccessFile(openLogFile, "rw")) {
-      SegmentedRaftLogFormat.applyHeaderTo(header -> {
-        LOG.info("header    = {}", StringUtils.bytes2HexString(header));
-        final byte[] corrupted = new byte[header.length];
-        System.arraycopy(header, 0, corrupted, 0, partialLength);
-        LOG.info("corrupted = {}", StringUtils.bytes2HexString(corrupted));
-        raf.write(corrupted);
-        return null;
-      });
+      final ByteBuffer header = SegmentedRaftLogFormat.getHeaderBytebuffer();
+      LOG.info("header    = {}", StringUtils.bytes2HexString(header));
+      final byte[] corrupted = new byte[header.remaining()];
+      header.get(corrupted, 0, partialLength);
+      LOG.info("corrupted = {}", StringUtils.bytes2HexString(corrupted));
+      raf.write(corrupted);
     }
     final RaftServer.Division server = cluster.restartServer(id, false);
     server.getRaftServer().close();

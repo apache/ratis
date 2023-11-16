@@ -18,15 +18,18 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.util.StringUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Test {@link BufferedWriteChannel}
@@ -71,13 +74,12 @@ public class TestBufferedWriteChannel extends BaseTest {
       final int remaining = src.remaining();
       LOG.info("write {} bytes", remaining);
       position += remaining;
-      src.position(src.limit());
       return remaining;
     }
 
     @Override
     public long position() {
-      throw new UnsupportedOperationException();
+      return position;
     }
 
     @Override
@@ -132,55 +134,128 @@ public class TestBufferedWriteChannel extends BaseTest {
     }
   }
 
-  @Test
-  public void testFlush() throws Exception {
-    final byte[] bytes = new byte[10];
-    final ByteBuffer buffer = ByteBuffer.wrap(bytes);
-    final FakeFileChannel fake = new FakeFileChannel();
-    final BufferedWriteChannel out = new BufferedWriteChannel(fake, buffer);
+  static ByteBuffer allocateByteBuffer(int size) {
+    final ByteBuffer buffer = ByteBuffer.allocate(size);
+    for(int i = 0; i < size; i++) {
+      buffer.put(i, (byte)i);
+    }
+    return buffer.asReadOnlyBuffer();
+  }
 
-    // write exactly buffer size, then flush.
+
+  @Test
+  public void testWriteToChannel() throws Exception {
+    for(int n = 1; n < 1 << 20; n <<=2) {
+      runTestWriteToChannel(n - 1);
+      runTestWriteToChannel(n);
+      runTestWriteToChannel(n + 1);
+    }
+  }
+
+  void runTestWriteToChannel(int bufferSize) throws Exception {
+    final ByteBuffer buffer = allocateByteBuffer(2 * bufferSize);
+    final FakeFileChannel fake = new FakeFileChannel();
+    final BufferedWriteChannel out = new BufferedWriteChannel("test", fake, ByteBuffer.allocate(0));
+
     fake.assertValues(0, 0);
-    out.write(bytes);
-    int pos = bytes.length;
-    fake.assertValues(pos,  0);
-    out.flush();
-    int force = pos;
-    fake.assertValues(pos, force);
+    final AtomicInteger pos = new AtomicInteger();
+    final AtomicInteger force = new AtomicInteger();
+
+    {
+      // write exactly buffer size, then flush.
+      writeToChannel(out, fake, pos, force, buffer, bufferSize);
+      flush(out, fake, pos, force);
+    }
 
     {
       // write less than buffer size, then flush.
-      int n = bytes.length/2;
-      out.write(new byte[n]);
-      fake.assertValues(pos, force);
-      out.flush();
-      pos += n;
-      force = pos;
-      fake.assertValues(pos, force);
+      writeToChannel(out, fake, pos, force, buffer, bufferSize/2);
+      flush(out, fake, pos, force);
     }
 
     {
       // write less than buffer size twice, then flush.
-      int n = bytes.length*2/3;
-      out.write(new byte[n]);
-      fake.assertValues(pos, force);
-      out.write(new byte[n]);
-      fake.assertValues(pos + bytes.length, force);
-      out.flush();
-      pos += 2*n;
-      force = pos;
-      fake.assertValues(pos, force);
+      final int n = bufferSize*2/3;
+      writeToChannel(out, fake, pos, force, buffer, n);
+      writeToChannel(out, fake, pos, force, buffer, n);
+      flush(out, fake, pos, force);
     }
 
     {
       // write more than buffer size, then flush.
-      int n = bytes.length*3/2;
-      out.write(new byte[n]);
-      fake.assertValues(pos + bytes.length, force);
-      out.flush();
-      pos += n;
-      force = pos;
-      fake.assertValues(pos, force);
+      writeToChannel(out, fake, pos, force, buffer, bufferSize*3/2);
+      flush(out, fake, pos, force);
+    }
+  }
+
+  static void writeToChannel(BufferedWriteChannel out, FakeFileChannel fake, AtomicInteger pos, AtomicInteger force,
+      ByteBuffer buffer, int n) throws IOException {
+    buffer.position(0).limit(n);
+    out.writeToChannel(buffer);
+    pos.addAndGet(n);
+    fake.assertValues(pos.get(), force.get());
+  }
+
+  static void flush(BufferedWriteChannel out, FakeFileChannel fake,
+      AtomicInteger pos, AtomicInteger force) throws IOException {
+    final int existing = out.writeBufferPosition();
+    out.flush();
+    Assert.assertEquals(0, out.writeBufferPosition());
+    pos.addAndGet(existing);
+    force.set(pos.get());
+    fake.assertValues(pos.get(), force.get());
+  }
+
+  static void writeToBuffer(BufferedWriteChannel out, FakeFileChannel fake, AtomicInteger pos, AtomicInteger force,
+      int bufferCapacity, ByteBuffer buffer, int n) throws IOException {
+    final int existing = out.writeBufferPosition();
+    buffer.position(0).limit(n);
+    out.writeToBuffer(n, b -> b.put(buffer));
+    if (existing + n > bufferCapacity) {
+      pos.addAndGet(existing);
+      Assert.assertEquals(n, out.writeBufferPosition());
+    } else {
+      Assert.assertEquals(existing + n, out.writeBufferPosition());
+    }
+    fake.assertValues(pos.get(), force.get());
+  }
+
+  @Test
+  public void testWriteToBuffer() throws Exception {
+    for(int n = 1; n < 1 << 20; n <<=2) {
+      runTestWriteToBuffer(n - 1);
+      runTestWriteToBuffer(n);
+      runTestWriteToBuffer(n + 1);
+    }
+  }
+
+  void runTestWriteToBuffer(int bufferSize) throws Exception {
+    final ByteBuffer buffer = allocateByteBuffer(2 * bufferSize);
+    final FakeFileChannel fake = new FakeFileChannel();
+    final BufferedWriteChannel out = new BufferedWriteChannel("test", fake, ByteBuffer.allocate(bufferSize));
+
+    fake.assertValues(0, 0);
+    final AtomicInteger pos = new AtomicInteger();
+    final AtomicInteger force = new AtomicInteger();
+
+    {
+      // write exactly buffer size, then flush.
+      writeToBuffer(out, fake, pos, force, bufferSize, buffer, bufferSize);
+      flush(out, fake, pos, force);
+    }
+
+    {
+      // write less than buffer size, then flush.
+      writeToBuffer(out, fake, pos, force, bufferSize, buffer, bufferSize/2);
+      flush(out, fake, pos, force);
+    }
+
+    {
+      // write less than buffer size twice, then flush.
+      final int n = bufferSize*2/3;
+      writeToBuffer(out, fake, pos, force, bufferSize, buffer, n);
+      writeToBuffer(out, fake, pos, force, bufferSize, buffer, n);
+      flush(out, fake, pos, force);
     }
   }
 }
