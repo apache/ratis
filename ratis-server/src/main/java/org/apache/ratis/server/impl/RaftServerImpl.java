@@ -59,6 +59,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
+import org.apache.ratis.server.util.DirectBufferCleaner;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
@@ -849,7 +850,7 @@ class RaftServerImpl implements RaftServer.Division,
       // first check the server's leader state
       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null,
           !request.is(TypeCase.READ) && !request.is(TypeCase.WATCH));
-      if (reply != null) {
+      if (reply != null ) {
         return reply;
       }
 
@@ -1774,13 +1775,26 @@ class RaftServerImpl implements RaftServer.Division,
         // Let the StateMachine inject logic for committed transactions in sequential order.
         trx = stateMachine.applyTransactionSerial(trx);
 
-        final CompletableFuture<Message> stateMachineFuture = stateMachine.applyTransaction(trx);
+        final CompletableFuture<Message> stateMachineFuture = stateMachine.applyTransaction(trx)
+            .whenCompleteAsync((r, e) -> calculateAndDiscardCache(next.getIndex()));
         return replyPendingRequest(next, stateMachineFuture);
       } catch (Exception e) {
         throw new RaftLogIOException(e);
       }
     }
     return null;
+  }
+
+  private void calculateAndDiscardCache(long index) {
+    if (getRole().getCurrentRole() == RaftPeerRole.LEADER) {
+      long[] followerIndices = getRole().getLeaderStateNonNull()
+          .getFollowerNextIndices();
+      long minFollowerIndex = Arrays.stream(followerIndices).min().orElse(Long.MAX_VALUE);
+      long minIndex = Math.min(index - 1, minFollowerIndex - 2);
+      DirectBufferCleaner.INSTANCE.clean(getMemberId().getGroupId(), 0, minIndex);
+    } else {
+      DirectBufferCleaner.INSTANCE.clean(getMemberId().getGroupId(), 0, index - 1);
+    }
   }
 
   /**

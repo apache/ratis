@@ -40,6 +40,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.ServerFactory;
 import org.apache.ratis.server.raftlog.memory.MemoryRaftLog;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.util.DirectBufferCleaner;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.CollectionUtils;
@@ -52,6 +53,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReflectionUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedConsumer;
+import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +69,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -144,6 +147,24 @@ public abstract class MiniRaftCluster implements Closeable {
           throw t;
         } finally {
           cluster.shutdown();
+//          if (!DirectBufferCleaner.INSTANCE.assertEverythingCleaned(LogSegment.allBuffers,
+//              SegmentedRaftLog.allBuffers.keySet())) {
+//            Set<LogSegment>
+//                missedSegments = DirectBufferCleaner.INSTANCE.handles.keySet().stream().filter(
+//                    x -> LogSegment.allBuffers.containsKey(x)
+//                ).map(
+//                    x -> LogSegment.allBuffers.get(x)
+//                ).collect(Collectors.toSet());
+//            missedSegments.forEach(LogSegment::evictCache);
+//            if (DirectBufferCleaner.INSTANCE.handles.isEmpty()) {
+//              missedSegments.forEach(x -> {
+//                System.out.println("Some LogSegment discard without finalizing: " + Integer.toHexString(x.hashCode()));
+//              });
+//            }
+//            Assert.fail("Unclosed direct buffers: " + DirectBufferCleaner.INSTANCE.handles.size());
+//          }
+//          DirectBufferCleaner.INSTANCE.handles.clear();
+//          LogSegment.allBuffers.clear();
         }
       }
 
@@ -851,6 +872,13 @@ public abstract class MiniRaftCluster implements Closeable {
     Optional.ofNullable(timer.get()).ifPresent(Timer::cancel);
     ExitUtils.assertNotTerminated();
     LOG.info("{} shutdown completed", JavaUtils.getClassSimpleName(getClass()));
+
+    int i = DirectBufferCleaner.INSTANCE.pendingSize();
+    if (i > 0) {
+      Map<RaftGroupId, Set<Long>> pendingDetails = DirectBufferCleaner.INSTANCE.pendingDetails();
+      DirectBufferCleaner.INSTANCE.clear();
+      Assert.fail("Unclosed direct buffers: " + i + ", details: " + pendingDetails);
+    }
   }
 
   /**

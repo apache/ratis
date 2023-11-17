@@ -30,6 +30,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
@@ -174,7 +175,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         RaftServerConfigKeys.Log.Appender.bufferByteLimit(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()),
-        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()));
+        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()),
+        GrpcConfigKeys.Server.zeroCopyEnabled(server.getProperties()));
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber") // private constructor
@@ -184,7 +186,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
       String serverHost, int serverPort, GrpcTlsConfig serverTlsConfig,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
       SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration,
-      boolean useSeparateHBChannel) {
+      boolean useSeparateHBChannel, boolean zeroCopyEnabled) {
     super(idSupplier, id -> new PeerProxyMap<>(id.toString(),
         p -> new GrpcServerProtocolClient(p, flowControlWindow.getSizeInt(),
             requestTimeoutDuration, serverTlsConfig, useSeparateHBChannel)));
@@ -199,7 +201,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         GrpcConfigKeys.Server.asyncRequestThreadPoolCached(properties),
         GrpcConfigKeys.Server.asyncRequestThreadPoolSize(properties),
         getId() + "-request-");
-    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor);
+    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor, zeroCopyEnabled);
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
@@ -212,7 +214,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     final NettyServerBuilder serverBuilder =
         startBuildingNettyServer(serverHost, serverPort, serverTlsConfig, grpcMessageSizeMax, flowControlWindow);
     serverBuilder.addService(ServerInterceptors.intercept(
-        new GrpcServerProtocolService(idSupplier, raftServer), serverInterceptor));
+        new GrpcServerProtocolService(idSupplier, raftServer, zeroCopyEnabled).bindServiceWithZeroCopy(), serverInterceptor));
     if (!separateAdminServer) {
       addAdminService(raftServer, serverBuilder);
     }
@@ -252,7 +254,9 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   }
 
   private void addClientService(NettyServerBuilder builder) {
-    builder.addService(ServerInterceptors.intercept(clientProtocolService, serverInterceptor));
+    ServerServiceDefinition serviceDef =
+        clientProtocolService.bindServiceWithZeroCopy();
+    builder.addService(ServerInterceptors.intercept(serviceDef, serverInterceptor));
   }
 
   private void addAdminService(RaftServer raftServer, NettyServerBuilder nettyServerBuilder) {

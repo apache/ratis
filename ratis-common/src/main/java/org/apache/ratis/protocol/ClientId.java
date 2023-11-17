@@ -46,7 +46,7 @@ public final class ClientId extends RaftId {
   }
 
   private ClientId(ByteString data) {
-    super(data);
+    super(ByteString.copyFrom(data.asReadOnlyByteBuffer()));
   }
 
   private ClientId(UUID uuid) {

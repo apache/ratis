@@ -18,10 +18,17 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.util.ZeroCopyMessageMarshaller;
+import org.apache.ratis.grpc.util.ZeroCopyReadinessChecker;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.server.util.DirectBufferCleaner;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.thirdparty.io.grpc.MethodDescriptor;
+import org.apache.ratis.thirdparty.io.grpc.ServerCallHandler;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -32,14 +39,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.getAppendEntriesMethod;
+
 class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
+  private final ZeroCopyMessageMarshaller<AppendEntriesRequestProto>
+      zeroCopyAppendEntryMarshaller = new ZeroCopyMessageMarshaller<>(AppendEntriesRequestProto.getDefaultInstance());
+  private final boolean zerocopyEnabled;
+
 
   static class PendingServerRequest<REQUEST> {
     private final REQUEST request;
@@ -174,9 +188,10 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftServer server;
 
-  GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server) {
+  GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server, boolean zerocopyEnabled) {
     this.idSupplier = idSupplier;
     this.server = server;
+    this.zerocopyEnabled = zerocopyEnabled;
   }
 
   RaftPeerId getId() {
@@ -189,6 +204,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     try {
       final RequestVoteReplyProto reply = server.requestVote(request);
       responseObserver.onNext(reply);
+
       responseObserver.onCompleted();
     } catch (Exception e) {
       GrpcUtil.warn(LOG, () -> getId() + ": Failed requestVote " + ProtoUtils.toString(request.getServerRequest()), e);
@@ -229,9 +245,24 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       StreamObserver<AppendEntriesReplyProto> responseObserver) {
     return new ServerRequestStreamObserver<AppendEntriesRequestProto, AppendEntriesReplyProto>(
         RaftServerProtocol.Op.APPEND_ENTRIES, responseObserver) {
+
       @Override
       CompletableFuture<AppendEntriesReplyProto> process(AppendEntriesRequestProto request) throws IOException {
-        return server.appendEntriesAsync(request);
+        InputStream handle = zeroCopyAppendEntryMarshaller.popStream(request);
+        try {
+          return server.appendEntriesAsync(request)
+              .whenCompleteAsync((x, e) -> {
+                if (x != null && x.getResult().equals(AppendEntriesReplyProto.AppendResult.SUCCESS) && !x.getIsHearbeat()) {
+                  DirectBufferCleaner.INSTANCE.watch(request, handle);
+                } else {
+                  org.apache.ratis.thirdparty.io.grpc.internal.GrpcUtil.closeQuietly(handle);
+                }
+              });
+        }
+        catch (IOException e) {
+          org.apache.ratis.thirdparty.io.grpc.internal.GrpcUtil.closeQuietly(handle);
+          throw e;
+        }
       }
 
       @Override
@@ -291,5 +322,49 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         return true;
       }
     };
+  }
+
+  /**
+   * Bind this grpc service with zero-copy marshaller for
+   * ordered and unordered methods if zero-copy is enabled.
+   */
+  public ServerServiceDefinition bindServiceWithZeroCopy() {
+    ServerServiceDefinition orig = super.bindService();
+    // TODO if zero-copy is not enabled or not feasible, return the original service definition.
+    if (!ZeroCopyReadinessChecker.isReady()) {
+      LOG.info("Zero copy is not ready.");
+      return orig;
+    }
+
+    if (!zerocopyEnabled) {
+      LOG.info("Zero copy is not enabled.");
+      return orig;
+    }
+
+    ServerServiceDefinition.Builder builder =
+        ServerServiceDefinition.builder(orig.getServiceDescriptor().getName());
+
+    addZeroCopyMethod(orig, builder, getAppendEntriesMethod());
+
+    // Add methods that we don't apply zero-copy.
+    orig.getMethods().stream().filter(
+        x -> !x.getMethodDescriptor().getFullMethodName().equals(getAppendEntriesMethod().getFullMethodName())
+    ).forEach(
+        builder::addMethod
+    );
+
+    return builder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  private void addZeroCopyMethod(ServerServiceDefinition orig,
+      ServerServiceDefinition.Builder builder,
+      MethodDescriptor<AppendEntriesRequestProto, AppendEntriesReplyProto> origMethod) {
+    MethodDescriptor<AppendEntriesRequestProto, AppendEntriesReplyProto> newMethod = origMethod.toBuilder()
+        .setRequestMarshaller(zeroCopyAppendEntryMarshaller)
+        .build();
+    ServerCallHandler<AppendEntriesRequestProto, AppendEntriesReplyProto> serverCallHandler =
+        (ServerCallHandler<AppendEntriesRequestProto, AppendEntriesReplyProto>) orig.getMethod(newMethod.getFullMethodName()).getServerCallHandler();
+    builder.addMethod(newMethod, serverCallHandler);
   }
 }

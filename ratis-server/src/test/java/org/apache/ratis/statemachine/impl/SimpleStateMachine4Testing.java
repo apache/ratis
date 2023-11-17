@@ -20,6 +20,7 @@ package org.apache.ratis.statemachine.impl;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.io.MD5Hash;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.protocol.Message;
@@ -42,6 +43,7 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
@@ -243,7 +245,13 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
+    // For zerocopy, duplicate entry before storing locally.
+    LogEntryProto entry = null;
+    try {
+      entry = LogEntryProto.parseFrom(trx.getLogEntry().toByteArray());
+    } catch (InvalidProtocolBufferException e) {
+      throw new RuntimeException(e);
+    }
     put(entry);
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
 

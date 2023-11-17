@@ -351,6 +351,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         10, ONE_SECOND, "getLeaderId", LOG);
     LOG.info(cluster.printServers());
     Assert.assertEquals(leader.getId(), lastServerLeaderId);
+    cluster.shutdown();
   }
 
   protected void testDisconnectLeader() throws Exception {
@@ -520,6 +521,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     Long leaderElectionLatency = (Long) ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME)).values().iterator().next().getValue();
     assertTrue(leaderElectionLatency > 0L);
+    cluster.shutdown();
   }
 
   @Test
@@ -549,6 +551,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       LOG.info("Error starting LeaderElection", e);
       fail(e.getMessage());
     }
+    server.close();
   }
 
   @Test

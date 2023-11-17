@@ -18,6 +18,7 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -371,6 +372,7 @@ public class SegmentedRaftLog extends RaftLogBase {
     return CompletableFuture.completedFuture(index);
   }
 
+//  public static Map<ByteString, Integer> allBuffers = Collections.synchronizedMap(new IdentityHashMap<>());
   @Override
   protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
     checkLogState();
@@ -455,6 +457,9 @@ public class SegmentedRaftLog extends RaftLogBase {
       for (int i = index; i < entries.size(); i++) {
         futures.add(appendEntry(entries.get(i)));
       }
+//      for (int i = 0; i < index; i++) {
+//        DirectBufferCleaner.INSTANCE.clean(entries.get(i));
+//      }
       return futures;
     }
   }

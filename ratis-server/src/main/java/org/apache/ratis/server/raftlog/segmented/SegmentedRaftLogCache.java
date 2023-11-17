@@ -19,6 +19,8 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -243,15 +245,15 @@ public class SegmentedRaftLogCache {
       }
     }
 
-    void clear() {
+    void clear(RaftGroupId groupId) {
       try(AutoCloseableLock writeLock = writeLock()) {
-        segments.forEach(LogSegment::clear);
+        segments.forEach(s -> s.clear(groupId));
         segments.clear();
         sizeInBytes = 0;
       }
     }
 
-    TruncationSegments truncate(long index, LogSegment openSegment, Runnable clearOpenSegment) {
+    TruncationSegments truncate(long index, LogSegment openSegment, Runnable clearOpenSegment, RaftGroupId groupId) {
       try(AutoCloseableLock writeLock = writeLock()) {
         final int segmentIndex = binarySearch(index);
         if (segmentIndex == -segments.size() - 1) {
@@ -259,10 +261,10 @@ public class SegmentedRaftLogCache {
             final long oldEnd = openSegment.getEndIndex();
             if (index == openSegment.getStartIndex()) {
               // the open segment should be deleted
-              final SegmentFileInfo deleted = deleteOpenSegment(openSegment, clearOpenSegment);
+              final SegmentFileInfo deleted = deleteOpenSegment(openSegment, clearOpenSegment, groupId);
               return new TruncationSegments(null, Collections.singletonList(deleted));
             } else {
-              openSegment.truncate(index);
+              openSegment.truncate(index, groupId);
               Preconditions.assertTrue(!openSegment.isOpen(),
                   () -> "Illegal state: " + openSegment + " remains open after truncate.");
               final SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
@@ -278,7 +280,7 @@ public class SegmentedRaftLogCache {
           final long oldEnd = ts.getEndIndex();
           final List<SegmentFileInfo> list = new ArrayList<>();
           sizeInBytes -= ts.getTotalFileSize();
-          ts.truncate(index);
+          ts.truncate(index, groupId);
           sizeInBytes += ts.getTotalFileSize();
           final int size = segments.size();
           for(int i = size - 1;
@@ -287,11 +289,11 @@ public class SegmentedRaftLogCache {
             LogSegment s = segments.remove(i);
             sizeInBytes -= s.getTotalFileSize();
             final long endOfS = i == segmentIndex? oldEnd: s.getEndIndex();
-            s.clear();
+            s.clear(groupId);
             list.add(new SegmentFileInfo(s.getStartIndex(), endOfS, false, 0, s.getEndIndex()));
           }
           if (openSegment != null) {
-            list.add(deleteOpenSegment(openSegment, clearOpenSegment));
+            list.add(deleteOpenSegment(openSegment, clearOpenSegment, groupId));
           }
           SegmentFileInfo t = ts.numOfEntries() == 0? null:
               new SegmentFileInfo(ts.getStartIndex(), oldEnd, false, ts.getTotalFileSize(), ts.getEndIndex());
@@ -301,7 +303,7 @@ public class SegmentedRaftLogCache {
       }
     }
 
-    TruncationSegments purge(long index) {
+    TruncationSegments purge(long index, RaftGroupId groupId) {
       try (AutoCloseableLock writeLock = writeLock()) {
         int segmentIndex = binarySearch(index);
         List<SegmentFileInfo> list = new ArrayList<>();
@@ -310,6 +312,7 @@ public class SegmentedRaftLogCache {
           for (LogSegment ls : segments) {
             list.add(SegmentFileInfo.newClosedSegmentFileInfo(ls));
           }
+          segments.forEach(s -> s.evictCache(groupId));
           segments.clear();
           sizeInBytes = 0;
         } else if (segmentIndex >= 0) {
@@ -323,6 +326,7 @@ public class SegmentedRaftLogCache {
             LogSegment segment = segments.remove(0); // must remove the first segment to avoid gaps.
             sizeInBytes -= segment.getTotalFileSize();
             list.add(SegmentFileInfo.newClosedSegmentFileInfo(segment));
+            segment.evictCache(groupId);
           }
         } else {
           throw new IllegalStateException("Unexpected gap in segments: binarySearch(" + index + ") returns "
@@ -332,9 +336,9 @@ public class SegmentedRaftLogCache {
       }
     }
 
-    static SegmentFileInfo deleteOpenSegment(LogSegment openSegment, Runnable clearOpenSegment) {
+    static SegmentFileInfo deleteOpenSegment(LogSegment openSegment, Runnable clearOpenSegment, RaftGroupId groupId) {
       final long oldEnd = openSegment.getEndIndex();
-      openSegment.clear();
+      openSegment.clear(groupId);
       final SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(), oldEnd, true,
           0, openSegment.getEndIndex());
       clearOpenSegment.run();
@@ -357,10 +361,12 @@ public class SegmentedRaftLogCache {
   private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
   private final long maxSegmentCacheSize;
+  private final RaftGroupMemberId memberId;
 
-  SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties,
+  SegmentedRaftLogCache(RaftGroupMemberId groupMemberId, RaftStorage storage, RaftProperties properties,
       SegmentedRaftLogMetrics raftLogMetrics) {
-    this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
+    this.name = groupMemberId + "-" + JavaUtils.getClassSimpleName(getClass());
+    this.memberId = groupMemberId;
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
     this.raftLogMetrics = raftLogMetrics;
@@ -410,7 +416,7 @@ public class SegmentedRaftLogCache {
     List<LogSegment> toEvict = evictionPolicy.evict(followerIndices,
         safeEvictIndex, lastAppliedIndex, closedSegments, maxCachedSegments);
     for (LogSegment s : toEvict) {
-      s.evictCache();
+      s.evictCache(memberId.getGroupId());
     }
   }
 
@@ -560,11 +566,11 @@ public class SegmentedRaftLogCache {
    * truncate log entries starting from the given index (inclusive)
    */
   TruncationSegments truncate(long index) {
-    return closedSegments.truncate(index, openSegment, this::clearOpenSegment);
+    return closedSegments.truncate(index, openSegment, this::clearOpenSegment, memberId.getGroupId());
   }
 
   TruncationSegments purge(long index) {
-    return closedSegments.purge(index);
+    return closedSegments.purge(index, memberId.getGroupId());
   }
 
   Iterator<TermIndex> iterator(long startIndex) {
@@ -683,9 +689,9 @@ public class SegmentedRaftLogCache {
 
   void close() {
     if (openSegment != null) {
-      openSegment.clear();
+      openSegment.clear(memberId.getGroupId());
       clearOpenSegment();
     }
-    closedSegments.clear();
+    closedSegments.clear(memberId.getGroupId());
   }
 }
