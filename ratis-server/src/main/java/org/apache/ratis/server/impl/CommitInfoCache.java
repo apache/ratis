@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ProtoUtils;
 
@@ -42,8 +43,14 @@ class CommitInfoCache {
   }
 
   CommitInfoProto update(CommitInfoProto newInfo) {
-    return map.compute(RaftPeerId.valueOf(newInfo.getServer().getId()),
-        (id, old) -> old == null || newInfo.getCommitIndex() > old.getCommitIndex()? newInfo: old);
+    try {
+      CommitInfoProto cloned = CommitInfoProto.parseFrom(newInfo.toByteArray());
+      return map.compute(RaftPeerId.valueOf(cloned.getServer().getId()),
+          (id, old) -> old == null || cloned.getCommitIndex() > old.getCommitIndex()? cloned: old);
+    } catch (
+        InvalidProtocolBufferException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override

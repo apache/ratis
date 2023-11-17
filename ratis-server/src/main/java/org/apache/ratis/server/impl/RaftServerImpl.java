@@ -1790,7 +1790,7 @@ class RaftServerImpl implements RaftServer.Division,
       long[] followerIndices = getRole().getLeaderStateNonNull()
           .getFollowerNextIndices();
       long minFollowerIndex = Arrays.stream(followerIndices).min().orElse(Long.MAX_VALUE);
-      long minIndex = Math.min(index - 1, minFollowerIndex-2);
+      long minIndex = Math.min(index - 1, minFollowerIndex - 2);
       DirectBufferCleaner.INSTANCE.clean(getMemberId().getGroupId(), 0, minIndex);
     } else {
       DirectBufferCleaner.INSTANCE.clean(getMemberId().getGroupId(), 0, index - 1);
