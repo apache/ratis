@@ -17,6 +17,7 @@
 */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.AsyncRpcApi;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
@@ -46,6 +47,8 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SlidingWindow;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -61,6 +64,8 @@ import java.util.concurrent.CompletableFuture;
  * allows client to create streams and send asynchronously.
  */
 public class DataStreamClientImpl implements DataStreamClient {
+  public static final Logger LOG = LoggerFactory.getLogger(DataStreamClientImpl.class);
+
   private final RaftClient client;
   private final ClientId clientId;
   private final RaftGroupId groupId;
@@ -68,9 +73,11 @@ public class DataStreamClientImpl implements DataStreamClient {
   private final RaftPeer dataStreamServer;
   private final DataStreamClientRpc dataStreamClientRpc;
   private final OrderedStreamAsync orderedStreamAsync;
+  private final boolean skipSendForward;
 
   DataStreamClientImpl(ClientId clientId, RaftGroupId groupId, RaftPeer dataStreamServer,
       DataStreamClientRpc dataStreamClientRpc, RaftProperties properties) {
+    this.skipSendForward = RaftConfigKeys.DataStream.skipSendForward(properties, LOG::info);
     this.client = null;
     this.clientId = clientId;
     this.groupId = groupId;
@@ -81,6 +88,7 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   DataStreamClientImpl(RaftClient client, RaftPeer dataStreamServer,
       DataStreamClientRpc dataStreamClientRpc, RaftProperties properties) {
+    this.skipSendForward = RaftConfigKeys.DataStream.skipSendForward(properties, LOG::info);
     this.client = client;
     this.clientId = client.getId();
     this.groupId = client.getGroupId();
@@ -146,7 +154,11 @@ public class DataStreamClientImpl implements DataStreamClient {
       }
       final CompletableFuture<DataStreamReply> f = combineHeader(send(Type.STREAM_DATA, data, length, options));
       if (WriteOption.containsOption(options, StandardWriteOption.CLOSE)) {
-        closeFuture = client != null? f.thenCompose(this::sendForward): f;
+        if (skipSendForward) {
+          closeFuture = f;
+        } else {
+          closeFuture = client != null? f.thenCompose(this::sendForward): f;
+        }
         closeFuture.thenApply(ClientProtoUtils::getRaftClientReply)
             .whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
       }
