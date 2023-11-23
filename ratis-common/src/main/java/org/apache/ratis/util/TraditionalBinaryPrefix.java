@@ -161,4 +161,9 @@ public enum TraditionalBinaryPrefix {
       return b.append(' ').append(prefix.symbol).append(unit).toString();
     }
   }
+
+  /** The same as long2String(n, "", 3). */
+  public static String long2String(long n) {
+    return long2String(n, "", 3);
+  }
 }
