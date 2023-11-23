@@ -111,8 +111,9 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
     }
 
     // slow path
-    nonZeroCopyCount.accept(message);
-    return marshaller.parse(stream);
+    final T copied = marshaller.parse(stream);
+    nonZeroCopyCount.accept(copied);
+    return copied;
   }
 
   /** Release the underlying buffers in the given message. */
