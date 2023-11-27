@@ -19,19 +19,35 @@ package org.apache.ratis.shell.cli.sh;
 
 import org.apache.ratis.shell.cli.AbstractShell;
 import org.apache.ratis.shell.cli.Command;
+import org.apache.ratis.shell.cli.sh.command.AbstractParentCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
-import org.apache.ratis.util.ReflectionUtils;
-import org.reflections.Reflections;
+import org.apache.ratis.shell.cli.sh.command.ElectionCommand;
+import org.apache.ratis.shell.cli.sh.command.GroupCommand;
+import org.apache.ratis.shell.cli.sh.command.LocalCommand;
+import org.apache.ratis.shell.cli.sh.command.PeerCommand;
+import org.apache.ratis.shell.cli.sh.command.SnapshotCommand;
 
 import java.io.PrintStream;
-import java.lang.reflect.Modifier;
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Shell for manage ratis group.
  */
 public class RatisShell extends AbstractShell {
+  static final List<Function<Context, AbstractParentCommand>> PARENT_COMMAND_CONSTRUCTORS
+      = Collections.unmodifiableList(Arrays.asList(
+          PeerCommand::new, GroupCommand::new, ElectionCommand::new, SnapshotCommand::new, LocalCommand::new));
+
+  static List<AbstractParentCommand> allParentCommands(Context context) {
+    return PARENT_COMMAND_CONSTRUCTORS.stream()
+        .map(constructor -> constructor.apply(context))
+        .collect(Collectors.toList());
+  }
 
   /**
    * Manage ratis shell command.
@@ -54,33 +70,7 @@ public class RatisShell extends AbstractShell {
 
   @Override
   protected Map<String, Command> loadCommands(Context context) {
-    return loadCommands(RatisShell.class.getPackage().getName(),
-        new Class[] {Context.class},
-        new Object[] {getCloser().register(context)});
-  }
-
-  /**
-   * Get instances of all subclasses of {@link Command} in a sub-package called "command" the given
-   * package.
-   *
-   * @param pkgName package prefix to look in
-   * @param classArgs type of args to instantiate the class
-   * @param objectArgs args to instantiate the class
-   * @return a mapping from command name to command instance
-   */
-  private Map<String, Command> loadCommands(String pkgName, Class[] classArgs,
-      Object[] objectArgs) {
-    Map<String, Command> commandsMap = new HashMap<>();
-    Reflections reflections = new Reflections(pkgName);
-    for (Class<? extends Command> cls : reflections.getSubTypesOf(Command.class)) {
-      // Add commands from <pkgName>.command.*
-      if (cls.getPackage().getName().equals(pkgName + ".command")
-          && !Modifier.isAbstract(cls.getModifiers())) {
-        // Only instantiate a concrete class
-        final Command cmd = ReflectionUtils.newInstance(cls, classArgs, objectArgs);
-        commandsMap.put(cmd.getCommandName(), cmd);
-      }
-    }
-    return commandsMap;
+    return allParentCommands(context).stream()
+        .collect(Collectors.toMap(Command::getCommandName, Function.identity()));
   }
 }
