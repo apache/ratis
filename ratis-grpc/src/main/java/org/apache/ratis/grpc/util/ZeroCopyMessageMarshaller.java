@@ -29,6 +29,10 @@ import org.apache.ratis.thirdparty.io.grpc.KnownLength;
 import org.apache.ratis.thirdparty.io.grpc.MethodDescriptor.PrototypeMarshaller;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.protobuf.lite.ProtoLiteUtils;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +42,8 @@ import java.util.IdentityHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * Custom gRPC marshaller to use zero memory copy feature of gRPC when deserializing messages. This
@@ -47,14 +53,29 @@ import java.util.Map;
  * close it when it's no longer needed. Otherwise, it'd cause memory leak.
  */
 public class ZeroCopyMessageMarshaller<T extends MessageLite> implements PrototypeMarshaller<T> {
-  private Map<T, InputStream> unclosedStreams =
-      Collections.synchronizedMap(new IdentityHashMap<>());
+  static final Logger LOG = LoggerFactory.getLogger(ZeroCopyMessageMarshaller.class);
+
+  private final String name;
+  private final Map<T, InputStream> unclosedStreams = Collections.synchronizedMap(new IdentityHashMap<>());
   private final Parser<T> parser;
   private final PrototypeMarshaller<T> marshaller;
 
+  private final Consumer<T> zeroCopyCount;
+  private final Consumer<T> nonZeroCopyCount;
+
   public ZeroCopyMessageMarshaller(T defaultInstance) {
-    parser = (Parser<T>) defaultInstance.getParserForType();
-    marshaller = (PrototypeMarshaller<T>) ProtoLiteUtils.marshaller(defaultInstance);
+    this(defaultInstance, m -> {}, m -> {});
+  }
+
+  public ZeroCopyMessageMarshaller(T defaultInstance, Consumer<T> zeroCopyCount, Consumer<T> nonZeroCopyCount) {
+    this.name = JavaUtils.getClassSimpleName(defaultInstance.getClass()) + "-Marshaller";
+    @SuppressWarnings("unchecked")
+    final Parser<T> p = (Parser<T>) defaultInstance.getParserForType();
+    this.parser = p;
+    this.marshaller = (PrototypeMarshaller<T>) ProtoLiteUtils.marshaller(defaultInstance);
+
+    this.zeroCopyCount = zeroCopyCount;
+    this.nonZeroCopyCount = nonZeroCopyCount;
   }
 
   @Override
@@ -74,55 +95,116 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
 
   @Override
   public T parse(InputStream stream) {
+    final T message;
     try {
-      if (stream instanceof KnownLength
-          && stream instanceof Detachable
-          && stream instanceof HasByteBuffer
-          && ((HasByteBuffer) stream).byteBufferSupported()) {
-        int size = stream.available();
-        // Stream is now detached here and should be closed later.
-        InputStream detachedStream = ((Detachable) stream).detach();
-        try {
-          // This mark call is to keep buffer while traversing buffers using skip.
-          detachedStream.mark(size);
-          List<ByteString> byteStrings = new LinkedList<>();
-          while (detachedStream.available() != 0) {
-            ByteBuffer buffer = ((HasByteBuffer) detachedStream).getByteBuffer();
-            byteStrings.add(UnsafeByteOperations.unsafeWrap(buffer));
-            detachedStream.skip(buffer.remaining());
-          }
-          detachedStream.reset();
-          CodedInputStream codedInputStream = ByteString.copyFrom(byteStrings).newCodedInput();
-          codedInputStream.enableAliasing(true);
-          codedInputStream.setSizeLimit(Integer.MAX_VALUE);
-          // fast path (no memory copy)
-          T message;
-          try {
-            message = parseFrom(codedInputStream);
-          } catch (InvalidProtocolBufferException ipbe) {
-            throw Status.INTERNAL
-                .withDescription("Invalid protobuf byte sequence")
-                .withCause(ipbe)
-                .asRuntimeException();
-          }
-          unclosedStreams.put(message, detachedStream);
-          detachedStream = null;
-          return message;
-        } finally {
-          if (detachedStream != null) {
-            detachedStream.close();
-          }
-        }
-      }
+      // fast path (no memory copy)
+      message = parseZeroCopy(stream);
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw Status.INTERNAL
+          .withDescription("Failed to parseZeroCopy")
+          .withCause(e)
+          .asRuntimeException();
     }
+    if (message != null) {
+      zeroCopyCount.accept(message);
+      return message;
+    }
+
     // slow path
-    return marshaller.parse(stream);
+    final T copied = marshaller.parse(stream);
+    nonZeroCopyCount.accept(copied);
+    return copied;
+  }
+
+  /** Release the underlying buffers in the given message. */
+  public void release(T message) {
+    final InputStream stream = unclosedStreams.remove(message);
+    if (stream == null) {
+      return;
+    }
+    try {
+      stream.close();
+    } catch (IOException e) {
+      LOG.error(name + ": Failed to close stream.", e);
+    }
+  }
+
+  private List<ByteString> getByteStrings(InputStream detached, int exactSize) throws IOException {
+    Preconditions.assertTrue(detached instanceof HasByteBuffer);
+
+    // This mark call is to keep buffer while traversing buffers using skip.
+    detached.mark(exactSize);
+    final List<ByteString> byteStrings = new LinkedList<>();
+    while (detached.available() != 0) {
+      final ByteBuffer buffer = ((HasByteBuffer)detached).getByteBuffer();
+      Objects.requireNonNull(buffer, "buffer == null");
+      byteStrings.add(UnsafeByteOperations.unsafeWrap(buffer));
+      final int remaining = buffer.remaining();
+      final long skipped = detached.skip(buffer.remaining());
+      Preconditions.assertSame(remaining, skipped, "skipped");
+    }
+    detached.reset();
+    return byteStrings;
+  }
+
+  /**
+   * Use a zero copy method to parse a message from the given stream.
+   *
+   * @return the parsed message if the given stream support zero copy; otherwise, return null.
+   */
+  private T parseZeroCopy(InputStream stream) throws IOException {
+    if (!(stream instanceof KnownLength)) {
+      LOG.debug("stream is not KnownLength: {}", stream.getClass());
+      return null;
+    }
+    if (!(stream instanceof Detachable)) {
+      LOG.debug("stream is not Detachable: {}", stream.getClass());
+      return null;
+    }
+    if (!(stream instanceof HasByteBuffer)) {
+      LOG.debug("stream is not HasByteBuffer: {}", stream.getClass());
+      return null;
+    }
+    if (!((HasByteBuffer) stream).byteBufferSupported()) {
+      LOG.debug("stream is HasByteBuffer but not byteBufferSupported: {}", stream.getClass());
+      return null;
+    }
+
+    final int exactSize = stream.available();
+    InputStream detached = ((Detachable) stream).detach();
+    try {
+      final List<ByteString> byteStrings = getByteStrings(detached, exactSize);
+      final T message = parseFrom(byteStrings, exactSize);
+
+      final InputStream previous = unclosedStreams.put(message, detached);
+      Preconditions.assertNull(previous, "previous");
+
+      detached = null;
+      return message;
+    } finally {
+      if (detached != null) {
+        detached.close();
+      }
+    }
+  }
+
+  private T parseFrom(List<ByteString> byteStrings, int exactSize) {
+    final CodedInputStream codedInputStream = ByteString.copyFrom(byteStrings).newCodedInput();
+    codedInputStream.enableAliasing(true);
+    codedInputStream.setSizeLimit(exactSize);
+
+    try {
+      return parseFrom(codedInputStream);
+    } catch (InvalidProtocolBufferException e) {
+      throw Status.INTERNAL
+          .withDescription("Invalid protobuf byte sequence")
+          .withCause(e)
+          .asRuntimeException();
+    }
   }
 
   private T parseFrom(CodedInputStream stream) throws InvalidProtocolBufferException {
-    T message = parser.parseFrom(stream);
+    final T message = parser.parseFrom(stream);
     try {
       stream.checkLastTagWas(0);
       return message;
@@ -130,13 +212,5 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
       e.setUnfinishedMessage(message);
       throw e;
     }
-  }
-
-  /**
-   * Application needs to call this function to get the stream for the message and
-   * call stream.close() function to return it to the pool.
-   */
-  public InputStream popStream(T message) {
-    return unclosedStreams.remove(message);
   }
 }

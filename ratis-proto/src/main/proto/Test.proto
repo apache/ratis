@@ -26,6 +26,9 @@ package org.apache.ratis.test;
 service Greeter {
     rpc Hello (stream HelloRequest)
         returns (stream HelloReply) {}
+
+    rpc Binary (stream BinaryRequest)
+        returns (stream BinaryReply) {}
 }
 
 message HelloRequest {
@@ -35,3 +38,12 @@ message HelloRequest {
 message HelloReply {
     string message = 1;
 }
+
+message BinaryRequest {
+    bytes data = 1;
+}
+
+message BinaryReply {
+    bytes data = 1;
+}
+
