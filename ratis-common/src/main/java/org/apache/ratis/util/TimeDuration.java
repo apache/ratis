@@ -137,10 +137,10 @@ public final class TimeDuration implements Comparable<TimeDuration> {
   }
 
   /**
-   * Parse the given time duration string.
-   * If no unit is specified, use the default unit.
-   * This method support underscores in Numeric Literals as in Java 8.
+   * Parse the given string.
+   * The string is first be trimmed and underscore removed.
    *
+   * @param defaultUnit Use it if no unit is specified.
    * @return a {@link TimeDuration} in the target unit.
    */
   public static TimeDuration valueOf(String timeString, TimeUnit defaultUnit) {
@@ -158,6 +158,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
         }
       }
     }
+    Objects.requireNonNull(defaultUnit, "defaultUnit == null");
     return valueOf(Long.parseLong(lower), defaultUnit);
   }
 

@@ -117,14 +117,18 @@ public final class StringUtils {
     return s.toString();
   }
 
-  public static boolean string2boolean(String s, boolean defaultValue) {
+  public static Boolean string2boolean(String s, Boolean defaultValue) {
     if (s == null || s.isEmpty()) {
       return defaultValue;
     }
 
     if ("true".equalsIgnoreCase(s)) {
       return true;
+    } else if ("t".equalsIgnoreCase(s)) {
+      return true;
     } else if ("false".equalsIgnoreCase(s)) {
+      return false;
+    } else if ("f".equalsIgnoreCase(s)) {
       return false;
     } else {
       return defaultValue;

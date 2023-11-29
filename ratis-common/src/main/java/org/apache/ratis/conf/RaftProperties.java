@@ -246,22 +246,34 @@ public class RaftProperties {
    * <code>null</code> if no such property exists.
    * If the key is deprecated, it returns the value of
    * the first key which replaces the deprecated key and is not null
-   *
+   * <p>
    * Values are processed for <a href="#VariableExpansion">variable expansion</a>
    * before being returned.
+   * <p>
+   * Underscores can be optionally removed.
    *
    * @param name the property name.
+   * @param removeUnderscores should the underscores be removed?
+   *
    * @return the value of the <code>name</code> or its replacing property,
    *         or null if no such property exists.
    */
-  public String getTrimmed(String name) {
+  public String getTrimmed(String name, boolean removeUnderscores) {
     String value = get(name);
 
     if (null == value) {
       return null;
-    } else {
-      return value.trim();
     }
+    value = value.trim();
+    if (removeUnderscores) {
+      value = value.replace("_", "");
+    }
+    return value;
+  }
+
+  /** The same as getTrimmed(name, false). */
+  public String getTrimmed(String name) {
+    return getTrimmed(name, false);
   }
 
   /**
@@ -341,8 +353,8 @@ public class RaftProperties {
    * @return property value as an <code>int</code>,
    *         or <code>defaultValue</code>.
    */
-  public int getInt(String name, int defaultValue) {
-    String valueString = getTrimmed(name);
+  public Integer getInt(String name, Integer defaultValue) {
+    final String valueString = getTrimmed(name, true);
     if (valueString == null) {
       return defaultValue;
     }
@@ -376,8 +388,8 @@ public class RaftProperties {
    * @return property value as a <code>long</code>,
    *         or <code>defaultValue</code>.
    */
-  public long getLong(String name, long defaultValue) {
-    String valueString = getTrimmed(name);
+  public Long getLong(String name, Long defaultValue) {
+    final String valueString = getTrimmed(name, true);
     if (valueString == null) {
       return defaultValue;
     }
@@ -410,7 +422,7 @@ public class RaftProperties {
     if (null == valueString) {
       return defaultValue;
     }
-    String[] paths = getTrimmedStrings(name);
+    final String[] paths = StringUtils.getTrimmedStrings(get(name));
     return Arrays.stream(paths).map(File::new).collect(Collectors.toList());
   }
 
@@ -476,7 +488,7 @@ public class RaftProperties {
    *         or <code>defaultValue</code>.
    */
   public double getDouble(String name, double defaultValue) {
-    String valueString = getTrimmed(name);
+    final String valueString = getTrimmed(name, true);
     if (valueString == null) {
       return defaultValue;
     }
@@ -503,7 +515,7 @@ public class RaftProperties {
    * @return property value as a <code>boolean</code>,
    *         or <code>defaultValue</code>.
    */
-  public boolean getBoolean(String name, boolean defaultValue) {
+  public Boolean getBoolean(String name, Boolean defaultValue) {
     String valueString = getTrimmed(name);
     return StringUtils.string2boolean(valueString, defaultValue);
   }
@@ -529,18 +541,21 @@ public class RaftProperties {
   }
 
   /**
-   * Return value matching this enumerated type.
-   * Note that the returned value is trimmed by this method.
+   * Get the enum value mapped the given property name.
+   *
    * @param name Property name
+   * @param enumClass the {@link Class} of the enum
    * @param defaultValue Value returned if no mapping exists
-   * @throws IllegalArgumentException If mapping is illegal for the type
-   * provided
    */
-  public <T extends Enum<T>> T getEnum(String name, T defaultValue) {
+  public <T extends Enum<T>> T getEnum(String name, Class<T> enumClass, T defaultValue) {
     final String val = getTrimmed(name);
-    return null == val
-      ? defaultValue
-      : Enum.valueOf(defaultValue.getDeclaringClass(), val);
+    return null == val? defaultValue : Enum.valueOf(enumClass, val);
+  }
+
+  /** The same as getEnum(name, defaultValue.getDeclaringClass(), defaultValue). */
+  public <T extends Enum<T>> T getEnum(String name, T defaultValue) {
+    Objects.requireNonNull(defaultValue, "defaultValue == null");
+    return getEnum(name, defaultValue.getDeclaringClass(), defaultValue);
   }
 
   /**
@@ -577,51 +592,6 @@ public class RaftProperties {
   }
   public BiFunction<String, TimeDuration, TimeDuration> getTimeDuration(TimeUnit defaultUnit) {
     return (key, defaultValue) -> getTimeDuration(key, defaultValue, defaultUnit);
-  }
-
-  /**
-   * Get the comma delimited values of the <code>name</code> property as
-   * an array of <code>String</code>s, trimmed of the leading and trailing whitespace.
-   * If no such property is specified then an empty array is returned.
-   *
-   * @param name property name.
-   * @return property value as an array of trimmed <code>String</code>s,
-   *         or empty array.
-   */
-  public String[] getTrimmedStrings(String name) {
-    String valueString = get(name);
-    return StringUtils.getTrimmedStrings(valueString);
-  }
-
-
-
-  /**
-   * Get the value of the <code>name</code> property
-   * as an array of <code>Class</code>.
-   * The value of the property specifies a list of comma separated class names.
-   * If no such property is specified, then <code>defaultValue</code> is
-   * returned.
-   *
-   * @param name the property name.
-   * @param defaultValue default value.
-   * @return property value as a <code>Class[]</code>,
-   *         or <code>defaultValue</code>.
-   */
-  public Class<?>[] getClasses(String name, Class<?> ... defaultValue) {
-    String valueString = getRaw(name);
-    if (null == valueString) {
-      return defaultValue;
-    }
-    String[] classnames = getTrimmedStrings(name);
-    try {
-      Class<?>[] classes = new Class<?>[classnames.length];
-      for(int i = 0; i < classnames.length; i++) {
-        classes[i] = ReflectionUtils.getClassByName(classnames[i]);
-      }
-      return classes;
-    } catch (ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
   }
 
   /**
