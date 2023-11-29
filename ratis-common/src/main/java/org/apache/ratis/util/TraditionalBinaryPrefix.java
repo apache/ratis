@@ -78,18 +78,18 @@ public enum TraditionalBinaryPrefix {
 
   /**
    * Convert a string to long.
-   * The input string is first be trimmed
+   * The input string is first be trimmed and underscore removed,
    * and then it is parsed with traditional binary prefix.
-   *
+   * <p>
    * For example,
-   * "-1230k" will be converted to -1230 * 1024 = -1259520;
+   * "-1_230k" will be converted to -1230 * 1024 = -1259520;
    * "891g" will be converted to 891 * 1024^3 = 956703965184;
    *
    * @param s input string
    * @return a long value represented by the input string.
    */
   public static long string2long(String s) {
-    s = s.trim();
+    s = s.trim().replace("_", "");
     final int lastpos = s.length() - 1;
     final char lastchar = s.charAt(lastpos);
     if (Character.isDigit(lastchar)) {

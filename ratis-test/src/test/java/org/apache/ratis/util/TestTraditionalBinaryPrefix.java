@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,7 +26,7 @@ import static org.junit.Assert.fail;
 
 public class TestTraditionalBinaryPrefix {
   @Test(timeout = 1000)
-  public void testTraditionalBinaryPrefix() throws Exception {
+  public void testTraditionalBinaryPrefix() {
     //test string2long(..)
     String[] symbol = {"k", "m", "g", "t", "p", "e"};
     long m = 1024;
@@ -39,8 +39,8 @@ public class TestTraditionalBinaryPrefix {
     assertEquals(0L, string2long("0"));
     assertEquals(1024L, string2long("1k"));
     assertEquals(-1024L, string2long("-1k"));
-    assertEquals(1259520L, string2long("1230K"));
-    assertEquals(-1259520L, string2long("-1230K"));
+    assertEquals(1259520L, string2long("1_230K"));
+    assertEquals(-1259520L, string2long("-1_230K"));
     assertEquals(104857600L, string2long("100m"));
     assertEquals(-104857600L, string2long("-100M"));
     assertEquals(956703965184L, string2long("891g"));
@@ -141,5 +141,11 @@ public class TestTraditionalBinaryPrefix {
 
   private static String byteDescription(long len) {
     return long2String(len, "B", 2);
+  }
+
+  @Test(timeout = 1000)
+  public void testUnderscore() {
+    final SizeInBytes value = SizeInBytes.valueOf("1_000_000_000_000_000");
+    assertEquals(1_000_000_000_000_000L, value.getSize());
   }
 }
