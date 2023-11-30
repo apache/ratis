@@ -486,9 +486,9 @@ class RaftServerImpl implements RaftServer.Division,
           LOG.info("{}: Succeed to remove RaftStorageDirectory {}", getMemberId(), dir);
           break;
         } catch (NoSuchFileException e) {
-          LOG.warn("{}: Some file does not exist {}", getMemberId(), dir, e);
+          LOG.warn(getMemberId() + ": Some file does not exist " + dir, e);
         } catch (Exception e) {
-          LOG.error("{}: Failed to remove RaftStorageDirectory {}", getMemberId(), dir, e);
+          LOG.error(getMemberId() + ": Failed to remove RaftStorageDirectory " + dir, e);
           break;
         }
       }
@@ -504,8 +504,7 @@ class RaftServerImpl implements RaftServer.Division,
 
         LOG.info("{}: Group {} is renamed successfully", getMemberId(), getGroup());
       } catch (IOException e) {
-        LOG.warn("{}: Failed to remove group {}", getMemberId(),
-            dir.getRoot().getName(), e);
+        LOG.warn(getMemberId() + ": Failed to remove group " + dir.getRoot().getName(), e);
       }
     }
   }

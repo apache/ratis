@@ -167,8 +167,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
       LOG.debug("{}: Closing proxy for peer {}", name, pp);
       proxy.close();
     } catch (IOException e) {
-      LOG.warn("{}: Failed to close proxy for peer {}, proxy class: {}",
-          name, pp, proxy.getClass(), e);
+      LOG.warn(name + ": Failed to close proxy for peer " + pp + ", proxy class: " + proxy.getClass(), e);
     }
   }
 }

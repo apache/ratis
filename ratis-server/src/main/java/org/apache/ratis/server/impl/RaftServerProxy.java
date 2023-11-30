@@ -129,13 +129,13 @@ class RaftServerProxy implements RaftServer {
       try {
         impl = future.join();
       } catch (Throwable t) {
-        LOG.warn("{}: Failed to join the division for {}", getId(), groupId, t);
+        LOG.warn(getId() + ": Failed to join the division for " + groupId, t);
         return;
       }
       try {
         impl.close();
       } catch (Throwable t) {
-        LOG.warn("{}: Failed to close the division for {}", getId(), groupId, t);
+        LOG.warn(getId() + ": Failed to close the division for " + groupId, t);
       }
     }
 
