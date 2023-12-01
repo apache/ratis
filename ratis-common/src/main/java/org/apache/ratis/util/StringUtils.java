@@ -27,10 +27,12 @@ import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public final class StringUtils {
@@ -175,5 +177,20 @@ public final class StringUtils {
       }
       return "" + future.join();
     }
+  }
+
+  public static <T> String array2String(T[] array, Function<T, String> toStringMethod) {
+    if (array == null) {
+      return null;
+    } else if (array.length == 0) {
+      return "[]";
+    }
+
+    final StringBuilder b = new StringBuilder(128).append('[');
+    Arrays.stream(array).map(toStringMethod).forEach(s -> b.append(s).append(", "));
+    final int length = b.length();
+    b.setCharAt(length - 2, ']');
+    b.setLength(length - 1);
+    return b.toString();
   }
 }

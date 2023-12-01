@@ -27,7 +27,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -79,7 +83,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
 
     @Override
     public String toString() {
-      return peer.toString();
+      return peer.getId().toString();
     }
   }
 
@@ -142,7 +146,8 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
       }
     }
     // close proxy without holding the reset lock
-    optional.ifPresent(proxy -> closeProxy(proxy, pp));
+    optional.map(proxy -> closeProxy(proxy, pp))
+        .ifPresent(e -> LOG.warn("Failed to close the previous proxy", e));
   }
 
   /** @return true if the given throwable is handled; otherwise, the call is a no-op, return false. */
@@ -156,19 +161,30 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
 
   @Override
   public void close() {
+    final List<IOException> exceptions = Collections.synchronizedList(new ArrayList<>());
     ConcurrentUtils.parallelForEachAsync(peers.values(),
-        pp -> pp.setNullProxyAndClose().ifPresent(proxy -> closeProxy(proxy, pp)),
+        pp -> pp.setNullProxyAndClose().map(proxy -> closeProxy(proxy, pp)).ifPresent(exceptions::add),
         r -> new Thread(r).start()
     ).join();
+
+    final int size = exceptions.size();
+    if (size > 0) {
+      final Iterator<IOException> i = exceptions.iterator();
+      final IOException e = new IOException(name + ": Failed to close proxy map", i.next());
+      for(; i.hasNext(); ) {
+        e.addSuppressed(i.next());
+      }
+      LOG.warn("{}: {} exception(s)", name, size, e);
+    }
   }
 
-  private void closeProxy(PROXY proxy, PeerAndProxy pp) {
+  private IOException closeProxy(PROXY proxy, PeerAndProxy pp) {
     try {
       LOG.debug("{}: Closing proxy for peer {}", name, pp);
       proxy.close();
+      return null;
     } catch (IOException e) {
-      LOG.warn("{}: Failed to close proxy for peer {}, proxy class: {}",
-          name, pp, proxy.getClass(), e);
+      return new IOException(name + ": Failed to close proxy for peer " + pp + ", " + proxy.getClass(), e);
     }
   }
 }

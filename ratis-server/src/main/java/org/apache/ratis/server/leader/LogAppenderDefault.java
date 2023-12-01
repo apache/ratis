@@ -87,7 +87,7 @@ class LogAppenderDefault extends LogAppenderBase {
       } catch (IOException ioe) {
         // TODO should have more detailed retry policy here.
         if (retry++ % 10 == 0) { // to reduce the number of messages
-          LOG.warn("{}: Failed to appendEntries (retry={}): {}", this, retry++, ioe);
+          LOG.warn("{}: Failed to appendEntries (retry={})", this, retry, ioe);
         }
         handleException(ioe);
       }
@@ -114,7 +114,7 @@ class LogAppenderDefault extends LogAppenderBase {
     } catch (InterruptedIOException iioe) {
       throw iioe;
     } catch (Exception ioe) {
-      LOG.warn("{}: Failed to installSnapshot {}: {}", this, snapshot, ioe);
+      LOG.warn("{}: Failed to installSnapshot {}", this, snapshot, ioe);
       handleException(ioe);
       return null;
     }

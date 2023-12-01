@@ -254,12 +254,10 @@ class LeaderElection implements Runnable {
       }
       final LifeCycle.State state = lifeCycle.getCurrentState();
       if (state.isClosingOrClosed()) {
-        LOG.info("{}: {} is safely ignored since this is already {}",
-            this, JavaUtils.getClassSimpleName(e.getClass()), state, e);
+        LOG.info(this + ": since this is already " + state + ", safely ignore " + e);
       } else {
         if (!server.getInfo().isAlive()) {
-          LOG.info("{}: {} is safely ignored since the server is not alive: {}",
-              this, JavaUtils.getClassSimpleName(e.getClass()), server, e);
+          LOG.info(this + ": since the server is not alive, safely ignore " + e);
         } else {
           LOG.error("{}: Failed, state={}", this, state, e);
         }

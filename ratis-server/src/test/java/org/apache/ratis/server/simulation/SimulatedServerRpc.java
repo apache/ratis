@@ -211,8 +211,7 @@ class SimulatedServerRpc implements RaftServerRpc {
               : IOUtils.asIOException(JavaUtils.unwrapCompletionException(exception));
           clientHandler.getRpc().sendReply(request, reply, e);
         } catch (IOException e) {
-          LOG.warn("Failed to send reply {} for request {} due to exception {}",
-              reply, request, e);
+          LOG.warn("Failed to send reply {} for request {}", reply, request, e);
         }
       }, executor);
       return null;

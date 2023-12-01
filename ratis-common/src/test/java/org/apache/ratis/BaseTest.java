@@ -23,6 +23,7 @@ import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
+import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.After;
@@ -130,7 +131,9 @@ public abstract class BaseTest {
       Class<? extends Throwable> expectedThrowableClass, Logger log,
       Class<? extends Throwable>... expectedCauseClasses) {
     if (log != null) {
-      log.info("The test \"{}\" throws {}", description,  JavaUtils.getClassSimpleName(t.getClass()), t);
+      log.info("Expected the test \"{}\" to throw {} with cause(s) {}",
+          description, expectedThrowableClass.getSimpleName(),
+          StringUtils.array2String(expectedCauseClasses, Class::getSimpleName));
     }
     Assert.assertEquals(expectedThrowableClass, t.getClass());
 

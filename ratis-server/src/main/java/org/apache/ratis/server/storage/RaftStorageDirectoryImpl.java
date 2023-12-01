@@ -157,10 +157,10 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
     }
 
     // check enough space
-    if (!hasEnoughSpace()) {
-      LOG.warn("There are not enough space left for directory {}"
-          + " free space min required: {} free space actual: {}",
-          rootPath, freeSpaceMin, root.getFreeSpace());
+    final long freeSpace = root.getFreeSpace();
+    if (freeSpace < freeSpaceMin.getSize()) {
+      LOG.warn("{} in directory {}: free space = {} < required = {}",
+          StorageState.NO_SPACE, rootPath, freeSpace, freeSpaceMin);
       return StorageState.NO_SPACE;
     }
 
@@ -175,10 +175,6 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   @Override
   public boolean isHealthy() {
     return getMetaFile().exists();
-  }
-
-  private boolean hasEnoughSpace() {
-    return root.getFreeSpace() >= freeSpaceMin.getSize();
   }
 
   /**
