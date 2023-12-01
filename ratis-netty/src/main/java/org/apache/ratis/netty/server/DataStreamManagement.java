@@ -408,7 +408,7 @@ public class DataStreamManagement {
     try {
       ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
     } catch (Throwable t) {
-      LOG.warn("Failed to sendDataStreamException " + throwable + " for " + request, t);
+      LOG.warn("Failed to sendDataStreamException {} for {}", throwable, request, t);
     } finally {
       request.release();
     }
@@ -524,7 +524,8 @@ public class DataStreamManagement {
         return false;
       }
       if (reply.getBytesWritten() != bytesWritten) {
-        LOG.warn("reply written bytes not match, local size: {} remote size: {} request: {}",
+        LOG.warn(
+            "reply written bytes not match, local size: {} remote size: {} request: {}",
             bytesWritten, reply.getBytesWritten(), request);
         return false;
       }

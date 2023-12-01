@@ -175,7 +175,7 @@ public final class JvmPauseMonitor {
     try {
       handler.accept(extraSleep);
     } catch (Throwable t) {
-      LOG.error(this + ": Failed to handle extra sleep " + extraSleep, t);
+      LOG.error("{}: Failed to handle extra sleep {}", this, extraSleep, t);
     }
   }
 

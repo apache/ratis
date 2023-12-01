@@ -181,7 +181,7 @@ public final class MultipleLinearRandomRetry implements RetryPolicy {
     try {
       return parser.apply(s);
     } catch(Exception t) {
-      LOG.warn("Failed to parse \"" + s + "\", which is the index " + i + " element in \"" + input + "\"", t);
+      LOG.warn("Failed to parse \"{}\", which is the index {} element in \"{}\"", s, i, input, t);
       return null;
     }
   }

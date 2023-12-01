@@ -143,8 +143,8 @@ public final class LogSegment implements Comparable<Long> {
       switch (corruptionPolicy) {
         case EXCEPTION: throw ioe;
         case WARN_AND_RETURN:
-          LOG.warn("Failed to read segment file " + file + " (" + startEnd
-              + "): only " + count + " entries read successfully", ioe);
+          LOG.warn("Failed to read segment file {} ({}): only {} entries read successfully",
+              file, startEnd, count, ioe);
           break;
         default:
           throw new IllegalStateException("Unexpected enum value: " + corruptionPolicy

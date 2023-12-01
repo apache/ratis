@@ -243,8 +243,9 @@ public class SegmentedRaftLogInputStream implements Closeable {
           hitError = false;
         }
       } catch (Exception e) {
-        LOG.warn("Failed to scanEditLog at offset " + lastPos + " in " + in
-            + ": #valid entries scanned=" + numValid, e);
+        LOG.warn("Caught exception after scanning through {} ops from {}"
+            + " while determining its valid length. Position was "
+            + lastPos, numValid, in, e);
         hitError = true;
         continue;
       }

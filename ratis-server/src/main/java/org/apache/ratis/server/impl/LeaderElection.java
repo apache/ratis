@@ -259,7 +259,7 @@ class LeaderElection implements Runnable {
         if (!server.getInfo().isAlive()) {
           LOG.info(this + ": since the server is not alive, safely ignore " + e);
         } else {
-          LOG.error(this + ": Failed, state=" + state, e);
+          LOG.error("{}: Failed, state={}", this, state, e);
         }
         shutdown();
       }

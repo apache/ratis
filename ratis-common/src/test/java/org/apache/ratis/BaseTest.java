@@ -130,7 +130,7 @@ public abstract class BaseTest {
       Class<? extends Throwable> expectedThrowableClass, Logger log,
       Class<? extends Throwable>... expectedCauseClasses) {
     if (log != null) {
-      log.info("The test \"" + description + "\" failed", t);
+      log.info("Expected the test \"{}\" to throw something", description,  t);
     }
     Assert.assertEquals(expectedThrowableClass, t.getClass());
 

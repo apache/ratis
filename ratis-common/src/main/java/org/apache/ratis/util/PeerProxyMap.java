@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** A map from peer id to peer and its proxy. */
 public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Closeable {
@@ -79,7 +80,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
 
     @Override
     public String toString() {
-      return peer.toString();
+      return peer.getId().toString();
     }
   }
 
@@ -156,18 +157,33 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
 
   @Override
   public void close() {
+    final AtomicInteger failCount = new AtomicInteger();
     ConcurrentUtils.parallelForEachAsync(peers.values(),
-        pp -> pp.setNullProxyAndClose().ifPresent(proxy -> closeProxy(proxy, pp)),
+        pp -> pp.setNullProxyAndClose().ifPresent(proxy -> {
+          if (!closeProxy(proxy, pp)) {
+            failCount.incrementAndGet();
+          }
+        }),
         r -> new Thread(r).start()
     ).join();
+
+    final int f = failCount.get();
+    if (f > 0) {
+      LOG.warn(name + ": Failure count {}; check previous exception(s)", f, new IOException());
+    }
   }
 
-  private void closeProxy(PROXY proxy, PeerAndProxy pp) {
+  private boolean closeProxy(PROXY proxy, PeerAndProxy pp) {
     try {
       LOG.debug("{}: Closing proxy for peer {}", name, pp);
       proxy.close();
+      return true;
     } catch (IOException e) {
-      LOG.warn(name + ": Failed to close proxy for peer " + pp + ", proxy class: " + proxy.getClass(), e);
+      // create another exception in case that stack trace is unavailable
+      final IOException ioe = e.getStackTrace().length > 0? e : new IOException(e);
+      LOG.warn("{}: Failed to close proxy for peer {}, proxy class: {}",
+          name, pp, proxy.getClass(), ioe);
+      return false;
     }
   }
 }
