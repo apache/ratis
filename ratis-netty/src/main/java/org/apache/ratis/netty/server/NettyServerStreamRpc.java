@@ -302,6 +302,18 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   @Override
   public void close() {
     try {
+      proxies.close();
+    } catch (Exception e) {
+      LOG.error(this + ": Failed to close proxies.", e);
+    }
+
+    try {
+      requests.shutdown();
+    } catch (Exception e) {
+      LOG.error(this + ": Failed to shutdown request service.", e);
+    }
+
+    try {
       channelFuture.channel().close().sync();
       bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
       workerGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
@@ -314,7 +326,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       LOG.error(this + ": Interrupted close()", e);
     }
 
-    proxies.close();
   }
 
   @Override

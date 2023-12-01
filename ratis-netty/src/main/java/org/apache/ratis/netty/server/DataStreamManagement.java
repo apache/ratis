@@ -77,6 +77,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -255,8 +256,8 @@ public class DataStreamManagement {
 
   private final StreamMap streams = new StreamMap();
   private final ChannelMap channels;
-  private final Executor requestExecutor;
-  private final Executor writeExecutor;
+  private final ExecutorService requestExecutor;
+  private final ExecutorService writeExecutor;
 
   private final NettyServerStreamRpcMetrics nettyServerStreamRpcMetrics;
 
@@ -275,6 +276,11 @@ public class DataStreamManagement {
           name + "-write-");
 
     this.nettyServerStreamRpcMetrics = metrics;
+  }
+
+  void shutdown() {
+    requestExecutor.shutdown();
+    writeExecutor.shutdown();
   }
 
   private CompletableFuture<DataStream> stream(RaftClientRequest request, StateMachine stateMachine) {
