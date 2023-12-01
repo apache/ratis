@@ -111,7 +111,7 @@ public class TestPeerProxyMap extends BaseTest {
 
     @Override
     public String toString() {
-      return peer.toString();
+      return peer.getId().toString();
     }
   }
 
