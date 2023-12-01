@@ -306,6 +306,10 @@ class LeaderStateImpl implements LeaderState {
     /** This future will be completed after the log entry is applied. */
     private final CompletableFuture<Long> appliedIndexFuture = new CompletableFuture<>();
 
+    CompletableFuture<Long> getAppliedIndexFuture() {
+      return appliedIndexFuture;
+    }
+
     boolean isApplied(LogEntryProto logEntry) {
       if (appliedIndexFuture.isDone()) {
         return true;
@@ -444,9 +448,10 @@ class LeaderStateImpl implements LeaderState {
       LOG.warn("{}: Caught exception in sendNotLeaderResponses", this, e);
     }
     messageStreamRequests.clear();
-    // TODO client should retry on NotLeaderException
     readIndexHeartbeats.failListeners(nle);
     lease.getAndSetEnabled(false);
+    startupLogEntry.get().getAppliedIndexFuture().completeExceptionally(
+        new ReadIndexException("failed to obtain read index since: ", nle));
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
@@ -1117,12 +1122,9 @@ class LeaderStateImpl implements LeaderState {
       return CompletableFuture.completedFuture(readIndex);
     }
 
-    // leader has not committed any entries in this term, reject
-    // TODO: wait for leader to become ready instead of failing the request.
+    // leader has not committed any entries in this term
     if (!isReady()) {
-      return JavaUtils.completeExceptionally(new ReadIndexException(
-          "Failed to getReadIndex " + readIndex + " since the term is not yet committed.",
-          new LeaderNotReadyException(server.getMemberId())));
+      return startupLogEntry.get().getAppliedIndexFuture();
     }
 
     // if lease is enabled, check lease first
