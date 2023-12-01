@@ -279,8 +279,10 @@ public class DataStreamManagement {
   }
 
   void shutdown() {
-    requestExecutor.shutdown();
-    writeExecutor.shutdown();
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, requestExecutor,
+        timeout -> LOG.warn("{}: requestExecutor shutdown timeout in {}", this, timeout));
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, writeExecutor,
+        timeout -> LOG.warn("{}: writeExecutor shutdown timeout in {}", this, timeout));
   }
 
   private CompletableFuture<DataStream> stream(RaftClientRequest request, StateMachine stateMachine) {

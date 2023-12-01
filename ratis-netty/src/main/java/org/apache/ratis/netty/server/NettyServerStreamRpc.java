@@ -318,9 +318,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
       workerGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
       ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, bossGroup,
-          timeout -> LOG.warn("{}: bossGroup shutdown timeout in " + timeout, this));
+          timeout -> LOG.warn("{}: bossGroup shutdown timeout in {}", this, timeout));
       ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, workerGroup,
-          timeout -> LOG.warn("{}: workerGroup shutdown timeout in " + timeout, this));
+          timeout -> LOG.warn("{}: workerGroup shutdown timeout in {}", this, timeout));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       LOG.error(this + ": Interrupted close()", e);

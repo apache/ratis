@@ -288,7 +288,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   private final OutstandingRequests outstandingRequests = new OutstandingRequests();
 
   public NettyClientStreamRpc(RaftPeer server, TlsConf tlsConf, RaftProperties properties) {
-    this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server;
+    this.name = JavaUtils.getClassSimpleName(getClass()) + "->" + server.getId();
     this.requestTimeout = RaftClientConfigKeys.DataStream.requestTimeout(properties);
     this.closeTimeout = requestTimeout.multiply(2);
 
