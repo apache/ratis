@@ -175,6 +175,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     }
 
     private ChannelFuture connect() {
+      if (isClosed()) {
+        return null;
+      }
       return new Bootstrap()
           .group(getWorkerGroup())
           .channel(NettyUtils.getSocketChannelClass(getWorkerGroup()))
@@ -194,6 +197,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     }
 
     void scheduleReconnect(String message, Throwable cause) {
+      if (isClosed()) {
+        return;
+      }
       LOG.warn("{}: {}; schedule reconnecting to {} in {}", this, message, address, RECONNECT);
       if (cause != null) {
         LOG.warn("", cause);
@@ -260,6 +266,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
     synchronized boolean shouldFlush(boolean force, int countMin, SizeInBytes bytesMin) {
       if (force || count >= countMin || bytes >= bytesMin.getSize()) {
+        LOG.debug("flush: force? {}, (count, bytes)=({}, {}), min=({}, {})",
+            force, count, bytes, countMin, bytesMin);
         count = 0;
         bytes = 0;
         return true;
@@ -329,9 +337,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
       @Override
       public void channelInactive(ChannelHandlerContext ctx) {
-        if (!connection.isClosed()) {
-          connection.scheduleReconnect("channel is inactive", null);
-        }
+        connection.scheduleReconnect("channel is inactive", null);
       }
     };
   }
@@ -449,7 +455,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   @Override
   public void close() {
     final boolean flush = outstandingRequests.shouldFlush(true, 0, SizeInBytes.ZERO);
-    LOG.debug("flush? {}", flush);
     if (flush) {
       Optional.ofNullable(connection.getChannelUninterruptibly())
           .map(c -> c.writeAndFlush(EMPTY_BYTE_BUFFER))
