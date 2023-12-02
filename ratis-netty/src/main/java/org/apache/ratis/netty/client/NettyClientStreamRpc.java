@@ -253,26 +253,33 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     private long bytes;
 
     synchronized boolean write(DataStreamRequest request) {
+      final long length = request.getDataLength();
+      Preconditions.assertTrue(length >= 0, () -> "length = " + length + " < 0, request: " + request);
       count++;
-      bytes += request.getDataLength();
+      bytes += length;
       final List<WriteOption> options = request.getWriteOptionList();
       final boolean isClose = options.contains(StandardWriteOption.CLOSE);
       final boolean isFlush = options.contains(StandardWriteOption.FLUSH);
       final boolean flush = shouldFlush(isClose || isFlush, flushRequestCountMin, flushRequestBytesMin);
-      LOG.debug("Stream{} outstanding: count={}, bytes={}, options={}, flush? {}",
-          request.getStreamId(), count, bytes, options, flush);
+      LOG.debug("Stream{} outstanding: count={}, bytes={}, requestLength={}, options={}, flush? {}",
+          request.getStreamId(), count, bytes, length, options, flush);
       return flush;
     }
 
-    synchronized boolean shouldFlush(boolean force, int countMin, SizeInBytes bytesMin) {
-      if (force || count >= countMin || bytes >= bytesMin.getSize()) {
-        LOG.debug("flush: force? {}, (count, bytes)=({}, {}), min=({}, {})",
-            force, count, bytes, countMin, bytesMin);
-        count = 0;
-        bytes = 0;
-        return true;
+    synchronized boolean shouldFlush(boolean flushOrClose, int countMin, SizeInBytes bytesMin) {
+      if (bytes == 0) {
+        // nothing to flush (count may > 0 when client writes empty packets)
+        return false;
+      } else if (!flushOrClose && count < countMin && bytes < bytesMin.getSize()) {
+        return false;
       }
-      return false;
+
+      LOG.debug("return true: flushOrClose? {}, (count, bytes)=({}, {}), min=({}, {})",
+          flushOrClose, count, bytes, countMin, bytesMin);
+      Preconditions.assertTrue(bytes > 0, () -> "bytes = " + bytes + " <= 0");
+      count = 0;
+      bytes = 0;
+      return true;
     }
   }
 
