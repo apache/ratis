@@ -630,6 +630,7 @@
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
             <failIfNoTests>false</failIfNoTests>
+            <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
             <reuseForks>false</reuseForks>
             <trimStackTrace>false</trimStackTrace>
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
