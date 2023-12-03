@@ -117,7 +117,7 @@ public interface RaftClientConfigKeys {
     String FLUSH_REQUEST_BYTES_MIN_KEY = PREFIX + ".flush.request.bytes.min";
     SizeInBytes FLUSH_REQUEST_BYTES_MIN_DEFAULT = SizeInBytes.ONE_MB;
     static SizeInBytes flushRequestBytesMin(RaftProperties properties) {
-      return getSizeInBytes(properties::getSizeInBytes, FLUSH_REQUEST_COUNT_MIN_KEY,
+      return getSizeInBytes(properties::getSizeInBytes, FLUSH_REQUEST_BYTES_MIN_KEY,
           FLUSH_REQUEST_BYTES_MIN_DEFAULT, getDefaultLog(), requireMinSizeInByte(SizeInBytes.ZERO));
     }
     static void setFlushRequestBytesMin(RaftProperties properties, SizeInBytes flushRequestBytesMin) {

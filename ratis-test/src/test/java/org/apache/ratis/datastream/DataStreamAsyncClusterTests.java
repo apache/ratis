@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.datastream;
 
-import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.netty.client.NettyClientStreamRpc;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
@@ -31,9 +31,11 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.CollectionUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,6 +49,10 @@ import java.util.concurrent.TimeUnit;
 public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluster>
     extends DataStreamClusterTests<CLUSTER> {
   final Executor executor = Executors.newFixedThreadPool(16);
+
+  {
+    Slf4jUtils.setLogLevel(NettyClientStreamRpc.LOG, Level.TRACE);
+  }
 
   @Override
   public int getGlobalTimeoutSeconds() {

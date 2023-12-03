@@ -66,6 +66,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -142,7 +143,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     private final Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier;
 
     /** The {@link ChannelFuture} is null when this connection is closed. */
-    private final AtomicReference<Supplier<ChannelFuture>> ref;
+    private final AtomicReference<MemoizedSupplier<ChannelFuture>> ref;
 
     Connection(InetSocketAddress address, WorkerGroupGetter workerGroup,
         Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier) {
@@ -221,18 +222,18 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       // AtomicReference.getAndUpdate may call the update function multiple times and discard the old objects.
       // The outer supplier creates only an inner supplier, which can be discarded without any leakage.
       // The inner supplier will be invoked (i.e. connect) ONLY IF it is successfully set to the reference.
-      final MemoizedSupplier<Supplier<ChannelFuture>> supplier = MemoizedSupplier.valueOf(
+      final MemoizedSupplier<MemoizedSupplier<ChannelFuture>> supplier = MemoizedSupplier.valueOf(
           () -> MemoizedSupplier.valueOf(this::connect));
-      final Supplier<ChannelFuture> previous = ref.getAndUpdate(prev -> prev == null? null: supplier.get());
-      if (previous != null) {
+      final MemoizedSupplier<ChannelFuture> previous = ref.getAndUpdate(prev -> prev == null? null: supplier.get());
+      if (previous != null && previous.isInitialized()) {
         previous.get().channel().close();
       }
       return getChannelFuture();
     }
 
     void close() {
-      final Supplier<ChannelFuture> previous = ref.getAndSet(null);
-      if (previous != null) {
+      final MemoizedSupplier<ChannelFuture> previous = ref.getAndSet(null);
+      if (previous != null && previous.isInitialized()) {
         // wait channel closed, do shutdown workerGroup
         previous.get().channel().close().addListener(future -> workerGroup.shutdownGracefully());
       }
@@ -248,38 +249,44 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     }
   }
 
-  class OutstandingRequests {
+  static class OutstandingRequests {
     private int count;
     private long bytes;
 
-    synchronized boolean write(DataStreamRequest request) {
-      final long length = request.getDataLength();
-      Preconditions.assertTrue(length >= 0, () -> "length = " + length + " < 0, request: " + request);
-      count++;
-      bytes += length;
-      final List<WriteOption> options = request.getWriteOptionList();
-      final boolean isClose = options.contains(StandardWriteOption.CLOSE);
-      final boolean isFlush = options.contains(StandardWriteOption.FLUSH);
-      final boolean flush = shouldFlush(isClose || isFlush, flushRequestCountMin, flushRequestBytesMin);
-      LOG.debug("Stream{} outstanding: count={}, bytes={}, requestLength={}, options={}, flush? {}",
-          request.getStreamId(), count, bytes, length, options, flush);
-      return flush;
+    private boolean shouldFlush(List<WriteOption> options, int countMin, SizeInBytes bytesMin) {
+      if (options.contains(StandardWriteOption.CLOSE)) {
+        // flush in order to send the CLOSE option.
+        return true;
+      } else if (bytes == 0 && count == 0) {
+        // nothing to flush (when bytes == 0 && count > 0, client may have written empty packets for including options)
+        return false;
+      } else {
+        return count >= countMin
+            || bytes >= bytesMin.getSize()
+            || options.contains(StandardWriteOption.FLUSH);
+      }
     }
 
-    synchronized boolean shouldFlush(boolean flushOrClose, int countMin, SizeInBytes bytesMin) {
-      if (bytes == 0) {
-        // nothing to flush (count may > 0 when client writes empty packets)
-        return false;
-      } else if (!flushOrClose && count < countMin && bytes < bytesMin.getSize()) {
-        return false;
+    synchronized boolean shouldFlush(int countMin, SizeInBytes bytesMin, DataStreamRequest request) {
+      final List<WriteOption> options;
+      if (request == null) {
+        options = Collections.emptyList();
+      } else {
+        options = request.getWriteOptionList();
+        count++;
+        final long length = request.getDataLength();
+        Preconditions.assertTrue(length >= 0, () -> "length = " + length + " < 0, request: " + request);
+        bytes += length;
       }
 
-      LOG.debug("return true: flushOrClose? {}, (count, bytes)=({}, {}), min=({}, {})",
-          flushOrClose, count, bytes, countMin, bytesMin);
-      Preconditions.assertTrue(bytes > 0, () -> "bytes = " + bytes + " <= 0");
-      count = 0;
-      bytes = 0;
-      return true;
+      final boolean flush = shouldFlush(options, countMin, bytesMin);
+      LOG.debug("flush? {}, (count, bytes)=({}, {}), min=({}, {}), request={}",
+          flush, count, bytes, countMin, bytesMin, request);
+      if (flush) {
+        count = 0;
+        bytes = 0;
+      }
+      return flush;
     }
   }
 
@@ -430,8 +437,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         return f;
       }
       replyEntry = replyMap.submitRequest(requestEntry, isClose, f);
-      final Function<DataStreamRequest, ChannelFuture> writeMethod = outstandingRequests.write(request)?
-          channel::writeAndFlush: channel::write;
+      final Function<DataStreamRequest, ChannelFuture> writeMethod = outstandingRequests.shouldFlush(
+          flushRequestCountMin, flushRequestBytesMin, request)? channel::writeAndFlush: channel::write;
       channelFuture = writeMethod.apply(request);
     }
     channelFuture.addListener(future -> {
@@ -461,7 +468,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   @Override
   public void close() {
-    final boolean flush = outstandingRequests.shouldFlush(true, 0, SizeInBytes.ZERO);
+    final boolean flush = outstandingRequests.shouldFlush(0, SizeInBytes.ZERO, null);
     if (flush) {
       Optional.ofNullable(connection.getChannelUninterruptibly())
           .map(c -> c.writeAndFlush(EMPTY_BYTE_BUFFER))
