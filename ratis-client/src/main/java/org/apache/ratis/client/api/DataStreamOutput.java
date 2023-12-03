@@ -53,11 +53,10 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
 
 
   /**
-   * The same as writeAsync(src, 0, src.length(), sync_default).
-   * where sync_default depends on the underlying implementation.
+   * The same as writeAsync(src, 0, src.length(), options).
    */
-  default CompletableFuture<DataStreamReply> writeAsync(File src) {
-    return writeAsync(src, 0, src.length());
+  default CompletableFuture<DataStreamReply> writeAsync(File src, WriteOption... options) {
+    return writeAsync(src, 0, src.length(), options);
   }
 
   /**

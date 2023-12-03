@@ -108,13 +108,18 @@ public interface RaftTestUtil {
       exception.set(ise);
     };
 
-    final RaftServer.Division leader = JavaUtils.attemptRepeatedly(() -> {
-      final RaftServer.Division l = cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders);
-      if (l != null && !l.getInfo().isLeaderReady()) {
-        throw new IllegalStateException("Leader: "+ l.getMemberId() +  " not ready");
+    final RaftServer.Division leader = JavaUtils.attempt(i -> {
+      try {
+        final RaftServer.Division l = cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders);
+        if (l != null && !l.getInfo().isLeaderReady()) {
+          throw new IllegalStateException("Leader: " + l.getMemberId() + " not ready");
+        }
+        return l;
+      } catch (Exception e) {
+        LOG.warn("Attempt #{} failed: " + e, i);
+        throw e;
       }
-      return l;
-    }, numAttempts, sleepTime, name, LOG);
+    }, numAttempts, sleepTime, () -> name, null);
 
     LOG.info(cluster.printServers(groupId));
     if (expectLeader) {

@@ -41,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -48,18 +49,29 @@ import java.util.function.Function;
 public interface NettyDataStreamUtils {
   Logger LOG = LoggerFactory.getLogger(NettyDataStreamUtils.class);
 
+  static DataStreamPacketHeaderProto.Option getOption(WriteOption option) {
+    if (option == StandardWriteOption.FLUSH) {
+      // FLUSH is a local option which should not be included in the header.
+      return null;
+    } else if (option instanceof StandardWriteOption) {
+      return DataStreamPacketHeaderProto.Option.forNumber(((StandardWriteOption) option).ordinal());
+    }
+    throw new IllegalArgumentException("Unexpected WriteOption " + option);
+  }
+
   static ByteBuffer getDataStreamRequestHeaderProtoByteBuffer(DataStreamRequest request) {
-    DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
-        .newBuilder()
+    final DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto.newBuilder()
         .setClientId(request.getClientId().toByteString())
         .setStreamId(request.getStreamId())
         .setStreamOffset(request.getStreamOffset())
         .setType(request.getType())
         .setDataLength(request.getDataLength());
-    for (WriteOption option : request.getWriteOptionList()) {
-      b.addOptions(DataStreamPacketHeaderProto.Option.forNumber(
-          ((StandardWriteOption) option).ordinal()));
-    }
+
+    request.getWriteOptionList().stream()
+        .map(NettyDataStreamUtils::getOption)
+        .filter(Objects::nonNull)
+        .forEach(b::addOptions);
+
     return DataStreamRequestHeaderProto
         .newBuilder()
         .setPacketHeader(b)

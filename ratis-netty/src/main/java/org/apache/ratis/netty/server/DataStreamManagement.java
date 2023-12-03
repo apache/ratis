@@ -81,6 +81,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DataStreamManagement {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamManagement.class);
@@ -120,10 +121,18 @@ public class DataStreamManagement {
       this.out = out;
     }
 
+    static Iterable<WriteOption> addFlush(List<WriteOption> original) {
+      if (original.contains(StandardWriteOption.FLUSH)) {
+        return original;
+      }
+      return Stream.concat(Stream.of(StandardWriteOption.FLUSH), original.stream())
+          .collect(Collectors.toList());
+    }
+
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
       final Timekeeper.Context context = metrics.start();
       return composeAsync(sendFuture, executor,
-          n -> out.writeAsync(request.slice().nioBuffer(), request.getWriteOptionList())
+          n -> out.writeAsync(request.slice().nioBuffer(), addFlush(request.getWriteOptionList()))
               .whenComplete((l, e) -> metrics.stop(context, e == null)));
     }
   }

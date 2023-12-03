@@ -28,6 +28,7 @@ import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.netty.NettyUtils;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
@@ -236,6 +237,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       if (previous != null && previous.isInitialized()) {
         // wait channel closed, do shutdown workerGroup
         previous.get().channel().close().addListener(future -> workerGroup.shutdownGracefully());
+      } else {
+        workerGroup.shutdownGracefully();
       }
     }
 
@@ -280,8 +283,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       }
 
       final boolean flush = shouldFlush(options, countMin, bytesMin);
-      LOG.debug("flush? {}, (count, bytes)=({}, {}), min=({}, {}), request={}",
-          flush, count, bytes, countMin, bytesMin, request);
+      LOG.debug("flush? {}, (count, bytes)=({}, {}), min=({}, {}), request={}, options={}",
+          flush, count, bytes, countMin, bytesMin, request, options);
       if (flush) {
         count = 0;
         bytes = 0;

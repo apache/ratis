@@ -168,4 +168,9 @@ public interface CollectionUtils {
     right.sort(comparator);
     return left.equals(right);
   }
+
+  /** @return a list the distinct elements. */
+  static <V> List<V> distinct(Iterable<V> elements) {
+    return StreamSupport.stream(elements.spliterator(), false).distinct().collect(Collectors.toList());
+  }
 }
