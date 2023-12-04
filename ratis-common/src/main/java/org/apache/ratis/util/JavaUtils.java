@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedFunction;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
@@ -208,13 +209,20 @@ public interface JavaUtils {
       CheckedSupplier<RETURN, THROWABLE> supplier,
       int numAttempts, TimeDuration sleepTime, Supplier<?> name, Logger log)
       throws THROWABLE, InterruptedException {
-    Objects.requireNonNull(supplier, "supplier == null");
+    return attempt(i -> supplier.get(), numAttempts, sleepTime, name, log);
+  }
+
+  static <RETURN, THROWABLE extends Throwable> RETURN attempt(
+      CheckedFunction<Integer, RETURN, THROWABLE> attemptMethod,
+      int numAttempts, TimeDuration sleepTime, Supplier<?> name, Logger log)
+      throws THROWABLE, InterruptedException {
+    Objects.requireNonNull(attemptMethod, "attemptMethod == null");
     Preconditions.assertTrue(numAttempts > 0, () -> "numAttempts = " + numAttempts + " <= 0");
     Preconditions.assertTrue(!sleepTime.isNegative(), () -> "sleepTime = " + sleepTime + " < 0");
 
     for(int i = 1; i <= numAttempts; i++) {
       try {
-        return supplier.get();
+        return attemptMethod.apply(i);
       } catch (Throwable t) {
         if (i == numAttempts) {
           throw t;

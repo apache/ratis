@@ -108,7 +108,8 @@ public class DataStreamClientImpl implements DataStreamClient {
       @Override
       public int write(ByteBuffer src) throws IOException {
         final int remaining = src.remaining();
-        final DataStreamReply reply = IOUtils.getFromFuture(writeAsync(src),
+        // flush each call; otherwise the future will not be completed.
+        final DataStreamReply reply = IOUtils.getFromFuture(writeAsync(src, StandardWriteOption.FLUSH),
             () -> "write(" + remaining + " bytes for " + ClientInvocationId.valueOf(header) + ")");
         return Math.toIntExact(reply.getBytesWritten());
       }
@@ -134,7 +135,9 @@ public class DataStreamClientImpl implements DataStreamClient {
       this.header = request;
       this.slidingWindow = new SlidingWindow.Client<>(ClientInvocationId.valueOf(clientId, header.getCallId()));
       final ByteBuffer buffer = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(header);
-      this.headerFuture = send(Type.STREAM_HEADER, buffer, buffer.remaining(), Collections.emptyList());
+      // TODO: RATIS-1938: In order not to auto-flush the header, remove the FLUSH below.
+      this.headerFuture = send(Type.STREAM_HEADER, buffer, buffer.remaining(),
+          Collections.singleton(StandardWriteOption.FLUSH));
     }
     private CompletableFuture<DataStreamReply> send(Type type, Object data, long length,
                                                     Iterable<WriteOption> options) {

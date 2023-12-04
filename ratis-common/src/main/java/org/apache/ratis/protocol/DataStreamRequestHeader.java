@@ -20,7 +20,7 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
-import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
+import org.apache.ratis.util.CollectionUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,7 +41,7 @@ public class DataStreamRequestHeader extends DataStreamPacketHeader implements D
   public DataStreamRequestHeader(ClientId clientId, Type type, long streamId, long streamOffset, long dataLength,
                                  Iterable<WriteOption> options) {
     super(clientId, type, streamId, streamOffset, dataLength);
-    this.options = Collections.unmodifiableList(Lists.newArrayList(options));
+    this.options = Collections.unmodifiableList(CollectionUtils.distinct(options));
   }
 
   @Override

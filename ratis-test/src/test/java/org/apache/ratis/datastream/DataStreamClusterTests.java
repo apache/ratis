@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.server.impl.MiniRaftCluster;
@@ -170,7 +171,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     return new CheckedConsumer<DataStreamOutputImpl, Exception>() {
       @Override
       public void accept(DataStreamOutputImpl out) {
-        final DataStreamReply dataStreamReply = out.writeAsync(f).join();
+        final DataStreamReply dataStreamReply = out.writeAsync(f, StandardWriteOption.FLUSH).join();
         DataStreamTestUtils.assertSuccessReply(Type.STREAM_DATA, size, dataStreamReply);
       }
 
