@@ -22,7 +22,9 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class TestPreconditions extends BaseTest {
@@ -49,5 +51,22 @@ public class TestPreconditions extends BaseTest {
         IllegalStateException.class);
 
     Preconditions.assertUnique(three, Arrays.asList(4, 5, 6));
+  }
+
+  @Test(timeout = 1000)
+  public void testAssertNull() {
+    final Map<String, String> map = new HashMap<>();
+    final String key = "abc1234";
+    // putNew will call Preconditions.assertNull(..) to assert the entry does not exist in the map
+    // putNew the first time should work
+    CollectionUtils.putNew(key, key, map, () -> "m");
+    Preconditions.assertTrue(map.containsKey(key));
+
+    // putNew the second time should fail
+    final Throwable e = testFailureCase("put " + key + " again",
+        () -> CollectionUtils.putNew(key, key, map, () -> "m"),
+        IllegalStateException.class);
+    // The message should contain the key name
+    Preconditions.assertTrue(e.getMessage().contains(key));
   }
 }

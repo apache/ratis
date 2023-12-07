@@ -43,6 +43,9 @@ public interface Preconditions {
    */
   static void assertTrue(boolean value, Object message) {
     if (!value) {
+      if (message instanceof Supplier) {
+        message = ((Supplier<?>) message).get();
+      }
       throw new IllegalStateException(String.valueOf(message));
     }
   }
@@ -84,7 +87,7 @@ public interface Preconditions {
         () -> name + ": expected == " + expected + " but computed == " + computed);
   }
 
-  static void assertNull(Object object, Supplier<String> message) {
+  static void assertNull(Object object, Supplier<Object> message) {
     assertTrue(object == null, message);
   }
 
@@ -93,14 +96,14 @@ public interface Preconditions {
         + name + " = " + object + " != null, class = " + object.getClass());
   }
 
-  static <T> T assertNotNull(T object, Supplier<String> message) {
+  static <T> T assertNotNull(T object, Supplier<Object> message) {
     assertTrue(object != null, message);
     return object;
   }
 
   static <T> T assertNotNull(T object, String name) {
-    return assertNotNull(object, () -> name + " is expected to not be null but "
-        + name + " = " + object + " == null, class = " + object.getClass());
+    Preconditions.assertTrue(object != null, () -> name + " == null");
+    return object;
   }
 
   static <T> T assertNotNull(T object, String format, Object... args) {
