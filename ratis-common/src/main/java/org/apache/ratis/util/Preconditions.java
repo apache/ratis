@@ -70,7 +70,9 @@ public interface Preconditions {
    * @throws IllegalStateException with the given message if the given value is false.
    */
   static void assertTrue(boolean value, Supplier<Object> message) {
-    assertTrue(value, String.valueOf(message.get()));
+    if (!value) {
+      throw new IllegalStateException(String.valueOf(message.get()));
+    }
   }
 
   static void assertSame(long expected, long computed, String name) {
