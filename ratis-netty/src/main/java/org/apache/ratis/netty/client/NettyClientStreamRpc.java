@@ -189,9 +189,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
             @Override
             public void operationComplete(ChannelFuture future) {
               if (!future.isSuccess()) {
-                scheduleReconnect(this + " failed", future.cause());
+                scheduleReconnect(Connection.this + " failed", future.cause());
               } else {
-                LOG.trace("{} succeed.", this);
+                LOG.trace("{} succeed.", Connection.this);
               }
             }
           });
@@ -323,16 +323,16 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
         if (!(msg instanceof DataStreamReply)) {
-          LOG.error("{}: unexpected message {}", this, msg.getClass());
+          LOG.error("{}: unexpected message {}", name, msg.getClass());
           return;
         }
         final DataStreamReply reply = (DataStreamReply) msg;
-        LOG.debug("{}: read {}", this, reply);
+        LOG.debug("{}: read {}", name, reply);
         final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(
             reply.getClientId(), reply.getStreamId());
         final NettyClientReplies.ReplyMap replyMap = replies.getReplyMap(clientInvocationId);
         if (replyMap == null) {
-          LOG.error("{}: {} replyMap not found for reply: {}", this, clientInvocationId, reply);
+          LOG.error("{}: {} replyMap not found for reply: {}", name, clientInvocationId, reply);
           return;
         }
 
