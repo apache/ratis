@@ -66,7 +66,6 @@ public class TestPreconditions extends BaseTest {
     final Throwable e = testFailureCase("put " + key + " again",
         () -> CollectionUtils.putNew(key, key, map, () -> "m"),
         IllegalStateException.class);
-    LOG.info("Expected to get:", e);
     // The message should contain the key name
     Preconditions.assertTrue(e.getMessage().contains(key));
   }

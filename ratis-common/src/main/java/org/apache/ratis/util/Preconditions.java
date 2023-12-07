@@ -20,7 +20,6 @@ package org.apache.ratis.util;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -42,9 +41,12 @@ public interface Preconditions {
    * @param message The exception message.
    * @throws IllegalStateException with the given message if the given value is false.
    */
-  static void assertTrue(boolean value, String message) {
+  static void assertTrue(boolean value, Object message) {
     if (!value) {
-      throw new IllegalStateException(message);
+      if (message instanceof Supplier) {
+        message = ((Supplier<?>) message).get();
+      }
+      throw new IllegalStateException(String.valueOf(message));
     }
   }
 
@@ -94,8 +96,14 @@ public interface Preconditions {
         + name + " = " + object + " != null, class = " + object.getClass());
   }
 
+  static <T> T assertNotNull(T object, Supplier<Object> message) {
+    assertTrue(object != null, message);
+    return object;
+  }
+
   static <T> T assertNotNull(T object, String name) {
-    return Objects.requireNonNull(object, () -> name + " == null");
+    Preconditions.assertTrue(object != null, () -> name + " == null");
+    return object;
   }
 
   static <T> T assertNotNull(T object, String format, Object... args) {
