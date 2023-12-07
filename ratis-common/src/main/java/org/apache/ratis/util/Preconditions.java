@@ -20,6 +20,7 @@ package org.apache.ratis.util;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -41,9 +42,9 @@ public interface Preconditions {
    * @param message The exception message.
    * @throws IllegalStateException with the given message if the given value is false.
    */
-  static void assertTrue(boolean value, Object message) {
+  static void assertTrue(boolean value, String message) {
     if (!value) {
-      throw new IllegalStateException(String.valueOf(message));
+      throw new IllegalStateException(message);
     }
   }
 
@@ -69,9 +70,7 @@ public interface Preconditions {
    * @throws IllegalStateException with the given message if the given value is false.
    */
   static void assertTrue(boolean value, Supplier<Object> message) {
-    if (!value) {
-      throw new IllegalStateException(String.valueOf(message.get()));
-    }
+    assertTrue(value, String.valueOf(message.get()));
   }
 
   static void assertSame(long expected, long computed, String name) {
@@ -84,7 +83,7 @@ public interface Preconditions {
         () -> name + ": expected == " + expected + " but computed == " + computed);
   }
 
-  static void assertNull(Object object, Supplier<String> message) {
+  static void assertNull(Object object, Supplier<Object> message) {
     assertTrue(object == null, message);
   }
 
@@ -93,14 +92,8 @@ public interface Preconditions {
         + name + " = " + object + " != null, class = " + object.getClass());
   }
 
-  static <T> T assertNotNull(T object, Supplier<String> message) {
-    assertTrue(object != null, message);
-    return object;
-  }
-
   static <T> T assertNotNull(T object, String name) {
-    return assertNotNull(object, () -> name + " is expected to not be null but "
-        + name + " = " + object + " == null, class = " + object.getClass());
+    return Objects.requireNonNull(object, () -> name + " == null");
   }
 
   static <T> T assertNotNull(T object, String format, Object... args) {
