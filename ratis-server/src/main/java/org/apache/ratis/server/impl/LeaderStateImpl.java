@@ -500,16 +500,17 @@ class LeaderStateImpl implements LeaderState {
         peersToBootStrap, listenersToBootStrap, new PeerConfiguration(peersInNewConf, listenersInNewConf));
     Collection<RaftPeer> newPeers = configurationStagingState.getNewPeers();
     Collection<RaftPeer> newListeners = configurationStagingState.getNewListeners();
-    // set the staging state
-    this.stagingState = configurationStagingState;
 
     if (newPeers.isEmpty() && newListeners.isEmpty()) {
-      applyOldNewConf();
+      applyOldNewConf(configurationStagingState);
     } else {
       // update the LeaderState's sender list
       addAndStartSenders(newPeers);
       addAndStartSenders(newListeners);
+      // set the staging state
+      stagingState = configurationStagingState;
     }
+
     return pending;
   }
 
@@ -579,14 +580,14 @@ class LeaderStateImpl implements LeaderState {
     notifySenders();
   }
 
-  private void applyOldNewConf() {
+  private void applyOldNewConf(ConfigurationStagingState stage) {
     final ServerState state = server.getState();
     final RaftConfigurationImpl current = state.getRaftConf();
-    final RaftConfigurationImpl oldNewConf= stagingState.generateOldNewConf(current, state.getLog().getNextIndex());
+    final long nextIndex = state.getLog().getNextIndex();
+    final RaftConfigurationImpl oldNewConf = stage.generateOldNewConf(current, nextIndex);
     // apply the (old, new) configuration to log, and use it as the current conf
     appendConfiguration(oldNewConf);
 
-    this.stagingState = null;
     notifySenders();
   }
 
@@ -811,20 +812,22 @@ class LeaderStateImpl implements LeaderState {
     } else {
       final long commitIndex = server.getState().getLog().getLastCommittedIndex();
       // check progress for the new followers
-      final EnumSet<BootStrapProgress> reports = getLogAppenders()
+      final List<FollowerInfoImpl> laggingFollowers = getLogAppenders()
           .map(LogAppender::getFollower)
           .filter(follower -> !isCaughtUp(follower))
+          .map(FollowerInfoImpl.class::cast)
+          .collect(Collectors.toList());
+      final EnumSet<BootStrapProgress> reports = laggingFollowers.stream()
           .map(follower -> checkProgress(follower, commitIndex))
           .collect(Collectors.toCollection(() -> EnumSet.noneOf(BootStrapProgress.class)));
       if (reports.contains(BootStrapProgress.NOPROGRESS)) {
         stagingState.fail(BootStrapProgress.NOPROGRESS);
       } else if (!reports.contains(BootStrapProgress.PROGRESSING)) {
         // all caught up!
-        applyOldNewConf();
-        getLogAppenders()
-            .map(LogAppender::getFollower)
+        applyOldNewConf(stagingState);
+        this.stagingState = null;
+        laggingFollowers.stream()
             .filter(f -> server.getRaftConf().containsInConf(f.getId()))
-            .map(FollowerInfoImpl.class::cast)
             .forEach(FollowerInfoImpl::catchUp);
       }
     }
