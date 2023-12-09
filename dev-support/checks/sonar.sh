@@ -23,4 +23,6 @@ if [ ! "$SONAR_TOKEN" ]; then
   exit 1
 fi
 
-${MVN} -B verify -DskipShade -DskipTests org.sonarsource.scanner.maven:sonar-maven-plugin:3.6.0.1398:sonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=apache -Dsonar.projectKey=apache-ratis
+${MVN} -B verify -DskipShade -DskipTests --no-transfer-progress \
+  org.sonarsource.scanner.maven:sonar-maven-plugin:3.6.0.1398:sonar \
+  -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=apache -Dsonar.projectKey=apache-ratis

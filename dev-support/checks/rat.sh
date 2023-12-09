@@ -23,7 +23,7 @@ mkdir -p "$REPORT_DIR"
 
 REPORT_FILE="$REPORT_DIR/summary.txt"
 
-${MVN} -B -fn org.apache.rat:apache-rat-plugin:0.13:check
+${MVN} -B -fn --no-transfer-progress org.apache.rat:apache-rat-plugin:0.13:check
 
 cd "$DIR/../.." || exit 1
 
