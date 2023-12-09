@@ -1,0 +1,138 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: repeat-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git Ref (branch, tag or commit SHA)
+        default: master
+        required: true
+      test-class:
+        description: Test Class
+        required: true
+      test-method:
+        description: Test Method
+        default: ''
+        required: false
+      splits:
+        description: Number of splits
+        default: 10
+        required: true
+      iterations:
+        description: Number of iterations per split
+        default: 10
+        required: true
+      fail-fast:
+        description: Stop after first failure
+        default: false
+        required: true
+env:
+  MAVEN_OPTS: -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.class=standard -Dmaven.wagon.http.retryHandler.count=3
+  TEST_CLASS: ${{ github.event.inputs.test-class }}
+  TEST_METHOD: ${{ github.event.inputs.test-method }}
+  ITERATIONS: ${{ github.event.inputs.iterations }}
+  FAIL_FAST: ${{ github.event.inputs.fail-fast }}
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('{0}#{1}[{2}]-{3}x{4}', inputs.test-class, inputs.test-method, inputs.ref, inputs.splits, inputs.iterations) || '' }}
+jobs:
+  prepare:
+    runs-on: ubuntu-20.04
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
+      test-spec: ${{ steps.test-spec.outputs.test-spec }}
+    steps:
+      - id: generate
+        name: Generate test matrix
+        run: |
+          splits=()
+          for ((i = 1; i <= ${{ github.event.inputs.splits }}; i++)); do
+              splits+=("$i")
+          done
+          printf -v x "%s," "${splits[@]}"
+          split_matrix="[${x%,}]"
+          echo "matrix=$split_matrix" >> $GITHUB_OUTPUT
+      - name: Define test spec
+        id: test-spec
+        run: |
+          if [[ -z "$TEST_METHOD" ]]; then
+            test_spec="$TEST_CLASS"
+          else
+            test_spec="$TEST_CLASS#$TEST_METHOD"
+          fi
+          echo "Test to be run: $test_spec"
+          echo "test-spec=$test_spec" >> $GITHUB_OUTPUT
+  test:
+    if: ${{ always() }}
+    needs:
+      - prepare
+    runs-on: ubuntu-20.04
+    env:
+      TEST_SPEC: ${{ needs.prepare.outputs.test-spec }}
+    strategy:
+      matrix:
+        split: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      fail-fast: ${{ fromJson(github.event.inputs.fail-fast) }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.ref }}
+      - name: Cache for maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.m2/repository
+            !~/.m2/repository/org/apache/ratis
+          key: maven-repo-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-repo-
+      - name: Setup java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 8
+      - name: Validate test spec
+        run: if [[ -z "$TEST_SPEC" ]]; then exit 1; fi
+      - name: Execute ${{ env.TEST_SPEC }}
+        run: dev-support/checks/unit.sh -Dtest="$TEST_SPEC"
+        continue-on-error: true
+      - name: Summary of failures
+        run: dev-support/checks/_summary.sh target/unit/summary.txt
+        if: ${{ !cancelled() }}
+      - name: Archive build results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: result-${{ env.TEST_CLASS }}-split-${{ matrix.split }}
+          path: target/unit
+  count-failures:
+    if: ${{ always() }}
+    needs: test
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Download build results
+        uses: actions/download-artifact@v3
+      - name: Count failures
+        run: |
+          failures=$(find . -name 'summary.txt' | grep -v 'iteration' | xargs grep -v 'exit code: 0' | wc -l)
+          echo "Total failures: $failures"
+          if [[ $failures -gt 0 ]]; then
+            echo ""
+            echo "Failed runs:"
+            grep 'exit code: 1' */summary.txt | grep -o 'split.*teration [0-9]*' | sed -e 's/.summary.txt:/ /' -e 's/-/ /' | sort -g -k2 -k4
+            echo ""
+            exit 1
+          fi
