@@ -500,15 +500,23 @@ class LeaderStateImpl implements LeaderState {
         peersToBootStrap, listenersToBootStrap, new PeerConfiguration(peersInNewConf, listenersInNewConf));
     Collection<RaftPeer> newPeers = configurationStagingState.getNewPeers();
     Collection<RaftPeer> newListeners = configurationStagingState.getNewListeners();
+    Collection<RaftPeer> allNew = newListeners.isEmpty()
+        ? newPeers
+        : newPeers.isEmpty()
+            ? newListeners
+            : Stream.concat(newPeers.stream(), newListeners.stream())
+                .collect(Collectors.toList());
 
-    if (newPeers.isEmpty() && newListeners.isEmpty()) {
+    if (allNew.isEmpty()) {
       applyOldNewConf(configurationStagingState);
     } else {
       // update the LeaderState's sender list
-      addAndStartSenders(newPeers);
-      addAndStartSenders(newListeners);
+      Collection<LogAppender> newAppenders = addSenders(allNew);
+
       // set the staging state
       stagingState = configurationStagingState;
+
+      newAppenders.forEach(LogAppender::start);
     }
 
     return pending;
@@ -619,9 +627,13 @@ class LeaderStateImpl implements LeaderState {
    * Update sender list for setConfiguration request
    */
   private void addAndStartSenders(Collection<RaftPeer> newPeers) {
-    if (!newPeers.isEmpty()) {
-      addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false).forEach(LogAppender::start);
-    }
+    addSenders(newPeers).forEach(LogAppender::start);
+  }
+
+  private Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers) {
+    return !newPeers.isEmpty()
+        ? addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false)
+        : Collections.emptyList();
   }
 
   private RaftPeer getPeer(RaftPeerId id) {
