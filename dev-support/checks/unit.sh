@@ -41,7 +41,7 @@ for i in $(seq 1 ${ITERATIONS}); do
     mkdir -p "${REPORT_DIR}"
   fi
 
-  ${MVN} -B -fae test "$@" \
+  ${MVN} -B -fae --no-transfer-progress test "$@" \
     | tee "${REPORT_DIR}/output.log"
   irc=$?
 

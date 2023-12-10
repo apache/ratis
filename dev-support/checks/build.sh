@@ -19,5 +19,5 @@ cd "$DIR/../.." || exit 1
 source "${DIR}/../find_maven.sh"
 
 export MAVEN_OPTS="-Xmx4096m"
-${MVN} -V -B -Dmaven.javadoc.skip=true -DskipTests clean install "$@"
+${MVN} -V -B -Dmaven.javadoc.skip=true -DskipTests --no-transfer-progress clean install "$@"
 exit $?
