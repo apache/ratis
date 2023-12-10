@@ -37,6 +37,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -265,7 +267,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     this.proxy = proxy;
 
-    this.state = new ServerState(id, group, stateMachine, this, option, properties);
+    this.state = new ServerState(id, group, stateMachine, this, option, properties, this::onIndexApplied);
     this.retryCache = new RetryCacheImpl(properties);
     this.dataStreamMap = new DataStreamMapImpl(id);
     this.readOption = RaftServerConfigKeys.Read.option(properties);
@@ -514,6 +516,9 @@ class RaftServerImpl implements RaftServer.Division,
   public void close() {
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: shutdown", getMemberId());
+
+      getServerRpc().notifyServerClosed(getMemberId().getGroupId());
+
       try {
         jmxAdapter.unregister();
       } catch (Exception e) {
@@ -1870,6 +1875,10 @@ class RaftServerImpl implements RaftServer.Division,
       }
     }
     return null;
+  }
+
+  private void onIndexApplied(long index) {
+    getServerRpc().notifyIndexApplied(getMemberId().getGroupId(), index);
   }
 
   /**

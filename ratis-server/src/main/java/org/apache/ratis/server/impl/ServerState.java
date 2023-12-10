@@ -97,7 +97,7 @@ class ServerState {
   private final AtomicReference<TermIndex> latestInstalledSnapshot = new AtomicReference<>();
 
   ServerState(RaftPeerId id, RaftGroup group, StateMachine stateMachine, RaftServerImpl server,
-      RaftStorage.StartupOption option, RaftProperties prop) {
+      RaftStorage.StartupOption option, RaftProperties prop, Consumer<Long> indexAppliedConsumer) {
     this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId());
     this.server = server;
     Collection<RaftPeer> followerPeers = group.getPeers().stream()
@@ -129,9 +129,11 @@ class ServerState {
         .orElse(RaftLog.INVALID_LOG_INDEX);
     this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
     this.readRequests = new ReadRequests(prop, stateMachine);
+    Consumer<Long> combinedIndexAppliedConsumer =
+        this.readRequests.getAppliedIndexConsumer().andThen(indexAppliedConsumer);
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
         stateMachine, server, this, getLog().getSnapshotIndex(), prop,
-        this.readRequests.getAppliedIndexConsumer()));
+        combinedIndexAppliedConsumer));
   }
 
   void initialize(StateMachine stateMachine) throws IOException {

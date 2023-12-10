@@ -56,6 +56,12 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, RaftPeer
   default void notifyNotLeader(RaftGroupId groupId) {
   }
 
+  default void notifyIndexApplied(RaftGroupId groupId, long appliedIndex) {
+  }
+
+  default void notifyServerClosed(RaftGroupId groupId) {
+  }
+
   default RaftServerAsynchronousProtocol async() {
     throw new UnsupportedOperationException(getClass().getName()
         + " does not support " + JavaUtils.getClassSimpleName(RaftServerAsynchronousProtocol.class));

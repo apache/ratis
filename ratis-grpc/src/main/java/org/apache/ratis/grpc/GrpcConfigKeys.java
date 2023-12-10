@@ -279,6 +279,16 @@ public interface GrpcConfigKeys {
     static void setHeartbeatChannel(RaftProperties properties, boolean useSeparate) {
       setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useSeparate);
     }
+
+    String ZERO_COPY_ENABLED = PREFIX + ".zerocopy.enabled";
+    boolean ZERO_COPY_ENABLED_DEFAULT = false;
+    static boolean zeroCopyEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, ZERO_COPY_ENABLED,
+          ZERO_COPY_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static  void setZeroCopyEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, ZERO_COPY_ENABLED, enabled);
+    }
   }
 
   String MESSAGE_SIZE_MAX_KEY = PREFIX + ".message.size.max";

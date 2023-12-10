@@ -22,6 +22,7 @@ import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
+import org.apache.ratis.grpc.util.RaftLogZeroCopyCleaner;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
@@ -30,6 +31,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
@@ -153,6 +155,9 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   private final GrpcClientProtocolService clientProtocolService;
 
   private final MetricServerInterceptor serverInterceptor;
+  private final boolean zeroCopyEnabled;
+  private final RaftLogZeroCopyCleaner zeroCopyCleaner;
+  private final RaftServer raftServer;
 
   public MetricServerInterceptor getServerInterceptor() {
     return serverInterceptor;
@@ -174,7 +179,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         RaftServerConfigKeys.Log.Appender.bufferByteLimit(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()),
-        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()));
+        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()),
+        GrpcConfigKeys.Server.zeroCopyEnabled(server.getProperties()));
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber") // private constructor
@@ -184,7 +190,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
       String serverHost, int serverPort, GrpcTlsConfig serverTlsConfig,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
       SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration,
-      boolean useSeparateHBChannel) {
+      boolean useSeparateHBChannel, boolean zeroCopyEnabled) {
     super(idSupplier, id -> new PeerProxyMap<>(id.toString(),
         p -> new GrpcServerProtocolClient(p, flowControlWindow.getSizeInt(),
             requestTimeoutDuration, serverTlsConfig, useSeparateHBChannel)));
@@ -199,7 +205,12 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         GrpcConfigKeys.Server.asyncRequestThreadPoolCached(properties),
         GrpcConfigKeys.Server.asyncRequestThreadPoolSize(properties),
         getId() + "-request-");
-    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor);
+
+    this.zeroCopyEnabled = zeroCopyEnabled;
+    this.zeroCopyCleaner = RaftLogZeroCopyCleaner.create(zeroCopyEnabled);
+    this.raftServer = raftServer;
+    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor,
+        zeroCopyEnabled, zeroCopyCleaner);
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
@@ -252,7 +263,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   }
 
   private void addClientService(NettyServerBuilder builder) {
-    builder.addService(ServerInterceptors.intercept(clientProtocolService, serverInterceptor));
+    ServerServiceDefinition serviceDef = clientProtocolService.bindServiceWithZeroCopy();
+    builder.addService(ServerInterceptors.intercept(serviceDef, serverInterceptor));
   }
 
   private void addAdminService(RaftServer raftServer, NettyServerBuilder nettyServerBuilder) {
@@ -327,6 +339,21 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   @Override
   public void notifyNotLeader(RaftGroupId groupId) {
     clientProtocolService.closeAllOrderedRequestStreamObservers(groupId);
+  }
+
+  @Override
+  public void notifyIndexApplied(RaftGroupId groupId, long appliedIndex) {
+    try {
+      zeroCopyCleaner.onIndexChanged(groupId, appliedIndex, raftServer.getDivision(groupId).getInfo()
+          .getFollowerNextIndices());
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  public void notifyServerClosed(RaftGroupId groupId) {
+    zeroCopyCleaner.onServerClosed(groupId);
   }
 
   @Override
