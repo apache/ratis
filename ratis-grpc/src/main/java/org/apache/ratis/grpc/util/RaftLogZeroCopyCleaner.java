@@ -32,6 +32,7 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /**
  * When using {@link ZeroCopyMessageMarshaller} in services that receive Raft logs, e.g. GrpcClientProtocolService
@@ -102,23 +103,25 @@ public abstract class RaftLogZeroCopyCleaner {
         return;
       }
       ReferenceCountedClosable ref = new ReferenceCountedClosable(1, handle);
-      NavigableMap<Long, ReferenceCountedClosable> group = group(clientReply.getRaftGroupId());
-      synchronized (group) {
+      runInGroupSequentially(clientReply.getRaftGroupId(), group -> {
         ReferenceCountedClosable overwritten = group.put(clientReply.getLogIndex(), ref);
         release(overwritten);
-      }
+      });
     }
 
-    private NavigableMap<Long, ReferenceCountedClosable> group(RaftGroupId groupId) {
-      return groups.computeIfAbsent(groupId, (k) -> new TreeMap<>());
+    private void runInGroupSequentially(RaftGroupId groupId, Consumer<NavigableMap<Long, ReferenceCountedClosable>> block) {
+      NavigableMap<Long, ReferenceCountedClosable> group = groups.computeIfAbsent(groupId, (k) -> new TreeMap<>());
+      synchronized (group) {
+        block.accept(group);
+      }
     }
 
     private void release(RaftGroupId groupId, long startIndex, long endIndex) {
       if (startIndex > endIndex) {
         return ;
       }
-      NavigableMap<Long, ReferenceCountedClosable> group = group(groupId);
-      synchronized (group) {
+
+      runInGroupSequentially(groupId, group -> {
         NavigableMap<Long, ReferenceCountedClosable> range = group.subMap(startIndex, true, endIndex, true);
         List<Long> removedIndices = new LinkedList<>();
         for (Map.Entry<Long, ReferenceCountedClosable> entry : range.entrySet()) {
@@ -128,10 +131,10 @@ public abstract class RaftLogZeroCopyCleaner {
           removedIndices.add(idx);
         }
         removedIndices.forEach(group::remove);
-      }
+      });
     }
 
-    private void release(ReferenceCountedClosable closable) {
+    private static void release(ReferenceCountedClosable closable) {
       if (closable == null) {
         return;
       }
