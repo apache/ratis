@@ -21,6 +21,7 @@ cd "$DIR/../.." || exit 1
 
 source "${DIR}/../find_maven.sh"
 
+: ${FAIL_FAST:="false"}
 : ${ITERATIONS:="1"}
 
 declare -i ITERATIONS
@@ -58,6 +59,10 @@ for i in $(seq 1 ${ITERATIONS}); do
 
   if [[ ${rc} == 0 ]]; then
     rc=${irc}
+  fi
+
+  if [[ ${rc} != 0 ]] && [[ "${FAIL_FAST}" == "true" ]]; then
+    break
   fi
 done
 
