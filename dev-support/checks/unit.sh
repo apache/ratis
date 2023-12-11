@@ -33,6 +33,13 @@ REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/unit"}
 mkdir -p "$REPORT_DIR"
 
 export MAVEN_OPTS="-Xmx4096m"
+MAVEN_OPTIONS='-B --no-transfer-progress'
+
+if [[ "${FAIL_FAST}" == "true" ]]; then
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-fast -Dsurefire.skipAfterFailureCount=1"
+else
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-at-end"
+fi
 
 rc=0
 for i in $(seq 1 ${ITERATIONS}); do
@@ -42,7 +49,7 @@ for i in $(seq 1 ${ITERATIONS}); do
     mkdir -p "${REPORT_DIR}"
   fi
 
-  ${MVN} -B -fae --no-transfer-progress test "$@" \
+  ${MVN} ${MAVEN_OPTIONS} test "$@" \
     | tee "${REPORT_DIR}/output.log"
   irc=$?
 
