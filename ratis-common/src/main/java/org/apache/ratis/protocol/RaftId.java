@@ -92,7 +92,7 @@ public abstract class RaftId {
 
   RaftId(UUID uuid) {
     this(uuid, JavaUtils.memoize(() -> toByteString(uuid)));
-    Preconditions.assertTrue(!uuid.equals(ZERO_UUID),
+    Preconditions.assertTrue(ZERO_UUID == uuid || !uuid.equals(ZERO_UUID),
         () -> "Failed to create " + JavaUtils.getClassSimpleName(getClass()) + ": UUID " + ZERO_UUID + " is reserved.");
   }
 
