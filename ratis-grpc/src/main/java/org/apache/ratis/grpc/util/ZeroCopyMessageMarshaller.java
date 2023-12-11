@@ -118,7 +118,7 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
 
   /** Release the underlying buffers in the given message. */
   public void release(T message) {
-    final InputStream stream = unclosedStreams.remove(message);
+    final InputStream stream = popStream(message);
     if (stream == null) {
       return;
     }
@@ -212,5 +212,14 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
       e.setUnfinishedMessage(message);
       throw e;
     }
+  }
+
+  /**
+   * Application can call this function to get the stream for the message, and,
+   * possibly later, must call {@link InputStream#close()} to release buffers.
+   * Alternatively, use {@link #release(T)} to do both in one step.
+   */
+  public InputStream popStream(T message) {
+    return unclosedStreams.remove(message);
   }
 }
