@@ -57,30 +57,26 @@ public abstract class RaftId {
         .weakValues()
         .build();
 
-    abstract ID newInstance(UUID uuid, ByteString bytes);
+    abstract ID newInstance(UUID uuid);
 
-    private ID valueOf(UUID uuid, ByteString bytes) {
+    final ID valueOf(UUID uuid) {
       try {
-        return cache.get(uuid, () -> newInstance(uuid, bytes));
+        return cache.get(uuid, () -> newInstance(uuid));
       } catch (ExecutionException e) {
         throw new IllegalStateException("Failed to valueOf(" + uuid + ")", e);
       }
     }
 
-    final ID valueOf(UUID uuid) {
-      return valueOf(uuid, null);
-    }
-
     final ID valueOf(ByteString bytes) {
-      return bytes != null? valueOf(toUuid(bytes), bytes): emptyId();
+      return bytes != null? valueOf(toUuid(bytes)): emptyId();
     }
 
     ID emptyId() {
-      return valueOf(ZERO_UUID, ZERO_UUID_BYTESTRING);
+      return valueOf(ZERO_UUID);
     }
 
     ID randomId() {
-      return valueOf(UUID.randomUUID(), null);
+      return valueOf(UUID.randomUUID());
     }
   }
 
@@ -98,11 +94,6 @@ public abstract class RaftId {
     this(uuid, JavaUtils.memoize(() -> toByteString(uuid)));
     Preconditions.assertTrue(!uuid.equals(ZERO_UUID),
         () -> "Failed to create " + JavaUtils.getClassSimpleName(getClass()) + ": UUID " + ZERO_UUID + " is reserved.");
-  }
-
-  RaftId(UUID uuid, ByteString bytes) {
-    this(uuid, () -> bytes);
-    Preconditions.assertTrue(toUuid(bytes).equals(uuid));
   }
 
   /** @return the last 12 hex digits. */

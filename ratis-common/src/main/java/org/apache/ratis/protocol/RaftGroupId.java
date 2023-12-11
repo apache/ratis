@@ -29,8 +29,8 @@ import java.util.UUID;
 public final class RaftGroupId extends RaftId {
   private static final Factory<RaftGroupId> FACTORY = new Factory<RaftGroupId>() {
     @Override
-    RaftGroupId newInstance(UUID uuid, ByteString bytes) {
-      return bytes == null? new RaftGroupId(uuid) : new RaftGroupId(uuid, bytes);
+    RaftGroupId newInstance(UUID uuid) {
+      return new RaftGroupId(uuid);
     }
   };
 
@@ -52,10 +52,6 @@ public final class RaftGroupId extends RaftId {
 
   private RaftGroupId(UUID id) {
     super(id);
-  }
-
-  private RaftGroupId(UUID uuid, ByteString bytes) {
-    super(uuid, bytes);
   }
 
   @Override
