@@ -35,6 +35,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -249,5 +250,13 @@ public interface ProtoUtils {
     return proto.getRequestorId().toStringUtf8() + "<-" + proto.getReplyId().toStringUtf8()
         + "#" + proto.getCallId() + ":"
         + (proto.getSuccess()? "OK": "FAIL");
+  }
+
+  static CommitInfoProto copyFrom(CommitInfoProto proto) {
+    try {
+      return CommitInfoProto.parseFrom(proto.toByteArray());
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalStateException("Error copying commit info", e);
+    }
   }
 }
