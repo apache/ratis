@@ -21,6 +21,7 @@ cd "$DIR/../.." || exit 1
 
 source "${DIR}/../find_maven.sh"
 
+: ${FAIL_FAST:="false"}
 : ${ITERATIONS:="1"}
 
 declare -i ITERATIONS
@@ -32,6 +33,13 @@ REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/unit"}
 mkdir -p "$REPORT_DIR"
 
 export MAVEN_OPTS="-Xmx4096m"
+MAVEN_OPTIONS='-B --no-transfer-progress'
+
+if [[ "${FAIL_FAST}" == "true" ]]; then
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-fast -Dsurefire.skipAfterFailureCount=1"
+else
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-at-end"
+fi
 
 rc=0
 for i in $(seq 1 ${ITERATIONS}); do
@@ -41,7 +49,7 @@ for i in $(seq 1 ${ITERATIONS}); do
     mkdir -p "${REPORT_DIR}"
   fi
 
-  ${MVN} -B -fae --no-transfer-progress test "$@" \
+  ${MVN} ${MAVEN_OPTIONS} test "$@" \
     | tee "${REPORT_DIR}/output.log"
   irc=$?
 
@@ -52,12 +60,20 @@ for i in $(seq 1 ${ITERATIONS}); do
   fi
 
   if [[ ${ITERATIONS} -gt 1 ]]; then
+    if [[ ${irc} == 0 ]]; then
+      rm -fr "${REPORT_DIR}"
+    fi
+
     REPORT_DIR="${original_report_dir}"
     echo "Iteration ${i} exit code: ${irc}" | tee -a "${REPORT_DIR}/summary.txt"
   fi
 
   if [[ ${rc} == 0 ]]; then
     rc=${irc}
+  fi
+
+  if [[ ${rc} != 0 ]] && [[ "${FAIL_FAST}" == "true" ]]; then
+    break
   fi
 done
 
