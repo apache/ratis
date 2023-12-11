@@ -18,7 +18,7 @@ cd "$DIR/../.." || exit 1
 
 source "${DIR}/../find_maven.sh"
 
-MAVEN_OPTIONS='-B -fae'
+MAVEN_OPTIONS='-B -fae --no-transfer-progress'
 
 if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
   #shellcheck disable=SC2086

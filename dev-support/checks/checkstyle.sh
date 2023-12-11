@@ -23,7 +23,7 @@ REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/checkstyle"}
 mkdir -p "$REPORT_DIR"
 REPORT_FILE="$REPORT_DIR/summary.txt"
 
-MAVEN_OPTIONS='-B -fae -Dcheckstyle.failOnViolation=false'
+MAVEN_OPTIONS='-B -fae --no-transfer-progress -Dcheckstyle.failOnViolation=false'
 
 declare -i rc
 ${MVN} ${MAVEN_OPTIONS} checkstyle:check | tee  "${REPORT_DIR}/output.log"
