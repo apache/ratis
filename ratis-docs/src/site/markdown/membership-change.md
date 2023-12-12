@@ -24,10 +24,10 @@ is sometimes necessary in practice.
 Ratis facilitates these functionalities through joint consensus, 
 allowing for simultaneous addition or replacement of multiple servers in a cluster.
 
-For details on how joint consensus algorithm works, please refer to section 4.3 in 
+> For details on how joint consensus algorithm works, please refer to section 4.3 in 
 [Raft Paper](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)
 
-During membership changes, the availability guarantee of Raft is vulnerable than usual.
+During membership changes, the availability guarantee of Raft is more vulnerable than usual.
 Agreement (for elections and entry commitment) requires separate majorities from both the
 old and new configurations.
 For example, when changing from a cluster of 3 servers to a different cluster of 9 servers, 
