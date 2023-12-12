@@ -84,14 +84,10 @@ public abstract class RaftId {
   private final Supplier<ByteString> uuidBytes;
   private final Supplier<String> uuidString;
 
-  private RaftId(UUID uuid, Supplier<ByteString> uuidBytes) {
-    this.uuid = Preconditions.assertNotNull(uuid, "uuid");
-    this.uuidBytes = uuidBytes;
-    this.uuidString = JavaUtils.memoize(() -> createUuidString(uuid));
-  }
-
   RaftId(UUID uuid) {
-    this(uuid, JavaUtils.memoize(() -> toByteString(uuid)));
+    this.uuid = Preconditions.assertNotNull(uuid, "uuid");
+    this.uuidBytes = JavaUtils.memoize(() -> toByteString(uuid));
+    this.uuidString = JavaUtils.memoize(() -> createUuidString(uuid));
     Preconditions.assertTrue(ZERO_UUID == uuid || !uuid.equals(ZERO_UUID),
         () -> "Failed to create " + JavaUtils.getClassSimpleName(getClass()) + ": UUID " + ZERO_UUID + " is reserved.");
   }
