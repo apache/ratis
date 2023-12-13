@@ -160,16 +160,20 @@ public class LifeCycle {
 
   /** Transition from the current state to the given state. */
   public void transition(final State to) {
-    final State from = current.getAndSet(to);
-    State.validate(name, from, to);
+    current.updateAndGet(from -> {
+      State.validate(name, from, to);
+      return to;
+    });
   }
 
   /** Transition from the current state to the given state if the current state is not equal to the given state. */
   public void transitionIfNotEqual(final State to) {
-    final State from = current.getAndSet(to);
-    if (from != to) {
-      State.validate(name, from, to);
-    }
+    current.updateAndGet(from -> {
+      if (from != to) {
+        State.validate(name, from, to);
+      }
+      return to;
+    });
   }
 
   /**
@@ -226,11 +230,14 @@ public class LifeCycle {
    * @return true iff the current state is equal to the specified from state.
    */
   public boolean compareAndTransition(final State from, final State to) {
-    if (current.compareAndSet(from, to)) {
+    final State previous = current.getAndUpdate(state -> {
+      if (state != from) {
+        return state;
+      }
       State.validate(name, from, to);
-      return true;
-    }
-    return false;
+      return to;
+    });
+    return previous == from;
   }
 
   /** @return the current state. */

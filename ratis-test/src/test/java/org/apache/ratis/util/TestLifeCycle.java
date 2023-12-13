@@ -17,10 +17,13 @@
  */
 package org.apache.ratis.util;
 
-import org.junit.Assert;
+import org.apache.ratis.util.function.TriConsumer;
 import org.junit.Test;
 
 import static org.apache.ratis.util.LifeCycle.State.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.*;
 
@@ -31,7 +34,7 @@ public class TestLifeCycle {
    * while this test uses successors.
    */
   @Test(timeout = 1000)
-  public void testIsValid() throws Exception {
+  public void testIsValid() {
     final Map<LifeCycle.State, List<LifeCycle.State>> successors
         = new EnumMap<>(LifeCycle.State.class);
     put(NEW,       successors, STARTING, CLOSED);
@@ -44,10 +47,52 @@ public class TestLifeCycle {
     put(CLOSED,    successors);
 
     final List<LifeCycle.State> states = Arrays.asList(LifeCycle.State.values());
-    states.stream().forEach(
+    states.forEach(
         from -> states.forEach(
-            to -> Assert.assertEquals(from + " -> " + to,
+            to -> assertEquals(from + " -> " + to,
                 successors.get(from).contains(to),
                 isValid(from, to))));
   }
+
+  @Test
+  public void validTransitions() {
+    testValidTransition((from, subject, to) -> assertTrue(subject.compareAndTransition(from, to)));
+    testValidTransition((from, subject, to) -> subject.transition(to));
+    testValidTransition((from, subject, to) -> assertEquals(to, subject.transitionAndGet(any -> to)));
+    testValidTransition((from, subject, to) -> subject.transitionIfNotEqual(to));
+    testValidTransition((from, subject, to) -> assertTrue(subject.transitionIfValid(to)));
+  }
+
+  private static void testValidTransition(TriConsumer<LifeCycle.State, LifeCycle, LifeCycle.State> op) {
+    LifeCycle subject = new LifeCycle("subject");
+    for (LifeCycle.State to : new LifeCycle.State[] { STARTING, RUNNING, PAUSING, PAUSED, CLOSING, CLOSED }) {
+      LifeCycle.State from = subject.getCurrentState();
+      op.accept(from, subject, to);
+      assertEquals(to, subject.getCurrentState());
+    }
+  }
+
+  @Test
+  public void invalidTransitions() {
+    testInvalidTransition((from, subject, to) -> subject.compareAndTransition(from, to), true);
+    testInvalidTransition((from, subject, to) -> subject.transition(to), true);
+    testInvalidTransition((from, subject, to) -> subject.transitionIfNotEqual(to), true);
+    testInvalidTransition((from, subject, to) -> assertFalse(subject.transitionIfValid(to)), false);
+    testInvalidTransition((from, subject, to) -> subject.transitionAndGet(any -> to), true);
+  }
+
+  private static void testInvalidTransition(TriConsumer<LifeCycle.State, LifeCycle, LifeCycle.State> op, boolean shouldThrow) {
+    LifeCycle subject = new LifeCycle("subject");
+    for (LifeCycle.State to : new LifeCycle.State[] { RUNNING, EXCEPTION, CLOSING }) {
+      LifeCycle.State from = subject.getCurrentState();
+      try {
+        op.accept(from, subject, to);
+        assertFalse(shouldThrow);
+      } catch (IllegalStateException e) {
+        assertTrue(shouldThrow);
+        assertEquals("Should be in original state", from, subject.getCurrentState());
+      }
+    }
+  }
+
 }
