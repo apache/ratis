@@ -52,13 +52,15 @@ public class TestRaftWithGrpc
         SimpleStateMachine4Testing.class, StateMachine.class);
   }
 
-  public TestRaftWithGrpc(Boolean separateHeartbeat) {
+  public TestRaftWithGrpc(Boolean separateHeartbeat, Boolean zeroCopyEnabled) {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
   }
 
   @Parameterized.Parameters
   public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+    return Arrays.asList((new Boolean[][] {{Boolean.FALSE, Boolean.FALSE}, {Boolean.FALSE, Boolean.TRUE},
+        {Boolean.TRUE, Boolean.FALSE}, {Boolean.TRUE, Boolean.TRUE},}));
   }
 
   @Override

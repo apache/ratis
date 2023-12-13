@@ -21,6 +21,8 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.thirdparty.io.grpc.KnownLength;
 import org.apache.ratis.thirdparty.io.grpc.internal.GrpcUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -48,6 +50,8 @@ import java.util.function.Consumer;
  * @see {@link org.apache.ratis.grpc.server.GrpcServerProtocolService}
  */
 public abstract class RaftLogZeroCopyCleaner {
+  public static final Logger LOG = LoggerFactory.getLogger(RaftLogZeroCopyCleaner.class);
+
   public abstract void watch(RaftClientReply clientReply, Closeable handle);
   public abstract void onIndexChanged(RaftGroupId groupId, long appliedIndex, long[] followerIndices);
   public abstract void onServerClosed(RaftGroupId groupId);
@@ -104,6 +108,7 @@ public abstract class RaftLogZeroCopyCleaner {
       }
       ReferenceCountedClosable ref = new ReferenceCountedClosable(1, handle);
       runInGroupSequentially(clientReply.getRaftGroupId(), group -> {
+        LOG.debug("{} - Watch {}, size {} bytes", clientReply.getRaftGroupId(), clientReply.getLogIndex(), ref.size);
         ReferenceCountedClosable overwritten = group.put(clientReply.getLogIndex(), ref);
         release(overwritten);
       });
@@ -131,6 +136,7 @@ public abstract class RaftLogZeroCopyCleaner {
           removedIndices.add(idx);
         }
         removedIndices.forEach(group::remove);
+        LOG.debug("{} - Released {}->{}, {} entries hit", groupId, startIndex, endIndex, removedIndices.size());
       });
     }
 

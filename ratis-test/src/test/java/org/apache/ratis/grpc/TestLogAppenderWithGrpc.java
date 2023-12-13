@@ -55,13 +55,15 @@ public class TestLogAppenderWithGrpc
     Slf4jUtils.setLogLevel(FollowerInfo.LOG, Level.DEBUG);
   }
 
-  public TestLogAppenderWithGrpc(Boolean separateHeartbeat) {
+  public TestLogAppenderWithGrpc(Boolean separateHeartbeat, Boolean zeroCopyEnabled) {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
   }
 
   @Parameterized.Parameters
   public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+    return Arrays.asList((new Boolean[][] {{Boolean.FALSE, Boolean.FALSE}, {Boolean.FALSE, Boolean.TRUE},
+        {Boolean.TRUE, Boolean.FALSE}, {Boolean.TRUE, Boolean.TRUE},}));
   }
 
   @Test
