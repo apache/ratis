@@ -40,6 +40,10 @@ public final class RaftPeerId {
   private static final Map<String, RaftPeerId> STRING_MAP = new ConcurrentHashMap<>();
 
   public static RaftPeerId valueOf(ByteString id) {
+    final RaftPeerId cached = BYTE_STRING_MAP.get(id);
+    if (cached != null) {
+      return cached;
+    }
     ByteString cloned = ByteString.copyFrom(id.asReadOnlyByteBuffer());
     return BYTE_STRING_MAP.computeIfAbsent(cloned, RaftPeerId::new);
   }
