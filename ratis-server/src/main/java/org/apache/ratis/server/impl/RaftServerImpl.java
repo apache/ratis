@@ -633,8 +633,7 @@ class RaftServerImpl implements RaftServer.Division,
       Stream.concat(
               raftConf.getAllPeers(RaftPeerRole.FOLLOWER).stream(),
               raftConf.getAllPeers(RaftPeerRole.LISTENER).stream())
-          .map(RaftPeer::getId)
-          .filter(id -> !id.equals(getId()))
+          .filter(peer -> !peer.getId().equals(getId()))
           .map(commitInfoCache::get)
           .filter(Objects::nonNull)
           .forEach(infos::add);

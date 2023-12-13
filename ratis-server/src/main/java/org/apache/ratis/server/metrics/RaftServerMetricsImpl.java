@@ -98,7 +98,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
 
   /** Follower Id -> heartbeat elapsed */
   private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new ConcurrentHashMap<>();
-  private final Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache;
+  private final Supplier<Function<RaftPeerId, Long>> commitInfoCache;
 
   /** id -> metric */
   private static final Map<RaftGroupMemberId, RaftServerMetricsImpl> METRICS = new ConcurrentHashMap<>();
@@ -111,7 +111,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   public static RaftServerMetricsImpl computeIfAbsentRaftServerMetrics(RaftGroupMemberId serverId,
-      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
+      Supplier<Function<RaftPeerId, Long>> commitInfoCache,
       Supplier<RetryCache.Statistics> retryCacheStatistics) {
     return METRICS.computeIfAbsent(serverId,
         key -> new RaftServerMetricsImpl(serverId, commitInfoCache, retryCacheStatistics));
@@ -122,7 +122,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   public RaftServerMetricsImpl(RaftGroupMemberId serverId,
-      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
+      Supplier<Function<RaftPeerId, Long>> commitInfoCache,
       Supplier<RetryCache.Statistics> retryCacheStatistics) {
     super(createRegistry(serverId.toString()));
     this.commitInfoCache = commitInfoCache;
@@ -185,7 +185,6 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   private void addPeerCommitIndexGauge(RaftPeerId peerId) {
     getRegistry().gauge(getPeerCommitIndexGaugeKey(peerId), () -> () -> Optional.ofNullable(commitInfoCache.get())
         .map(cache -> cache.apply(peerId))
-        .map(CommitInfoProto::getCommitIndex)
         .orElse(0L));
   }
 
