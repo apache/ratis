@@ -20,8 +20,6 @@
  */
 package org.apache.ratis.util;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.zip.Checksum;
@@ -53,7 +51,6 @@ public class PureJavaCrc32C implements Checksum {
   }
 
   @Override
-  @SuppressFBWarnings("SF_SWITCH_NO_DEFAULT")
   public void update(byte[] b, int off, int len) {
     int localCrc = crc;
 
@@ -86,6 +83,7 @@ public class PureJavaCrc32C implements Checksum {
       case 3: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b[off++]) & 0xff)];
       case 2: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b[off++]) & 0xff)];
       case 1: localCrc = (localCrc >>> 8) ^ T[T8_0_START + ((localCrc ^ b[off++]) & 0xff)];
+      break;
       default:
         /* nothing */
     }
@@ -93,7 +91,6 @@ public class PureJavaCrc32C implements Checksum {
     crc = localCrc;
   }
 
-  @SuppressFBWarnings("SF_SWITCH_NO_DEFAULT")
   public void update(ByteBuffer b) {
     int localCrc = crc;
 
