@@ -73,6 +73,10 @@ public class OrderedStreamAsync {
       return seqNum;
     }
 
+    public long getCallId() {
+      return -1;
+    }
+
     @Override
     public void setReply(DataStreamReply dataStreamReply) {
       replyFuture.complete(dataStreamReply);
