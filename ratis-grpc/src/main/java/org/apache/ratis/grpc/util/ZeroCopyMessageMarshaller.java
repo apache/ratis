@@ -129,10 +129,6 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
     }
   }
 
-  public InputStream popStream(T message) {
-    return unclosedStreams.get(message);
-  }
-
   private List<ByteString> getByteStrings(InputStream detached, int exactSize) throws IOException {
     Preconditions.assertTrue(detached instanceof HasByteBuffer);
 
