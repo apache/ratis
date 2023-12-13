@@ -31,7 +31,7 @@ import java.util.function.BiFunction;
 
 /** Caching the commit information. */
 class CommitInfoCache {
-  static BiFunction<RaftPeerId, Long, Long> remapping(long newCommitIndex) {
+  static BiFunction<RaftPeerId, Long, Long> remapping(Long newCommitIndex) {
     return (id, oldCommitIndex) -> oldCommitIndex == null || newCommitIndex > oldCommitIndex ?
         newCommitIndex : oldCommitIndex;
   }
