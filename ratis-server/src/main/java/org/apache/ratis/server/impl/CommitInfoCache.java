@@ -44,8 +44,16 @@ class CommitInfoCache {
 
   long update(RaftPeerId peerId, long newCommitIndex) {
     Objects.requireNonNull(peerId, "peerId == null");
-    return map.compute(peerId, (id, oldCommitIndex) ->
-        oldCommitIndex == null || newCommitIndex > oldCommitIndex ? newCommitIndex : oldCommitIndex);
+    return map.compute(peerId, (id, oldCommitIndex) -> {
+      if (oldCommitIndex != null) {
+        // get around BX_UNBOXING_IMMEDIATELY_REBOXED
+        final long old = oldCommitIndex;
+        if (old >= newCommitIndex) {
+          return old;
+        }
+      }
+      return newCommitIndex;
+    });
   }
 
   void update(CommitInfoProto newInfo) {
