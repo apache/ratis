@@ -221,6 +221,7 @@
     <testsThreadCount>4</testsThreadCount>
 
     <slf4j.version>2.0.7</slf4j.version>
+    <junit.jupiter.version>5.10.1</junit.jupiter.version>
   </properties>
 
   <dependencyManagement>
@@ -419,6 +420,13 @@
         <groupId>junit</groupId>
         <artifactId>junit</artifactId>
         <version>4.13.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.jupiter.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
       <dependency>
         <groupId>org.mockito</groupId>
