@@ -24,6 +24,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
@@ -44,8 +45,8 @@ class CommitInfoCache {
     return ProtoUtils.toCommitInfoProto(peer, get(peer.getId()));
   }
 
-  Long get(RaftPeerId id) {
-    return map.get(id);
+  long get(RaftPeerId id) {
+    return Optional.ofNullable(map.get(id)).orElse(0L);
   }
 
   CommitInfoProto update(RaftPeer peer, long newCommitIndex) {

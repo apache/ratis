@@ -52,10 +52,10 @@ public class TestRetryCacheMetrics {
       retryCache = new RetryCacheImpl(RaftServerConfigKeys.RetryCache.EXPIRY_TIME_DEFAULT, null);
 
       final RaftServerMetricsImpl raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
-          raftGroupMemberId, () -> null, retryCache::getStatistics);
+          raftGroupMemberId, id -> 0L, retryCache::getStatistics);
       ratisMetricRegistry = (RatisMetricRegistryImpl) raftServerMetrics.getRegistry();
     }
-    
+
     @After
     public void tearDown() {
         retryCache.close();
@@ -92,23 +92,23 @@ public class TestRetryCacheMetrics {
     }
 
     private static void checkHit(long count, double rate) {
-      Long hitCount = (Long) ratisMetricRegistry.getGauges((s, metric) ->
+      final long hitCount = (Long) ratisMetricRegistry.getGauges((s, metric) ->
           s.contains(RETRY_CACHE_HIT_COUNT_METRIC)).values().iterator().next().getValue();
-      assertEquals(hitCount.longValue(), count);
+      assertEquals(hitCount, count);
 
-      Double hitRate = (Double) ratisMetricRegistry.getGauges((s, metric) ->
+      final double hitRate = (Double) ratisMetricRegistry.getGauges((s, metric) ->
           s.contains(RETRY_CACHE_HIT_RATE_METRIC)).values().iterator().next().getValue();
-      assertEquals(hitRate.doubleValue(), rate, 0.0);
+      assertEquals(hitRate, rate, 0.0);
     }
 
     private static void checkMiss(long count, double rate) {
-      Long missCount = (Long) ratisMetricRegistry.getGauges((s, metric) ->
+      final long missCount = (Long) ratisMetricRegistry.getGauges((s, metric) ->
           s.contains(RETRY_CACHE_MISS_COUNT_METRIC)).values().iterator().next().getValue();
-      assertEquals(missCount.longValue(), count);
+      assertEquals(missCount, count);
 
-      Double missRate = (Double) ratisMetricRegistry.getGauges((s, metric) ->
+      final double missRate = (Double) ratisMetricRegistry.getGauges((s, metric) ->
           s.contains(RETRY_CACHE_MISS_RATE_METRIC)).values().iterator().next().getValue();
-      assertEquals(missRate.doubleValue(), rate, 0.0);
+      assertEquals(missRate, rate, 0.0);
     }
 
     private static void checkEntryCount(long expected) {

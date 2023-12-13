@@ -275,7 +275,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
     this.raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
-        getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
+        getMemberId(), commitInfoCache::get, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
     this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
