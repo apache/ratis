@@ -28,8 +28,8 @@ import java.util.UUID;
 public final class ClientId extends RaftId {
   private static final Factory<ClientId> FACTORY = new Factory<ClientId>() {
     @Override
-    ClientId newInstance(UUID uuid, ByteString bytes) {
-      return bytes == null? new ClientId(uuid): new ClientId(uuid, bytes);
+    ClientId newInstance(UUID uuid) {
+      return new ClientId(uuid);
     }
   };
 
@@ -47,10 +47,6 @@ public final class ClientId extends RaftId {
 
   public static ClientId valueOf(UUID uuid) {
     return FACTORY.valueOf(uuid);
-  }
-
-  private ClientId(UUID uuid, ByteString bytes) {
-    super(uuid, bytes);
   }
 
   private ClientId(UUID uuid) {
