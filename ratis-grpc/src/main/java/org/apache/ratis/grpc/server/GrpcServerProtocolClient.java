@@ -62,7 +62,7 @@ public class GrpcServerProtocolClient implements Closeable {
   public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
       TimeDuration requestTimeout, GrpcTlsConfig tlsConfig, boolean separateHBChannel) {
     raftPeerId = target.getId();
-    LOG.info("Build channel for {}", raftPeerId);
+    LOG.info("Build channel for {}", target);
     useSeparateHBChannel = separateHBChannel;
     channel = buildChannel(target, flowControlWindow, tlsConfig);
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
