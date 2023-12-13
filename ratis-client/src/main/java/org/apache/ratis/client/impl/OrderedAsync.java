@@ -63,7 +63,6 @@ public final class OrderedAsync {
     private final long seqNum;
     private final AtomicReference<Function<SlidingWindowEntry, RaftClientRequest>> requestConstructor;
     private volatile boolean isFirst = false;
-    private volatile long firstSeqNum = 0;
 
     PendingOrderedRequest(long callId, long seqNum,
         Function<SlidingWindowEntry, RaftClientRequest> requestConstructor) {
