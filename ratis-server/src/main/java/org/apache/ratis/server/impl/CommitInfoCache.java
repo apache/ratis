@@ -27,23 +27,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.BiFunction;
 
 /** Caching the commit information. */
 class CommitInfoCache {
-  static BiFunction<RaftPeerId, Long, Long> remapping(Long newCommitIndex) {
-    return (id, oldCommitIndex) -> oldCommitIndex == null || newCommitIndex > oldCommitIndex ?
-        newCommitIndex : oldCommitIndex;
-  }
-
   private final ConcurrentMap<RaftPeerId, Long> map = new ConcurrentHashMap<>();
 
   Optional<Long> get(RaftPeerId id) {
     return Optional.ofNullable(map.get(id));
-  }
-
-  long getNonNull(RaftPeerId id) {
-    return get(id).orElse(0L);
   }
 
   CommitInfoProto update(RaftPeer peer, long newCommitIndex) {
@@ -52,9 +42,10 @@ class CommitInfoCache {
     return ProtoUtils.toCommitInfoProto(peer, updated);
   }
 
-  long update(RaftPeerId id, long newCommitIndex) {
-    Objects.requireNonNull(id, "peer == null");
-    return map.compute(id, remapping(newCommitIndex));
+  long update(RaftPeerId peerId, long newCommitIndex) {
+    Objects.requireNonNull(peerId, "peerId == null");
+    return map.compute(peerId, (id, oldCommitIndex) ->
+        oldCommitIndex == null || newCommitIndex > oldCommitIndex ? newCommitIndex : oldCommitIndex);
   }
 
   void update(CommitInfoProto newInfo) {
