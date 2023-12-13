@@ -42,9 +42,8 @@ class CommitInfoCache {
   }
 
   CommitInfoProto update(CommitInfoProto newInfo) {
-    CommitInfoProto cloned = ProtoUtils.copyFrom(newInfo);
     return map.compute(RaftPeerId.valueOf(newInfo.getServer().getId()),
-        (id, old) -> old == null || cloned.getCommitIndex() > old.getCommitIndex()? cloned: old);
+        (id, old) -> old == null || newInfo.getCommitIndex() > old.getCommitIndex()? newInfo: old);
   }
 
   @Override
