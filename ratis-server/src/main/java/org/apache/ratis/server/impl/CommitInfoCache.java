@@ -31,33 +31,35 @@ import java.util.function.BiFunction;
 
 /** Caching the commit information. */
 class CommitInfoCache {
-  static Long max(Long oldCommitIndex, long newCommitIndex) {
-    return oldCommitIndex == null || newCommitIndex > oldCommitIndex ? newCommitIndex : oldCommitIndex;
-  }
-
   static BiFunction<RaftPeerId, Long, Long> remapping(long newCommitIndex) {
-    return (id, oldCommitIndex) -> max(oldCommitIndex, newCommitIndex);
+    return (id, oldCommitIndex) -> oldCommitIndex == null || newCommitIndex > oldCommitIndex ?
+        newCommitIndex : oldCommitIndex;
   }
 
   private final ConcurrentMap<RaftPeerId, Long> map = new ConcurrentHashMap<>();
 
-  CommitInfoProto get(RaftPeer peer) {
-    return ProtoUtils.toCommitInfoProto(peer, get(peer.getId()));
+  Optional<Long> get(RaftPeerId id) {
+    return Optional.ofNullable(map.get(id));
   }
 
-  long get(RaftPeerId id) {
-    return Optional.ofNullable(map.get(id)).orElse(0L);
+  long getNonNull(RaftPeerId id) {
+    return get(id).orElse(0L);
   }
 
   CommitInfoProto update(RaftPeer peer, long newCommitIndex) {
     Objects.requireNonNull(peer, "peer == null");
-    final long computed = map.compute(peer.getId(), remapping(newCommitIndex));
-    return ProtoUtils.toCommitInfoProto(peer, computed);
+    final long updated = update(peer.getId(), newCommitIndex);
+    return ProtoUtils.toCommitInfoProto(peer, updated);
+  }
+
+  long update(RaftPeerId id, long newCommitIndex) {
+    Objects.requireNonNull(id, "peer == null");
+    return map.compute(id, remapping(newCommitIndex));
   }
 
   void update(CommitInfoProto newInfo) {
-    final long newCommitIndex = newInfo.getCommitIndex();
-    map.compute(RaftPeerId.valueOf(newInfo.getServer().getId()), remapping(newCommitIndex));
+    final RaftPeerId id = RaftPeerId.valueOf(newInfo.getServer().getId());
+    update(id, newInfo.getCommitIndex());
   }
 
   @Override

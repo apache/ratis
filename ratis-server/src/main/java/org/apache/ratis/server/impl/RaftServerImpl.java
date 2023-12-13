@@ -275,7 +275,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
     this.raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
-        getMemberId(), commitInfoCache::get, retryCache::getStatistics);
+        getMemberId(), commitInfoCache::getNonNull, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
     this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
@@ -453,6 +453,12 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
+  public RaftPeer getPeer() {
+    return Optional.ofNullable(getState().getCurrentPeer())
+        .orElseGet(() -> getRaftServer().getPeer());
+  }
+
+  @Override
   public DivisionInfo getInfo() {
     return info;
   }
@@ -622,7 +628,8 @@ class RaftServerImpl implements RaftServer.Division,
   public Collection<CommitInfoProto> getCommitInfos() {
     final List<CommitInfoProto> infos = new ArrayList<>();
     // add the commit info of this server
-    infos.add(updateCommitInfoCache());
+    final long commitIndex = updateCommitInfoCache();
+    infos.add(ProtoUtils.toCommitInfoProto(getPeer(), commitIndex));
 
     // add the commit infos of other servers
     if (getInfo().isLeader()) {
@@ -634,7 +641,9 @@ class RaftServerImpl implements RaftServer.Division,
               raftConf.getAllPeers(RaftPeerRole.FOLLOWER).stream(),
               raftConf.getAllPeers(RaftPeerRole.LISTENER).stream())
           .filter(peer -> !peer.getId().equals(getId()))
-          .map(commitInfoCache::get)
+          .map(peer -> commitInfoCache.get(peer.getId())
+              .map(index -> ProtoUtils.toCommitInfoProto(peer, index))
+              .orElse(null))
           .filter(Objects::nonNull)
           .forEach(infos::add);
     }
@@ -1533,8 +1542,8 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  private CommitInfoProto updateCommitInfoCache() {
-    return commitInfoCache.update(getPeer(), state.getLog().getLastCommittedIndex());
+  private long updateCommitInfoCache() {
+    return commitInfoCache.update(getId(), state.getLog().getLastCommittedIndex());
   }
 
   ExecutorService getServerExecutor() {

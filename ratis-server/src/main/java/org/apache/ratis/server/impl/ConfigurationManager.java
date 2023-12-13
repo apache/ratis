@@ -17,6 +17,9 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -31,6 +34,7 @@ import java.util.*;
  * entries.
  */
 public class ConfigurationManager {
+  private final RaftPeerId id;
   private final RaftConfigurationImpl initialConf;
   private final NavigableMap<Long, RaftConfigurationImpl> configurations = new TreeMap<>();
   /**
@@ -38,10 +42,21 @@ public class ConfigurationManager {
    * the last entry of the map. Otherwise is initialConf.
    */
   private volatile RaftConfigurationImpl currentConf;
+  /** Cache the peer corresponding to {@link #id}. */
+  private volatile RaftPeer currentPeer;
 
-  ConfigurationManager(RaftConfigurationImpl initialConf) {
+  ConfigurationManager(RaftPeerId id, RaftConfigurationImpl initialConf) {
+    this.id = id;
     this.initialConf = initialConf;
-    this.currentConf = initialConf;
+    setCurrentConf(initialConf);
+  }
+
+  private void setCurrentConf(RaftConfigurationImpl currentConf) {
+    this.currentConf = currentConf;
+    final RaftPeer peer = currentConf.getPeer(id, RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER);
+    if (peer != null) {
+      this.currentPeer = peer;
+    }
   }
 
   synchronized void addConfiguration(RaftConfiguration conf) {
@@ -57,7 +72,7 @@ public class ConfigurationManager {
   private void addRaftConfigurationImpl(long logIndex, RaftConfigurationImpl conf) {
     configurations.put(logIndex, conf);
     if (logIndex == configurations.lastEntry().getKey()) {
-      currentConf = conf;
+      setCurrentConf(conf);
     }
   }
 
@@ -65,21 +80,24 @@ public class ConfigurationManager {
     return currentConf;
   }
 
+  RaftPeer getCurrentPeer() {
+    return currentPeer;
+  }
+
   /**
    * Remove all the configurations whose log index is >= the given index.
+   *
    * @param index The given index. All the configurations whose log index is >=
    *              this value will be removed.
-   * @return The configuration with largest log index < the given index.
    */
-  synchronized RaftConfiguration removeConfigurations(long index) {
+  synchronized void removeConfigurations(long index) {
     // remove all configurations starting at the index
-    for(final Iterator<?> iter = configurations.tailMap(index).entrySet().iterator(); iter.hasNext();) {
-      iter.next();
-      iter.remove();
+    final SortedMap<Long, RaftConfigurationImpl> tail = configurations.tailMap(index);
+    if (tail.isEmpty()) {
+      return;
     }
-    currentConf = configurations.isEmpty() ? initialConf :
-        configurations.lastEntry().getValue();
-    return currentConf;
+    tail.clear();
+    setCurrentConf(configurations.isEmpty() ? initialConf : configurations.lastEntry().getValue());
   }
 
   synchronized int numOfConf() {
