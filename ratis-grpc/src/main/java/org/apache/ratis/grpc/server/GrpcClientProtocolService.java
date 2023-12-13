@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.metrics.ZeroCopyMetrics;
 import org.apache.ratis.grpc.util.RaftLogZeroCopyCleaner;
 import org.apache.ratis.grpc.util.ZeroCopyMessageMarshaller;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
@@ -146,18 +147,20 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
   private final OrderedStreamObservers orderedStreamObservers = new OrderedStreamObservers();
   private final boolean zeroCopyEnabled;
-  private ZeroCopyMessageMarshaller<RaftClientRequestProto> zeroCopyRequestMarshaller =
-      new ZeroCopyMessageMarshaller<>(RaftClientRequestProto.getDefaultInstance());
+  private ZeroCopyMessageMarshaller<RaftClientRequestProto> zeroCopyRequestMarshaller;
   private RaftLogZeroCopyCleaner zeroCopyCleaner;
 
   GrpcClientProtocolService(Supplier<RaftPeerId> idSupplier, RaftClientAsynchronousProtocol protocol,
       ExecutorService executor, boolean zeroCopyEnabled,
-      RaftLogZeroCopyCleaner raftLogZeroCopyCleaner) {
+      RaftLogZeroCopyCleaner raftLogZeroCopyCleaner,
+      ZeroCopyMetrics zeroCopyMetrics) {
     this.idSupplier = idSupplier;
     this.protocol = protocol;
     this.executor = executor;
     this.zeroCopyEnabled = zeroCopyEnabled;
     this.zeroCopyCleaner = raftLogZeroCopyCleaner;
+    this.zeroCopyRequestMarshaller = new ZeroCopyMessageMarshaller<>(RaftClientRequestProto.getDefaultInstance(),
+        (message) -> zeroCopyMetrics.onZeroCopyMessage(), (message) -> zeroCopyMetrics.onNonZeroCopyMessage());
   }
 
   RaftPeerId getId() {

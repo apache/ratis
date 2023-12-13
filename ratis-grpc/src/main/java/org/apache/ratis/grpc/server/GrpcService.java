@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.metrics.ZeroCopyMetrics;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.grpc.util.RaftLogZeroCopyCleaner;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -155,9 +156,9 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   private final GrpcClientProtocolService clientProtocolService;
 
   private final MetricServerInterceptor serverInterceptor;
-  private final boolean zeroCopyEnabled;
   private final RaftLogZeroCopyCleaner zeroCopyCleaner;
   private final RaftServer raftServer;
+  private final ZeroCopyMetrics zeroCopyMetrics;
 
   public MetricServerInterceptor getServerInterceptor() {
     return serverInterceptor;
@@ -206,11 +207,11 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         GrpcConfigKeys.Server.asyncRequestThreadPoolSize(properties),
         getId() + "-request-");
 
-    this.zeroCopyEnabled = zeroCopyEnabled;
+    this.zeroCopyMetrics = new ZeroCopyMetrics();
     this.zeroCopyCleaner = RaftLogZeroCopyCleaner.create(zeroCopyEnabled);
     this.raftServer = raftServer;
     this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor,
-        zeroCopyEnabled, zeroCopyCleaner);
+        zeroCopyEnabled, zeroCopyCleaner, zeroCopyMetrics);
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
