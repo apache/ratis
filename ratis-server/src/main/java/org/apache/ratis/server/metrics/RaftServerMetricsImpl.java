@@ -18,11 +18,11 @@
 
 package org.apache.ratis.server.metrics;
 
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.ToLongFunction;
 
 import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.Timekeeper;
@@ -30,7 +30,6 @@ import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
-import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.RaftClientRequest.Type;
 import org.apache.ratis.protocol.RaftGroupMemberId;
@@ -98,7 +97,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
 
   /** Follower Id -> heartbeat elapsed */
   private final Map<RaftPeerId, Long> followerLastHeartbeatElapsedTimeMap = new ConcurrentHashMap<>();
-  private final Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache;
+  private final ToLongFunction<RaftPeerId> commitInfoCache;
 
   /** id -> metric */
   private static final Map<RaftGroupMemberId, RaftServerMetricsImpl> METRICS = new ConcurrentHashMap<>();
@@ -111,7 +110,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   public static RaftServerMetricsImpl computeIfAbsentRaftServerMetrics(RaftGroupMemberId serverId,
-      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
+      ToLongFunction<RaftPeerId> commitInfoCache,
       Supplier<RetryCache.Statistics> retryCacheStatistics) {
     return METRICS.computeIfAbsent(serverId,
         key -> new RaftServerMetricsImpl(serverId, commitInfoCache, retryCacheStatistics));
@@ -122,7 +121,7 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   public RaftServerMetricsImpl(RaftGroupMemberId serverId,
-      Supplier<Function<RaftPeerId, CommitInfoProto>> commitInfoCache,
+      ToLongFunction<RaftPeerId> commitInfoCache,
       Supplier<RetryCache.Statistics> retryCacheStatistics) {
     super(createRegistry(serverId.toString()));
     this.commitInfoCache = commitInfoCache;
@@ -183,10 +182,8 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
    * Register a commit index tracker for the peer in cluster.
    */
   private void addPeerCommitIndexGauge(RaftPeerId peerId) {
-    getRegistry().gauge(getPeerCommitIndexGaugeKey(peerId), () -> () -> Optional.ofNullable(commitInfoCache.get())
-        .map(cache -> cache.apply(peerId))
-        .map(CommitInfoProto::getCommitIndex)
-        .orElse(0L));
+    getRegistry().gauge(getPeerCommitIndexGaugeKey(peerId),
+        () -> () -> commitInfoCache.applyAsLong(peerId));
   }
 
   @VisibleForTesting

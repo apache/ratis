@@ -275,7 +275,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
     this.raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
-        getMemberId(), () -> commitInfoCache::get, retryCache::getStatistics);
+        getMemberId(), this::getCommitIndex, retryCache::getStatistics);
 
     this.startComplete = new AtomicBoolean(false);
     this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
@@ -292,6 +292,10 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientCached(properties),
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
+  }
+
+  private long getCommitIndex(RaftPeerId id) {
+    return commitInfoCache.get(id).orElse(0L);
   }
 
   @Override
@@ -450,6 +454,12 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public RaftGroupMemberId getMemberId() {
     return getState().getMemberId();
+  }
+
+  @Override
+  public RaftPeer getPeer() {
+    return Optional.ofNullable(getState().getCurrentPeer())
+        .orElseGet(() -> getRaftServer().getPeer());
   }
 
   @Override
@@ -622,7 +632,8 @@ class RaftServerImpl implements RaftServer.Division,
   public Collection<CommitInfoProto> getCommitInfos() {
     final List<CommitInfoProto> infos = new ArrayList<>();
     // add the commit info of this server
-    infos.add(updateCommitInfoCache());
+    final long commitIndex = updateCommitInfoCache();
+    infos.add(ProtoUtils.toCommitInfoProto(getPeer(), commitIndex));
 
     // add the commit infos of other servers
     if (getInfo().isLeader()) {
@@ -633,9 +644,10 @@ class RaftServerImpl implements RaftServer.Division,
       Stream.concat(
               raftConf.getAllPeers(RaftPeerRole.FOLLOWER).stream(),
               raftConf.getAllPeers(RaftPeerRole.LISTENER).stream())
-          .map(RaftPeer::getId)
-          .filter(id -> !id.equals(getId()))
-          .map(commitInfoCache::get)
+          .filter(peer -> !peer.getId().equals(getId()))
+          .map(peer -> commitInfoCache.get(peer.getId())
+              .map(index -> ProtoUtils.toCommitInfoProto(peer, index))
+              .orElse(null))
           .filter(Objects::nonNull)
           .forEach(infos::add);
     }
@@ -1534,8 +1546,8 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  private CommitInfoProto updateCommitInfoCache() {
-    return commitInfoCache.update(getPeer(), state.getLog().getLastCommittedIndex());
+  private long updateCommitInfoCache() {
+    return commitInfoCache.update(getId(), state.getLog().getLastCommittedIndex());
   }
 
   ExecutorService getServerExecutor() {

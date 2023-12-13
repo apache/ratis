@@ -109,7 +109,7 @@ class ServerState {
     final RaftConfigurationImpl initialConf = RaftConfigurationImpl.newBuilder()
         .setConf(followerPeers, listenerPeers)
         .build();
-    configurationManager = new ConfigurationManager(initialConf);
+    configurationManager = new ConfigurationManager(id, initialConf);
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
     final String storageDirName = group.getGroupId().getUuid().toString();
@@ -194,6 +194,10 @@ class ServerState {
 
   RaftConfigurationImpl getRaftConf() {
     return configurationManager.getCurrent();
+  }
+
+  RaftPeer getCurrentPeer() {
+    return configurationManager.getCurrentPeer();
   }
 
   long getCurrentTerm() {
