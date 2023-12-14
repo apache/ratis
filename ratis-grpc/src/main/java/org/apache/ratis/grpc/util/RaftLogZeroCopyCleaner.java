@@ -98,7 +98,9 @@ public abstract class RaftLogZeroCopyCleaner {
     @Override
     public void onServerClosed(RaftGroupId groupId) {
       NavigableMap<Long, ReferenceCountedClosable> removed = groups.remove(groupId);
-      removed.values().forEach(x -> release(x));
+      if (removed != null) {
+        removed.values().forEach(x -> release(x));
+      }
     }
 
     @Override
