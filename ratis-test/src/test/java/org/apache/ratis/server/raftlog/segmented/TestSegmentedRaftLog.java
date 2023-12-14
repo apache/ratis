@@ -140,6 +140,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         .setMemberId(memberId)
         .setStorage(storage)
         .setProperties(properties)
+        .setCacheEvictConsumer((l1, l2) -> {})
         .build();
   }
 
@@ -150,6 +151,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         .setStorage(storage)
         .setSnapshotIndexSupplier(getSnapshotIndexFromStateMachine)
         .setProperties(properties)
+        .setCacheEvictConsumer((l1, l2) -> {})
         .build();
   }
 
@@ -588,6 +590,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         .setStateMachine(sm)
         .setStorage(storage)
         .setProperties(properties)
+        .setCacheEvictConsumer((l1, l2) -> {})
         .build()) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
 
@@ -658,6 +661,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         .setStateMachine(sm)
         .setStorage(storage)
         .setProperties(properties)
+        .setCacheEvictConsumer((l1, l2) -> {})
         .build()) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // SegmentedRaftLogWorker should catch TimeoutIOException

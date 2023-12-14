@@ -88,6 +88,7 @@ public class RetryCacheTestUtil {
         .setGetTransactionContext(server::getTransactionContext)
         .setSubmitUpdateCommitEvent(server::submitUpdateCommitEvent)
         .setStorage(storage)
+        .setCacheEvictConsumer((l1, l2) -> {})
         .setProperties(properties)
         .build();
   }
