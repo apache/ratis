@@ -114,7 +114,8 @@ public abstract class RaftLogZeroCopyCleaner {
       });
     }
 
-    private void runInGroupSequentially(RaftGroupId groupId, Consumer<NavigableMap<Long, ReferenceCountedClosable>> block) {
+    private void runInGroupSequentially(RaftGroupId groupId,
+        Consumer<NavigableMap<Long, ReferenceCountedClosable>> block) {
       NavigableMap<Long, ReferenceCountedClosable> group = groups.computeIfAbsent(groupId, (k) -> new TreeMap<>());
       synchronized (group) {
         block.accept(group);
@@ -151,10 +152,10 @@ public abstract class RaftLogZeroCopyCleaner {
 
   }
 
-  private static class ReferenceCountedClosable {
-    final AtomicInteger refCount;
-    final Closeable handle;
-    final int size;
+  private static final class ReferenceCountedClosable {
+    private final AtomicInteger refCount;
+    private final Closeable handle;
+    private final int size;
 
     private ReferenceCountedClosable(int refCount, Closeable handle) {
       this.refCount = new AtomicInteger(refCount);
