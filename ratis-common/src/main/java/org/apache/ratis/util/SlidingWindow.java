@@ -367,6 +367,16 @@ public interface SlidingWindow {
         // after first received, all other requests can be submitted (out-of-order)
         delayedRequests.getAllAndClear().forEach(
             seqNum -> sendMethod.accept(requests.getNonRepliedRequest(seqNum, "trySendDelayed")));
+      } else {
+        // Otherwise, submit the first only if it is a delayed request
+        final Iterator<REQUEST> i = requests.iterator();
+        if (i.hasNext()) {
+          final REQUEST r = i.next();
+          final Long delayed = delayedRequests.remove(r.getSeqNum());
+          if (delayed != null) {
+            sendOrDelayRequest(r, sendMethod);
+          }
+        }
       }
     }
 
