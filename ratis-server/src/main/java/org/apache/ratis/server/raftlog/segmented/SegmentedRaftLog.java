@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
@@ -211,7 +212,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     this.storage = b.storage;
     this.stateMachine = b.stateMachine;
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(b.properties).getSize();
-    this.cache = new SegmentedRaftLogCache(b.memberId, storage, b.properties, getRaftLogMetrics());
+    this.cache = new SegmentedRaftLogCache(b.memberId, storage, b.properties, getRaftLogMetrics(), b.cacheEvictConsumer);
     this.cacheEviction = new AwaitToRun(b.memberId + "-cacheEviction", this::checkAndEvictCache).start();
     this.fileLogWorker = new SegmentedRaftLogWorker(b.memberId, stateMachine,
         b.submitUpdateCommitEvent, b.server, storage, b.properties, getRaftLogMetrics());
@@ -554,6 +555,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     private RaftStorage storage;
     private LongSupplier snapshotIndexSupplier = () -> RaftLog.INVALID_LOG_INDEX;
     private RaftProperties properties;
+    private BiConsumer<Long, Long> cacheEvictConsumer;
 
     private Builder() {}
 
@@ -601,6 +603,12 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
     public Builder setProperties(RaftProperties properties) {
       this.properties = properties;
+      return this;
+    }
+
+    public Builder setCacheEvictConsumer(
+        BiConsumer<Long, Long> cacheEvictConsumer) {
+      this.cacheEvictConsumer = cacheEvictConsumer;
       return this;
     }
 

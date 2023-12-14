@@ -58,7 +58,7 @@ public class TestCacheEviction extends BaseTest {
     Assert.assertEquals(numSegments, cached.length);
     final LogSegmentList segments = new LogSegmentList(JavaUtils.getClassSimpleName(TestCacheEviction.class));
     for (int i = 0; i < numSegments; i++) {
-      LogSegment s = LogSegment.newCloseSegment(null, start, start + size - 1, MAX_OP_SIZE, null);
+      LogSegment s = LogSegment.newCloseSegment(null, start, start + size - 1, MAX_OP_SIZE, null, (l1, l2) -> {});
       if (cached[i]) {
         s = Mockito.spy(s);
         Mockito.when(s.hasCache()).thenReturn(true);

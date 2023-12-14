@@ -343,18 +343,13 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   }
 
   @Override
-  public void notifyIndexApplied(RaftGroupId groupId, long appliedIndex) {
-    try {
-      zeroCopyCleaner.onIndexChanged(groupId, appliedIndex, raftServer.getDivision(groupId).getInfo()
-          .getFollowerNextIndices());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  public void notifyCacheEvict(RaftGroupId groupId, long start, long end) {
+    zeroCopyCleaner.release(groupId, start, end);
   }
 
   @Override
   public void notifyServerClosed(RaftGroupId groupId) {
-    zeroCopyCleaner.onServerClosed(groupId);
+    zeroCopyCleaner.releaseAll(groupId);
   }
 
   @Override

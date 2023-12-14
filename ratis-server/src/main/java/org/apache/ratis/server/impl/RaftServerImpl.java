@@ -265,7 +265,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     this.proxy = proxy;
 
-    this.state = new ServerState(id, group, stateMachine, this, option, properties, this::onIndexApplied);
+    this.state = new ServerState(id, group, stateMachine, this, option, properties, this::onCacheEvict);
     this.retryCache = new RetryCacheImpl(properties);
     this.dataStreamMap = new DataStreamMapImpl(id);
     this.readOption = RaftServerConfigKeys.Read.option(properties);
@@ -1875,8 +1875,8 @@ class RaftServerImpl implements RaftServer.Division,
     return null;
   }
 
-  private void onIndexApplied(long index) {
-    getServerRpc().notifyIndexApplied(getMemberId().getGroupId(), index);
+  private void onCacheEvict(long start, long end) {
+    getServerRpc().notifyCacheEvict(getMemberId().getGroupId(), start, end);
   }
 
   /**

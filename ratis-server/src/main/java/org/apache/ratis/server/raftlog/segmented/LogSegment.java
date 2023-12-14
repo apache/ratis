@@ -45,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 
@@ -104,22 +105,23 @@ public final class LogSegment implements Comparable<Long> {
   }
 
   static LogSegment newOpenSegment(RaftStorage storage, long start, SizeInBytes maxOpSize,
-      SegmentedRaftLogMetrics raftLogMetrics) {
+      SegmentedRaftLogMetrics raftLogMetrics, BiConsumer<Long, Long> cacheEvictConsumer) {
     Preconditions.assertTrue(start >= 0);
-    return new LogSegment(storage, true, start, start - 1, maxOpSize, raftLogMetrics);
+    return new LogSegment(storage, true, start, start - 1, maxOpSize, raftLogMetrics, cacheEvictConsumer);
   }
 
   @VisibleForTesting
   static LogSegment newCloseSegment(RaftStorage storage,
-      long start, long end, SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics) {
+      long start, long end, SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics,
+      BiConsumer<Long, Long> cacheEvictConsumer) {
     Preconditions.assertTrue(start >= 0 && end >= start);
-    return new LogSegment(storage, false, start, end, maxOpSize, raftLogMetrics);
+    return new LogSegment(storage, false, start, end, maxOpSize, raftLogMetrics, cacheEvictConsumer);
   }
 
   static LogSegment newLogSegment(RaftStorage storage, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
-      SegmentedRaftLogMetrics metrics) {
-    return startEnd.isOpen()? newOpenSegment(storage, startEnd.getStartIndex(), maxOpSize, metrics)
-        : newCloseSegment(storage, startEnd.getStartIndex(), startEnd.getEndIndex(), maxOpSize, metrics);
+      SegmentedRaftLogMetrics metrics, BiConsumer<Long, Long> cacheEvictConsumer) {
+    return startEnd.isOpen()? newOpenSegment(storage, startEnd.getStartIndex(), maxOpSize, metrics, cacheEvictConsumer)
+        : newCloseSegment(storage, startEnd.getStartIndex(), startEnd.getEndIndex(), maxOpSize, metrics, cacheEvictConsumer);
   }
 
   public static int readSegmentFile(File file, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
@@ -156,9 +158,10 @@ public final class LogSegment implements Comparable<Long> {
   }
 
   static LogSegment loadSegment(RaftStorage storage, File file, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
-      boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer, SegmentedRaftLogMetrics raftLogMetrics)
+      boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer, SegmentedRaftLogMetrics raftLogMetrics,
+      BiConsumer<Long, Long> cacheEvictConsumer)
       throws IOException {
-    final LogSegment segment = newLogSegment(storage, startEnd, maxOpSize, raftLogMetrics);
+    final LogSegment segment = newLogSegment(storage, startEnd, maxOpSize, raftLogMetrics, cacheEvictConsumer);
     final CorruptionPolicy corruptionPolicy = CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
     final boolean isOpen = startEnd.isOpen();
     final int entryCount = readSegmentFile(file, startEnd, maxOpSize, corruptionPolicy, raftLogMetrics, entry -> {
@@ -271,15 +274,17 @@ public final class LogSegment implements Comparable<Long> {
    * the entryCache caches the content of log entries.
    */
   private final Map<TermIndex, LogEntryProto> entryCache = new ConcurrentHashMap<>();
+  private final BiConsumer<Long, Long> cacheEvictConsumer;
 
   private LogSegment(RaftStorage storage, boolean isOpen, long start, long end, SizeInBytes maxOpSize,
-      SegmentedRaftLogMetrics raftLogMetrics) {
+      SegmentedRaftLogMetrics raftLogMetrics, BiConsumer<Long, Long> cacheEvictConsumer) {
     this.storage = storage;
     this.isOpen = isOpen;
     this.startIndex = start;
     this.endIndex = end;
     this.maxOpSize = maxOpSize;
     this.cacheLoader = new LogEntryLoader(raftLogMetrics);
+    this.cacheEvictConsumer = cacheEvictConsumer;
   }
 
   long getStartIndex() {
@@ -416,6 +421,7 @@ public final class LogSegment implements Comparable<Long> {
   }
 
   void evictCache() {
+    cacheEvictConsumer.accept(startIndex, endIndex);
     entryCache.clear();
     totalCacheSize.set(0);
   }
@@ -433,6 +439,7 @@ public final class LogSegment implements Comparable<Long> {
   void removeEntryCache(TermIndex key, Op op) {
     LogEntryProto value = entryCache.remove(key);
     if (value != null) {
+      cacheEvictConsumer.accept(value.getIndex(), value.getIndex());
       totalCacheSize.getAndAdd(-getEntrySize(value, op));
     }
   }

@@ -48,6 +48,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
@@ -97,7 +98,7 @@ class ServerState {
   private final AtomicReference<TermIndex> latestInstalledSnapshot = new AtomicReference<>();
 
   ServerState(RaftPeerId id, RaftGroup group, StateMachine stateMachine, RaftServerImpl server,
-      RaftStorage.StartupOption option, RaftProperties prop, Consumer<Long> indexAppliedConsumer) {
+      RaftStorage.StartupOption option, RaftProperties prop, BiConsumer<Long, Long> cacheEvictConsumer) {
     this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId());
     this.server = server;
     Collection<RaftPeer> followerPeers = group.getPeers().stream()
@@ -127,13 +128,11 @@ class ServerState {
         .map(SnapshotInfo::getIndex)
         .filter(i -> i >= 0)
         .orElse(RaftLog.INVALID_LOG_INDEX);
-    this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
+    this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop, cacheEvictConsumer));
     this.readRequests = new ReadRequests(prop, stateMachine);
-    Consumer<Long> combinedIndexAppliedConsumer =
-        this.readRequests.getAppliedIndexConsumer().andThen(indexAppliedConsumer);
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
         stateMachine, server, this, getLog().getSnapshotIndex(), prop,
-        combinedIndexAppliedConsumer));
+        this.readRequests.getAppliedIndexConsumer()));
   }
 
   void initialize(StateMachine stateMachine) throws IOException {
@@ -163,10 +162,11 @@ class ServerState {
     stateMachineUpdater.get().start();
   }
 
-  private RaftLog initRaftLog(LongSupplier getSnapshotIndexFromStateMachine, RaftProperties prop) {
+  private RaftLog initRaftLog(LongSupplier getSnapshotIndexFromStateMachine, RaftProperties prop,
+      BiConsumer<Long, Long> cacheEvictConsumer) {
     try {
       return initRaftLog(getMemberId(), server, getStorage(), this::setRaftConf,
-          getSnapshotIndexFromStateMachine, prop);
+          getSnapshotIndexFromStateMachine, prop, cacheEvictConsumer);
     } catch (IOException e) {
       throw new IllegalStateException(getMemberId() + ": Failed to initRaftLog.", e);
     }
@@ -174,7 +174,7 @@ class ServerState {
 
   private static RaftLog initRaftLog(RaftGroupMemberId memberId, RaftServerImpl server, RaftStorage storage,
       Consumer<LogEntryProto> logConsumer, LongSupplier getSnapshotIndexFromStateMachine,
-      RaftProperties prop) throws IOException {
+      RaftProperties prop, BiConsumer<Long, Long> cacheEvictConsumer) throws IOException {
     final RaftLog log;
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
       log = new MemoryRaftLog(memberId, getSnapshotIndexFromStateMachine, prop);
@@ -185,8 +185,10 @@ class ServerState {
           .setNotifyTruncatedLogEntry(server::notifyTruncatedLogEntry)
           .setGetTransactionContext(server::getTransactionContext)
           .setSubmitUpdateCommitEvent(server::submitUpdateCommitEvent)
+          .setCacheEvictConsumer(cacheEvictConsumer)
           .setStorage(storage)
           .setSnapshotIndexSupplier(getSnapshotIndexFromStateMachine)
+
           .setProperties(prop)
           .build();
     }

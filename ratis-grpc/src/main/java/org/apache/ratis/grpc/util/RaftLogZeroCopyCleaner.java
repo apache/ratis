@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -39,12 +38,12 @@ import java.util.function.Consumer;
 /**
  * When using {@link ZeroCopyMessageMarshaller} in services that receive Raft logs, e.g. GrpcClientProtocolService
  * or GrpcServerProtocolService, the original message buffers can't be released immediately after onNext() because
- * the protobuf log messages is kept in Ratis log cache (or StateMachine cache) waiting for being applied to state
- * machine or replicated to followers.
+ * the protobuf log messages is kept in RaftLogCache waiting to be applied to state machine or replicated
+ * to followers.
  *
  * <p>
  * This component manages the buffers to close, sorts them by the associating log index and release them safely by
- * observing events like index applied.
+ * observing cache evict event.
  *
  * @see {@link org.apache.ratis.grpc.server.GrpcClientProtocolService}
  * @see {@link org.apache.ratis.grpc.server.GrpcServerProtocolService}
@@ -53,8 +52,8 @@ public abstract class RaftLogZeroCopyCleaner {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLogZeroCopyCleaner.class);
 
   public abstract void watch(RaftClientReply clientReply, Closeable handle);
-  public abstract void onIndexChanged(RaftGroupId groupId, long appliedIndex, long[] followerIndices);
-  public abstract void onServerClosed(RaftGroupId groupId);
+  public abstract void release(RaftGroupId groupId, long startIndex, long endIndex);
+  public abstract void releaseAll(RaftGroupId groupId);
 
   public static RaftLogZeroCopyCleaner create(boolean zeroCopyEnabled) {
     return zeroCopyEnabled ? new RaftLogZeroCopyCleanerImpl() : new NoopRaftLogZeroCopyCleaner();
@@ -66,11 +65,11 @@ public abstract class RaftLogZeroCopyCleaner {
 
   private static class NoopRaftLogZeroCopyCleaner extends RaftLogZeroCopyCleaner {
     @Override
-    public void onIndexChanged(RaftGroupId groupId, long appliedIndex, long[] followerIndices) {
+    public void release(RaftGroupId groupId, long startIndex, long endIndex) {
     }
 
     @Override
-    public void onServerClosed(RaftGroupId groupId) {
+    public void releaseAll(RaftGroupId groupId) {
     }
 
     @Override
@@ -85,21 +84,31 @@ public abstract class RaftLogZeroCopyCleaner {
     }
 
     @Override
-    public void onIndexChanged(RaftGroupId groupId, long appliedIndex, long[] followerNextIndices) {
-      if (followerNextIndices != null) {
-        long minFollowerNextIndex = Arrays.stream(followerNextIndices).min().orElse(Long.MAX_VALUE);
-        long minIndex = Math.min(appliedIndex, minFollowerNextIndex - 1);
-        release(groupId, 0, minIndex);
-      } else {
-        release(groupId, 0, appliedIndex);
+    public void release(RaftGroupId groupId, long startIndex, long endIndex) {
+      if (startIndex > endIndex) {
+        return ;
       }
+
+      runInGroupSequentially(groupId, group -> {
+        NavigableMap<Long, ReferenceCountedClosable> range = group.subMap(startIndex, true, endIndex, true);
+        List<Long> removedIndices = new LinkedList<>();
+        for (Map.Entry<Long, ReferenceCountedClosable> entry : range.entrySet()) {
+          Long idx = entry.getKey();
+          ReferenceCountedClosable closable = entry.getValue();
+          release(closable);
+          removedIndices.add(idx);
+        }
+        removedIndices.forEach(group::remove);
+        LOG.debug("{} - Released {}->{}, {} entries hit", groupId, startIndex, endIndex, removedIndices.size());
+      });
     }
 
     @Override
-    public void onServerClosed(RaftGroupId groupId) {
+    public void releaseAll(RaftGroupId groupId) {
       NavigableMap<Long, ReferenceCountedClosable> removed = groups.remove(groupId);
       if (removed != null) {
         removed.values().forEach(x -> release(x));
+        LOG.debug("{} - Released all, {} entries hit", groupId, removed.size());
       }
     }
 
@@ -122,25 +131,6 @@ public abstract class RaftLogZeroCopyCleaner {
       synchronized (group) {
         block.accept(group);
       }
-    }
-
-    private void release(RaftGroupId groupId, long startIndex, long endIndex) {
-      if (startIndex > endIndex) {
-        return ;
-      }
-
-      runInGroupSequentially(groupId, group -> {
-        NavigableMap<Long, ReferenceCountedClosable> range = group.subMap(startIndex, true, endIndex, true);
-        List<Long> removedIndices = new LinkedList<>();
-        for (Map.Entry<Long, ReferenceCountedClosable> entry : range.entrySet()) {
-          Long idx = entry.getKey();
-          ReferenceCountedClosable closable = entry.getValue();
-          release(closable);
-          removedIndices.add(idx);
-        }
-        removedIndices.forEach(group::remove);
-        LOG.debug("{} - Released {}->{}, {} entries hit", groupId, startIndex, endIndex, removedIndices.size());
-      });
     }
 
     private static void release(ReferenceCountedClosable closable) {

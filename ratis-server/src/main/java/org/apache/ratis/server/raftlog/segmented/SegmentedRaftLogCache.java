@@ -40,6 +40,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -402,13 +403,15 @@ public class SegmentedRaftLogCache {
   private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
   private final long maxSegmentCacheSize;
+  private final BiConsumer<Long, Long> cacheEvictConsumer;
 
   SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties,
-      SegmentedRaftLogMetrics raftLogMetrics) {
+      SegmentedRaftLogMetrics raftLogMetrics, BiConsumer<Long, Long> cacheEvictConsumer) {
     this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
     this.raftLogMetrics = raftLogMetrics;
+    this.cacheEvictConsumer = cacheEvictConsumer;
     this.raftLogMetrics.addClosedSegmentsNum(this::getCachedSegmentNum);
     this.raftLogMetrics.addClosedSegmentsSizeInBytes(this::getClosedSegmentsSizeInBytes);
     this.raftLogMetrics.addOpenSegmentSizeInBytes(this::getOpenSegmentSizeInBytes);
@@ -424,7 +427,7 @@ public class SegmentedRaftLogCache {
   void loadSegment(LogSegmentPath pi, boolean keepEntryInCache,
       Consumer<LogEntryProto> logConsumer) throws IOException {
     final LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(), pi.getStartEnd(),
-        maxOpSize, keepEntryInCache, logConsumer, raftLogMetrics);
+        maxOpSize, keepEntryInCache, logConsumer, raftLogMetrics, cacheEvictConsumer);
     if (logSegment != null) {
       addSegment(logSegment);
     }
@@ -484,7 +487,7 @@ public class SegmentedRaftLogCache {
   }
 
   void addOpenSegment(long startIndex) {
-    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex, maxOpSize, raftLogMetrics));
+    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex, maxOpSize, raftLogMetrics, cacheEvictConsumer));
   }
 
   private void setOpenSegment(LogSegment openSegment) {

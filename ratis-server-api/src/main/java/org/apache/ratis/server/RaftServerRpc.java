@@ -56,7 +56,7 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, RaftPeer
   default void notifyNotLeader(RaftGroupId groupId) {
   }
 
-  default void notifyIndexApplied(RaftGroupId groupId, long appliedIndex) {
+  default void notifyCacheEvict(RaftGroupId groupId, long start, long end) {
   }
 
   default void notifyServerClosed(RaftGroupId groupId) {

@@ -51,7 +51,7 @@ public class TestSegmentedRaftLogCache {
   public void setup() {
     raftLogMetrics = new SegmentedRaftLogMetrics(RaftServerTestUtil.TEST_MEMBER_ID);
     ratisMetricRegistry = (RatisMetricRegistryImpl) raftLogMetrics.getRegistry();
-    cache = new SegmentedRaftLogCache(null, null, prop, raftLogMetrics);
+    cache = new SegmentedRaftLogCache(null, null, prop, raftLogMetrics, (l1, l2) -> {});
   }
 
   @After
@@ -60,7 +60,7 @@ public class TestSegmentedRaftLogCache {
   }
 
   private LogSegment prepareLogSegment(long start, long end, boolean isOpen) {
-    LogSegment s = LogSegment.newOpenSegment(null, start, MAX_OP_SIZE, null);
+    LogSegment s = LogSegment.newOpenSegment(null, start, MAX_OP_SIZE, null, (l1, l2) -> {});
     for (long i = start; i <= end; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
