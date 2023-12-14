@@ -250,25 +250,25 @@ public abstract class MiniRaftCluster implements Closeable {
   public static RaftGroup initRaftGroup(Collection<String> ids, Collection<String> listenerIds) {
     Iterator<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(4 * (ids.size() + listenerIds.size())).iterator();
     Stream<RaftPeer> peer = ids.stream()
-            .map(RaftPeerId::valueOf)
-            .map(id -> RaftPeer.newBuilder().setId(id)
-                .setAddress(addresses.next())
-                .setAdminAddress(addresses.next())
-                .setClientAddress(addresses.next())
-                .setDataStreamAddress(addresses.next())
-                .build());
+        .map(id -> RaftPeer.newBuilder().setId(id))
+        .map(p -> assignAddresses(p, addresses))
+        .map(RaftPeer.Builder::build);
     Stream<RaftPeer> listener = listenerIds.stream()
-            .map(RaftPeerId::valueOf)
-            .map(id -> RaftPeer.newBuilder().setId(id)
-                .setAddress(addresses.next())
-                .setAdminAddress(addresses.next())
-                .setClientAddress(addresses.next())
-                .setDataStreamAddress(addresses.next())
-                .setStartupRole(RaftProtos.RaftPeerRole.LISTENER)
-                .build());
+        .map(id -> RaftPeer.newBuilder().setId(id))
+        .map(p -> assignAddresses(p, addresses))
+        .map(p -> p.setStartupRole(RaftProtos.RaftPeerRole.LISTENER))
+        .map(RaftPeer.Builder::build);
     final RaftPeer[] peers = Stream.concat(peer, listener).toArray(RaftPeer[]::new);
 
     return RaftGroup.valueOf(RaftGroupId.randomId(), peers);
+  }
+
+  private static RaftPeer.Builder assignAddresses(RaftPeer.Builder builder, Iterator<InetSocketAddress> addresses) {
+    return builder
+        .setAddress(addresses.next())
+        .setAdminAddress(addresses.next())
+        .setClientAddress(addresses.next())
+        .setDataStreamAddress(addresses.next());
   }
 
   private final Supplier<File> rootTestDir = JavaUtils.memoize(
@@ -468,10 +468,13 @@ public abstract class MiniRaftCluster implements Closeable {
     if (emptyPeer) {
       raftGroup = RaftGroup.valueOf(group.getGroupId(), Collections.emptyList());
     } else {
+      Iterator<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(4 * ids.length).iterator();
       final Collection<RaftPeer> newPeers = StreamSupport.stream(peerIds.spliterator(), false)
           .map(id -> RaftPeer.newBuilder().setId(id)
-              .setStartupRole(startRole)
-              .build()).collect(Collectors.toSet());
+              .setStartupRole(startRole))
+          .map(p -> assignAddresses(p, addresses))
+          .map(RaftPeer.Builder::build)
+          .collect(Collectors.toSet());
       newPeers.addAll(group.getPeers());
       raftGroup = RaftGroup.valueOf(group.getGroupId(), newPeers);
     }
