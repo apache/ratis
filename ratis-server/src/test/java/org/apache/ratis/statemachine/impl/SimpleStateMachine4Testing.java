@@ -202,10 +202,11 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     // Application should not cache the original log entry to use infinitely,
     // because with zero copy, the buffer that backs the protobuf entry might be gone.
     // Here, we keep a copied version for testing purpose.
-    final LogEntryProto previous = indexMap.put(entry.getIndex(), copy(entry));
+    LogEntryProto copied = copy(entry);
+    final LogEntryProto previous = indexMap.put(entry.getIndex(), copied);
     Preconditions.assertNull(previous, "previous");
     final String s = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
-    dataMap.put(s, entry);
+    dataMap.put(s, copied);
     LOG.info("{}: put {}, {} -> {}", getId(), entry.getIndex(),
         s.length() <= 10? s: s.substring(0, 10) + "...",
         LogProtoUtils.toLogEntryString(entry));
