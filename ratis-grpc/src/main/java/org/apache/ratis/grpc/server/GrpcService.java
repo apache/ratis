@@ -157,7 +157,6 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   private final MetricServerInterceptor serverInterceptor;
   private final RaftLogZeroCopyCleaner zeroCopyCleaner;
-  private final RaftServer raftServer;
   private final ZeroCopyMetrics zeroCopyMetrics;
 
   public MetricServerInterceptor getServerInterceptor() {
@@ -209,7 +208,6 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     this.zeroCopyMetrics = new ZeroCopyMetrics();
     this.zeroCopyCleaner = RaftLogZeroCopyCleaner.create(zeroCopyEnabled);
-    this.raftServer = raftServer;
     this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor,
         zeroCopyEnabled, zeroCopyCleaner, zeroCopyMetrics);
 

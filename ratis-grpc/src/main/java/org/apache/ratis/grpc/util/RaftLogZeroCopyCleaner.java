@@ -155,7 +155,7 @@ public abstract class RaftLogZeroCopyCleaner {
       this.size = estimateSize(handle);
     }
 
-    private int estimateSize(Closeable handle) {
+    private static int estimateSize(Closeable handle) {
       if (handle instanceof KnownLength) {
         try {
           return ((KnownLength) handle).available();

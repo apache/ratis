@@ -158,6 +158,7 @@ public final class LogSegment implements Comparable<Long> {
     return count;
   }
 
+  @SuppressWarnings("checkstyle:ParameterNumber")
   static LogSegment loadSegment(RaftStorage storage, File file, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
       boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer, SegmentedRaftLogMetrics raftLogMetrics,
       BiConsumer<Long, Long> cacheEvictConsumer)
