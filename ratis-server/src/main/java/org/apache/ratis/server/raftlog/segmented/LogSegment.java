@@ -121,7 +121,8 @@ public final class LogSegment implements Comparable<Long> {
   static LogSegment newLogSegment(RaftStorage storage, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
       SegmentedRaftLogMetrics metrics, BiConsumer<Long, Long> cacheEvictConsumer) {
     return startEnd.isOpen()? newOpenSegment(storage, startEnd.getStartIndex(), maxOpSize, metrics, cacheEvictConsumer)
-        : newCloseSegment(storage, startEnd.getStartIndex(), startEnd.getEndIndex(), maxOpSize, metrics, cacheEvictConsumer);
+        : newCloseSegment(storage, startEnd.getStartIndex(), startEnd.getEndIndex(), maxOpSize, metrics,
+        cacheEvictConsumer);
   }
 
   public static int readSegmentFile(File file, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,

@@ -24,6 +24,9 @@ import org.junit.runners.Parameterized;
 import java.util.Arrays;
 import java.util.Collection;
 
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
+
 @RunWith(Parameterized.class)
 public class TestGroupInfoWithGrpc
     extends GroupInfoBaseTest<MiniRaftClusterWithGrpc>
@@ -34,6 +37,6 @@ public class TestGroupInfoWithGrpc
 
   @Parameterized.Parameters
   public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+    return Arrays.asList((new Boolean[][] {{FALSE}, {TRUE}}));
   }
 }
