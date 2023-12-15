@@ -280,14 +280,14 @@ public interface GrpcConfigKeys {
       setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useSeparate);
     }
 
-    String ZERO_COPY_ENABLED = PREFIX + ".zerocopy.enabled";
+    String ZERO_COPY_ENABLED_KEY = PREFIX + ".zerocopy.enabled";
     boolean ZERO_COPY_ENABLED_DEFAULT = false;
     static boolean zeroCopyEnabled(RaftProperties properties) {
-      return getBoolean(properties::getBoolean, ZERO_COPY_ENABLED,
+      return getBoolean(properties::getBoolean, ZERO_COPY_ENABLED_KEY,
           ZERO_COPY_ENABLED_DEFAULT, getDefaultLog());
     }
-    static  void setZeroCopyEnabled(RaftProperties properties, boolean enabled) {
-      setBoolean(properties::setBoolean, ZERO_COPY_ENABLED, enabled);
+    static void setZeroCopyEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, ZERO_COPY_ENABLED_KEY, enabled);
     }
   }
 
