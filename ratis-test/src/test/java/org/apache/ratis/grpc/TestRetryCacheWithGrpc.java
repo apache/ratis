@@ -34,7 +34,9 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.event.Level;
@@ -45,6 +47,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class TestRetryCacheWithGrpc
     extends RetryCacheTests<MiniRaftClusterWithGrpc>
@@ -80,12 +84,18 @@ public class TestRetryCacheWithGrpc
       return new SimpleMessage("m" + count.incrementAndGet());
     }
 
-    void assertRetryCacheEntry(RaftClient client, long callId, boolean exist) {
-      final RetryCache.Entry e = RetryCacheTestUtil.get(leader, client.getId(), callId);
-      if (exist) {
-        Assert.assertNotNull(e);
+    void assertRetryCacheEntry(RaftClient client, long callId, boolean exist) throws InterruptedException {
+      assertRetryCacheEntry(client, callId, exist, false);
+    }
+
+    void assertRetryCacheEntry(RaftClient client, long callId, boolean exist, boolean eventually) throws InterruptedException {
+      Supplier<RetryCache.Entry> lookup = () -> RetryCacheTestUtil.get(leader, client.getId(), callId);
+      Consumer<RetryCache.Entry> assertion = exist ? Assert::assertNotNull : Assert::assertNull;
+      if (eventually) {
+        JavaUtils.attempt(() -> assertion.accept(lookup.get()), 100, TimeDuration.ONE_MILLISECOND,
+            "retry cache entry", null);
       } else {
-        Assert.assertNull(e);
+        assertion.accept(lookup.get());
       }
     }
 
@@ -129,7 +139,7 @@ public class TestRetryCacheWithGrpc
           asyncCalls.add(sendAsync(client));
         }
         // async call will invalidate blocking calls even if applyTransaction is blocked.
-        assertRetryCacheEntry(client, lastBlockingCallId, false);
+        assertRetryCacheEntry(client, lastBlockingCallId, false, true);
 
         ONE_SECOND.sleep();
         // No calls can be completed.
