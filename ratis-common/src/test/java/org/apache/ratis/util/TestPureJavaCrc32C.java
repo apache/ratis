@@ -18,8 +18,8 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.BaseTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
@@ -52,7 +52,7 @@ public class TestPureJavaCrc32C extends BaseTest {
       buffer.position(off).limit(off + len);
       bufferCrc.update(buffer);
 
-      Assert.assertEquals(arrayCrc.getValue(), bufferCrc.getValue());
+      Assertions.assertEquals(arrayCrc.getValue(), bufferCrc.getValue());
       off += len;
     }
   }
