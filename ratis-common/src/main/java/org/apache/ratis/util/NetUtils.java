@@ -129,7 +129,6 @@ public interface NetUtils {
   final class PortAllocator {
 
     public static final String HOSTNAME = "localhost";
-    public static final String HOST_ADDRESS = "127.0.0.1";
     public static final int MIN_PORT = 15000;
     public static final int MAX_PORT = 32000;
     public static final AtomicInteger NEXT_PORT = new AtomicInteger(MIN_PORT);
@@ -148,7 +147,7 @@ public interface NetUtils {
     }
 
     public static String localhostWithFreePort() {
-      return HOST_ADDRESS + ":" + getFreePort();
+      return HOSTNAME + ":" + getFreePort();
     }
   }
 
