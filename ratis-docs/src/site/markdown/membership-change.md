@@ -33,72 +33,99 @@ old and new configurations.
 For example, when changing from a cluster of 3 servers to a different cluster of 9 servers, 
 agreement requires both 2 of the 3 servers in the old configuration 
 and 5 of the 9 servers in the new configuration.
-Be carefully to keep both separate majorities online! 
+Be careful to keep both separate majorities online! 
 
 ## Adding a new server
 
-To add a new node (e.g., N3) to an existing group (e.g., N0, N1, N2), follow these steps:
+To add a new node (e.g., `N3`) to an existing group (e.g., `N0`, `N1`, `N2`), follow these steps:
 
-1. Start the new peer N3 with **EMPTY** group. 
+1. Start the new peer `N3` with **EMPTY** group. 
 
 ```java
-this.serverN3 = RaftServer.newBuilder()
-    .setGroup(RaftGroup.emptygroup())
-    .setProperties(properties)
-    .setServerId(N3)
-    .setStateMachine(userStateMachine)
-    .build();
-this.serverN3.start()
+        RaftServer N3 = RaftServer.newBuilder()
+            .setGroup(RaftGroup.emptygroup())
+            .setProperties(properties)
+            .setServerId(n3id)
+            .setStateMachine(userStateMachine)
+            .build();
+        N3.start()
 ```
 
-2. Issue a `setConfiguration` request to any member of the existing group. 
-This command waits for the new peer to catch up before returning.
+2. Invoke a `setConfiguration` method in the [AdminApi](
+../../../../ratis-client/src/main/java/org/apache/ratis/client/api/AdminApi.java#L44) 
+with the new group as the parameter.
+It will wait for the new peer to catch up before returning the reply.
 ```java
-RaftClientReply reply = client.admin()
-    .setConfiguration(List.of(N0, N1, N2, N3))
-```
+      reply = client.admin().setConfiguration(List.of(N0, N1, N2, N3))
+``` 
 
-
-> Avoid starting N3 with the group (N0, N1, N2, N3) as it may lead to shutdown scenarios, 
-> particularly if N3 initiates a leader election before being recognized by original peers.
+&#x26a0;&#xfe0f; Note
+> Avoid starting `N3` with the group (`N0`, `N1`, `N2`, `N3`) as it may lead to shutdown scenarios, 
+> particularly if `N3` initiates a leader election before being recognized by original peers.
 
 
 ## Removing an existing peer
-To remove an existing node (e.g., N3) from a group (e.g., N0, N1, N2, N3), follow these steps:
+To remove an existing node (e.g., `N3`) from a group (e.g., `N0`, `N1`, `N2`, `N3`), follow these steps:
 
-1. Issue a `setConfiguration` request to the existing group to inform about the configuration change.
+1. Issue a `setConfiguration` request to inform about the configuration change.
 ```java
-RaftClientReply reply = client.admin()
-    .setConfiguration(List.of(N0, N1, N2))
+      reply = client.admin().setConfiguration(List.of(N0, N1, N2))
 ```
 
-2. After successful completion of Step 1, stop N3 and clean up its data.
-```java
-serverN3.stop()
-// delete the data in serverN3
-```
+2. Check if `reply.isSuccess()`
+
+Note that `N3` will automatically shut down. 
+The data in `N3` can be safely deleted.
 
 ## Arbitrary configuration change
 
 To perform multiple member changes at one time, 
 like replacing two old nodes with new ones in a five-node cluster (changing from
-(N0, N1, N2, N3, N4) to (N0, N1, N2, N5, N6)), follow this steps:
-1. Start new peers with **EMPTY** group configuration.
-2. Issue a setConfiguration request to the original group tp inform the change
-3. Close the removed peers and clean up the data.
+an existing group {`N0`, `N1`, `N2`, `N3`, `N4`} to a new group {`N0`, `N1`, `N2`, `N5`, `N6`}),
+follow these steps:
+1. Start new peers with an **EMPTY** group.
+2. Issue a `setConfiguration(List.of(N0, N1, N2, N5, N6))` request to the original group.
 
+The removed peers `N3` and `N4` will automatically shut down.
 
-For full code examples, you can refer to [examples/membership/sever](
-https://github.com/apache/ratis/blob/53831534c69309688ce379006363e645bf42b654/ratis-examples/src/main/java/org/apache/ratis/examples/membership/server/RaftCluster.java#L68)
+For full code examples, see [examples/membership/server](
+../../../../ratis-examples/src/main/java/org/apache/ratis/examples/membership/server/RaftCluster.java#L68).
 
+## `ADD` Mode and `COMPARE_AND_SET` Mode
 
-## ADD Mode and COMPARE_AND_SET Mode
+There are different `setConfiguration` modes:`SET` (default), `ADD` and `COMPARE_AND_SET`.
 
-* Default `setConfiguration` mode is `SET`, the leader will consider the given peers in request
-to be the new members of the group
-* When `ADD` mode is used in `setConfiguration` request, the leader will only add the new peers
-in request to the existing group and will not remove any existing members.
-* When `COMPARE_AND_SET` mode is used in `setConfiguration` request, 
-the leader will first compare between the current configuration and the provided configuration in request,
-and it will only accept the new configuration 
-if the current configuration equals to the provided configuration in request.
+* `SET`:
+The leader will consider the given peers in request to be the new group.
+* `ADD`:
+The leader will only add the new peers in request to the existing group
+and will not remove any existing peers.
+* `COMPARE_AND_SET`:
+The leader will first compare between the current configuration and the provided configuration in request,
+and it will accept the new configuration
+only if the current configuration equals to the provided configuration in request.
+
+For the `ADD` mode and the `COMPARE_AND_SET` mode,
+build a `SetConfigurationRequest.Arguments` object and then pass it to
+[setConfiguration(SetConfigurationRequest.Arguments)](
+../../../../ratis-client/src/main/java/org/apache/ratis/client/api/AdminApi.java#L35).
+
+## Majority-add
+**Majority-add** is defined as below:
+- Adding a majority of members in a single `setConfiguration` request.  In other words,
+adding `n` members to a group of `m` members in a `setConfiguration` request, where `n >= m`.
+  
+Note that, when a `setConfiguration` request removes and adds members at the same time,
+the majority is counted after the removal.
+For examples, `setConfiguration` to a 3-member group by adding 2 new members is NOT a majority-add.
+However, `setConfiguration` to a 3-member group by removing 2 of members and adding 2 new members
+at the same time is a majority-add.
+
+Majority-add is unsafe since it can end up in a no-leader state which cannot be recovered automatically.
+The following property is to enable/disable majority-add.
+- `raft.server.leaderelection.member.majority-add` (`boolean`, default=`false`)
+
+In a monitored environment, majority-add can be enabled in order to reduce the number of `setConfiguration` calls.
+As an example, change from non-HA single server to a HA 3-server group can be done in a single `setConfiguration` call,
+instead of 2 `setConfiguration` calls with majority-add disabled.
+In case the no-leader state problem happens, the monitor (a human or a program) can fix it by restarting the servers.
