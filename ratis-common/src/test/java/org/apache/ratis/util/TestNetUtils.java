@@ -17,13 +17,12 @@
  */
 package org.apache.ratis.util;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import static org.junit.Assert.assertEquals;
 
 public class TestNetUtils {
 
@@ -31,7 +30,7 @@ public class TestNetUtils {
   public void createsUniqueAddresses() {
     for (int i = 0; i < 10; i++) {
       List<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(100);
-      assertEquals(addresses.stream().distinct().collect(Collectors.toList()), addresses);
+      Assertions.assertEquals(addresses.stream().distinct().collect(Collectors.toList()), addresses);
     }
   }
 }

@@ -18,8 +18,8 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.BaseTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,27 +30,27 @@ public class TestFileUtils extends BaseTest {
   @Test
   public void testRenameToCorrupt() throws IOException {
     final File dir = getClassTestDir();
-    Assert.assertTrue(dir.mkdirs());
+    Assertions.assertTrue(dir.mkdirs());
     try {
       runTestRenameToCorrupt(dir);
     } finally {
       FileUtils.deleteFully(dir);
     }
-    Assert.assertFalse(dir.exists());
+    Assertions.assertFalse(dir.exists());
   }
 
   static void runTestRenameToCorrupt(File dir) throws IOException {
     final File srcFile = new File(dir, "snapshot.1_20");
-    Assert.assertFalse(srcFile.exists());
-    Assert.assertTrue(srcFile.createNewFile());
-    Assert.assertTrue(srcFile.exists());
+    Assertions.assertFalse(srcFile.exists());
+    Assertions.assertTrue(srcFile.createNewFile());
+    Assertions.assertTrue(srcFile.exists());
 
     final File renamed = FileUtils.move(srcFile, ".corrupt");
-    Assert.assertNotNull(renamed);
-    Assert.assertTrue(renamed.exists());
-    Assert.assertFalse(srcFile.exists());
+    Assertions.assertNotNull(renamed);
+    Assertions.assertTrue(renamed.exists());
+    Assertions.assertFalse(srcFile.exists());
 
     FileUtils.deleteFully(renamed);
-    Assert.assertFalse(renamed.exists());
+    Assertions.assertFalse(renamed.exists());
   }
 }
