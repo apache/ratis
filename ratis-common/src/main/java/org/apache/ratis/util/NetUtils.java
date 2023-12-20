@@ -22,6 +22,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -111,6 +113,32 @@ public interface NetUtils {
       addr = InetSocketAddress.createUnresolved(host, port);
     }
     return addr;
+  }
+
+  /**
+   * Creates {@code count} unique local addresses.  They may conflict with
+   * addresses created later, but not with one another.  Addresses are
+   * guaranteed to be bound to the loopback interface.
+   * @param count number of unique local addresses to create
+   * @return {@code count} number of unique local addresses
+   */
+  @Deprecated
+  static List<InetSocketAddress> createLocalServerAddress(int count) {
+    List<InetSocketAddress> list = new ArrayList<>(count);
+    for (int i = 0; i < count; i++) {
+      list.add(new InetSocketAddress(LOCALHOST, getFreePort()));
+    }
+    return list;
+  }
+
+  /**
+   * Creates a unique local address.  Addresses are guaranteed to be bound to
+   * the loopback interface.
+   * @return unique local address
+   */
+  @Deprecated
+  static InetSocketAddress createLocalServerAddress() {
+    return new InetSocketAddress(LOCALHOST, getFreePort());
   }
 
   static String address2String(InetSocketAddress address) {
