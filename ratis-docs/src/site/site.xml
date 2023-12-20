@@ -38,6 +38,7 @@
             <item name="Metrics" href="metrics.html" />
             <item name="Ratis-shell" href="cli.html" />
             <item name="Snapshot" href="snapshot.html" />
+            <item name="Membership Change" href="membership-change.html" />
         </menu>
     </body>
 </project>

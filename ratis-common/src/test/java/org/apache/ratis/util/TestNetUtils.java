@@ -20,30 +20,17 @@ package org.apache.ratis.util;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
+import java.net.InetSocketAddress;
+import java.util.List;
+import java.util.stream.Collectors;
 
-public class TestTaskQueue {
-  static int randomSleep(int id) {
-    final int sleepMs = 10 + ThreadLocalRandom.current().nextInt(10);
-    try {
-      Thread.sleep(sleepMs);
-    } catch (InterruptedException e) {
-      throw new IllegalStateException(e);
-    }
-    return id;
-  }
+public class TestNetUtils {
 
   @Test
-  public void testIsEmpty() throws Exception {
-    final ExecutorService executor = Executors.newSingleThreadExecutor();
-    final TaskQueue q = new TaskQueue("testing");
-    for(int i = 0; i < 10; i++) {
-      final int id = i;
-      q.submit(() -> randomSleep(id), executor)
-          .thenAccept(j -> Assertions.assertTrue(q.isEmpty(), "Queue is not empty after task " + id + " completed"))
-          .get();
+  public void createsUniqueAddresses() {
+    for (int i = 0; i < 10; i++) {
+      List<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(100);
+      Assertions.assertEquals(addresses.stream().distinct().collect(Collectors.toList()), addresses);
     }
   }
 }
