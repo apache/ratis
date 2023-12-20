@@ -28,7 +28,6 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.event.Level;
 
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -80,15 +79,14 @@ public class TestStreamObserverWithTimeout extends BaseTest {
     LOG.info("slow = {}, {}", slow, type);
     final TimeDuration timeout = ONE_SECOND.multiply(0.5);
     final StreamObserverFactory function = type.createFunction(timeout);
-    final InetSocketAddress address = NetUtils.createLocalServerAddress();
 
     final List<String> messages = new ArrayList<>();
     for (int i = 0; i < 2 * slow; i++) {
       messages.add("m" + i);
     }
-    try (GrpcTestServer server = new GrpcTestServer(address.getPort(), slow, timeout)) {
+    try (GrpcTestServer server = new GrpcTestServer(NetUtils.getFreePort(), slow, timeout)) {
       final int port = server.start();
-      try (GrpcTestClient client = new GrpcTestClient(address.getHostName(), port, function)) {
+      try (GrpcTestClient client = new GrpcTestClient(NetUtils.LOCALHOST, port, function)) {
 
         final List<CompletableFuture<String>> futures = new ArrayList<>();
         for (String m : messages) {

@@ -20,15 +20,14 @@ package org.apache.ratis.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public interface NetUtils {
   Logger LOG = LoggerFactory.getLogger(NetUtils.class);
@@ -123,21 +122,11 @@ public interface NetUtils {
    * @param count number of unique local addresses to create
    * @return {@code count} number of unique local addresses
    */
+  @Deprecated
   static List<InetSocketAddress> createLocalServerAddress(int count) {
     List<InetSocketAddress> list = new ArrayList<>(count);
-    List<ServerSocket> sockets = new ArrayList<>(count);
-    try {
-      for (int i = 0; i < count; i++) {
-        ServerSocket s = new ServerSocket();
-        sockets.add(s);
-        s.setReuseAddress(true);
-        s.bind(new InetSocketAddress(InetAddress.getByName(null), 0), 1);
-        list.add((InetSocketAddress) s.getLocalSocketAddress());
-      }
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    } finally {
-      IOUtils.cleanup(null, sockets.toArray(new Closeable[0]));
+    for (int i = 0; i < count; i++) {
+      list.add(new InetSocketAddress(LOCALHOST, getFreePort()));
     }
     return list;
   }
@@ -147,14 +136,9 @@ public interface NetUtils {
    * the loopback interface.
    * @return unique local address
    */
+  @Deprecated
   static InetSocketAddress createLocalServerAddress() {
-    try(ServerSocket s = new ServerSocket()) {
-      s.setReuseAddress(true);
-      s.bind(new InetSocketAddress(InetAddress.getByName(null), 0), 1);
-      return (InetSocketAddress) s.getLocalSocketAddress();
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    return new InetSocketAddress(LOCALHOST, getFreePort());
   }
 
   static String address2String(InetSocketAddress address) {
@@ -167,4 +151,44 @@ public interface NetUtils {
     }
     return b.append(':').append(address.getPort()).toString();
   }
+
+  String LOCALHOST = "localhost";
+
+  static String localhostWithFreePort() {
+    return LOCALHOST + ":" + getFreePort();
+  }
+
+  static int getFreePort() {
+    return PortAllocator.getFreePort();
+  }
+
+  /**
+   * Helper class to get free port avoiding randomness.
+   */
+  final class PortAllocator {
+
+    private static final int MIN_PORT = 15000;
+    private static final int MAX_PORT = 32000;
+    private static final AtomicInteger NEXT_PORT = new AtomicInteger(MIN_PORT);
+
+    private PortAllocator() {
+      // no instances
+    }
+
+    public static synchronized int getFreePort() {
+      while (true) {
+        int port = NEXT_PORT.getAndIncrement();
+        if (port > MAX_PORT) {
+          NEXT_PORT.set(MIN_PORT);
+          port = NEXT_PORT.getAndIncrement();
+        }
+        try (ServerSocket ignored = new ServerSocket(port)) {
+          return port;
+        } catch (IOException e) {
+          // will try next port
+        }
+      }
+    }
+  }
+
 }

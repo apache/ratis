@@ -29,7 +29,6 @@ import org.apache.ratis.util.TraditionalBinaryPrefix;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -110,11 +109,9 @@ public final class TestGrpcZeroCopy extends BaseTest {
   }
 
   void runTestZeroCopy() throws Exception {
-    final InetSocketAddress address = NetUtils.createLocalServerAddress();
-
-    try (GrpcZeroCopyTestServer server = new GrpcZeroCopyTestServer(address.getPort())) {
+    try (GrpcZeroCopyTestServer server = new GrpcZeroCopyTestServer(NetUtils.getFreePort())) {
       final int port = server.start();
-      try (GrpcZeroCopyTestClient client = new GrpcZeroCopyTestClient(address.getHostName(), port)) {
+      try (GrpcZeroCopyTestClient client = new GrpcZeroCopyTestClient(NetUtils.LOCALHOST, port)) {
         sendMessages(5, client, server);
         sendBinaries(11, client, server);
       }

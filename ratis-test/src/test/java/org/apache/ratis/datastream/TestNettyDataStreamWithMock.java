@@ -19,7 +19,6 @@
 package org.apache.ratis.datastream;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -47,12 +46,10 @@ import static org.mockito.Mockito.when;
 @Ignore
 public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
   static RaftPeer newRaftPeer(RaftServer server) {
-    final InetSocketAddress rpc = NetUtils.createLocalServerAddress();
-    final int dataStreamPort = NettyConfigKeys.DataStream.port(server.getProperties());
     return RaftPeer.newBuilder()
         .setId(server.getId())
-        .setAddress(rpc)
-        .setDataStreamAddress(NetUtils.createSocketAddrForHost(rpc.getHostName(), dataStreamPort))
+        .setAddress(NetUtils.localhostWithFreePort())
+        .setDataStreamAddress(NetUtils.localhostWithFreePort())
         .build();
   }
 
@@ -91,7 +88,7 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
       RaftServer raftServer = mock(RaftServer.class);
       RaftPeerId peerId = RaftPeerId.valueOf("s" + i);
       RaftProperties properties = new RaftProperties();
-      NettyConfigKeys.DataStream.setPort(properties, NetUtils.createLocalServerAddress().getPort());
+      NettyConfigKeys.DataStream.setPort(properties, NetUtils.getFreePort());
       RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
 
       when(raftServer.getProperties()).thenReturn(properties);
