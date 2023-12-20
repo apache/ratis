@@ -20,6 +20,7 @@ package org.apache.ratis.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.*;
 import java.util.Map;
 import java.util.Objects;
@@ -138,12 +139,18 @@ public interface NetUtils {
     }
 
     public static synchronized int getFreePort() {
-      int port = NEXT_PORT.getAndIncrement();
-      if (port > MAX_PORT) {
-        NEXT_PORT.set(MIN_PORT);
-        port = NEXT_PORT.getAndIncrement();
+      while (true) {
+        int port = NEXT_PORT.getAndIncrement();
+        if (port > MAX_PORT) {
+          NEXT_PORT.set(MIN_PORT);
+          port = NEXT_PORT.getAndIncrement();
+        }
+        try (ServerSocket ignored = new ServerSocket(port)) {
+          return port;
+        } catch (IOException e) {
+          // will try next port
+        }
       }
-      return port;
     }
 
     public static String localhostWithFreePort() {
