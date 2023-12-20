@@ -124,15 +124,24 @@ public interface NetUtils {
     return b.append(':').append(address.getPort()).toString();
   }
 
+  String LOCALHOST = "localhost";
+
+  static String localhostWithFreePort() {
+    return LOCALHOST + ":" + getFreePort();
+  }
+
+  static int getFreePort() {
+    return PortAllocator.getFreePort();
+  }
+
   /**
    * Helper class to get free port avoiding randomness.
    */
   final class PortAllocator {
 
-    public static final String HOSTNAME = "localhost";
-    public static final int MIN_PORT = 15000;
-    public static final int MAX_PORT = 32000;
-    public static final AtomicInteger NEXT_PORT = new AtomicInteger(MIN_PORT);
+    private static final int MIN_PORT = 15000;
+    private static final int MAX_PORT = 32000;
+    private static final AtomicInteger NEXT_PORT = new AtomicInteger(MIN_PORT);
 
     private PortAllocator() {
       // no instances
@@ -151,10 +160,6 @@ public interface NetUtils {
           // will try next port
         }
       }
-    }
-
-    public static String localhostWithFreePort() {
-      return HOSTNAME + ":" + getFreePort();
     }
   }
 

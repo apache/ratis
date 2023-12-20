@@ -48,8 +48,8 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
   static RaftPeer newRaftPeer(RaftServer server) {
     return RaftPeer.newBuilder()
         .setId(server.getId())
-        .setAddress(NetUtils.PortAllocator.localhostWithFreePort())
-        .setDataStreamAddress(NetUtils.PortAllocator.localhostWithFreePort())
+        .setAddress(NetUtils.localhostWithFreePort())
+        .setDataStreamAddress(NetUtils.localhostWithFreePort())
         .build();
   }
 
@@ -88,7 +88,7 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
       RaftServer raftServer = mock(RaftServer.class);
       RaftPeerId peerId = RaftPeerId.valueOf("s" + i);
       RaftProperties properties = new RaftProperties();
-      NettyConfigKeys.DataStream.setPort(properties, NetUtils.PortAllocator.getFreePort());
+      NettyConfigKeys.DataStream.setPort(properties, NetUtils.getFreePort());
       RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
 
       when(raftServer.getProperties()).thenReturn(properties);

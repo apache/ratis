@@ -109,9 +109,9 @@ public final class TestGrpcZeroCopy extends BaseTest {
   }
 
   void runTestZeroCopy() throws Exception {
-    try (GrpcZeroCopyTestServer server = new GrpcZeroCopyTestServer(NetUtils.PortAllocator.getFreePort())) {
+    try (GrpcZeroCopyTestServer server = new GrpcZeroCopyTestServer(NetUtils.getFreePort())) {
       final int port = server.start();
-      try (GrpcZeroCopyTestClient client = new GrpcZeroCopyTestClient(NetUtils.PortAllocator.HOSTNAME, port)) {
+      try (GrpcZeroCopyTestClient client = new GrpcZeroCopyTestClient(NetUtils.LOCALHOST, port)) {
         sendMessages(5, client, server);
         sendBinaries(11, client, server);
       }

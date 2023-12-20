@@ -231,7 +231,7 @@ public abstract class MiniRaftCluster implements Closeable {
       return Optional.ofNullable(address)
           .map(NetUtils::createSocketAddr)
           .map(InetSocketAddress::getPort)
-          .orElseGet(NetUtils.PortAllocator::getFreePort);
+          .orElseGet(NetUtils::getFreePort);
     }
   }
 
@@ -264,10 +264,10 @@ public abstract class MiniRaftCluster implements Closeable {
 
   private static RaftPeer.Builder assignAddresses(RaftPeer.Builder builder) {
     return builder
-        .setAddress(NetUtils.PortAllocator.localhostWithFreePort())
-        .setAdminAddress(NetUtils.PortAllocator.localhostWithFreePort())
-        .setClientAddress(NetUtils.PortAllocator.localhostWithFreePort())
-        .setDataStreamAddress(NetUtils.PortAllocator.localhostWithFreePort());
+        .setAddress(NetUtils.localhostWithFreePort())
+        .setAdminAddress(NetUtils.localhostWithFreePort())
+        .setClientAddress(NetUtils.localhostWithFreePort())
+        .setDataStreamAddress(NetUtils.localhostWithFreePort());
   }
 
   private final Supplier<File> rootTestDir = JavaUtils.memoize(

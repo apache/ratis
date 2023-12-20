@@ -84,9 +84,9 @@ public class TestStreamObserverWithTimeout extends BaseTest {
     for (int i = 0; i < 2 * slow; i++) {
       messages.add("m" + i);
     }
-    try (GrpcTestServer server = new GrpcTestServer(NetUtils.PortAllocator.getFreePort(), slow, timeout)) {
+    try (GrpcTestServer server = new GrpcTestServer(NetUtils.getFreePort(), slow, timeout)) {
       final int port = server.start();
-      try (GrpcTestClient client = new GrpcTestClient(NetUtils.PortAllocator.HOSTNAME, port, function)) {
+      try (GrpcTestClient client = new GrpcTestClient(NetUtils.LOCALHOST, port, function)) {
 
         final List<CompletableFuture<String>> futures = new ArrayList<>();
         for (String m : messages) {

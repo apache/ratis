@@ -32,16 +32,16 @@ public class TestNetUtils {
   void returnsUniquePorts() {
     List<Integer> addresses = new ArrayList<>();
     for (int i = 0; i < 10; i++) {
-      addresses.add(NetUtils.PortAllocator.getFreePort());
+      addresses.add(NetUtils.getFreePort());
     }
     Assertions.assertEquals(addresses.stream().distinct().collect(Collectors.toList()), addresses);
   }
 
   @Test
   void skipsUsedPort() throws IOException {
-    int port = NetUtils.PortAllocator.getFreePort();
+    int port = NetUtils.getFreePort();
     try (ServerSocket ignored = new ServerSocket(port + 1)) {
-      int nextPort = NetUtils.PortAllocator.getFreePort();
+      int nextPort = NetUtils.getFreePort();
       Assertions.assertEquals(port + 2, nextPort);
     }
   }
