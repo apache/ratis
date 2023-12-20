@@ -27,10 +27,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class TestNetUtils {
+class TestNetUtils {
 
   @Test
-  public void createsUniqueAddresses() {
+  void createsUniqueAddresses() {
     for (int i = 0; i < 10; i++) {
       List<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(100);
       Assertions.assertEquals(addresses.stream().distinct().collect(Collectors.toList()), addresses);
