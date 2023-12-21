@@ -34,6 +34,7 @@ import org.apache.ratis.server.leader.LogAppenderBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
@@ -143,6 +144,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private final TimeDuration requestTimeoutDuration;
   private final TimeDuration installSnapshotStreamTimeout;
+  private final TimeDuration logMessageBatchDuration;
   private final int maxOutstandingInstallSnapshots;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
@@ -167,6 +169,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     this.maxOutstandingInstallSnapshots = GrpcConfigKeys.Server.installSnapshotRequestElementLimit(properties);
     this.installSnapshotStreamTimeout = GrpcConfigKeys.Server.installSnapshotRequestTimeout(properties)
         .multiply(maxOutstandingInstallSnapshots);
+    this.logMessageBatchDuration = GrpcConfigKeys.Server.logMessageBatchDuration(properties);
     this.installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
     this.useSeparateHBChannel = GrpcConfigKeys.Server.heartbeatChannel(properties);
 
@@ -204,8 +207,10 @@ public class GrpcLogAppender extends LogAppenderBase {
           .map(TermIndex::getIndex)
           .orElseGet(f::getMatchIndex);
       if (event.isError() && request == null) {
-        LOG.warn("{}: Follower failed (request=null, errorCount={}); keep nextIndex ({}) unchanged and retry.",
-            this, errorCount, f.getNextIndex());
+        final long followerNextIndex = f.getNextIndex();
+        BatchLogger.warn(LOG, BatchLogger.makeUniqueId(f.getId() + "-" + followerNextIndex), () ->
+            LOG.warn("{}: Follower failed (request=null, errorCount={}); keep nextIndex ({}) unchanged and retry.",
+                this, errorCount, followerNextIndex), logMessageBatchDuration);
         return;
       }
       if (request != null && request.isHeartbeat()) {
@@ -523,7 +528,9 @@ public class GrpcLogAppender extends LogAppenderBase {
         LOG.info("{} is already stopped", GrpcLogAppender.this);
         return;
       }
-      GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t);
+      BatchLogger.warn(LOG, BatchLogger.makeUniqueId(AppendLogResponseHandler.this.toString()),
+          () ->  GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t),
+          logMessageBatchDuration, t instanceof StatusRuntimeException);
       grpcServerMetrics.onRequestRetry(); // Update try counter
       AppendEntriesRequest request = pendingRequests.remove(GrpcUtil.getCallId(t), GrpcUtil.isHeartbeat(t));
       resetClient(request, Event.ERROR);
