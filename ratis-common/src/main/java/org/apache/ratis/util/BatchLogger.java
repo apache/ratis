@@ -78,8 +78,8 @@ public final class BatchLogger {
       if (count <= 1) {
         return;
       }
-      log.accept(String.format("Received %s logs of following between %s and %s:",
-          count, startTime, Timestamp.currentTime()));
+      log.accept(String.format("Received %s logs of following in the last %s seconds:",
+          count, startTime.elapsedTime()));
       logOp.run();
       startTime = null;
     }
