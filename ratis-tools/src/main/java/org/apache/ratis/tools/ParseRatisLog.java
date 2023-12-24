@@ -24,6 +24,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.server.raftlog.segmented.LogSegment;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
@@ -69,7 +70,8 @@ public final class ParseRatisLog {
   }
 
 
-  private void processLogEntry(LogEntryProto proto) {
+  private void processLogEntry(ReferenceCountedObject<LogEntryProto> ref) {
+    final LogEntryProto proto = ref.retain();
     if (proto.hasConfigurationEntry()) {
       numConfEntries++;
     } else if (proto.hasMetadataEntry()) {
@@ -77,12 +79,13 @@ public final class ParseRatisLog {
     } else if (proto.hasStateMachineLogEntry()) {
       numStateMachineEntries++;
     } else {
-      System.out.println("Found invalid entry" + proto.toString());
+      System.out.println("Found an invalid entry: " + proto);
       numInvalidEntries++;
     }
 
     String str = LogProtoUtils.toLogEntryString(proto, smLogToString);
     System.out.println(str);
+    ref.release();
   }
 
   public static class Builder {
