@@ -102,6 +102,30 @@ public interface ReferenceCountedObject<T> {
   }
 
   /**
+   * @return a {@link ReferenceCountedObject} of the given value by delegating to this object.
+   */
+  default <V> ReferenceCountedObject<V> delegate(V value) {
+    final ReferenceCountedObject<T> delegated = this;
+    return new ReferenceCountedObject<V>() {
+      @Override
+      public V get() {
+        return value;
+      }
+
+      @Override
+      public V retain() {
+        delegated.retain();
+        return value;
+      }
+
+      @Override
+      public boolean release() {
+        return delegated.release();
+      }
+    };
+  }
+
+  /**
    * Wrap the given value as a {@link ReferenceCountedObject}.
    *
    * @param value the value being wrapped.

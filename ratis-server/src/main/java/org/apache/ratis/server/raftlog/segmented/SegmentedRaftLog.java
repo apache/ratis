@@ -425,10 +425,11 @@ public final class SegmentedRaftLog extends RaftLogBase {
           fileLogWorker.writeLogEntry(entry, context).getFuture();
       if (stateMachineCachingEnabled) {
         // The stateMachineData will be cached inside the StateMachine itself.
-        cache.appendEntry(LogProtoUtils.removeStateMachineData(entry),
+        cache.appendEntry(context.wrap(LogProtoUtils.removeStateMachineData(entry)),
             LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE);
       } else {
-        cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+        cache.appendEntry(context.wrap(entry),
+            LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       }
       writeFuture.whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
       return writeFuture;

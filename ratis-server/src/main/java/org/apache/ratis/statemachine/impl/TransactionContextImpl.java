@@ -26,6 +26,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -68,6 +69,8 @@ public class TransactionContextImpl implements TransactionContext {
 
   /** Committed LogEntry. */
   private LogEntryProto logEntry;
+  /** For wrapping {@link #logEntry} in order to release the underlying buffer. */
+  private ReferenceCountedObject<?> delegatedRef;
 
   private final CompletableFuture<Long> logIndexFuture = new CompletableFuture<>();
 
@@ -121,6 +124,18 @@ public class TransactionContextImpl implements TransactionContext {
   @Override
   public RaftClientRequest getClientRequest() {
     return clientRequest;
+  }
+
+  public void setDelegatedRef(ReferenceCountedObject<?> ref) {
+    this.delegatedRef = ref;
+  }
+
+  @Override
+  public <T> ReferenceCountedObject<T> wrap(T object) {
+    if (delegatedRef == null) {
+      return TransactionContext.super.wrap(object);
+    }
+    return delegatedRef.delegate(object);
   }
 
   @Override

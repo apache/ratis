@@ -23,6 +23,7 @@ import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.ReflectionUtils;
 
 import java.io.IOException;
@@ -97,6 +98,10 @@ public interface TransactionContext {
    * @return the committed log entry
    */
   LogEntryProto getLogEntry();
+
+  default <T> ReferenceCountedObject<T> wrap(T object) {
+    return ReferenceCountedObject.wrap(object);
+  }
 
   /**
    * Sets whether to commit the transaction to the RAFT log or not
