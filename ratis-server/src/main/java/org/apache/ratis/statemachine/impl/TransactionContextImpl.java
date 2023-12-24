@@ -47,7 +47,7 @@ public class TransactionContextImpl implements TransactionContext {
   private final RaftClientRequest clientRequest;
 
   /** Exception from the {@link StateMachine} or from the log */
-  private Exception exception;
+  private volatile Exception exception;
 
   /** Data from the {@link StateMachine} */
   private final StateMachineLogEntryProto stateMachineLogEntry;
@@ -58,7 +58,7 @@ public class TransactionContextImpl implements TransactionContext {
    * {@link StateMachine#startTransaction(RaftClientRequest)} and
    * {@link StateMachine#applyTransaction(TransactionContext)}.
    */
-  private Object stateMachineContext;
+  private volatile Object stateMachineContext;
 
   /**
    * Whether to commit the transaction to the RAFT Log.
@@ -68,9 +68,9 @@ public class TransactionContextImpl implements TransactionContext {
   private boolean shouldCommit = true;
 
   /** Committed LogEntry. */
-  private LogEntryProto logEntry;
+  private volatile LogEntryProto logEntry;
   /** For wrapping {@link #logEntry} in order to release the underlying buffer. */
-  private ReferenceCountedObject<?> delegatedRef;
+  private volatile ReferenceCountedObject<?> delegatedRef;
 
   private final CompletableFuture<Long> logIndexFuture = new CompletableFuture<>();
 

@@ -42,6 +42,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.management.ObjectName;
+
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
@@ -823,11 +824,17 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   /**
-   * Handle a normal update request from client.
+   * Append a transaction to the log for processing a client request.
+   * Note that the given request could be different from {@link TransactionContext#getClientRequest()}
+   * since the request could be converted; see {@link #convertRaftClientRequest(RaftClientRequest)}.
+   *
+   * @param request The client request.
+   * @param context The context of the transaction.
+   * @param cacheEntry the entry in the retry cache.
+   * @return a future of the reply.
    */
   private CompletableFuture<RaftClientReply> appendTransaction(
-      TransactionContextImpl context, CacheEntry cacheEntry) {
-    final RaftClientRequest request = context.getClientRequest();
+      RaftClientRequest request, TransactionContextImpl context, CacheEntry cacheEntry) {
     Objects.requireNonNull(request, "request == null");
     CodeInjectionForTesting.execute(APPEND_TRANSACTION, getId(),
         request.getClientId(), request, context, cacheEntry);
@@ -883,11 +890,13 @@ class RaftServerImpl implements RaftServer.Division,
     role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
   }
 
-  private RaftClientRequest filterDataStreamRaftClientRequest(RaftClientRequest request)
-      throws InvalidProtocolBufferException {
-    return !request.is(TypeCase.FORWARD) ? request : ClientProtoUtils.toRaftClientRequest(
-        RaftClientRequestProto.parseFrom(
-            request.getMessage().getContent().asReadOnlyByteBuffer()));
+  /** If the given request is {@link TypeCase#FORWARD}, convert it. */
+  static RaftClientRequest convertRaftClientRequest(RaftClientRequest request) throws InvalidProtocolBufferException {
+    if (!request.is(TypeCase.FORWARD)) {
+      return request;
+    }
+    return ClientProtoUtils.toRaftClientRequest(RaftClientRequestProto.parseFrom(
+        request.getMessage().getContent().asReadOnlyByteBuffer()));
   }
 
   <REPLY> CompletableFuture<REPLY> executeSubmitServerRequestAsync(
@@ -968,7 +977,7 @@ class RaftServerImpl implements RaftServer.Division,
     // the state machine. We should call cancelTransaction() for failed requests
     final TransactionContextImpl context;
     try {
-      context = (TransactionContextImpl) stateMachine.startTransaction(filterDataStreamRaftClientRequest(request));
+      context = (TransactionContextImpl) stateMachine.startTransaction(convertRaftClientRequest(request));
     } catch (IOException e) {
       final RaftClientReply exceptionReply = newExceptionReply(request,
           new RaftException("Failed to startTransaction for " + request, e));
@@ -983,7 +992,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     context.setDelegatedRef(requestRef);
-    return appendTransaction(context, cacheEntry);
+    return appendTransaction(request, context, cacheEntry);
   }
 
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
