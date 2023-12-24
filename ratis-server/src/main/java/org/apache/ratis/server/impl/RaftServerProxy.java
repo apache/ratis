@@ -446,9 +446,14 @@ class RaftServerProxy implements RaftServer {
 
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
-      ReferenceCountedObject<RaftClientRequest> request) {
-    return getImplFuture(request.get().getRaftGroupId())
-        .thenCompose(impl -> impl.executeSubmitClientRequestAsync(request));
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.retain();
+    try {
+      return getImplFuture(request.getRaftGroupId())
+          .thenCompose(impl -> impl.executeSubmitClientRequestAsync(requestRef));
+    } finally {
+      requestRef.release();
+    }
   }
 
   @Override
