@@ -99,8 +99,11 @@ public interface TransactionContext {
    */
   LogEntryProto getLogEntry();
 
-  default <T> ReferenceCountedObject<T> wrap(T object) {
-    return ReferenceCountedObject.wrap(object);
+  /** Wrap the given log entry as a {@link ReferenceCountedObject} for retaining it for later use. */
+  default ReferenceCountedObject<LogEntryProto> wrap(LogEntryProto entry) {
+    Preconditions.assertSame(getLogEntry().getTerm(), entry.getTerm(), "entry.term");
+    Preconditions.assertSame(getLogEntry().getIndex(), entry.getIndex(), "entry.index");
+    return ReferenceCountedObject.wrap(entry);
   }
 
   /**

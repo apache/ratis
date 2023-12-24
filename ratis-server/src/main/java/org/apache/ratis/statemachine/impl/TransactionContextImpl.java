@@ -131,11 +131,13 @@ public class TransactionContextImpl implements TransactionContext {
   }
 
   @Override
-  public <T> ReferenceCountedObject<T> wrap(T object) {
+  public ReferenceCountedObject<LogEntryProto> wrap(LogEntryProto entry) {
     if (delegatedRef == null) {
-      return TransactionContext.super.wrap(object);
+      return TransactionContext.super.wrap(entry);
     }
-    return delegatedRef.delegate(object);
+    Preconditions.assertSame(getLogEntry().getTerm(), entry.getTerm(), "entry.term");
+    Preconditions.assertSame(getLogEntry().getIndex(), entry.getIndex(), "entry.index");
+    return delegatedRef.delegate(entry);
   }
 
   @Override

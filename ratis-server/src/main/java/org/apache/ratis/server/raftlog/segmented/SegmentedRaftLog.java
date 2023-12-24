@@ -41,6 +41,7 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AwaitToRun;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.StringUtils;
 
 import java.io.File;
@@ -53,6 +54,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 import org.apache.ratis.util.UncheckedAutoCloseable;
@@ -421,14 +423,15 @@ public final class SegmentedRaftLog extends RaftLogBase {
       // If the entry has state machine data, then the entry should be inserted
       // to statemachine first and then to the cache. Not following the order
       // will leave a spurious entry in the cache.
-      CompletableFuture<Long> writeFuture =
-          fileLogWorker.writeLogEntry(entry, context).getFuture();
+      final CompletableFuture<Long> writeFuture = fileLogWorker.writeLogEntry(entry, context).getFuture();
+      final Function<LogEntryProto, ReferenceCountedObject<LogEntryProto>> wrap = context != null?
+          context::wrap : ReferenceCountedObject::wrap;
       if (stateMachineCachingEnabled) {
         // The stateMachineData will be cached inside the StateMachine itself.
-        cache.appendEntry(context.wrap(LogProtoUtils.removeStateMachineData(entry)),
+        cache.appendEntry(wrap.apply(LogProtoUtils.removeStateMachineData(entry)),
             LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE);
       } else {
-        cache.appendEntry(context.wrap(entry),
+        cache.appendEntry(wrap.apply(entry),
             LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       }
       writeFuture.whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
