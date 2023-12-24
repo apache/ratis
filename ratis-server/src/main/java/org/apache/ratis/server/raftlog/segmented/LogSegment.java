@@ -166,10 +166,7 @@ public final class LogSegment implements Comparable<Long> {
     final CorruptionPolicy corruptionPolicy = CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
     final boolean isOpen = startEnd.isOpen();
     final int entryCount = readSegmentFile(file, startEnd, maxOpSize, corruptionPolicy, raftLogMetrics, entry -> {
-      segment.append(keepEntryInCache || isOpen, entry, Op.LOAD_SEGMENT_FILE);
-      if (logConsumer != null) {
-        logConsumer.accept(entry.get());
-      }
+      segment.append(Op.LOAD_SEGMENT_FILE, entry, keepEntryInCache || isOpen, logConsumer);
     });
     LOG.info("Successfully read {} entries from segment file {}", entryCount, file);
 
@@ -271,6 +268,7 @@ public final class LogSegment implements Comparable<Long> {
     }
 
     void put(TermIndex key, ReferenceCountedObject<LogEntryProto> valueRef, Op op) {
+      valueRef.retain();
       Optional.ofNullable(map.put(key, valueRef)).ifPresent(this::release);
       size.getAndAdd(getEntrySize(valueRef.get(), op));
     }
@@ -340,13 +338,29 @@ public final class LogSegment implements Comparable<Long> {
     return CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
   }
 
-  void appendToOpenSegment(ReferenceCountedObject<LogEntryProto> entry, Op op) {
+  void appendToOpenSegment(Op op, ReferenceCountedObject<LogEntryProto> entryRef) {
     Preconditions.assertTrue(isOpen(), "The log segment %s is not open for append", this);
-    append(true, entry, op);
+    append(op, entryRef, true, null);
   }
 
-  private void append(boolean keepEntryInCache, ReferenceCountedObject<LogEntryProto> entryRef, Op op) {
+  private void append(Op op, ReferenceCountedObject<LogEntryProto> entryRef,
+      boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer) {
     final LogEntryProto entry = entryRef.retain();
+    try {
+      final LogRecord record = appendLogRecord(op, entry);
+      if (keepEntryInCache) {
+        putEntryCache(record.getTermIndex(), entryRef, op);
+      }
+      if (logConsumer != null) {
+        logConsumer.accept(entry);
+      }
+    } finally {
+      entryRef.release();
+    }
+  }
+
+
+  private LogRecord appendLogRecord(Op op, LogEntryProto entry) {
     Objects.requireNonNull(entry, "entry == null");
     if (records.isEmpty()) {
       Preconditions.assertTrue(entry.getIndex() == startIndex,
@@ -364,11 +378,7 @@ public final class LogSegment implements Comparable<Long> {
     records.add(record);
     totalFileSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
-    if (keepEntryInCache) {
-      putEntryCache(record.getTermIndex(), entryRef, op);
-    } else {
-      entryRef.release();
-    }
+    return record;
   }
 
   LogEntryProto getEntryFromCache(TermIndex ti) {
