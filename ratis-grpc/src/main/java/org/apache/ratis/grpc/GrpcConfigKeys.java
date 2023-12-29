@@ -25,6 +25,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.conf.ConfUtils.get;
@@ -278,6 +279,18 @@ public interface GrpcConfigKeys {
     }
     static void setHeartbeatChannel(RaftProperties properties, boolean useSeparate) {
       setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useSeparate);
+    }
+
+    String LOG_MESSAGE_BATCH_DURATION_KEY = PREFIX + ".log-message.batch.duration";
+    TimeDuration LOG_MESSAGE_BATCH_DURATION_DEFAULT = TimeDuration.valueOf(5, TimeUnit.SECONDS);
+    static TimeDuration logMessageBatchDuration(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(LOG_MESSAGE_BATCH_DURATION_DEFAULT.getUnit()),
+          LOG_MESSAGE_BATCH_DURATION_KEY, LOG_MESSAGE_BATCH_DURATION_DEFAULT, getDefaultLog());
+    }
+    static void setLogMessageBatchDuration(RaftProperties properties,
+                                           TimeDuration logMessageBatchDuration) {
+      setTimeDuration(properties::setTimeDuration,
+          LOG_MESSAGE_BATCH_DURATION_KEY, logMessageBatchDuration);
     }
   }
 
