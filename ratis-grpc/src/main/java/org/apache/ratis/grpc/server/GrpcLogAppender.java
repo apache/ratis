@@ -62,6 +62,11 @@ import java.util.concurrent.atomic.AtomicLong;
 public class GrpcLogAppender extends LogAppenderBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcLogAppender.class);
 
+  private enum BatchLogKey implements BatchLogger.Key {
+    RESET_CLIENT,
+    APPEND_LOG_RESPONSE_HANDLER_ON_ERROR
+  }
+
   private static final Comparator<Long> CALL_ID_COMPARATOR = (left, right) -> {
     // calculate diff in order to take care the possibility of numerical overflow
     final long diff = left - right;
@@ -208,9 +213,9 @@ public class GrpcLogAppender extends LogAppenderBase {
           .orElseGet(f::getMatchIndex);
       if (event.isError() && request == null) {
         final long followerNextIndex = f.getNextIndex();
-        BatchLogger.warn(LOG, BatchLogger.makeUniqueId(f.getId() + "-" + followerNextIndex), () ->
-            LOG.warn("{}: Follower failed (request=null, errorCount={}); keep nextIndex ({}) unchanged and retry.",
-                this, errorCount, followerNextIndex), logMessageBatchDuration);
+        BatchLogger.warn(BatchLogKey.RESET_CLIENT, f.getId() + "-" + followerNextIndex, suffix ->
+            LOG.warn("{}: Follower failed (request=null, errorCount={}); keep nextIndex ({}) unchanged and retry.{}",
+                this, errorCount, followerNextIndex, suffix), logMessageBatchDuration);
         return;
       }
       if (request != null && request.isHeartbeat()) {
@@ -528,8 +533,8 @@ public class GrpcLogAppender extends LogAppenderBase {
         LOG.info("{} is already stopped", GrpcLogAppender.this);
         return;
       }
-      BatchLogger.warn(LOG, BatchLogger.makeUniqueId(AppendLogResponseHandler.this.toString()),
-          () ->  GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t),
+      BatchLogger.warn(BatchLogKey.APPEND_LOG_RESPONSE_HANDLER_ON_ERROR, AppendLogResponseHandler.this.name,
+          suffix -> GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries" + suffix, t),
           logMessageBatchDuration, t instanceof StatusRuntimeException);
       grpcServerMetrics.onRequestRetry(); // Update try counter
       AppendEntriesRequest request = pendingRequests.remove(GrpcUtil.getCallId(t), GrpcUtil.isHeartbeat(t));

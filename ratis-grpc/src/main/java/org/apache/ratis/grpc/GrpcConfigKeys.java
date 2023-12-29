@@ -288,9 +288,9 @@ public interface GrpcConfigKeys {
           LOG_MESSAGE_BATCH_DURATION_KEY, LOG_MESSAGE_BATCH_DURATION_DEFAULT, getDefaultLog());
     }
     static void setLogMessageBatchDuration(RaftProperties properties,
-                                           TimeDuration exceptionalWarnLogBatchDuration) {
+                                           TimeDuration logMessageBatchDuration) {
       setTimeDuration(properties::setTimeDuration,
-          LOG_MESSAGE_BATCH_DURATION_KEY, exceptionalWarnLogBatchDuration);
+          LOG_MESSAGE_BATCH_DURATION_KEY, logMessageBatchDuration);
     }
   }
 
