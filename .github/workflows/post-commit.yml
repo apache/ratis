@@ -25,10 +25,11 @@ jobs:
       - name: Cache for maven dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.m2/repository
-          key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+          path: |
+            ~/.m2/repository
+            !~/.m2/repository/org/apache/ratis
+          key: maven-repo-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            maven-repo-${{ hashFiles('**/pom.xml') }}
             maven-repo-
       - name: Setup java
         uses: actions/setup-java@v3
@@ -43,9 +44,6 @@ jobs:
           name: ratis-src
           path: ratis-assembly/target/apache-ratis-*-src.tar.gz
           retention-days: 1
-      - name: Delete temporary build artifacts
-        run: rm -rf ~/.m2/repository/org/apache/ratis
-        if: always()
   compile:
     needs:
       - build
@@ -63,12 +61,13 @@ jobs:
         run: |
           tar --strip-components 1 -xzvf apache-ratis-*-src.tar.gz
       - name: Cache for maven dependencies
-        uses: actions/cache@v3
+        uses: actions/cache/restore@v3
         with:
-          path: ~/.m2/repository
-          key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+          path: |
+            ~/.m2/repository
+            !~/.m2/repository/org/apache/ratis
+          key: maven-repo-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            maven-repo-${{ hashFiles('**/pom.xml') }}
             maven-repo-
       - name: Setup java
         uses: actions/setup-java@v3
@@ -77,38 +76,39 @@ jobs:
           java-version: ${{ matrix.java }}
       - name: Run a full build
         run: ./dev-support/checks/build.sh
-      - name: Delete temporary build artifacts
-        run: rm -rf ~/.m2/repository/org/apache/ratis
-        if: always()
   rat:
     name: rat
     runs-on: ubuntu-20.04
     steps:
-        - uses: actions/checkout@v3
+        - name: Checkout project
+          uses: actions/checkout@v3
         - name: Cache for maven dependencies
-          uses: actions/cache@v3
+          uses: actions/cache/restore@v3
           with:
-            path: ~/.m2/repository
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            path: |
+              ~/.m2/repository
+              !~/.m2/repository/org/apache/ratis
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}
             restore-keys: |
-              maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
-        - run: ./dev-support/checks/rat.sh
-        - uses: actions/upload-artifact@v3
+        - name: Run tests
+          run: ./dev-support/checks/rat.sh
+        - name: Upload results
+          uses: actions/upload-artifact@v3
           if: always()
           with:
             name: rat
             path: target/rat
-        - name: Delete temporary build artifacts
-          run: rm -rf ~/.m2/repository/org/apache/ratis
-          if: always()
   author:
     name: author
     runs-on: ubuntu-20.04
     steps:
-        - uses: actions/checkout@v3
-        - run: ./dev-support/checks/author.sh
-        - uses: actions/upload-artifact@v3
+        - name: Checkout project
+          uses: actions/checkout@v3
+        - name: Run tests
+          run: ./dev-support/checks/author.sh
+        - name: Upload results
+          uses: actions/upload-artifact@v3
           if: always()
           with:
             name: author
@@ -129,49 +129,51 @@ jobs:
           run: |
             echo -e "$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)\t$(hostname -f) $(hostname -s)" | sudo tee -a /etc/hosts
         # REMOVE CODE ABOVE WHEN ISSUE IS ADDRESSED!
-        - uses: actions/checkout@v3
+        - name: Checkout project
+          uses: actions/checkout@v3
         - name: Cache for maven dependencies
-          uses: actions/cache@v3
+          uses: actions/cache/restore@v3
           with:
-            path: ~/.m2/repository
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            path: |
+              ~/.m2/repository
+              !~/.m2/repository/org/apache/ratis
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}
             restore-keys: |
-              maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
-        - run: ./dev-support/checks/unit.sh -P${{ matrix.profile }}-tests
+        - name: Run tests
+          run: ./dev-support/checks/unit.sh -P${{ matrix.profile }}-tests
         - name: Summary of failures
           run: cat target/${{ github.job }}/summary.txt
           if: ${{ !cancelled() }}
-        - uses: actions/upload-artifact@v3
+        - name: Upload results
+          uses: actions/upload-artifact@v3
           if: ${{ !cancelled() }}
           with:
             name: unit-${{ matrix.profile }}
             path: target/unit
-        - name: Delete temporary build artifacts
-          run: rm -rf ~/.m2/repository/org/apache/ratis
-          if: always()
   checkstyle:
     name: checkstyle
     runs-on: ubuntu-20.04
     steps:
-        - uses: actions/checkout@v3
+        - name: Checkout project
+          uses: actions/checkout@v3
         - name: Cache for maven dependencies
-          uses: actions/cache@v3
+          uses: actions/cache/restore@v3
           with:
-            path: ~/.m2/repository
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            path: |
+              ~/.m2/repository
+              !~/.m2/repository/org/apache/ratis
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}
             restore-keys: |
-              maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
-        - run: ./dev-support/checks/checkstyle.sh
-        - uses: actions/upload-artifact@v3
+        - name: Run tests
+          run: ./dev-support/checks/checkstyle.sh
+        - name: Upload results
+          uses: actions/upload-artifact@v3
           if: always()
           with:
             name: checkstyle
             path: target/checkstyle
-        - name: Delete temporary build artifacts
-          run: rm -rf ~/.m2/repository/org/apache/ratis
-          if: always()
   findbugs:
     name: findbugs
     runs-on: ubuntu-20.04
@@ -181,49 +183,50 @@ jobs:
           with:
             distribution: 'temurin'
             java-version: 8
-        - uses: actions/checkout@v3
+        - name: Checkout project
+          uses: actions/checkout@v3
         - name: Cache for maven dependencies
-          uses: actions/cache@v3
+          uses: actions/cache/restore@v3
           with:
-            path: ~/.m2/repository
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            path: |
+              ~/.m2/repository
+              !~/.m2/repository/org/apache/ratis
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}
             restore-keys: |
-              maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
-        - run: ./dev-support/checks/findbugs.sh
-        - uses: actions/upload-artifact@v3
+        - name: Run tests
+          run: ./dev-support/checks/findbugs.sh
+        - name: Upload results
+          uses: actions/upload-artifact@v3
           if: always()
           with:
             name: findbugs
             path: target/findbugs
-        - name: Delete temporary build artifacts
-          run: rm -rf ~/.m2/repository/org/apache/ratis
-          if: always()
   sonar:
     name: sonar
     runs-on: ubuntu-20.04
     if: (github.repository == 'apache/ratis' || github.repository == 'apache/incubator-ratis') && github.event_name != 'pull_request'
     steps:
-        - uses: actions/checkout@v3
+        - name: Checkout project
+          uses: actions/checkout@v3
           with:
             fetch-depth: 0
         - name: Cache for maven dependencies
-          uses: actions/cache@v3
+          uses: actions/cache/restore@v3
           with:
-            path: ~/.m2/repository
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}-${{ github.job }}
+            path: |
+              ~/.m2/repository
+              !~/.m2/repository/org/apache/ratis
+            key: maven-repo-${{ hashFiles('**/pom.xml') }}
             restore-keys: |
-              maven-repo-${{ hashFiles('**/pom.xml') }}
               maven-repo-
         - name: Setup java 17
           uses: actions/setup-java@v3
           with:
             distribution: 'temurin'
             java-version: 17
-        - run: ./dev-support/checks/sonar.sh
+        - name: Upload coverage to Sonar
+          run: ./dev-support/checks/sonar.sh
           env:
             SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        - name: Delete temporary build artifacts
-          run: rm -rf ~/.m2/repository/org/apache/ratis
-          if: always()
