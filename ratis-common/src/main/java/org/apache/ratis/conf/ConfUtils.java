@@ -373,7 +373,7 @@ public interface ConfUtils {
       return;
     }
     final String fieldName = f.getName();
-    if ("LOG".equals(fieldName)) {
+    if ("LOG".equals(fieldName) || "$jacocoData".equals(fieldName)) {
       return;
     }
     if (!"PREFIX".equals(fieldName)) {

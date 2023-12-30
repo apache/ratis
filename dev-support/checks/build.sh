@@ -18,6 +18,14 @@ cd "$DIR/../.." || exit 1
 
 source "${DIR}/../find_maven.sh"
 
+: ${WITH_COVERAGE:="false"}
+
+MAVEN_OPTIONS='-V -B -Dmaven.javadoc.skip=true -DskipTests --no-transfer-progress'
+
+if [[ "${WITH_COVERAGE}" != "true" ]]; then
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} -Djacoco.skip"
+fi
+
 export MAVEN_OPTS="-Xmx4096m"
-${MVN} -V -B -Dmaven.javadoc.skip=true -DskipTests --no-transfer-progress clean install "$@"
+${MVN} ${MAVEN_OPTIONS} clean install "$@"
 exit $?

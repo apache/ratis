@@ -16,6 +16,8 @@ name: build-branch
 on:
   - push
   - pull_request
+env:
+  WITH_COVERAGE: true
 jobs:
   build:
     runs-on: ubuntu-20.04
@@ -38,6 +40,14 @@ jobs:
           java-version: 8
       - name: Run a full build
         run: ./dev-support/checks/build.sh -Prelease assembly:single
+      - name: Store binaries for tests
+        uses: actions/upload-artifact@v3
+        with:
+          name: ratis-bin
+          path: |
+            ratis-assembly/target/apache-ratis-*.tar.gz
+            !ratis-assembly/target/apache-ratis-*-src.tar.gz
+          retention-days: 1
       - name: Store source tarball for compilation
         uses: actions/upload-artifact@v3
         with:
@@ -140,6 +150,11 @@ jobs:
             key: maven-repo-${{ hashFiles('**/pom.xml') }}
             restore-keys: |
               maven-repo-
+        - name: Setup java
+          uses: actions/setup-java@v3
+          with:
+            distribution: 'temurin'
+            java-version: 8
         - name: Run tests
           run: ./dev-support/checks/unit.sh -P${{ matrix.profile }}-tests
         - name: Summary of failures
@@ -202,8 +217,10 @@ jobs:
           with:
             name: findbugs
             path: target/findbugs
-  sonar:
-    name: sonar
+  coverage:
+    needs:
+      - build
+      - unit
     runs-on: ubuntu-20.04
     if: (github.repository == 'apache/ratis' || github.repository == 'apache/incubator-ratis') && github.event_name != 'pull_request'
     steps:
@@ -225,8 +242,24 @@ jobs:
           with:
             distribution: 'temurin'
             java-version: 17
+        - name: Download artifacts
+          uses: actions/download-artifact@v3
+          with:
+            path: target/artifacts
+        - name: Untar binaries
+          run: |
+            mkdir -p ratis-assembly/target
+            tar xzvf target/artifacts/ratis-bin/apache-ratis*.tar.gz -C ratis-assembly/target
+        - name: Calculate combined coverage
+          run: ./dev-support/checks/coverage.sh
         - name: Upload coverage to Sonar
           run: ./dev-support/checks/sonar.sh
           env:
             SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        - name: Archive build results
+          uses: actions/upload-artifact@v3
+          if: always()
+          with:
+            name: ${{ github.job }}
+            path: target/${{ github.job }}

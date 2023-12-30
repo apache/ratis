@@ -23,6 +23,7 @@ source "${DIR}/../find_maven.sh"
 
 : ${FAIL_FAST:="false"}
 : ${ITERATIONS:="1"}
+: ${WITH_COVERAGE:="false"}
 
 declare -i ITERATIONS
 if [[ ${ITERATIONS} -le 0 ]]; then
@@ -33,12 +34,16 @@ REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/unit"}
 mkdir -p "$REPORT_DIR"
 
 export MAVEN_OPTS="-Xmx4096m"
-MAVEN_OPTIONS='-B --no-transfer-progress'
+MAVEN_OPTIONS='-V -B --no-transfer-progress'
 
 if [[ "${FAIL_FAST}" == "true" ]]; then
   MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-fast -Dsurefire.skipAfterFailureCount=1"
 else
   MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-at-end"
+fi
+
+if [[ "${WITH_COVERAGE}" != "true" ]]; then
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} -Djacoco.skip"
 fi
 
 rc=0
@@ -76,5 +81,10 @@ for i in $(seq 1 ${ITERATIONS}); do
     break
   fi
 done
+
+if [[ "${WITH_COVERAGE}" == "true" ]]; then
+  # Archive combined jacoco records
+  mvn -B -N jacoco:merge -Djacoco.destFile="${REPORT_DIR}/jacoco-combined.exec"
+fi
 
 exit ${rc}
