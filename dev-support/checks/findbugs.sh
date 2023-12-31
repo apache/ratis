@@ -18,12 +18,18 @@ cd "$DIR/../.." || exit 1
 
 source "${DIR}/../find_maven.sh"
 
+: ${WITH_COVERAGE:="false"}
+
 MAVEN_OPTIONS='-B -fae --no-transfer-progress'
 
 if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
   #shellcheck disable=SC2086
   ${MVN} ${MAVEN_OPTIONS} test-compile spotbugs:check
   exit $?
+fi
+
+if [[ "${WITH_COVERAGE}" != "true" ]]; then
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} -Djacoco.skip"
 fi
 
 #shellcheck disable=SC2086

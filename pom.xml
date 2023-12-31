@@ -222,6 +222,7 @@
 
     <slf4j.version>2.0.7</slf4j.version>
     <junit.jupiter.version>5.10.1</junit.jupiter.version>
+    <jacoco.version>0.8.11</jacoco.version>
   </properties>
 
   <dependencyManagement>
@@ -642,7 +643,8 @@
             <reuseForks>false</reuseForks>
             <trimStackTrace>false</trimStackTrace>
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
-            <argLine>-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError</argLine>
+            <!-- @argLine is filled by jacoco maven plugin. @{} means late evaluation -->
+            <argLine>-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError @{argLine}</argLine>
             <systemPropertyVariables>
               <ratis.log.dir>${project.build.directory}/log</ratis.log.dir>
               <ratis.tmp.dir>${project.build.directory}/tmp</ratis.tmp.dir>
@@ -722,6 +724,12 @@
           <groupId>org.apache.felix</groupId>
           <artifactId>maven-bundle-plugin</artifactId>
           <version>${maven-bundle-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>${jacoco.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -831,6 +839,32 @@
               <sources>
                 <source>${basedir}/target/generated-sources</source>
               </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <configuration>
+          <fileSets>
+            <fileSet>
+              <directory>${project.basedir}</directory>
+              <includes>
+                <include>**/jacoco.exec</include>
+              </includes>
+              <useDefaultExcludes>false</useDefaultExcludes>
+            </fileSet>
+          </fileSets>
+        </configuration>
+        <executions>
+          <execution>
+            <id>default-prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <includes>org.apache.ratis.*</includes>
             </configuration>
           </execution>
         </executions>
