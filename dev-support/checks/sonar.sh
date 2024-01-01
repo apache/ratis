@@ -25,4 +25,5 @@ fi
 
 ${MVN} -B verify -DskipShade -DskipTests --no-transfer-progress \
   org.sonarsource.scanner.maven:sonar-maven-plugin:3.6.0.1398:sonar \
+  -Dsonar.coverage.jacoco.xmlReportPaths="$(pwd)/target/coverage/all.xml" \
   -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=apache -Dsonar.projectKey=apache-ratis
