@@ -18,8 +18,25 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.server.impl.GroupInfoBaseTest;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
+
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
+
+@RunWith(Parameterized.class)
 public class TestGroupInfoWithGrpc
     extends GroupInfoBaseTest<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
+  public TestGroupInfoWithGrpc(Boolean zeroCopyEnabled) {
+    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
+  }
+
+  @Parameterized.Parameters
+  public static Collection<Boolean[]> data() {
+    return Arrays.asList((new Boolean[][] {{FALSE}, {TRUE}}));
+  }
 }

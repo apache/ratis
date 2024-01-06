@@ -40,6 +40,8 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 @RunWith(Parameterized.class)
@@ -52,13 +54,14 @@ public class TestRaftWithGrpc
         SimpleStateMachine4Testing.class, StateMachine.class);
   }
 
-  public TestRaftWithGrpc(Boolean separateHeartbeat) {
+  public TestRaftWithGrpc(Boolean separateHeartbeat, Boolean zeroCopyEnabled) {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
   }
 
   @Parameterized.Parameters
   public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+    return Arrays.asList((new Boolean[][] {{FALSE, FALSE}, {FALSE, TRUE}, {TRUE, FALSE}, {TRUE, TRUE},}));
   }
 
   @Override

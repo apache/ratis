@@ -45,6 +45,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 @RunWith(Parameterized.class)
@@ -55,13 +57,14 @@ public class TestLogAppenderWithGrpc
     Slf4jUtils.setLogLevel(FollowerInfo.LOG, Level.DEBUG);
   }
 
-  public TestLogAppenderWithGrpc(Boolean separateHeartbeat) {
+  public TestLogAppenderWithGrpc(Boolean separateHeartbeat, Boolean zeroCopyEnabled) {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
   }
 
   @Parameterized.Parameters
   public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+    return Arrays.asList((new Boolean[][] {{FALSE, FALSE}, {FALSE, TRUE}, {TRUE, FALSE}, {TRUE, TRUE},}));
   }
 
   @Test

@@ -18,8 +18,25 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.RaftExceptionBaseTest;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
+
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
+
+@RunWith(Parameterized.class)
 public class TestRaftExceptionWithGrpc
     extends RaftExceptionBaseTest<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
+  public TestRaftExceptionWithGrpc(Boolean zeroCopyEnabled) {
+    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
+  }
+
+  @Parameterized.Parameters
+  public static Collection<Boolean[]> data() {
+    return Arrays.asList((new Boolean[][] {{FALSE}, {TRUE}}));
+  }
 }

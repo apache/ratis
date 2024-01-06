@@ -86,13 +86,15 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     Slf4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.TRACE);
   }
 
-  public TestRaftServerWithGrpc(Boolean separateHeartbeat) {
+  public TestRaftServerWithGrpc(Boolean separateHeartbeat, Boolean zeroCopyEnabled) {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
   }
 
   @Parameterized.Parameters
   public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+    return Arrays.asList((new Boolean[][] {{Boolean.FALSE, Boolean.FALSE}, {Boolean.FALSE, Boolean.TRUE},
+        {Boolean.TRUE, Boolean.FALSE}, {Boolean.TRUE, Boolean.TRUE},}));
   }
 
   @Before
