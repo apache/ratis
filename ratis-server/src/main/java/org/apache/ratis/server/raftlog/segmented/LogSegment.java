@@ -68,17 +68,20 @@ public final class LogSegment implements Comparable<Long> {
   }
 
   static long getEntrySize(LogEntryProto entry, Op op) {
-    LogEntryProto e = entry;
-    if (op == Op.CHECK_SEGMENT_FILE_FULL) {
-      e = LogProtoUtils.removeStateMachineData(entry);
-    } else if (op == Op.LOAD_SEGMENT_FILE || op == Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE) {
-      Preconditions.assertTrue(entry == LogProtoUtils.removeStateMachineData(entry),
-          () -> "Unexpected LogEntryProto with StateMachine data: op=" + op + ", entry=" + entry);
-    } else {
-      Preconditions.assertTrue(op == Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE || op == Op.REMOVE_CACHE,
-          () -> "Unexpected op " + op + ", entry=" + entry);
+    switch (op) {
+      case CHECK_SEGMENT_FILE_FULL:
+      case LOAD_SEGMENT_FILE:
+      case WRITE_CACHE_WITH_STATE_MACHINE_CACHE:
+        Preconditions.assertTrue(entry == LogProtoUtils.removeStateMachineData(entry),
+            () -> "Unexpected LogEntryProto with StateMachine data: op=" + op + ", entry=" + entry);
+        break;
+      case WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE:
+      case REMOVE_CACHE:
+        break;
+      default:
+        throw new IllegalStateException("Unexpected op " + op + ", entry=" + entry);
     }
-    final int serialized = e.getSerializedSize();
+    final int serialized = entry.getSerializedSize();
     return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4L;
   }
 
