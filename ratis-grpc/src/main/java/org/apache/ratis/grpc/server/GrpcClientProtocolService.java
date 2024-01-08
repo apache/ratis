@@ -31,7 +31,6 @@ import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceImplBase;
 import org.apache.ratis.util.CollectionUtils;
-import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
@@ -39,13 +38,10 @@ import org.apache.ratis.util.SlidingWindow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -62,18 +58,20 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
   private static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolService.class);
 
   private static class PendingOrderedRequest implements SlidingWindow.ServerSideRequest<RaftClientReply> {
-    private final ReferenceCountedObject<RaftClientRequest> request;
+    private final ReferenceCountedObject<RaftClientRequest> requestRef;
+    private final RaftClientRequest request;
     private final AtomicReference<RaftClientReply> reply = new AtomicReference<>();
 
-    PendingOrderedRequest(ReferenceCountedObject<RaftClientRequest> request) {
-      this.request = request;
+    PendingOrderedRequest(ReferenceCountedObject<RaftClientRequest> requestRef) {
+      this.requestRef = requestRef;
+      this.request = requestRef != null ? requestRef.get() : null;
     }
 
     @Override
     public void fail(Throwable t) {
       final RaftException e = Preconditions.assertInstanceOf(t, RaftException.class);
       setReply(RaftClientReply.newBuilder()
-          .setRequest(request.get())
+          .setRequest(request)
           .setException(e)
           .build());
     }
@@ -86,25 +84,25 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
     @Override
     public void setReply(RaftClientReply r) {
       final boolean set = reply.compareAndSet(null, r);
-      Preconditions.assertTrue(set, () -> "Reply is already set: request=" + request + ", reply=" + reply);
+      Preconditions.assertTrue(set, () -> "Reply is already set: request=" + request.toStringShort() + ", reply=" + reply);
     }
 
     RaftClientReply getReply() {
       return reply.get();
     }
 
-    ReferenceCountedObject<RaftClientRequest> getRequest() {
-      return request;
+    ReferenceCountedObject<RaftClientRequest> getRequestRef() {
+      return requestRef;
     }
 
     @Override
     public long getSeqNum() {
-      return request != null? request.get().getSlidingWindowEntry().getSeqNum(): Long.MAX_VALUE;
+      return request != null? request.getSlidingWindowEntry().getSeqNum(): Long.MAX_VALUE;
     }
 
     @Override
     public boolean isFirstRequest() {
-      return request != null && request.get().getSlidingWindowEntry().getIsFirst();
+      return request != null && request.getSlidingWindowEntry().getIsFirst();
     }
 
     @Override
@@ -250,10 +248,10 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
       return isClosed.get();
     }
 
-    CompletableFuture<Void> processClientRequest(ReferenceCountedObject<RaftClientRequest> request,
+    CompletableFuture<Void> processClientRequest(ReferenceCountedObject<RaftClientRequest> requestRef,
         Consumer<RaftClientReply> replyHandler) {
-      final String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + request : "";
-      return protocol.submitClientRequestAsync(request
+      final String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + requestRef : "";
+      return protocol.submitClientRequestAsync(requestRef
       ).thenAcceptAsync(replyHandler, executor
       ).exceptionally(exception -> {
         // TODO: the exception may be from either raft or state machine.
@@ -316,14 +314,17 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
     @Override
     void processClientRequest(ReferenceCountedObject<RaftClientRequest> requestRef) {
+      final RaftClientRequest request = requestRef.retain();
+      final long callId = request.getCallId();
+
       final CompletableFuture<Void> f = processClientRequest(requestRef, reply -> {
         if (!reply.isSuccess()) {
-          LOG.info("Failed {}}, reply={}", requestRef.get(), reply);
+          LOG.info("Failed {}}, reply={}", request, reply);
         }
         final RaftClientReplyProto proto = ClientProtoUtils.toRaftClientReplyProto(reply);
         responseNext(proto);
-      });
-      final long callId = requestRef.get().getCallId();
+      }).whenComplete((r, e) -> requestRef.release());
+
       put(callId, f);
       f.thenAccept(dummy -> remove(callId));
     }
@@ -366,32 +367,35 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
     void processClientRequest(PendingOrderedRequest pending) {
       final long seq = pending.getSeqNum();
-      processClientRequest(pending.getRequest(),
+      processClientRequest(pending.getRequestRef(),
           reply -> slidingWindow.receiveReply(seq, reply, this::sendReply));
     }
 
     @Override
     void processClientRequest(ReferenceCountedObject<RaftClientRequest> requestRef) {
-      final RaftClientRequest request = requestRef.get();
-      if (isClosed()) {
-        final AlreadyClosedException exception = new AlreadyClosedException(getName() + ": the stream is closed");
-        responseError(exception, () -> "processClientRequest (stream already closed) for " + request);
+      final RaftClientRequest request = requestRef.retain();
+      try {
+        if (isClosed()) {
+          final AlreadyClosedException exception = new AlreadyClosedException(getName() + ": the stream is closed");
+          responseError(exception, () -> "processClientRequest (stream already closed) for " + request);
+        }
+
+        final RaftGroupId requestGroupId = request.getRaftGroupId();
+        // use the group id in the first request as the group id of this observer
+        final RaftGroupId updated = groupId.updateAndGet(g -> g != null ? g : requestGroupId);
+        final PendingOrderedRequest pending = new PendingOrderedRequest(requestRef);
+
+        if (!requestGroupId.equals(updated)) {
+          final GroupMismatchException exception = new GroupMismatchException(getId()
+              + ": The group (" + requestGroupId + ") of " + request.getClientId()
+              + " does not match the group (" + updated + ") of the " + JavaUtils.getClassSimpleName(getClass()));
+          responseError(exception, () -> "processClientRequest (Group mismatched) for " + request);
+          return;
+        }
+        slidingWindow.receivedRequest(pending, this::processClientRequest);
+      } finally {
+        requestRef.release();
       }
-
-      final RaftGroupId requestGroupId = request.getRaftGroupId();
-      // use the group id in the first request as the group id of this observer
-      final RaftGroupId updated = groupId.updateAndGet(g -> g != null ? g: requestGroupId);
-      final PendingOrderedRequest pending = new PendingOrderedRequest(requestRef);
-
-      if (!requestGroupId.equals(updated)) {
-        final GroupMismatchException exception = new GroupMismatchException(getId()
-            + ": The group (" + requestGroupId + ") of " + request.getClientId()
-            + " does not match the group (" + updated + ") of the " + JavaUtils.getClassSimpleName(getClass()));
-        responseError(exception, () -> "processClientRequest (Group mismatched) for " + requestRef);
-        return;
-      }
-
-      slidingWindow.receivedRequest(pending, this::processClientRequest);
     }
 
     private void sendReply(PendingOrderedRequest ready) {
