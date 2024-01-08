@@ -84,7 +84,8 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
     @Override
     public void setReply(RaftClientReply r) {
       final boolean set = reply.compareAndSet(null, r);
-      Preconditions.assertTrue(set, () -> "Reply is already set: request=" + request.toStringShort() + ", reply=" + reply);
+      Preconditions.assertTrue(set, () -> "Reply is already set: request=" +
+          request.toStringShort() + ", reply=" + reply);
     }
 
     RaftClientReply getReply() {
