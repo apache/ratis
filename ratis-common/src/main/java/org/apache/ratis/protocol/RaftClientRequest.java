@@ -20,7 +20,6 @@ package org.apache.ratis.protocol;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.ForwardRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.MessageStreamRequestTypeProto;
-import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
@@ -115,7 +114,7 @@ public class RaftClientRequest extends RaftClientMessage {
     return new Type(WatchRequestTypeProto.newBuilder().setIndex(index).setReplication(replication).build());
   }
 
-  /** The type of {@link RaftClientRequest} corresponding to {@link RaftClientRequestProto.TypeCase}. */
+  /** The type of {@link RaftClientRequest} corresponding to {@link TypeCase}. */
   public static final class Type {
     public static Type valueOf(WriteRequestTypeProto write) {
       return writeRequestType(write.getReplication());
