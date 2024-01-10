@@ -199,11 +199,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   private void put(LogEntryProto entry) {
-    // Application should not cache the original log entry infinitely.
-    // This is because with zero copy, the buffer that backs the protobuf entry might be gone.
-    // Here, we keep a copied version for testing purpose.
-    LogEntryProto copied = copy(entry);
-    final LogEntryProto previous = indexMap.put(entry.getIndex(), copied);
+    final LogEntryProto previous = indexMap.put(entry.getIndex(), entry);
     Preconditions.assertNull(previous, "previous");
     final String s = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
     dataMap.put(s, entry);
@@ -260,7 +256,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
     LOG.info("applyTransaction for log index {}", entry.getIndex());
 
-    put(entry);
+    // Application should not cache the original log entry infinitely.
+    // This is because with zero copy, the buffer that backs the protobuf entry might be gone.
+    // Here, we keep a copied version for testing purpose.
+    put(copy(entry));
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
 
     final SimpleMessage m = new SimpleMessage(entry.getIndex() + " OK");
