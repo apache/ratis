@@ -22,6 +22,8 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -33,7 +35,6 @@ import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.
 public class RaftClientRequest extends RaftClientMessage {
   private static final Type DATA_STREAM_DEFAULT = new Type(DataStreamRequestTypeProto.getDefaultInstance());
   private static final Type FORWARD_DEFAULT = new Type(ForwardRequestTypeProto.getDefaultInstance());
-  private static final Type WRITE_DEFAULT = new Type(WriteRequestTypeProto.getDefaultInstance());
   private static final Type WATCH_DEFAULT = new Type(
       WatchRequestTypeProto.newBuilder().setIndex(0L).setReplication(ReplicationLevel.MAJORITY).build());
 
@@ -44,8 +45,23 @@ public class RaftClientRequest extends RaftClientMessage {
       = new Type(ReadRequestTypeProto.newBuilder().setPreferNonLinearizable(true).build());
   private static final Type STALE_READ_DEFAULT = new Type(StaleReadRequestTypeProto.getDefaultInstance());
 
+  private static final Map<ReplicationLevel, Type> WRITE_REQUEST_TYPES;
+
+  static {
+    final EnumMap<ReplicationLevel, Type> map = new EnumMap<>(ReplicationLevel.class);
+    for(ReplicationLevel replication : ReplicationLevel.values()) {
+      final WriteRequestTypeProto write = WriteRequestTypeProto.newBuilder().setReplication(replication).build();
+      map.put(replication, new Type(write));
+    }
+    WRITE_REQUEST_TYPES = Collections.unmodifiableMap(map);
+  }
+
+  public static Type writeRequestType(ReplicationLevel replication) {
+    return WRITE_REQUEST_TYPES.get(replication);
+  }
+
   public static Type writeRequestType() {
-    return WRITE_DEFAULT;
+    return writeRequestType(ReplicationLevel.MAJORITY);
   }
 
   public static Type dataStreamRequestType() {
@@ -91,7 +107,7 @@ public class RaftClientRequest extends RaftClientMessage {
   /** The type of {@link RaftClientRequest} corresponding to {@link RaftClientRequestProto.TypeCase}. */
   public static final class Type {
     public static Type valueOf(WriteRequestTypeProto write) {
-      return WRITE_DEFAULT;
+      return writeRequestType(write.getReplication());
     }
 
     public static Type valueOf(DataStreamRequestTypeProto dataStream) {

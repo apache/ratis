@@ -42,8 +42,8 @@ class AsyncImpl implements AsyncRpcApi {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> send(Message message) {
-    return send(RaftClientRequest.writeRequestType(), message, null);
+  public CompletableFuture<RaftClientReply> send(Message message, ReplicationLevel replication) {
+    return send(RaftClientRequest.writeRequestType(replication), message, null);
   }
 
   @Override

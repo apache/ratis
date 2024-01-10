@@ -63,6 +63,7 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.ReadIndexReplyProto;
 import org.apache.ratis.proto.RaftProtos.ReadIndexRequestProto;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
@@ -883,7 +884,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
       leaderState.notifySenders();
     }
-    return pending.getFuture();
+    return getWriteFuture(pending);
   }
 
   void stepDownOnJvmPause() {
@@ -995,6 +996,28 @@ class RaftServerImpl implements RaftServer.Division,
     return appendTransaction(request, context, cacheEntry);
   }
 
+  private CompletableFuture<RaftClientReply> getWriteFuture(PendingRequest pending) {
+    final ReplicationLevel replication = pending.getRequest().getType().getWrite().getReplication();
+    final CompletableFuture<RaftClientReply> future = pending.getFuture();
+    if (replication == ReplicationLevel.MAJORITY) {
+      return future;
+    }
+
+    return future.thenCompose(reply -> watchAsync(reply, replication));
+  }
+
+  private CompletableFuture<RaftClientReply> watchAsync(RaftClientReply reply, ReplicationLevel replication) {
+    final RaftClientRequest.Type type = RaftClientRequest.watchRequestType(reply.getLogIndex(), replication);
+    final RaftClientRequest watch = RaftClientRequest.newBuilder()
+        .setServerId(reply.getServerId())
+        .setClientId(reply.getClientId())
+        .setGroupId(reply.getRaftGroupId())
+        .setCallId(reply.getCallId())
+        .setType(type)
+        .build();
+    return watchAsync(watch).thenApply(r -> reply);
+  }
+
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
     final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
@@ -1002,7 +1025,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     return role.getLeaderState()
-        .map(ls -> ls.addWatchReqeust(request))
+        .map(ls -> ls.addWatchRequest(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
             newExceptionReply(request, generateNotLeaderException())));
   }

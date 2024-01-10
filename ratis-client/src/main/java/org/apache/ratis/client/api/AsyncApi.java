@@ -36,9 +36,15 @@ public interface AsyncApi {
    * For readonly messages, use {@link #sendReadOnly(Message)} instead.
    *
    * @param message The request message.
+   * @param replication The replication level to wait for.
    * @return a future of the reply.
    */
-  CompletableFuture<RaftClientReply> send(Message message);
+  CompletableFuture<RaftClientReply> send(Message message, ReplicationLevel replication);
+
+  /** The same as send(message, ReplicationLevel.MAJORITY). */
+  default CompletableFuture<RaftClientReply> send(Message message) {
+    return send(message, ReplicationLevel.MAJORITY);
+  }
 
   /** The same as sendReadOnly(message, null). */
   default CompletableFuture<RaftClientReply> sendReadOnly(Message message) {
