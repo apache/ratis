@@ -42,7 +42,6 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
@@ -208,14 +207,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
         LogProtoUtils.toLogEntryString(entry));
   }
 
-  private LogEntryProto copy(LogEntryProto entry) {
-    try {
-      return LogEntryProto.parseFrom(entry.toByteArray());
-    } catch (InvalidProtocolBufferException e) {
-      throw new IllegalStateException("Error copying entry.", e);
-    }
-  }
-
   @Override
   public synchronized void initialize(RaftServer server, RaftGroupId groupId,
       RaftStorage raftStorage) throws IOException {
@@ -259,7 +250,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     // Application should not cache the original log entry infinitely.
     // This is because with zero copy, the buffer that backs the protobuf entry might be gone.
     // Here, we keep a copied version for testing purpose.
-    put(copy(entry));
+    put(entry);
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
 
     final SimpleMessage m = new SimpleMessage(entry.getIndex() + " OK");
