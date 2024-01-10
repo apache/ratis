@@ -884,7 +884,30 @@ class RaftServerImpl implements RaftServer.Division,
       }
       leaderState.notifySenders();
     }
-    return getWriteFuture(pending);
+
+    final CompletableFuture<RaftClientReply> future = pending.getFuture();
+    if (request.is(TypeCase.WRITE)) {
+      // check replication
+      final ReplicationLevel replication = request.getType().getWrite().getReplication();
+      if (replication != ReplicationLevel.MAJORITY) {
+        return future.thenCompose(reply -> waitForReplication(reply, replication));
+      }
+    }
+
+    return future;
+  }
+
+  /** Wait until the given replication requirement is satisfied. */
+  private CompletableFuture<RaftClientReply> waitForReplication(RaftClientReply reply, ReplicationLevel replication) {
+    final RaftClientRequest.Type type = RaftClientRequest.watchRequestType(reply.getLogIndex(), replication);
+    final RaftClientRequest watch = RaftClientRequest.newBuilder()
+        .setServerId(reply.getServerId())
+        .setClientId(reply.getClientId())
+        .setGroupId(reply.getRaftGroupId())
+        .setCallId(reply.getCallId())
+        .setType(type)
+        .build();
+    return watchAsync(watch).thenApply(r -> reply);
   }
 
   void stepDownOnJvmPause() {
@@ -994,28 +1017,6 @@ class RaftServerImpl implements RaftServer.Division,
 
     context.setDelegatedRef(requestRef);
     return appendTransaction(request, context, cacheEntry);
-  }
-
-  private CompletableFuture<RaftClientReply> getWriteFuture(PendingRequest pending) {
-    final ReplicationLevel replication = pending.getRequest().getType().getWrite().getReplication();
-    final CompletableFuture<RaftClientReply> future = pending.getFuture();
-    if (replication == ReplicationLevel.MAJORITY) {
-      return future;
-    }
-
-    return future.thenCompose(reply -> watchAsync(reply, replication));
-  }
-
-  private CompletableFuture<RaftClientReply> watchAsync(RaftClientReply reply, ReplicationLevel replication) {
-    final RaftClientRequest.Type type = RaftClientRequest.watchRequestType(reply.getLogIndex(), replication);
-    final RaftClientRequest watch = RaftClientRequest.newBuilder()
-        .setServerId(reply.getServerId())
-        .setClientId(reply.getClientId())
-        .setGroupId(reply.getRaftGroupId())
-        .setCallId(reply.getCallId())
-        .setType(type)
-        .build();
-    return watchAsync(watch).thenApply(r -> reply);
   }
 
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
