@@ -32,6 +32,7 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AutoCloseableReadWriteLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -596,11 +597,11 @@ public class SegmentedRaftLogCache {
     }
   }
 
-  void appendEntry(LogEntryProto entry, LogSegment.Op op) {
+  void appendEntry(LogSegment.Op op, ReferenceCountedObject<LogEntryProto> entry) {
     // SegmentedRaftLog does the segment creation/rolling work. Here we just
     // simply append the entry into the open segment.
     Preconditions.assertNotNull(openSegment, "openSegment");
-    openSegment.appendToOpenSegment(entry, op);
+    openSegment.appendToOpenSegment(op, entry);
   }
 
   /**
