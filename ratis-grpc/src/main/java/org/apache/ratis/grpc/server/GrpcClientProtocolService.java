@@ -251,7 +251,7 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
     CompletableFuture<Void> processClientRequest(ReferenceCountedObject<RaftClientRequest> requestRef,
         Consumer<RaftClientReply> replyHandler) {
-      final String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + requestRef : "";
+      final String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + requestRef.get() : "";
       return protocol.submitClientRequestAsync(requestRef
       ).thenAcceptAsync(replyHandler, executor
       ).exceptionally(exception -> {
@@ -320,7 +320,7 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
       final CompletableFuture<Void> f = processClientRequest(requestRef, reply -> {
         if (!reply.isSuccess()) {
-          LOG.info("Failed {}}, reply={}", request, reply);
+          LOG.info("Failed {}, reply={}", request, reply);
         }
         final RaftClientReplyProto proto = ClientProtoUtils.toRaftClientReplyProto(reply);
         responseNext(proto);

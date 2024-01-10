@@ -448,9 +448,7 @@ public class RaftClientRequest extends RaftClientMessage {
   }
 
   /**
-   * Safe version of toString that doesn't involve the message content.
-   *
-   * @return
+   * @return a short string which does not include {@link #message}.
    */
   public String toStringShort() {
     return super.toString() + ", seq=" + ProtoUtils.toString(slidingWindowEntry) + ", " + type;
