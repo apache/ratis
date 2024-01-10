@@ -21,6 +21,7 @@ import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
+import org.apache.ratis.thirdparty.com.google.protobuf.AbstractMessage;
 
 public class ZeroCopyMetrics extends RatisMetrics {
   private static final String RATIS_GRPC_METRICS_APP_NAME = "ratis_grpc";
@@ -29,6 +30,7 @@ public class ZeroCopyMetrics extends RatisMetrics {
 
   private final LongCounter zeroCopyMessages = getRegistry().counter("num_zero_copy_messages");
   private final LongCounter nonZeroCopyMessages = getRegistry().counter("num_non_zero_copy_messages");
+  private final LongCounter releasedMessages = getRegistry().counter("num_released_messages");
 
   public ZeroCopyMetrics() {
     super(createRegistry());
@@ -41,12 +43,16 @@ public class ZeroCopyMetrics extends RatisMetrics {
   }
 
 
-  public void onZeroCopyMessage() {
+  public void onZeroCopyMessage(AbstractMessage ignored) {
     zeroCopyMessages.inc();
   }
 
-  public void onNonZeroCopyMessage() {
+  public void onNonZeroCopyMessage(AbstractMessage ignored) {
     nonZeroCopyMessages.inc();
+  }
+
+  public void onReleasedMessage(AbstractMessage ignored) {
+    releasedMessages.inc();
   }
 
 }
