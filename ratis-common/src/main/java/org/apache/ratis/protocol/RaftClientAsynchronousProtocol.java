@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,12 +17,40 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
+
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /** Asynchronous version of {@link RaftClientProtocol}. */
 public interface RaftClientAsynchronousProtocol {
-  CompletableFuture<RaftClientReply> submitClientRequestAsync(
-      RaftClientRequest request) throws IOException;
+  /**
+   * It is recommended to override {@link #submitClientRequestAsync(ReferenceCountedObject)} instead.
+   * Then, it does not have to override this method.
+   */
+  default CompletableFuture<RaftClientReply> submitClientRequestAsync(
+      RaftClientRequest request) throws IOException {
+    return submitClientRequestAsync(ReferenceCountedObject.wrap(request));
+  }
 
+  /**
+   * A referenced counted request is submitted from a client for processing.
+   * Implementations of this method should retain the request, process it and then release it.
+   * The request may be retained even after the future returned by this method has completed.
+   *
+   * @return a future of the reply
+   * @see ReferenceCountedObject
+   */
+  default CompletableFuture<RaftClientReply> submitClientRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    try {
+      // for backward compatibility
+      return submitClientRequestAsync(requestRef.retain())
+          .whenComplete((r, e) -> requestRef.release());
+    } catch (Exception e) {
+      requestRef.release();
+      return JavaUtils.completeExceptionally(e);
+    }
+  }
 }

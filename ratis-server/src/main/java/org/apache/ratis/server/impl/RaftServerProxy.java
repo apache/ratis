@@ -52,6 +52,7 @@ import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.Closeable;
@@ -444,9 +445,15 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) {
-    return getImplFuture(request.getRaftGroupId())
-        .thenCompose(impl -> impl.executeSubmitClientRequestAsync(request));
+  public CompletableFuture<RaftClientReply> submitClientRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.retain();
+    try {
+      return getImplFuture(request.getRaftGroupId())
+          .thenCompose(impl -> impl.executeSubmitClientRequestAsync(requestRef));
+    } finally {
+      requestRef.release();
+    }
   }
 
   @Override
