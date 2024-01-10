@@ -50,6 +50,9 @@ public class RaftClientRequest extends RaftClientMessage {
   static {
     final EnumMap<ReplicationLevel, Type> map = new EnumMap<>(ReplicationLevel.class);
     for(ReplicationLevel replication : ReplicationLevel.values()) {
+      if (replication == ReplicationLevel.UNRECOGNIZED) {
+        continue;
+      }
       final WriteRequestTypeProto write = WriteRequestTypeProto.newBuilder().setReplication(replication).build();
       map.put(replication, new Type(write));
     }
