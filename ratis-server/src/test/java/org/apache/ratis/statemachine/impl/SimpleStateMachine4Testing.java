@@ -247,9 +247,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
     LOG.info("applyTransaction for log index {}", entry.getIndex());
 
-    // Application should not cache the original log entry infinitely.
-    // This is because with zero copy, the buffer that backs the protobuf entry might be gone.
-    // Here, we keep a copied version for testing purpose.
     put(entry);
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
 
@@ -331,7 +328,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     final String string = request.getContent().toStringUtf8();
     Exception exception;
     try {
-      LOG.info("query " + string);
+      LOG.info("query {}, all available: {}", string, dataMap.keySet());
       final LogEntryProto entry = dataMap.get(string);
       if (entry != null) {
         return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
