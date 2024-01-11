@@ -6,19 +6,32 @@
     <description>Recent content on Apache Ratis</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 21 Nov 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.apache.org/index.xml" rel="self" type="application/rss+xml" />
-
-  <item>
+    <lastBuildDate>Tue, 09 Jan 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.apache.org/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Release 3.0.1 is available</title>
+      <link>https://ratis.apache.org/post/3.0.1.html</link>
+      <pubDate>Tue, 09 Jan 2024 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.apache.org/post/3.0.1.html</guid>
+      <description>Download
+This is a bugfix release. See the changes between 3.0.0 and 3.0.1 releases.
+It has been tested with Apache Ozone and Apache IoTDB, where Apache Ratis is used to replicate raw data and to provide high availability.</description>
+    </item>
+    
+    <item>
       <title>Release 3.0.0 is available</title>
       <link>https://ratis.apache.org/post/3.0.0.html</link>
-      <pubDate>Fri, 17 Nov 2023 00:00:00 +0000</pubDate>
-
+      <pubDate>Tue, 21 Nov 2023 00:00:00 +0000</pubDate>
+      
       <guid>https://ratis.apache.org/post/3.0.0.html</guid>
       <description>Download
-This is a major new version that contains 100 improvements and bug fixes. It introduces new features like pluggable metrics and lease read, etc.
-It has been tested with Apache Ozone, Apache IoTDB where Apache Ratis is used to replicate raw data and to provide high availability.</description>
+This is a major new version that contains 100 improvements and bug fixes. It introduces new features like pluggable metrics and lease read, etc. See the changes between 2.5.1 and 3.0.0 releases as below:
+Change list of ratis 3.0.0 In total, there are roughly 100 commits diffing from 2.5.1
+Incompatible Changes   RaftStorage Auto-Format
+  RATIS-1677. Do not auto format RaftStorage in RECOVER. (#718)
+  RATIS-1694. Fix the compatibility issue of RATIS-1677.</description>
     </item>
-
+    
     <item>
       <title>Release 2.5.1 is available</title>
       <link>https://ratis.apache.org/post/2.5.1.html</link>
