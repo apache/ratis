@@ -176,8 +176,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         RaftServerConfigKeys.Log.Appender.bufferByteLimit(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()),
-        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()),
-        GrpcConfigKeys.Server.zeroCopyEnabled(server.getProperties()));
+        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()));
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber") // private constructor
@@ -187,7 +186,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
       String serverHost, int serverPort, GrpcTlsConfig serverTlsConfig,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
       SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration,
-      boolean useSeparateHBChannel, boolean zeroCopyEnabled) {
+      boolean useSeparateHBChannel) {
     super(idSupplier, id -> new PeerProxyMap<>(id.toString(),
         p -> new GrpcServerProtocolClient(p, flowControlWindow.getSizeInt(),
             requestTimeoutDuration, serverTlsConfig, useSeparateHBChannel)));
@@ -203,8 +202,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         GrpcConfigKeys.Server.asyncRequestThreadPoolSize(properties),
         getId() + "-request-");
     this.zeroCopyMetrics = new ZeroCopyMetrics();
-    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor, zeroCopyEnabled,
-        zeroCopyMetrics);
+    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor, zeroCopyMetrics);
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
