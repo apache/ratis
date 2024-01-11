@@ -24,21 +24,17 @@ import org.junit.runners.Parameterized;
 import java.util.Arrays;
 import java.util.Collection;
 
-import static java.lang.Boolean.FALSE;
-import static java.lang.Boolean.TRUE;
-
 @RunWith(Parameterized.class)
 public class TestLeaderInstallSnapshot
 extends InstallSnapshotFromLeaderTests<MiniRaftClusterWithGrpc>
 implements MiniRaftClusterWithGrpc.FactoryGet {
 
-    public TestLeaderInstallSnapshot(Boolean separateHeartbeat, Boolean zeroCopyEnabled) {
+    public TestLeaderInstallSnapshot(Boolean separateHeartbeat) {
         GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
-        GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
     }
 
     @Parameterized.Parameters
     public static Collection<Boolean[]> data() {
-        return Arrays.asList((new Boolean[][] {{FALSE, FALSE}, {FALSE, TRUE}, {TRUE, FALSE}, {TRUE, TRUE},}));
+        return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
     }
 }

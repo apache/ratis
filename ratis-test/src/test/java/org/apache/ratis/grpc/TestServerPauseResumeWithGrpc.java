@@ -18,25 +18,9 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.server.impl.ServerPauseResumeTest;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-import java.util.Arrays;
-import java.util.Collection;
-
-import static java.lang.Boolean.FALSE;
-import static java.lang.Boolean.TRUE;
-
-@RunWith(Parameterized.class)
 public class TestServerPauseResumeWithGrpc
     extends ServerPauseResumeTest<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
-  public TestServerPauseResumeWithGrpc(Boolean zeroCopyEnabled) {
-    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
-  }
 
-  @Parameterized.Parameters
-  public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{FALSE}, {TRUE}}));
-  }
 }

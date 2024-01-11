@@ -18,23 +18,8 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.InstallSnapshotNotificationTests;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-import java.util.Arrays;
-import java.util.Collection;
-
-@RunWith(Parameterized.class)
 public class TestInstallSnapshotNotificationWithGrpc
     extends InstallSnapshotNotificationTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
-
-  @Parameterized.Parameters
-  public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
-  }
-
-  public TestInstallSnapshotNotificationWithGrpc(Boolean zeroCopyEnabled) {
-    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
-  }
 }

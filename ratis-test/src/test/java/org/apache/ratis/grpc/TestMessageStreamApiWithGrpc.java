@@ -18,24 +18,7 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.MessageStreamApiTests;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-import java.util.Arrays;
-import java.util.Collection;
-
-import static java.lang.Boolean.FALSE;
-import static java.lang.Boolean.TRUE;
-
-@RunWith(Parameterized.class)
 public class TestMessageStreamApiWithGrpc extends MessageStreamApiTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
-  public TestMessageStreamApiWithGrpc(Boolean zeroCopyEnabled) {
-    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
-  }
-
-  @Parameterized.Parameters
-  public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{FALSE}, {TRUE}}));
-  }
 }

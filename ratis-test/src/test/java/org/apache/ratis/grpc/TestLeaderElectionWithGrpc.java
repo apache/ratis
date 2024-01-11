@@ -20,25 +20,10 @@ package org.apache.ratis.grpc;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.LeaderElectionTests;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-import java.util.Arrays;
-import java.util.Collection;
-
-@RunWith(Parameterized.class)
 public class TestLeaderElectionWithGrpc
     extends LeaderElectionTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
-
-  @Parameterized.Parameters
-  public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
-  }
-
-  public TestLeaderElectionWithGrpc(Boolean zeroCopyEnabled) {
-    GrpcConfigKeys.Server.setZeroCopyEnabled(getProperties(), zeroCopyEnabled);
-  }
 
   @Override
   @Test
