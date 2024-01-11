@@ -65,20 +65,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
-import org.apache.ratis.protocol.exceptions.GroupMismatchException;
-import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
-import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
-import org.apache.ratis.protocol.exceptions.NotLeaderException;
-import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.protocol.exceptions.ReadException;
-import org.apache.ratis.protocol.exceptions.ReadIndexException;
-import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
-import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
-import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
-import org.apache.ratis.protocol.exceptions.SetConfigurationException;
-import org.apache.ratis.protocol.exceptions.StaleReadException;
-import org.apache.ratis.protocol.exceptions.StateMachineException;
-import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
+import org.apache.ratis.protocol.exceptions.*;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
@@ -502,7 +489,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
-  public synchronized void close() {
+  public void close() {
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: shutdown", getMemberId());
       try {
@@ -576,7 +563,17 @@ class RaftServerImpl implements RaftServer.Division,
     if ((old != RaftPeerRole.FOLLOWER || force) && old != RaftPeerRole.LISTENER) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
-        role.shutdownLeaderState(false);
+        role.shutdownLeaderState(false)
+            .exceptionally(e -> {
+              if (e != null) {
+                if (!getInfo().isAlive()) {
+                  LOG.info("Since server is not alive {}, safely ignore {}", this, e.toString());
+                  return null;
+                }
+              }
+              throw new CompletionException("Failed to shutdownLeaderState: " + this, e);
+            })
+            .join();
         state.setLeader(null, reason);
       } else if (old == RaftPeerRole.CANDIDATE) {
         role.shutdownLeaderElection();
