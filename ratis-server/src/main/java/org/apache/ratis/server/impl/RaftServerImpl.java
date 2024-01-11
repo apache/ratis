@@ -502,7 +502,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
-  public void close() {
+  public synchronized void close() {
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: shutdown", getMemberId());
       try {
