@@ -30,13 +30,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 class MessageStreamRequests {
   public static final Logger LOG = LoggerFactory.getLogger(MessageStreamRequests.class);
@@ -69,8 +66,8 @@ class MessageStreamRequests {
     synchronized CompletableFuture<ReferenceCountedObject<RaftClientRequest>> getWriteRequest(long messageId,
         ReferenceCountedObject<RaftClientRequest> requestRef) {
       return append(messageId, requestRef)
-          .thenApply(bytes -> RaftClientRequest.toWriteRequest(requestRef.get(), () -> bytes))
-          .thenApply(write -> ReferenceCountedObject.delegateFrom(pendingRefs, write));
+          .thenApply(appended -> RaftClientRequest.toWriteRequest(requestRef.get(), () -> appended))
+          .thenApply(request -> ReferenceCountedObject.delegateFrom(pendingRefs, request));
     }
 
     synchronized void clear() {
