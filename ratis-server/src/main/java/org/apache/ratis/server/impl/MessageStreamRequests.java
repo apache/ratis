@@ -25,9 +25,12 @@ import org.apache.ratis.protocol.exceptions.StreamException;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -39,12 +42,14 @@ class MessageStreamRequests {
     private final ClientInvocationId key;
     private long nextId = -1;
     private ByteString bytes = ByteString.EMPTY;
+    private List<ReferenceCountedObject<Message>> pendingRefs = new LinkedList<>();
 
     PendingStream(ClientInvocationId key) {
       this.key = key;
     }
 
-    synchronized CompletableFuture<ByteString> append(long messageId, Message message) {
+    synchronized CompletableFuture<ReferenceCountedObject<ByteString>> append(long messageId,
+        ReferenceCountedObject<Message> messageRef) {
       if (nextId == -1) {
         nextId = messageId;
       } else if (messageId != nextId) {
@@ -52,12 +57,17 @@ class MessageStreamRequests {
             "Unexpected message id in " + key + ": messageId = " + messageId + " != nextId = " + nextId));
       }
       nextId++;
+      Message message = messageRef.retain();
+      pendingRefs.add(messageRef);
       bytes = bytes.concat(message.getContent());
-      return CompletableFuture.completedFuture(bytes);
+
+      ReferenceCountedObject<ByteString> bytesRef = ReferenceCountedObject.delegateFrom(pendingRefs, bytes);
+      return CompletableFuture.completedFuture(bytesRef);
     }
 
-    synchronized CompletableFuture<ByteString> getBytes(long messageId, Message message) {
-      return append(messageId, message);
+    synchronized CompletableFuture<ReferenceCountedObject<ByteString>> getBytes(long messageId,
+        ReferenceCountedObject<Message> messageRef) {
+      return append(messageId, messageRef);
     }
   }
 
@@ -84,15 +94,18 @@ class MessageStreamRequests {
     this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
   }
 
-  CompletableFuture<?> streamAsync(RaftClientRequest request) {
+  CompletableFuture<?> streamAsync(ReferenceCountedObject<RaftClientRequest> requestRef) {
+    RaftClientRequest request = requestRef.get();
     final MessageStreamRequestTypeProto stream = request.getType().getMessageStream();
     Preconditions.assertTrue(!stream.getEndOfRequest());
     final ClientInvocationId key = ClientInvocationId.valueOf(request.getClientId(), stream.getStreamId());
     final PendingStream pending = streams.computeIfAbsent(key);
-    return pending.append(stream.getMessageId(), request.getMessage());
+    return pending.append(stream.getMessageId(), requestRef.delegate(request.getMessage()));
   }
 
-  CompletableFuture<ByteString> streamEndOfRequestAsync(RaftClientRequest request) {
+  CompletableFuture<ReferenceCountedObject<ByteString>> streamEndOfRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    RaftClientRequest request = requestRef.get();
     final MessageStreamRequestTypeProto stream = request.getType().getMessageStream();
     Preconditions.assertTrue(stream.getEndOfRequest());
     final ClientInvocationId key = ClientInvocationId.valueOf(request.getClientId(), stream.getStreamId());
@@ -101,7 +114,7 @@ class MessageStreamRequests {
     if (pending == null) {
       return JavaUtils.completeExceptionally(new StreamException(name + ": " + key + " not found"));
     }
-    return pending.getBytes(stream.getMessageId(), request.getMessage());
+    return pending.getBytes(stream.getMessageId(), requestRef.delegate(request.getMessage()));
   }
 
   void clear() {
