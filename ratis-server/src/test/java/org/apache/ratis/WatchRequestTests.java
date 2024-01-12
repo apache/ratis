@@ -498,6 +498,11 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
 
     final ReplicationLevel replicationLevel = ReplicationLevel.MAJORITY;
     try {
+      long initialWatchRequestTimeoutCount = getRaftServerMetrics(cluster.getLeader())
+          .getNumWatchRequestsTimeout(replicationLevel).getCount();
+      long initialLimitHit = getRaftServerMetrics(cluster.getLeader())
+          .getNumWatchRequestQueueLimitHits(replicationLevel).getCount();
+
       int uncommittedBaseIndex = 10000;
       // Logs with indices 10001 - 10011 will never be committed, so it should fail with NotReplicatedException
       for (int i = 1; i <= 11; i++) {
@@ -505,11 +510,6 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
         clients.add(client);
         client.async().watch(uncommittedBaseIndex + i, replicationLevel);
       }
-
-      long initialWatchRequestTimeoutCount = getRaftServerMetrics(cluster.getLeader())
-          .getNumWatchRequestsTimeout(replicationLevel).getCount();
-      long initialLimitHit = getRaftServerMetrics(cluster.getLeader())
-          .getNumWatchRequestQueueLimitHits(replicationLevel).getCount();
 
       // All the watch timeout for each unique index should increment the metric
       RaftTestUtil.waitFor(() -> getRaftServerMetrics(cluster.getLeader())
