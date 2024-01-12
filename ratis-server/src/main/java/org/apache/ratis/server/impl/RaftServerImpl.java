@@ -46,29 +46,8 @@ import javax.management.ObjectName;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
-import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.proto.RaftProtos.CandidateInfoProto;
-import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.FollowerInfoProto;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.ratis.proto.RaftProtos.LeaderInfoProto;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
-import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
-import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
-import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.ratis.proto.RaftProtos.ReadIndexReplyProto;
-import org.apache.ratis.proto.RaftProtos.ReadIndexRequestProto;
-import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
-import org.apache.ratis.proto.RaftProtos.ServerRpcProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.GroupInfoRequest;
@@ -86,20 +65,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
-import org.apache.ratis.protocol.exceptions.GroupMismatchException;
-import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
-import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
-import org.apache.ratis.protocol.exceptions.NotLeaderException;
-import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.protocol.exceptions.ReadException;
-import org.apache.ratis.protocol.exceptions.ReadIndexException;
-import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
-import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
-import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
-import org.apache.ratis.protocol.exceptions.SetConfigurationException;
-import org.apache.ratis.protocol.exceptions.StaleReadException;
-import org.apache.ratis.protocol.exceptions.StateMachineException;
-import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
+import org.apache.ratis.protocol.exceptions.*;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
@@ -597,7 +563,17 @@ class RaftServerImpl implements RaftServer.Division,
     if ((old != RaftPeerRole.FOLLOWER || force) && old != RaftPeerRole.LISTENER) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
-        role.shutdownLeaderState(false);
+        role.shutdownLeaderState(false)
+            .exceptionally(e -> {
+              if (e != null) {
+                if (!getInfo().isAlive()) {
+                  LOG.info("Since server is not alive {}, safely ignore {}", this, e.toString());
+                  return null;
+                }
+              }
+              throw new CompletionException("Failed to shutdownLeaderState: " + this, e);
+            })
+            .join();
         state.setLeader(null, reason);
       } else if (old == RaftPeerRole.CANDIDATE) {
         role.shutdownLeaderElection();
@@ -883,7 +859,30 @@ class RaftServerImpl implements RaftServer.Division,
       }
       leaderState.notifySenders();
     }
-    return pending.getFuture();
+
+    final CompletableFuture<RaftClientReply> future = pending.getFuture();
+    if (request.is(TypeCase.WRITE)) {
+      // check replication
+      final ReplicationLevel replication = request.getType().getWrite().getReplication();
+      if (replication != ReplicationLevel.MAJORITY) {
+        return future.thenCompose(reply -> waitForReplication(reply, replication));
+      }
+    }
+
+    return future;
+  }
+
+  /** Wait until the given replication requirement is satisfied. */
+  private CompletableFuture<RaftClientReply> waitForReplication(RaftClientReply reply, ReplicationLevel replication) {
+    final RaftClientRequest.Type type = RaftClientRequest.watchRequestType(reply.getLogIndex(), replication);
+    final RaftClientRequest watch = RaftClientRequest.newBuilder()
+        .setServerId(reply.getServerId())
+        .setClientId(reply.getClientId())
+        .setGroupId(reply.getRaftGroupId())
+        .setCallId(reply.getCallId())
+        .setType(type)
+        .build();
+    return watchAsync(watch).thenApply(r -> reply);
   }
 
   void stepDownOnJvmPause() {
@@ -1002,7 +1001,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     return role.getLeaderState()
-        .map(ls -> ls.addWatchReqeust(request))
+        .map(ls -> ls.addWatchRequest(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
             newExceptionReply(request, generateNotLeaderException())));
   }

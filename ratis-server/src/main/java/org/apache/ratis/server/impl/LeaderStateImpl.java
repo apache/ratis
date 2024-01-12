@@ -545,7 +545,7 @@ class LeaderStateImpl implements LeaderState {
         .thenApply(bytes -> RaftClientRequest.toWriteRequest(request, Message.valueOf(bytes)));
   }
 
-  CompletableFuture<RaftClientReply> addWatchReqeust(RaftClientRequest request) {
+  CompletableFuture<RaftClientReply> addWatchRequest(RaftClientRequest request) {
     LOG.debug("{}: addWatchRequest {}", this, request);
     return watchRequests.add(request)
         .thenApply(logIndex -> server.newSuccessReply(request, logIndex))

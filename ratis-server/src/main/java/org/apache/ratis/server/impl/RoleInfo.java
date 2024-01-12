@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
@@ -87,7 +88,7 @@ class RoleInfo {
     final LeaderStateImpl leader = leaderState.getAndSet(null);
     if (leader == null) {
       if (!allowNull) {
-        throw new NullPointerException("leaderState == null");
+        return JavaUtils.completeExceptionally(new NullPointerException("leaderState == null"));
       }
       return CompletableFuture.completedFuture(null);
     } else {
