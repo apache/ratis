@@ -544,12 +544,7 @@ class LeaderStateImpl implements LeaderState {
 
   CompletableFuture<ReferenceCountedObject<RaftClientRequest>> streamEndOfRequestAsync(
       ReferenceCountedObject<RaftClientRequest> requestRef) {
-    RaftClientRequest request = requestRef.get();
-    return messageStreamRequests.streamEndOfRequestAsync(requestRef)
-        .thenApply(bytesRef -> {
-          RaftClientRequest finalRequest = RaftClientRequest.toWriteRequest(request, Message.valueOf(bytesRef.get()));
-          return bytesRef.delegate(finalRequest);
-        });
+    return messageStreamRequests.streamEndOfRequestAsync(requestRef);
   }
 
   CompletableFuture<RaftClientReply> addWatchReqeust(RaftClientRequest request) {
