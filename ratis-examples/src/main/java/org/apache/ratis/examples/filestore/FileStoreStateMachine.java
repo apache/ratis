@@ -32,6 +32,7 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -40,6 +41,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.JavaUtils;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -168,9 +170,11 @@ public class FileStoreStateMachine extends BaseStateMachine {
   }
 
   static class LocalStream implements DataStream {
+    private final String name;
     private final DataChannel dataChannel;
 
-    LocalStream(DataChannel dataChannel) {
+    LocalStream(String name, DataChannel dataChannel) {
+      this.name = JavaUtils.getClassSimpleName(getClass()) + "[" + name + "]";
       this.dataChannel = dataChannel;
     }
 
@@ -190,6 +194,11 @@ public class FileStoreStateMachine extends BaseStateMachine {
         }
       });
     }
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 
   @Override
@@ -202,13 +211,14 @@ public class FileStoreStateMachine extends BaseStateMachine {
       return FileStoreCommon.completeExceptionally(
           "Failed to parse stream header", e);
     }
-    return files.createDataChannel(proto.getStream().getPath().toStringUtf8())
-        .thenApply(LocalStream::new);
+    final String file = proto.getStream().getPath().toStringUtf8();
+    return files.createDataChannel(file)
+        .thenApply(channel -> new LocalStream(file, channel));
   }
 
   @Override
   public CompletableFuture<?> link(DataStream stream, LogEntryProto entry) {
-    LOG.info("linking {}", stream);
+    LOG.info("linking {} to {}", stream, LogProtoUtils.toLogEntryString(entry));
     return files.streamLink(stream);
   }
 

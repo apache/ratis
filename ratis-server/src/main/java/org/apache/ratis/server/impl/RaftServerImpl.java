@@ -42,32 +42,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.management.ObjectName;
+
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
-import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.proto.RaftProtos.CandidateInfoProto;
-import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.FollowerInfoProto;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.ratis.proto.RaftProtos.LeaderInfoProto;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
-import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
-import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
-import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.ratis.proto.RaftProtos.ReadIndexReplyProto;
-import org.apache.ratis.proto.RaftProtos.ReadIndexRequestProto;
-import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
-import org.apache.ratis.proto.RaftProtos.ServerRpcProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
-import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.GroupInfoRequest;
@@ -85,20 +65,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.SnapshotManagementRequest;
 import org.apache.ratis.protocol.TransferLeadershipRequest;
-import org.apache.ratis.protocol.exceptions.GroupMismatchException;
-import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
-import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
-import org.apache.ratis.protocol.exceptions.NotLeaderException;
-import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.protocol.exceptions.ReadException;
-import org.apache.ratis.protocol.exceptions.ReadIndexException;
-import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
-import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
-import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
-import org.apache.ratis.protocol.exceptions.SetConfigurationException;
-import org.apache.ratis.protocol.exceptions.StaleReadException;
-import org.apache.ratis.protocol.exceptions.StateMachineException;
-import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
+import org.apache.ratis.protocol.exceptions.*;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
@@ -138,6 +105,7 @@ import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedSupplier;
@@ -595,7 +563,17 @@ class RaftServerImpl implements RaftServer.Division,
     if ((old != RaftPeerRole.FOLLOWER || force) && old != RaftPeerRole.LISTENER) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
-        role.shutdownLeaderState(false);
+        role.shutdownLeaderState(false)
+            .exceptionally(e -> {
+              if (e != null) {
+                if (!getInfo().isAlive()) {
+                  LOG.info("Since server is not alive {}, safely ignore {}", this, e.toString());
+                  return null;
+                }
+              }
+              throw new CompletionException("Failed to shutdownLeaderState: " + this, e);
+            })
+            .join();
         state.setLeader(null, reason);
       } else if (old == RaftPeerRole.CANDIDATE) {
         role.shutdownLeaderElection();
@@ -822,14 +800,20 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   /**
-   * Handle a normal update request from client.
+   * Append a transaction to the log for processing a client request.
+   * Note that the given request could be different from {@link TransactionContext#getClientRequest()}
+   * since the request could be converted; see {@link #convertRaftClientRequest(RaftClientRequest)}.
+   *
+   * @param request The client request.
+   * @param context The context of the transaction.
+   * @param cacheEntry the entry in the retry cache.
+   * @return a future of the reply.
    */
   private CompletableFuture<RaftClientReply> appendTransaction(
-      RaftClientRequest request, TransactionContextImpl context, CacheEntry cacheEntry) throws IOException {
+      RaftClientRequest request, TransactionContextImpl context, CacheEntry cacheEntry) {
+    Objects.requireNonNull(request, "request == null");
     CodeInjectionForTesting.execute(APPEND_TRANSACTION, getId(),
         request.getClientId(), request, context, cacheEntry);
-
-    assertLifeCycleState(LifeCycle.States.RUNNING);
 
     final PendingRequest pending;
     synchronized (this) {
@@ -849,6 +833,7 @@ class RaftServerImpl implements RaftServer.Division,
         return cacheEntry.getReplyFuture();
       }
       try {
+        assertLifeCycleState(LifeCycle.States.RUNNING);
         state.appendLog(context);
       } catch (StateMachineException e) {
         // the StateMachineException is thrown by the SM in the preAppend stage.
@@ -859,6 +844,9 @@ class RaftServerImpl implements RaftServer.Division,
         if (e.leaderShouldStepDown() && getInfo().isLeader()) {
           leaderState.submitStepDownEvent(LeaderState.StepDownReason.STATE_MACHINE_EXCEPTION);
         }
+        return CompletableFuture.completedFuture(exceptionReply);
+      } catch (ServerNotReadyException e) {
+        final RaftClientReply exceptionReply = newExceptionReply(request, e);
         return CompletableFuture.completedFuture(exceptionReply);
       }
 
@@ -871,18 +859,43 @@ class RaftServerImpl implements RaftServer.Division,
       }
       leaderState.notifySenders();
     }
-    return pending.getFuture();
+
+    final CompletableFuture<RaftClientReply> future = pending.getFuture();
+    if (request.is(TypeCase.WRITE)) {
+      // check replication
+      final ReplicationLevel replication = request.getType().getWrite().getReplication();
+      if (replication != ReplicationLevel.MAJORITY) {
+        return future.thenCompose(reply -> waitForReplication(reply, replication));
+      }
+    }
+
+    return future;
+  }
+
+  /** Wait until the given replication requirement is satisfied. */
+  private CompletableFuture<RaftClientReply> waitForReplication(RaftClientReply reply, ReplicationLevel replication) {
+    final RaftClientRequest.Type type = RaftClientRequest.watchRequestType(reply.getLogIndex(), replication);
+    final RaftClientRequest watch = RaftClientRequest.newBuilder()
+        .setServerId(reply.getServerId())
+        .setClientId(reply.getClientId())
+        .setGroupId(reply.getRaftGroupId())
+        .setCallId(reply.getCallId())
+        .setType(type)
+        .build();
+    return watchAsync(watch).thenApply(r -> reply);
   }
 
   void stepDownOnJvmPause() {
     role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
   }
 
-  private RaftClientRequest filterDataStreamRaftClientRequest(RaftClientRequest request)
-      throws InvalidProtocolBufferException {
-    return !request.is(TypeCase.FORWARD) ? request : ClientProtoUtils.toRaftClientRequest(
-        RaftClientRequestProto.parseFrom(
-            request.getMessage().getContent().asReadOnlyByteBuffer()));
+  /** If the given request is {@link TypeCase#FORWARD}, convert it. */
+  static RaftClientRequest convertRaftClientRequest(RaftClientRequest request) throws InvalidProtocolBufferException {
+    if (!request.is(TypeCase.FORWARD)) {
+      return request;
+    }
+    return ClientProtoUtils.toRaftClientRequest(RaftClientRequestProto.parseFrom(
+        request.getMessage().getContent().asReadOnlyByteBuffer()));
   }
 
   <REPLY> CompletableFuture<REPLY> executeSubmitServerRequestAsync(
@@ -892,20 +905,29 @@ class RaftServerImpl implements RaftServer.Division,
         serverExecutor).join();
   }
 
-  CompletableFuture<RaftClientReply> executeSubmitClientRequestAsync(RaftClientRequest request) {
-    return CompletableFuture.supplyAsync(
-        () -> JavaUtils.callAsUnchecked(() -> submitClientRequestAsync(request), CompletionException::new),
-        clientExecutor).join();
+  CompletableFuture<RaftClientReply> executeSubmitClientRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> request) {
+    return CompletableFuture.supplyAsync(() -> submitClientRequestAsync(request), clientExecutor).join();
   }
 
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
-      RaftClientRequest request) throws IOException {
-    assertLifeCycleState(LifeCycle.States.RUNNING);
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.retain();
     LOG.debug("{}: receive client request({})", getMemberId(), request);
+
+    try {
+      assertLifeCycleState(LifeCycle.States.RUNNING);
+    } catch (ServerNotReadyException e) {
+      final RaftClientReply reply = newExceptionReply(request, e);
+      requestRef.release();
+      return CompletableFuture.completedFuture(reply);
+    }
+
     final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
     final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
-    return replyFuture(request).whenComplete((clientReply, exception) -> {
+    return replyFuture(requestRef).whenComplete((clientReply, exception) -> {
+      requestRef.release();
       timerContext.ifPresent(Timekeeper.Context::stop);
       if (exception != null || clientReply.getException() != null) {
         raftServerMetrics.incFailedRequestCount(request.getType());
@@ -913,7 +935,8 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
 
-  private CompletableFuture<RaftClientReply> replyFuture(RaftClientRequest request) throws IOException {
+  private CompletableFuture<RaftClientReply> replyFuture(ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.get();
     retryCache.invalidateRepliedRequests(request);
 
     final TypeCase type = request.getType().getTypeCase();
@@ -925,16 +948,17 @@ class RaftServerImpl implements RaftServer.Division,
       case WATCH:
         return watchAsync(request);
       case MESSAGESTREAM:
-        return messageStreamAsync(request);
+        return messageStreamAsync(requestRef);
       case WRITE:
       case FORWARD:
-        return writeAsync(request);
+        return writeAsync(requestRef);
       default:
         throw new IllegalStateException("Unexpected request type: " + type + ", request=" + request);
     }
   }
 
-  private CompletableFuture<RaftClientReply> writeAsync(RaftClientRequest request) throws IOException {
+  private CompletableFuture<RaftClientReply> writeAsync(ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.get();
     final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
       return reply;
@@ -950,8 +974,15 @@ class RaftServerImpl implements RaftServer.Division,
     // TODO: this client request will not be added to pending requests until
     // later which means that any failure in between will leave partial state in
     // the state machine. We should call cancelTransaction() for failed requests
-    final TransactionContextImpl context = (TransactionContextImpl) stateMachine.startTransaction(
-        filterDataStreamRaftClientRequest(request));
+    final TransactionContextImpl context;
+    try {
+      context = (TransactionContextImpl) stateMachine.startTransaction(convertRaftClientRequest(request));
+    } catch (IOException e) {
+      final RaftClientReply exceptionReply = newExceptionReply(request,
+          new RaftException("Failed to startTransaction for " + request, e));
+      cacheEntry.failWithReply(exceptionReply);
+      return CompletableFuture.completedFuture(exceptionReply);
+    }
     if (context.getException() != null) {
       final StateMachineException e = new StateMachineException(getMemberId(), context.getException());
       final RaftClientReply exceptionReply = newExceptionReply(request, e);
@@ -959,6 +990,7 @@ class RaftServerImpl implements RaftServer.Division,
       return CompletableFuture.completedFuture(exceptionReply);
     }
 
+    context.setDelegatedRef(requestRef);
     return appendTransaction(request, context, cacheEntry);
   }
 
@@ -969,7 +1001,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     return role.getLeaderState()
-        .map(ls -> ls.addWatchReqeust(request))
+        .map(ls -> ls.addWatchRequest(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
             newExceptionReply(request, generateNotLeaderException())));
   }
@@ -1062,7 +1094,8 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  private CompletableFuture<RaftClientReply> messageStreamAsync(RaftClientRequest request) throws IOException {
+  private CompletableFuture<RaftClientReply> messageStreamAsync(ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.get();
     final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
       return reply;
@@ -1074,7 +1107,7 @@ class RaftServerImpl implements RaftServer.Division,
         return f.thenApply(r -> null);
       }
       // the message stream has ended and the request become a WRITE request
-      return replyFuture(f.join());
+      return replyFuture(requestRef.delegate(f.join()));
     }
 
     return role.getLeaderState()

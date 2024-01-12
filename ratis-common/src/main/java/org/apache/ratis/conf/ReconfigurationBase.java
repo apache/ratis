@@ -172,7 +172,7 @@ public abstract class ReconfigurationBase implements Reconfigurable {
     }
     final String effective = reconfigureProperty(property, newValue);
     LOG.info("{}: changed property {} to {} (effective {})", name, property, newValue, effective);
-    if (newValue != null) {
+    if (effective != null) {
       properties.set(property, effective);
     } else {
       properties.unset(property);
