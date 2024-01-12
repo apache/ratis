@@ -1117,7 +1117,8 @@ class RaftServerImpl implements RaftServer.Division,
             newExceptionReply(request, generateNotLeaderException())));
   }
 
-  private CompletableFuture<ReferenceCountedObject<RaftClientRequest>> streamEndOfRequestAsync(ReferenceCountedObject<RaftClientRequest> request) {
+  private CompletableFuture<ReferenceCountedObject<RaftClientRequest>> streamEndOfRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> request) {
     return role.getLeaderState()
         .map(ls -> ls.streamEndOfRequestAsync(request))
         .orElse(null);

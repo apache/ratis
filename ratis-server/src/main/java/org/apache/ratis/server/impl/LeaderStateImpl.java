@@ -542,7 +542,8 @@ class LeaderStateImpl implements LeaderState {
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
-  CompletableFuture<ReferenceCountedObject<RaftClientRequest>> streamEndOfRequestAsync(ReferenceCountedObject<RaftClientRequest> requestRef) {
+  CompletableFuture<ReferenceCountedObject<RaftClientRequest>> streamEndOfRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
     RaftClientRequest request = requestRef.get();
     return messageStreamRequests.streamEndOfRequestAsync(requestRef)
         .thenApply(bytesRef -> {

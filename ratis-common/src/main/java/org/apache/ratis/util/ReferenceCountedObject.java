@@ -102,7 +102,7 @@ public interface ReferenceCountedObject<T> {
     return wrap(value, () -> {}, ignored -> {});
   }
 
-  static <T, V> ReferenceCountedObject<V> delegateFrom(final Collection<ReferenceCountedObject<T>> fromRefs, V value) {
+  static <T, V> ReferenceCountedObject<V> delegateFrom(Collection<ReferenceCountedObject<T>> fromRefs, V value) {
     return new ReferenceCountedObject<V>() {
       @Override
       public V get() {
