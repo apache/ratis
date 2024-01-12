@@ -1368,6 +1368,22 @@ class RaftServerImpl implements RaftServer.Division,
         LOG.warn("Try to add/replace a majority of servers in a single setConf: {}", request);
       }
 
+      // change listener to follower or change follower to listener is not supported yet
+      for (RaftPeer server : serversInNewConf) {
+        for (RaftPeer currentListener : current.getAllPeers(RaftPeerRole.LISTENER)) {
+          if (Objects.equals(currentListener.getId(), server.getId())) {
+            throw new SetConfigurationException("change listener to follower is not supported yet");
+          }
+        }
+      }
+      for (RaftPeer listener : listenersInNewConf) {
+        for (RaftPeer currentServer : current.getAllPeers(RaftPeerRole.FOLLOWER)) {
+          if (Objects.equals(currentServer.getId(), listener.getId())) {
+            throw new SetConfigurationException("change follower to listener is not supported yet");
+          }
+        }
+      }
+
       getRaftServer().addRaftPeers(serversInNewConf);
       getRaftServer().addRaftPeers(listenersInNewConf);
       // add staging state into the leaderState

@@ -45,6 +45,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedBiConsumer;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 
@@ -457,6 +458,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  @Ignore("not supported")
   public void testChangeFollowerToListener() throws Exception {
     try(final MiniRaftCluster cluster = newCluster(3)) {
       cluster.start();
@@ -480,6 +482,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  @Ignore("not supported")
   public void testChangeListenerToFollower() throws Exception {
     try(final MiniRaftCluster cluster = newCluster(2, 1)) {
       cluster.start();
