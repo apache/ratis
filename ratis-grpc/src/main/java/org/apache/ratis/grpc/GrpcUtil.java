@@ -24,8 +24,12 @@ import org.apache.ratis.security.TlsConf.TrustManagerConf;
 import org.apache.ratis.security.TlsConf.CertificatesConf;
 import org.apache.ratis.security.TlsConf.PrivateKeyConf;
 import org.apache.ratis.security.TlsConf.KeyManagerConf;
+import org.apache.ratis.thirdparty.com.google.protobuf.MessageLite;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.Metadata;
+import org.apache.ratis.thirdparty.io.grpc.MethodDescriptor;
+import org.apache.ratis.thirdparty.io.grpc.ServerCallHandler;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
@@ -306,37 +310,25 @@ public interface GrpcUtil {
     }
   }
 
-  static SslContext buildSslContextForServer(GrpcTlsConfig tlsConf) {
-    if (tlsConf == null) {
-      return null;
-    }
-    SslContextBuilder b = initSslContextBuilderForServer(tlsConf.getKeyManager());
-    if (tlsConf.getMtlsEnabled()) {
-      b.clientAuth(ClientAuth.REQUIRE);
-      setTrustManager(b, tlsConf.getTrustManager());
-    }
-    b = GrpcSslContexts.configure(b, OPENSSL);
-    try {
-      return b.build();
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to buildSslContextForServer from tlsConfig " + tlsConf, e);
-    }
-  }
-
-  static SslContext buildSslContextForClient(GrpcTlsConfig tlsConf) {
-    if (tlsConf == null) {
-      return null;
-    }
-
-    final SslContextBuilder b = GrpcSslContexts.forClient();
-    setTrustManager(b, tlsConf.getTrustManager());
-    if (tlsConf.getMtlsEnabled()) {
-      setKeyManager(b, tlsConf.getKeyManager());
-    }
-    try {
-      return b.build();
-    } catch (SSLException e) {
-      throw new IllegalArgumentException("Failed to buildSslContextForClient from tlsConfig " + tlsConf, e);
-    }
+  /**
+   * Used to add a method to Service definition with a custom request marshaller.
+   *
+   * @param orig original service definition.
+   * @param newServiceBuilder builder of the new service definition.
+   * @param origMethod the original method definition.
+   * @param customMarshaller custom marshaller to be set for the method.
+   * @param <Req>
+   * @param <Resp>
+   */
+  static <Req extends MessageLite, Resp> void addMethodWithCustomMarshaller(
+      ServerServiceDefinition orig, ServerServiceDefinition.Builder newServiceBuilder,
+      MethodDescriptor<Req, Resp> origMethod, MethodDescriptor.PrototypeMarshaller<Req> customMarshaller) {
+    MethodDescriptor<Req, Resp> newMethod = origMethod.toBuilder()
+        .setRequestMarshaller(customMarshaller)
+        .build();
+    @SuppressWarnings("unchecked")
+    ServerCallHandler<Req, Resp> serverCallHandler =
+        (ServerCallHandler<Req, Resp>) orig.getMethod(newMethod.getFullMethodName()).getServerCallHandler();
+    newServiceBuilder.addMethod(newMethod, serverCallHandler);
   }
 }
