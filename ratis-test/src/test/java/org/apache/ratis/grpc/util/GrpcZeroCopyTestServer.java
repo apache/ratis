@@ -75,6 +75,7 @@ class GrpcZeroCopyTestServer implements Closeable {
 
   private final Count zeroCopyCount = new Count();
   private final Count nonZeroCopyCount = new Count();
+  private final Count releasedCount = new Count();
 
   private final Server server;
   // Allow tests to disable release to validate leak detection.
@@ -82,7 +83,8 @@ class GrpcZeroCopyTestServer implements Closeable {
   private final ZeroCopyMessageMarshaller<BinaryRequest> marshaller = new ZeroCopyMessageMarshaller<>(
       BinaryRequest.getDefaultInstance(),
       zeroCopyCount::inc,
-      nonZeroCopyCount::inc);
+      nonZeroCopyCount::inc,
+      releasedCount::inc);
 
   GrpcZeroCopyTestServer(int port) {
     this(port, true);
