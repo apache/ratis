@@ -80,31 +80,34 @@
 
 ### Raft Server Metrics
 
-| Application | Component | Name                             | Type    | Description                                                         |
-|-------------|-----------|----------------------------------|---------|---------------------------------------------------------------------|
-| ratis       | server    | {peer}_lastHeartbeatElapsedTime  | Gauge   | Time elapsed since last heartbeat rpc response                      |
-| ratis       | server    | follower_append_entry_latency    | Timer   | Time taken for followers to append log entries                      |
-| ratis       | server    | {peer}_peerCommitIndex           | Gauge   | Commit index of peer                                                |
-| ratis       | server    | clientReadRequest                | Timer   | Time taken to process read requests from client                     |
-| ratis       | server    | clientStaleReadRequest           | Timer   | Time taken to process stale-read requests from client               |
-| ratis       | server    | clientWriteRequest               | Timer   | Time taken to process write requests from client                    |
-| ratis       | server    | clientWatch{level}Request        | Timer   | Time taken to process watch(replication_level) requests from client |
-| ratis       | server    | numRequestQueueLimitHits         | Counter | Number of (total client requests in queue) limit hits               |
-| ratis       | server    | numRequestsByteSizeLimitHits     | Counter | Number of (total size of client requests in queue) limit hits       |
-| ratis       | server    | numResourceLimitHits             | Counter | Sum of numRequestQueueLimitHits and numRequestsByteSizeLimitHits    |
-| ratis       | server    | numPendingRequestInQueue         | Gauge   | Number of pending client requests in queue                          |
-| ratis       | server    | numPendingRequestMegaByteSize    | Gauge   | Total size of pending client requests in queue                      |
-| ratis       | server    | retryCacheEntryCount             | Gauge   | Number of entries in retry cache                                    |
-| ratis       | server    | retryCacheHitCount               | Gauge   | Number of retry cache hits                                          |
-| ratis       | server    | retryCacheHitRate                | Gauge   | Retry cache hit rate                                                |
-| ratis       | server    | retryCacheMissCount              | Gauge   | Number of retry cache misses                                        |
-| ratis       | server    | retryCacheMissRate               | Gauge   | Retry cache miss rate                                               |
-| ratis       | server    | numFailedClientStaleReadOnServer | Counter | Number of failed stale-read requests                                |
-| ratis       | server    | numFailedClientReadOnServer      | Counter | Number of failed read requests                                      |
-| ratis       | server    | numFailedClientWriteOnServer     | Counter | Number of failed write requests                                     |
-| ratis       | server    | numFailedClientWatchOnServer     | Counter | Number of failed watch requests                                     |
-| ratis       | server    | numFailedClientStreamOnServer    | Counter | Number of failed stream requests                                    |
-| ratis       | server    | numInstallSnapshot               | Counter | Number of install-snapshot requests                                 |
+| Application | Component | Name                                 | Type    | Description                                                         |
+|-------------|-----------|--------------------------------------|---------|---------------------------------------------------------------------|
+| ratis       | server    | {peer}_lastHeartbeatElapsedTime      | Gauge   | Time elapsed since last heartbeat rpc response                      |
+| ratis       | server    | follower_append_entry_latency        | Timer   | Time taken for followers to append log entries                      |
+| ratis       | server    | {peer}_peerCommitIndex               | Gauge   | Commit index of peer                                                |
+| ratis       | server    | clientReadRequest                    | Timer   | Time taken to process read requests from client                     |
+| ratis       | server    | clientStaleReadRequest               | Timer   | Time taken to process stale-read requests from client               |
+| ratis       | server    | clientWriteRequest                   | Timer   | Time taken to process write requests from client                    |
+| ratis       | server    | clientWatch{level}Request            | Timer   | Time taken to process watch(replication_level) requests from client |
+| ratis       | server    | numRequestQueueLimitHits             | Counter | Number of (total client requests in queue) limit hits               |
+| ratis       | server    | numRequestsByteSizeLimitHits         | Counter | Number of (total size of client requests in queue) limit hits       |
+| ratis       | server    | numResourceLimitHits                 | Counter | Sum of numRequestQueueLimitHits and numRequestsByteSizeLimitHits    |
+| ratis       | server    | numPendingRequestInQueue             | Gauge   | Number of pending client requests in queue                          |
+| ratis       | server    | numPendingRequestMegaByteSize        | Gauge   | Total size of pending client requests in queue                      |
+| ratis       | server    | retryCacheEntryCount                 | Gauge   | Number of entries in retry cache                                    |
+| ratis       | server    | retryCacheHitCount                   | Gauge   | Number of retry cache hits                                          |
+| ratis       | server    | retryCacheHitRate                    | Gauge   | Retry cache hit rate                                                |
+| ratis       | server    | retryCacheMissCount                  | Gauge   | Number of retry cache misses                                        |
+| ratis       | server    | retryCacheMissRate                   | Gauge   | Retry cache miss rate                                               |
+| ratis       | server    | numFailedClientStaleReadOnServer     | Counter | Number of failed stale-read requests                                |
+| ratis       | server    | numFailedClientReadOnServer          | Counter | Number of failed read requests                                      |
+| ratis       | server    | numFailedClientWriteOnServer         | Counter | Number of failed write requests                                     |
+| ratis       | server    | numFailedClientWatchOnServer         | Counter | Number of failed watch requests                                     |
+| ratis       | server    | numFailedClientStreamOnServer        | Counter | Number of failed stream requests                                    |
+| ratis       | server    | numInstallSnapshot                   | Counter | Number of install-snapshot requests                                 |
+| ratis       | server    | numWatch{level}RequestTimeout        | Counter | Number of watch(replication_level) request timeout                  |
+| ratis       | server    | numWatch{level}RequestInQueue        | Gauge   | Number of watch(replication_level) requests in queue                |
+| ratis       | server    | numWatch{level}RequestQueueLimitHits | Counter | Number of (total watch request in queue) limit hits                 |
 
 
 ## Ratis Netty Metrics

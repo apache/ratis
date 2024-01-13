@@ -57,9 +57,14 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   public static final String REQUEST_QUEUE_LIMIT_HIT_COUNTER = "numRequestQueueLimitHits";
   public static final String REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER = "numRequestsByteSizeLimitHits";
   public static final String RESOURCE_LIMIT_HIT_COUNTER = "numResourceLimitHits";
+  public static final String WATCH_REQUEST_QUEUE_LIMIT_HIT_COUNTER = "numWatch%sRequestQueueLimitHits";
 
   public static final String REQUEST_QUEUE_SIZE = "numPendingRequestInQueue";
   public static final String REQUEST_MEGA_BYTE_SIZE = "numPendingRequestMegaByteSize";
+
+  public static final String WATCH_REQUEST_QUEUE_SIZE = "numWatch%sRequestInQueue";
+  public static final String WATCH_REQUEST_TIMEOUT_COUNTER = "numWatch%sRequestTimeout";
+
   public static final String RETRY_CACHE_ENTRY_COUNT_METRIC = "retryCacheEntryCount";
   public static final String RETRY_CACHE_HIT_COUNT_METRIC = "retryCacheHitCount";
   public static final String RETRY_CACHE_HIT_RATE_METRIC = "retryCacheHitRate";
@@ -76,6 +81,11 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   private final LongCounter numRequestQueueLimitHits = getRegistry().counter(REQUEST_QUEUE_LIMIT_HIT_COUNTER);
   private final LongCounter numRequestsByteSizeLimitHits = getRegistry().counter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER);
   private final LongCounter numResourceLimitHits = getRegistry().counter(RESOURCE_LIMIT_HIT_COUNTER);
+  private final Map<ReplicationLevel, LongCounter> numWatchRequestQueueLimitHits = newCounterMap(ReplicationLevel.class,
+      replication -> getRegistry().counter(
+          String.format(WATCH_REQUEST_QUEUE_LIMIT_HIT_COUNTER, Type.toString(replication))));
+  private final Map<ReplicationLevel, LongCounter> numWatchRequestsTimeout = newCounterMap(ReplicationLevel.class,
+      replication -> getRegistry().counter(String.format(WATCH_REQUEST_TIMEOUT_COUNTER, Type.toString(replication))));
 
   private final LongCounter numFailedClientStaleRead
       = getRegistry().counter(RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT);
@@ -148,6 +158,14 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
 
   public LongCounter getNumInstallSnapshot() {
     return numInstallSnapshot;
+  }
+
+  public LongCounter getNumWatchRequestQueueLimitHits(ReplicationLevel replication) {
+    return numWatchRequestQueueLimitHits.get(replication);
+  }
+
+  public LongCounter getNumWatchRequestsTimeout(ReplicationLevel replication) {
+    return numWatchRequestsTimeout.get(replication);
   }
 
   private static RatisMetricRegistry createRegistry(String serverId) {
@@ -235,6 +253,22 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
 
   public boolean removeNumPendingRequestsByteSize() {
     return getRegistry().remove(REQUEST_MEGA_BYTE_SIZE);
+  }
+
+  public void onWatchRequestQueueLimitHit(ReplicationLevel replicationLevel) {
+    numWatchRequestQueueLimitHits.get(replicationLevel).inc();
+  }
+
+  public void onWatchRequestTimeout(ReplicationLevel replicationLevel) {
+    numWatchRequestsTimeout.get(replicationLevel).inc();
+  }
+
+  public void addNumPendingWatchRequestsGauge(Supplier<Integer> queueSize, ReplicationLevel replication) {
+    getRegistry().gauge(String.format(WATCH_REQUEST_QUEUE_SIZE, Type.toString(replication)), () -> queueSize);
+  }
+
+  public boolean removeNumPendingWatchRequestsGauge(ReplicationLevel replication) {
+    return getRegistry().remove(String.format(WATCH_REQUEST_QUEUE_SIZE, Type.toString(replication)));
   }
 
   public void onRequestByteSizeLimitHit() {

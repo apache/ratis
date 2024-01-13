@@ -49,6 +49,13 @@ public class RatisMetrics {
     return Collections.unmodifiableMap(maps);
   }
 
+  protected static <T extends Enum<T>> Map<T, LongCounter> newCounterMap(
+      Class<T> clazz, Function<T, LongCounter> constructor) {
+    final EnumMap<T, LongCounter> map = new EnumMap<>(clazz);
+    Arrays.stream(clazz.getEnumConstants()).forEach(t -> map.put(t, constructor.apply(t)));
+    return Collections.unmodifiableMap(map);
+  }
+
   protected static <T extends Enum<T>> Map<T, Timekeeper> newTimerMap(
       Class<T> clazz, Function<T, Timekeeper> constructor) {
     final EnumMap<T, Timekeeper> map = new EnumMap<>(clazz);
