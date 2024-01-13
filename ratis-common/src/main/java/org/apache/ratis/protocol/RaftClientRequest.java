@@ -474,7 +474,13 @@ public class RaftClientRequest extends RaftClientMessage {
 
   @Override
   public String toString() {
-    return super.toString() + ", seq=" + ProtoUtils.toString(slidingWindowEntry) + ", "
-        + type + ", " + getMessage();
+    return toStringShort() + ", " + getMessage();
+  }
+
+  /**
+   * @return a short string which does not include {@link #message}.
+   */
+  public String toStringShort() {
+    return super.toString() + ", seq=" + ProtoUtils.toString(slidingWindowEntry) + ", " + type;
   }
 }

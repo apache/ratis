@@ -19,6 +19,7 @@ package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
 
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -99,6 +100,26 @@ public interface ReferenceCountedObject<T> {
   /** The same as wrap(value, EMPTY, EMPTY), where EMPTY is an empty method. */
   static <V> ReferenceCountedObject<V> wrap(V value) {
     return wrap(value, () -> {}, ignored -> {});
+  }
+
+  static <T, V> ReferenceCountedObject<V> delegateFrom(Collection<ReferenceCountedObject<T>> fromRefs, V value) {
+    return new ReferenceCountedObject<V>() {
+      @Override
+      public V get() {
+        return value;
+      }
+
+      @Override
+      public V retain() {
+        fromRefs.forEach(ReferenceCountedObject::retain);
+        return value;
+      }
+
+      @Override
+      public boolean release() {
+        return fromRefs.stream().map(ReferenceCountedObject::release).allMatch(r -> r);
+      }
+    };
   }
 
   /**

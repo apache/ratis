@@ -328,7 +328,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     final String string = request.getContent().toStringUtf8();
     Exception exception;
     try {
-      LOG.info("query " + string);
+      LOG.info("query {}, all available: {}", string, dataMap.keySet());
       final LogEntryProto entry = dataMap.get(string);
       if (entry != null) {
         return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));

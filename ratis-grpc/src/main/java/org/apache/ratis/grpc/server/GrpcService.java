@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.metrics.ZeroCopyMetrics;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -153,6 +154,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   private final GrpcClientProtocolService clientProtocolService;
 
   private final MetricServerInterceptor serverInterceptor;
+  private final ZeroCopyMetrics zeroCopyMetrics;
 
   public MetricServerInterceptor getServerInterceptor() {
     return serverInterceptor;
@@ -199,7 +201,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         GrpcConfigKeys.Server.asyncRequestThreadPoolCached(properties),
         GrpcConfigKeys.Server.asyncRequestThreadPoolSize(properties),
         getId() + "-request-");
-    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor);
+    this.zeroCopyMetrics = new ZeroCopyMetrics();
+    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor, zeroCopyMetrics);
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
@@ -252,7 +255,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   }
 
   private void addClientService(NettyServerBuilder builder) {
-    builder.addService(ServerInterceptors.intercept(clientProtocolService, serverInterceptor));
+    builder.addService(ServerInterceptors.intercept(clientProtocolService.bindServiceWithZeroCopy(),
+        serverInterceptor));
   }
 
   private void addAdminService(RaftServer raftServer, NettyServerBuilder nettyServerBuilder) {

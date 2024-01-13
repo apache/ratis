@@ -1102,21 +1102,22 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     if (request.getType().getMessageStream().getEndOfRequest()) {
-      final CompletableFuture<RaftClientRequest> f = streamEndOfRequestAsync(request);
+      final CompletableFuture<ReferenceCountedObject<RaftClientRequest>> f = streamEndOfRequestAsync(requestRef);
       if (f.isCompletedExceptionally()) {
         return f.thenApply(r -> null);
       }
       // the message stream has ended and the request become a WRITE request
-      return replyFuture(requestRef.delegate(f.join()));
+      return replyFuture(f.join());
     }
 
     return role.getLeaderState()
-        .map(ls -> ls.streamAsync(request))
+        .map(ls -> ls.streamAsync(requestRef))
         .orElseGet(() -> CompletableFuture.completedFuture(
             newExceptionReply(request, generateNotLeaderException())));
   }
 
-  private CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
+  private CompletableFuture<ReferenceCountedObject<RaftClientRequest>> streamEndOfRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> request) {
     return role.getLeaderState()
         .map(ls -> ls.streamEndOfRequestAsync(request))
         .orElse(null);

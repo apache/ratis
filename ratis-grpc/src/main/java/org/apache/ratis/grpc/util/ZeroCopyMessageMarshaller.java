@@ -62,12 +62,14 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
 
   private final Consumer<T> zeroCopyCount;
   private final Consumer<T> nonZeroCopyCount;
+  private final Consumer<T> releasedCount;
 
   public ZeroCopyMessageMarshaller(T defaultInstance) {
-    this(defaultInstance, m -> {}, m -> {});
+    this(defaultInstance, m -> {}, m -> {}, m -> {});
   }
 
-  public ZeroCopyMessageMarshaller(T defaultInstance, Consumer<T> zeroCopyCount, Consumer<T> nonZeroCopyCount) {
+  public ZeroCopyMessageMarshaller(T defaultInstance, Consumer<T> zeroCopyCount, Consumer<T> nonZeroCopyCount,
+      Consumer<T> releasedCount) {
     this.name = JavaUtils.getClassSimpleName(defaultInstance.getClass()) + "-Marshaller";
     @SuppressWarnings("unchecked")
     final Parser<T> p = (Parser<T>) defaultInstance.getParserForType();
@@ -76,6 +78,7 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
 
     this.zeroCopyCount = zeroCopyCount;
     this.nonZeroCopyCount = nonZeroCopyCount;
+    this.releasedCount = releasedCount;
   }
 
   @Override
@@ -124,6 +127,7 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
     }
     try {
       stream.close();
+      releasedCount.accept(message);
     } catch (IOException e) {
       LOG.error(name + ": Failed to close stream.", e);
     }

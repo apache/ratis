@@ -56,6 +56,7 @@ import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 
@@ -534,15 +535,16 @@ class LeaderStateImpl implements LeaderState {
     return pendingRequests.add(permit, request, entry);
   }
 
-  CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
-    return messageStreamRequests.streamAsync(request)
+  CompletableFuture<RaftClientReply> streamAsync(ReferenceCountedObject<RaftClientRequest> requestRef) {
+    RaftClientRequest request = requestRef.get();
+    return messageStreamRequests.streamAsync(requestRef)
         .thenApply(dummy -> server.newSuccessReply(request))
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
-  CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
-    return messageStreamRequests.streamEndOfRequestAsync(request)
-        .thenApply(bytes -> RaftClientRequest.toWriteRequest(request, Message.valueOf(bytes)));
+  CompletableFuture<ReferenceCountedObject<RaftClientRequest>> streamEndOfRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    return messageStreamRequests.streamEndOfRequestAsync(requestRef);
   }
 
   CompletableFuture<RaftClientReply> addWatchRequest(RaftClientRequest request) {
