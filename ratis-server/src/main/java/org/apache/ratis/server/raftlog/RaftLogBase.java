@@ -31,6 +31,7 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.OpenCloseState;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.IOException;
@@ -354,11 +355,13 @@ public abstract class RaftLogBase implements RaftLog {
   protected abstract CompletableFuture<Long> appendEntryImpl(LogEntryProto entry, TransactionContext context);
 
   @Override
-  public final List<CompletableFuture<Long>> append(List<LogEntryProto> entries) {
-    return runner.runSequentially(() -> appendImpl(entries));
+  public final List<CompletableFuture<Long>> append(List<LogEntryProto> entries,
+      ReferenceCountedObject<?> entriesRef) {
+    return runner.runSequentially(() -> appendImpl(entries, entriesRef));
   }
 
-  protected abstract List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> entries);
+  protected abstract List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> entries,
+      ReferenceCountedObject<?> entriesRef);
 
   @Override
   public String toString() {

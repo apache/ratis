@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.function.CheckedSupplier;
 
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Sequential operations in {@link RaftLog}.
@@ -132,11 +134,19 @@ interface RaftLogSequentialOps {
   /**
    * The same as append(Arrays.asList(entries)).
    *
-   * @deprecated use {@link #append(List)}
+   * @deprecated use {@link #append(List, ReferenceCountedObject)}
    */
   @Deprecated
   default List<CompletableFuture<Long>> append(LogEntryProto... entries) {
     return append(Arrays.asList(entries));
+  }
+
+  /**
+   * @deprecated use {@link #append(List, ReferenceCountedObject)}.
+   */
+  @Deprecated
+  default List<CompletableFuture<Long>> append(List<LogEntryProto> entries) {
+    return append(entries, null);
   }
 
   /**
@@ -145,8 +155,13 @@ interface RaftLogSequentialOps {
    *
    * If an existing entry conflicts with a new one (same index but different terms),
    * delete the existing entry and all entries that follow it (§5.3).
+   *
+   * A reference counter is also submitted.
+   * For each entry, implementations of this method should retain the counter, process it and then release.
    */
-  List<CompletableFuture<Long>> append(List<LogEntryProto> entries);
+  default List<CompletableFuture<Long>> append(List<LogEntryProto> entries, ReferenceCountedObject<?> entriesRef) {
+    return append(entries);
+  }
 
   /**
    * Truncate asynchronously the log entries till the given index (inclusively).

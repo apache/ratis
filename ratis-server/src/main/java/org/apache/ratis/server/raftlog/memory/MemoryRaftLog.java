@@ -28,6 +28,7 @@ import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -181,7 +182,9 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> logEntryProtos) {
+  public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> logEntryProtos,
+      ReferenceCountedObject<?> entriesRef) {
+    // TODO: Support reference counted for memory log?
     checkLogState();
     if (logEntryProtos == null || logEntryProtos.isEmpty()) {
       return Collections.emptyList();

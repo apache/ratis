@@ -56,11 +56,11 @@ public class MemoryRaftLogTest extends BaseTest {
     List<LogEntryProto> entries1 = new ArrayList<>();
     entries1.add(LogEntryProto.newBuilder().setIndex(0).setTerm(0).build());
     entries1.add(LogEntryProto.newBuilder().setIndex(1).setTerm(0).build());
-    raftLog.append(entries1).forEach(CompletableFuture::join);
+    raftLog.append(entries1, null).forEach(CompletableFuture::join);
 
     List<LogEntryProto> entries2 = new ArrayList<>();
     entries2.add(LogEntryProto.newBuilder().setIndex(0).setTerm(0).build());
-    raftLog.append(entries2).forEach(CompletableFuture::join);
+    raftLog.append(entries2, null).forEach(CompletableFuture::join);
 
     final LogEntryHeader[] termIndices = raftLog.getEntries(0, 10);
     assertEquals(2, termIndices.length);
@@ -84,11 +84,11 @@ public class MemoryRaftLogTest extends BaseTest {
     List<LogEntryProto> entries1 = new ArrayList<>();
     entries1.add(LogEntryProto.newBuilder().setIndex(0).setTerm(0).build());
     entries1.add(LogEntryProto.newBuilder().setIndex(1).setTerm(0).build());
-    raftLog.append(entries1).forEach(CompletableFuture::join);
+    raftLog.append(entries1, null).forEach(CompletableFuture::join);
 
     List<LogEntryProto> entries2 = new ArrayList<>();
     entries2.add(LogEntryProto.newBuilder().setIndex(0).setTerm(2).build());
-    raftLog.append(entries2).forEach(CompletableFuture::join);
+    raftLog.append(entries2, null).forEach(CompletableFuture::join);
 
     final LogEntryHeader[] termIndices = raftLog.getEntries(0, 10);
     assertEquals(1, termIndices.length);
