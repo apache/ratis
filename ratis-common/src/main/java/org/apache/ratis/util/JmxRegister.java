@@ -46,15 +46,16 @@ public class JmxRegister {
   }
 
   /**
-   * Try registering the mBean with the names one by one.
+   * Try registering the mxBean with the names one by one.
    * @return the registered name, or, if it fails, return null.
    */
-  public synchronized String register(Object mBean, Iterable<Supplier<String>> names) {
+  public synchronized String register(Object mxBean, Iterable<Supplier<String>> names) {
     if (registeredName == null) {
       for (Supplier<String> supplier : names) {
         final String name = supplier.get();
-        registeredName = tryRegister(name, mBean);
+        registeredName = tryRegister(name, mxBean);
         if (registeredName != null) {
+          LOG.info("register mxBean {} as {}", mxBean.getClass(), name);
           return name;
         }
       }

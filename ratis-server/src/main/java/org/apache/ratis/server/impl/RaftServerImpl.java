@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -41,12 +40,12 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.management.ObjectName;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.GroupInfoReply;
@@ -71,11 +70,9 @@ import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
-import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
@@ -100,8 +97,8 @@ import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.JmxRegister;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.LifeCycle.State;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -109,16 +106,6 @@ import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedSupplier;
-import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
-import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
-import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
-import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
-import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
-import static org.apache.ratis.util.LifeCycle.State.NEW;
-import static org.apache.ratis.util.LifeCycle.State.PAUSED;
-import static org.apache.ratis.util.LifeCycle.State.PAUSING;
-import static org.apache.ratis.util.LifeCycle.State.RUNNING;
-import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
@@ -197,7 +184,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
   private final WriteIndexCache writeIndexCache;
 
-  private final RaftServerJmxAdapter jmxAdapter;
+  private final RaftServerJmxAdapter jmxAdapter = new RaftServerJmxAdapter(this);
   private final LeaderElectionMetrics leaderElectionMetrics;
   private final RaftServerMetricsImpl raftServerMetrics;
 
@@ -239,7 +226,6 @@ class RaftServerImpl implements RaftServer.Division,
     this.readOption = RaftServerConfigKeys.Read.option(properties);
     this.writeIndexCache = new WriteIndexCache(properties);
 
-    this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
     this.raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
@@ -269,10 +255,6 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public DivisionProperties properties() {
     return divisionProperties;
-  }
-
-  LogAppender newLogAppender(LeaderState leaderState, FollowerInfo f) {
-    return getRaftServer().getFactory().newLogAppender(this, leaderState, f);
   }
 
   int getMaxTimeoutMs() {
@@ -354,7 +336,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   boolean start() throws IOException {
-    if (!lifeCycle.compareAndTransition(NEW, STARTING)) {
+    if (!lifeCycle.compareAndTransition(State.NEW, State.STARTING)) {
       return false;
     }
     state.initialize(stateMachine);
@@ -368,22 +350,13 @@ class RaftServerImpl implements RaftServer.Division,
       startAsPeer(RaftPeerRole.LISTENER);
     } else {
       LOG.info("{}: start with initializing state, conf={}", getMemberId(), conf);
-      startInitializing();
+      setRole(RaftPeerRole.FOLLOWER, "start");
     }
 
-    registerMBean(getId(), getMemberId().getGroupId(), jmxAdapter, jmxAdapter);
+    jmxAdapter.registerMBean();
     state.start();
     startComplete.compareAndSet(false, true);
     return true;
-  }
-
-  static boolean registerMBean(
-      RaftPeerId id, RaftGroupId groupId, RaftServerMXBean mBean, JmxRegister jmx) {
-    final String prefix = "Ratis:service=RaftServer,group=" + groupId + ",id=";
-    final String registered = jmx.register(mBean, Arrays.asList(
-        () -> prefix + id,
-        () -> prefix + ObjectName.quote(id.toString())));
-    return registered != null;
   }
 
   /**
@@ -402,17 +375,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
     role.startFollowerState(this, reason);
 
-    lifeCycle.transition(RUNNING);
-  }
-
-  /**
-   * The peer does not have any configuration (maybe it will later be included
-   * in some configuration). Start still as a follower but will not vote or
-   * start election.
-   */
-  private void startInitializing() {
-    setRole(RaftPeerRole.FOLLOWER, "startInitializing");
-    // do not start FollowerState
+    lifeCycle.transition(State.RUNNING);
   }
 
   ServerState getState() {
@@ -771,7 +734,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   NotLeaderException generateNotLeaderException() {
-    if (lifeCycle.getCurrentState() != RUNNING) {
+    if (!lifeCycle.getCurrentState().isRunning()) {
       return new NotLeaderException(getMemberId(), null, null);
     }
     RaftPeerId leaderId = state.getLeaderId();
@@ -1255,7 +1218,7 @@ class RaftServerImpl implements RaftServer.Division,
     synchronized (this) {
       final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
       // check snapshot install/load
-      if (installSnapshot != INVALID_LOG_INDEX) {
+      if (installSnapshot != RaftLog.INVALID_LOG_INDEX) {
         String msg = String.format("%s: Failed do snapshot as snapshot (%s) installation is in progress",
             getMemberId(), installSnapshot);
         LOG.warn(msg);
@@ -1531,13 +1494,13 @@ class RaftServerImpl implements RaftServer.Division,
     final LeaderStateImpl leader = role.getLeaderState().orElse(null);
     if (leader == null) {
       return CompletableFuture.completedFuture(
-          ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, INVALID_LOG_INDEX));
+          ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, RaftLog.INVALID_LOG_INDEX));
     }
 
     return getReadIndex(ClientProtoUtils.toRaftClientRequest(request.getClientRequest()), leader)
         .thenApply(index -> ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), true, index))
         .exceptionally(throwable ->
-            ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, INVALID_LOG_INDEX));
+            ServerProtoUtils.toReadIndexReplyProto(peerId, getMemberId(), false, RaftLog.INVALID_LOG_INDEX));
   }
 
   static void logAppendEntries(boolean isHeartbeat, Supplier<String> message) {
@@ -1554,7 +1517,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   Optional<FollowerState> updateLastRpcTime(FollowerState.UpdateType updateType) {
     final Optional<FollowerState> fs = role.getFollowerState();
-    if (fs.isPresent() && lifeCycle.getCurrentState() == RUNNING) {
+    if (fs.isPresent() && lifeCycle.getCurrentState().isRunning()) {
       fs.get().updateLastRpcTime(updateType);
       return fs;
     } else {
@@ -1611,8 +1574,8 @@ class RaftServerImpl implements RaftServer.Division,
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-            leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(), NOT_LEADER, callId,
-            INVALID_LOG_INDEX, isHeartbeat);
+            leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(),
+            AppendResult.NOT_LEADER, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
               getMemberId(), leaderId, leaderTerm, state, ServerStringUtils.toAppendEntriesReplyString(reply));
@@ -1626,7 +1589,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
       state.setLeader(leaderId, "appendEntries");
 
-      if (!initializing && lifeCycle.compareAndTransition(STARTING, RUNNING)) {
+      if (!initializing && lifeCycle.compareAndTransition(State.STARTING, State.RUNNING)) {
         role.startFollowerState(this, Op.APPEND_ENTRIES);
       }
       followerState = updateLastRpcTime(FollowerState.UpdateType.APPEND_START);
@@ -1678,11 +1641,10 @@ class RaftServerImpl implements RaftServer.Division,
           matchIndex = requestLastEntry.getIndex();
         } else {
           n = state.getLog().getNextIndex();
-          matchIndex = INVALID_LOG_INDEX;
+          matchIndex = RaftLog.INVALID_LOG_INDEX;
         }
         reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getMemberId(), currentTerm,
-            state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex,
-            isHeartbeat);
+            state.getLog().getLastCommittedIndex(), n, AppendResult.SUCCESS, callId, matchIndex, isHeartbeat);
       }
       logAppendEntries(isHeartbeat, () -> getMemberId() + ": succeeded to handle AppendEntries. Reply: "
           + ServerStringUtils.toAppendEntriesReplyString(reply));
@@ -1699,8 +1661,8 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-        leaderId, getMemberId(), currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId,
-        INVALID_LOG_INDEX, isHeartbeat);
+        leaderId, getMemberId(), currentTerm, followerCommit, replyNextIndex,
+        AppendResult.INCONSISTENCY, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat);
     LOG.info("{}: inconsistency entries. Reply:{}", getMemberId(), ServerStringUtils.toAppendEntriesReplyString(reply));
     return reply;
   }
@@ -1708,7 +1670,7 @@ class RaftServerImpl implements RaftServer.Division,
   private long checkInconsistentAppendEntries(TermIndex previous, List<LogEntryProto> entries) {
     // Check if a snapshot installation through state machine is in progress.
     final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
-    if (installSnapshot != INVALID_LOG_INDEX) {
+    if (installSnapshot != RaftLog.INVALID_LOG_INDEX) {
       LOG.info("{}: Failed appendEntries as snapshot ({}) installation is in progress", getMemberId(), installSnapshot);
       return state.getNextIndex();
     }
@@ -1720,7 +1682,7 @@ class RaftServerImpl implements RaftServer.Division,
       final long snapshotIndex = state.getSnapshotIndex();
       final long commitIndex =  state.getLog().getLastCommittedIndex();
       final long nextIndex = Math.max(snapshotIndex, commitIndex);
-      if (nextIndex > INVALID_LOG_INDEX && nextIndex >= firstEntryIndex) {
+      if (nextIndex > RaftLog.INVALID_LOG_INDEX && nextIndex >= firstEntryIndex) {
         LOG.info("{}: Failed appendEntries as the first entry (index {})" +
                 " already exists (snapshotIndex: {}, commitIndex: {})",
             getMemberId(), firstEntryIndex, snapshotIndex, commitIndex);
@@ -1750,19 +1712,19 @@ class RaftServerImpl implements RaftServer.Division,
     // Pause() should pause ongoing operations:
     //  a. call {@link StateMachine#pause()}.
     synchronized (this) {
-      if (!lifeCycle.compareAndTransition(RUNNING, PAUSING)) {
+      if (!lifeCycle.compareAndTransition(State.RUNNING, State.PAUSING)) {
         return false;
       }
       // TODO: any other operations that needs to be paused?
       stateMachine.pause();
-      lifeCycle.compareAndTransition(PAUSING, PAUSED);
+      lifeCycle.compareAndTransition(State.PAUSING, State.PAUSED);
     }
     return true;
   }
 
   boolean resume() throws IOException {
     synchronized (this) {
-      if (!lifeCycle.compareAndTransition(PAUSED, STARTING)) {
+      if (!lifeCycle.compareAndTransition(State.PAUSED, State.STARTING)) {
         return false;
       }
       // TODO: any other operations that needs to be resumed?
@@ -1770,10 +1732,10 @@ class RaftServerImpl implements RaftServer.Division,
         stateMachine.reinitialize();
       } catch (IOException e) {
         LOG.warn("Failed to reinitialize statemachine: {}", stateMachine);
-        lifeCycle.compareAndTransition(STARTING, EXCEPTION);
+        lifeCycle.compareAndTransition(State.STARTING, State.EXCEPTION);
         throw e;
       }
-      lifeCycle.compareAndTransition(STARTING, RUNNING);
+      lifeCycle.compareAndTransition(State.STARTING, State.RUNNING);
     }
     return true;
   }
@@ -1943,50 +1905,6 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public RaftServerMetricsImpl getRaftServerMetrics() {
     return raftServerMetrics;
-  }
-
-  private class RaftServerJmxAdapter extends JmxRegister implements RaftServerMXBean {
-    @Override
-    public String getId() {
-      return getMemberId().getPeerId().toString();
-    }
-
-    @Override
-    public String getLeaderId() {
-      RaftPeerId leaderId = getState().getLeaderId();
-      if (leaderId != null) {
-        return leaderId.toString();
-      } else {
-        return null;
-      }
-    }
-
-    @Override
-    public long getCurrentTerm() {
-      return getState().getCurrentTerm();
-    }
-
-    @Override
-    public String getGroupId() {
-      return getMemberId().getGroupId().toString();
-    }
-
-    @Override
-    public String getRole() {
-      return role.toString();
-    }
-
-    @Override
-    public List<String> getFollowers() {
-      return role.getLeaderState().map(LeaderStateImpl::getFollowers).orElseGet(Stream::empty)
-          .map(RaftPeer::toString).collect(Collectors.toList());
-    }
-
-    @Override
-    public List<String> getGroups() {
-      return proxy.getGroupIds().stream().map(RaftGroupId::toString)
-          .collect(Collectors.toList());
-    }
   }
 
   void onGroupLeaderElected() {
