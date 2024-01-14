@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 /**
@@ -43,10 +44,10 @@ import java.util.function.LongSupplier;
  */
 public class MemoryRaftLog extends RaftLogBase {
   static class EntryList {
-    private final List<LogEntryProto> entries = new ArrayList<>();
+    private final List<ReferenceCountedObject<LogEntryProto>> entries = new ArrayList<>();
 
     LogEntryProto get(int i) {
-      return i >= 0 && i < entries.size() ? entries.get(i) : null;
+      return i >= 0 && i < entries.size() ? entries.get(i).get() : null;
     }
 
     TermIndex getTermIndex(int i) {
@@ -63,18 +64,25 @@ public class MemoryRaftLog extends RaftLogBase {
 
     void truncate(int index) {
       if (entries.size() > index) {
-        entries.subList(index, entries.size()).clear();
+        clear(index, entries.size());
       }
     }
 
     void purge(int index) {
       if (entries.size() > index) {
-        entries.subList(0, index).clear();
+        clear(0, index);
       }
     }
 
-    void add(LogEntryProto entry) {
-      entries.add(entry);
+    void clear(int from, int to) {
+      List<ReferenceCountedObject<LogEntryProto>> subList = entries.subList(from, to);
+      subList.forEach(ReferenceCountedObject::release);
+      subList.clear();
+    }
+
+    void add(ReferenceCountedObject<LogEntryProto> entryRef) {
+      entryRef.retain();
+      entries.add(entryRef);
     }
   }
 
@@ -171,7 +179,9 @@ public class MemoryRaftLog extends RaftLogBase {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       validateLogEntry(entry);
-      entries.add(entry);
+      Function<LogEntryProto, ReferenceCountedObject<LogEntryProto>> wrap = context != null ?
+          context::wrap : ReferenceCountedObject::wrap;
+      entries.add(wrap.apply(entry));
     }
     return CompletableFuture.completedFuture(entry.getIndex());
   }
@@ -184,7 +194,6 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> logEntryProtos,
       ReferenceCountedObject<?> entriesRef) {
-    // TODO: Support reference counted for memory log?
     checkLogState();
     if (logEntryProtos == null || logEntryProtos.isEmpty()) {
       return Collections.emptyList();
@@ -215,9 +224,13 @@ public class MemoryRaftLog extends RaftLogBase {
       } else {
         futures = new ArrayList<>(logEntryProtos.size() - index);
       }
+
+      Function<LogEntryProto, ReferenceCountedObject<LogEntryProto>> wrap = entriesRef != null ?
+          entriesRef::delegate : ReferenceCountedObject::wrap;
       for (int i = index; i < logEntryProtos.size(); i++) {
         LogEntryProto logEntryProto = logEntryProtos.get(i);
-        this.entries.add(logEntryProto);
+        ReferenceCountedObject<LogEntryProto> entryRef = wrap.apply(logEntryProto);
+        this.entries.add(entryRef);
         futures.add(CompletableFuture.completedFuture(logEntryProto.getIndex()));
       }
       return futures;
