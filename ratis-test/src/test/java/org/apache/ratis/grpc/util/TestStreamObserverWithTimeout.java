@@ -57,14 +57,14 @@ public class TestStreamObserverWithTimeout extends BaseTest {
   @Test
   public void testWithDeadline() throws Exception {
     //the total sleep time is within the deadline
-    runTestTimeout(8, Type.WithDeadline);
+    runTestTimeout(2, Type.WithDeadline);
   }
 
   @Test
   public void testWithDeadlineFailure() {
     //Expected to have DEADLINE_EXCEEDED
     testFailureCase("total sleep time is longer than the deadline",
-        () -> runTestTimeout(12, Type.WithDeadline),
+        () -> runTestTimeout(5, Type.WithDeadline),
         ExecutionException.class, StatusRuntimeException.class);
   }
 
@@ -72,7 +72,7 @@ public class TestStreamObserverWithTimeout extends BaseTest {
   public void testWithTimeout() throws Exception {
     //Each sleep time is within the timeout,
     //Note that the total sleep time is longer than the timeout, but it does not matter.
-    runTestTimeout(12, Type.WithTimeout);
+    runTestTimeout(5, Type.WithTimeout);
   }
 
   void runTestTimeout(int slow, Type type) throws Exception {
