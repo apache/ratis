@@ -29,6 +29,7 @@ import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -147,12 +148,14 @@ class GrpcZeroCopyTestClient implements Closeable {
     LOG.info("send data: size={}, direct? {}", data.remaining(), data.isDirect());
     final BinaryRequest request = BinaryRequest.newBuilder().setData(UnsafeByteOperations.unsafeWrap(data)).build();
     final CompletableFuture<ByteString> f = new CompletableFuture<>();
+    binaryReplies.offer(f);
     try {
       binaryRequestHandler.onNext(request);
-      binaryReplies.offer(f);
     } catch (IllegalStateException e) {
       // already closed
       f.completeExceptionally(e);
+      final CompletableFuture<ByteString> polled = binaryReplies.poll();
+      Preconditions.assertSame(f, polled, "future");
     }
     return f;
   }
