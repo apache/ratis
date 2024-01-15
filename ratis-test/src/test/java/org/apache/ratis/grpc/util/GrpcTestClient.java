@@ -37,6 +37,7 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 
 /** gRPC client for testing */
@@ -55,8 +56,11 @@ class GrpcTestClient implements Closeable {
 
   static StreamObserverFactory withTimeout(TimeDuration timeout) {
     final String className = JavaUtils.getClassSimpleName(HelloRequest.class) + ":";
+    final AtomicBoolean initialized = new AtomicBoolean();
     return (stub, responseHandler) -> StreamObserverWithTimeout.newInstance("test",
-        r -> className + r.getName(), timeout, 2,
+        r -> className + r.getName(),
+        () -> initialized.getAndSet(true) ? timeout : TimeDuration.ONE_MINUTE.add(timeout),
+        2,
         i -> stub.withInterceptors(i).hello(responseHandler));
   }
 
