@@ -32,13 +32,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 public final class StreamObserverWithTimeout<T> implements StreamObserver<T> {
   public static final Logger LOG = LoggerFactory.getLogger(StreamObserverWithTimeout.class);
 
   public static <T> StreamObserverWithTimeout<T> newInstance(
       String name, Function<T, String> request2String,
-      TimeDuration timeout, int outstandingLimit,
+      Supplier<TimeDuration> timeout, int outstandingLimit,
       Function<ClientInterceptor, StreamObserver<T>> newStreamObserver) {
     final AtomicInteger responseCount = new AtomicInteger();
     final ResourceSemaphore semaphore = outstandingLimit > 0? new ResourceSemaphore(outstandingLimit): null;
@@ -55,7 +56,7 @@ public final class StreamObserverWithTimeout<T> implements StreamObserver<T> {
   private final String name;
   private final Function<T, String> requestToStringFunction;
 
-  private final TimeDuration timeout;
+  private final Supplier<TimeDuration> timeoutSupplier;
   private final StreamObserver<T> observer;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
@@ -65,17 +66,18 @@ public final class StreamObserverWithTimeout<T> implements StreamObserver<T> {
   private final ResourceSemaphore semaphore;
 
   private StreamObserverWithTimeout(String name, Function<T, String> requestToStringFunction,
-      TimeDuration timeout, IntSupplier responseCount, ResourceSemaphore semaphore, StreamObserver<T> observer) {
+      Supplier<TimeDuration> timeoutSupplier, IntSupplier responseCount, ResourceSemaphore semaphore,
+      StreamObserver<T> observer) {
     this.name = JavaUtils.getClassSimpleName(getClass()) + "-" + name;
     this.requestToStringFunction = requestToStringFunction;
 
-    this.timeout = timeout;
+    this.timeoutSupplier = timeoutSupplier;
     this.responseCount = responseCount;
     this.semaphore = semaphore;
     this.observer = observer;
   }
 
-  private void acquire(StringSupplier request) {
+  private void acquire(StringSupplier request, TimeDuration timeout) {
     if (semaphore == null) {
       return;
     }
@@ -96,14 +98,16 @@ public final class StreamObserverWithTimeout<T> implements StreamObserver<T> {
   @Override
   public void onNext(T request) {
     final StringSupplier requestString = StringSupplier.get(() -> requestToStringFunction.apply(request));
-    acquire(requestString);
+    final TimeDuration timeout = timeoutSupplier.get();
+    acquire(requestString, timeout);
     observer.onNext(request);
     final int id = requestCount.incrementAndGet();
-    scheduler.onTimeout(timeout, () -> handleTimeout(id, requestString),
+    LOG.debug("{}: send {} with timeout={}: {}", name, id, timeout, requestString);
+    scheduler.onTimeout(timeout, () -> handleTimeout(id, timeout, requestString),
         LOG, () -> name + ": Timeout check failed for request: " + requestString);
   }
 
-  private void handleTimeout(int id, StringSupplier request) {
+  private void handleTimeout(int id, TimeDuration timeout, StringSupplier request) {
     if (id > responseCount.getAsInt()) {
       onError(new TimeoutIOException(name + ": Timed out " + timeout + " for sending request " + request));
     }

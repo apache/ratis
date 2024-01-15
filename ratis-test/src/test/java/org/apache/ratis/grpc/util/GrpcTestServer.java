@@ -23,6 +23,8 @@ import org.apache.ratis.test.proto.HelloRequest;
 import org.apache.ratis.thirdparty.io.grpc.Server;
 import org.apache.ratis.thirdparty.io.grpc.ServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.io.netty.util.concurrent.ThreadPerTaskExecutor;
+import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -31,16 +33,22 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** gRPC server for testing */
 class GrpcTestServer implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(GrpcTestServer.class);
+  private static final AtomicLong COUNTER = new AtomicLong();
 
   private final Server server;
 
-  GrpcTestServer(int port, int slow, TimeDuration timeout) {
+  GrpcTestServer(int port, int warmup, int slow, TimeDuration timeout) {
     this.server = ServerBuilder.forPort(port)
-        .addService(new GreeterImpl(slow, timeout))
+        .executor(new ThreadPerTaskExecutor(r -> Daemon.newBuilder()
+            .setName("test-server-" + COUNTER.getAndIncrement())
+            .setRunnable(r)
+            .build()))
+        .addService(new GreeterImpl(warmup, slow, timeout))
         .build();
   }
 
@@ -64,14 +72,16 @@ class GrpcTestServer implements Closeable {
       return ") Hello " + request;
     }
 
+    private final int warmup;
     private final int slow;
     private final TimeDuration shortSleepTime;
     private final TimeDuration longSleepTime;
     private int count = 0;
 
-    GreeterImpl(int slow, TimeDuration timeout) {
+    GreeterImpl(int warmup, int slow, TimeDuration timeout) {
+      this.warmup = warmup;
       this.slow = slow;
-      this.shortSleepTime = timeout.multiply(0.1);
+      this.shortSleepTime = timeout.multiply(0.25);
       this.longSleepTime = timeout.multiply(2);
     }
 
@@ -81,7 +91,8 @@ class GrpcTestServer implements Closeable {
         @Override
         public void onNext(HelloRequest helloRequest) {
           final String reply = count + toReplySuffix(helloRequest.getName());
-          final TimeDuration sleepTime = count < slow ? shortSleepTime : longSleepTime;
+          final TimeDuration sleepTime = count < warmup ? TimeDuration.ZERO :
+              count < (warmup + slow) ? shortSleepTime : longSleepTime;
           LOG.info("count = {}, slow = {}, sleep {}", reply, slow, sleepTime);
           try {
             sleepTime.sleep();
