@@ -20,10 +20,13 @@ package org.apache.ratis.grpc.server;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.metrics.ZeroCopyMetrics;
+import org.apache.ratis.grpc.util.ZeroCopyMessageMarshaller;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -41,6 +44,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static org.apache.ratis.grpc.GrpcUtil.addMethodWithCustomMarshaller;
+import static org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.getAppendEntriesMethod;
+
 class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
 
@@ -48,8 +54,9 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     private final REQUEST request;
     private final CompletableFuture<Void> future = new CompletableFuture<>();
 
-    PendingServerRequest(REQUEST request) {
-      this.request = request;
+    PendingServerRequest(ReferenceCountedObject<REQUEST> requestRef) {
+      this.request = requestRef.retain();
+      this.future.whenComplete((r, e) -> requestRef.release());
     }
 
     REQUEST getRequest() {
@@ -83,7 +90,21 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
           .orElse(null);
     }
 
-    abstract CompletableFuture<REPLY> process(REQUEST request) throws IOException;
+    CompletableFuture<REPLY> process(REQUEST request) throws IOException {
+      throw new UnsupportedOperationException("This method is not supported.");
+    }
+
+    CompletableFuture<REPLY> process(ReferenceCountedObject<REQUEST> requestRef)
+        throws IOException {
+      try {
+        return process(requestRef.retain());
+      } finally {
+        requestRef.release();
+      }
+    }
+
+    void release(REQUEST req) {
+    }
 
     abstract long getCallId(REQUEST request);
 
@@ -120,22 +141,29 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
     @Override
     public void onNext(REQUEST request) {
+      ReferenceCountedObject<REQUEST> requestRef = ReferenceCountedObject.wrap(request, () -> {}, released -> {
+        if (released) {
+          release(request);
+        }
+      });
+
       if (!replyInOrder(request)) {
         try {
-          composeRequest(process(request).thenApply(this::handleReply));
+          composeRequest(process(requestRef).thenApply(this::handleReply));
         } catch (Exception e) {
           handleError(e, request);
+          release(request);
         }
         return;
       }
 
-      final PendingServerRequest<REQUEST> current = new PendingServerRequest<>(request);
+      final PendingServerRequest<REQUEST> current = new PendingServerRequest<>(requestRef);
       final PendingServerRequest<REQUEST> previous = previousOnNext.getAndSet(current);
       final CompletableFuture<Void> previousFuture = Optional.ofNullable(previous)
           .map(PendingServerRequest::getFuture)
           .orElse(CompletableFuture.completedFuture(null));
       try {
-        final CompletableFuture<REPLY> f = process(request).exceptionally(e -> {
+        final CompletableFuture<REPLY> f = process(requestRef).exceptionally(e -> {
           // Handle cases, such as RaftServer is paused
           handleError(e, request);
           current.getFuture().completeExceptionally(e);
@@ -176,14 +204,33 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftServer server;
+  private final ZeroCopyMessageMarshaller<AppendEntriesRequestProto> zeroCopyRequestMarshaller;
 
-  GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server) {
+  GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server, ZeroCopyMetrics zeroCopyMetrics) {
     this.idSupplier = idSupplier;
     this.server = server;
+    this.zeroCopyRequestMarshaller = new ZeroCopyMessageMarshaller<>(AppendEntriesRequestProto.getDefaultInstance(),
+        zeroCopyMetrics::onZeroCopyMessage, zeroCopyMetrics::onNonZeroCopyMessage, zeroCopyMetrics::onReleasedMessage);
   }
 
   RaftPeerId getId() {
     return idSupplier.get();
+  }
+
+  ServerServiceDefinition bindServiceWithZeroCopy() {
+    ServerServiceDefinition orig = super.bindService();
+    ServerServiceDefinition.Builder builder = ServerServiceDefinition.builder(orig.getServiceDescriptor().getName());
+
+    // Add appendEntries with zero copy marshaller.
+    addMethodWithCustomMarshaller(orig, builder, getAppendEntriesMethod(), zeroCopyRequestMarshaller);
+    // Add remaining methods as is.
+    orig.getMethods().stream().filter(
+        x -> !x.getMethodDescriptor().getFullMethodName().equals(getAppendEntriesMethod().getFullMethodName())
+    ).forEach(
+        builder::addMethod
+    );
+
+    return builder.build();
   }
 
   @Override
@@ -226,8 +273,14 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     return new ServerRequestStreamObserver<AppendEntriesRequestProto, AppendEntriesReplyProto>(
         RaftServerProtocol.Op.APPEND_ENTRIES, responseObserver) {
       @Override
-      CompletableFuture<AppendEntriesReplyProto> process(AppendEntriesRequestProto request) throws IOException {
-        return server.appendEntriesAsync(ReferenceCountedObject.wrap(request));
+      CompletableFuture<AppendEntriesReplyProto> process(ReferenceCountedObject<AppendEntriesRequestProto> requestRef)
+          throws IOException {
+        return server.appendEntriesAsync(requestRef);
+      }
+
+      @Override
+      void release(AppendEntriesRequestProto req) {
+        zeroCopyRequestMarshaller.release(req);
       }
 
       @Override
