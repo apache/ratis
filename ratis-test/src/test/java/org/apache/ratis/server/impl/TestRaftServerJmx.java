@@ -99,9 +99,9 @@ public class TestRaftServerJmx extends BaseTest {
       public List<String> getGroups() { return null; }
 
     };
-    final RaftPeerId id = RaftPeerId.valueOf(name);
-    final RaftGroupId groupId = RaftGroupId.randomId();
-    final boolean succeeded = RaftServerImpl.registerMBean(id, groupId, mBean, jmx);
+    final String id = RaftPeerId.valueOf(name).toString();
+    final String groupId = RaftGroupId.randomId().toString();
+    final boolean succeeded = RaftServerJmxAdapter.registerMBean(id, groupId, mBean, jmx);
     Assert.assertEquals(expectToSucceed, succeeded);
   }
 
