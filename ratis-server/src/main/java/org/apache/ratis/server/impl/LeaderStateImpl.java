@@ -643,6 +643,10 @@ class LeaderStateImpl implements LeaderState {
     return server.getRaftConf().getPeer(id, RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER);
   }
 
+  private LogAppender newLogAppender(FollowerInfo f) {
+    return server.getRaftServer().getFactory().newLogAppender(server, this, f);
+  }
+
   private Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean caughtUp) {
     final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final List<LogAppender> newAppenders = newPeers.stream().map(peer -> {
@@ -650,7 +654,7 @@ class LeaderStateImpl implements LeaderState {
       followerInfoMap.put(peer.getId(), f);
       raftServerMetrics.addFollower(peer.getId());
       logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
-      return server.newLogAppender(this, f);
+      return newLogAppender(f);
     }).collect(Collectors.toList());
     senders.addAll(newAppenders);
     return newAppenders;
