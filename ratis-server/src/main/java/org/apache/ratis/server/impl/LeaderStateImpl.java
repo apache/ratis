@@ -1197,12 +1197,12 @@ class LeaderStateImpl implements LeaderState {
         && (server.getRaftConf().isSingleton() || lease.isValid());
   }
 
-  void replyPendingRequest(long logIndex, RaftClientReply reply) {
-    pendingRequests.replyPendingRequest(logIndex, reply);
+  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply) {
+    pendingRequests.replyPendingRequest(termIndex, reply);
   }
 
-  TransactionContext getTransactionContext(long index) {
-    return pendingRequests.getTransactionContext(index);
+  TransactionContext getTransactionContext(TermIndex termIndex) {
+    return pendingRequests.getTransactionContext(termIndex);
   }
 
   long[] getFollowerNextIndices() {

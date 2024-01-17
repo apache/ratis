@@ -20,6 +20,7 @@ package org.apache.ratis.util;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -84,6 +85,11 @@ public interface Preconditions {
 
   static void assertSame(Object expected, Object computed, String name) {
     assertTrue(expected == computed,
+        () -> name + ": expected == " + expected + " but computed == " + computed);
+  }
+
+  static void assertEquals(Object expected, Object computed, String name) {
+    assertTrue(Objects.equals(expected, computed),
         () -> name + ": expected == " + expected + " but computed == " + computed);
   }
 
