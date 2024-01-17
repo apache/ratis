@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.leader;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto.SnapshotChunkProto;
@@ -103,19 +102,24 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
       }
 
       @Override
-      @SuppressFBWarnings("IT_NO_SUCH_ELEMENT")
       public InstallSnapshotRequestProto next() {
+        checkCurrentIndex(snapshot.getFiles().size(), fileIndex);
         return nextInstallSnapshotRequestProto();
       }
     };
   }
 
+  private void checkCurrentIndex(int numFiles, int currentIndex) {
+    if (currentIndex >= numFiles) {
+      throw new NoSuchElementException("fileIndex = " + currentIndex + " >= numFiles = " + numFiles);
+    }
+  }
+
   private InstallSnapshotRequestProto nextInstallSnapshotRequestProto() {
     final int numFiles = snapshot.getFiles().size();
-    if (fileIndex >= numFiles) {
-      throw new NoSuchElementException("fileIndex = " + fileIndex + " >= numFiles = " + numFiles);
-    }
-    final FileInfo info = snapshot.getFiles().get(fileIndex);
+    final int currentIndex = fileIndex;
+    checkCurrentIndex(numFiles, currentIndex);
+    final FileInfo info = snapshot.getFiles().get(currentIndex);
     try {
       if (current == null) {
         current = new FileChunkReader(info, getRelativePath.apply(info));
@@ -127,7 +131,7 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
         fileIndex++;
       }
 
-      final boolean done = fileIndex == numFiles && chunk.getDone();
+      final boolean done = currentIndex == numFiles - 1 && chunk.getDone();
       return newInstallSnapshotRequest(chunk, done);
     } catch (IOException e) {
       if (current != null) {
