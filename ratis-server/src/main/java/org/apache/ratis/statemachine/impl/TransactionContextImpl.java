@@ -135,6 +135,7 @@ public class TransactionContextImpl implements TransactionContext {
     if (delegatedRef == null) {
       return TransactionContext.super.wrap(entry);
     }
+    Preconditions.assertSame(getLogEntry().getTerm(), entry.getTerm(), "entry.term");
     Preconditions.assertSame(getLogEntry().getIndex(), entry.getIndex(), "entry.index");
     return delegatedRef.delegate(entry);
   }
