@@ -457,11 +457,12 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   protected List<CompletableFuture<Long>> appendImpl(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
     checkLogState();
-    final List<LogEntryProto> entries = entriesRef.get();
+    final List<LogEntryProto> entries = entriesRef.retain();
     if (entries == null || entries.isEmpty()) {
+      entriesRef.release();
       return Collections.emptyList();
     }
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try (AutoCloseableLock writeLock = writeLock()) {
       final TruncateIndices ti = cache.computeTruncateIndices(server::notifyTruncatedLogEntry, entries);
       final long truncateIndex = ti.getTruncateIndex();
       final int index = ti.getArrayIndex();
@@ -483,6 +484,8 @@ public final class SegmentedRaftLog extends RaftLogBase {
         futures.add(appendEntry(entry, transactionContext));
       }
       return futures;
+    } finally {
+      entriesRef.release();
     }
   }
 

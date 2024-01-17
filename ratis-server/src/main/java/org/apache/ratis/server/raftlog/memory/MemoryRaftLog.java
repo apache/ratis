@@ -194,11 +194,12 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   public List<CompletableFuture<Long>> appendImpl(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
     checkLogState();
-    final List<LogEntryProto> logEntryProtos = entriesRef.get();
+    final List<LogEntryProto> logEntryProtos = entriesRef.retain();
     if (logEntryProtos == null || logEntryProtos.isEmpty()) {
+      entriesRef.release();
       return Collections.emptyList();
     }
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try (AutoCloseableLock writeLock = writeLock()) {
       // Before truncating the entries, we first need to check if some
       // entries are duplicated. If the leader sends entry 6, entry 7, then
       // entry 6 again, without this check the follower may truncate entry 7
@@ -230,6 +231,8 @@ public class MemoryRaftLog extends RaftLogBase {
         futures.add(CompletableFuture.completedFuture(logEntryProto.getIndex()));
       }
       return futures;
+    } finally {
+      entriesRef.release();
     }
   }
 
