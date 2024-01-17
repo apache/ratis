@@ -1800,7 +1800,7 @@ class RaftServerImpl implements RaftServer.Division,
    *                           from which we will get transaction result later
    */
   private CompletableFuture<Message> replyPendingRequest(
-      ClientInvocationId invocationId, long logIndex, CompletableFuture<Message> stateMachineFuture) {
+      ClientInvocationId invocationId, TermIndex termIndex, CompletableFuture<Message> stateMachineFuture) {
     // update the retry cache
     final CacheEntry cacheEntry = retryCache.getOrCreateEntry(invocationId);
     Objects.requireNonNull(cacheEntry , "cacheEntry == null");
@@ -1812,8 +1812,8 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     return stateMachineFuture.whenComplete((reply, exception) -> {
-      transactionManager.remove(logIndex);
-      final RaftClientReply.Builder b = newReplyBuilder(invocationId, logIndex);
+      transactionManager.remove(termIndex);
+      final RaftClientReply.Builder b = newReplyBuilder(invocationId, termIndex.getIndex());
       final RaftClientReply r;
       if (exception == null) {
         r = b.setSuccess().setMessage(reply).build();
@@ -1825,7 +1825,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       // update pending request
-      role.getLeaderState().ifPresent(leader -> leader.replyPendingRequest(logIndex, r));
+      role.getLeaderState().ifPresent(leader -> leader.replyPendingRequest(termIndex, r));
       cacheEntry.updateResult(r);
     });
   }
@@ -1835,18 +1835,19 @@ class RaftServerImpl implements RaftServer.Division,
       return null;
     }
 
+    final TermIndex termIndex = TermIndex.valueOf(entry);
     final Optional<LeaderStateImpl> leader = getRole().getLeaderState();
     if (leader.isPresent()) {
-      final TransactionContext context = leader.get().getTransactionContext(entry.getIndex());
+      final TransactionContext context = leader.get().getTransactionContext(termIndex);
       if (context != null) {
         return context;
       }
     }
 
     if (!createNew) {
-      return transactionManager.get(entry.getIndex());
+      return transactionManager.get(termIndex);
     }
-    return transactionManager.computeIfAbsent(entry.getIndex(),
+    return transactionManager.computeIfAbsent(termIndex,
         // call startTransaction only once
         MemoizedSupplier.valueOf(() -> stateMachine.startTransaction(entry, getInfo().getCurrentRole())));
   }
@@ -1872,7 +1873,7 @@ class RaftServerImpl implements RaftServer.Division,
         trx = stateMachine.applyTransactionSerial(trx);
 
         final CompletableFuture<Message> stateMachineFuture = stateMachine.applyTransaction(trx);
-        return replyPendingRequest(invocationId, next.getIndex(), stateMachineFuture);
+        return replyPendingRequest(invocationId, TermIndex.valueOf(next), stateMachineFuture);
       } catch (Exception e) {
         throw new RaftLogIOException(e);
       }

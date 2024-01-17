@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.TransactionContext;
 
 import java.util.Optional;
@@ -28,17 +29,17 @@ import java.util.function.Supplier;
  * Managing {@link TransactionContext}.
  */
 class TransactionManager {
-  private final ConcurrentMap<Long, Supplier<TransactionContext>> contexts = new ConcurrentHashMap<>();
+  private final ConcurrentMap<TermIndex, Supplier<TransactionContext>> contexts = new ConcurrentHashMap<>();
 
-  TransactionContext get(long index) {
-    return Optional.ofNullable(contexts.get(index)).map(Supplier::get).orElse(null);
+  TransactionContext get(TermIndex termIndex) {
+    return Optional.ofNullable(contexts.get(termIndex)).map(Supplier::get).orElse(null);
   }
 
-  TransactionContext computeIfAbsent(long index, Supplier<TransactionContext> constructor) {
-    return contexts.computeIfAbsent(index, i -> constructor).get();
+  TransactionContext computeIfAbsent(TermIndex termIndex, Supplier<TransactionContext> constructor) {
+    return contexts.computeIfAbsent(termIndex, i -> constructor).get();
   }
 
-  void remove(long index) {
-    contexts.remove(index);
+  void remove(TermIndex termIndex) {
+    contexts.remove(termIndex);
   }
 }
