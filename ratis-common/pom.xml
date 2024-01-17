@@ -47,7 +47,8 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
-      <scope>test</scope>
+      <!-- The scope will be changed to test after all the unit test is migrated to Junit 5 -->
+      <!-- <scope>test</scope> -->
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
