@@ -17,28 +17,28 @@
  */
 package org.apache.ratis.server.impl;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
-import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
-public class PendingRequest implements Comparable<PendingRequest> {
-  private final long index;
+class PendingRequest {
+  private final TermIndex termIndex;
   private final RaftClientRequest request;
   private final TransactionContext entry;
   private final CompletableFuture<RaftClientReply> futureToComplete = new CompletableFuture<>();
   private final CompletableFuture<RaftClientReply> futureToReturn;
 
-  PendingRequest(long index, RaftClientRequest request, TransactionContext entry) {
-    this.index = index;
+  PendingRequest(RaftClientRequest request, TransactionContext entry) {
+    this.termIndex = entry == null? null: TermIndex.valueOf(entry.getLogEntry());
     this.request = request;
     this.entry = entry;
     if (request.is(TypeCase.FORWARD)) {
@@ -49,7 +49,7 @@ public class PendingRequest implements Comparable<PendingRequest> {
   }
 
   PendingRequest(SetConfigurationRequest request) {
-    this(RaftLog.INVALID_LOG_INDEX, request, null);
+    this(request, null);
   }
 
   RaftClientReply convert(RaftClientRequest q, RaftClientReply p) {
@@ -63,8 +63,8 @@ public class PendingRequest implements Comparable<PendingRequest> {
         .build();
   }
 
-  long getIndex() {
-    return index;
+  TermIndex getTermIndex() {
+    return Objects.requireNonNull(termIndex, "termIndex");
   }
 
   RaftClientRequest getRequest() {
@@ -102,13 +102,7 @@ public class PendingRequest implements Comparable<PendingRequest> {
   }
 
   @Override
-  @SuppressFBWarnings("EQ_COMPARETO_USE_OBJECT_EQUALS")
-  public int compareTo(PendingRequest that) {
-    return Long.compare(this.index, that.index);
-  }
-
-  @Override
   public String toString() {
-    return JavaUtils.getClassSimpleName(getClass()) + ":index=" + index + ", request=" + request;
+    return JavaUtils.getClassSimpleName(getClass()) + "-" + termIndex + ":request=" + request;
   }
 }
