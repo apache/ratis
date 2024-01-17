@@ -455,9 +455,9 @@ public final class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  protected List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> entries,
-      ReferenceCountedObject<?> entriesRef) {
+  protected List<CompletableFuture<Long>> appendImpl(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
     checkLogState();
+    final List<LogEntryProto> entries = entriesRef.get();
     if (entries == null || entries.isEmpty()) {
       return Collections.emptyList();
     }

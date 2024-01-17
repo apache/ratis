@@ -25,6 +25,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.function.CheckedSupplier;
+import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
 
 import java.util.Arrays;
 import java.util.List;
@@ -133,7 +134,7 @@ interface RaftLogSequentialOps {
   /**
    * The same as append(Arrays.asList(entries)).
    *
-   * @deprecated use {@link #append(List, ReferenceCountedObject)}
+   * @deprecated use {@link #append(ReferenceCountedObject)}.
    */
   @Deprecated
   default List<CompletableFuture<Long>> append(LogEntryProto... entries) {
@@ -141,11 +142,11 @@ interface RaftLogSequentialOps {
   }
 
   /**
-   * @deprecated use {@link #append(List, ReferenceCountedObject)}.
+   * @deprecated use {@link #append(ReferenceCountedObject)}.
    */
   @Deprecated
   default List<CompletableFuture<Long>> append(List<LogEntryProto> entries) {
-    return append(entries, null);
+    throw new UnsupportedOperationException();
   }
 
   /**
@@ -158,8 +159,10 @@ interface RaftLogSequentialOps {
    * A reference counter is also submitted.
    * For each entry, implementations of this method should retain the counter, process it and then release.
    */
-  default List<CompletableFuture<Long>> append(List<LogEntryProto> entries, ReferenceCountedObject<?> entriesRef) {
-    return append(entries);
+  default List<CompletableFuture<Long>> append(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
+    try(UncheckedAutoCloseableSupplier<List<LogEntryProto>> entries = entriesRef.retainAndReleaseOnClose()) {
+      return append(entries.get());
+    }
   }
 
   /**

@@ -1460,7 +1460,7 @@ class RaftServerImpl implements RaftServer.Division,
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto r)
       throws IOException {
     try {
-      return appendEntriesAsync(r).join();
+      return appendEntriesAsync(ReferenceCountedObject.wrap(r)).join();
     } catch (CompletionException e) {
       throw IOUtils.asIOException(JavaUtils.unwrapCompletionException(e));
     }
@@ -1618,7 +1618,7 @@ class RaftServerImpl implements RaftServer.Division,
 
 
     final List<CompletableFuture<Long>> futures = entries.isEmpty() ? Collections.emptyList()
-        : state.getLog().append(entries, requestRef);
+        : state.getLog().append(requestRef.delegate(entries));
     commitInfos.forEach(commitInfoCache::update);
 
     CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);

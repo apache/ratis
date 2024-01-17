@@ -35,7 +35,7 @@ public interface RaftServerAsynchronousProtocol {
    */
   default CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request)
       throws IOException {
-    return appendEntriesAsync(ReferenceCountedObject.wrap(request));
+    throw new UnsupportedOperationException();
   }
 
   /**

@@ -192,9 +192,9 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> logEntryProtos,
-      ReferenceCountedObject<?> entriesRef) {
+  public List<CompletableFuture<Long>> appendImpl(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
     checkLogState();
+    final List<LogEntryProto> logEntryProtos = entriesRef.get();
     if (logEntryProtos == null || logEntryProtos.isEmpty()) {
       return Collections.emptyList();
     }
@@ -224,13 +224,9 @@ public class MemoryRaftLog extends RaftLogBase {
       } else {
         futures = new ArrayList<>(logEntryProtos.size() - index);
       }
-
-      Function<LogEntryProto, ReferenceCountedObject<LogEntryProto>> wrap = entriesRef != null ?
-          entriesRef::delegate : ReferenceCountedObject::wrap;
       for (int i = index; i < logEntryProtos.size(); i++) {
         LogEntryProto logEntryProto = logEntryProtos.get(i);
-        ReferenceCountedObject<LogEntryProto> entryRef = wrap.apply(logEntryProto);
-        this.entries.add(entryRef);
+        entries.add(entriesRef.delegate(logEntryProto));
         futures.add(CompletableFuture.completedFuture(logEntryProto.getIndex()));
       }
       return futures;
