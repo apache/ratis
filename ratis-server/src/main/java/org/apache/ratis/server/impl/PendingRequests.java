@@ -28,6 +28,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -96,7 +97,7 @@ class PendingRequests {
 
   private static class RequestMap {
     private final Object name;
-    private final ConcurrentMap<Long, PendingRequest> map = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TermIndex, PendingRequest> map = new ConcurrentHashMap<>();
     private final RaftServerMetricsImpl raftServerMetrics;
 
     /** Permits to put new requests, always synchronized. */
@@ -112,8 +113,8 @@ class PendingRequests {
       this.resource = new RequestLimits(elementLimit, megabyteLimit);
       this.raftServerMetrics = raftServerMetrics;
 
-      raftServerMetrics.addNumPendingRequestsGauge(() -> resource.getElementCount());
-      raftServerMetrics.addNumPendingRequestsMegaByteSize(() -> resource.getMegaByteSize());
+      raftServerMetrics.addNumPendingRequestsGauge(resource::getElementCount);
+      raftServerMetrics.addNumPendingRequestsMegaByteSize(resource::getMegaByteSize);
     }
 
     Permit tryAcquire(Message message) {
@@ -150,27 +151,27 @@ class PendingRequests {
       return permit;
     }
 
-    synchronized PendingRequest put(Permit permit, long index, PendingRequest p) {
-      LOG.debug("{}: PendingRequests.put {} -> {}", name, index, p);
+    synchronized PendingRequest put(Permit permit, PendingRequest p) {
+      LOG.debug("{}: PendingRequests.put {}", name, p);
       final Permit removed = permits.remove(permit);
       if (removed == null) {
         return null;
       }
       Preconditions.assertTrue(removed == permit);
-      final PendingRequest previous = map.put(index, p);
+      final PendingRequest previous = map.put(p.getTermIndex(), p);
       Preconditions.assertTrue(previous == null);
       return p;
     }
 
-    PendingRequest get(long index) {
-      final PendingRequest r = map.get(index);
-      LOG.debug("{}: PendingRequests.get {} returns {}", name, index, r);
+    PendingRequest get(TermIndex termIndex) {
+      final PendingRequest r = map.get(termIndex);
+      LOG.debug("{}: PendingRequests.get {} returns {}", name, termIndex, r);
       return r;
     }
 
-    PendingRequest remove(long index) {
-      final PendingRequest r = map.remove(index);
-      LOG.debug("{}: PendingRequests.remove {} returns {}", name, index, r);
+    PendingRequest remove(TermIndex termIndex) {
+      final PendingRequest r = map.remove(termIndex);
+      LOG.debug("{}: PendingRequests.remove {} returns {}", name, termIndex, r);
       if (r == null) {
         return null;
       }
@@ -193,7 +194,7 @@ class PendingRequests {
       LOG.debug("{}: PendingRequests.setNotLeaderException", name);
       final List<TransactionContext> transactions = new ArrayList<>(map.size());
       for(;;) {
-        final Iterator<Long> i = map.keySet().iterator();
+        final Iterator<TermIndex> i = map.keySet().iterator();
         if (!i.hasNext()) { // the map is empty
           return transactions;
         }
@@ -232,11 +233,8 @@ class PendingRequests {
   }
 
   PendingRequest add(Permit permit, RaftClientRequest request, TransactionContext entry) {
-    // externally synced for now
-    final long index = entry.getLogEntry().getIndex();
-    LOG.debug("{}: addPendingRequest at index={}, request={}", name, index, request);
-    final PendingRequest pending = new PendingRequest(index, request, entry);
-    return pendingRequests.put(permit, index, pending);
+    final PendingRequest pending = new PendingRequest(request, entry);
+    return pendingRequests.put(permit, pending);
   }
 
   PendingRequest addConfRequest(SetConfigurationRequest request) {
@@ -265,17 +263,17 @@ class PendingRequests {
     pendingSetConf = null;
   }
 
-  TransactionContext getTransactionContext(long index) {
-    PendingRequest pendingRequest = pendingRequests.get(index);
+  TransactionContext getTransactionContext(TermIndex termIndex) {
+    final PendingRequest pendingRequest = pendingRequests.get(termIndex);
     // it is possible that the pendingRequest is null if this peer just becomes
     // the new leader and commits transactions received by the previous leader
     return pendingRequest != null ? pendingRequest.getEntry() : null;
   }
 
-  void replyPendingRequest(long index, RaftClientReply reply) {
-    final PendingRequest pending = pendingRequests.remove(index);
+  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply) {
+    final PendingRequest pending = pendingRequests.remove(termIndex);
     if (pending != null) {
-      Preconditions.assertTrue(pending.getIndex() == index);
+      Preconditions.assertEquals(termIndex, pending.getTermIndex(), "termIndex");
       pending.setReply(reply);
     }
   }
