@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
@@ -30,6 +29,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 
@@ -38,8 +38,11 @@ import java.util.regex.Matcher;
  *
  * This is a value-based class.
  */
-public final class LogSegmentPath implements Comparable<LogSegmentPath> {
+public final class LogSegmentPath {
   static final Logger LOG = LoggerFactory.getLogger(LogSegmentPath.class);
+
+  private static final Comparator<LogSegmentPath> COMPARATOR =
+      Comparator.comparing(LogSegmentPath::getStartEnd);
 
   private final Path path;
   private final LogSegmentStartEnd startEnd;
@@ -55,12 +58,6 @@ public final class LogSegmentPath implements Comparable<LogSegmentPath> {
 
   public LogSegmentStartEnd getStartEnd() {
     return startEnd;
-  }
-
-  @Override
-  @SuppressFBWarnings("EQ_COMPARETO_USE_OBJECT_EQUALS")
-  public int compareTo(LogSegmentPath that) {
-    return Comparator.comparing(LogSegmentPath::getStartEnd).compare(this, that);
   }
 
   @Override
@@ -84,7 +81,7 @@ public final class LogSegmentPath implements Comparable<LogSegmentPath> {
         Optional.ofNullable(matchLogSegment(path)).ifPresent(list::add);
       }
     }
-    list.sort(Comparator.naturalOrder());
+    list.sort(COMPARATOR);
     return list;
   }
 
@@ -100,9 +97,9 @@ public final class LogSegmentPath implements Comparable<LogSegmentPath> {
     return Optional.ofNullable(matchCloseSegment(path)).orElseGet(() -> matchOpenSegment(path));
   }
 
-  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
   private static LogSegmentPath matchCloseSegment(Path path) {
-    final Matcher matcher = LogSegmentStartEnd.getClosedSegmentPattern().matcher(path.getFileName().toString());
+    final String fileName = String.valueOf(Objects.requireNonNull(path).getFileName());
+    final Matcher matcher = LogSegmentStartEnd.getClosedSegmentPattern().matcher(fileName);
     if (matcher.matches()) {
       Preconditions.assertTrue(matcher.groupCount() == 2);
       return newInstance(path, matcher.group(1), matcher.group(2));
@@ -110,9 +107,9 @@ public final class LogSegmentPath implements Comparable<LogSegmentPath> {
     return null;
   }
 
-  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
   private static LogSegmentPath matchOpenSegment(Path path) {
-    final Matcher matcher = LogSegmentStartEnd.getOpenSegmentPattern().matcher(path.getFileName().toString());
+    final String fileName = String.valueOf(Objects.requireNonNull(path).getFileName());
+    final Matcher matcher = LogSegmentStartEnd.getOpenSegmentPattern().matcher(fileName);
     if (matcher.matches()) {
       if (path.toFile().length() > 0L) {
         return newInstance(path, matcher.group(1), null);
