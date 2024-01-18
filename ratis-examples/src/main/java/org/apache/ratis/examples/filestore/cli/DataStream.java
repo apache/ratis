@@ -116,7 +116,8 @@ public class DataStream extends Client {
   @Override
   protected void operation(List<FileStoreClient> clients) throws IOException, ExecutionException, InterruptedException {
     if (!checkParam()) {
-      stop(clients);
+      close(clients);
+      return;
     }
 
     final ExecutorService executor = Executors.newFixedThreadPool(getNumThread());
@@ -136,7 +137,7 @@ public class DataStream extends Client {
     System.out.println("Total data written: " + totalWrittenBytes + " bytes");
     System.out.println("Total time taken: " + (endTime - startTime) + " millis");
 
-    stop(clients);
+    close(clients);
   }
 
   private Map<String, CompletableFuture<List<CompletableFuture<DataStreamReply>>>> streamWrite(

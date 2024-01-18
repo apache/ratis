@@ -64,7 +64,7 @@ public class LoadGen extends Client {
     System.out.println("Total data written: " + totalWrittenBytes + " bytes");
     System.out.println("Total time taken: " + (endTime - startTime) + " millis");
 
-    stop(clients);
+    close(clients);
   }
 
   long write(FileChannel in, long offset, FileStoreClient fileStoreClient, String path,
