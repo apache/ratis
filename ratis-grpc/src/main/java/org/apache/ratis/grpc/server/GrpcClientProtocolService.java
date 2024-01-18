@@ -64,7 +64,11 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
     PendingOrderedRequest(ReferenceCountedObject<RaftClientRequest> requestRef) {
       this.requestRef = requestRef;
-      this.request = requestRef != null ? requestRef.get() : null;
+      this.request = requestRef != null ? requestRef.retain() : null;
+    }
+
+    void release() {
+      requestRef.release();
     }
 
     @Override
@@ -363,6 +367,7 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
       final long seq = pending.getSeqNum();
       processClientRequest(pending.getRequestRef(),
           reply -> slidingWindow.receiveReply(seq, reply, this::sendReply));
+      pending.release();
     }
 
     @Override
