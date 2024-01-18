@@ -1533,35 +1533,30 @@ class RaftServerImpl implements RaftServer.Division,
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto r)
       throws IOException {
     try {
-      return appendEntriesAsync(r).join();
+      return appendEntriesAsync(ReferenceCountedObject.wrap(r)).join();
     } catch (CompletionException e) {
       throw IOUtils.asIOException(JavaUtils.unwrapCompletionException(e));
     }
   }
 
   @Override
-  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto r)
-      throws IOException {
+  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
+      ReferenceCountedObject<AppendEntriesRequestProto> requestRef) throws IOException {
+    final AppendEntriesRequestProto r = requestRef.retain();
     final RaftRpcRequestProto request = r.getServerRequest();
     final TermIndex previous = r.hasPreviousLog()? TermIndex.valueOf(r.getPreviousLog()) : null;
+    final RaftPeerId requestorId = RaftPeerId.valueOf(request.getRequestorId());
+
     try {
-      final RaftPeerId leaderId = RaftPeerId.valueOf(request.getRequestorId());
-      final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(request.getRaftGroupId());
-
-      CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(), leaderId, previous, r);
-
-      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
-      if (!startComplete.get()) {
-        throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
-      }
-      assertGroup(getMemberId(), leaderId, leaderGroupId);
-      assertEntries(r, previous, state);
-
-      return appendEntriesAsync(leaderId, request.getCallId(), previous, r);
+      preAppendEntriesAsync(requestorId, ProtoUtils.toRaftGroupId(request.getRaftGroupId()), r.getLeaderTerm(),
+          previous, r.getLeaderCommit(), r.getInitializing(), entries);
+      return appendEntriesAsync(requestorId, r.getLeaderTerm(), previous, r.getLeaderCommit(),
+          request.getCallId(), r.getInitializing(), r.getCommitInfosList(), entries, requestRef)
+          .whenComplete((reply, e) -> requestRef.release());
     } catch(Exception t) {
-      LOG.error("{}: Failed appendEntries* {}", getMemberId(),
-          toAppendEntriesRequestString(r, stateMachine::toStateMachineLogEntryString), t);
-      throw IOUtils.asIOException(t);
+      LOG.error("{}: Failed appendEntriesAsync {}", getMemberId(), r, t);
+      requestRef.release();
+      throw t;
     }
   }
 
@@ -1624,9 +1619,11 @@ class RaftServerImpl implements RaftServer.Division,
     return serverExecutor;
   }
 
-  private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(RaftPeerId leaderId, long callId,
-      TermIndex previous, AppendEntriesRequestProto proto) throws IOException {
-    final List<LogEntryProto> entries = proto.getEntriesList();
+  @SuppressWarnings("checkstyle:parameternumber")
+  private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
+      RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
+      List<CommitInfoProto> commitInfos, List<LogEntryProto> entries,
+      ReferenceCountedObject<?> requestRef) throws IOException {
     final boolean isHeartbeat = entries.isEmpty();
     logAppendEntries(isHeartbeat, () -> getMemberId() + ": appendEntries* "
         + toAppendEntriesRequestString(proto, stateMachine::toStateMachineLogEntryString));
@@ -1683,7 +1680,10 @@ class RaftServerImpl implements RaftServer.Division,
         : appendLogTermIndices != null ? appendLogTermIndices.append(entries, this::appendLog)
         : JavaUtils.allOf(state.getLog().append(entries));
 
-    proto.getCommitInfosList().forEach(commitInfoCache::update);
+
+    final List<CompletableFuture<Long>> futures = entries.isEmpty() ? Collections.emptyList()
+        : state.getLog().append(requestRef.delegate(entries));
+    commitInfos.forEach(commitInfoCache::update);
 
     CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);
     if (!isHeartbeat) {

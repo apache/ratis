@@ -37,6 +37,7 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
+@SuppressWarnings({"deprecation"})
 public class MemoryRaftLogTest extends BaseTest {
   static {
     Slf4jUtils.setLogLevel(MemoryRaftLog.LOG, Level.DEBUG);
