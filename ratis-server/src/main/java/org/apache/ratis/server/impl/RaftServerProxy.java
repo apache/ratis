@@ -648,11 +648,16 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request) {
-    final RaftGroupId groupId = ProtoUtils.toRaftGroupId(request.getServerRequest().getRaftGroupId());
-    return getImplFuture(groupId)
-        .thenCompose(impl ->  JavaUtils.callAsUnchecked(
-            () -> impl.appendEntriesAsync(request), CompletionException::new));
+  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
+      ReferenceCountedObject<AppendEntriesRequestProto> requestRef) {
+    AppendEntriesRequestProto request = requestRef.retain();
+    try {
+      final RaftGroupId groupId = ProtoUtils.toRaftGroupId(request.getServerRequest().getRaftGroupId());
+      return getImplFuture(groupId)
+          .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.appendEntriesAsync(requestRef)));
+    } finally {
+      requestRef.release();
+    }
   }
 
   @Override
