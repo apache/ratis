@@ -18,7 +18,6 @@
 package org.apache.ratis.examples.filestore.cli;
 
 import com.beust.jcommander.Parameter;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
@@ -143,12 +142,10 @@ public abstract class Client extends SubCommandBase {
   }
 
 
-  @SuppressFBWarnings("DM_EXIT")
-  protected void stop(List<FileStoreClient> clients) throws IOException {
+  protected void close(List<FileStoreClient> clients) throws IOException {
     for (FileStoreClient client : clients) {
       client.close();
     }
-    System.exit(0);
   }
 
   public String getPath(String fileName) {
