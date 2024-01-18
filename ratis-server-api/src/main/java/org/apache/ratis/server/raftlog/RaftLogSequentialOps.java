@@ -128,8 +128,10 @@ interface RaftLogSequentialOps {
    * Used by the leader.
    */
   default CompletableFuture<Long> appendEntry(LogEntryProto entry, TransactionContext context) {
-    return appendEntry(entry);
+    return appendEntry(ReferenceCountedObject.wrap(entry), context);
   }
+
+  CompletableFuture<Long> appendEntry(ReferenceCountedObject<LogEntryProto> entryRef, TransactionContext context);
 
   /**
    * The same as append(Arrays.asList(entries)).
