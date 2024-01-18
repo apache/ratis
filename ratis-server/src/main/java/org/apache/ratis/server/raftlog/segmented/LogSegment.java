@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.metrics.SegmentedRaftLogMetrics;
@@ -39,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,7 +56,8 @@ import java.util.function.Consumer;
  *
  * This class will be protected by the {@link SegmentedRaftLog}'s read-write lock.
  */
-public final class LogSegment implements Comparable<Long> {
+public final class LogSegment {
+
   static final Logger LOG = LoggerFactory.getLogger(LogSegment.class);
 
   enum Op {
@@ -452,9 +453,17 @@ public final class LogSegment implements Comparable<Long> {
         "log-" + startIndex + "_" + endIndex;
   }
 
-  @Override
-  @SuppressFBWarnings("EQ_COMPARETO_USE_OBJECT_EQUALS")
-  public int compareTo(Long l) {
+  /** Comparator to find <code>index</code> in list of <code>LogSegment</code>s. */
+  static final Comparator<Object> SEGMENT_TO_INDEX_COMPARATOR = (o1, o2) -> {
+    if (o1 instanceof LogSegment && o2 instanceof Long) {
+      return ((LogSegment) o1).compareTo((Long) o2);
+    } else if (o1 instanceof Long && o2 instanceof LogSegment) {
+      return Integer.compare(0, ((LogSegment) o2).compareTo((Long) o1));
+    }
+    throw new IllegalStateException("Unexpected objects to compare(" + o1 + "," + o2 + ")");
+  };
+
+  private int compareTo(Long l) {
     return (l >= getStartIndex() && l <= getEndIndex()) ? 0 :
         (this.getEndIndex() < l ? -1 : 1);
   }

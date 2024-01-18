@@ -244,13 +244,13 @@ public class SegmentedRaftLogCache {
 
     int binarySearch(long index) {
       try(AutoCloseableLock readLock = readLock()) {
-        return Collections.binarySearch(segments, index);
+        return Collections.binarySearch(segments, index, LogSegment.SEGMENT_TO_INDEX_COMPARATOR);
       }
     }
 
     LogSegment search(long index) {
       try(AutoCloseableLock readLock = readLock()) {
-        final int i = Collections.binarySearch(segments, index);
+        final int i = Collections.binarySearch(segments, index, LogSegment.SEGMENT_TO_INDEX_COMPARATOR);
         return i < 0? null: segments.get(i);
       }
     }
@@ -261,7 +261,7 @@ public class SegmentedRaftLogCache {
       long index = startIndex;
 
       try(AutoCloseableLock readLock = readLock()) {
-        searchIndex = Collections.binarySearch(segments, startIndex);
+        searchIndex = Collections.binarySearch(segments, startIndex, LogSegment.SEGMENT_TO_INDEX_COMPARATOR);
         if (searchIndex >= 0) {
           for(int i = searchIndex; i < segments.size() && index < realEnd; i++) {
             final LogSegment s = segments.get(i);
