@@ -112,20 +112,11 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
 
     @Override
     public InstallSnapshotRequestProto next() {
-      checkCurrentIndex(fileIndex);
-      return nextInstallSnapshotRequestProto();
-    }
-
-    private int checkCurrentIndex(int currentIndex) {
-      if (currentIndex >= numFiles) {
-        throw new NoSuchElementException("fileIndex = " + currentIndex + " >= numFiles = " + numFiles);
+      if (!hasNext()) {
+        throw new NoSuchElementException("fileIndex = " + fileIndex + " >= numFiles = " + numFiles);
       }
-      return currentIndex;
-    }
 
-    private InstallSnapshotRequestProto nextInstallSnapshotRequestProto() {
-      final int currentIndex = checkCurrentIndex(fileIndex);
-      final FileInfo info = snapshot.getFiles().get(currentIndex);
+      final FileInfo info = snapshot.getFiles().get(fileIndex);
       try {
         if (current == null) {
           current = new FileChunkReader(info, getRelativePath.apply(info));
@@ -137,7 +128,7 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
           fileIndex++;
         }
 
-        final boolean done = currentIndex == numFiles - 1 && chunk.getDone();
+        final boolean done = fileIndex == numFiles && chunk.getDone();
         return newInstallSnapshotRequest(chunk, done);
       } catch (IOException e) {
         if (current != null) {
