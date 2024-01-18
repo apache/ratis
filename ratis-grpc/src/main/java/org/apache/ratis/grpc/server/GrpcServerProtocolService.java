@@ -30,6 +30,7 @@ import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -226,7 +227,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         RaftServerProtocol.Op.APPEND_ENTRIES, responseObserver) {
       @Override
       CompletableFuture<AppendEntriesReplyProto> process(AppendEntriesRequestProto request) throws IOException {
-        return server.appendEntriesAsync(request);
+        return server.appendEntriesAsync(ReferenceCountedObject.wrap(request));
       }
 
       @Override

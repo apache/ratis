@@ -1460,27 +1460,30 @@ class RaftServerImpl implements RaftServer.Division,
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto r)
       throws IOException {
     try {
-      return appendEntriesAsync(r).join();
+      return appendEntriesAsync(ReferenceCountedObject.wrap(r)).join();
     } catch (CompletionException e) {
       throw IOUtils.asIOException(JavaUtils.unwrapCompletionException(e));
     }
   }
 
   @Override
-  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto r)
-      throws IOException {
+  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
+      ReferenceCountedObject<AppendEntriesRequestProto> requestRef) throws IOException {
+    final AppendEntriesRequestProto r = requestRef.retain();
     final RaftRpcRequestProto request = r.getServerRequest();
     final List<LogEntryProto> entries = r.getEntriesList();
     final TermIndex previous = r.hasPreviousLog()? TermIndex.valueOf(r.getPreviousLog()) : null;
     final RaftPeerId requestorId = RaftPeerId.valueOf(request.getRequestorId());
 
-    preAppendEntriesAsync(requestorId, ProtoUtils.toRaftGroupId(request.getRaftGroupId()), r.getLeaderTerm(),
-        previous, r.getLeaderCommit(), r.getInitializing(), entries);
     try {
+      preAppendEntriesAsync(requestorId, ProtoUtils.toRaftGroupId(request.getRaftGroupId()), r.getLeaderTerm(),
+          previous, r.getLeaderCommit(), r.getInitializing(), entries);
       return appendEntriesAsync(requestorId, r.getLeaderTerm(), previous, r.getLeaderCommit(),
-          request.getCallId(), r.getInitializing(), r.getCommitInfosList(), entries);
+          request.getCallId(), r.getInitializing(), r.getCommitInfosList(), entries, requestRef)
+          .whenComplete((reply, e) -> requestRef.release());
     } catch(Exception t) {
       LOG.error("{}: Failed appendEntriesAsync {}", getMemberId(), r, t);
+      requestRef.release();
       throw t;
     }
   }
@@ -1554,7 +1557,8 @@ class RaftServerImpl implements RaftServer.Division,
   @SuppressWarnings("checkstyle:parameternumber")
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
-      List<CommitInfoProto> commitInfos, List<LogEntryProto> entries) throws IOException {
+      List<CommitInfoProto> commitInfos, List<LogEntryProto> entries,
+      ReferenceCountedObject<?> requestRef) throws IOException {
     final boolean isHeartbeat = entries.isEmpty();
     logAppendEntries(isHeartbeat,
         () -> getMemberId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
@@ -1612,8 +1616,9 @@ class RaftServerImpl implements RaftServer.Division,
       state.updateConfiguration(entries);
     }
 
+
     final List<CompletableFuture<Long>> futures = entries.isEmpty() ? Collections.emptyList()
-        : state.getLog().append(entries);
+        : state.getLog().append(requestRef.delegate(entries));
     commitInfos.forEach(commitInfoCache::update);
 
     CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);

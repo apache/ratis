@@ -33,6 +33,7 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.Slf4jUtils;
 import org.junit.Test;
 import org.slf4j.event.Level;
@@ -56,11 +57,11 @@ public class MemoryRaftLogTest extends BaseTest {
     List<LogEntryProto> entries1 = new ArrayList<>();
     entries1.add(LogEntryProto.newBuilder().setIndex(0).setTerm(0).build());
     entries1.add(LogEntryProto.newBuilder().setIndex(1).setTerm(0).build());
-    raftLog.append(entries1).forEach(CompletableFuture::join);
+    raftLog.append(ReferenceCountedObject.wrap(entries1)).forEach(CompletableFuture::join);
 
     List<LogEntryProto> entries2 = new ArrayList<>();
     entries2.add(LogEntryProto.newBuilder().setIndex(0).setTerm(0).build());
-    raftLog.append(entries2).forEach(CompletableFuture::join);
+    raftLog.append(ReferenceCountedObject.wrap(entries2)).forEach(CompletableFuture::join);
 
     final LogEntryHeader[] termIndices = raftLog.getEntries(0, 10);
     assertEquals(2, termIndices.length);
@@ -84,11 +85,11 @@ public class MemoryRaftLogTest extends BaseTest {
     List<LogEntryProto> entries1 = new ArrayList<>();
     entries1.add(LogEntryProto.newBuilder().setIndex(0).setTerm(0).build());
     entries1.add(LogEntryProto.newBuilder().setIndex(1).setTerm(0).build());
-    raftLog.append(entries1).forEach(CompletableFuture::join);
+    raftLog.append(ReferenceCountedObject.wrap(entries1)).forEach(CompletableFuture::join);
 
     List<LogEntryProto> entries2 = new ArrayList<>();
     entries2.add(LogEntryProto.newBuilder().setIndex(0).setTerm(2).build());
-    raftLog.append(entries2).forEach(CompletableFuture::join);
+    raftLog.append(ReferenceCountedObject.wrap(entries2)).forEach(CompletableFuture::join);
 
     final LogEntryHeader[] termIndices = raftLog.getEntries(0, 10);
     assertEquals(1, termIndices.length);

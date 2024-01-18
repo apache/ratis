@@ -36,6 +36,7 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncateI
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AwaitToRun;
@@ -454,12 +455,14 @@ public final class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> entries) {
+  protected List<CompletableFuture<Long>> appendImpl(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
     checkLogState();
+    final List<LogEntryProto> entries = entriesRef.retain();
     if (entries == null || entries.isEmpty()) {
+      entriesRef.release();
       return Collections.emptyList();
     }
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try (AutoCloseableLock writeLock = writeLock()) {
       final TruncateIndices ti = cache.computeTruncateIndices(server::notifyTruncatedLogEntry, entries);
       final long truncateIndex = ti.getTruncateIndex();
       final int index = ti.getArrayIndex();
@@ -474,9 +477,15 @@ public final class SegmentedRaftLog extends RaftLogBase {
       }
       for (int i = index; i < entries.size(); i++) {
         final LogEntryProto entry = entries.get(i);
-        futures.add(appendEntry(entry, server.getTransactionContext(entry, true)));
+        TransactionContextImpl transactionContext = (TransactionContextImpl) server.getTransactionContext(entry, true);
+        if (transactionContext != null) {
+          transactionContext.setDelegatedRef(entriesRef);
+        }
+        futures.add(appendEntry(entry, transactionContext));
       }
       return futures;
+    } finally {
+      entriesRef.release();
     }
   }
 

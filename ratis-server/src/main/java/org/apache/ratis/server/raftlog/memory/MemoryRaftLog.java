@@ -28,6 +28,7 @@ import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 /**
@@ -42,10 +44,10 @@ import java.util.function.LongSupplier;
  */
 public class MemoryRaftLog extends RaftLogBase {
   static class EntryList {
-    private final List<LogEntryProto> entries = new ArrayList<>();
+    private final List<ReferenceCountedObject<LogEntryProto>> entries = new ArrayList<>();
 
     LogEntryProto get(int i) {
-      return i >= 0 && i < entries.size() ? entries.get(i) : null;
+      return i >= 0 && i < entries.size() ? entries.get(i).get() : null;
     }
 
     TermIndex getTermIndex(int i) {
@@ -62,18 +64,25 @@ public class MemoryRaftLog extends RaftLogBase {
 
     void truncate(int index) {
       if (entries.size() > index) {
-        entries.subList(index, entries.size()).clear();
+        clear(index, entries.size());
       }
     }
 
     void purge(int index) {
       if (entries.size() > index) {
-        entries.subList(0, index).clear();
+        clear(0, index);
       }
     }
 
-    void add(LogEntryProto entry) {
-      entries.add(entry);
+    void clear(int from, int to) {
+      List<ReferenceCountedObject<LogEntryProto>> subList = entries.subList(from, to);
+      subList.forEach(ReferenceCountedObject::release);
+      subList.clear();
+    }
+
+    void add(ReferenceCountedObject<LogEntryProto> entryRef) {
+      entryRef.retain();
+      entries.add(entryRef);
     }
   }
 
@@ -170,7 +179,9 @@ public class MemoryRaftLog extends RaftLogBase {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       validateLogEntry(entry);
-      entries.add(entry);
+      Function<LogEntryProto, ReferenceCountedObject<LogEntryProto>> wrap = context != null ?
+          context::wrap : ReferenceCountedObject::wrap;
+      entries.add(wrap.apply(entry));
     }
     return CompletableFuture.completedFuture(entry.getIndex());
   }
@@ -181,12 +192,14 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public List<CompletableFuture<Long>> appendImpl(List<LogEntryProto> logEntryProtos) {
+  public List<CompletableFuture<Long>> appendImpl(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
     checkLogState();
+    final List<LogEntryProto> logEntryProtos = entriesRef.retain();
     if (logEntryProtos == null || logEntryProtos.isEmpty()) {
+      entriesRef.release();
       return Collections.emptyList();
     }
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try (AutoCloseableLock writeLock = writeLock()) {
       // Before truncating the entries, we first need to check if some
       // entries are duplicated. If the leader sends entry 6, entry 7, then
       // entry 6 again, without this check the follower may truncate entry 7
@@ -214,10 +227,12 @@ public class MemoryRaftLog extends RaftLogBase {
       }
       for (int i = index; i < logEntryProtos.size(); i++) {
         LogEntryProto logEntryProto = logEntryProtos.get(i);
-        this.entries.add(logEntryProto);
+        entries.add(entriesRef.delegate(logEntryProto));
         futures.add(CompletableFuture.completedFuture(logEntryProto.getIndex()));
       }
       return futures;
+    } finally {
+      entriesRef.release();
     }
   }
 
