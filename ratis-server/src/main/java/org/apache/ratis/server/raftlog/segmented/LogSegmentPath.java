@@ -38,8 +38,11 @@ import java.util.regex.Matcher;
  *
  * This is a value-based class.
  */
-public final class LogSegmentPath implements Comparable<LogSegmentPath> {
+public final class LogSegmentPath {
   static final Logger LOG = LoggerFactory.getLogger(LogSegmentPath.class);
+
+  private static final Comparator<LogSegmentPath> COMPARATOR =
+      Comparator.comparing(LogSegmentPath::getStartEnd);
 
   private final Path path;
   private final LogSegmentStartEnd startEnd;
@@ -55,31 +58,6 @@ public final class LogSegmentPath implements Comparable<LogSegmentPath> {
 
   public LogSegmentStartEnd getStartEnd() {
     return startEnd;
-  }
-
-  @Override
-  public int compareTo(LogSegmentPath that) {
-    return Comparator
-        .comparing(LogSegmentPath::getPath)
-        .thenComparing(LogSegmentPath::getStartEnd)
-        .compare(this, that);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (obj == this) {
-      return true;
-    }
-    if (obj == null || getClass() != obj.getClass()) {
-      return false;
-    }
-    LogSegmentPath other = (LogSegmentPath) obj;
-    return compareTo(other) == 0;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(path, startEnd);
   }
 
   @Override
@@ -103,7 +81,7 @@ public final class LogSegmentPath implements Comparable<LogSegmentPath> {
         Optional.ofNullable(matchLogSegment(path)).ifPresent(list::add);
       }
     }
-    list.sort(Comparator.naturalOrder());
+    list.sort(COMPARATOR);
     return list;
   }
 
