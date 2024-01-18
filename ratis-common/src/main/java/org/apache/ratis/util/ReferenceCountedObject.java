@@ -20,6 +20,8 @@ package org.apache.ratis.util;
 import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
 
 import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -169,6 +171,8 @@ public interface ReferenceCountedObject<T> {
 
     return new ReferenceCountedObject<V>() {
       private final AtomicInteger count = new AtomicInteger();
+      final List<Exception> retainsTraces = new LinkedList<>();
+      final List<Exception> releaseTraces = new LinkedList<>();
 
       @Override
       public V get() {
@@ -190,6 +194,7 @@ public interface ReferenceCountedObject<T> {
         }
 
         retainMethod.run();
+        retainsTraces.add(new Exception("Retain"));
         return value;
       }
 
@@ -206,7 +211,17 @@ public interface ReferenceCountedObject<T> {
         }
         final boolean completedReleased = previous == 1;
         releaseMethod.accept(completedReleased);
+        releaseTraces.add(new Exception("Release"));
         return completedReleased;
+      }
+
+      @Override
+      protected void finalize() throws Throwable {
+        if (count.get() > 0) {
+          System.out.println("Leak detected, printing all stacktraces");
+          retainsTraces.forEach(Exception::printStackTrace);
+          releaseTraces.forEach(Exception::printStackTrace);
+        }
       }
     };
   }

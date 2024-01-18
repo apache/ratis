@@ -21,14 +21,18 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.metrics.ZeroCopyMetrics;
 import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.NetUtils;
+import org.junit.Assert;
 
 import java.util.Optional;
 
@@ -55,7 +59,8 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
       new DelayLocalExecutionInjection(GrpcService.GRPC_SEND_SERVER_REQUEST);
 
-  protected MiniRaftClusterWithGrpc(String[] ids, String[] listenerIds, RaftProperties properties, Parameters parameters) {
+  protected MiniRaftClusterWithGrpc(String[] ids, String[] listenerIds, RaftProperties properties,
+      Parameters parameters) {
     super(ids, listenerIds, properties, parameters);
   }
 
@@ -75,4 +80,22 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequestInjection,
         leaderId, delayMs, getTimeoutMax());
   }
+
+  @Override
+  public void shutdown() {
+    super.shutdown();
+    System.gc();
+    assertZeroCopyMetrics();
+  }
+
+  public void assertZeroCopyMetrics() {
+    getPeers().forEach(peer -> {
+      RaftServer.Division server = getDivision(peer.getId());
+      GrpcService service = (GrpcService) RaftServerTestUtil.getServerRpc(server);
+      ZeroCopyMetrics zeroCopyMetrics = service.getZeroCopyMetrics();
+      Assert.assertEquals(0, zeroCopyMetrics.nonZeroCopyMessages());
+      Assert.assertEquals(zeroCopyMetrics.zeroCopyMessages(), zeroCopyMetrics.releasedMessages());
+    });
+  }
+
 }
