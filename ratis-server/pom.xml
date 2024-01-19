@@ -84,13 +84,5 @@
       <artifactId>ratis-metrics-default</artifactId>
       <scope>test</scope>
     </dependency>
-
-
-    <dependency>
-      <groupId>com.github.spotbugs</groupId>
-      <artifactId>spotbugs-annotations</artifactId>
-      <scope>provided</scope>
-      <optional>true</optional>
-    </dependency>
   </dependencies>
 </project>

@@ -18,7 +18,6 @@
 
 package org.apache.ratis.statemachine.impl;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -197,7 +196,6 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   }
 
   @Override
-  @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
   public CompletableFuture<Message> query(Message request) {
     return CompletableFuture.completedFuture(null);
   }

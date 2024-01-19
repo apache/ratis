@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -177,7 +176,6 @@ class BufferedWriteChannel implements Closeable {
   }
 
   @Override
-  @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT")
   public void close() throws IOException {
     if (!isOpen()) {
       return;
