@@ -214,8 +214,10 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     final NettyServerBuilder serverBuilder =
         startBuildingNettyServer(serverHost, serverPort, serverTlsConfig, grpcMessageSizeMax, flowControlWindow);
+    GrpcServerProtocolService serverProtocolService = new GrpcServerProtocolService(idSupplier, raftServer,
+        zeroCopyMetrics);
     serverBuilder.addService(ServerInterceptors.intercept(
-        new GrpcServerProtocolService(idSupplier, raftServer), serverInterceptor));
+        serverProtocolService.bindServiceWithZeroCopy(), serverInterceptor));
     if (!separateAdminServer) {
       addAdminService(raftServer, serverBuilder);
     }
