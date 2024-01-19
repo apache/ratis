@@ -124,12 +124,11 @@ interface RaftLogSequentialOps {
   CompletableFuture<Long> appendEntry(LogEntryProto entry);
 
   /**
-   * Append asynchronously an entry.
-   * Used by the leader for scenarios that there is no needs to clean up resources when the given entry is no
-   * longer used/referenced by this log.
+   * @deprecated use {@link #appendEntry(ReferenceCountedObject, TransactionContext)}}.
    */
+  @Deprecated
   default CompletableFuture<Long> appendEntry(LogEntryProto entry, TransactionContext context) {
-    return appendEntry(ReferenceCountedObject.wrap(entry), context);
+    throw new UnsupportedOperationException();
   }
 
   /**
