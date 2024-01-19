@@ -36,7 +36,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 /**
@@ -175,13 +174,15 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry, TransactionContext context) {
+  protected CompletableFuture<Long> appendEntryImpl(ReferenceCountedObject<LogEntryProto> entryRef,
+      TransactionContext context) {
     checkLogState();
-    try(AutoCloseableLock writeLock = writeLock()) {
+    LogEntryProto entry = entryRef.retain();
+    try (AutoCloseableLock writeLock = writeLock()) {
       validateLogEntry(entry);
-      Function<LogEntryProto, ReferenceCountedObject<LogEntryProto>> wrap = context != null ?
-          context::wrap : ReferenceCountedObject::wrap;
-      entries.add(wrap.apply(entry));
+      entries.add(entryRef);
+    } finally {
+      entryRef.release();
     }
     return CompletableFuture.completedFuture(entry.getIndex());
   }

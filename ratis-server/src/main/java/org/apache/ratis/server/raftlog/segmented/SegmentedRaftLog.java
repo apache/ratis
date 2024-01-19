@@ -396,8 +396,10 @@ public final class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry, TransactionContext context) {
+  protected CompletableFuture<Long> appendEntryImpl(ReferenceCountedObject<LogEntryProto> entryRef,
+      TransactionContext context) {
     checkLogState();
+    LogEntryProto entry = entryRef.retain();
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", getName(), LogProtoUtils.toLogEntryString(entry));
     }
@@ -431,21 +433,22 @@ public final class SegmentedRaftLog extends RaftLogBase {
       // If the entry has state machine data, then the entry should be inserted
       // to statemachine first and then to the cache. Not following the order
       // will leave a spurious entry in the cache.
-      cache.verifyAppendEntryIndex(entry);
-      CompletableFuture<Long> writeFuture =
-          fileLogWorker.writeLogEntry(entry, context).getFuture();
+      final Task write = fileLogWorker.writeLogEntry(entry, removedStateMachineData, context);
       if (stateMachineCachingEnabled) {
         // The stateMachineData will be cached inside the StateMachine itself.
-        cache.appendEntry(LogProtoUtils.removeStateMachineData(entry),
-            LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE);
+        cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE,
+            entryRef.delegate(removedStateMachineData));
       } else {
-        cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+        cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, entryRef
+        );
       }
       writeFuture.whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
       return writeFuture;
     } catch (Exception e) {
       LOG.error("{}: Failed to append {}", getName(), toLogEntryString(entry), e);
       throw e;
+    } finally {
+      entryRef.release();
     }
   }
 
@@ -485,10 +488,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       for (int i = index; i < entries.size(); i++) {
         final LogEntryProto entry = entries.get(i);
         TransactionContextImpl transactionContext = (TransactionContextImpl) server.getTransactionContext(entry, true);
-        if (transactionContext != null) {
-          transactionContext.setDelegatedRef(entriesRef);
-        }
-        futures.add(appendEntry(entry, transactionContext));
+        futures.add(appendEntry(entriesRef.delegate(entry), transactionContext));
       }
       return futures;
     } finally {
