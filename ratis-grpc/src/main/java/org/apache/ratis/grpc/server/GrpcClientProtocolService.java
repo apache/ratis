@@ -67,10 +67,6 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
       this.request = requestRef != null ? requestRef.retain() : null;
     }
 
-    void release() {
-      requestRef.release();
-    }
-
     @Override
     public void fail(Throwable t) {
       final RaftException e = Preconditions.assertInstanceOf(t, RaftException.class);
@@ -367,7 +363,7 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
       final long seq = pending.getSeqNum();
       processClientRequest(pending.getRequestRef(),
           reply -> slidingWindow.receiveReply(seq, reply, this::sendReply));
-      pending.release();
+      pending.getRequestRef().release();
     }
 
     @Override
