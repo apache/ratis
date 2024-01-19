@@ -346,7 +346,7 @@ public abstract class RaftLogBase implements RaftLog {
 
   @Override
   public final CompletableFuture<Long> appendEntry(LogEntryProto entry) {
-    return appendEntry(entry, null);
+    return appendEntry(ReferenceCountedObject.wrap(entry), null);
   }
 
   @Override
