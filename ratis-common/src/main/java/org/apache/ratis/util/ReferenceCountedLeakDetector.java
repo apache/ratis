@@ -100,19 +100,26 @@ final class ReferenceCountedLeakDetector {
 
   private static class AdvancedTracingReferenceCountedObject<T> extends ReferenceCountedObjectImpl<T> {
     private UncheckedAutoCloseable leakTracker;
-    private final List<StackTraceElement[]> retainsTraces = new LinkedList<>();
-    private final List<StackTraceElement[]> releaseTraces = new LinkedList<>();
+    private final List<StackTraceElement[]> retainsTraces;
+    private final List<StackTraceElement[]> releaseTraces;
 
     public AdvancedTracingReferenceCountedObject(T value, Runnable retainMethod, Consumer<Boolean> releaseMethod,
         LeakDetector leakDetector) {
       super(value, retainMethod, releaseMethod);
+
       StackTraceElement[] createStrace = Thread.currentThread().getStackTrace();
       final Class<?> clazz = value.getClass();
+      final List<StackTraceElement[]> localRetainsTraces = new LinkedList<>();
+      final List<StackTraceElement[]> localReleaseTraces = new LinkedList<>();
+
       this.leakTracker = leakDetector.track(this, () -> {
-        LOG.warn("LEAK: A {} is not released properly.\nCreation trace{}\nRetain traces:{}\nRelease traces\n{}",
-            clazz.getName(), formatStackTrace(createStrace), formatStackTraces(retainsTraces),
-            formatStackTraces(releaseTraces));
+        LOG.warn("LEAK: A {} is not released properly.\nCreation trace\n{}\nRetain traces:\n{}\nRelease traces\n{}",
+            clazz.getName(), formatStackTrace(createStrace, 3), formatStackTraces(localRetainsTraces, 2),
+            formatStackTraces(localReleaseTraces, 2));
       });
+
+      this.retainsTraces = localRetainsTraces;
+      this.releaseTraces = localReleaseTraces;
     }
 
     @Override
@@ -133,19 +140,23 @@ final class ReferenceCountedLeakDetector {
     }
   }
 
-  private static String formatStackTrace(StackTraceElement[] stackTrace) {
+  private static String formatStackTrace(StackTraceElement[] stackTrace, int startIdx) {
     final StringBuilder sb = new StringBuilder();
-    Arrays.stream(stackTrace).forEach(line -> sb.append(line).append("\n"));
+    for (int line = startIdx; line < stackTrace.length; line++) {
+      sb.append(stackTrace[line]).append("\n");
+    }
     return sb.toString();
   }
 
-  private static String formatStackTraces(List<StackTraceElement[]> stackTraces) {
+  private static String formatStackTraces(List<StackTraceElement[]> stackTraces, int startIdx) {
     final StringBuilder sb = new StringBuilder();
     stackTraces.forEach(stackTrace -> {
       if (sb.length() > 0) {
         sb.append("\n");
       }
-      Arrays.stream(stackTrace).forEach(line -> sb.append(line).append("\n"));
+      for (int line = startIdx; line < stackTrace.length; line++) {
+        sb.append(stackTrace[line]).append("\n");
+      }
     });
     return sb.toString();
   }
