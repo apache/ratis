@@ -64,7 +64,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,7 +71,6 @@ import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -843,9 +841,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
     final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), (t) ->
         Daemon.newBuilder().setName("MiniRaftCluster-" + THREAD_COUNT.incrementAndGet()).setRunnable(t).build());
-    List<Future<?>> closures = new LinkedList<>();
-    getServers().forEach(proxy -> closures.add(executor.submit(() -> JavaUtils.runAsUnchecked(proxy::close))));
-    closures.forEach(f -> JavaUtils.runAsUnchecked(f::get));
+    getServers().forEach(proxy -> executor.submit(() -> JavaUtils.runAsUnchecked(proxy::close)));
 
     try {
       executor.shutdown();
