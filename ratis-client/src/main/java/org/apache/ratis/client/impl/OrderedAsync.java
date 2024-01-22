@@ -149,10 +149,6 @@ public final class OrderedAsync {
     getSlidingWindow(request).fail(request.getSlidingWindowEntry().getSeqNum(), t);
   }
 
-  private void handleAsyncRetryFailure(ClientRetryEvent event) {
-    failAllAsyncRequests(event.getRequest(), client.noMoreRetries(event));
-  }
-
   CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, Message message, RaftPeerId server) {
     if (!type.is(TypeCase.WATCH) && !type.is(TypeCase.MESSAGESTREAM)) {
       Objects.requireNonNull(message, "message == null");
@@ -199,11 +195,10 @@ public final class OrderedAsync {
       return;
     }
 
-    final RetryPolicy retryPolicy = client.getRetryPolicy();
     sendRequest(pending).exceptionally(e -> {
       if (e instanceof CompletionException) {
         e = JavaUtils.unwrapCompletionException(e);
-        scheduleWithTimeout(pending, request, retryPolicy, e);
+        scheduleWithTimeout(pending, request, e);
         return null;
       }
       f.completeExceptionally(e);
@@ -211,18 +206,15 @@ public final class OrderedAsync {
     });
   }
 
-  private void scheduleWithTimeout(PendingOrderedRequest pending,
-      RaftClientRequest request, RetryPolicy retryPolicy, Throwable e) {
-    final int attempt = pending.getAttemptCount();
-    final ClientRetryEvent event = new ClientRetryEvent(request, e, pending);
+  private void scheduleWithTimeout(PendingOrderedRequest pending, RaftClientRequest request, Throwable e) {
+    final RetryPolicy retryPolicy = client.getRetryPolicy();
+    final ClientRetryEvent event = pending.newClientRetryEvent(request, e);
     final TimeDuration sleepTime = client.getEffectiveSleepTime(e,
         retryPolicy.handleAttemptFailure(event).getSleepTime());
-    LOG.debug("schedule* attempt #{} with sleep {} and policy {} for {}", attempt, sleepTime, retryPolicy, request);
-    scheduleWithTimeout(pending, sleepTime, getSlidingWindow(request));
-  }
+    LOG.debug("schedule* attempt #{} with sleep {} and policy {} for {}",
+        pending.getAttemptCount(), sleepTime, retryPolicy, request);
 
-  private void scheduleWithTimeout(PendingOrderedRequest pending, TimeDuration sleepTime,
-      SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> slidingWindow) {
+    final SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> slidingWindow = getSlidingWindow(request);
     client.getScheduler().onTimeout(sleepTime,
         () -> slidingWindow.retry(pending, this::sendRequestWithRetry),
         LOG, () -> "Failed* to retry " + pending);
@@ -247,10 +239,11 @@ public final class OrderedAsync {
       LOG.error(client.getId() + ": Failed* " + request, e);
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof IOException && !(e instanceof GroupMismatchException)) {
-        pending.incrementExceptionCount(e);
-        final ClientRetryEvent event = new ClientRetryEvent(request, e, pending);
-        if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
-          handleAsyncRetryFailure(event);
+        final ClientRetryEvent event = pending.newClientRetryEvent(request, e);
+        if (client.isClosed()) {
+          failAllAsyncRequests(request, new AlreadyClosedException(client + " is closed."));
+        } else if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
+          failAllAsyncRequests(request, client.noMoreRetries(event));
         } else {
           if (e instanceof NotLeaderException) {
             NotLeaderException nle = (NotLeaderException)e;

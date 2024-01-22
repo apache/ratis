@@ -22,6 +22,7 @@ import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -89,11 +90,14 @@ public interface UnorderedAsync {
         }
 
         final Throwable cause = replyException != null ? replyException : e;
-        pending.incrementExceptionCount(cause);
-        final ClientRetryEvent event = new ClientRetryEvent(request, cause, pending);
+        if (client.isClosed()) {
+          f.completeExceptionally(new AlreadyClosedException(client + " is closed"));
+          return;
+        }
+
+        final ClientRetryEvent event = pending.newClientRetryEvent(request, cause);
         RetryPolicy retryPolicy = client.getRetryPolicy();
         final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
-        TimeDuration sleepTime = client.getEffectiveSleepTime(cause, action.getSleepTime());
         if (!action.shouldRetry()) {
           f.completeExceptionally(client.noMoreRetries(event));
           return;
@@ -124,7 +128,9 @@ public interface UnorderedAsync {
           }
         }
 
-        LOG.debug("schedule retry for attempt #{}, policy={}, request={}", attemptCount, retryPolicy, request);
+        final TimeDuration sleepTime = client.getEffectiveSleepTime(cause, action.getSleepTime());
+        LOG.debug("schedule~ attempt #{} with sleep {} and policy {} for {}",
+            attemptCount, sleepTime, retryPolicy, request);
         client.getScheduler().onTimeout(sleepTime,
             () -> sendRequestWithRetry(pending, client), LOG, () -> clientId + ": Failed~ to retry " + request);
       } catch (Exception ex) {
