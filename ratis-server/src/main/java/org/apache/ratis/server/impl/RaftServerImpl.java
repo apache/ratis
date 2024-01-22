@@ -90,6 +90,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
@@ -179,7 +180,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final DataStreamMap dataStreamMap;
   private final RaftServerConfigKeys.Read.Option readOption;
 
-  private final TransactionManager transactionManager = new TransactionManager();
+  private final TransactionManager transactionManager;
   private final RetryCacheImpl retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
   private final WriteIndexCache writeIndexCache;
@@ -225,6 +226,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.dataStreamMap = new DataStreamMapImpl(id);
     this.readOption = RaftServerConfigKeys.Read.option(properties);
     this.writeIndexCache = new WriteIndexCache(properties);
+    this.transactionManager = new TransactionManager(id);
 
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
@@ -1835,6 +1837,11 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
 
+  @VisibleForTesting
+  Map<TermIndex, MemoizedSupplier<TransactionContext>> getTransactionContextMapForTesting() {
+    return transactionManager.getMap();
+  }
+
   TransactionContext getTransactionContext(LogEntryProto entry, Boolean createNew) {
     if (!entry.hasStateMachineLogEntry()) {
       return null;
@@ -1894,6 +1901,8 @@ class RaftServerImpl implements RaftServer.Division,
    */
   void notifyTruncatedLogEntry(LogEntryProto logEntry) {
     if (logEntry.hasStateMachineLogEntry()) {
+      transactionManager.remove(TermIndex.valueOf(logEntry));
+
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
       final CacheEntry cacheEntry = getRetryCache().getIfPresent(invocationId);
       if (cacheEntry != null) {

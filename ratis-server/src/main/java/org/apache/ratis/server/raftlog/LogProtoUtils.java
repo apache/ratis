@@ -53,17 +53,27 @@ public final class LogProtoUtils {
       s = "(c:" + metadata.getCommitIndex() + ")";
     } else if (entry.hasConfigurationEntry()) {
       final RaftConfigurationProto config = entry.getConfigurationEntry();
-      s = "(current:" + config.getPeersList().stream().map(AbstractMessage::toString).collect(Collectors.joining(",")) +
-          ", old:" + config.getOldPeersList().stream().map(AbstractMessage::toString).collect(Collectors.joining(","))
-          + ")";
+      s = "(current:" + peersToString(config.getPeersList())
+          + ", old:" + peersToString(config.getOldPeersList()) + ")";
     } else {
       s = "";
     }
     return TermIndex.valueOf(entry) + ", " + entry.getLogEntryBodyCase() + s;
   }
 
+  static String peersToString(List<RaftPeerProto> peers) {
+    return peers.stream().map(AbstractMessage::toString)
+        .map(s -> s.replace("\n", ""))
+        .map(s -> s.replace(" ", ""))
+        .collect(Collectors.joining(", "));
+  }
+
+  static String stateMachineLogEntryProtoToString(StateMachineLogEntryProto p) {
+    return "logData:" + p.getLogData() + ", stateMachineEntry:" + p.getType() + ":" + p.getStateMachineEntry();
+  }
+
   public static String toLogEntryString(LogEntryProto entry) {
-    return toLogEntryString(entry, null);
+    return toLogEntryString(entry, LogProtoUtils::stateMachineLogEntryProtoToString);
   }
 
   public static String toLogEntriesString(List<LogEntryProto> entries) {
