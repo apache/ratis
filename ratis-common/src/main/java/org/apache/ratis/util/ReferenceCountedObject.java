@@ -18,8 +18,6 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Objects;
