@@ -101,7 +101,7 @@ public class LeakDetector {
     return tracker;
   }
 
-  private final static class LeakTracker extends WeakReference<Object> implements UncheckedAutoCloseable {
+  private static final class LeakTracker extends WeakReference<Object> implements UncheckedAutoCloseable {
     private final Set<LeakTracker> allLeaks;
     private final Runnable leakReporter;
     LeakTracker(Object referent, ReferenceQueue<Object> referenceQueue,

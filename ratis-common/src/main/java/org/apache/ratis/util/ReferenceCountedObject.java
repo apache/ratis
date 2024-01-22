@@ -47,7 +47,6 @@ import java.util.function.Consumer;
  * @param <T> The object type.
  */
 public interface ReferenceCountedObject<T> {
-  Logger LOG = LoggerFactory.getLogger(ReferenceCountedObject.class);
 
   /** @return the object. */
   T get();
@@ -188,7 +187,7 @@ public interface ReferenceCountedObject<T> {
   }
 
   class ReferenceCountedObjectImpl<V> implements ReferenceCountedObject<V> {
-    protected final AtomicInteger count;
+    private final AtomicInteger count;
     private final V value;
     private final Runnable retainMethod;
     private final Consumer<Boolean> releaseMethod;

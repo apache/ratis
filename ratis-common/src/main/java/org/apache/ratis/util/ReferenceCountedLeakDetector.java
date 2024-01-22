@@ -18,6 +18,8 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.util.ReferenceCountedObject.ReferenceCountedObjectImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -28,12 +30,14 @@ import java.util.function.Consumer;
  * A utility to detect leaks from @{@link ReferenceCountedObject}.
  */
 final class ReferenceCountedLeakDetector {
-  private ReferenceCountedLeakDetector() {
-  }
-
+  private static final Logger LOG = LoggerFactory.getLogger(ReferenceCountedLeakDetector.class);
   // Leak detection is turned off by default.
+
   private static LeakDetectionMode leakDetectionFactory = LeakDetectionMode.NONE;
   private static LeakDetector leakDetector = null;
+
+  private ReferenceCountedLeakDetector() {
+  }
 
   static synchronized void enableLeakDetector(boolean advanced) {
     leakDetector = new LeakDetector("ReferenceCountedObject");
