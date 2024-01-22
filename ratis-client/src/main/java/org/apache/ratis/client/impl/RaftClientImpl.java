@@ -87,8 +87,10 @@ public final class RaftClientImpl implements RaftClient {
     public abstract RaftClientRequest newRequestImpl();
 
     final RaftClientRequest newRequest() {
-      attemptCount.incrementAndGet();
-      return newRequestImpl();
+      final int attempt = attemptCount.incrementAndGet();
+      final RaftClientRequest request = newRequestImpl();
+      LOG.debug("attempt #{}, newRequest {}", attempt, request);
+      return request;
     }
 
     CompletableFuture<RaftClientReply> getReplyFuture() {
