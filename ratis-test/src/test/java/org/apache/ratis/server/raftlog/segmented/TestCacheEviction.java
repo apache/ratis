@@ -38,6 +38,7 @@ import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
 import org.junit.Test;
@@ -174,7 +175,7 @@ public class TestCacheEviction extends BaseTest {
     raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
     List<SegmentRange> slist = TestSegmentedRaftLog.prepareRanges(0, maxCachedNum, 7, 0);
     List<LogEntryProto> entries = generateEntries(slist);
-    raftLog.append(entries).forEach(CompletableFuture::join);
+    raftLog.append(ReferenceCountedObject.wrap(entries)).forEach(CompletableFuture::join);
 
     // check the current cached segment number: the last segment is still open
     Assert.assertEquals(maxCachedNum - 1,
@@ -184,7 +185,7 @@ public class TestCacheEviction extends BaseTest {
     Mockito.when(info.getFollowerNextIndices()).thenReturn(new long[]{21, 40, 40});
     slist = TestSegmentedRaftLog.prepareRanges(maxCachedNum, maxCachedNum + 2, 7, 7 * maxCachedNum);
     entries = generateEntries(slist);
-    raftLog.append(entries).forEach(CompletableFuture::join);
+    raftLog.append(ReferenceCountedObject.wrap(entries)).forEach(CompletableFuture::join);
 
     // check the cached segment number again. since the slowest follower is on
     // index 21, the eviction should happen and evict 3 segments

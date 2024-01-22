@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.leader;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto.SnapshotChunkProto;
@@ -33,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Function;
@@ -59,14 +59,9 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
   private final int snapshotChunkMaxSize;
   /** The total size of snapshot files. */
   private final long totalSize;
+  /** The total number of snapshot files. */
+  private final int numFiles;
 
-  /** The index of the current request. */
-  private int requestIndex = 0;
-
-  /** The index of the current file. */
-  private int fileIndex = 0;
-  /** The current file. */
-  private FileChunkReader current;
 
   InstallSnapshotRequests(RaftServer.Division server, RaftPeerId followerId,
       String requestId, SnapshotInfo snapshot, int snapshotChunkMaxSize) {
@@ -75,8 +70,10 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
     this.requestId = requestId;
     this.snapshot = snapshot;
     this.snapshotChunkMaxSize = snapshotChunkMaxSize;
-    this.totalSize = snapshot.getFiles().stream().mapToLong(FileInfo::getFileSize).reduce(Long::sum).orElseThrow(
+    final List<FileInfo> files = snapshot.getFiles();
+    this.totalSize = files.stream().mapToLong(FileInfo::getFileSize).reduce(Long::sum).orElseThrow(
             () -> new IllegalStateException("Failed to compute total size for snapshot " + snapshot));
+    this.numFiles = files.size();
 
     final File snapshotDir = server.getStateMachine().getStateMachineStorage().getSnapshotDir();
     final Function<Path, Path> relativize;
@@ -96,67 +93,68 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
 
   @Override
   public Iterator<InstallSnapshotRequestProto> iterator() {
-    return new Iterator<InstallSnapshotRequestProto>() {
-      @Override
-      public boolean hasNext() {
-        return fileIndex < snapshot.getFiles().size();
-      }
-
-      @Override
-      @SuppressFBWarnings("IT_NO_SUCH_ELEMENT")
-      public InstallSnapshotRequestProto next() {
-        return nextInstallSnapshotRequestProto();
-      }
-    };
+    return new Iter();
   }
 
-  private InstallSnapshotRequestProto nextInstallSnapshotRequestProto() {
-    final int numFiles = snapshot.getFiles().size();
-    if (fileIndex >= numFiles) {
-      throw new NoSuchElementException("fileIndex = " + fileIndex + " >= numFiles = " + numFiles);
+  private class Iter implements Iterator<InstallSnapshotRequestProto> {
+
+    /** The index of the current request. */
+    private int requestIndex = 0;
+    /** The index of the current file. */
+    private int fileIndex = 0;
+    /** The current file. */
+    private FileChunkReader current;
+
+    @Override
+    public boolean hasNext() {
+      return fileIndex < numFiles;
     }
-    final FileInfo info = snapshot.getFiles().get(fileIndex);
-    try {
-      if (current == null) {
-        current = new FileChunkReader(info, getRelativePath.apply(info));
-      }
-      final FileChunkProto chunk = current.readFileChunk(snapshotChunkMaxSize);
-      if (chunk.getDone()) {
-        current.close();
-        current = null;
-        fileIndex++;
+
+    @Override
+    public InstallSnapshotRequestProto next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException("fileIndex = " + fileIndex + " >= numFiles = " + numFiles);
       }
 
-      final boolean done = fileIndex == numFiles && chunk.getDone();
-      return newInstallSnapshotRequest(chunk, done);
-    } catch (IOException e) {
-      if (current != null) {
-        try {
+      final FileInfo info = snapshot.getFiles().get(fileIndex);
+      try {
+        if (current == null) {
+          current = new FileChunkReader(info, getRelativePath.apply(info));
+        }
+        final FileChunkProto chunk = current.readFileChunk(snapshotChunkMaxSize);
+        if (chunk.getDone()) {
           current.close();
           current = null;
-        } catch (IOException ignored) {
+          fileIndex++;
         }
+
+        final boolean done = fileIndex == numFiles && chunk.getDone();
+        return newInstallSnapshotRequest(chunk, done);
+      } catch (IOException e) {
+        if (current != null) {
+          try {
+            current.close();
+            current = null;
+          } catch (IOException ignored) {
+          }
+        }
+        throw new IllegalStateException("Failed to iterate installSnapshot requests: " + this, e);
       }
-      throw new IllegalStateException("Failed to iterate installSnapshot requests: " + this, e);
+    }
+
+    private InstallSnapshotRequestProto newInstallSnapshotRequest(FileChunkProto chunk, boolean done) {
+      synchronized (server) {
+        final SnapshotChunkProto.Builder b = LeaderProtoUtils.toSnapshotChunkProtoBuilder(
+            requestId, requestIndex++, snapshot.getTermIndex(), chunk, totalSize, done);
+        return LeaderProtoUtils.toInstallSnapshotRequestProto(server, followerId, b);
+      }
     }
   }
-
-  private InstallSnapshotRequestProto newInstallSnapshotRequest(FileChunkProto chunk, boolean done) {
-    synchronized (server) {
-      final SnapshotChunkProto.Builder b = LeaderProtoUtils.toSnapshotChunkProtoBuilder(
-          requestId, requestIndex++, snapshot.getTermIndex(), chunk, totalSize, done);
-      return LeaderProtoUtils.toInstallSnapshotRequestProto(server, followerId, b);
-    }
-  }
-
 
   @Override
   public String toString() {
     return server.getId() + "->" + followerId + JavaUtils.getClassSimpleName(getClass())
         + ": requestId=" + requestId
-        + ", requestIndex=" + requestIndex
-        + ", fileIndex=" + fileIndex
-        + ", currentFile=" + current
         + ", snapshot=" + snapshot;
   }
 }
