@@ -122,6 +122,13 @@ public interface SlidingWindow {
       return requests.values().iterator();
     }
 
+    /** @return true iff the request already exists. */
+    boolean putIfAbsent(REQUEST request) {
+      final long seqNum = request.getSeqNum();
+      final REQUEST previous = requests.putIfAbsent(seqNum, request);
+      return previous != null;
+    }
+
     void putNewRequest(REQUEST request) {
       final long seqNum = request.getSeqNum();
       CollectionUtils.putNew(seqNum, request, requests, () -> getName() + ":requests");
@@ -443,11 +450,16 @@ public interface SlidingWindow {
       final long seqNum = request.getSeqNum();
       if (nextToProcess == -1 && (request.isFirstRequest() || seqNum == 0)) {
         nextToProcess = seqNum;
-        LOG.debug("{}: got seq={} (first request), set nextToProcess in {}", requests.getName(), seqNum, this);
+        requests.putNewRequest(request);
+        LOG.debug("Received seq={} (first request), {}", seqNum, this);
       } else {
-        LOG.debug("{}: got seq={} in {}", requests.getName(), seqNum, this);
+        final boolean isRetry = requests.putIfAbsent(request);
+        LOG.debug("Received seq={}, isRetry? {}, {}", seqNum, isRetry, this);
+        if (isRetry) {
+          return;
+        }
       }
-      requests.putNewRequest(request);
+
       processRequestsFromHead(processingMethod);
     }
 
