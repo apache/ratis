@@ -178,12 +178,14 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
   }
 
   void runTestExceptionRetryAttempts(MiniRaftClusterWithGrpc cluster) throws Exception {
-    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final int retryCount = 5;
+    final RetryPolicy timeoutPolicy = MultipleLinearRandomRetry.parseCommaSeparated("1ms, " + retryCount);
     final ExceptionDependentRetry policy = ExceptionDependentRetry.newBuilder()
-        .setExceptionToPolicy(TimeoutIOException.class, MultipleLinearRandomRetry.parseCommaSeparated("1ms, 5"))
+        .setExceptionToPolicy(TimeoutIOException.class, timeoutPolicy)
         .setDefaultPolicy(RetryPolicies.retryForeverNoSleep())
         .build();
 
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     // create a client with the exception dependent policy
     try (final RaftClient client = cluster.createClient(policy)) {
       client.async().send(new RaftTestUtil.SimpleMessage("1")).get();
@@ -196,7 +198,8 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
       Assert.fail("Test should have failed.");
     } catch (ExecutionException e) {
       RaftRetryFailureException rrfe = (RaftRetryFailureException) e.getCause();
-      Assert.assertEquals(16, rrfe.getAttemptCount());
+      final int expectedCount = 1 + retryCount; // new request attempt + retry attempts
+      Assert.assertEquals(expectedCount, rrfe.getAttemptCount());
     } finally {
       SimpleStateMachine4Testing.get(leader).unblockWriteStateMachineData();
       cluster.shutdown();
