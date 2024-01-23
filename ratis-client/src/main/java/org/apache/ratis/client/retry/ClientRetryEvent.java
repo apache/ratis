@@ -68,6 +68,7 @@ public class ClientRetryEvent implements RetryPolicy.Event {
     return JavaUtils.getClassSimpleName(getClass())
         + ":attempt=" + attemptCount
         + ",request=" + request
-        + ",cause=" + cause;
+        + ",cause=" + cause
+        + ",causeCount=" + causeCount;
   }
 }
