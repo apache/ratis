@@ -154,7 +154,7 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
       long sleepTime) {
     for (int i = 0; i < retries + 1; i++) {
       RetryPolicy.Action action = exceptionDependentRetry
-          .handleAttemptFailure(new ClientRetryEvent(i, null, exception));
+          .handleAttemptFailure(TestRetryPolicy.newClientRetryEvent(i, null, exception));
 
       final boolean expected = i < retries && i < maxAttempts;
       Assert.assertEquals(expected, action.shouldRetry());

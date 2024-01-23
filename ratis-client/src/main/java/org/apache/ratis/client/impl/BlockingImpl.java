@@ -119,16 +119,18 @@ class BlockingImpl implements BlockingApi {
         ioe = e;
       }
 
-      pending.incrementExceptionCount(ioe);
-      ClientRetryEvent event = new ClientRetryEvent(request, ioe, pending);
-      final RetryPolicy retryPolicy = client.getRetryPolicy();
-      final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
-      TimeDuration sleepTime = client.getEffectiveSleepTime(ioe, action.getSleepTime());
-
-      if (!action.shouldRetry()) {
-        throw (IOException)client.noMoreRetries(event);
+      if (client.isClosed()) {
+        throw new AlreadyClosedException(this + " is closed.");
       }
 
+      final ClientRetryEvent event = pending.newClientRetryEvent(request, ioe);
+      final RetryPolicy retryPolicy = client.getRetryPolicy();
+      final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
+      if (!action.shouldRetry()) {
+        throw client.noMoreRetries(event);
+      }
+
+      final TimeDuration sleepTime = client.getEffectiveSleepTime(ioe, action.getSleepTime());
       try {
         sleepTime.sleep();
       } catch (InterruptedException e) {

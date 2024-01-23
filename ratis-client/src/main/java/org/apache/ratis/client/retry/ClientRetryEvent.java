@@ -17,12 +17,11 @@
  */
 package org.apache.ratis.client.retry;
 
-import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.retry.RetryPolicy;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.Timestamp;
 
 /** An {@link RetryPolicy.Event} specific to client request failure. */
 public class ClientRetryEvent implements RetryPolicy.Event {
@@ -30,23 +29,15 @@ public class ClientRetryEvent implements RetryPolicy.Event {
   private final int causeCount;
   private final RaftClientRequest request;
   private final Throwable cause;
-  private PendingClientRequest pending;
+  private final Timestamp pendingRequestCreationTime;
 
-  @VisibleForTesting
-  public ClientRetryEvent(int attemptCount, RaftClientRequest request, Throwable cause) {
-    this(attemptCount, request, attemptCount, cause);
-  }
-
-  public ClientRetryEvent(RaftClientRequest request, Throwable t, PendingClientRequest pending) {
-    this(pending.getAttemptCount(), request, pending.getExceptionCount(t), t);
-    this.pending = pending;
-  }
-
-  private ClientRetryEvent(int attemptCount, RaftClientRequest request, int causeCount, Throwable cause) {
+  public ClientRetryEvent(int attemptCount, RaftClientRequest request, int causeCount, Throwable cause,
+      Timestamp pendingRequestCreationTime) {
     this.attemptCount = attemptCount;
     this.causeCount = causeCount;
     this.request = request;
     this.cause = cause;
+    this.pendingRequestCreationTime = pendingRequestCreationTime;
   }
 
   @Override
@@ -69,7 +60,7 @@ public class ClientRetryEvent implements RetryPolicy.Event {
   }
 
   boolean isRequestTimeout(TimeDuration timeout) {
-    return pending != null && pending.isRequestTimeout(timeout);
+    return timeout != null && pendingRequestCreationTime.elapsedTime().compareTo(timeout) >= 0;
   }
 
   @Override
@@ -77,6 +68,7 @@ public class ClientRetryEvent implements RetryPolicy.Event {
     return JavaUtils.getClassSimpleName(getClass())
         + ":attempt=" + attemptCount
         + ",request=" + request
-        + ",cause=" + cause;
+        + ",cause=" + cause
+        + ",causeCount=" + causeCount;
   }
 }
