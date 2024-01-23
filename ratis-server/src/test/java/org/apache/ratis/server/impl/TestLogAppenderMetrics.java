@@ -27,11 +27,11 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.metrics.LogAppenderMetrics;
 import org.apache.ratis.util.Timestamp;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestLogAppenderMetrics {
 
@@ -39,7 +39,7 @@ public class TestLogAppenderMetrics {
   private RaftPeerId raftPeerId;
   private MyFollowerInfo followerInfo;
 
-  @Before
+  @BeforeEach
   public void setup() {
     RaftGroupId raftGroupId = RaftGroupId.randomId();
     raftPeerId = RaftPeerId.valueOf("TestId");
@@ -55,19 +55,19 @@ public class TestLogAppenderMetrics {
   public void testLogAppenderGauges() {
     Gauge nextIndex = ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(String.format(FOLLOWER_NEXT_INDEX, raftPeerId.toString()))).values().iterator().next();
-    Assert.assertEquals(100L, nextIndex.getValue());
+    Assertions.assertEquals(100L, nextIndex.getValue());
     Gauge matchIndex = ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(String.format(FOLLOWER_MATCH_INDEX, raftPeerId.toString()))).values().iterator().next();
-    Assert.assertEquals(0L, matchIndex.getValue());
+    Assertions.assertEquals(0L, matchIndex.getValue());
     Gauge rpcTime = ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(String.format(FOLLOWER_RPC_RESP_TIME, raftPeerId.toString()))).values().iterator().next();
-    Assert.assertTrue(((Long) rpcTime.getValue()) > 0);
+    Assertions.assertTrue(((Long) rpcTime.getValue()) > 0);
     followerInfo.updateNextIndex(200L);
     followerInfo.updateMatchIndex(100L);
     followerInfo.updateLastRpcResponseTime();
-    Assert.assertEquals(200L, nextIndex.getValue());
-    Assert.assertEquals(100L, matchIndex.getValue());
-    Assert.assertNotNull(rpcTime.getValue());
+    Assertions.assertEquals(200L, nextIndex.getValue());
+    Assertions.assertEquals(100L, matchIndex.getValue());
+    Assertions.assertNotNull(rpcTime.getValue());
   }
 
   private static class MyFollowerInfo {
