@@ -19,7 +19,7 @@
 package org.apache.ratis.server.impl;
 
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.*;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
@@ -30,9 +30,9 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
-import org.junit.After;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -43,7 +43,7 @@ public class TestRetryCacheMetrics {
     private static RatisMetricRegistryImpl ratisMetricRegistry;
     private static RetryCacheImpl retryCache;
 
-    @BeforeClass
+    @BeforeAll
     public static void setUp() {
       RaftGroupId raftGroupId = RaftGroupId.randomId();
       RaftPeerId raftPeerId = RaftPeerId.valueOf("TestId");
@@ -56,7 +56,7 @@ public class TestRetryCacheMetrics {
       ratisMetricRegistry = (RatisMetricRegistryImpl) raftServerMetrics.getRegistry();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         retryCache.close();
         checkEntryCount(0);
