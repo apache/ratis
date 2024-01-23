@@ -249,19 +249,16 @@ public interface RaftTestUtil {
     }
   }
 
-  static void assertLogEntries(RaftServer.Division server, long expectedTerm, SimpleMessage... expectedMessages) {
-    LOG.info("checking raft log for {}", server.getMemberId());
-    final RaftLog log = server.getRaftLog();
-    try {
-      RaftTestUtil.assertLogEntries(log, expectedTerm, expectedMessages);
-    } catch (AssertionError e) {
-      LOG.error("Unexpected raft log in {}", server.getMemberId(), e);
-      throw e;
-    }
+  static void assertLogEntries(RaftServer.Division server, long expectedTerm, SimpleMessage[] expectedMessages,
+      int numAttempts, Logger log) throws Exception {
+    final String name = server.getId() + " assertLogEntries";
+    final Function<Integer, Consumer<String>> print = i -> i < numAttempts? s -> {}: System.out::println;
+    JavaUtils.attempt(i -> assertLogEntries(server.getRaftLog(), expectedTerm, expectedMessages, print.apply(i)),
+        numAttempts, TimeDuration.ONE_SECOND, () -> name, log);
   }
 
   static Iterable<LogEntryProto> getLogEntryProtos(RaftLog log) {
-    return CollectionUtils.as(log.getEntries(0, Long.MAX_VALUE), ti -> {
+    return CollectionUtils.as(log.getEntries(0, log.getLastEntryTermIndex().getIndex() + 1), ti -> {
       try {
         return log.get(ti.getIndex());
       } catch (IOException exception) {
@@ -270,17 +267,17 @@ public interface RaftTestUtil {
     });
   }
 
-  static List<LogEntryProto> getStateMachineLogEntries(RaftLog log) {
+  static List<LogEntryProto> getStateMachineLogEntries(RaftLog log, Consumer<String> print) {
     final List<LogEntryProto> entries = new ArrayList<>();
     for (LogEntryProto e : getLogEntryProtos(log)) {
       final String s = LogProtoUtils.toLogEntryString(e);
       if (e.hasStateMachineLogEntry()) {
-        LOG.info(s + ", " + e.getStateMachineLogEntry().toString().trim().replace("\n", ", "));
+        print.accept(entries.size() + ") " + s);
         entries.add(e);
       } else if (e.hasConfigurationEntry()) {
-        LOG.info("Found {}, ignoring it.", s);
+        print.accept("Ignoring " + s);
       } else if (e.hasMetadataEntry()) {
-        LOG.info("Found {}, ignoring it.", s);
+        print.accept("Ignoring " + s);
       } else {
         throw new AssertionError("Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + s);
       }
@@ -288,13 +285,14 @@ public interface RaftTestUtil {
     return entries;
   }
 
-  static void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage... expectedMessages) {
-    final List<LogEntryProto> entries = getStateMachineLogEntries(log);
+  static Void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage[] expectedMessages, Consumer<String> print) {
+    final List<LogEntryProto> entries = getStateMachineLogEntries(log, print);
     try {
       assertLogEntries(entries, expectedTerm, expectedMessages);
     } catch(Exception t) {
       throw new AssertionError("entries: " + entries, t);
     }
+    return null;
   }
 
   static void assertLogEntries(List<LogEntryProto> entries, long expectedTerm, SimpleMessage... expectedMessages) {

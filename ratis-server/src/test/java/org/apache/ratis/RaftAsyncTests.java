@@ -372,7 +372,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   @Test
   public void testStateMachineMetrics() throws Exception {
     runWithNewCluster(NUM_SERVERS, cluster ->
-        RaftBasicTests.testStateMachineMetrics(true, cluster, LOG));
+        RaftBasicTests.runTestStateMachineMetrics(true, cluster));
   }
 
   @Test
