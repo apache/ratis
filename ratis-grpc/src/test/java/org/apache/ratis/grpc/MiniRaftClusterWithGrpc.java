@@ -94,13 +94,15 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   }
 
   public void assertZeroCopyMetrics() {
-    getPeers().forEach(peer -> {
-      RaftServer.Division server = getDivision(peer.getId());
-      GrpcService service = (GrpcService) RaftServerTestUtil.getServerRpc(server);
+    getServers().forEach(server -> server.getGroupIds().forEach(id -> {
+      LOG.info("Checking {}-{}", server.getId(), id);
+      RaftServer.Division division = RaftServerTestUtil.getDivision(server, id);
+      GrpcService service = (GrpcService) RaftServerTestUtil.getServerRpc(division);
       ZeroCopyMetrics zeroCopyMetrics = service.getZeroCopyMetrics();
       Assert.assertEquals(0, zeroCopyMetrics.nonZeroCopyMessages());
-      Assert.assertEquals(zeroCopyMetrics.zeroCopyMessages(), zeroCopyMetrics.releasedMessages());
-    });
+      Assert.assertEquals("", zeroCopyMetrics.zeroCopyMessages(), zeroCopyMetrics.releasedMessages());
+    }
+  ));
   }
 
 }
