@@ -168,11 +168,9 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     final List<RaftServer.Division> divisions = cluster.getServerAliveStream().collect(Collectors.toList());
     for(RaftServer.Division impl: divisions) {
-        JavaUtils.attempt(() -> RaftTestUtil.assertLogEntries(impl, term, messages),
-            50, TimeDuration.valueOf(1, TimeUnit.SECONDS), impl.getId() + " assertLogEntries", LOG);
+      RaftTestUtil.assertLogEntries(impl, term, messages, 50, LOG);
     }
   }
-
 
   @Test
   public void testOldLeaderCommit() throws Exception {
@@ -218,7 +216,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     cluster.getServerAliveStream()
         .map(RaftServer.Division::getRaftLog)
-        .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages));
+        .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages, System.out::println));
   }
 
   @Test
@@ -453,8 +451,12 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  public static void testStateMachineMetrics(boolean async,
-      MiniRaftCluster cluster, Logger LOG) throws Exception {
+  @Test
+  public void testStateMachineMetrics() throws Exception {
+    runWithNewCluster(NUM_SERVERS, cluster -> runTestStateMachineMetrics(false, cluster));
+  }
+
+  static void runTestStateMachineMetrics(boolean async, MiniRaftCluster cluster) throws Exception {
     RaftServer.Division leader = waitForLeader(cluster);
     try (final RaftClient client = cluster.createClient()) {
       Gauge appliedIndexGauge = getStatemachineGaugeWithName(leader,

@@ -261,7 +261,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final RaftPeerId leaderId = leader.getId();
     ids.add(leaderId);
 
-    RaftTestUtil.getStateMachineLogEntries(leaderLog);
+    RaftTestUtil.getStateMachineLogEntries(leaderLog, LOG::info);
 
     // check that the last metadata entry is written to the log
     JavaUtils.attempt(() -> assertLastLogEntry(leader), 20, HUNDRED_MILLIS, "leader last metadata entry", LOG);
