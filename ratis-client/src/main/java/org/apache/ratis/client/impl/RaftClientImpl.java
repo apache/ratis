@@ -105,12 +105,7 @@ public final class RaftClientImpl implements RaftClient {
     }
 
     public ClientRetryEvent newClientRetryEvent(RaftClientRequest request, Throwable throwable) {
-      return newClientRetryEvent(request, throwable, false);
-    }
-
-    ClientRetryEvent newClientRetryEvent(RaftClientRequest request, Throwable throwable, boolean get) {
       final int exceptionCount = throwable == null? 0
-          : get? exceptionCounts.get(throwable.getClass())
           : exceptionCounts.compute(throwable.getClass(), (k, v) -> v == null? 1: v+1);
       return new ClientRetryEvent(getAttemptCount(), request, exceptionCount, throwable, creationTime);
     }
