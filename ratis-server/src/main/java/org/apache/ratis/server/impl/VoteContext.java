@@ -102,12 +102,10 @@ class VoteContext {
     if (info.isFollower()) {
       final RaftPeerId leader = impl.getState().getLeaderId();
       if (leader != null
+          && !leader.equals(candidateId)
           && impl.getRole().getFollowerState().map(FollowerState::isCurrentLeaderValid).orElse(false)) {
-        // if the candidate is the same peer as the current valid leader, we should allow
-        // the PreVote / RequestVote to proceed
-        if (!leader.equals(candidateId)) {
-          return reject("this server is a follower and still has a valid leader " + leader);
-        }
+        return reject("this server is a follower and still has a valid leader " + leader
+            + " different than the candidate " + candidateId);
       }
     }
     return true;
