@@ -1819,7 +1819,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     return stateMachineFuture.whenComplete((reply, exception) -> {
-      transactionManager.remove(termIndex);
+      getTransactionManager().remove(termIndex);
       final RaftClientReply.Builder b = newReplyBuilder(invocationId, termIndex.getIndex());
       final RaftClientReply r;
       if (exception == null) {
@@ -1837,9 +1837,13 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
 
+  TransactionManager getTransactionManager() {
+    return transactionManager;
+  }
+
   @VisibleForTesting
   Map<TermIndex, MemoizedSupplier<TransactionContext>> getTransactionContextMapForTesting() {
-    return transactionManager.getMap();
+    return getTransactionManager().getMap();
   }
 
   TransactionContext getTransactionContext(LogEntryProto entry, Boolean createNew) {
@@ -1857,9 +1861,9 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     if (!createNew) {
-      return transactionManager.get(termIndex);
+      return getTransactionManager().get(termIndex);
     }
-    return transactionManager.computeIfAbsent(termIndex,
+    return getTransactionManager().computeIfAbsent(termIndex,
         // call startTransaction only once
         MemoizedSupplier.valueOf(() -> stateMachine.startTransaction(entry, getInfo().getCurrentRole())));
   }
@@ -1901,7 +1905,7 @@ class RaftServerImpl implements RaftServer.Division,
    */
   void notifyTruncatedLogEntry(LogEntryProto logEntry) {
     if (logEntry.hasStateMachineLogEntry()) {
-      transactionManager.remove(TermIndex.valueOf(logEntry));
+      getTransactionManager().remove(TermIndex.valueOf(logEntry));
 
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
       final CacheEntry cacheEntry = getRetryCache().getIfPresent(invocationId);
