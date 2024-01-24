@@ -50,7 +50,7 @@ public interface RaftClientAsynchronousProtocol {
     } catch (Exception e) {
       return JavaUtils.completeExceptionally(e);
     } finally {
-      requestRef.retain();
+      requestRef.release();
     }
   }
 }
