@@ -882,21 +882,24 @@ class RaftServerImpl implements RaftServer.Division,
     try {
       assertLifeCycleState(LifeCycle.States.RUNNING);
     } catch (ServerNotReadyException e) {
+      requestRef.release();
       final RaftClientReply reply = newExceptionReply(request, e);
       return CompletableFuture.completedFuture(reply);
+    }
+
+    try {
+      RaftClientRequest.Type type = request.getType();
+      final Timekeeper timer = raftServerMetrics.getClientRequestTimer(type);
+      final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
+      return replyFuture(requestRef).whenComplete((clientReply, exception) -> {
+        timerContext.ifPresent(Timekeeper.Context::stop);
+        if (exception != null || clientReply.getException() != null) {
+          raftServerMetrics.incFailedRequestCount(type);
+        }
+      });
     } finally {
       requestRef.release();
     }
-
-    RaftClientRequest.Type type = request.getType();
-    final Timekeeper timer = raftServerMetrics.getClientRequestTimer(type);
-    final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
-    return replyFuture(requestRef).whenComplete((clientReply, exception) -> {
-      timerContext.ifPresent(Timekeeper.Context::stop);
-      if (exception != null || clientReply.getException() != null) {
-        raftServerMetrics.incFailedRequestCount(type);
-      }
-    });
   }
 
   private CompletableFuture<RaftClientReply> replyFuture(ReferenceCountedObject<RaftClientRequest> requestRef) {
