@@ -42,6 +42,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -123,7 +124,8 @@ public class FileStoreStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<Integer> write(LogEntryProto entry, TransactionContext context) {
+  public CompletableFuture<Integer> write(ReferenceCountedObject<LogEntryProto> entryRef, TransactionContext context) {
+    LogEntryProto entry = entryRef.get();
     final FileStoreRequestProto proto = getProto(context, entry);
     if (proto.getRequestCase() != FileStoreRequestProto.RequestCase.WRITEHEADER) {
       return null;

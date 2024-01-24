@@ -438,7 +438,8 @@ class SegmentedRaftLogWorker {
     addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
 
-  Task writeLogEntry(LogEntryProto entry, LogEntryProto removedStateMachineData, TransactionContext context) {
+  Task writeLogEntry(ReferenceCountedObject<LogEntryProto> entry,
+      LogEntryProto removedStateMachineData, TransactionContext context) {
     return addIOTask(new WriteLog(entry, removedStateMachineData, context));
   }
 
@@ -486,7 +487,8 @@ class SegmentedRaftLogWorker {
     private final CompletableFuture<?> stateMachineFuture;
     private final CompletableFuture<Long> combined;
 
-    WriteLog(LogEntryProto entry, LogEntryProto removedStateMachineData, TransactionContext context) {
+    WriteLog(ReferenceCountedObject<LogEntryProto> entryRef, LogEntryProto removedStateMachineData, TransactionContext context) {
+      LogEntryProto entry = entryRef.get();
       this.entry = removedStateMachineData;
       if (this.entry == entry) {
         final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
@@ -501,7 +503,7 @@ class SegmentedRaftLogWorker {
       } else {
         try {
           // this.entry != entry iff the entry has state machine data
-          this.stateMachineFuture = stateMachine.data().write(entry, context);
+          this.stateMachineFuture = stateMachine.data().write(entryRef, context);
         } catch (Exception e) {
           LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
               + ", entry=" + LogProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
