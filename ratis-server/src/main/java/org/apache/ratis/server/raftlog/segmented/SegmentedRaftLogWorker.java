@@ -487,7 +487,8 @@ class SegmentedRaftLogWorker {
     private final CompletableFuture<?> stateMachineFuture;
     private final CompletableFuture<Long> combined;
 
-    WriteLog(ReferenceCountedObject<LogEntryProto> entryRef, LogEntryProto removedStateMachineData, TransactionContext context) {
+    WriteLog(ReferenceCountedObject<LogEntryProto> entryRef, LogEntryProto removedStateMachineData,
+        TransactionContext context) {
       LogEntryProto entry = entryRef.get();
       this.entry = removedStateMachineData;
       if (this.entry == entry) {
