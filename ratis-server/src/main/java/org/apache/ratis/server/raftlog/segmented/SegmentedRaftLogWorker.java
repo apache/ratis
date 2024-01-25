@@ -489,15 +489,16 @@ class SegmentedRaftLogWorker {
 
     WriteLog(ReferenceCountedObject<LogEntryProto> entryRef, LogEntryProto removedStateMachineData,
         TransactionContext context) {
-      LogEntryProto entry = entryRef.get();
+      LogEntryProto origEntry = entryRef.get();
       this.entry = removedStateMachineData;
-      if (this.entry == entry) {
-        final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
+      if (this.entry == origEntry) {
+        final StateMachineLogEntryProto proto = origEntry.hasStateMachineLogEntry()?
+            origEntry.getStateMachineLogEntry(): null;
         if (stateMachine != null && proto != null && proto.getType() == StateMachineLogEntryProto.Type.DATASTREAM) {
           final ClientInvocationId invocationId = ClientInvocationId.valueOf(proto);
           final CompletableFuture<DataStream> removed = server.getDataStreamMap().remove(invocationId);
-          this.stateMachineFuture = removed == null? stateMachine.data().link(null, entry)
-              : removed.thenApply(stream -> stateMachine.data().link(stream, entry));
+          this.stateMachineFuture = removed == null? stateMachine.data().link(null, origEntry)
+              : removed.thenApply(stream -> stateMachine.data().link(stream, origEntry));
         } else {
           this.stateMachineFuture = null;
         }
@@ -506,8 +507,8 @@ class SegmentedRaftLogWorker {
           // this.entry != entry iff the entry has state machine data
           this.stateMachineFuture = stateMachine.data().write(entryRef, context);
         } catch (Exception e) {
-          LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
-              + ", entry=" + LogProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
+          LOG.error(name + ": writeStateMachineData failed for index " + origEntry.getIndex()
+              + ", entry=" + LogProtoUtils.toLogEntryString(origEntry, stateMachine::toStateMachineLogEntryString), e);
           throw e;
         }
       }
