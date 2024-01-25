@@ -23,9 +23,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Cache for maven dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2/repository
@@ -34,14 +34,14 @@ jobs:
           restore-keys: |
             maven-repo-
       - name: Setup java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 8
       - name: Run a full build
         run: ./dev-support/checks/build.sh -Prelease assembly:single
       - name: Store binaries for tests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ratis-bin
           path: |
@@ -49,7 +49,7 @@ jobs:
             !ratis-assembly/target/apache-ratis-*-src.tar.gz
           retention-days: 1
       - name: Store source tarball for compilation
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ratis-src
           path: ratis-assembly/target/apache-ratis-*-src.tar.gz
@@ -64,14 +64,14 @@ jobs:
       fail-fast: false
     steps:
       - name: Download source tarball
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ratis-src
       - name: Untar sources
         run: |
           tar --strip-components 1 -xzvf apache-ratis-*-src.tar.gz
       - name: Cache for maven dependencies
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.m2/repository
@@ -80,7 +80,7 @@ jobs:
           restore-keys: |
             maven-repo-
       - name: Setup java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
@@ -91,9 +91,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
         - name: Checkout project
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
         - name: Cache for maven dependencies
-          uses: actions/cache/restore@v3
+          uses: actions/cache/restore@v4
           with:
             path: |
               ~/.m2/repository
@@ -104,7 +104,7 @@ jobs:
         - name: Run tests
           run: ./dev-support/checks/rat.sh
         - name: Upload results
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           if: always()
           with:
             name: rat
@@ -114,11 +114,11 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
         - name: Checkout project
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
         - name: Run tests
           run: ./dev-support/checks/author.sh
         - name: Upload results
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           if: always()
           with:
             name: author
@@ -140,9 +140,9 @@ jobs:
             echo -e "$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)\t$(hostname -f) $(hostname -s)" | sudo tee -a /etc/hosts
         # REMOVE CODE ABOVE WHEN ISSUE IS ADDRESSED!
         - name: Checkout project
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
         - name: Cache for maven dependencies
-          uses: actions/cache/restore@v3
+          uses: actions/cache/restore@v4
           with:
             path: |
               ~/.m2/repository
@@ -151,7 +151,7 @@ jobs:
             restore-keys: |
               maven-repo-
         - name: Setup java
-          uses: actions/setup-java@v3
+          uses: actions/setup-java@v4
           with:
             distribution: 'temurin'
             java-version: 8
@@ -161,7 +161,7 @@ jobs:
           run: cat target/${{ github.job }}/summary.txt
           if: ${{ !cancelled() }}
         - name: Upload results
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           if: ${{ !cancelled() }}
           with:
             name: unit-${{ matrix.profile }}
@@ -171,9 +171,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
         - name: Checkout project
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
         - name: Cache for maven dependencies
-          uses: actions/cache/restore@v3
+          uses: actions/cache/restore@v4
           with:
             path: |
               ~/.m2/repository
@@ -184,7 +184,7 @@ jobs:
         - name: Run tests
           run: ./dev-support/checks/checkstyle.sh
         - name: Upload results
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           if: always()
           with:
             name: checkstyle
@@ -194,14 +194,14 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
         - name: Setup java
-          uses: actions/setup-java@v3
+          uses: actions/setup-java@v4
           with:
             distribution: 'temurin'
             java-version: 8
         - name: Checkout project
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
         - name: Cache for maven dependencies
-          uses: actions/cache/restore@v3
+          uses: actions/cache/restore@v4
           with:
             path: |
               ~/.m2/repository
@@ -212,7 +212,7 @@ jobs:
         - name: Run tests
           run: ./dev-support/checks/findbugs.sh
         - name: Upload results
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           if: always()
           with:
             name: findbugs
@@ -225,11 +225,11 @@ jobs:
     if: (github.repository == 'apache/ratis' || github.repository == 'apache/incubator-ratis') && github.event_name != 'pull_request'
     steps:
         - name: Checkout project
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
           with:
             fetch-depth: 0
         - name: Cache for maven dependencies
-          uses: actions/cache/restore@v3
+          uses: actions/cache/restore@v4
           with:
             path: |
               ~/.m2/repository
@@ -238,12 +238,12 @@ jobs:
             restore-keys: |
               maven-repo-
         - name: Setup java 17
-          uses: actions/setup-java@v3
+          uses: actions/setup-java@v4
           with:
             distribution: 'temurin'
             java-version: 17
         - name: Download artifacts
-          uses: actions/download-artifact@v3
+          uses: actions/download-artifact@v4
           with:
             path: target/artifacts
         - name: Untar binaries
@@ -258,7 +258,7 @@ jobs:
             SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         - name: Archive build results
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           if: always()
           with:
             name: ${{ github.job }}
