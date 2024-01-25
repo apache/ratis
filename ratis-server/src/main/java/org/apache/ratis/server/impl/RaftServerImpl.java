@@ -90,6 +90,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
@@ -179,7 +180,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final DataStreamMap dataStreamMap;
   private final RaftServerConfigKeys.Read.Option readOption;
 
-  private final TransactionManager transactionManager = new TransactionManager();
+  private final TransactionManager transactionManager;
   private final RetryCacheImpl retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
   private final WriteIndexCache writeIndexCache;
@@ -225,6 +226,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.dataStreamMap = new DataStreamMapImpl(id);
     this.readOption = RaftServerConfigKeys.Read.option(properties);
     this.writeIndexCache = new WriteIndexCache(properties);
+    this.transactionManager = new TransactionManager(id);
 
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
@@ -1821,7 +1823,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     return stateMachineFuture.whenComplete((reply, exception) -> {
-      transactionManager.remove(termIndex);
+      getTransactionManager().remove(termIndex);
       final RaftClientReply.Builder b = newReplyBuilder(invocationId, termIndex.getIndex());
       final RaftClientReply r;
       if (exception == null) {
@@ -1839,6 +1841,15 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
 
+  TransactionManager getTransactionManager() {
+    return transactionManager;
+  }
+
+  @VisibleForTesting
+  Map<TermIndex, MemoizedSupplier<TransactionContext>> getTransactionContextMapForTesting() {
+    return getTransactionManager().getMap();
+  }
+
   TransactionContext getTransactionContext(LogEntryProto entry, Boolean createNew) {
     if (!entry.hasStateMachineLogEntry()) {
       return null;
@@ -1854,9 +1865,9 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     if (!createNew) {
-      return transactionManager.get(termIndex);
+      return getTransactionManager().get(termIndex);
     }
-    return transactionManager.computeIfAbsent(termIndex,
+    return getTransactionManager().computeIfAbsent(termIndex,
         // call startTransaction only once
         MemoizedSupplier.valueOf(() -> stateMachine.startTransaction(entry, getInfo().getCurrentRole())));
   }
@@ -1898,6 +1909,8 @@ class RaftServerImpl implements RaftServer.Division,
    */
   void notifyTruncatedLogEntry(LogEntryProto logEntry) {
     if (logEntry.hasStateMachineLogEntry()) {
+      getTransactionManager().remove(TermIndex.valueOf(logEntry));
+
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
       final CacheEntry cacheEntry = getRetryCache().getIfPresent(invocationId);
       if (cacheEntry != null) {

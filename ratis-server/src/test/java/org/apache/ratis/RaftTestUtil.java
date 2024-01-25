@@ -45,6 +45,7 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.AssumptionViolatedException;
+import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,8 +53,12 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -267,6 +272,43 @@ public interface RaftTestUtil {
     });
   }
 
+  Comparator<LogEntryProto> LOG_ENTRY_PROTO_COMPARATOR = Comparator.comparing(
+      e -> e.getStateMachineLogEntry().getLogData().asReadOnlyByteBuffer());
+  Comparator<SimpleMessage> SIMPLE_MESSAGE_COMPARATOR = Comparator.comparing(
+      m -> m.getContent().asReadOnlyByteBuffer());
+
+  /** @return a map of message-array-index to {@link LogEntryProto} for the entries found in the given log. */
+  static Map<Integer, LogEntryProto> getStateMachineLogEntries(RaftLog log, SimpleMessage[] messages) {
+    if (messages.length == 0) {
+      return Collections.emptyMap();
+    }
+    final List<LogEntryProto> entries = getStateMachineLogEntries(log, s -> {});
+    if (entries.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    entries.sort(LOG_ENTRY_PROTO_COMPARATOR);
+    Arrays.sort(messages, SIMPLE_MESSAGE_COMPARATOR);
+
+    final Map<Integer, LogEntryProto> found = new HashMap<>();
+    for (int e = 0, m = 0; e < entries.size() && m < messages.length; ) {
+      final int diff = messages[m].getContent().asReadOnlyByteBuffer().compareTo(
+          entries.get(e).getStateMachineLogEntry().getLogData().asReadOnlyByteBuffer());
+      if (diff == 0) {
+        found.put(m, entries.get(e));
+        m++;
+        e++;
+      } else if (diff < 0) {
+        m++; // message < entry
+      } else {
+        e++; // message > entry
+      }
+    }
+
+    Assertions.assertEquals(messages.length, found.size());
+    return found;
+  }
+
   static List<LogEntryProto> getStateMachineLogEntries(RaftLog log, Consumer<String> print) {
     final List<LogEntryProto> entries = new ArrayList<>();
     for (LogEntryProto e : getLogEntryProtos(log)) {
@@ -306,8 +348,7 @@ public interface RaftTestUtil {
       }
       Assert.assertTrue(e.getIndex() > logIndex);
       logIndex = e.getIndex();
-      Assert.assertArrayEquals(expectedMessages[i].getContent().toByteArray(),
-          e.getStateMachineLogEntry().getLogData().toByteArray());
+      Assert.assertEquals(expectedMessages[i].getContent(), e.getStateMachineLogEntry().getLogData());
     }
   }
 

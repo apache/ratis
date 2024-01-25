@@ -19,27 +19,64 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Supplier;
 
 /**
  * Managing {@link TransactionContext}.
  */
 class TransactionManager {
-  private final ConcurrentMap<TermIndex, Supplier<TransactionContext>> contexts = new ConcurrentHashMap<>();
+  static final Logger LOG = LoggerFactory.getLogger(TransactionManager.class);
 
-  TransactionContext get(TermIndex termIndex) {
-    return Optional.ofNullable(contexts.get(termIndex)).map(Supplier::get).orElse(null);
+  private final String name;
+  private final ConcurrentMap<TermIndex, MemoizedSupplier<TransactionContext>> contexts = new ConcurrentHashMap<>();
+
+  TransactionManager(Object name) {
+    this.name = name + "-" + JavaUtils.getClassSimpleName(getClass());
   }
 
-  TransactionContext computeIfAbsent(TermIndex termIndex, Supplier<TransactionContext> constructor) {
-    return contexts.computeIfAbsent(termIndex, i -> constructor).get();
+  @VisibleForTesting
+  Map<TermIndex, MemoizedSupplier<TransactionContext>> getMap() {
+    LOG.debug("{}", this);
+    return Collections.unmodifiableMap(contexts);
+  }
+
+  TransactionContext get(TermIndex termIndex) {
+    return Optional.ofNullable(contexts.get(termIndex)).map(MemoizedSupplier::get).orElse(null);
+  }
+
+  TransactionContext computeIfAbsent(TermIndex termIndex, MemoizedSupplier<TransactionContext> constructor) {
+    final MemoizedSupplier<TransactionContext> m = contexts.computeIfAbsent(termIndex, i -> constructor);
+    if (!m.isInitialized()) {
+      LOG.debug("{}: {}", termIndex,  this);
+    }
+    return m.get();
   }
 
   void remove(TermIndex termIndex) {
-    contexts.remove(termIndex);
+    final MemoizedSupplier<TransactionContext> removed = contexts.remove(termIndex);
+    if (removed != null) {
+      LOG.debug("{}: {}", termIndex,  this);
+    }
+  }
+
+  @Override
+  public String toString() {
+    if (contexts.isEmpty()) {
+      return name + " <empty>";
+    }
+
+    final StringBuilder b = new StringBuilder(name);
+    contexts.forEach((k, v) -> b.append("\n  ").append(k).append(": initialized? ").append(v.isInitialized()));
+    return b.toString();
   }
 }
