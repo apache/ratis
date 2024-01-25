@@ -46,11 +46,11 @@ public interface RaftClientAsynchronousProtocol {
       ReferenceCountedObject<RaftClientRequest> requestRef) {
     try {
       // for backward compatibility
-      return submitClientRequestAsync(requestRef.retain())
-          .whenComplete((r, e) -> requestRef.release());
+      return submitClientRequestAsync(requestRef.retain());
     } catch (Exception e) {
-      requestRef.release();
       return JavaUtils.completeExceptionally(e);
+    } finally {
+      requestRef.release();
     }
   }
 }

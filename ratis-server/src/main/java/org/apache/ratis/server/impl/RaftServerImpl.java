@@ -887,15 +887,19 @@ class RaftServerImpl implements RaftServer.Division,
       return CompletableFuture.completedFuture(reply);
     }
 
-    final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
-    final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
-    return replyFuture(requestRef).whenComplete((clientReply, exception) -> {
+    try {
+      RaftClientRequest.Type type = request.getType();
+      final Timekeeper timer = raftServerMetrics.getClientRequestTimer(type);
+      final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
+      return replyFuture(requestRef).whenComplete((clientReply, exception) -> {
+        timerContext.ifPresent(Timekeeper.Context::stop);
+        if (exception != null || clientReply.getException() != null) {
+          raftServerMetrics.incFailedRequestCount(type);
+        }
+      });
+    } finally {
       requestRef.release();
-      timerContext.ifPresent(Timekeeper.Context::stop);
-      if (exception != null || clientReply.getException() != null) {
-        raftServerMetrics.incFailedRequestCount(request.getType());
-      }
-    });
+    }
   }
 
   private CompletableFuture<RaftClientReply> replyFuture(ReferenceCountedObject<RaftClientRequest> requestRef) {
@@ -1479,12 +1483,12 @@ class RaftServerImpl implements RaftServer.Division,
       preAppendEntriesAsync(requestorId, ProtoUtils.toRaftGroupId(request.getRaftGroupId()), r.getLeaderTerm(),
           previous, r.getLeaderCommit(), r.getInitializing(), entries);
       return appendEntriesAsync(requestorId, r.getLeaderTerm(), previous, r.getLeaderCommit(),
-          request.getCallId(), r.getInitializing(), r.getCommitInfosList(), entries, requestRef)
-          .whenComplete((reply, e) -> requestRef.release());
+          request.getCallId(), r.getInitializing(), r.getCommitInfosList(), entries, requestRef);
     } catch(Exception t) {
       LOG.error("{}: Failed appendEntriesAsync {}", getMemberId(), r, t);
-      requestRef.release();
       throw t;
+    } finally {
+      requestRef.release();
     }
   }
 
