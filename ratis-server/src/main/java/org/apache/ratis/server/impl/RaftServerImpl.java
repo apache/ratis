@@ -882,8 +882,8 @@ class RaftServerImpl implements RaftServer.Division,
     try {
       assertLifeCycleState(LifeCycle.States.RUNNING);
     } catch (ServerNotReadyException e) {
-      requestRef.release();
       final RaftClientReply reply = newExceptionReply(request, e);
+      requestRef.release();
       return CompletableFuture.completedFuture(reply);
     }
 
