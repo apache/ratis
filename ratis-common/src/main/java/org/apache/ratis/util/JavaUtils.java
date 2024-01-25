@@ -41,7 +41,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -229,7 +228,7 @@ public interface JavaUtils {
         }
         if (log != null && log.isWarnEnabled()) {
           log.warn("FAILED \"" + name.get() + "\", attempt #" + i + "/" + numAttempts
-              + ": " + t + ", sleep " + sleepTime + " and then retry.", t);
+              + ", sleep " + sleepTime + " and then retry: " + t);
         }
       }
 
@@ -244,19 +243,6 @@ public interface JavaUtils {
       throws THROWABLE, InterruptedException {
     attemptRepeatedly(CheckedRunnable.asCheckedSupplier(runnable), numAttempts, sleepTime, name, log);
   }
-
-  /** Attempt to wait the given condition to return true multiple times. */
-  static void attemptUntilTrue(
-      BooleanSupplier condition, int numAttempts, TimeDuration sleepTime, String name, Logger log)
-      throws InterruptedException {
-    Objects.requireNonNull(condition, "condition == null");
-    attempt(() -> {
-      if (!condition.getAsBoolean()) {
-        throw new IllegalStateException("Condition " + name + " is false.");
-      }
-    }, numAttempts, sleepTime, name, log);
-  }
-
 
   static Timer runRepeatedly(Runnable runnable, long delay, long period, TimeUnit unit) {
     final Timer timer = new Timer(true);

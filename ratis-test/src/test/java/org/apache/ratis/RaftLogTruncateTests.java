@@ -22,23 +22,32 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.OrderedAsync;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -57,8 +66,11 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
   }
 
   {
+    Slf4jUtils.setLogLevel(RaftServerTestUtil.getTransactionContextLog(), Level.TRACE);
+
     Slf4jUtils.setLogLevel(OrderedAsync.LOG, Level.ERROR);
     Slf4jUtils.setLogLevel(RaftServerConfigKeys.LOG, Level.ERROR);
+    Slf4jUtils.setLogLevel(RaftClientConfigKeys.LOG, Level.ERROR);
     Slf4jUtils.setLogLevel(RaftClientConfigKeys.LOG, Level.ERROR);
 
     final RaftProperties p = getProperties();
@@ -88,8 +100,8 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
     final List<RaftPeerId> remainingPeers = new ArrayList<>();
 
     final int majorityIndex = NUM_SERVERS / 2 + 1;
-    Assert.assertEquals(NUM_SERVERS - 1, oldFollowers.size());
-    Assert.assertTrue(majorityIndex < oldFollowers.size());
+    Assertions.assertEquals(NUM_SERVERS - 1, oldFollowers.size());
+    Assertions.assertTrue(majorityIndex < oldFollowers.size());
 
     for (int i = 0; i < majorityIndex; i++) {
       killedPeers.add(oldFollowers.get(i).getId());
@@ -113,18 +125,26 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
     final List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<>());
     final long oldLeaderTerm = oldLeader.getInfo().getCurrentTerm();
     LOG.info("oldLeader: {}, term={}", oldLeader.getId(), oldLeaderTerm);
+    LOG.info("killedPeers   : {}", killedPeers);
+    LOG.info("remainingPeers: {}", remainingPeers);
 
     final SimpleMessage[] firstBatch = SimpleMessage.create(5, "first");
     final SimpleMessage[] secondBatch = SimpleMessage.create(4, "second");
+
+    for (RaftPeer peer : cluster.getGroup().getPeers()) {
+      assertEmptyTransactionContextMap(cluster.getDivision(peer.getId()));
+    }
 
     try (final RaftClient client = cluster.createClient(oldLeader.getId())) {
       // send some messages
       for (SimpleMessage batch : firstBatch) {
         final RaftClientReply reply = client.io().send(batch);
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
-      for (RaftServer.Division f : cluster.getFollowers()) {
-        assertLogEntries(f, oldLeaderTerm, firstBatch);
+      for (RaftPeer peer : cluster.getGroup().getPeers()) {
+        final RaftServer.Division division = cluster.getDivision(peer.getId());
+        assertLogEntries(division, oldLeaderTerm, firstBatch);
+        assertEmptyTransactionContextMap(division);
       }
 
       // kill a majority of followers
@@ -148,17 +168,19 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
       // check log messages
       final SimpleMessage[] expectedMessages = arraycopy(firstBatch, messagesToBeTruncated);
       for (RaftPeerId f : remainingPeers) {
-        assertLogEntries(cluster.getDivision(f), oldLeaderTerm, expectedMessages);
+        final RaftServer.Division division = cluster.getDivision(f);
+        assertLogEntries(division, oldLeaderTerm, expectedMessages);
+        if (!division.getId().equals(oldLeader.getId())) {
+          assertEntriesInTransactionContextMap(division, messagesToBeTruncated, firstBatch);
+        }
       }
       done.set(true);
       LOG.info("done");
     }
 
-    // kill the remaining servers
-    LOG.info("Before killServer {}: {}", remainingPeers, cluster.printServers());
-    for (RaftPeerId f : remainingPeers) {
-      cluster.killServer(f);
-    }
+    // kill the old leader
+    LOG.info("Before killServer {}: {}", oldLeader.getId(), cluster.printServers());
+    cluster.killServer(oldLeader.getId());
     LOG.info("After killServer {}: {}", remainingPeers, cluster.printServers());
 
     // restart the earlier followers
@@ -174,12 +196,10 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
     final SegmentedRaftLog newLeaderLog = (SegmentedRaftLog) newLeader.getRaftLog();
     LOG.info("newLeader: {}, term {}, last={}", newLeader.getId(), newLeaderTerm,
         newLeaderLog.getLastEntryTermIndex());
-    Assert.assertTrue(killedPeers.contains(newLeader.getId()));
+    Assertions.assertTrue(killedPeers.contains(newLeader.getId()));
 
-    // restart the remaining servers
-    for (RaftPeerId f : remainingPeers) {
-      cluster.restartServer(f, false);
-    }
+    // restart the old leader
+    cluster.restartServer(oldLeader.getId(), false);
 
     // check RaftLog truncate
     for (RaftPeerId f : remainingPeers) {
@@ -190,14 +210,16 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
       // send more messages
       for (SimpleMessage batch : secondBatch) {
         final RaftClientReply reply = client.io().send(batch);
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
     }
 
     // check log messages -- it should be truncated and then append the new messages
     final SimpleMessage[] expectedMessages = arraycopy(firstBatch, secondBatch);
-    for (RaftPeerId f : killedPeers) {
-      assertLogEntries(cluster.getDivision(f), oldLeaderTerm, expectedMessages);
+    for (RaftPeer peer : cluster.getGroup().getPeers()) {
+      final RaftServer.Division division = cluster.getDivision(peer.getId());
+      assertLogEntries(division, oldLeaderTerm, expectedMessages);
+      assertEmptyTransactionContextMap(division);
     }
 
     if (!exceptions.isEmpty()) {
@@ -205,7 +227,36 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
       for(int i = 0 ; i < exceptions.size(); i++) {
         LOG.info("exception {})", i, exceptions.get(i));
       }
-      Assert.fail();
+      Assertions.fail();
+    }
+  }
+
+  static void assertEmptyTransactionContextMap(RaftServer.Division division) {
+    Assertions.assertTrue(RaftServerTestUtil.getTransactionContextMap(division).isEmpty(),
+        () -> division.getId() + " TransactionContextMap is non-empty");
+  }
+
+  static void assertEntriesInTransactionContextMap(RaftServer.Division division,
+      SimpleMessage[] existing, SimpleMessage[] nonExisting) {
+    final RaftLog log = division.getRaftLog();
+    assertEntriesInTransactionContextMap(division,
+        RaftTestUtil.getStateMachineLogEntries(log, existing).values(),
+        RaftTestUtil.getStateMachineLogEntries(log, nonExisting).values());
+  }
+
+  static void assertEntriesInTransactionContextMap(RaftServer.Division division,
+      Collection<LogEntryProto> existing, Collection<LogEntryProto> nonExisting) {
+    final Map<TermIndex, MemoizedSupplier<TransactionContext>> map
+        = RaftServerTestUtil.getTransactionContextMap(division);
+    for(LogEntryProto e : existing) {
+      final TermIndex termIndex = TermIndex.valueOf(e);
+      Assertions.assertTrue(map.containsKey(termIndex),
+          () -> termIndex + " not found in " + division.getId());
+    }
+    for(LogEntryProto e : nonExisting) {
+      final TermIndex termIndex = TermIndex.valueOf(e);
+      Assertions.assertFalse(map.containsKey(termIndex),
+          () -> termIndex + " found in " + division.getId());
     }
   }
 

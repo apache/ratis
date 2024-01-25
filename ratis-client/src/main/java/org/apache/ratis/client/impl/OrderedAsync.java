@@ -32,6 +32,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.rpc.CallId;
+import org.apache.ratis.util.BatchLogger;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -50,12 +51,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
 /** Send ordered asynchronous requests to a raft service. */
 public final class OrderedAsync {
   public static final Logger LOG = LoggerFactory.getLogger(OrderedAsync.class);
+
+  private enum BatchLogKey implements BatchLogger.Key {
+    SEND_REQUEST_EXCEPTION
+  }
 
   static class PendingOrderedRequest extends PendingClientRequest
       implements SlidingWindow.ClientSideRequest<RaftClientReply> {
@@ -204,7 +210,10 @@ public final class OrderedAsync {
       getSlidingWindow(request).receiveReply(
           request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetry);
     }).exceptionally(e -> {
-      LOG.error(client.getId() + ": Failed* " + request, e);
+      final Throwable exception = e;
+      final String key = client.getId() + "-" + request.getCallId() + "-" + exception;
+      final Consumer<String> op = suffix -> LOG.error("{} {}: Failed* {}", suffix, client.getId(), request, exception);
+      BatchLogger.warn(BatchLogKey.SEND_REQUEST_EXCEPTION, key, op);
       handleException(pending, request, e);
       return null;
     });

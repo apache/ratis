@@ -35,7 +35,13 @@ public final class BatchLogger {
   private BatchLogger() {
   }
 
-  public interface Key {}
+  public interface Key {
+    TimeDuration DEFAULT_DURATION = TimeDuration.valueOf(5, TimeUnit.SECONDS);
+
+    default TimeDuration getBatchDuration() {
+      return DEFAULT_DURATION;
+    }
+  }
 
   private static final class UniqueId {
     private final Key key;
@@ -92,6 +98,10 @@ public final class BatchLogger {
 
   private static final TimeoutExecutor SCHEDULER = TimeoutExecutor.getInstance();
   private static final ConcurrentMap<UniqueId, BatchedLogEntry> LOG_CACHE = new ConcurrentHashMap<>();
+
+  public static void warn(Key key, String name, Consumer<String> op) {
+    warn(key, name, op, key.getBatchDuration(), true);
+  }
 
   public static void warn(Key key, String name, Consumer<String> op, TimeDuration batchDuration) {
     warn(key, name, op, batchDuration, true);

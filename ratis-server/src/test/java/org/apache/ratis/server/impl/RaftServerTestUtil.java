@@ -31,9 +31,12 @@ import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.leader.LogAppender;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -49,6 +52,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -136,6 +140,15 @@ public class RaftServerTestUtil {
 
   public static ConfigurationManager getConfigurationManager(RaftServer.Division server) {
     return (ConfigurationManager) RaftTestUtil.getDeclaredField(getState(server), "configurationManager");
+  }
+
+  public static Logger getTransactionContextLog() {
+    return TransactionManager.LOG;
+  }
+
+  public static Map<TermIndex, MemoizedSupplier<TransactionContext>> getTransactionContextMap(
+      RaftServer.Division server) {
+    return ((RaftServerImpl)server).getTransactionContextMapForTesting();
   }
 
   public static RaftConfiguration newRaftConfiguration(Collection<RaftPeer> peers) {
