@@ -25,4 +25,23 @@ public interface RaftClientAsynchronousProtocol {
   CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException;
 
+  /**
+   * A referenced counted request is submitted from a client for processing.
+   * Implementations of this method should retain the request, process it and then release it.
+   * The request may be retained even after the future returned by this method has completed.
+   *
+   * @return a future of the reply
+   * @see ReferenceCountedObject
+   */
+  default CompletableFuture<RaftClientReply> submitClientRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    try {
+      // for backward compatibility
+      return submitClientRequestAsync(requestRef.retain());
+    } catch (Exception e) {
+      return JavaUtils.completeExceptionally(e);
+    } finally {
+      requestRef.release();
+    }
+  }
 }

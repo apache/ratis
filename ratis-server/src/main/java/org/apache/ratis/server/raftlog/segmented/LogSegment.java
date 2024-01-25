@@ -283,6 +283,7 @@ public final class LogSegment {
         if (ti.equals(key.getTermIndex())) {
           toReturn.set(entry);
         }
+        entryRef.release();
       });
       loadingTimes.incrementAndGet();
       final LogEntryProto proto = toReturn.get();

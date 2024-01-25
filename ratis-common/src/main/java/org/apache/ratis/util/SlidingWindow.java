@@ -51,6 +51,9 @@ public interface SlidingWindow {
     boolean hasReply();
 
     void fail(Throwable e);
+
+    default void release() {
+    }
   }
 
   interface ClientSideRequest<REPLY> extends Request<REPLY> {
@@ -166,8 +169,12 @@ public interface SlidingWindow {
       putNewRequest(end);
     }
 
-    void clear() {
+    void clear(long nextToProcess) {
       LOG.debug("close {}", this);
+      final SortedMap<Long, REQUEST> tail = requests.tailMap(nextToProcess);
+      for (REQUEST r : tail.values()) {
+        r.release();
+      }
       requests.clear();
     }
 
@@ -465,6 +472,7 @@ public interface SlidingWindow {
           return;
         } else if (r.getSeqNum() == nextToProcess) {
           processingMethod.accept(r);
+          r.release();
           nextToProcess++;
         }
       }
@@ -510,7 +518,7 @@ public interface SlidingWindow {
 
     @Override
     public void close() {
-      requests.clear();
+      requests.clear(nextToProcess);
     }
   }
 }

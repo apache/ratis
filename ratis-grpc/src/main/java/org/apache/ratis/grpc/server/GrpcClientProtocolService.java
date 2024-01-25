@@ -97,6 +97,13 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
     }
 
     @Override
+    public void release() {
+      if (requestRef != null) {
+        requestRef.release();
+      }
+    }
+
+    @Override
     public long getSeqNum() {
       return request != null? request.getSlidingWindowEntry().getSeqNum(): Long.MAX_VALUE;
     }
@@ -363,7 +370,6 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
       final long seq = pending.getSeqNum();
       processClientRequest(pending.getRequestRef(),
           reply -> slidingWindow.receiveReply(seq, reply, this::sendReply));
-      pending.getRequestRef().release();
     }
 
     @Override
@@ -378,7 +384,6 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
         final RaftGroupId requestGroupId = request.getRaftGroupId();
         // use the group id in the first request as the group id of this observer
         final RaftGroupId updated = groupId.updateAndGet(g -> g != null ? g : requestGroupId);
-        final PendingOrderedRequest pending = new PendingOrderedRequest(requestRef);
 
         if (!requestGroupId.equals(updated)) {
           final GroupMismatchException exception = new GroupMismatchException(getId()
@@ -387,7 +392,13 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
           responseError(exception, () -> "processClientRequest (Group mismatched) for " + request);
           return;
         }
-        slidingWindow.receivedRequest(pending, this::processClientRequest);
+        final PendingOrderedRequest pending = new PendingOrderedRequest(requestRef);
+        try {
+          slidingWindow.receivedRequest(pending, this::processClientRequest);
+        } catch (Exception e) {
+          pending.release();
+          throw e;
+        }
       } finally {
         requestRef.release();
       }
