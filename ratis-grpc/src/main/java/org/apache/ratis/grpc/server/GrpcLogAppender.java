@@ -67,6 +67,8 @@ public class GrpcLogAppender extends LogAppenderBase {
     APPEND_LOG_RESPONSE_HANDLER_ON_ERROR
   }
 
+  public static final int INSTALL_SNAPSHOT_NOTIFICATION_INDEX = 0;
+
   private static final Comparator<Long> CALL_ID_COMPARATOR = (left, right) -> {
     // calculate diff in order to take care the possibility of numerical overflow
     final long diff = left - right;
@@ -577,7 +579,9 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     void addPending(InstallSnapshotRequestProto request) {
       try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
-        pending.offer(request.getSnapshotChunk().getRequestIndex());
+        pending.offer(isNotificationOnly ? INSTALL_SNAPSHOT_NOTIFICATION_INDEX
+            : request.getSnapshotChunk().getRequestIndex());
+
       }
     }
 
@@ -585,7 +589,9 @@ public class GrpcLogAppender extends LogAppenderBase {
       try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
         final Integer index = pending.poll();
         Objects.requireNonNull(index, "index == null");
-        Preconditions.assertTrue(index == reply.getRequestIndex());
+        Preconditions.assertTrue(index ==
+            (isNotificationOnly ? INSTALL_SNAPSHOT_NOTIFICATION_INDEX : reply.getRequestIndex()));
+
       }
     }
 
