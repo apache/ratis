@@ -579,19 +579,38 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     void addPending(InstallSnapshotRequestProto request) {
       try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
-        pending.offer(isNotificationOnly ? INSTALL_SNAPSHOT_NOTIFICATION_INDEX
-            : request.getSnapshotChunk().getRequestIndex());
-
+        final int index;
+        if (isNotificationOnly) {
+          Preconditions.assertSame(InstallSnapshotRequestBodyCase.NOTIFICATION,
+                  request.getInstallSnapshotRequestBodyCase(), "request case");
+          index = INSTALL_SNAPSHOT_NOTIFICATION_INDEX;
+        } else {
+          Preconditions.assertSame(InstallSnapshotRequestBodyCase.SNAPSHOTCHUNK,
+                  request.getInstallSnapshotRequestBodyCase(), "request case");
+          index = request.getSnapshotChunk().getRequestIndex();
+        }
+        if (index == 0) {
+          Preconditions.assertTrue(pending.isEmpty(), "pending queue is non-empty before offer for index 0");
+        }
+        pending.offer(index);
       }
     }
 
     void removePending(InstallSnapshotReplyProto reply) {
       try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
-        final Integer index = pending.poll();
-        Objects.requireNonNull(index, "index == null");
-        Preconditions.assertTrue(index ==
-            (isNotificationOnly ? INSTALL_SNAPSHOT_NOTIFICATION_INDEX : reply.getRequestIndex()));
-
+        final int index = Objects.requireNonNull(pending.poll(), "index == null");
+        if (isNotificationOnly) {
+          Preconditions.assertSame(InstallSnapshotReplyBodyCase.SNAPSHOTINDEX,
+                  reply.getInstallSnapshotReplyBodyCase(), "reply case");
+          Preconditions.assertSame(INSTALL_SNAPSHOT_NOTIFICATION_INDEX, (int) index, "poll index");
+        } else {
+          Preconditions.assertSame(InstallSnapshotReplyBodyCase.REQUESTINDEX,
+                  reply.getInstallSnapshotReplyBodyCase(), "reply case");
+          Preconditions.assertSame(reply.getRequestIndex(), (int) index, "poll index");
+        }
+        if (index == 0) {
+          Preconditions.assertTrue(pending.isEmpty(), "pending queue is non-empty after poll for index 0");
+        }
       }
     }
 
