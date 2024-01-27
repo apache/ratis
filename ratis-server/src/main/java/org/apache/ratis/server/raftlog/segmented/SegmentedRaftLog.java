@@ -326,11 +326,13 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   private void checkAndEvictCache() {
     if (cache.shouldEvict()) {
-      // TODO if the cache is hitting the maximum size and we cannot evict any
-      // segment's cache, should block the new entry appending or new segment
-      // allocation.
-      cache.evictCache(server.getFollowerNextIndices(), fileLogWorker.getSafeCacheEvictIndex(),
-          server.getLastAppliedIndex());
+      try (AutoCloseableLock ignored = writeLock()){
+        // TODO if the cache is hitting the maximum size and we cannot evict any
+        // segment's cache, should block the new entry appending or new segment
+        // allocation.
+        cache.evictCache(server.getFollowerNextIndices(), fileLogWorker.getSafeCacheEvictIndex(),
+            server.getLastAppliedIndex());
+      }
     }
   }
 
