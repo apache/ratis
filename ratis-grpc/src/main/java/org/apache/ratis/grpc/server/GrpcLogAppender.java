@@ -610,9 +610,6 @@ public class GrpcLogAppender extends LogAppenderBase {
                   reply.getInstallSnapshotReplyBodyCase(), "reply case");
           Preconditions.assertSame(reply.getRequestIndex(), (int) index, "poll index");
         }
-        if (index == 0) {
-          Preconditions.assertTrue(pending.isEmpty(), "pending queue is non-empty after poll for index 0");
-        }
       }
     }
 
