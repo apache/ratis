@@ -112,9 +112,11 @@ final class ReferenceCountedLeakDetector {
       final List<StackTraceElement[]> localReleaseTraces = new LinkedList<>();
 
       this.leakTracker = leakDetector.track(this, () -> {
-        LOG.warn("LEAK: A {} is not released properly.\nCreation trace\n{}\nRetain traces:\n{}\nRelease traces\n{}",
-            clazz.getName(), formatStackTrace(createStrace, 3), formatStackTraces(localRetainsTraces, 2),
-            formatStackTraces(localReleaseTraces, 2));
+        LOG.warn("LEAK: A {} is not released properly.\nCreation trace:\n{}\n" +
+                "Retain traces({}):\n{}\nRelease traces({}):\n{}",
+            clazz.getName(), formatStackTrace(createStrace, 3),
+            localRetainsTraces.size(), formatStackTraces(localRetainsTraces, 2),
+            localReleaseTraces.size(), formatStackTraces(localReleaseTraces, 2));
       });
 
       this.retainsTraces = localRetainsTraces;

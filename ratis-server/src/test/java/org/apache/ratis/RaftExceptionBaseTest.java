@@ -138,7 +138,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testGroupMismatchException() throws Exception {
-    runWithSameCluster(NUM_PEERS, this::runTestGroupMismatchException);
+    runWithNewCluster(NUM_PEERS, this::runTestGroupMismatchException);
   }
 
   void runTestGroupMismatchException(CLUSTER cluster) throws Exception {
@@ -171,7 +171,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testStaleReadException() throws Exception {
-    runWithSameCluster(NUM_PEERS, this::runTestStaleReadException);
+    runWithNewCluster(NUM_PEERS, this::runTestStaleReadException);
   }
 
   void runTestStaleReadException(CLUSTER cluster) throws Exception {
@@ -186,7 +186,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testLogAppenderBufferCapacity() throws Exception {
-    runWithSameCluster(NUM_PEERS, this::runTestLogAppenderBufferCapacity);
+    runWithNewCluster(NUM_PEERS, this::runTestLogAppenderBufferCapacity);
   }
 
   void runTestLogAppenderBufferCapacity(CLUSTER cluster) throws Exception {
