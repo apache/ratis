@@ -41,7 +41,9 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto.InstallSnapshotReplyBodyCase;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto.InstallSnapshotRequestBodyCase;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
@@ -66,6 +68,8 @@ public class GrpcLogAppender extends LogAppenderBase {
     RESET_CLIENT,
     APPEND_LOG_RESPONSE_HANDLER_ON_ERROR
   }
+
+  public static final int INSTALL_SNAPSHOT_NOTIFICATION_INDEX = 0;
 
   private static final Comparator<Long> CALL_ID_COMPARATOR = (left, right) -> {
     // calculate diff in order to take care the possibility of numerical overflow
@@ -577,15 +581,35 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     void addPending(InstallSnapshotRequestProto request) {
       try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
-        pending.offer(request.getSnapshotChunk().getRequestIndex());
+        final int index;
+        if (isNotificationOnly) {
+          Preconditions.assertSame(InstallSnapshotRequestBodyCase.NOTIFICATION,
+                  request.getInstallSnapshotRequestBodyCase(), "request case");
+          index = INSTALL_SNAPSHOT_NOTIFICATION_INDEX;
+        } else {
+          Preconditions.assertSame(InstallSnapshotRequestBodyCase.SNAPSHOTCHUNK,
+                  request.getInstallSnapshotRequestBodyCase(), "request case");
+          index = request.getSnapshotChunk().getRequestIndex();
+        }
+        if (index == 0) {
+          Preconditions.assertTrue(pending.isEmpty(), "pending queue is non-empty before offer for index 0");
+        }
+        pending.offer(index);
       }
     }
 
     void removePending(InstallSnapshotReplyProto reply) {
       try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
-        final Integer index = pending.poll();
-        Objects.requireNonNull(index, "index == null");
-        Preconditions.assertTrue(index == reply.getRequestIndex());
+        final int index = Objects.requireNonNull(pending.poll(), "index == null");
+        if (isNotificationOnly) {
+          Preconditions.assertSame(InstallSnapshotReplyBodyCase.SNAPSHOTINDEX,
+                  reply.getInstallSnapshotReplyBodyCase(), "reply case");
+          Preconditions.assertSame(INSTALL_SNAPSHOT_NOTIFICATION_INDEX, (int) index, "poll index");
+        } else {
+          Preconditions.assertSame(InstallSnapshotReplyBodyCase.REQUESTINDEX,
+                  reply.getInstallSnapshotReplyBodyCase(), "reply case");
+          Preconditions.assertSame(reply.getRequestIndex(), (int) index, "poll index");
+        }
       }
     }
 
