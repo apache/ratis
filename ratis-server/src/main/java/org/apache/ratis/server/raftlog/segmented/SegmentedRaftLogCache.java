@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * In-memory RaftLog Cache. Currently we provide a simple implementation that
@@ -350,12 +351,10 @@ public class SegmentedRaftLogCache {
     TruncationSegments purge(long index) {
       try (AutoCloseableLock writeLock = writeLock()) {
         int segmentIndex = binarySearch(index);
-        List<SegmentFileInfo> list = new ArrayList<>();
+        List<LogSegment> list = new LinkedList<>();
 
         if (segmentIndex == -segments.size() - 1) {
-          for (LogSegment ls : segments) {
-            list.add(SegmentFileInfo.newClosedSegmentFileInfo(ls));
-          }
+          list.addAll(segments);
           segments.clear();
           sizeInBytes = 0;
         } else if (segmentIndex >= 0) {
@@ -368,13 +367,16 @@ public class SegmentedRaftLogCache {
           for (int i = 0; i <= startIndex; i++) {
             LogSegment segment = segments.remove(0); // must remove the first segment to avoid gaps.
             sizeInBytes -= segment.getTotalFileSize();
-            list.add(SegmentFileInfo.newClosedSegmentFileInfo(segment));
+            list.add(segment);
           }
         } else {
           throw new IllegalStateException("Unexpected gap in segments: binarySearch(" + index + ") returns "
                   + segmentIndex + ", segments=" + segments);
         }
-        return list.isEmpty() ? null : new TruncationSegments(null, list);
+        list.forEach(LogSegment::evictCache);
+        List<SegmentFileInfo> toDelete = list.stream().map(SegmentFileInfo::newClosedSegmentFileInfo)
+            .collect(Collectors.toList());
+        return list.isEmpty() ? null : new TruncationSegments(null, toDelete);
       }
     }
 

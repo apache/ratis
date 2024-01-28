@@ -52,11 +52,13 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
   static class PendingServerRequest<REQUEST> {
     private final REQUEST request;
+    private final ReferenceCountedObject<REQUEST> requestRef;
+    private AtomicBoolean released = new AtomicBoolean(false);
     private final CompletableFuture<Void> future = new CompletableFuture<>();
 
     PendingServerRequest(ReferenceCountedObject<REQUEST> requestRef) {
       this.request = requestRef.retain();
-      this.future.whenComplete((r, e) -> requestRef.release());
+      this.requestRef = requestRef;
     }
 
     REQUEST getRequest() {
@@ -65,6 +67,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
     CompletableFuture<Void> getFuture() {
       return future;
+    }
+
+    void release() {
+      if (released.compareAndSet(false, true)) {
+        requestRef.release();
+      }
     }
   }
 
@@ -158,9 +166,8 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       }
 
       final PendingServerRequest<REQUEST> current = new PendingServerRequest<>(requestRef);
-      final PendingServerRequest<REQUEST> previous = previousOnNext.getAndSet(current);
-      final CompletableFuture<Void> previousFuture = Optional.ofNullable(previous)
-          .map(PendingServerRequest::getFuture)
+      final Optional<PendingServerRequest<REQUEST>> previous = Optional.ofNullable(previousOnNext.getAndSet(current));
+      final CompletableFuture<Void> previousFuture = previous.map(PendingServerRequest::getFuture)
           .orElse(CompletableFuture.completedFuture(null));
       try {
         final CompletableFuture<REPLY> f = process(requestRef).exceptionally(e -> {
@@ -177,6 +184,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       } catch (Exception e) {
         handleError(e, request);
         current.getFuture().completeExceptionally(e);
+      } finally {
+        previous.ifPresent(PendingServerRequest::release);
+        if (isClosed.get()) {
+          // Some requests may come after onCompleted or onError, ensure they're released.
+          releaseLast();
+        }
       }
     }
 
@@ -188,6 +201,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
           LOG.info("{}: Completed {}, lastReply: {}", getId(), op, reply);
           responseObserver.onCompleted();
         });
+        releaseLast();
       }
     }
     @Override
@@ -198,7 +212,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         if (status != null && status.getCode() != Status.Code.CANCELLED) {
           responseObserver.onCompleted();
         }
+        releaseLast();
       }
+    }
+
+    private void releaseLast() {
+      Optional.ofNullable(previousOnNext.get()).ifPresent(PendingServerRequest::release);
     }
   }
 

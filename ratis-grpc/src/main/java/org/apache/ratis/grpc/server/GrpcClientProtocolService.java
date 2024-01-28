@@ -320,11 +320,13 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
       final CompletableFuture<Void> f = processClientRequest(requestRef, reply -> {
         if (!reply.isSuccess()) {
-          LOG.info("Failed {}, reply={}", request, reply);
+          LOG.info("Failed {}, reply={}", request.toStringShort(), reply);
         }
         final RaftClientReplyProto proto = ClientProtoUtils.toRaftClientReplyProto(reply);
         responseNext(proto);
-      }).whenComplete((r, e) -> requestRef.release());
+      });
+
+      requestRef.release();
 
       put(callId, f);
       f.thenAccept(dummy -> remove(callId));

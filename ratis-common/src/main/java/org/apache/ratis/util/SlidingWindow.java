@@ -167,6 +167,7 @@ public interface SlidingWindow {
                 + " will NEVER be processed; request = " + r);
         r.fail(e);
         replyMethod.accept(r);
+        r.release();
       }
       tail.clear();
 
@@ -462,6 +463,9 @@ public interface SlidingWindow {
       } else {
         final boolean isRetry = requests.putIfAbsent(request);
         LOG.debug("Received seq={}, isRetry? {}, {}", seqNum, isRetry, this);
+        if (isRetry || request.getSeqNum() < nextToProcess) {
+          request.release();
+        }
         if (isRetry) {
           return;
         }
