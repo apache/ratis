@@ -62,15 +62,15 @@ public class LeakDetector {
 
   public LeakDetector(String name) {
     this.name = name + COUNTER.getAndIncrement();
-    start();
   }
 
-  private void start() {
+  LeakDetector start() {
     Thread t = new Thread(this::run);
     t.setName(LeakDetector.class.getSimpleName() + "-" + name);
     t.setDaemon(true);
     LOG.info("Starting leak detector thread {}.", name);
     t.start();
+    return this;
   }
 
   private void run() {
