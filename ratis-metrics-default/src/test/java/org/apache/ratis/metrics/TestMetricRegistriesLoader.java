@@ -17,15 +17,15 @@
  */
 package org.apache.ratis.metrics;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ratis.metrics.impl.MetricRegistriesImpl;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,7 +57,7 @@ public class TestMetricRegistriesLoader {
   @Test
   public void testLoadDefault() {
     final MetricRegistries r = MetricRegistriesLoader.load();
-    Assert.assertSame(MetricRegistriesImpl.class, r.getClass());
+    Assertions.assertSame(MetricRegistriesImpl.class, r.getClass());
   }
 
   @Test
@@ -71,16 +71,16 @@ public class TestMetricRegistriesLoader {
     // check if add and remove of metric do reporting counter increase
     MetricRegistryInfo info = new MetricRegistryInfo("t1", "t1", "t1", "t1");
     r.create(info);
-    Assert.assertTrue(cntr.get() == 1);
+    assertEquals(1, cntr.get());
     r.remove(info);
-    Assert.assertTrue(cntr.get() == 2);
+    assertEquals(2, cntr.get());
 
     // after removal, add and remove of metric must not do any increase
     r.removeReporterRegistration(reporter, stopReporter);
     r.create(info);
-    Assert.assertTrue(cntr.get() == 2);
+    assertEquals(2, cntr.get());
     r.remove(info);
-    Assert.assertTrue(cntr.get() == 2);
+    assertEquals(2, cntr.get());
   }
 
 }
