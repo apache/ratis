@@ -42,6 +42,7 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
@@ -247,11 +248,22 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
     LOG.info("applyTransaction for log index {}", entry.getIndex());
 
-    put(entry);
+    // TODO: Logs kept in StateMachine's cache may be corrupted. Copy for now to have the test pass.
+    // Use ReferenceCount per RATIS-1997.
+    LogEntryProto copied = copy(entry);
+    put(copied);
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
 
     final SimpleMessage m = new SimpleMessage(entry.getIndex() + " OK");
     return collecting.collect(Collecting.Type.APPLY_TRANSACTION, m);
+  }
+
+  private LogEntryProto copy(LogEntryProto log) {
+    try {
+      return LogEntryProto.parseFrom(log.toByteString());
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalStateException("Error copying log entry", e);
+    }
   }
 
   @Override
