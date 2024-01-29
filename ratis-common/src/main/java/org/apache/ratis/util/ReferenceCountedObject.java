@@ -118,7 +118,7 @@ public interface ReferenceCountedObject<T> {
       @Override
       public boolean release() {
         boolean allReleased = true;
-        for (ReferenceCountedObject ref : fromRefs) {
+        for (ReferenceCountedObject<T> ref : fromRefs) {
           if (!ref.release()) {
             allReleased = false;
           }

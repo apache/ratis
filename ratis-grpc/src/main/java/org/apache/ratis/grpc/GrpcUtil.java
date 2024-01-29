@@ -63,14 +63,8 @@ public interface GrpcUtil {
       Metadata.Key.of("heartbeat", Metadata.ASCII_STRING_MARSHALLER);
 
   static StatusRuntimeException wrapException(Throwable t) {
-    return wrapException(t, -1);
-  }
-
-  static StatusRuntimeException wrapException(Throwable t, long callId) {
     t = JavaUtils.unwrapCompletionException(t);
-    Metadata trailers = new StatusRuntimeExceptionMetadataBuilder(t)
-        .addCallId(callId)
-        .build();
+    Metadata trailers = new StatusRuntimeExceptionMetadataBuilder(t).build();
     return wrapException(t, trailers);
   }
 
