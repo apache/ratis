@@ -125,7 +125,8 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     abstract boolean replyInOrder(REQUEST request);
 
     private synchronized void handleError(Throwable e, long callId, boolean isHeartbeat) {
-      GrpcUtil.warn(LOG, () -> getId() + ": Failed " + op + " request cid=" + callId + ", isHeartbeat? " + isHeartbeat, e);
+      GrpcUtil.warn(LOG, () -> getId() + ": Failed " + op + " request cid=" + callId + ", isHeartbeat? "
+          + isHeartbeat, e);
       if (isClosed.compareAndSet(false, true)) {
         responseObserver.onError(GrpcUtil.wrapException(e, callId, isHeartbeat));
       }
