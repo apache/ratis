@@ -67,7 +67,7 @@ class RetryCacheImpl implements RetryCache {
     }
 
     boolean isCompletedNormally() {
-      return !failed && replyFuture.isDone() && !replyFuture.isCompletedExceptionally() && !replyFuture.isCancelled();
+      return !failed && JavaUtils.isCompletedNormally(replyFuture);
     }
 
     void updateResult(RaftClientReply reply) {
