@@ -24,42 +24,39 @@ import org.apache.ratis.examples.ParameterizedBaseTest;
 import org.apache.ratis.examples.counter.server.CounterStateMachine;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.util.Collection;
 
 public class TestCounter extends ParameterizedBaseTest {
 
-  @Parameterized.Parameters
   public static Collection<Object[]> data() {
     return getMiniRaftClusters(CounterStateMachine.class, 3);
   }
 
-  @Parameterized.Parameter
-  public MiniRaftCluster cluster;
-
-  @Test
-  public void testSeveralCounter() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testSeveralCounter(MiniRaftCluster cluster) throws IOException, InterruptedException {
     setAndStart(cluster);
     try (final RaftClient client = cluster.createClient()) {
       for (int i = 0; i < 10; i++) {
         client.io().send(Message.valueOf("INCREMENT"));
       }
       RaftClientReply reply1 = client.io().sendReadOnly(Message.valueOf("GET"));
-      Assert.assertEquals(10, reply1.getMessage().getContent().asReadOnlyByteBuffer().getInt());
+      Assertions.assertEquals(10, reply1.getMessage().getContent().asReadOnlyByteBuffer().getInt());
       for (int i = 0; i < 10; i++) {
         client.io().send(Message.valueOf("INCREMENT"));
       }
       RaftClientReply reply2 = client.io().sendReadOnly(Message.valueOf("GET"));
-      Assert.assertEquals(20, reply2.getMessage().getContent().asReadOnlyByteBuffer().getInt());
+      Assertions.assertEquals(20, reply2.getMessage().getContent().asReadOnlyByteBuffer().getInt());
       for (int i = 0; i < 10; i++) {
         client.io().send(Message.valueOf("INCREMENT"));
       }
       RaftClientReply reply3 = client.io().sendReadOnly(Message.valueOf("GET"));
-      Assert.assertEquals(30, reply3.getMessage().getContent().asReadOnlyByteBuffer().getInt());
+      Assertions.assertEquals(30, reply3.getMessage().getContent().asReadOnlyByteBuffer().getInt());
     }
   }
 }

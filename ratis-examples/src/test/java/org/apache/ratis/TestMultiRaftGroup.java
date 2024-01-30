@@ -27,45 +27,40 @@ import org.apache.ratis.server.impl.GroupManagementBaseTest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.function.CheckedBiConsumer;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@RunWith(Parameterized.class)
 public class TestMultiRaftGroup extends BaseTest {
   static {
     Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
   }
 
-  @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
     return ParameterizedBaseTest.getMiniRaftClusters(ArithmeticStateMachine.class, 0);
   }
 
-  @Parameterized.Parameter
-  public MiniRaftCluster cluster;
-
-  @Test
-  public void testMultiRaftGroup() throws Exception {
-    runTestMultiRaftGroup(3, 6, 9, 12, 15);
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testMultiRaftGroup(MiniRaftCluster cluster) throws Exception {
+    runTestMultiRaftGroup(cluster, 3, 6, 9, 12, 15);
   }
 
-  private void runTestMultiRaftGroup(int... idIndex) throws Exception {
-    runTestMultiRaftGroup(idIndex, -1);
+  private void runTestMultiRaftGroup(MiniRaftCluster cluster, int... idIndex) throws Exception {
+    runTestMultiRaftGroup(cluster, idIndex, -1);
   }
 
   private final AtomicInteger start = new AtomicInteger(3);
   private final int count = 10;
 
-  private void runTestMultiRaftGroup(int[] idIndex, int chosen) throws Exception {
+  private void runTestMultiRaftGroup(MiniRaftCluster cluster, int[] idIndex, int chosen) throws Exception {
 
-    final CheckedBiConsumer<MiniRaftCluster, RaftGroup, IOException> checker = (cluster, group) -> {
-      try (final RaftClient client = cluster.createClient(group)) {
+    final CheckedBiConsumer<MiniRaftCluster, RaftGroup, IOException> checker = (c, group) -> {
+      try (final RaftClient client = c.createClient(group)) {
         TestArithmetic.runTestPythagorean(client, start.getAndAdd(2*count), count);
       }
     };
