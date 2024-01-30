@@ -56,6 +56,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class LeakDetector {
   private static final Logger LOG = LoggerFactory.getLogger(LeakDetector.class);
   private static final AtomicLong COUNTER = new AtomicLong();
+
   private final ReferenceQueue<Object> queue = new ReferenceQueue<>();
   private final Set<LeakTracker> allLeaks = Collections.newSetFromMap(new ConcurrentHashMap<>());
   private final String name;
@@ -101,7 +102,19 @@ public class LeakDetector {
     return tracker;
   }
 
-  private static final class LeakTracker extends WeakReference<Object> implements UncheckedAutoCloseable {
+  public void assertNoLeaks() {
+    Preconditions.assertTrue(allLeaks.isEmpty(), this::allLeaksString);
+  }
+
+  String allLeaksString() {
+    if (allLeaks.isEmpty()) {
+      return "allLeaks = <empty>";
+    }
+    allLeaks.forEach(LeakTracker::reportLeak);
+    return "allLeaks.size = " + allLeaks.size();
+  }
+
+  private final class LeakTracker extends WeakReference<Object> implements UncheckedAutoCloseable {
     private final Set<LeakTracker> allLeaks;
     private final Runnable leakReporter;
     LeakTracker(Object referent, ReferenceQueue<Object> referenceQueue,

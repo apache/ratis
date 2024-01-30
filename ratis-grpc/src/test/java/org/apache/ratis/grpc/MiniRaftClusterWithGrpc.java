@@ -89,8 +89,6 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   @Override
   public void shutdown() {
     super.shutdown();
-    // GC to ensure leak detection work.
-    System.gc();
     assertZeroCopyMetrics();
   }
 
@@ -103,8 +101,6 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
       Assert.assertEquals(0, zeroCopyMetrics.nonZeroCopyMessages());
       Assert.assertEquals("Zero copy messages are not released, please check logs to find leaks. ",
           zeroCopyMetrics.zeroCopyMessages(), zeroCopyMetrics.releasedMessages());
-    }
-  ));
+    }));
   }
-
 }

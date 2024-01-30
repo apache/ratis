@@ -30,7 +30,7 @@ import java.util.function.Supplier;
 /**
  * A utility to detect leaks from @{@link ReferenceCountedObject}.
  */
-final class ReferenceCountedLeakDetector {
+public final class ReferenceCountedLeakDetector {
   private static final Logger LOG = LoggerFactory.getLogger(ReferenceCountedLeakDetector.class);
   // Leak detection is turned off by default.
 
@@ -42,7 +42,7 @@ final class ReferenceCountedLeakDetector {
     return FACTORY.get();
   }
 
-  static LeakDetector getLeakDetector() {
+  public static LeakDetector getLeakDetector() {
     return SUPPLIER.get();
   }
 
@@ -60,12 +60,14 @@ final class ReferenceCountedLeakDetector {
   private enum Mode implements Factory {
     /** Leak detector is not enable in production to avoid performance impacts. */
     NONE {
+      @Override
       public <V> ReferenceCountedObject<V> create(V value, Runnable retainMethod, Consumer<Boolean> releaseMethod) {
         return new Impl<>(value, retainMethod, releaseMethod);
       }
     },
     /** Leak detector is enabled to detect leaks. This is intended to use in every tests. */
     SIMPLE {
+      @Override
       public <V> ReferenceCountedObject<V> create(V value, Runnable retainMethod, Consumer<Boolean> releaseMethod) {
         return new SimpleTracing<>(value, retainMethod, releaseMethod, getLeakDetector());
       }
@@ -75,6 +77,7 @@ final class ReferenceCountedLeakDetector {
      * release stacktraces. This has severe impact in performance and only used to debug specific test cases.
      */
     ADVANCED {
+      @Override
       public <V> ReferenceCountedObject<V> create(V value, Runnable retainMethod, Consumer<Boolean> releaseMethod) {
         return new AdvancedTracing<>(value, retainMethod, releaseMethod, getLeakDetector());
       }

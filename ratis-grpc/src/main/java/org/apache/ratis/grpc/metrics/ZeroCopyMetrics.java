@@ -70,7 +70,4 @@ public class ZeroCopyMetrics extends RatisMetrics {
   public long releasedMessages() {
     return releasedMessages.getCount();
   }
-
-  public void reset() {
-  }
 }
