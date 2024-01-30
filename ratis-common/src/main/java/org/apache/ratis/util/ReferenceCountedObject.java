@@ -117,7 +117,13 @@ public interface ReferenceCountedObject<T> {
 
       @Override
       public boolean release() {
-        return fromRefs.stream().map(ReferenceCountedObject::release).allMatch(r -> r);
+        boolean allReleased = true;
+        for (ReferenceCountedObject<T> ref : fromRefs) {
+          if (!ref.release()) {
+            allReleased = false;
+          }
+        }
+        return allReleased;
       }
     };
   }

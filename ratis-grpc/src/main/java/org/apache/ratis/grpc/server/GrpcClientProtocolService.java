@@ -29,6 +29,7 @@ import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceImplBase;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -317,14 +318,16 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
     void processClientRequest(ReferenceCountedObject<RaftClientRequest> requestRef) {
       final RaftClientRequest request = requestRef.retain();
       final long callId = request.getCallId();
-
+      final SlidingWindowEntry slidingWindowEntry = request.getSlidingWindowEntry();
       final CompletableFuture<Void> f = processClientRequest(requestRef, reply -> {
         if (!reply.isSuccess()) {
-          LOG.info("Failed {}, reply={}", request, reply);
+          LOG.info("Failed request cid={}, {}, reply={}", callId, slidingWindowEntry, reply);
         }
         final RaftClientReplyProto proto = ClientProtoUtils.toRaftClientReplyProto(reply);
         responseNext(proto);
-      }).whenComplete((r, e) -> requestRef.release());
+      });
+
+      requestRef.release();
 
       put(callId, f);
       f.thenAccept(dummy -> remove(callId));

@@ -28,7 +28,6 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.Status;
-import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
@@ -51,20 +50,27 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
 
   static class PendingServerRequest<REQUEST> {
-    private final REQUEST request;
+    private final AtomicReference<ReferenceCountedObject<REQUEST>> requestRef;
     private final CompletableFuture<Void> future = new CompletableFuture<>();
 
     PendingServerRequest(ReferenceCountedObject<REQUEST> requestRef) {
-      this.request = requestRef.retain();
-      this.future.whenComplete((r, e) -> requestRef.release());
+      requestRef.retain();
+      this.requestRef = new AtomicReference<>(requestRef);
     }
 
     REQUEST getRequest() {
-      return request;
+      return Optional.ofNullable(requestRef.get())
+          .map(ReferenceCountedObject::get)
+          .orElse(null);
     }
 
     CompletableFuture<Void> getFuture() {
       return future;
+    }
+
+    void release() {
+      Optional.ofNullable(requestRef.getAndSet(null))
+          .ifPresent(ReferenceCountedObject::release);
     }
   }
 
@@ -108,20 +114,21 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
     abstract long getCallId(REQUEST request);
 
+    boolean isHeartbeat(REQUEST request) {
+      return false;
+    }
+
     abstract String requestToString(REQUEST request);
 
     abstract String replyToString(REPLY reply);
 
     abstract boolean replyInOrder(REQUEST request);
 
-    StatusRuntimeException wrapException(Throwable e, REQUEST request) {
-      return GrpcUtil.wrapException(e, getCallId(request));
-    }
-
-    private void handleError(Throwable e, REQUEST request) {
-      GrpcUtil.warn(LOG, () -> getId() + ": Failed " + op + " request " + requestToString(request), e);
+    private synchronized void handleError(Throwable e, long callId, boolean isHeartbeat) {
+      GrpcUtil.warn(LOG, () -> getId() + ": Failed " + op + " request cid=" + callId + ", isHeartbeat? "
+          + isHeartbeat, e);
       if (isClosed.compareAndSet(false, true)) {
-        responseObserver.onError(wrapException(e, request));
+        responseObserver.onError(GrpcUtil.wrapException(e, callId, isHeartbeat));
       }
     }
 
@@ -151,21 +158,22 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         try {
           composeRequest(process(requestRef).thenApply(this::handleReply));
         } catch (Exception e) {
-          handleError(e, request);
+          handleError(e, getCallId(request), isHeartbeat(request));
           release(request);
         }
         return;
       }
 
       final PendingServerRequest<REQUEST> current = new PendingServerRequest<>(requestRef);
-      final PendingServerRequest<REQUEST> previous = previousOnNext.getAndSet(current);
-      final CompletableFuture<Void> previousFuture = Optional.ofNullable(previous)
-          .map(PendingServerRequest::getFuture)
+      final long callId = getCallId(current.getRequest());
+      final boolean isHeartbeat = isHeartbeat(current.getRequest());
+      final Optional<PendingServerRequest<REQUEST>> previous = Optional.ofNullable(previousOnNext.getAndSet(current));
+      final CompletableFuture<Void> previousFuture = previous.map(PendingServerRequest::getFuture)
           .orElse(CompletableFuture.completedFuture(null));
       try {
         final CompletableFuture<REPLY> f = process(requestRef).exceptionally(e -> {
           // Handle cases, such as RaftServer is paused
-          handleError(e, request);
+          handleError(e, callId, isHeartbeat);
           current.getFuture().completeExceptionally(e);
           return null;
         }).thenCombine(previousFuture, (reply, v) -> {
@@ -175,8 +183,14 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         });
         composeRequest(f);
       } catch (Exception e) {
-        handleError(e, request);
+        handleError(e, callId, isHeartbeat);
         current.getFuture().completeExceptionally(e);
+      } finally {
+        previous.ifPresent(PendingServerRequest::release);
+        if (isClosed.get()) {
+          // Some requests may come after onCompleted or onError, ensure they're released.
+          releaseLast();
+        }
       }
     }
 
@@ -188,8 +202,10 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
           LOG.info("{}: Completed {}, lastReply: {}", getId(), op, reply);
           responseObserver.onCompleted();
         });
+        releaseLast();
       }
     }
+
     @Override
     public void onError(Throwable t) {
       GrpcUtil.warn(LOG, () -> getId() + ": "+ op + " onError, lastRequest: " + getPreviousRequestString(), t);
@@ -198,7 +214,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         if (status != null && status.getCode() != Status.Code.CANCELLED) {
           responseObserver.onCompleted();
         }
+        releaseLast();
       }
+    }
+
+    private void releaseLast() {
+      Optional.ofNullable(previousOnNext.get()).ifPresent(PendingServerRequest::release);
     }
   }
 
@@ -289,6 +310,11 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       }
 
       @Override
+      boolean isHeartbeat(AppendEntriesRequestProto request) {
+        return request.getEntriesCount() == 0;
+      }
+
+      @Override
       String requestToString(AppendEntriesRequestProto request) {
         return ServerStringUtils.toAppendEntriesRequestString(request);
       }
@@ -301,11 +327,6 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       @Override
       boolean replyInOrder(AppendEntriesRequestProto request) {
         return request.getEntriesCount() != 0;
-      }
-
-      @Override
-      StatusRuntimeException wrapException(Throwable e, AppendEntriesRequestProto request) {
-        return GrpcUtil.wrapException(e, getCallId(request), request.getEntriesCount() == 0);
       }
     };
   }

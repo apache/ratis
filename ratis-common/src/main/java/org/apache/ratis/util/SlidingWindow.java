@@ -167,6 +167,7 @@ public interface SlidingWindow {
                 + " will NEVER be processed; request = " + r);
         r.fail(e);
         replyMethod.accept(r);
+        r.release();
       }
       tail.clear();
 
@@ -455,19 +456,26 @@ public interface SlidingWindow {
     /** A request (or a retry) arrives (may be out-of-order except for the first request). */
     public synchronized void receivedRequest(REQUEST request, Consumer<REQUEST> processingMethod) {
       final long seqNum = request.getSeqNum();
+      final boolean accepted;
       if (nextToProcess == -1 && (request.isFirstRequest() || seqNum == 0)) {
         nextToProcess = seqNum;
         requests.putNewRequest(request);
         LOG.debug("Received seq={} (first request), {}", seqNum, this);
+        accepted = true;
+      } else if (request.getSeqNum() < nextToProcess) {
+        LOG.debug("Received seq={} < nextToProcess {}, {}", seqNum, nextToProcess, this);
+        accepted = false;
       } else {
         final boolean isRetry = requests.putIfAbsent(request);
         LOG.debug("Received seq={}, isRetry? {}, {}", seqNum, isRetry, this);
-        if (isRetry) {
-          return;
-        }
+        accepted = !isRetry;
       }
 
-      processRequestsFromHead(processingMethod);
+      if (accepted) {
+        processRequestsFromHead(processingMethod);
+      } else {
+        request.release();
+      }
     }
 
     private void processRequestsFromHead(Consumer<REQUEST> processingMethod) {

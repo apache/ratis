@@ -50,11 +50,9 @@ public interface RaftServerAsynchronousProtocol {
       ReferenceCountedObject<AppendEntriesRequestProto> requestRef) throws IOException {
     // Default implementation for backward compatibility.
     try {
-      return appendEntriesAsync(requestRef.retain())
-          .whenComplete((r, e) -> requestRef.release());
-    } catch (Exception e) {
+      return appendEntriesAsync(requestRef.retain());
+    } finally {
       requestRef.release();
-      throw e;
     }
   }
 
