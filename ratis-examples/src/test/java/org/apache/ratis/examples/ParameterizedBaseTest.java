@@ -28,10 +28,9 @@ import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.AfterClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,17 +39,15 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-@RunWith(Parameterized.class)
 public abstract class ParameterizedBaseTest extends BaseTest {
   public static final Logger LOG = LoggerFactory.getLogger(ParameterizedBaseTest.class);
 
   /** Subclasses should override this method to provide real data parameters. */
-  @Parameterized.Parameters
   public static Collection<Object[]> data() {
     return Collections.emptyList();
   }
 
-  /** For {@link Parameterized} test so that a cluster can be shared by multiple {@link Test} */
+  /** For {@link ParameterizedTest} so that a cluster can be shared by multiple {@link Test} */
   private static final AtomicReference<MiniRaftCluster> currentCluster = new AtomicReference<>();
 
   /** Set {@link #currentCluster} to the given cluster and start it if {@link #currentCluster} is changed. */
@@ -66,7 +63,7 @@ public abstract class ParameterizedBaseTest extends BaseTest {
     }
   }
 
-  @AfterClass
+  @AfterAll
   public static void shutdownCurrentCluster() {
     final MiniRaftCluster cluster = currentCluster.getAndSet(null);
     if (cluster != null) {
