@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
+import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,7 +100,7 @@ class ReadIndexHeartbeats {
 
     boolean receive(LogAppender logAppender, AppendEntriesReplyProto proto,
                     Predicate<Predicate<RaftPeerId>> hasMajority) {
-      if (isCompletedNormally()) {
+      if (JavaUtils.isCompletedNormally(future)) {
         return true;
       }
 
@@ -112,15 +113,11 @@ class ReadIndexHeartbeats {
         }
       }
 
-      return isCompletedNormally();
+      return JavaUtils.isCompletedNormally(future);
     }
 
     boolean isAcknowledged(RaftPeerId id) {
       return Optional.ofNullable(replies.get(id)).filter(HeartbeatAck::isAcknowledged).isPresent();
-    }
-
-    boolean isCompletedNormally() {
-      return future.isDone() && !future.isCancelled() && !future.isCompletedExceptionally();
     }
   }
 
