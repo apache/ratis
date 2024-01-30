@@ -1186,7 +1186,13 @@ class RaftServerImpl implements RaftServer.Division,
         return f.thenApply(r -> null);
       }
       // the message stream has ended and the request become a WRITE request
-      return replyFuture(f.join());
+      ReferenceCountedObject<RaftClientRequest> joinedRequest = f.join();
+      try {
+        return replyFuture(joinedRequest);
+      } finally {
+        // Released pending streaming requests.
+        joinedRequest.release();
+      }
     }
 
     return role.getLeaderState()
