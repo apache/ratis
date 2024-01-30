@@ -269,6 +269,10 @@ public interface JavaUtils {
     return future;
   }
 
+  static boolean isCompletedNormally(CompletableFuture<?> future) {
+    return future.isDone() && !future.isCancelled() && !future.isCompletedExceptionally();
+  }
+
   static Throwable unwrapCompletionException(Throwable t) {
     Objects.requireNonNull(t, "t == null");
     return t instanceof CompletionException && t.getCause() != null? t.getCause(): t;
