@@ -34,10 +34,10 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.tools.ParseRatisLog;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 public class TestArithmeticLogDump extends BaseTest {
@@ -60,13 +60,13 @@ public class TestArithmeticLogDump extends BaseTest {
     return properties;
   }
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException {
-    Assert.assertNull(cluster.getLeader());
+    Assertions.assertNull(cluster.getLeader());
     cluster.start();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     if (cluster != null) {
       cluster.shutdown();
@@ -77,7 +77,7 @@ public class TestArithmeticLogDump extends BaseTest {
   public void testLogDump() throws Exception {
     final RaftServer.Division leaderServer = RaftTestUtil.waitForLeader(cluster);
     final List<LogSegmentPath> files = LogSegmentPath.getLogSegmentPaths(leaderServer.getRaftStorage());
-    Assert.assertEquals(1, files.size());
+    Assertions.assertEquals(1, files.size());
     cluster.shutdown();
 
     ParseRatisLog.Builder builder =  new ParseRatisLog.Builder();

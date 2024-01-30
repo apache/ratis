@@ -22,23 +22,23 @@ package org.apache.ratis.examples.common;
 import java.util.Collection;
 import java.util.Collections;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-@RunWith(Parameterized.class)
 public class TestSubCommand {
 
-  @Parameterized.Parameters
   public static Collection<String> data() {
     return Collections.singleton("127.0.0.1:6667");
   }
 
-  @Parameterized.Parameter
-  public String peers;
-
-  @Test(expected = IllegalArgumentException.class)
-  public void testParsePeers() {
-    SubCommandBase.parsePeers(peers);
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testParsePeers(String peers) {
+    Assertions.assertThrows(IllegalArgumentException.class,
+        () -> SubCommandBase.parsePeers(peers));
   }
 
 }

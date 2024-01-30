@@ -27,9 +27,9 @@ import org.apache.ratis.examples.arithmetic.expression.Variable;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.Preconditions;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -44,16 +44,13 @@ public class TestArithmetic extends ParameterizedBaseTest {
     Slf4jUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.DEBUG);
   }
 
-  @Parameterized.Parameters
   public static Collection<Object[]> data() {
     return getMiniRaftClusters(ArithmeticStateMachine.class, 3);
   }
 
-  @Parameterized.Parameter
-  public MiniRaftCluster cluster;
-
-  @Test
-  public void testPythagorean() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testPythagorean(MiniRaftCluster cluster) throws Exception {
     setAndStart(cluster);
     try (final RaftClient client = cluster.createClient()) {
       runTestPythagorean(client, 3, 10);
@@ -85,8 +82,9 @@ public class TestArithmetic extends ParameterizedBaseTest {
     }
   }
 
-  @Test
-  public void testGaussLegendre() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testGaussLegendre(MiniRaftCluster cluster) throws Exception {
     setAndStart(cluster);
     try (final RaftClient client = cluster.createClient()) {
       runGaussLegendre(client);
@@ -117,14 +115,14 @@ public class TestArithmetic extends ParameterizedBaseTest {
       final double pi = e.evaluate(null);
 
       if (converged) {
-        Assert.assertTrue(pi == previous);
+        Assertions.assertEquals(pi, previous);
       } else if (pi == previous) {
         converged = true;
       }
       LOG.info("{} = {}, converged? {}", pi_i, pi, converged);
       previous = pi;
     }
-    Assert.assertTrue(converged);
+    Assertions.assertTrue(converged);
   }
 
   static Variable defineVariable(RaftClient client, String name, double value) throws IOException {
@@ -145,7 +143,7 @@ public class TestArithmetic extends ParameterizedBaseTest {
 
   static void assignNull(RaftClient client, Variable x) throws IOException {
     final Expression e = assign(client, x, NullValue.getInstance());
-    Assert.assertEquals(NullValue.getInstance(), e);
+    Assertions.assertEquals(NullValue.getInstance(), e);
   }
 
   static Expression assign(RaftClient client, Variable x, Expression e) throws IOException {
@@ -158,11 +156,11 @@ public class TestArithmetic extends ParameterizedBaseTest {
   }
 
   static Expression assertRaftClientReply(RaftClientReply reply, Double expected) {
-    Assert.assertTrue(reply.isSuccess());
+    Assertions.assertTrue(reply.isSuccess());
     final Expression e = Expression.Utils.bytes2Expression(
         reply.getMessage().getContent().toByteArray(), 0);
     if (expected != null) {
-      Assert.assertEquals(expected, e.evaluate(null));
+      Assertions.assertEquals(expected, e.evaluate(null));
     }
     return e;
   }
