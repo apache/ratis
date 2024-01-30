@@ -310,22 +310,16 @@ class LeaderStateImpl implements LeaderState {
       return appliedIndexFuture;
     }
 
-    boolean isFirstLogInCurrentTerm(LogEntryProto logEntry) {
-      if (appliedIndexFuture.isDone()) {
-        return false;
+    boolean checkStartIndex(LogEntryProto logEntry) {
+      final boolean completed = logEntry.getIndex() == startIndex && appliedIndexFuture.complete(startIndex);
+      if (completed) {
+        LOG.info("Leader {} is ready since appliedIndex == startIndex == {}", LeaderStateImpl.this, startIndex);
       }
-      final long appliedIndex = logEntry.getIndex();
-      if (appliedIndex == startIndex) {
-        appliedIndexFuture.complete(appliedIndex);
-        LOG.info("leader is ready since appliedIndex == startIndex == {}", startIndex);
-        return true;
-      } else {
-        return false;
-      }
+      return completed;
     }
 
     boolean isApplied() {
-      return appliedIndexFuture.isDone();
+      return JavaUtils.isCompletedNormally(appliedIndexFuture);
     }
   }
 
@@ -428,7 +422,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void checkReady(LogEntryProto entry) {
-    if (entry.getTerm() == getCurrentTerm() && startupLogEntry.get().isFirstLogInCurrentTerm(entry)) {
+    if (entry.getTerm() == getCurrentTerm() && startupLogEntry.get().checkStartIndex(entry)) {
       server.getStateMachine().leaderEvent().notifyLeaderReady();
     }
   }
