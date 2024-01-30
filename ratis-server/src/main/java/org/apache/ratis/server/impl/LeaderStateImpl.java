@@ -422,7 +422,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void checkReady(LogEntryProto entry) {
-    if (entry.getTerm() == getCurrentTerm() && startupLogEntry.get().checkStartIndex(entry)) {
+    if (entry.getTerm() == server.getState().getCurrentTerm() && startupLogEntry.get().checkStartIndex(entry)) {
       server.getStateMachine().leaderEvent().notifyLeaderReady();
     }
   }
