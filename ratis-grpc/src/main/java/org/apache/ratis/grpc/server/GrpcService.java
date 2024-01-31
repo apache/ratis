@@ -30,6 +30,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
@@ -328,6 +329,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     serverInterceptor.close();
     ConcurrentUtils.shutdownAndWait(executor);
+    zeroCopyMetrics.unregister();
   }
 
   @Override
@@ -385,4 +387,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     return getProxies().getProxy(target).startLeaderElection(request);
   }
 
+  @VisibleForTesting
+  public ZeroCopyMetrics getZeroCopyMetrics() {
+    return zeroCopyMetrics;
+  }
 }
