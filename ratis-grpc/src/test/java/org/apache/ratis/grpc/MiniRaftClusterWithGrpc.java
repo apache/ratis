@@ -21,14 +21,19 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.metrics.ZeroCopyMetrics;
 import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
+import org.junit.Assert;
 
 import java.util.Optional;
 
@@ -45,6 +50,10 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
     }
   };
 
+  static {
+    ReferenceCountedObject.enableLeakDetection();
+  }
+
   public interface FactoryGet extends Factory.Get<MiniRaftClusterWithGrpc> {
     @Override
     default Factory<MiniRaftClusterWithGrpc> getFactory() {
@@ -55,7 +64,8 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
       new DelayLocalExecutionInjection(GrpcService.GRPC_SEND_SERVER_REQUEST);
 
-  protected MiniRaftClusterWithGrpc(String[] ids, String[] listenerIds, RaftProperties properties, Parameters parameters) {
+  protected MiniRaftClusterWithGrpc(String[] ids, String[] listenerIds, RaftProperties properties,
+      Parameters parameters) {
     super(ids, listenerIds, properties, parameters);
   }
 
@@ -74,5 +84,23 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
       throws InterruptedException {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequestInjection,
         leaderId, delayMs, getTimeoutMax());
+  }
+
+  @Override
+  public void shutdown() {
+    super.shutdown();
+    assertZeroCopyMetrics();
+  }
+
+  public void assertZeroCopyMetrics() {
+    getServers().forEach(server -> server.getGroupIds().forEach(id -> {
+      LOG.info("Checking {}-{}", server.getId(), id);
+      RaftServer.Division division = RaftServerTestUtil.getDivision(server, id);
+      GrpcService service = (GrpcService) RaftServerTestUtil.getServerRpc(division);
+      ZeroCopyMetrics zeroCopyMetrics = service.getZeroCopyMetrics();
+      Assert.assertEquals(0, zeroCopyMetrics.nonZeroCopyMessages());
+      Assert.assertEquals("Zero copy messages are not released, please check logs to find leaks. ",
+          zeroCopyMetrics.zeroCopyMessages(), zeroCopyMetrics.releasedMessages());
+    }));
   }
 }

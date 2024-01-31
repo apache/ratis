@@ -22,7 +22,6 @@ import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -45,6 +44,7 @@ import java.util.function.Consumer;
  * @param <T> The object type.
  */
 public interface ReferenceCountedObject<T> {
+
   /** @return the object. */
   T get();
 
@@ -167,52 +167,20 @@ public interface ReferenceCountedObject<T> {
     Objects.requireNonNull(retainMethod, "retainMethod == null");
     Objects.requireNonNull(releaseMethod, "releaseMethod == null");
 
-    return new ReferenceCountedObject<V>() {
-      private final AtomicInteger count = new AtomicInteger();
-
-      @Override
-      public V get() {
-        final int previous = count.get();
-        if (previous < 0) {
-          throw new IllegalStateException("Failed to get: object has already been completely released.");
-        } else if (previous == 0) {
-          throw new IllegalStateException("Failed to get: object has not yet been retained.");
-        }
-        return value;
-      }
-
-      @Override
-      public V retain() {
-        // n <  0: exception
-        // n >= 0: n++
-        if (count.getAndUpdate(n -> n < 0? n : n + 1) < 0) {
-          throw new IllegalStateException("Failed to retain: object has already been completely released.");
-        }
-
-        retainMethod.run();
-        return value;
-      }
-
-      @Override
-      public boolean release() {
-        // n <= 0: exception
-        // n >  1: n--
-        // n == 1: n = -1
-        final int previous = count.getAndUpdate(n -> n <= 1? -1: n - 1);
-        if (previous < 0) {
-          throw new IllegalStateException("Failed to release: object has already been completely released.");
-        } else if (previous == 0) {
-          throw new IllegalStateException("Failed to release: object has not yet been retained.");
-        }
-        final boolean completedReleased = previous == 1;
-        releaseMethod.accept(completedReleased);
-        return completedReleased;
-      }
-    };
+    return ReferenceCountedLeakDetector.getFactory().create(value, retainMethod, releaseMethod);
   }
 
   /** The same as wrap(value, retainMethod, ignored -> releaseMethod.run()). */
   static <V> ReferenceCountedObject<V> wrap(V value, Runnable retainMethod, Runnable releaseMethod) {
     return wrap(value, retainMethod, ignored -> releaseMethod.run());
   }
+
+  static void enableLeakDetection() {
+    ReferenceCountedLeakDetector.enable(false);
+  }
+
+  static void enableAdvancedLeakDetection() {
+    ReferenceCountedLeakDetector.enable(true);
+  }
+
 }

@@ -50,6 +50,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -564,5 +565,19 @@ public interface RaftTestUtil {
   static void assertSuccessReply(RaftClientReply reply) {
     Assert.assertNotNull("reply == null", reply);
     Assert.assertTrue("reply is not success: " + reply, reply.isSuccess());
+  }
+
+  static void gc() throws InterruptedException {
+    // use WeakReference to detect gc
+    Object obj = new Object();
+    final WeakReference<Object> weakRef = new WeakReference<>(obj);
+    obj = null;
+
+    // loop until gc has completed.
+    for (int i = 0; weakRef.get() != null; i++) {
+      LOG.info("gc {}", i);
+      System.gc();
+      Thread.sleep(100);
+    }
   }
 }

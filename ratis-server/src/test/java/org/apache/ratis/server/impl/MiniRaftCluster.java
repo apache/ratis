@@ -50,6 +50,7 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedLeakDetector;
 import org.apache.ratis.util.ReflectionUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -854,6 +855,14 @@ public abstract class MiniRaftCluster implements Closeable {
     Optional.ofNullable(timer.get()).ifPresent(Timer::cancel);
     ExitUtils.assertNotTerminated();
     LOG.info("{} shutdown completed", JavaUtils.getClassSimpleName(getClass()));
+
+    // GC to ensure leak detection work.
+    try {
+      RaftTestUtil.gc();
+    } catch (InterruptedException e) {
+      LOG.info("gc interrupted.");
+    }
+    ReferenceCountedLeakDetector.getLeakDetector().assertNoLeaks();
   }
 
   /**

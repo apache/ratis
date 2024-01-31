@@ -21,6 +21,7 @@ import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.AbstractMessage;
 
 public class ZeroCopyMetrics extends RatisMetrics {
@@ -55,4 +56,18 @@ public class ZeroCopyMetrics extends RatisMetrics {
     releasedMessages.inc();
   }
 
+  @VisibleForTesting
+  public long zeroCopyMessages() {
+    return zeroCopyMessages.getCount();
+  }
+
+  @VisibleForTesting
+  public long nonZeroCopyMessages() {
+    return nonZeroCopyMessages.getCount();
+  }
+
+  @VisibleForTesting
+  public long releasedMessages() {
+    return releasedMessages.getCount();
+  }
 }
