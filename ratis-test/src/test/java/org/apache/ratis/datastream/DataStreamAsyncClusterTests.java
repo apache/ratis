@@ -34,8 +34,8 @@ import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedBiFunction;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -130,14 +130,14 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
     // wait for all servers to catch up
     try (RaftClient client = cluster.createClient()) {
       RaftClientReply reply = client.async().watch(maxIndex, ReplicationLevel.ALL).join();
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
     }
     // assert all streams are linked
     for (RaftServer proxy : cluster.getServers()) {
       final RaftServer.Division impl = proxy.getDivision(cluster.getGroupId());
       final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) impl.getStateMachine();
       for (SingleDataStream s : stateMachine.getStreams()) {
-        Assert.assertFalse(s.getDataChannel().isOpen());
+        Assertions.assertFalse(s.getDataChannel().isOpen());
         DataStreamTestUtils.assertLogEntry(impl, s);
       }
     }
@@ -150,7 +150,7 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
       futures.add(CompletableFuture.supplyAsync(
           () -> runTestDataStream(cluster, numStreams, bufferSize, bufferNum, stepDownLeader), executor));
     }
-    Assert.assertEquals(numClients, futures.size());
+    Assertions.assertEquals(numClients, futures.size());
     return futures.stream()
         .map(CompletableFuture::join)
         .max(Long::compareTo)
@@ -174,7 +174,7 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
         futures.add(CompletableFuture.supplyAsync(() -> DataStreamTestUtils.writeAndCloseAndAssertReplies(
             servers, leader, out, bufferSize, bufferNum, client.getId(), stepDownLeader).join(), executor));
       }
-      Assert.assertEquals(numStreams, futures.size());
+      Assertions.assertEquals(numStreams, futures.size());
       return futures.stream()
           .map(CompletableFuture::join)
           .map(RaftClientReply::getLogIndex)

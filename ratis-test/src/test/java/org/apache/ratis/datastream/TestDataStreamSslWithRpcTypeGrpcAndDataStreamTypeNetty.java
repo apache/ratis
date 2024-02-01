@@ -24,7 +24,7 @@ import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Ignore;
+import org.junit.jupiter.api.Disabled;
 import org.slf4j.event.Level;
 
 import java.util.function.Supplier;
@@ -55,22 +55,22 @@ public class TestDataStreamSslWithRpcTypeGrpcAndDataStreamTypeNetty
     return new MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty.Factory(getParameters());
   }
 
-  @Ignore
+  @Disabled
   @Override
   public void testStreamWrites() {
   }
 
-  @Ignore
+  @Disabled
   @Override
   public void testStreamWithInvalidRoutingTable() {
   }
 
-  @Ignore
+  @Disabled
   @Override
   public void testMultipleStreamsMultipleServers() {
   }
 
-  @Ignore
+  @Disabled
   @Override
   public void testMultipleStreamsMultipleServersStepDownLeader() {
   }

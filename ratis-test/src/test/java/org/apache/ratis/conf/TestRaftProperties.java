@@ -17,8 +17,10 @@
  */
 package org.apache.ratis.conf;
 
-import org.junit.Assert;
-import org.junit.Test;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 public class TestRaftProperties {
   enum Type {APPEND_ENTRIES}
@@ -29,71 +31,72 @@ public class TestRaftProperties {
   static final String KEY = "key";
 
   static void setUnderscoreValue(RaftProperties p, String valueWithUnderscore) {
-    Assert.assertTrue(valueWithUnderscore.contains("_"));
+    Assertions.assertTrue(valueWithUnderscore.contains("_"));
     p.set(KEY, valueWithUnderscore);
   }
 
   static void setNonUnderscoreValue(RaftProperties p, String valueWithoutUnderscore) {
-    Assert.assertFalse(valueWithoutUnderscore.contains("_"));
+    Assertions.assertFalse(valueWithoutUnderscore.contains("_"));
     p.set(KEY, valueWithoutUnderscore);
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testUnderscore() {
     final RaftProperties p = new RaftProperties();
 
     { // boolean
-      Assert.assertNull(p.getBoolean(KEY, null));
+      Assertions.assertNull(p.getBoolean(KEY, null));
       setNonUnderscoreValue(p, "true");
-      Assert.assertTrue(p.getBoolean(KEY, null));
+      Assertions.assertTrue(p.getBoolean(KEY, null));
       setNonUnderscoreValue(p, "false");
-      Assert.assertFalse(p.getBoolean(KEY, null));
+      Assertions.assertFalse(p.getBoolean(KEY, null));
       setUnderscoreValue(p, "fa_lse");
-      Assert.assertNull(p.getBoolean(KEY, null));
+      Assertions.assertNull(p.getBoolean(KEY, null));
       p.unset(KEY);
     }
 
     { //int
       final Integer expected = 1000000;
-      Assert.assertNull(p.getInt(KEY, null));
+      Assertions.assertNull(p.getInt(KEY, null));
       setUnderscoreValue(p, "1_000_000");
-      Assert.assertEquals(expected, p.getInt(KEY, null));
+      Assertions.assertEquals(expected, p.getInt(KEY, null));
       setNonUnderscoreValue(p, "1000000");
-      Assert.assertEquals(expected, p.getInt(KEY, null));
+      Assertions.assertEquals(expected, p.getInt(KEY, null));
       p.unset(KEY);
     }
 
     { // long
       final Long expected = 1_000_000_000_000L;
-      Assert.assertNull(p.getLong(KEY, null));
+      Assertions.assertNull(p.getLong(KEY, null));
       setUnderscoreValue(p, "1_000_000_000_000");
-      Assert.assertEquals(expected, p.getLong(KEY, null));
+      Assertions.assertEquals(expected, p.getLong(KEY, null));
       setNonUnderscoreValue(p, "1000000000000");
-      Assert.assertEquals(expected, p.getLong(KEY, null));
+      Assertions.assertEquals(expected, p.getLong(KEY, null));
       p.unset(KEY);
     }
 
     { // File
       final String expected = "1_000_000";
-      Assert.assertNull(p.getFile(KEY, null));
+      Assertions.assertNull(p.getFile(KEY, null));
       setUnderscoreValue(p, expected);
-      Assert.assertEquals(expected, p.getFile(KEY, null).getName());
+      Assertions.assertEquals(expected, p.getFile(KEY, null).getName());
       p.unset(KEY);
     }
 
     { // class
       final Type expected = Type.APPEND_ENTRIES;
-      Assert.assertNull(p.getEnum(KEY, Type.class, null));
+      Assertions.assertNull(p.getEnum(KEY, Type.class, null));
       setUnderscoreValue(p, expected.name());
-      Assert.assertEquals(expected, p.getEnum(KEY, Type.class, null));
+      Assertions.assertEquals(expected, p.getEnum(KEY, Type.class, null));
       p.unset(KEY);
     }
 
     { // enum
       final Class<Request_Vote> expected = Request_Vote.class;
-      Assert.assertNull(p.getClass(KEY, null));
+      Assertions.assertNull(p.getClass(KEY, null));
       setUnderscoreValue(p, expected.getName());
-      Assert.assertEquals(expected, p.getClass(KEY, null));
+      Assertions.assertEquals(expected, p.getClass(KEY, null));
       p.unset(KEY);
     }
   }

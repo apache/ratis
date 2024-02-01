@@ -38,9 +38,9 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class TestGrpcServerMetrics {
@@ -50,7 +50,7 @@ public class TestGrpcServerMetrics {
   private static RaftPeerId raftPeerId;
   private static RaftPeerId followerId;
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() throws Exception {
     raftGroupId = RaftGroupId.randomId();
     raftPeerId = RaftPeerId.valueOf("TestId");
@@ -74,11 +74,11 @@ public class TestGrpcServerMetrics {
       final String format = RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + GrpcServerMetrics.getHeartbeatSuffix(heartbeat);
       final String name = String.format(format, followerId);
       final DefaultTimekeeperImpl t = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(name);
-      Assert.assertEquals(0L, t.getTimer().getSnapshot().getMax());
+      Assertions.assertEquals(0L, t.getTimer().getSnapshot().getMax());
       req.startRequestTimer();
       Thread.sleep(1000L);
       req.stopRequestTimer();
-      Assert.assertTrue(t.getTimer().getSnapshot().getMax() > 1000L);
+      Assertions.assertTrue(t.getTimer().getSnapshot().getMax() > 1000L);
     }
   }
 
@@ -89,7 +89,7 @@ public class TestGrpcServerMetrics {
           RATIS_GRPC_METRICS_REQUESTS_COUNT + GrpcServerMetrics
               .getHeartbeatSuffix(heartbeat)).getCount();
       grpcServerMetrics.onRequestCreate(heartbeat);
-      Assert.assertEquals(reqTotal + 1, ratisMetricRegistry.counter(
+      Assertions.assertEquals(reqTotal + 1, ratisMetricRegistry.counter(
           RATIS_GRPC_METRICS_REQUESTS_COUNT + GrpcServerMetrics
               .getHeartbeatSuffix(heartbeat)).getCount());
     }
@@ -97,9 +97,9 @@ public class TestGrpcServerMetrics {
 
   @Test
   public void testGrpcLogRequestRetry() {
-    Assert.assertEquals(0L, ratisMetricRegistry.counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT).getCount());
+    Assertions.assertEquals(0L, ratisMetricRegistry.counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT).getCount());
     grpcServerMetrics.onRequestRetry();
-    Assert.assertEquals(1L, ratisMetricRegistry.counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT).getCount());
+    Assertions.assertEquals(1L, ratisMetricRegistry.counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT).getCount());
   }
 
   @Test
@@ -110,9 +110,9 @@ public class TestGrpcServerMetrics {
         pendingRequest::logRequestsSize);
     final String name = String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT, raftPeerId);
     final Gauge gauge = ServerMetricsTestUtils.getGaugeWithName(name, grpcServerMetrics::getRegistry);
-    Assert.assertEquals(0, gauge.getValue());
+    Assertions.assertEquals(0, gauge.getValue());
     when(pendingRequest.logRequestsSize()).thenReturn(10);
-    Assert.assertEquals(10, gauge.getValue());
+    Assertions.assertEquals(10, gauge.getValue());
   }
 
   @Test
@@ -133,8 +133,8 @@ public class TestGrpcServerMetrics {
 
   private void assertCounterIncremented(String counterVar, Consumer<String> incFunction) {
     String counter = String.format(counterVar, raftPeerId.toString());
-    Assert.assertEquals(0L, ratisMetricRegistry.counter(counter).getCount());
+    Assertions.assertEquals(0L, ratisMetricRegistry.counter(counter).getCount());
     incFunction.accept(raftPeerId.toString());
-    Assert.assertEquals(1L, ratisMetricRegistry.counter(counter).getCount());
+    Assertions.assertEquals(1L, ratisMetricRegistry.counter(counter).getCount());
   }
 }
