@@ -48,6 +48,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -367,7 +368,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<Void> write(LogEntryProto entry) {
+  public CompletableFuture<Void> write(ReferenceCountedObject<LogEntryProto> entry, TransactionContext context) {
+    Preconditions.assertTrue(entry.get() != null);
     return blocking.getFuture(Blocking.Type.WRITE_STATE_MACHINE_DATA);
   }
 

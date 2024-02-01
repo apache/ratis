@@ -438,7 +438,8 @@ class SegmentedRaftLogWorker {
     addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
 
-  Task writeLogEntry(LogEntryProto entry, LogEntryProto removedStateMachineData, TransactionContext context) {
+  Task writeLogEntry(ReferenceCountedObject<LogEntryProto> entry,
+      LogEntryProto removedStateMachineData, TransactionContext context) {
     return addIOTask(new WriteLog(entry, removedStateMachineData, context));
   }
 
@@ -486,25 +487,28 @@ class SegmentedRaftLogWorker {
     private final CompletableFuture<?> stateMachineFuture;
     private final CompletableFuture<Long> combined;
 
-    WriteLog(LogEntryProto entry, LogEntryProto removedStateMachineData, TransactionContext context) {
+    WriteLog(ReferenceCountedObject<LogEntryProto> entryRef, LogEntryProto removedStateMachineData,
+        TransactionContext context) {
+      LogEntryProto origEntry = entryRef.get();
       this.entry = removedStateMachineData;
-      if (this.entry == entry) {
-        final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
+      if (this.entry == origEntry) {
+        final StateMachineLogEntryProto proto = origEntry.hasStateMachineLogEntry() ?
+            origEntry.getStateMachineLogEntry(): null;
         if (stateMachine != null && proto != null && proto.getType() == StateMachineLogEntryProto.Type.DATASTREAM) {
           final ClientInvocationId invocationId = ClientInvocationId.valueOf(proto);
           final CompletableFuture<DataStream> removed = server.getDataStreamMap().remove(invocationId);
-          this.stateMachineFuture = removed == null? stateMachine.data().link(null, entry)
-              : removed.thenApply(stream -> stateMachine.data().link(stream, entry));
+          this.stateMachineFuture = removed == null? stateMachine.data().link(null, origEntry)
+              : removed.thenApply(stream -> stateMachine.data().link(stream, origEntry));
         } else {
           this.stateMachineFuture = null;
         }
       } else {
         try {
-          // this.entry != entry iff the entry has state machine data
-          this.stateMachineFuture = stateMachine.data().write(entry, context);
+          // this.entry != origEntry if it has state machine data
+          this.stateMachineFuture = stateMachine.data().write(entryRef, context);
         } catch (Exception e) {
-          LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
-              + ", entry=" + LogProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
+          LOG.error(name + ": writeStateMachineData failed for index " + origEntry.getIndex()
+              + ", entry=" + LogProtoUtils.toLogEntryString(origEntry, stateMachine::toStateMachineLogEntryString), e);
           throw e;
         }
       }
