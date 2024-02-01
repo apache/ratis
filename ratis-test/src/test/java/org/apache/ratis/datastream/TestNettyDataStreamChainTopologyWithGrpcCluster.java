@@ -22,13 +22,13 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Before;
+import org.junit.jupiter.api.BeforeEach;
 
 public class TestNettyDataStreamChainTopologyWithGrpcCluster
     extends DataStreamAsyncClusterTests<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty>
     implements MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty.FactoryGet {
 
-  @Before
+  @BeforeEach
   public void setup() {
     final RaftProperties p = getProperties();
     RaftClientConfigKeys.DataStream.setRequestTimeout(p, TimeDuration.ONE_MINUTE);

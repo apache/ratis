@@ -29,8 +29,8 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -71,7 +71,7 @@ public class TestClientProtoUtils extends BaseTest {
       final RaftClientRequest computed = ClientProtoUtils.toRaftClientRequest(proto);
       final TimeDuration r = startTime.elapsedTime().subtract(p);
 
-      Assert.assertEquals(request.getMessage().getContent(), computed.getMessage().getContent());
+      Assertions.assertEquals(request.getMessage().getContent(), computed.getMessage().getContent());
       toProto = toProto.add(p);
       toRequest = toRequest.add(r);
 

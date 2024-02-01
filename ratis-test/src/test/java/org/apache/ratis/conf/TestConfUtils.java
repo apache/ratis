@@ -23,7 +23,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestConfUtils  extends BaseTest {
   @Test

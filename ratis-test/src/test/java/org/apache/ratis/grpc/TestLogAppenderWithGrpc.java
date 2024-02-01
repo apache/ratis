@@ -33,10 +33,9 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -47,7 +46,6 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
-@RunWith(Parameterized.class)
 public class TestLogAppenderWithGrpc
     extends LogAppenderTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
@@ -55,17 +53,14 @@ public class TestLogAppenderWithGrpc
     Slf4jUtils.setLogLevel(FollowerInfo.LOG, Level.DEBUG);
   }
 
-  public TestLogAppenderWithGrpc(Boolean separateHeartbeat) {
-    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
-  }
-
-  @Parameterized.Parameters
   public static Collection<Boolean[]> data() {
     return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
   }
 
-  @Test
-  public void testPendingLimits() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testPendingLimits(Boolean separateHeartbeat) throws IOException, InterruptedException {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     int maxAppends = 10;
     RaftProperties properties = new RaftProperties();
     properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
@@ -94,7 +89,7 @@ public class TestLogAppenderWithGrpc
       JavaUtils.attempt(() -> {
         for (long nextIndex : leader.getInfo().getFollowerNextIndices()) {
           // Verify nextIndex does not progress due to pendingRequests limit
-          Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
+          Assertions.assertEquals(initialNextIndex + maxAppends, nextIndex);
         }
       }, 10, ONE_SECOND, "matching nextIndex", LOG);
       for (RaftServer.Division server : cluster.getFollowers()) {
@@ -107,8 +102,10 @@ public class TestLogAppenderWithGrpc
     }
   }
 
-  @Test
-  public void testRestartLogAppender() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testRestartLogAppender(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(2, this::runTestRestartLogAppender);
   }
 
@@ -120,7 +117,7 @@ public class TestLogAppenderWithGrpc
     try(RaftClient client = cluster.createClient(leader.getId())) {
       for(int i = 0; i < 10; i++) {
         final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + ++messageCount));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
     }
 
@@ -128,7 +125,7 @@ public class TestLogAppenderWithGrpc
     final GrpcServerMetrics leaderMetrics = new GrpcServerMetrics(leader.getMemberId().toString());
     final String counter = String.format(GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY,
         cluster.getFollowers().iterator().next().getMemberId().getPeerId());
-    Assert.assertEquals(0L, leaderMetrics.getRegistry().counter(counter).getCount());
+    Assertions.assertEquals(0L, leaderMetrics.getRegistry().counter(counter).getCount());
 
     // restart LogAppender
     RaftServerTestUtil.restartLogAppenders(leader);
@@ -137,7 +134,7 @@ public class TestLogAppenderWithGrpc
     try(RaftClient client = cluster.createClient(leader.getId())) {
       for(int i = 0; i < 10; i++) {
         final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + ++messageCount));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
     }
 
@@ -148,7 +145,7 @@ public class TestLogAppenderWithGrpc
       // assert INCONSISTENCY counter >= 1
       // If old LogAppender die before new LogAppender start, INCONSISTENCY equal to 1,
       // else INCONSISTENCY greater than 1
-      Assert.assertTrue(newleaderMetrics.getRegistry().counter(counter).getCount() >= 1L);
+      Assertions.assertTrue(newleaderMetrics.getRegistry().counter(counter).getCount() >= 1L);
     }
   }
 }

@@ -18,16 +18,14 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.util.JavaUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TestGrpcFactory extends BaseTest {
   @Test
   public void testUseCacheForAllThreads() {
     // trigger GrpcFactory static initializer
     final boolean value = GrpcFactory.checkPooledByteBufAllocatorUseCacheForAllThreads(LOG::info);
-    Assert.assertFalse(value);
-    LOG.info("value is {}", value);
+    Assertions.assertFalse(value);
   }
 }

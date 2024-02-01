@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.datastream;
 
-import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;

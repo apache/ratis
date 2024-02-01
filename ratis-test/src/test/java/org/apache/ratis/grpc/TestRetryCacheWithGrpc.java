@@ -37,8 +37,9 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -66,7 +67,7 @@ public class TestRetryCacheWithGrpc
   }
 
   static long assertReply(RaftClientReply reply) {
-    Assert.assertTrue(reply.isSuccess());
+    Assertions.assertTrue(reply.isSuccess());
     return reply.getCallId();
   }
 
@@ -90,7 +91,7 @@ public class TestRetryCacheWithGrpc
 
     void assertRetryCacheEntry(RaftClient client, long callId, boolean exist, boolean eventually) throws InterruptedException {
       Supplier<RetryCache.Entry> lookup = () -> RetryCacheTestUtil.get(leader, client.getId(), callId);
-      Consumer<RetryCache.Entry> assertion = exist ? Assert::assertNotNull : Assert::assertNull;
+      Consumer<RetryCache.Entry> assertion = exist ? Assertions::assertNotNull : Assertions::assertNull;
       if (eventually) {
         JavaUtils.attempt(() -> assertion.accept(lookup.get()), 100, TimeDuration.ONE_MILLISECOND,
             "retry cache entry", null);
@@ -144,7 +145,7 @@ public class TestRetryCacheWithGrpc
         ONE_SECOND.sleep();
         // No calls can be completed.
         for (CompletableFuture<Long> f : asyncCalls) {
-          Assert.assertFalse(f.isDone());
+          Assertions.assertFalse(f.isDone());
         }
         stateMachine.unblockApplyTransaction();
         // No calls can be invalidated.
@@ -170,7 +171,8 @@ public class TestRetryCacheWithGrpc
     }
   }
 
-  @Test(timeout = 10000)
+  @Test
+  @Timeout(value = 10000)
   public void testRetryOnResourceUnavailableException()
       throws InterruptedException, IOException {
     RaftProperties properties = new RaftProperties();
