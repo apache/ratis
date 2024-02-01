@@ -112,18 +112,24 @@ public interface StateMachine extends Closeable {
 
     /**
      * Write asynchronously the state machine data in the given log entry to this state machine.
-     * Implementations of this method should use {@link ReferenceCountedObject#get()} to use the log entry within the
-     * scope of this method. If they need to use the log entry in an extended scope, e.g. for asynchronous computation
-     * or cache, the entryRef should be retained and released.
      *
+     * @param entryRef Reference to a log entry.
+     *                 Implementations of this method may call {@link ReferenceCountedObject#get()}
+     *                 to access the log entry before this method returns.
+     *                 If the log entry is needed after this method returns,
+     *                 e.g. for asynchronous computation or caching,
+     *                 the implementation must invoke {@link ReferenceCountedObject#retain()}
+     *                 and {@link ReferenceCountedObject#release()}.
      * @return a future for the write task
      */
     default CompletableFuture<?> write(ReferenceCountedObject<LogEntryProto> entryRef, TransactionContext context) {
+      final LogEntryProto entry = entryRef.get();
       try {
-        // for backward compatibility, the log entry is copied to be decoupled from entryRef.
-        return write(copy(entryRef.retain()), context);
-      } finally {
-        entryRef.release();
+        final LogEntryProto copy = LogEntryProto.parseFrom(entry.toByteString());
+        return write(copy, context);
+      } catch (InvalidProtocolBufferException e) {
+        return JavaUtils.completeExceptionally(new IllegalStateException(
+            "Failed to copy log entry " + TermIndex.valueOf(entry), e));
       }
     }
 
@@ -612,13 +618,5 @@ public interface StateMachine extends Closeable {
    */
   default String toStateMachineLogEntryString(StateMachineLogEntryProto proto) {
     return JavaUtils.getClassSimpleName(proto.getClass()) +  ":" + ClientInvocationId.valueOf(proto);
-  }
-
-  static LogEntryProto copy(LogEntryProto from) {
-    try {
-      return LogEntryProto.parseFrom(from.toByteString());
-    } catch (InvalidProtocolBufferException e) {
-      throw new IllegalStateException("Error copying log entry: " + from, e);
-    }
   }
 }
