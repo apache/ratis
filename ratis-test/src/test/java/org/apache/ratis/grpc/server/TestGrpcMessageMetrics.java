@@ -70,10 +70,6 @@ public class TestGrpcMessageMetrics extends BaseTest
     final GrpcServicesImpl services = (GrpcServicesImpl) RaftServerTestUtil.getServerRpc(server);
     final RatisMetricRegistry registry = services.getMessageMetrics().getRegistry();
     String counter_prefix = serverId + "_" + "ratis.grpc.RaftServerProtocolService";
-    final String metricPrefix = counter_prefix + "_" + "requestVote" + "_OK";
-    final long before = registry.counter(metricPrefix + "_completed_total").getCount();
-    services.getMessageMetrics().rpcCompleted(metricPrefix);
-    final long after = registry.counter(metricPrefix + "_completed_total").getCount();
-    Assertions.assertEquals(before + 1, after);
+    Assertions.assertTrue(registry.counter(counter_prefix + "_" + "requestVote" + "_OK_completed_total").getCount() > 0);
   }
 }

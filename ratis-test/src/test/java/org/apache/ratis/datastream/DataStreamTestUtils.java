@@ -419,13 +419,4 @@ public interface DataStreamTestUtils {
     final LogEntryProto entryFromLog = searchLogEntry(ClientInvocationId.valueOf(request), division.getRaftLog());
     Assertions.assertEquals(entryFromStream, entryFromLog);
   }
-
-  ResourceLeakDetector.LeakListener LEAK_LISTENER = (resourceType, records) -> {
-    throw new IllegalStateException("Leak detected for resource type: " + resourceType + records);
-  };
-
-  static void enableResourceLeakDetector() {
-    ResourceLeakDetector.setLevel(Level.PARANOID);
-    ByteBufUtil.setLeakListener(DataStreamTestUtils.LEAK_LISTENER);
-  }
 }
