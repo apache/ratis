@@ -125,7 +125,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Integer> write(ReferenceCountedObject<LogEntryProto> entryRef, TransactionContext context) {
-    LogEntryProto entry = entryRef.get();
+    LogEntryProto entry = entryRef.retain();
     final FileStoreRequestProto proto = getProto(context, entry);
     if (proto.getRequestCase() != FileStoreRequestProto.RequestCase.WRITEHEADER) {
       return null;
@@ -134,7 +134,8 @@ public class FileStoreStateMachine extends BaseStateMachine {
     final WriteRequestHeaderProto h = proto.getWriteHeader();
     final CompletableFuture<Integer> f = files.write(entry.getIndex(),
         h.getPath().toStringUtf8(), h.getClose(),  h.getSync(), h.getOffset(),
-        entry.getStateMachineLogEntry().getStateMachineEntry().getStateMachineData());
+        entry.getStateMachineLogEntry().getStateMachineEntry().getStateMachineData())
+        .whenComplete((r, e) -> entryRef.release());
     // sync only if closing the file
     return h.getClose()? f: null;
   }

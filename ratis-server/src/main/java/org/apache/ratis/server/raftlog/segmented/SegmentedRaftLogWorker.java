@@ -492,7 +492,7 @@ class SegmentedRaftLogWorker {
       LogEntryProto origEntry = entryRef.get();
       this.entry = removedStateMachineData;
       if (this.entry == origEntry) {
-        final StateMachineLogEntryProto proto = origEntry.hasStateMachineLogEntry()?
+        final StateMachineLogEntryProto proto = origEntry.hasStateMachineLogEntry() ?
             origEntry.getStateMachineLogEntry(): null;
         if (stateMachine != null && proto != null && proto.getType() == StateMachineLogEntryProto.Type.DATASTREAM) {
           final ClientInvocationId invocationId = ClientInvocationId.valueOf(proto);
@@ -504,7 +504,7 @@ class SegmentedRaftLogWorker {
         }
       } else {
         try {
-          // this.entry != entry iff the entry has state machine data
+          // this.entry != entryRef if the entry has state machine data
           this.stateMachineFuture = stateMachine.data().write(entryRef, context);
         } catch (Exception e) {
           LOG.error(name + ": writeStateMachineData failed for index " + origEntry.getIndex()
