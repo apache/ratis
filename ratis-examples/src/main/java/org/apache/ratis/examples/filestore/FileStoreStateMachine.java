@@ -134,10 +134,10 @@ public class FileStoreStateMachine extends BaseStateMachine {
     final WriteRequestHeaderProto h = proto.getWriteHeader();
     final CompletableFuture<Integer> f = files.write(entry.getIndex(),
         h.getPath().toStringUtf8(), h.getClose(),  h.getSync(), h.getOffset(),
-        entry.getStateMachineLogEntry().getStateMachineEntry().getStateMachineData())
-        .whenComplete((r, e) -> entryRef.release());
+        entry.getStateMachineLogEntry().getStateMachineEntry().getStateMachineData()
+    ).whenComplete((r, e) -> entryRef.release());
     // sync only if closing the file
-    return h.getClose()? f: null;
+    return h.getClose() ? f: null;
   }
 
   static FileStoreRequestProto getProto(TransactionContext context, LogEntryProto entry) {
