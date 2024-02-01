@@ -26,7 +26,6 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.util.JavaUtils;
-import org.slf4j.event.Level;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -62,12 +61,11 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.event.Level;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
 import java.io.IOException;
@@ -80,30 +78,26 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-@RunWith(Parameterized.class)
 public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
   {
     Slf4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.TRACE);
   }
 
-  public TestRaftServerWithGrpc(Boolean separateHeartbeat) {
-    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
-  }
-
-  @Parameterized.Parameters
   public static Collection<Boolean[]> data() {
     return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
   }
 
-  @Before
+  @BeforeEach
   public void setup() {
     final RaftProperties p = getProperties();
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SimpleStateMachine4Testing.class, StateMachine.class);
     RaftClientConfigKeys.Rpc.setRequestTimeout(p, TimeDuration.valueOf(1, TimeUnit.SECONDS));
   }
 
-  @Test
-  public void testServerRestartOnException() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testServerRestartOnException(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(1, this::runTestServerRestartOnException);
   }
 
@@ -149,8 +143,10 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     cluster.getServerFactory(leaderId).newRaftServerRpc(cluster.getServer(leaderId));
   }
 
-  @Test
-  public void testUnsupportedMethods() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testUnsupportedMethods(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(1, this::runTestUnsupportedMethods);
   }
 
@@ -167,8 +163,10 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
         UnsupportedOperationException.class);
   }
 
-  @Test
-  public void testLeaderRestart() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testLeaderRestart(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(3, this::runTestLeaderRestart);
   }
 
@@ -178,7 +176,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     try (final RaftClient client = cluster.createClient()) {
       // send a request to make sure leader is ready
       final CompletableFuture<RaftClientReply> f = client.async().send(new SimpleMessage("testing"));
-      Assert.assertTrue(f.get().isSuccess());
+      Assertions.assertTrue(f.get().isSuccess());
     }
 
     try (final RaftClient client = cluster.createClient()) {
@@ -189,14 +187,14 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       {
         // send a request using rpc directly
         final RaftClientRequest request = newRaftClientRequest(client, seqNum.incrementAndGet());
-        Assert.assertEquals(client.getId(), request.getClientId());
+        Assertions.assertEquals(client.getId(), request.getClientId());
         final CompletableFuture<RaftClientReply> f = rpc.sendRequestAsync(request);
         final RaftClientReply reply = f.get();
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
         RaftClientTestUtil.handleReply(request, reply, client);
         invocationId = ClientInvocationId.valueOf(request.getClientId(), request.getCallId());
         final RetryCache.Entry entry = leader.getRetryCache().getIfPresent(invocationId);
-        Assert.assertNotNull(entry);
+        Assertions.assertNotNull(entry);
         LOG.info("cache entry {}", entry);
       }
 
@@ -206,13 +204,13 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       final RaftClientRequest requestBlocked = newRaftClientRequest(client, seqNum.incrementAndGet());
       final CompletableFuture<RaftClientReply> futureBlocked = rpc.sendRequestAsync(requestBlocked);
 
-      JavaUtils.attempt(() -> Assert.assertNull(leader.getRetryCache().getIfPresent(invocationId)),
+      JavaUtils.attempt(() -> Assertions.assertNull(leader.getRetryCache().getIfPresent(invocationId)),
           10, HUNDRED_MILLIS, "invalidate cache entry", LOG);
       LOG.info("cache entry not found for {}", invocationId);
 
       // change leader
       RaftTestUtil.changeLeader(cluster, leader.getId());
-      Assert.assertNotEquals(RaftPeerRole.LEADER, leader.getInfo().getCurrentRole());
+      Assertions.assertNotEquals(RaftPeerRole.LEADER, leader.getInfo().getCurrentRole());
 
       // the blocked request should fail
       testFailureCase("request should fail", futureBlocked::get,
@@ -229,13 +227,17 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
   }
 
-  @Test
-  public void testRaftClientMetrics() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testRaftClientMetrics(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(3, this::testRaftClientRequestMetrics);
   }
 
-  @Test
-  public void testRaftServerMetrics() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testRaftServerMetrics(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     final RaftProperties p = getProperties();
     RaftServerConfigKeys.Write.setElementLimit(p, 10);
     RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf("1MB"));
@@ -252,7 +254,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     try (RaftClient client = cluster.createClient()) {
       // send a request to make sure leader is ready
       final CompletableFuture< RaftClientReply > f = client.async().send(new SimpleMessage("testing"));
-      Assert.assertTrue(f.get().isSuccess());
+      Assertions.assertTrue(f.get().isSuccess());
     }
 
     SimpleStateMachine4Testing stateMachine = SimpleStateMachine4Testing.get(cluster.getLeader());
@@ -285,14 +287,14 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
       final SizeInBytes size = SizeInBytes.valueOf("1025kb");
       final ByteString bytes = randomByteString(size.getSizeInt());
-      Assert.assertEquals(size.getSizeInt(), bytes.size());
+      Assertions.assertEquals(size.getSizeInt(), bytes.size());
       client.async().send(new SimpleMessage(size + "-message", bytes));
       clients.add(client);
 
       RaftTestUtil.waitFor(() -> getRaftServerMetrics(cluster.getLeader())
           .getNumRequestsByteSizeLimitHits().getCount() == 1, 300, 5000);
 
-      Assert.assertEquals(2, getRaftServerMetrics(cluster.getLeader())
+      Assertions.assertEquals(2, getRaftServerMetrics(cluster.getLeader())
           .getNumResourceLimitHits().getCount());
     } finally {
       for (RaftClient client : clients) {
@@ -326,36 +328,36 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
     try (final RaftClient client = cluster.createClient()) {
       final CompletableFuture<RaftClientReply> f1 = client.async().send(new SimpleMessage("testing"));
-      Assert.assertTrue(f1.get().isSuccess());
+      Assertions.assertTrue(f1.get().isSuccess());
       final DefaultTimekeeperImpl write = (DefaultTimekeeperImpl) registry.timer(RAFT_CLIENT_WRITE_REQUEST);
-      JavaUtils.attempt(() -> Assert.assertTrue(write.getTimer().getCount() > 0),
+      JavaUtils.attempt(() -> Assertions.assertTrue(write.getTimer().getCount() > 0),
           3, TimeDuration.ONE_SECOND, "writeTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f2 = client.async().sendReadOnly(new SimpleMessage("testing"));
-      Assert.assertTrue(f2.get().isSuccess());
+      Assertions.assertTrue(f2.get().isSuccess());
       final DefaultTimekeeperImpl read = (DefaultTimekeeperImpl) registry.timer(RAFT_CLIENT_READ_REQUEST);
-      JavaUtils.attempt(() -> Assert.assertTrue(read.getTimer().getCount() > 0),
+      JavaUtils.attempt(() -> Assertions.assertTrue(read.getTimer().getCount() > 0),
           3, TimeDuration.ONE_SECOND, "readTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f3 = client.async().sendStaleRead(new SimpleMessage("testing"),
           0, leader.getId());
-      Assert.assertTrue(f3.get().isSuccess());
+      Assertions.assertTrue(f3.get().isSuccess());
       final DefaultTimekeeperImpl staleRead = (DefaultTimekeeperImpl) registry.timer(RAFT_CLIENT_STALE_READ_REQUEST);
-      JavaUtils.attempt(() -> Assert.assertTrue(staleRead.getTimer().getCount() > 0),
+      JavaUtils.attempt(() -> Assertions.assertTrue(staleRead.getTimer().getCount() > 0),
           3, TimeDuration.ONE_SECOND, "staleReadTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f4 = client.async().watch(0, RaftProtos.ReplicationLevel.ALL);
-      Assert.assertTrue(f4.get().isSuccess());
+      Assertions.assertTrue(f4.get().isSuccess());
       final DefaultTimekeeperImpl watchAll = (DefaultTimekeeperImpl) registry.timer(
           String.format(RAFT_CLIENT_WATCH_REQUEST, "-ALL"));
-      JavaUtils.attempt(() -> Assert.assertTrue(watchAll.getTimer().getCount() > 0),
+      JavaUtils.attempt(() -> Assertions.assertTrue(watchAll.getTimer().getCount() > 0),
           3, TimeDuration.ONE_SECOND, "watchAllTimer metrics", LOG);
 
       final CompletableFuture<RaftClientReply> f5 = client.async().watch(0, RaftProtos.ReplicationLevel.MAJORITY);
-      Assert.assertTrue(f5.get().isSuccess());
+      Assertions.assertTrue(f5.get().isSuccess());
       final DefaultTimekeeperImpl watch = (DefaultTimekeeperImpl) registry.timer(
           String.format(RAFT_CLIENT_WATCH_REQUEST, ""));
-      JavaUtils.attempt(() -> Assert.assertTrue(watch.getTimer().getCount() > 0),
+      JavaUtils.attempt(() -> Assertions.assertTrue(watch.getTimer().getCount() > 0),
           3, TimeDuration.ONE_SECOND, "watchTimer metrics", LOG);
     }
   }
@@ -366,8 +368,10 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
         RaftClientRequest.writeRequestType(), ProtoUtils.toSlidingWindowEntry(seqNum, seqNum == 1L));
   }
 
-  @Test
-  public void testTlsWithKeyAndTrustManager() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testTlsWithKeyAndTrustManager(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     final RaftProperties p = getProperties();
     RaftServerConfigKeys.Write.setElementLimit(p, 10);
     RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf("1MB"));

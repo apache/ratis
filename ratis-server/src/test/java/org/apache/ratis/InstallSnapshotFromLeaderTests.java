@@ -39,8 +39,7 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.SizeInBytes;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,14 +73,12 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 64;
   private static final int PURGE_GAP = 8;
 
-  @Test
   public void testMultiFileInstallSnapshot() throws Exception {
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         StateMachineWithMultiNestedSnapshotFile.class, StateMachine.class);
     runWithNewCluster(1, this::testMultiFileInstallSnapshot);
   }
 
-  @Test
   public void testSeparateSnapshotInstallPath() throws Exception {
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         StateMachineWithSeparatedSnapshotPath.class, StateMachine.class);
@@ -98,14 +95,14 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
           RaftClientReply
               reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
 
         client.getSnapshotManagementApi(leaderId).create(3000);
       }
 
       final SnapshotInfo snapshot = cluster.getLeader().getStateMachine().getLatestSnapshot();
-      Assert.assertEquals(3, snapshot.getFiles().size());
+      Assertions.assertEquals(3, snapshot.getFiles().size());
 
       // add two more peers
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
@@ -121,8 +118,8 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       JavaUtils.attempt(() -> {
         for (RaftServer.Division follower : cluster.getFollowers()) {
           final SnapshotInfo info = follower.getStateMachine().getLatestSnapshot();
-          Assert.assertNotNull(info);
-          Assert.assertEquals(3, info.getFiles().size());
+          Assertions.assertNotNull(info);
+          Assertions.assertEquals(3, info.getFiles().size());
         }
       }, 10, ONE_SECOND, "check snapshot", LOG);
     } finally {
@@ -182,8 +179,8 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
         return RaftLog.INVALID_LOG_INDEX;
       }
 
-      Assert.assertTrue(file1.exists());
-      Assert.assertTrue(file2.exists());
+      Assertions.assertTrue(file1.exists());
+      Assertions.assertTrue(file2.exists());
       return super.takeSnapshot();
     }
 
@@ -199,7 +196,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       files.add(new FileInfo(
           file2.toPath(),
           null));
-      Assert.assertEquals(2, files.size());
+      Assertions.assertEquals(2, files.size());
 
       SnapshotInfo info = super.getLatestSnapshot();
       if (info == null) {
@@ -224,8 +221,8 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       this.snapshotDir = new File(root, "snapshot");
       this.tmpDir = new File(root, "tmp");
       FileUtils.deleteFully(root);
-      Assert.assertTrue(this.snapshotDir.mkdirs());
-      Assert.assertTrue(this.tmpDir.mkdirs());
+      Assertions.assertTrue(this.snapshotDir.mkdirs());
+      Assertions.assertTrue(this.tmpDir.mkdirs());
       this.root.deleteOnExit();
     }
 
@@ -246,13 +243,13 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
       try {
         FileUtils.deleteFully(snapshotRealDir);
         FileUtils.deleteFully(snapshotTmpDir);
-        Assert.assertTrue(snapshotTmpDir.mkdirs());
+        Assertions.assertTrue(snapshotTmpDir.mkdirs());
         final File snapshotFile1 = new File(snapshotTmpDir, "deer");
         final File snapshotFile2 = new File(snapshotTmpDir, "loves");
         final File snapshotFile3 = new File(snapshotTmpDir, "vegetable");
-        Assert.assertTrue(snapshotFile1.createNewFile());
-        Assert.assertTrue(snapshotFile2.createNewFile());
-        Assert.assertTrue(snapshotFile3.createNewFile());
+        Assertions.assertTrue(snapshotFile1.createNewFile());
+        Assertions.assertTrue(snapshotFile2.createNewFile());
+        Assertions.assertTrue(snapshotFile3.createNewFile());
         FileUtils.move(snapshotTmpDir, snapshotRealDir);
       } catch (IOException ioe) {
         LOG.error("create snapshot data file failed", ioe);

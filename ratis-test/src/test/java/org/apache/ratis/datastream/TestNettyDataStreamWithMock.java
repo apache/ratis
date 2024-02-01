@@ -36,14 +36,14 @@ import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.NetUtils;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@Ignore
+@Disabled
 public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
   static RaftPeer newRaftPeer(RaftServer server) {
     return RaftPeer.newBuilder()
@@ -53,7 +53,7 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
         .build();
   }
 
-  @Before
+  @BeforeEach
   public void setup() {
     properties = new RaftProperties();
     RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);

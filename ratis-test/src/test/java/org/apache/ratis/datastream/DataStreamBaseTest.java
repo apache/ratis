@@ -34,7 +34,7 @@ import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.CollectionUtils;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -132,10 +132,10 @@ abstract class DataStreamBaseTest extends BaseTest {
           .stream(null, DataStreamTestUtils.getRoutingTableChainTopology(peers, getPrimaryServer().getPeer()));
       if (headerException != null) {
         final DataStreamReply headerReply = out.getHeaderFuture().join();
-        Assert.assertFalse(headerReply.isSuccess());
+        Assertions.assertFalse(headerReply.isSuccess());
         final RaftClientReply clientReply = ClientProtoUtils.toRaftClientReply(
             ((DataStreamReplyByteBuffer)headerReply).slice());
-        Assert.assertTrue(clientReply.getException().getMessage().contains(headerException.getMessage()));
+        Assertions.assertTrue(clientReply.getException().getMessage().contains(headerException.getMessage()));
         return;
       }
 
@@ -143,11 +143,11 @@ abstract class DataStreamBaseTest extends BaseTest {
           CollectionUtils.as(servers, Server::getRaftServer), null, out, bufferSize, bufferNum,
           client.getId(), false).join();
       if (expectedException != null) {
-        Assert.assertFalse(clientReply.isSuccess());
-        Assert.assertTrue(clientReply.getException().getMessage().contains(
+        Assertions.assertFalse(clientReply.isSuccess());
+        Assertions.assertTrue(clientReply.getException().getMessage().contains(
             expectedException.getMessage()));
       } else {
-        Assert.assertTrue(clientReply.isSuccess());
+        Assertions.assertTrue(clientReply.isSuccess());
       }
     }
   }

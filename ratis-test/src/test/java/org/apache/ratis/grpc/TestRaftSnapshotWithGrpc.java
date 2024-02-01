@@ -26,7 +26,7 @@ import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 
 public class TestRaftSnapshotWithGrpc extends RaftSnapshotBaseTest {
   @Override
@@ -39,10 +39,10 @@ public class TestRaftSnapshotWithGrpc extends RaftSnapshotBaseTest {
     MetricRegistryInfo info = new MetricRegistryInfo(leader.getMemberId().toString(),
         "ratis_grpc", "log_appender", "Metrics for Ratis Grpc Log Appender");
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
-    Assert.assertTrue(metricRegistry.isPresent());
+    Assertions.assertTrue(metricRegistry.isPresent());
     final LongCounter installSnapshotCounter = metricRegistry.get().counter("num_install_snapshot");
-    Assert.assertNotNull(installSnapshotCounter);
-    Assert.assertTrue(installSnapshotCounter.getCount() >= 1);
+    Assertions.assertNotNull(installSnapshotCounter);
+    Assertions.assertTrue(installSnapshotCounter.getCount() >= 1);
   }
 
 }

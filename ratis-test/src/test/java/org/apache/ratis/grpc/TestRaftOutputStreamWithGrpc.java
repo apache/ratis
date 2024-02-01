@@ -18,12 +18,10 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.OutputStreamBaseTest;
+import org.junit.jupiter.api.Timeout;
 
+@Timeout(value = 100)
 public class TestRaftOutputStreamWithGrpc
     extends OutputStreamBaseTest<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
-  @Override
-  public int getGlobalTimeoutSeconds() {
-    return 100;
-  }
 }

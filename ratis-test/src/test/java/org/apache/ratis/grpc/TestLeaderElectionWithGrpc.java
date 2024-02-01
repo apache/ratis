@@ -19,7 +19,7 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.LeaderElectionTests;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestLeaderElectionWithGrpc
     extends LeaderElectionTests<MiniRaftClusterWithGrpc>

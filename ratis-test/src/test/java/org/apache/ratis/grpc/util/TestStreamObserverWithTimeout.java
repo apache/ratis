@@ -25,8 +25,8 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutTimer;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.ArrayList;
@@ -106,7 +106,7 @@ public class TestStreamObserverWithTimeout extends BaseTest {
         for (; i < slow; i++) {
           final String expected = (i + warmup) + GrpcTestServer.GreeterImpl.toReplySuffix(messages.get(i));
           final String reply = futures.get(i).get();
-          Assert.assertEquals(expected, reply);
+          Assertions.assertEquals(expected, reply);
           LOG.info("{}) passed", (i + warmup));
         }
 
@@ -114,10 +114,10 @@ public class TestStreamObserverWithTimeout extends BaseTest {
           final CompletableFuture<String> f = futures.get(i);
           try {
             final String reply = f.get();
-            Assert.fail((i + warmup) + ") reply = " + reply + ", "
+            Assertions.fail((i + warmup) + ") reply = " + reply + ", "
                 + StringUtils.completableFuture2String(f, false));
           } catch (ExecutionException e) {
-             LOG.info("GOOD! {}) {}, {}", (i + warmup), StringUtils.completableFuture2String(f, true), e);
+             LOG.info("GOOD! {}) {}", (i + warmup), StringUtils.completableFuture2String(f, true), e);
           }
         }
       }

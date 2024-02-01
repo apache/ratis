@@ -17,9 +17,10 @@
  */
 package org.apache.ratis.datastream;
 
-import org.junit.Ignore;
 
-@Ignore("Ignored by runzhiwang, because NettyClientRpc does not support sendRequestAsync")
+import org.junit.jupiter.api.Disabled;
+
+@Disabled("Ignored by runzhiwang, because NettyClientRpc does not support sendRequestAsync")
 public class TestNettyDataStreamWithNettyCluster
     extends DataStreamClusterTests<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty>
     implements MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty.FactoryGet {

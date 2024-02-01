@@ -35,8 +35,8 @@ import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.Arrays;
@@ -84,9 +84,9 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
   }
 
   public static void assertReply(RaftClientReply reply, RaftClient client, long callId) {
-    Assert.assertEquals(client.getId(), reply.getClientId());
-    Assert.assertEquals(callId, reply.getCallId());
-    Assert.assertTrue(reply.isSuccess());
+    Assertions.assertEquals(client.getId(), reply.getClientId());
+    Assertions.assertEquals(callId, reply.getCallId());
+    Assertions.assertTrue(reply.isSuccess());
   }
 
   public void assertServer(MiniRaftCluster cluster, ClientId clientId, long callId, long oldLastApplied) throws Exception {
@@ -97,10 +97,10 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       if (server.getInfo().getLastAppliedIndex() < leaderApplied) {
         Thread.sleep(1000);
       }
-      Assert.assertEquals(2, server.getRetryCache().getStatistics().size());
-      Assert.assertNotNull(RetryCacheTestUtil.get(server, clientId, callId));
+      Assertions.assertEquals(2, server.getRetryCache().getStatistics().size());
+      Assertions.assertNotNull(RetryCacheTestUtil.get(server, clientId, callId));
       // make sure there is only one log entry committed
-      Assert.assertEquals(1, count(server.getRaftLog(), oldLastApplied + 1));
+      Assertions.assertEquals(1, count(server.getRaftLog(), oldLastApplied + 1));
     }
   }
 
@@ -145,10 +145,10 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
 
       final RaftPeerId newLeaderId = JavaUtils.attemptRepeatedly(() -> {
         final RaftPeerId id = RaftTestUtil.waitForLeader(cluster).getId();
-        Assert.assertNotEquals(leaderId, id);
+        Assertions.assertNotEquals(leaderId, id);
         return id;
       }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "wait for a leader different than " + leaderId, LOG);
-      Assert.assertNotEquals(leaderId, newLeaderId);
+      Assertions.assertNotEquals(leaderId, newLeaderId);
       // same clientId and callId in the request
       r = cluster.newRaftClientRequest(client.getId(), newLeaderId,
               callId, new SimpleMessage("message"));
@@ -164,7 +164,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       }
 
       // check the new leader and make sure the retry did not get committed
-      Assert.assertEquals(0, count(cluster.getLeader().getRaftLog(), oldLastApplied + 1));
+      Assertions.assertEquals(0, count(cluster.getLeader().getRaftLog(), oldLastApplied + 1));
     }
   }
 }
