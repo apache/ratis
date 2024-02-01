@@ -36,8 +36,8 @@ import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedConsumer;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.channels.FileChannel;
@@ -115,9 +115,9 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
       }
     }
 
-    Assert.assertNotNull(
-        "Cannot find peer other than the primary", notPrimary);
-    Assert.assertNotEquals(primaryServer, notPrimary);
+    Assertions.assertNotNull(notPrimary,
+        "Cannot find peer other than the primary");
+    Assertions.assertNotEquals(primaryServer, notPrimary);
 
     try (RaftClient client = cluster.createClient(primaryServer)) {
       RoutingTable routingTableWithWrongPrimary =
@@ -156,7 +156,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
       public void accept(DataStreamOutputImpl out) throws Exception {
         try (FileChannel in = FileUtils.newFileChannel(f, StandardOpenOption.READ)) {
           final long transferred = in.transferTo(0, size, out.getWritableByteChannel());
-          Assert.assertEquals(size, transferred);
+          Assertions.assertEquals(size, transferred);
         }
       }
 
@@ -196,7 +196,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
       final RaftServer.Division impl = proxy.getDivision(cluster.getGroupId());
       final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) impl.getStateMachine();
       final SingleDataStream s = stateMachine.getSingleDataStream(request);
-      Assert.assertFalse(s.getDataChannel().isOpen());
+      Assertions.assertFalse(s.getDataChannel().isOpen());
       DataStreamTestUtils.assertLogEntry(impl, s);
     }
   }
