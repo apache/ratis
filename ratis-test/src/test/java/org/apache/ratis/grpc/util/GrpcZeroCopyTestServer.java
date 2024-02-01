@@ -32,7 +32,7 @@ import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.TraditionalBinaryPrefix;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -117,10 +117,10 @@ class GrpcZeroCopyTestServer implements Closeable {
   void assertCounts(int expectNumElements, long expectNumBytes) {
     LOG.info("ZeroCopyCount    = {}", zeroCopyCount);
     LOG.info("nonZeroCopyCount = {}", nonZeroCopyCount);
-    Assert.assertEquals("zeroCopyCount.getNumElements()", expectNumElements, zeroCopyCount.getNumElements());
-    Assert.assertEquals("zeroCopyCount.getNumBytes()", expectNumBytes, zeroCopyCount.getNumBytes());
-    Assert.assertEquals("nonZeroCopyCount.getNumElements()", 0, nonZeroCopyCount.getNumElements());
-    Assert.assertEquals("nonZeroCopyCount.getNumBytes()", 0, nonZeroCopyCount.getNumBytes());
+    Assertions.assertEquals(expectNumElements, zeroCopyCount.getNumElements(), "zeroCopyCount.getNumElements()");
+    Assertions.assertEquals(expectNumBytes, zeroCopyCount.getNumBytes()," zeroCopyCount.getNumBytes()");
+    Assertions.assertEquals(0, nonZeroCopyCount.getNumElements(), "nonZeroCopyCount.getNumElements()");
+    Assertions.assertEquals(0, nonZeroCopyCount.getNumBytes(), "nonZeroCopyCount.getNumBytes()");
   }
 
   int start() throws IOException {

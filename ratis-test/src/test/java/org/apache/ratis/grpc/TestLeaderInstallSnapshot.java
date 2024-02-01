@@ -18,23 +18,32 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.InstallSnapshotFromLeaderTests;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.Collection;
 
-@RunWith(Parameterized.class)
 public class TestLeaderInstallSnapshot
 extends InstallSnapshotFromLeaderTests<MiniRaftClusterWithGrpc>
 implements MiniRaftClusterWithGrpc.FactoryGet {
 
-    public TestLeaderInstallSnapshot(Boolean separateHeartbeat) {
-        GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
-    }
-
-    @Parameterized.Parameters
     public static Collection<Boolean[]> data() {
         return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
     }
+
+    @ParameterizedTest
+    @MethodSource("data")
+    public void testMultiFileInstallSnapshot(Boolean separateHeartbeat) throws Exception {
+        GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+        super.testMultiFileInstallSnapshot();
+    }
+
+    @ParameterizedTest
+    @MethodSource("data")
+    public void testSeparateSnapshotInstallPath(Boolean separateHeartbeat) throws Exception {
+        GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+        super.testSeparateSnapshotInstallPath();
+    }
+
 }

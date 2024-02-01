@@ -26,14 +26,14 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TestDataStreamDisabled extends BaseTest {
   @Test
   public void testDataStreamDisabled() throws Exception {
     final RaftProperties properties = new RaftProperties();
-    Assert.assertEquals(SupportedDataStreamType.DISABLED, RaftConfigKeys.DataStream.type(properties, LOG::info));
+    Assertions.assertEquals(SupportedDataStreamType.DISABLED, RaftConfigKeys.DataStream.type(properties, LOG::info));
 
     final RaftPeer server = RaftPeer.newBuilder().setId("s0").build();
 
@@ -44,9 +44,9 @@ public class TestDataStreamDisabled extends BaseTest {
             .setProperties(properties)
             .build();
         DataStreamOutput out = client.getDataStreamApi().stream()) {
-      Assert.fail("Unexpected object: " + out);
+      Assertions.fail("Unexpected object: " + out);
     } catch (UnsupportedOperationException e) {
-      Assert.assertTrue(e.getMessage().contains(
+      Assertions.assertTrue(e.getMessage().contains(
           DisabledDataStreamClientFactory.class.getName() + "$1 does not support streamAsync"));
     }
   }
