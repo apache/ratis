@@ -1602,7 +1602,7 @@ class RaftServerImpl implements RaftServer.Division,
       // In any of these scenarios, we should return an INCONSISTENCY reply
       // back to leader so that the leader can update this follower's next index.
       final long inconsistencyReplyNextIndex = checkInconsistentAppendEntries(previous, entries);
-      if (inconsistencyReplyNextIndex >= RaftLog.INVALID_LOG_INDEX) {
+      if (inconsistencyReplyNextIndex > RaftLog.INVALID_LOG_INDEX) {
         final AppendEntriesReplyProto reply = toAppendEntriesReplyProto(
             leaderId, getMemberId(), currentTerm, followerCommit, inconsistencyReplyNextIndex,
             AppendResult.INCONSISTENCY, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat);
@@ -1627,24 +1627,18 @@ class RaftServerImpl implements RaftServer.Division,
         stateMachine.event().notifySnapshotInstalled(InstallSnapshotResult.SUCCESS, installedIndex, getPeer());
       }
     }
+
+    final long commitIndex = effectiveCommitIndex(proto.getLeaderCommit(), previous, entries.size());
+    final long matchIndex = isHeartbeat? RaftLog.INVALID_LOG_INDEX: entries.get(entries.size() - 1).getIndex();
     return JavaUtils.allOf(futures).whenCompleteAsync((r, t) -> {
       followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
       timer.stop();
     }, getServerExecutor()).thenApply(v -> {
-      final long commitIndex = effectiveCommitIndex(proto.getLeaderCommit(), previous, entries.size());
       final boolean updated = state.updateCommitIndex(commitIndex, currentTerm, false);
       if (updated) {
         updateCommitInfoCache();
       }
-      final long nextIndex;
-      final long matchIndex;
-      if (isHeartbeat) {
-        nextIndex = state.getNextIndex();
-        matchIndex = RaftLog.INVALID_LOG_INDEX;
-      } else {
-        matchIndex = entries.get(entries.size() - 1).getIndex();
-        nextIndex = matchIndex + 1;
-      }
+      final long nextIndex = isHeartbeat? state.getNextIndex(): matchIndex + 1;
       final AppendEntriesReplyProto reply = toAppendEntriesReplyProto(leaderId, getMemberId(),
           currentTerm, updated? commitIndex : state.getLog().getLastCommittedIndex(),
           nextIndex, AppendResult.SUCCESS, callId, matchIndex, isHeartbeat);
