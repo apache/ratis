@@ -321,24 +321,21 @@ class ServerState {
     Objects.requireNonNull(operation.getLogEntry());
   }
 
-  /**
-   * Check if accept the leader selfId and term from the incoming AppendEntries rpc.
-   * If accept, update the current state.
-   * @return true if the check passes
-   */
-  boolean recognizeLeader(RaftPeerId peerLeaderId, long leaderTerm) {
+  /** @return true iff the given peer id is recognized as the leader. */
+  boolean recognizeLeader(Object op, RaftPeerId peerId, long peerTerm) {
     final long current = currentTerm.get();
-    if (leaderTerm < current) {
+    if (peerTerm < current) {
+      LOG.warn("{}: Failed to recognize {} as leader for {} since peerTerm = {} < currentTerm = {}",
+          getMemberId(), peerId, op, peerTerm, current);
       return false;
     }
     final RaftPeerId curLeaderId = getLeaderId();
-    if (leaderTerm > current || curLeaderId == null) {
-      // If the request indicates a term that is greater than the current term
-      // or no leader has been set for the current term, make sure to update
-      // leader and term later
-      return true;
+    if (peerTerm == current && curLeaderId != null && !curLeaderId.equals(peerId)) {
+      LOG.warn("{}: Failed to recognize {} as leader for {} since current leader is {} (peerTerm = currentTerm = {})",
+          getMemberId(), peerId, op, curLeaderId, current);
+      return false;
     }
-    return curLeaderId.equals(peerLeaderId);
+    return true;
   }
 
   static int compareLog(TermIndex lastEntry, TermIndex candidateLastEntry) {
