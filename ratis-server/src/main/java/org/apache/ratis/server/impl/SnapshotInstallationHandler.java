@@ -113,7 +113,7 @@ class SnapshotInstallationHandler {
     CodeInjectionForTesting.execute(RaftServerImpl.INSTALL_SNAPSHOT, server.getId(), leaderId, request);
 
     server.assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
-    server.assertGroup(leaderId, leaderGroupId);
+    ServerImplUtils.assertGroup(getMemberId(), leaderId, leaderGroupId);
 
     InstallSnapshotReplyProto reply = null;
     // Check if install snapshot from Leader is enabled
