@@ -117,43 +117,10 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedSupplier;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.NoSuchFileException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static org.apache.ratis.server.impl.LeaderElection.Result.NOT_IN_CONF;
-import static org.apache.ratis.server.impl.ServerImplUtils.assertEntries;
-import static org.apache.ratis.server.impl.ServerImplUtils.assertGroup;
 import static org.apache.ratis.server.impl.ServerImplUtils.effectiveCommitIndex;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toAppendEntriesReplyProto;
-import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexReplyProto;
-import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexRequestProto;
-import static org.apache.ratis.server.impl.ServerProtoUtils.toRequestVoteReplyProto;
-import static org.apache.ratis.server.impl.ServerProtoUtils.toStartLeaderElectionReplyProto;
-import static org.apache.ratis.server.raftlog.LogProtoUtils.toLogEntryTermIndexString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesReplyString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesRequestString;
-import static org.apache.ratis.server.util.ServerStringUtils.toRequestVoteReplyString;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
@@ -1565,16 +1532,23 @@ class RaftServerImpl implements RaftServer.Division,
     final AppendEntriesRequestProto r = requestRef.retain();
     final RaftRpcRequestProto request = r.getServerRequest();
     final TermIndex previous = r.hasPreviousLog()? TermIndex.valueOf(r.getPreviousLog()) : null;
-    final RaftPeerId requestorId = RaftPeerId.valueOf(request.getRequestorId());
-
     try {
-      preAppendEntriesAsync(requestorId, ProtoUtils.toRaftGroupId(request.getRaftGroupId()), r.getLeaderTerm(),
-          previous, r.getLeaderCommit(), r.getInitializing(), entries);
-      return appendEntriesAsync(requestorId, r.getLeaderTerm(), previous, r.getLeaderCommit(),
-          request.getCallId(), r.getInitializing(), r.getCommitInfosList(), entries, requestRef);
+      final RaftPeerId leaderId = RaftPeerId.valueOf(request.getRequestorId());
+      final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(request.getRaftGroupId());
+
+      CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(), leaderId, previous, r);
+
+      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
+      if (!startComplete.get()) {
+        throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
+      }
+      assertGroup(leaderId, leaderGroupId);
+      validateEntries(r.getLeaderTerm(), previous, r.getEntriesList());
+
+      return appendEntriesAsync(leaderId, request.getCallId(), previous, requestRef);
     } catch(Exception t) {
-      LOG.error("{}: Failed appendEntriesAsync {}", getMemberId(), r, t);
-      throw t;
+      LOG.error("{}: Failed appendEntries* {}", getMemberId(), toAppendEntriesRequestString(r), t);
+      throw IOUtils.asIOException(t);
     } finally {
       requestRef.release();
     }
@@ -1639,14 +1613,13 @@ class RaftServerImpl implements RaftServer.Division,
     return serverExecutor;
   }
 
-  @SuppressWarnings("checkstyle:parameternumber")
-  private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
-      RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
-      List<CommitInfoProto> commitInfos, List<LogEntryProto> entries,
-      ReferenceCountedObject<?> requestRef) throws IOException {
+  private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(RaftPeerId leaderId, long callId,
+      TermIndex previous, ReferenceCountedObject<AppendEntriesRequestProto> requestRef) throws IOException {
+    final AppendEntriesRequestProto proto = requestRef.get();
+    final List<LogEntryProto> entries = proto.getEntriesList();
     final boolean isHeartbeat = entries.isEmpty();
     logAppendEntries(isHeartbeat, () -> getMemberId() + ": appendEntries* "
-        + toAppendEntriesRequestString(proto, stateMachine::toStateMachineLogEntryString));
+        + toAppendEntriesRequestString(proto));
 
     final long leaderTerm = proto.getLeaderTerm();
     final long currentTerm;
@@ -1690,7 +1663,7 @@ class RaftServerImpl implements RaftServer.Division,
             AppendResult.INCONSISTENCY, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat);
         LOG.info("{}: appendEntries* reply {}", getMemberId(), toAppendEntriesReplyString(reply));
         followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
-        return future.thenApply(dummy -> reply);
+        return CompletableFuture.completedFuture(reply);
       }
 
       state.updateConfiguration(entries);
@@ -1703,7 +1676,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final List<CompletableFuture<Long>> futures = entries.isEmpty() ? Collections.emptyList()
         : state.getLog().append(requestRef.delegate(entries));
-    commitInfos.forEach(commitInfoCache::update);
+    proto.getCommitInfosList().forEach(commitInfoCache::update);
 
     CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);
     if (!isHeartbeat) {
@@ -1716,12 +1689,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final long commitIndex = effectiveCommitIndex(proto.getLeaderCommit(), previous, entries.size());
     final long matchIndex = isHeartbeat? RaftLog.INVALID_LOG_INDEX: entries.get(entries.size() - 1).getIndex();
-    return appendFuture.whenCompleteAsync((r, t) -> {
-      if  (t != null) {
-        LOG.warn("{}: appendEntries* failed: {}", getMemberId(), toLogEntryTermIndexString(entries), t);
-      } else if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: appendEntries* succeeded: {}", getMemberId(), toLogEntryTermIndexString(entries));
-      }
+    return JavaUtils.allOf(futures).whenCompleteAsync((r, t) -> {
       followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
       timer.stop();
     }, getServerExecutor()).thenApply(v -> {
@@ -1737,11 +1705,6 @@ class RaftServerImpl implements RaftServer.Division,
           + ": appendEntries* reply " + toAppendEntriesReplyString(reply));
       return reply;
     });
-  }
-
-  private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
-    return CompletableFuture.completedFuture(null)
-        .thenComposeAsync(dummy -> JavaUtils.allOf(state.getLog().append(entries)), serverExecutor);
   }
 
   private long checkInconsistentAppendEntries(TermIndex previous, List<LogEntryProto> entries) {
@@ -1829,7 +1792,7 @@ class RaftServerImpl implements RaftServer.Division,
     if (!request.hasLeaderLastEntry()) {
       // It should have a leaderLastEntry since there is a placeHolder entry.
       LOG.warn("{}: leaderLastEntry is missing in {}", getMemberId(), request);
-      return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+      return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
     }
 
     final TermIndex leaderLastEntry = TermIndex.valueOf(request.getLeaderLastEntry());
@@ -1843,7 +1806,7 @@ class RaftServerImpl implements RaftServer.Division,
       assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
       final boolean recognized = state.recognizeLeader("startLeaderElection", leaderId, leaderLastEntry.getTerm());
       if (!recognized) {
-        return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
       }
 
       if (!getInfo().isFollower()) {
