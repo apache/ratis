@@ -21,16 +21,19 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.util.ProtoUtils;
 
+import java.util.List;
+
 /**
  *  This class provides convenient utilities for converting Protocol Buffers messages to strings.
  *  The output strings are for information purpose only.
  *  They are concise and compact compared to the Protocol Buffers implementations of {@link Object#toString()}.
- *
+ * <p>
  *  The output messages or the output formats may be changed without notice.
  *  Callers of this class should not try to parse the output strings for any purposes.
  *  Instead, they should use the public APIs provided by Protocol Buffers.
@@ -42,12 +45,13 @@ public final class ServerStringUtils {
     if (request == null) {
       return null;
     }
+    final List<LogEntryProto> entries = request.getEntriesList();
     return ProtoUtils.toString(request.getServerRequest())
         + "-t" + request.getLeaderTerm()
         + ",previous=" + TermIndex.valueOf(request.getPreviousLog())
         + ",leaderCommit=" + request.getLeaderCommit()
         + ",initializing? " + request.getInitializing()
-        + ",entries: " + LogProtoUtils.toLogEntriesShortString(request.getEntriesList());
+        + "," + (entries.isEmpty()? "HEARTBEAT" : "entries: " + LogProtoUtils.toLogEntriesShortString(entries));
   }
 
   public static String toAppendEntriesReplyString(AppendEntriesReplyProto reply) {
