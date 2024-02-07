@@ -18,7 +18,6 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.client.impl.OrderedAsync;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
@@ -29,7 +28,6 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.LogInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
@@ -82,9 +80,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
-import org.apache.ratis.server.impl.ServerImplUtils.NavigableIndices;
-import org.apache.ratis.server.leader.LeaderState.StepDownReason;
-import org.apache.ratis.server.leader.LogAppender;
+import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -101,8 +97,6 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.ratis.trace.TraceServer;
-import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.ConcurrentUtils;
@@ -114,13 +108,45 @@ import org.apache.ratis.util.LifeCycle.State;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedSupplier;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.NoSuchFileException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static org.apache.ratis.server.impl.ServerImplUtils.assertEntries;
+import static org.apache.ratis.server.impl.ServerImplUtils.assertGroup;
 import static org.apache.ratis.server.impl.ServerImplUtils.effectiveCommitIndex;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toAppendEntriesReplyProto;
+import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexReplyProto;
+import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexRequestProto;
+import static org.apache.ratis.server.impl.ServerProtoUtils.toRequestVoteReplyProto;
+import static org.apache.ratis.server.impl.ServerProtoUtils.toStartLeaderElectionReplyProto;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesReplyString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesRequestString;
+import static org.apache.ratis.server.util.ServerStringUtils.toRequestVoteReplyString;
 
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
@@ -735,8 +761,13 @@ class RaftServerImpl implements RaftServer.Division,
   /**
    * @return null if the server is in leader state.
    */
-  private CompletableFuture<RaftClientReply> checkLeaderState(
-      RaftClientRequest request, CacheEntry entry, TransactionContextImpl context) {
+  private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry) {
+    try {
+      assertGroup(getMemberId(), request);
+    } catch (GroupMismatchException e) {
+      return RetryCacheImpl.failWithException(e, entry);
+    }
+
     if (!getInfo().isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
       final RaftClientReply reply = newExceptionReply(request, exception);
@@ -779,44 +810,6 @@ class RaftServerImpl implements RaftServer.Division,
   void assertLifeCycleState(Set<LifeCycle.State> expected) throws ServerNotReadyException {
     lifeCycle.assertCurrentState((n, c) -> new ServerNotReadyException(
         getMemberId() + " is not in " + expected + ": current state is " + c), expected);
-  }
-
-  private CompletableFuture<RaftClientReply> getResourceUnavailableReply(String op,
-      RaftClientRequest request, CacheEntry entry, TransactionContextImpl context) {
-    final ResourceUnavailableException e = new ResourceUnavailableException(getMemberId()
-        + ": Failed to " + op + " for " + request);
-    cancelTransaction(context, e);
-    return entry.failWithException(e);
-  }
-
-  private CompletableFuture<RaftClientReply> failWithReply(
-      RaftClientReply reply, CacheEntry entry, TransactionContextImpl context) {
-    if (context != null) {
-      cancelTransaction(context, reply.getException());
-    }
-
-    if (entry == null) {
-      return CompletableFuture.completedFuture(reply);
-    }
-    entry.failWithReply(reply);
-    return entry.getReplyFuture();
-  }
-
-  /** Cancel a transaction and notify the state machine. Set exception if provided to the transaction context. */
-  private void cancelTransaction(TransactionContextImpl context, Exception exception) {
-    if (context == null) {
-      return;
-    }
-
-    if (exception != null) {
-      context.setException(exception);
-    }
-
-    try {
-      context.cancelTransaction();
-    } catch (IOException ioe) {
-      LOG.warn("{}: Failed to cancel transaction {}", getMemberId(), context, ioe);
-    }
   }
 
   /**
@@ -1294,7 +1287,6 @@ class RaftServerImpl implements RaftServer.Division,
     LOG.info("{}: takeSnapshotAsync {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(getMemberId(), request);
-    Objects.requireNonNull(request.getCreate(), "create == null");
 
     final long creationGap = request.getCreate().getCreationGap();
     long minGapValue = creationGap > 0? creationGap : RaftServerConfigKeys.Snapshot.creationGap(proxy.getProperties());
@@ -1504,7 +1496,7 @@ class RaftServerImpl implements RaftServer.Division,
         shouldShutdown = true;
       }
       reply = toRequestVoteReplyProto(candidateId, getMemberId(),
-          voteGranted, state.getCurrentTerm(), shouldShutdown, state.getLastEntry(), callId);
+          voteGranted, state.getCurrentTerm(), shouldShutdown);
       if (LOG.isInfoEnabled()) {
         LOG.info("{} replies to {} vote request: {}. Peer's state: {}",
             getMemberId(), phase, toRequestVoteReplyString(reply), state);
@@ -1542,8 +1534,8 @@ class RaftServerImpl implements RaftServer.Division,
       if (!startComplete.get()) {
         throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
       }
-      assertGroup(leaderId, leaderGroupId);
-      validateEntries(r.getLeaderTerm(), previous, r.getEntriesList());
+      assertGroup(getMemberId(), leaderId, leaderGroupId);
+      assertEntries(r, previous, state);
 
       return appendEntriesAsync(leaderId, request.getCallId(), previous, requestRef);
     } catch(Exception t) {
@@ -1567,19 +1559,6 @@ class RaftServerImpl implements RaftServer.Division,
 
     return getReadIndex(ClientProtoUtils.toRaftClientRequest(request.getClientRequest()), leader)
         .thenApply(index -> toReadIndexReplyProto(peerId, getMemberId(), true, index))
-        .whenComplete((reply, exception) -> {
-          if (exception == null) {
-            // Leader should try to trigger heartbeat immediately after leader replies the ReadIndex to the follower
-            // so that the follower's commitIndex can be updated to the leader's commitIndex and the follower
-            // can start applying the logs up until the leader's commitIndex (instead of waiting for the next
-            // AppendEntries to happen through heartbeat or new transactions (which might increase the latency
-            // considerably)).
-            // Note that if the follower commitIndex is already equal to the leader's commitIndex, no heartbeat
-            // will be triggered, see GrpcLogAppender#isFollowerCommitBehindLastCommitIndex.
-            RaftPeerId requestorId = RaftPeerId.valueOf(reply.getServerReply().getRequestorId());
-            leader.getLogAppender(requestorId).ifPresent(LogAppender::triggerHeartbeat);
-          }
-        })
         .exceptionally(throwable -> toReadIndexReplyProto(peerId, getMemberId()));
   }
 
@@ -1792,7 +1771,7 @@ class RaftServerImpl implements RaftServer.Division,
     if (!request.hasLeaderLastEntry()) {
       // It should have a leaderLastEntry since there is a placeHolder entry.
       LOG.warn("{}: leaderLastEntry is missing in {}", getMemberId(), request);
-      return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+      return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
     }
 
     final TermIndex leaderLastEntry = TermIndex.valueOf(request.getLeaderLastEntry());
@@ -1806,7 +1785,7 @@ class RaftServerImpl implements RaftServer.Division,
       assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
       final boolean recognized = state.recognizeLeader("startLeaderElection", leaderId, leaderLastEntry.getTerm());
       if (!recognized) {
-        return ServerProtoUtils.toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
+        return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
       }
 
       if (!getInfo().isFollower()) {
