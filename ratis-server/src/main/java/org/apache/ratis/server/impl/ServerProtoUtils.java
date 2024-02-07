@@ -126,6 +126,10 @@ final class ServerProtoUtils {
         .build();
   }
 
+  static ReadIndexReplyProto toReadIndexReplyProto(RaftPeerId requestorId, RaftGroupMemberId replyId) {
+    return toReadIndexReplyProto(requestorId, replyId, false, RaftLog.INVALID_LOG_INDEX);
+  }
+
   @SuppressWarnings("parameternumber")
   static AppendEntriesReplyProto toAppendEntriesReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId, long term,
