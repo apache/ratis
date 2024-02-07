@@ -18,8 +18,14 @@
 
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos.CandidateInfoProto;
+import org.apache.ratis.proto.RaftProtos.FollowerInfoProto;
+import org.apache.ratis.proto.RaftProtos.LeaderInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.Timestamp;
@@ -31,6 +37,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static org.apache.ratis.server.impl.ServerProtoUtils.toServerRpcProto;
 
 /**
  * Maintain the Role of a Raft Peer.
@@ -139,6 +147,55 @@ class RoleInfo {
     Preconditions.assertTrue(updated == current, "previous != null");
     LOG.info("{}: start {}", id, current);
     return updated;
+  }
+
+  RoleInfoProto buildRoleInfoProto(RaftServerImpl server) {
+    final RaftPeerRole currentRole = getCurrentRole();
+    final RoleInfoProto.Builder proto = RoleInfoProto.newBuilder()
+        .setSelf(server.getPeer().getRaftPeerProto())
+        .setRole(currentRole)
+        .setRoleElapsedTimeMs(getRoleElapsedTimeMs());
+
+    switch (currentRole) {
+      case LEADER:
+        getLeaderState().ifPresent(leader -> {
+          final LeaderInfoProto.Builder b = LeaderInfoProto.newBuilder()
+              .setTerm(leader.getCurrentTerm());
+          leader.getLogAppenders()
+              .map(LogAppender::getFollower)
+              .map(f -> toServerRpcProto(f.getPeer(), f.getLastRpcResponseTime().elapsedTimeMs()))
+              .forEach(b::addFollowerInfo);
+          proto.setLeaderInfo(b);
+        });
+        return proto.build();
+
+      case CANDIDATE:
+        return proto.setCandidateInfo(CandidateInfoProto.newBuilder()
+            .setLastLeaderElapsedTimeMs(server.getState().getLastLeaderElapsedTimeMs()))
+            .build();
+
+      case LISTENER:
+      case FOLLOWER:
+        // FollowerState can be null while adding a new peer as it is not a voting member yet
+        final FollowerState follower = getFollowerState().orElse(null);
+        final long rpcElapsed;
+        final int outstandingOp;
+        if (follower != null) {
+          rpcElapsed = follower.getLastRpcTime().elapsedTimeMs();
+          outstandingOp = follower.getOutstandingOp();
+        } else {
+          rpcElapsed = 0;
+          outstandingOp = 0;
+        }
+        final RaftPeer leader = server.getRaftConf().getPeer(server.getState().getLeaderId());
+        return proto.setFollowerInfo(FollowerInfoProto.newBuilder()
+            .setLeaderInfo(toServerRpcProto(leader, rpcElapsed))
+            .setOutstandingOp(outstandingOp))
+            .build();
+
+      default:
+        throw new IllegalStateException("Unexpected role " + currentRole);
+    }
   }
 
   @Override
