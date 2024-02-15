@@ -40,8 +40,8 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.File;
@@ -56,7 +56,7 @@ public class TestCacheEviction extends BaseTest {
   private static final CacheInvalidationPolicy policy = new CacheInvalidationPolicyDefault();
 
   static LogSegmentList prepareSegments(int numSegments, boolean[] cached, long start, long size) {
-    Assert.assertEquals(numSegments, cached.length);
+    Assertions.assertEquals(numSegments, cached.length);
     final LogSegmentList segments = new LogSegmentList(JavaUtils.getClassSimpleName(TestCacheEviction.class));
     for (int i = 0; i < numSegments; i++) {
       LogSegment s = LogSegment.newCloseSegment(null, start, start + size - 1, MAX_OP_SIZE, null);
@@ -78,35 +78,35 @@ public class TestCacheEviction extends BaseTest {
 
     // case 1, make sure we do not evict cache for segments behind local flushed index
     List<LogSegment> evicted = policy.evict(null, 5, 15, segments, maxCached);
-    Assert.assertEquals(0, evicted.size());
+    Assertions.assertEquals(0, evicted.size());
 
     // case 2, suppose the local flushed index is in the 3rd segment, then we
     // can evict the first two segment
     evicted = policy.evict(null, 25, 30, segments, maxCached);
-    Assert.assertEquals(2, evicted.size());
-    Assert.assertSame(evicted.get(0), segments.get(0));
-    Assert.assertSame(evicted.get(1), segments.get(1));
+    Assertions.assertEquals(2, evicted.size());
+    Assertions.assertSame(evicted.get(0), segments.get(0));
+    Assertions.assertSame(evicted.get(1), segments.get(1));
 
     // case 3, similar with case 2, but the local applied index is less than
     // the local flushed index.
     evicted = policy.evict(null, 25, 15, segments, maxCached);
-    Assert.assertEquals(1, evicted.size());
-    Assert.assertSame(evicted.get(0), segments.get(0));
+    Assertions.assertEquals(1, evicted.size());
+    Assertions.assertSame(evicted.get(0), segments.get(0));
 
     // case 4, the local applied index is very small, then evict cache behind it
     // first and let the state machine load the segments later
     evicted = policy.evict(null, 35, 5, segments, maxCached);
-    Assert.assertEquals(1, evicted.size());
-    Assert.assertSame(evicted.get(0), segments.get(2));
+    Assertions.assertEquals(1, evicted.size());
+    Assertions.assertSame(evicted.get(0), segments.get(2));
 
     Mockito.when(segments.get(2).hasCache()).thenReturn(false);
     evicted = policy.evict(null, 35, 5, segments, maxCached);
-    Assert.assertEquals(1, evicted.size());
-    Assert.assertSame(evicted.get(0), segments.get(1));
+    Assertions.assertEquals(1, evicted.size());
+    Assertions.assertSame(evicted.get(0), segments.get(1));
 
     Mockito.when(segments.get(1).hasCache()).thenReturn(false);
     evicted = policy.evict(null, 35, 5, segments, maxCached);
-    Assert.assertEquals(0, evicted.size());
+    Assertions.assertEquals(0, evicted.size());
   }
 
   @Test
@@ -119,37 +119,37 @@ public class TestCacheEviction extends BaseTest {
     // flushed index
     List<LogSegment> evicted = policy.evict(new long[]{20, 40, 40}, 5, 15, segments,
         maxCached);
-    Assert.assertEquals(0, evicted.size());
+    Assertions.assertEquals(0, evicted.size());
 
     // case 2, the follower indices are behind the local flushed index
     evicted = policy.evict(new long[]{30, 40, 45}, 25, 30, segments, maxCached);
-    Assert.assertEquals(2, evicted.size());
-    Assert.assertSame(evicted.get(0), segments.get(0));
-    Assert.assertSame(evicted.get(1), segments.get(1));
+    Assertions.assertEquals(2, evicted.size());
+    Assertions.assertSame(evicted.get(0), segments.get(0));
+    Assertions.assertSame(evicted.get(1), segments.get(1));
 
     // case 3, similar with case 3 in basic eviction test
     evicted = policy.evict(new long[]{30, 40, 45}, 25, 15, segments, maxCached);
-    Assert.assertEquals(1, evicted.size());
-    Assert.assertSame(evicted.get(0), segments.get(0));
+    Assertions.assertEquals(1, evicted.size());
+    Assertions.assertSame(evicted.get(0), segments.get(0));
 
     // case 4, the followers are slower than local flush
     evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
-    Assert.assertEquals(1, evicted.size());
-    Assert.assertSame(evicted.get(0), segments.get(0));
+    Assertions.assertEquals(1, evicted.size());
+    Assertions.assertSame(evicted.get(0), segments.get(0));
 
     Mockito.when(segments.get(0).hasCache()).thenReturn(false);
     evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
-    Assert.assertEquals(1, evicted.size());
-    Assert.assertSame(evicted.get(0), segments.get(2));
+    Assertions.assertEquals(1, evicted.size());
+    Assertions.assertSame(evicted.get(0), segments.get(2));
 
     Mockito.when(segments.get(2).hasCache()).thenReturn(false);
     evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
-    Assert.assertEquals(1, evicted.size());
-    Assert.assertSame(evicted.get(0), segments.get(3));
+    Assertions.assertEquals(1, evicted.size());
+    Assertions.assertSame(evicted.get(0), segments.get(3));
 
     Mockito.when(segments.get(3).hasCache()).thenReturn(false);
     evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
-    Assert.assertEquals(0, evicted.size());
+    Assertions.assertEquals(0, evicted.size());
   }
 
   @Test
@@ -178,7 +178,7 @@ public class TestCacheEviction extends BaseTest {
     raftLog.append(ReferenceCountedObject.wrap(entries)).forEach(CompletableFuture::join);
 
     // check the current cached segment number: the last segment is still open
-    Assert.assertEquals(maxCachedNum - 1,
+    Assertions.assertEquals(maxCachedNum - 1,
         raftLog.getRaftLogCache().getCachedSegmentNum());
 
     Mockito.when(info.getLastAppliedIndex()).thenReturn(35L);
@@ -189,7 +189,7 @@ public class TestCacheEviction extends BaseTest {
 
     // check the cached segment number again. since the slowest follower is on
     // index 21, the eviction should happen and evict 3 segments
-    Assert.assertEquals(maxCachedNum + 1 - 3,
+    Assertions.assertEquals(maxCachedNum + 1 - 3,
         raftLog.getRaftLogCache().getCachedSegmentNum());
   }
 

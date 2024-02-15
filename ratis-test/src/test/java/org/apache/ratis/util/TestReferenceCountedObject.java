@@ -18,8 +18,9 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,8 +28,8 @@ public class TestReferenceCountedObject {
   static void assertValues(
       AtomicInteger retained, int expectedRetained,
       AtomicInteger released, int expectedReleased) {
-    Assert.assertEquals("retained", expectedRetained, retained.get());
-    Assert.assertEquals("released", expectedReleased, released.get());
+    Assertions.assertEquals(expectedRetained, retained.get(), "retained");
+    Assertions.assertEquals(expectedReleased, released.get(), "retained");
   }
 
   static void assertRelease(ReferenceCountedObject<?> ref,
@@ -36,10 +37,11 @@ public class TestReferenceCountedObject {
       AtomicInteger released, int expectedReleased) {
     final boolean returned = ref.release();
     assertValues(retained, expectedRetained, released, expectedReleased);
-    Assert.assertEquals(expectedRetained == expectedReleased, returned);
+    Assertions.assertEquals(expectedRetained == expectedReleased, returned);
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testWrap() {
     final String value = "testWrap";
     final AtomicInteger retained = new AtomicInteger();
@@ -50,19 +52,19 @@ public class TestReferenceCountedObject {
     assertValues(retained, 0, released, 0);
     try {
       ref.get();
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
     }
     assertValues(retained, 0, released, 0);
 
-    Assert.assertEquals(value, ref.retain());
+    Assertions.assertEquals(value, ref.retain());
     assertValues(retained, 1, released, 0);
 
     try(UncheckedAutoCloseableSupplier<String> auto = ref.retainAndReleaseOnClose()) {
       final String got = auto.get();
-      Assert.assertEquals(value, got);
-      Assert.assertSame(got, auto.get()); // it should return the same object.
+      Assertions.assertEquals(value, got);
+      Assertions.assertSame(got, auto.get()); // it should return the same object.
       assertValues(retained, 2, released, 0);
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
@@ -70,12 +72,12 @@ public class TestReferenceCountedObject {
     assertValues(retained, 2, released, 1);
 
     final UncheckedAutoCloseableSupplier<String> notClosing = ref.retainAndReleaseOnClose();
-    Assert.assertEquals(value, notClosing.get());
+    Assertions.assertEquals(value, notClosing.get());
     assertValues(retained, 3, released, 1);
     assertRelease(ref, retained, 3, released, 2);
 
     final UncheckedAutoCloseableSupplier<String> auto = ref.retainAndReleaseOnClose();
-    Assert.assertEquals(value, auto.get());
+    Assertions.assertEquals(value, auto.get());
     assertValues(retained, 4, released, 2);
     auto.close();
     assertValues(retained, 4, released, 3);
@@ -87,59 +89,60 @@ public class TestReferenceCountedObject {
 
     try {
       ref.get();
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
     }
 
     try {
       ref.retain();
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
     }
 
     try(UncheckedAutoCloseable ignore = ref.retainAndReleaseOnClose()) {
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
     }
 
     try {
       ref.release();
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
     }
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testReleaseWithoutRetaining() {
     final ReferenceCountedObject<String> ref = ReferenceCountedObject.wrap("");
 
     try {
       ref.release();
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
     }
 
     try {
       ref.get();
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
     }
 
     try {
       ref.retain();
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
     }
 
     try(UncheckedAutoCloseable ignore = ref.retainAndReleaseOnClose()) {
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       e.printStackTrace(System.out);
     }

@@ -22,14 +22,14 @@ import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftConfiguration;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestRaftConfiguration extends BaseTest {
   @Test
@@ -65,29 +65,29 @@ public class TestRaftConfiguration extends BaseTest {
     RaftConfigurationImpl config = RaftConfigurationImpl.newBuilder()
         .setConf(new PeerConfiguration(raftPeersWithPriority(1)))
         .build();
-    assertTrue("Peer is in single mode.", config.isSingleMode(RaftPeerId.valueOf("1")));
+    assertTrue(config.isSingleMode(RaftPeerId.valueOf("1")), "Peer is in single mode.");
 
     config = RaftConfigurationImpl.newBuilder()
         .setConf(new PeerConfiguration(raftPeersWithPriority(0, 1)))
         .setOldConf(new PeerConfiguration(raftPeersWithPriority(0)))
         .build();
-    assertTrue("Peer is in single mode.", config.isSingleMode(RaftPeerId.valueOf("0")));
-    assertFalse("Peer is a new peer.", config.isSingleMode(RaftPeerId.valueOf("1")));
+    assertTrue(config.isSingleMode(RaftPeerId.valueOf("0")), "Peer is in single mode.");
+    assertFalse(config.isSingleMode(RaftPeerId.valueOf("1")), "Peer is a new peer");
 
     config = RaftConfigurationImpl.newBuilder()
         .setConf(new PeerConfiguration(raftPeersWithPriority(0, 1)))
         .build();
-    assertFalse("Peer is in ha mode.", config.isSingleMode(RaftPeerId.valueOf("0")));
-    assertFalse("Peer is in ha mode.", config.isSingleMode(RaftPeerId.valueOf("1")));
+    assertFalse(config.isSingleMode(RaftPeerId.valueOf("0")), "Peer is in ha mode.");
+    assertFalse(config.isSingleMode(RaftPeerId.valueOf("1")), "Peer is in ha mode.");
 
     config = RaftConfigurationImpl.newBuilder()
         .setConf(new PeerConfiguration(raftPeersWithPriority(0, 1)))
         .setOldConf(new PeerConfiguration(raftPeersWithPriority(2, 3)))
         .build();
-    assertFalse("Peer is in ha mode.", config.isSingleMode(RaftPeerId.valueOf("0")));
-    assertFalse("Peer is in ha mode.", config.isSingleMode(RaftPeerId.valueOf("1")));
-    assertFalse("Peer is in ha mode.", config.isSingleMode(RaftPeerId.valueOf("3")));
-    assertFalse("Peer is in ha mode.", config.isSingleMode(RaftPeerId.valueOf("4")));
+    assertFalse(config.isSingleMode(RaftPeerId.valueOf("0")), "Peer is in ha mode.");
+    assertFalse(config.isSingleMode(RaftPeerId.valueOf("1")), "Peer is in ha mode.");
+    assertFalse(config.isSingleMode(RaftPeerId.valueOf("3")), "Peer is in ha mode.");
+    assertFalse(config.isSingleMode(RaftPeerId.valueOf("4")), "Peer is in ha mode.");
   }
 
   @Test
@@ -96,8 +96,8 @@ public class TestRaftConfiguration extends BaseTest {
     RaftConfigurationImpl config = RaftConfigurationImpl.newBuilder()
         .setConf(new PeerConfiguration(raftPeersWithPriority(1)))
         .build();
-    assertFalse("Change from single mode to ha mode is not considered as changing majority.",
-        config.changeMajority(raftPeersWithPriority(1, 2)));
+    assertFalse(config.changeMajority(raftPeersWithPriority(1, 2)),
+        "Change from single mode to ha mode is not considered as changing majority.");
 
     // Case 2: {1} --> {2}.
     assertTrue(config.changeMajority(raftPeersWithPriority(2)));

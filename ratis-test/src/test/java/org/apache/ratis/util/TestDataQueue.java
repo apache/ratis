@@ -18,8 +18,9 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.TriConsumer;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,15 +38,16 @@ public class TestDataQueue {
   }
 
   static void assertSizes(long expectedNumElements, long expectedNumBytes, DataQueue<?> q) {
-    Assert.assertEquals(expectedNumElements, q.getNumElements());
-    Assert.assertEquals(expectedNumBytes, q.getNumBytes());
+    Assertions.assertEquals(expectedNumElements, q.getNumElements());
+    Assertions.assertEquals(expectedNumBytes, q.getNumBytes());
   }
 
   final SizeInBytes byteLimit = SizeInBytes.valueOf(100);
   final int elementLimit = 5;
   final DataQueue<Long> q = new DataQueue<>(null, byteLimit, elementLimit, Long::longValue);
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testElementLimit() {
     runTestElementLimit(q);
   }
@@ -56,30 +58,31 @@ public class TestDataQueue {
     final int elementLimit = q.getElementLimit();
     long numBytes = 0;
     for (long i = 0; i < elementLimit; i++) {
-      Assert.assertEquals(i, q.getNumElements());
-      Assert.assertEquals(numBytes, q.getNumBytes());
+      Assertions.assertEquals(i, q.getNumElements());
+      Assertions.assertEquals(numBytes, q.getNumBytes());
       final boolean offered = q.offer(i);
-      Assert.assertTrue(offered);
+      Assertions.assertTrue(offered);
       numBytes += i;
       assertSizes(i+1, numBytes, q);
     }
     {
       final boolean offered = q.offer(0L);
-      Assert.assertFalse(offered);
+      Assertions.assertFalse(offered);
       assertSizes(elementLimit, numBytes, q);
     }
 
     { // poll all elements
       final List<Long> polled = q.pollList(100, (i, timeout) -> i, getTimeoutHandler(false));
-      Assert.assertEquals(elementLimit, polled.size());
+      Assertions.assertEquals(elementLimit, polled.size());
       for (int i = 0; i < polled.size(); i++) {
-        Assert.assertEquals(i, polled.get(i).intValue());
+        Assertions.assertEquals(i, polled.get(i).intValue());
       }
     }
     assertSizes(0, 0, q);
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testByteLimit() {
     runTestByteLimit(q);
   }
@@ -90,53 +93,54 @@ public class TestDataQueue {
     final long byteLimit = q.getByteLimit();
     try {
       q.offer(byteLimit + 1);
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException ignored) {
     }
 
     final long halfBytes = byteLimit / 2;
     {
       final boolean offered = q.offer(halfBytes);
-      Assert.assertTrue(offered);
+      Assertions.assertTrue(offered);
       assertSizes(1, halfBytes, q);
     }
 
     {
       final boolean offered = q.offer(halfBytes + 1);
-      Assert.assertFalse(offered);
+      Assertions.assertFalse(offered);
       assertSizes(1, halfBytes, q);
     }
 
     {
       final boolean offered = q.offer(halfBytes);
-      Assert.assertTrue(offered);
+      Assertions.assertTrue(offered);
       assertSizes(2, byteLimit, q);
     }
 
     {
       final boolean offered = q.offer(1L);
-      Assert.assertFalse(offered);
+      Assertions.assertFalse(offered);
       assertSizes(2, byteLimit, q);
     }
 
     {
       final boolean offered = q.offer(0L);
-      Assert.assertTrue(offered);
+      Assertions.assertTrue(offered);
       assertSizes(3, byteLimit, q);
     }
 
     { // poll all elements
       final List<Long> polled = q.pollList(100, (i, timeout) -> i, getTimeoutHandler(false));
-      Assert.assertEquals(3, polled.size());
-      Assert.assertEquals(halfBytes, polled.get(0).intValue());
-      Assert.assertEquals(halfBytes, polled.get(1).intValue());
-      Assert.assertEquals(0, polled.get(2).intValue());
+      Assertions.assertEquals(3, polled.size());
+      Assertions.assertEquals(halfBytes, polled.get(0).intValue());
+      Assertions.assertEquals(halfBytes, polled.get(1).intValue());
+      Assertions.assertEquals(0, polled.get(2).intValue());
     }
 
     assertSizes(0, 0, q);
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testIteratorAndRemove() {
     runTestIteratorAndRemove(q);
   }
@@ -149,7 +153,7 @@ public class TestDataQueue {
     long numBytes = 0;
     for(long i = 0; i < elementLimit; i++) {
       final boolean offered = q.offer(i);
-      Assert.assertTrue(offered);
+      Assertions.assertTrue(offered);
       numElements++;
       numBytes += i;
       assertSizes(numElements, numBytes, q);
@@ -158,7 +162,7 @@ public class TestDataQueue {
     { // test iterator()
       final Iterator<Long> i = q.iterator();
       for (long expected = 0; expected < elementLimit; expected++) {
-        Assert.assertEquals(expected, i.next().longValue());
+        Assertions.assertEquals(expected, i.next().longValue());
       }
     }
 
@@ -180,23 +184,24 @@ public class TestDataQueue {
     assertSizes(0, 0, q);
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testTimeout() {
     assertSizes(0, 0, q);
 
     long numBytes = 0;
     for (long i = 0; i < elementLimit; i++) {
-      Assert.assertEquals(i, q.getNumElements());
-      Assert.assertEquals(numBytes, q.getNumBytes());
+      Assertions.assertEquals(i, q.getNumElements());
+      Assertions.assertEquals(numBytes, q.getNumBytes());
       final boolean offered = q.offer(i);
-      Assert.assertTrue(offered);
+      Assertions.assertTrue(offered);
       numBytes += i;
       assertSizes(i+1, numBytes, q);
     }
 
     { // poll with zero time
       final List<Long> polled = q.pollList(0, (i, timeout) -> i, getTimeoutHandler(false));
-      Assert.assertTrue(polled.isEmpty());
+      Assertions.assertTrue(polled.isEmpty());
       assertSizes(elementLimit, numBytes, q);
     }
 
@@ -209,9 +214,9 @@ public class TestDataQueue {
         }
         return i;
       }, getTimeoutHandler(true));
-      Assert.assertEquals(halfElements, polled.size());
+      Assertions.assertEquals(halfElements, polled.size());
       for (int i = 0; i < polled.size(); i++) {
-        Assert.assertEquals(i, polled.get(i).intValue());
+        Assertions.assertEquals(i, polled.get(i).intValue());
         numBytes -= i;
       }
       assertSizes(elementLimit - halfElements, numBytes, q);
@@ -219,9 +224,9 @@ public class TestDataQueue {
 
     { // poll the remaining elements
       final List<Long> polled = q.pollList(100, (i, timeout) -> i, getTimeoutHandler(false));
-      Assert.assertEquals(elementLimit - halfElements, polled.size());
+      Assertions.assertEquals(elementLimit - halfElements, polled.size());
       for (int i = 0; i < polled.size(); i++) {
-        Assert.assertEquals(halfElements + i, polled.get(i).intValue());
+        Assertions.assertEquals(halfElements + i, polled.get(i).intValue());
       }
     }
     assertSizes(0, 0, q);

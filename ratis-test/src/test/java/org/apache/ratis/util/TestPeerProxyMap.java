@@ -20,8 +20,9 @@ package org.apache.ratis.util;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -51,7 +52,8 @@ public class TestPeerProxyMap extends BaseTest {
     }
   }
 
-  @Test(timeout = 10_000)
+  @Test
+  @Timeout(value = 10_000)
   public void testCloseDeadLock() throws Exception {
     final PeerProxyMap<DummyProxy> map = new PeerProxyMap<>("test", DummyProxy::new);
     final RaftPeerId id = RaftPeerId.valueOf("s0");
@@ -68,7 +70,7 @@ public class TestPeerProxyMap extends BaseTest {
           HUNDRED_MILLIS.sleep();
           LOG.info("Try getProxy");
           final DummyProxy newProxy = map.getProxy(id);
-          Assert.assertNotSame(proxy, newProxy);
+          Assertions.assertNotSame(proxy, newProxy);
         } catch (Exception e) {
           setFirstException(e);
         }
@@ -115,7 +117,8 @@ public class TestPeerProxyMap extends BaseTest {
     }
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testStackTrace() {
     final RaftPeerId id = RaftPeerId.valueOf("s0");
     final RaftPeer peer = RaftPeer.newBuilder().setId(id).build();
@@ -123,7 +126,7 @@ public class TestPeerProxyMap extends BaseTest {
         final ExceptionProxy ignored = map.computeIfAbsent(peer).get()) {
     } catch (IOException e) {
       assertThrowable("closeProxy", e, AnnotatedConnectException.class, LOG, ConnectException.class);
-      Assert.assertEquals(0, e.getStackTrace().length);
+      Assertions.assertEquals(0, e.getStackTrace().length);
     }
   }
 }
