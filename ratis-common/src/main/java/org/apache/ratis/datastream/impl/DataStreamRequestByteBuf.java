@@ -16,7 +16,7 @@
  *  limitations under the License.
  */
 
-package org.apache.ratis.netty.server;
+package org.apache.ratis.datastream.impl;
 
 import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
 import org.apache.ratis.io.WriteOption;

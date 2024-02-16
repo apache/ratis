@@ -21,6 +21,7 @@ package org.apache.ratis.netty.client;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.StandardWriteOption;
@@ -370,6 +371,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         p.addLast(ENCODER);
         p.addLast(ENCODER_FILE_POSITION_COUNT);
         p.addLast(ENCODER_BYTE_BUFFER);
+        p.addLast(ENCODER_BYTE_BUF);
         p.addLast(newDecoder());
         p.addLast(handler);
       }
@@ -383,6 +385,16 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     @Override
     protected void encode(ChannelHandlerContext context, DataStreamRequestByteBuffer request, List<Object> out) {
       NettyDataStreamUtils.encodeDataStreamRequestByteBuffer(request, out::add, context.alloc());
+    }
+  }
+
+  static final MessageToMessageEncoder<DataStreamRequestByteBuf> ENCODER_BYTE_BUF = new EncoderByteBuf();
+
+  @ChannelHandler.Sharable
+  static class EncoderByteBuf extends MessageToMessageEncoder<DataStreamRequestByteBuf> {
+    @Override
+    protected void encode(ChannelHandlerContext context, DataStreamRequestByteBuf request, List<Object> out) {
+      NettyDataStreamUtils.encodeDataStreamRequestByteBuf(request, out::add, context.alloc());
     }
   }
 
