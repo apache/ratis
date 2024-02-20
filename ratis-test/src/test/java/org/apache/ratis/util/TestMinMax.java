@@ -17,8 +17,9 @@
  */
 package org.apache.ratis.util;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.LongStream;
 
 public class TestMinMax {
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testMinMax() {
     runTestMinMax(LongStream.empty());
     runTestMinMax(LongStream.iterate(0, n -> n).limit(10));
@@ -43,11 +45,11 @@ public class TestMinMax {
     final List<Long> list = stream.collect(ArrayList::new, List::add, List::addAll);
     final LongMinMax longMinMax = toLongStream(list).collect(LongMinMax::new, LongMinMax::accumulate, LongMinMax::combine);
     if (longMinMax.isInitialized()) {
-      Assert.assertEquals(toLongStream(list).min().getAsLong(), longMinMax.getMin());
-      Assert.assertEquals(toLongStream(list).max().getAsLong(), longMinMax.getMax());
+      Assertions.assertEquals(toLongStream(list).min().getAsLong(), longMinMax.getMin());
+      Assertions.assertEquals(toLongStream(list).max().getAsLong(), longMinMax.getMax());
     } else {
-      Assert.assertEquals(OptionalLong.empty(), toLongStream(list).min());
-      Assert.assertEquals(OptionalLong.empty(), toLongStream(list).max());
+      Assertions.assertEquals(OptionalLong.empty(), toLongStream(list).min());
+      Assertions.assertEquals(OptionalLong.empty(), toLongStream(list).max());
     }
   }
 

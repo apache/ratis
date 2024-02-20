@@ -18,7 +18,8 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.BaseTest;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -28,7 +29,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class TestPreconditions extends BaseTest {
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testAssertUnique() {
     final Set<Integer> empty = Collections.emptySet();
     Preconditions.assertUnique(empty);
@@ -53,7 +55,8 @@ public class TestPreconditions extends BaseTest {
     Preconditions.assertUnique(three, Arrays.asList(4, 5, 6));
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testAssertNull() {
     final Map<String, String> map = new HashMap<>();
     final String key = "abc1234";

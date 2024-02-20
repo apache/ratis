@@ -19,15 +19,17 @@ package org.apache.ratis.util;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.TimeoutException;
 
 import static org.apache.ratis.util.ResourceSemaphore.Group.SUCCESS;
 
 public class TestResourceSemaphore extends BaseTest {
-  @Test(timeout = 5000)
+  @Test
+  @Timeout(value = 5000)
   public void testGroup() throws InterruptedException, TimeoutException {
     final int FAILED_IN_ELEMENT_LIMIT = 0;
     final int FAILED_IN_BYTE_SIZE_LIMIT = 1;
@@ -80,15 +82,15 @@ public class TestResourceSemaphore extends BaseTest {
   }
 
   static void assertUsed(ResourceSemaphore.Group g, int... expected) {
-    Assert.assertEquals(expected.length, g.resourceSize());
+    Assertions.assertEquals(expected.length, g.resourceSize());
     for(int i = 0; i < expected.length; i++) {
-      Assert.assertEquals(expected[i], g.get(i).used());
+      Assertions.assertEquals(expected[i], g.get(i).used());
     }
   }
 
   static void assertAcquire(ResourceSemaphore.Group g, int expected, int... permits) {
     final int computed = g.tryAcquire(permits);
-    Assert.assertEquals(expected, computed);
+    Assertions.assertEquals(expected, computed);
   }
 
   static Runnable acquire(ResourceSemaphore.Group g, int... permits) {

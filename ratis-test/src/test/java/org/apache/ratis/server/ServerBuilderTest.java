@@ -26,8 +26,8 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.Preconditions;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test {@link RaftServer.Builder}.
@@ -58,7 +58,7 @@ public class ServerBuilderTest extends BaseTest {
                 .setStateMachine(new BaseStateMachine())
                 .setProperties(new RaftProperties())
                 .build();
-            Assert.fail("did not get expected exception");
+            Assertions.fail("did not get expected exception");
         } catch (IOException e) {
             Preconditions.assertInstanceOf(e.getCause(), IllegalStateException.class);
         }
@@ -74,7 +74,7 @@ public class ServerBuilderTest extends BaseTest {
                 .setStateMachine(new BaseStateMachine())
                 .setProperties(new RaftProperties())
                 .build();
-            Assert.fail("did not get expected exception");
+            Assertions.fail("did not get expected exception");
         } catch (IOException e) {
             Preconditions.assertInstanceOf(e.getCause(), IllegalStateException.class);
         }
