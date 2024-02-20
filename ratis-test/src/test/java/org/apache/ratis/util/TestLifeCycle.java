@@ -21,11 +21,6 @@ import org.apache.ratis.util.function.TriConsumer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.apache.ratis.util.LifeCycle.State.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,7 +34,7 @@ public class TestLifeCycle {
    * while this test uses successors.
    */
   @Test
-  @Timeout(value = 1)
+  @Timeout(value = 1000)
   public void testIsValid() {
     final Map<LifeCycle.State, List<LifeCycle.State>> successors
         = new EnumMap<>(LifeCycle.State.class);

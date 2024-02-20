@@ -21,7 +21,6 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 
 @Timeout(value = 1)
 public class TestMultipleLinearRandomRetry extends BaseTest {
@@ -44,12 +43,9 @@ public class TestMultipleLinearRandomRetry extends BaseTest {
     assertLegalInput("[10x100ms, 20x1s, 30x5s]", "100,10, 1s,20, 5s,30");
   }
 
-  private void assertIllegalInput(String input) {
-    try {
-      MultipleLinearRandomRetry.parseCommaSeparated(input);
-    } catch (IllegalArgumentException e) {
-      LOG.info("Expected to catch: {}", String.valueOf(e));
-    }
+  private static void assertIllegalInput(String input) {
+    final MultipleLinearRandomRetry computed = MultipleLinearRandomRetry.parseCommaSeparated(input);
+    Assertions.assertNull(computed);
   }
 
   private static MultipleLinearRandomRetry assertLegalInput(String expected, String input) {

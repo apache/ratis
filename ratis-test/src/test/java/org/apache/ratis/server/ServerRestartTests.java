@@ -176,7 +176,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   }
 
   static File getOpenLogFile(RaftServer.Division server) throws Exception {
-    final List<Path> openLogs = SegmentedRaftLogTestUtils.getOpenLogFiles(server);
+    final List<Path> openLogs = getOpenLogFiles(server);
     Assertions.assertEquals(1, openLogs.size());
     return openLogs.get(0).toFile();
   }
@@ -203,7 +203,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
           10, HUNDRED_MILLIS, impl.getId() + "-getOpenLogFile", LOG);
       for(int i = 0; i < SegmentedRaftLogFormat.getHeaderLength(); i++) {
         assertCorruptedLogHeader(impl.getId(), openLogFile, i, cluster, LOG);
-        Assertions.assertTrue(SegmentedRaftLogTestUtils.getOpenLogFiles(impl).isEmpty());
+        Assertions.assertTrue(getOpenLogFiles(impl).isEmpty());
       }
     }
   }

@@ -34,6 +34,7 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -154,9 +155,10 @@ public class TestSegmentedRaftLogCache {
     final SimpleOperation m = new SimpleOperation("m");
     try {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, 0);
-      cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+      cache.appendEntry(Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry)
+      );
       Assertions.fail("the open segment is null");
-    } catch (IllegalStateException | NullPointerException ignored) {
+    } catch (IllegalStateException ignored) {
     }
 
     LogSegment openSegment = prepareLogSegment(100, 100, true);
@@ -286,7 +288,7 @@ public class TestSegmentedRaftLogCache {
     TermIndex prev = null;
     while (iterator.hasNext()) {
       TermIndex termIndex = iterator.next();
-      Assertions.assertEquals(cache.getTermIndex(termIndex.getIndex()), termIndex);
+      Assertions.assertEquals(cache.getLogRecord(termIndex.getIndex()).getTermIndex(), termIndex);
       if (prev != null) {
         Assertions.assertEquals(prev.getIndex() + 1, termIndex.getIndex());
       }
