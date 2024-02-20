@@ -1799,6 +1799,7 @@ class RaftServerImpl implements RaftServer.Division,
       role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
     } else if (next.hasStateMachineLogEntry()) {
       TransactionContext trx = getTransactionContext(next, true);
+
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
       writeIndexCache.add(invocationId.getClientId(), ((TransactionContextImpl) trx).getLogIndexFuture());
 
@@ -1807,6 +1808,7 @@ class RaftServerImpl implements RaftServer.Division,
       ((TransactionContextImpl) trx).setDelegatedRef(ref);
       ref.retain();
       try {
+
         // Let the StateMachine inject logic for committed transactions in sequential order.
         trx = stateMachine.applyTransactionSerial(trx);
 
