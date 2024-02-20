@@ -38,8 +38,8 @@ import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.JavaUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,7 +112,7 @@ public class TestTlsConfWithNetty {
         final CompletableFuture<String> future = replyFutures.get(i);
         final String reply = future.get(3, TimeUnit.SECONDS);
         LOG.info(reply);
-        Assert.assertEquals(NettyTestServer.toReply(words[i]), reply);
+        Assertions.assertEquals(NettyTestServer.toReply(words[i]), reply);
       }
     }
   }

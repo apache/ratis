@@ -29,10 +29,10 @@ import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,7 +53,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   private long preallocatedSize;
   private int bufferSize;
 
-  @Before
+  @BeforeEach
   public void setup() {
     storageDir = getTestDir();
     RaftProperties properties = new RaftProperties();
@@ -66,7 +66,7 @@ public class TestRaftLogReadWrite extends BaseTest {
         RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     if (storageDir != null) {
       FileUtils.deleteFully(storageDir.getParentFile());
@@ -116,10 +116,10 @@ public class TestRaftLogReadWrite extends BaseTest {
       storage.close();
     }
 
-    Assert.assertEquals(size, openSegment.length());
+    Assertions.assertEquals(size, openSegment.length());
 
     final LogEntryProto[] readEntries = readLog(openSegment, 0, RaftLog.INVALID_LOG_INDEX, true);
-    Assert.assertArrayEquals(entries, readEntries);
+    Assertions.assertArrayEquals(entries, readEntries);
   }
 
   @Test
@@ -146,7 +146,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     }
 
     final LogEntryProto[] readEntries = readLog(openSegment, 0, RaftLog.INVALID_LOG_INDEX, true);
-    Assert.assertArrayEquals(entries, readEntries);
+    Assertions.assertArrayEquals(entries, readEntries);
 
     storage.close();
   }
@@ -168,16 +168,16 @@ public class TestRaftLogReadWrite extends BaseTest {
     out.flush();
 
     // make sure the file contains padding
-    Assert.assertEquals(
+    Assertions.assertEquals(
         RaftServerConfigKeys.Log.PREALLOCATED_SIZE_DEFAULT.getSize(),
         openSegment.length());
 
     // check if the reader can correctly read the log file
     final LogEntryProto[] readEntries = readLog(openSegment, 0, RaftLog.INVALID_LOG_INDEX, true);
-    Assert.assertArrayEquals(entries, readEntries);
+    Assertions.assertArrayEquals(entries, readEntries);
 
     out.close();
-    Assert.assertEquals(size, openSegment.length());
+    Assertions.assertEquals(size, openSegment.length());
   }
 
   /**
@@ -200,12 +200,12 @@ public class TestRaftLogReadWrite extends BaseTest {
     out.flush();
 
     // make sure the file contains padding
-    Assert.assertEquals(4 * 1024 * 1024, openSegment.length());
+    Assertions.assertEquals(4 * 1024 * 1024, openSegment.length());
 
     try (FileChannel fout = FileUtils.newFileChannel(openSegment, StandardOpenOption.WRITE)) {
       final byte[] array = {-1, 1};
       final int written = fout.write(ByteBuffer.wrap(array), 16 * 1024 * 1024 - 10);
-      Assert.assertEquals(array.length, written);
+      Assertions.assertEquals(array.length, written);
     }
 
     List<LogEntryProto> list = new ArrayList<>();
@@ -215,7 +215,7 @@ public class TestRaftLogReadWrite extends BaseTest {
       while ((entry = in.nextEntry()) != null) {
         list.add(entry);
       }
-      Assert.fail("should fail since we corrupt the padding");
+      Assertions.fail("should fail since we corrupt the padding");
     } catch (IOException e) {
       boolean findVerifyTerminator = false;
       for (StackTraceElement s : e.getStackTrace()) {
@@ -224,9 +224,9 @@ public class TestRaftLogReadWrite extends BaseTest {
           break;
         }
       }
-      Assert.assertTrue(findVerifyTerminator);
+      Assertions.assertTrue(findVerifyTerminator);
     }
-    Assert.assertArrayEquals(entries,
+    Assertions.assertArrayEquals(entries,
         list.toArray(new LogEntryProto[list.size()]));
   }
 
@@ -259,7 +259,7 @@ public class TestRaftLogReadWrite extends BaseTest {
 
     try {
       readLog(openSegment, 0, RaftLog.INVALID_LOG_INDEX, true);
-      Assert.fail("The read of corrupted log file should fail");
+      Assertions.fail("The read of corrupted log file should fail");
     } catch (ChecksumException e) {
       LOG.info("Caught ChecksumException as expected", e);
     }

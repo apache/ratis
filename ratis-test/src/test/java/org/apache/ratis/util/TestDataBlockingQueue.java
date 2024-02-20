@@ -17,8 +17,9 @@
  */
 package org.apache.ratis.util;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,34 +37,38 @@ public class TestDataBlockingQueue {
   final TimeDuration slow = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
   final TimeDuration fast = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testElementLimit() {
     TestDataQueue.runTestElementLimit(q);
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testByteLimit() {
     TestDataQueue.runTestByteLimit(q);
   }
 
-  @Test(timeout = 10_000)
+  @Test
+  @Timeout(value = 1000)
   public void testSlowOfferFastPoll() throws Exception {
     runTestBlockingCalls(slow, fast, q);
   }
 
-  @Test(timeout = 10_000)
+  @Test
+  @Timeout(value = 1000)
   public void testFastOfferSlowPoll() throws Exception {
     runTestBlockingCalls(fast, slow, q);
   }
 
   static void assertOfferPull(long offering, long polled, long elementLimit) {
-    Assert.assertTrue(offering >= polled);
-    Assert.assertTrue(offering - polled <= elementLimit + 1);
+    Assertions.assertTrue(offering >= polled);
+    Assertions.assertTrue(offering - polled <= elementLimit + 1);
   }
 
   static void runTestBlockingCalls(TimeDuration offerSleepTime, TimeDuration pollSleepTime,
       DataBlockingQueue<Long> q) throws Exception {
-    Assert.assertTrue(q.isEmpty());
+    Assertions.assertTrue(q.isEmpty());
     ExitUtils.disableSystemExit();
     final int elementLimit = q.getElementLimit();
     final TimeDuration timeout = CollectionUtils.min(offerSleepTime, pollSleepTime);
@@ -74,11 +79,11 @@ public class TestDataBlockingQueue {
 
     final Thread pollThread = new Thread(() -> {
       try {
-        for(; polledValue.get() < endValue;) {
+        while (polledValue.get() < endValue) {
           pollSleepTime.sleep();
           final Long polled = q.poll(timeout);
           if (polled != null) {
-            Assert.assertEquals(polledValue.incrementAndGet(), polled.intValue());
+            Assertions.assertEquals(polledValue.incrementAndGet(), polled.intValue());
             LOG.info("polled {}", polled);
           }
           assertOfferPull(offeringValue.get(), polledValue.get(), elementLimit);
@@ -109,10 +114,10 @@ public class TestDataBlockingQueue {
     offerThread.join();
     pollThread.join();
 
-    Assert.assertEquals(endValue + 1, offeringValue.get());
-    Assert.assertEquals(endValue, polledValue.get());
+    Assertions.assertEquals(endValue + 1, offeringValue.get());
+    Assertions.assertEquals(endValue, polledValue.get());
 
-    Assert.assertTrue(q.isEmpty());
+    Assertions.assertTrue(q.isEmpty());
     ExitUtils.assertNotTerminated();
   }
 }

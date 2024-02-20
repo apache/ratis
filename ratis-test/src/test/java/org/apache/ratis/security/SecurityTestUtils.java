@@ -23,7 +23,7 @@ import org.apache.ratis.security.TlsConf.PrivateKeyConf;
 import org.apache.ratis.util.FileUtils;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemReader;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,7 +100,7 @@ public interface SecurityTestUtils {
       KeyFactory keyFactory = KeyFactory.getInstance("RSA");
       return keyFactory.generatePrivate(privKeySpec);
     } catch (Exception e) {
-      Assert.fail("Failed to get private key from " + keyPath + ". Error: "  +
+      Assertions.fail("Failed to get private key from " + keyPath + ". Error: "  +
           e.getMessage());
     }
     return null;
@@ -116,7 +116,7 @@ public interface SecurityTestUtils {
       }
       return certificate;
     } catch (Exception e) {
-      Assert.fail("Failed to get certificate from " + certPath + ". Error: "  +
+      Assertions.fail("Failed to get certificate from " + certPath + ". Error: "  +
           e.getMessage());
     }
     return null;
@@ -133,7 +133,7 @@ public interface SecurityTestUtils {
       keyStore.setKeyEntry("ratis-server-key", privateKey, new char[0], certificate);
       return keyStore;
     } catch (Exception e) {
-      Assert.fail("Failed to get sever key store " + e.getMessage());
+      Assertions.fail("Failed to get sever key store " + e.getMessage());
     }
     return null;
   }
@@ -149,7 +149,7 @@ public interface SecurityTestUtils {
       keyStore.setKeyEntry("ratis-client-key", privateKey, new char[0], certificate);
       return keyStore;
     } catch (Exception e) {
-      Assert.fail("Failed to get client key store " + e.getMessage());
+      Assertions.fail("Failed to get client key store " + e.getMessage());
     }
     return null;
   }
@@ -167,7 +167,7 @@ public interface SecurityTestUtils {
       }
       return trustStore;
     } catch (Exception e) {
-      Assert.fail("Failed to get sever key store " + e.getMessage());
+      Assertions.fail("Failed to get sever key store " + e.getMessage());
     }
     return null;
   }

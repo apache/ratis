@@ -18,12 +18,13 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.TriConsumer;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static org.apache.ratis.util.LifeCycle.State.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.*;
 
@@ -33,7 +34,8 @@ public class TestLifeCycle {
    * {@link LifeCycle} uses predecessors to validate transitions
    * while this test uses successors.
    */
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testIsValid() {
     final Map<LifeCycle.State, List<LifeCycle.State>> successors
         = new EnumMap<>(LifeCycle.State.class);
@@ -49,9 +51,8 @@ public class TestLifeCycle {
     final List<LifeCycle.State> states = Arrays.asList(LifeCycle.State.values());
     states.forEach(
         from -> states.forEach(
-            to -> assertEquals(from + " -> " + to,
-                successors.get(from).contains(to),
-                isValid(from, to))));
+            to -> assertEquals(successors.get(from).contains(to),
+                isValid(from, to), from + " -> " + to)));
   }
 
   @Test
@@ -90,7 +91,7 @@ public class TestLifeCycle {
         assertFalse(shouldThrow);
       } catch (IllegalStateException e) {
         assertTrue(shouldThrow);
-        assertEquals("Should be in original state", from, subject.getCurrentState());
+        assertEquals(from, subject.getCurrentState(), "Should be in original state");
       }
     }
   }

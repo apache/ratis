@@ -37,10 +37,10 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TraditionalBinaryPrefix;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -65,7 +65,7 @@ public class TestLogSegment extends BaseTest {
   private long preallocatedSize;
   private int bufferSize;
 
-  @Before
+  @BeforeEach
   public void setup() {
     RaftProperties properties = new RaftProperties();
     storageDir = getTestDir();
@@ -78,7 +78,7 @@ public class TestLogSegment extends BaseTest {
         RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     if (storageDir != null) {
       FileUtils.deleteFully(storageDir.getParentFile());
@@ -110,11 +110,11 @@ public class TestLogSegment extends BaseTest {
       // 0 < truncatedEntrySize < entrySize
       final long fileLength = file.length();
       final long truncatedFileLength = fileLength - (entrySize - truncatedEntrySize);
-      Assert.assertTrue(truncatedFileLength < fileLength);
+      Assertions.assertTrue(truncatedFileLength < fileLength);
       LOG.info("truncate last entry: entry(size={}, truncated={}), file(length={}, truncated={})",
           entrySize, truncatedEntrySize, fileLength, truncatedFileLength);
       FileUtils.truncateFile(file, truncatedFileLength);
-      Assert.assertEquals(truncatedFileLength, file.length());
+      Assertions.assertEquals(truncatedFileLength, file.length());
     }
 
     storage.close();
@@ -128,18 +128,18 @@ public class TestLogSegment extends BaseTest {
 
   static void checkLogSegment(LogSegment segment, long start, long end,
       boolean isOpen, long totalSize, long term) throws Exception {
-    Assert.assertEquals(start, segment.getStartIndex());
-    Assert.assertEquals(end, segment.getEndIndex());
-    Assert.assertEquals(isOpen, segment.isOpen());
-    Assert.assertEquals(totalSize, segment.getTotalFileSize());
+    Assertions.assertEquals(start, segment.getStartIndex());
+    Assertions.assertEquals(end, segment.getEndIndex());
+    Assertions.assertEquals(isOpen, segment.isOpen());
+    Assertions.assertEquals(totalSize, segment.getTotalFileSize());
 
     long offset = SegmentedRaftLogFormat.getHeaderLength();
     for (long i = start; i <= end; i++) {
       LogSegment.LogRecord record = segment.getLogRecord(i);
       final TermIndex ti = record.getTermIndex();
-      Assert.assertEquals(i, ti.getIndex());
-      Assert.assertEquals(term, ti.getTerm());
-      Assert.assertEquals(offset, record.getOffset());
+      Assertions.assertEquals(i, ti.getIndex());
+      Assertions.assertEquals(term, ti.getTerm());
+      Assertions.assertEquals(offset, record.getOffset());
 
       LogEntryProto entry = segment.getEntryFromCache(ti);
       if (entry == null) {
@@ -179,7 +179,7 @@ public class TestLogSegment extends BaseTest {
     checkLogSegment(openSegment, 0, 99 - delta, true, openSegmentFile.length(), 0);
     storage.close();
     // for open segment we currently always keep log entries in the memory
-    Assert.assertEquals(0, openSegment.getLoadingTimes());
+    Assertions.assertEquals(0, openSegment.getLoadingTimes());
 
     // load a closed segment (1000-1099)
     final File closedSegmentFile = prepareLog(false, 1000, 100, 1, false);
@@ -187,7 +187,7 @@ public class TestLogSegment extends BaseTest {
         LogSegmentStartEnd.valueOf(1000, 1099L), MAX_OP_SIZE, loadInitial, null, null);
     checkLogSegment(closedSegment, 1000, 1099, false,
         closedSegment.getTotalFileSize(), 1);
-    Assert.assertEquals(loadInitial ? 0 : 1, closedSegment.getLoadingTimes());
+    Assertions.assertEquals(loadInitial ? 0 : 1, closedSegment.getLoadingTimes());
   }
 
   @Test
@@ -208,7 +208,7 @@ public class TestLogSegment extends BaseTest {
       segment.appendToOpenSegment(Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
     }
 
-    Assert.assertTrue(segment.getTotalFileSize() >= max);
+    Assertions.assertTrue(segment.getTotalFileSize() >= max);
     checkLogSegment(segment, start, i - 1 + start, true, size, term);
   }
 
@@ -224,9 +224,9 @@ public class TestLogSegment extends BaseTest {
     storage.close();
 
     final DefaultTimekeeperImpl readEntryTimer = (DefaultTimekeeperImpl) raftLogMetrics.getReadEntryTimer();
-    Assert.assertNotNull(readEntryTimer);
-    Assert.assertEquals(100, readEntryTimer.getTimer().getCount());
-    Assert.assertTrue(readEntryTimer.getTimer().getMeanRate() > 0);
+    Assertions.assertNotNull(readEntryTimer);
+    Assertions.assertEquals(100, readEntryTimer.getTimer().getCount());
+    Assertions.assertTrue(readEntryTimer.getTimer().getMeanRate() > 0);
   }
 
 
@@ -238,7 +238,7 @@ public class TestLogSegment extends BaseTest {
     try {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m, 0, 1001);
       segment.appendToOpenSegment(Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
-      Assert.fail("should fail since the entry's index needs to be 1000");
+      Assertions.fail("should fail since the entry's index needs to be 1000");
     } catch (IllegalStateException e) {
       // the exception is expected.
     }
@@ -249,7 +249,7 @@ public class TestLogSegment extends BaseTest {
     try {
       entry = LogProtoUtils.toLogEntryProto(m, 0, 1002);
       segment.appendToOpenSegment(Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
-      Assert.fail("should fail since the entry's index needs to be 1001");
+      Assertions.fail("should fail since the entry's index needs to be 1001");
     } catch (IllegalStateException e) {
       // the exception is expected.
     }
@@ -269,18 +269,18 @@ public class TestLogSegment extends BaseTest {
     // truncate an open segment (remove 1080~1099)
     long newSize = segment.getLogRecord(start + 80).getOffset();
     segment.truncate(start + 80);
-    Assert.assertEquals(80, segment.numOfEntries());
+    Assertions.assertEquals(80, segment.numOfEntries());
     checkLogSegment(segment, start, start + 79, false, newSize, term);
 
     // truncate a closed segment (remove 1050~1079)
     newSize = segment.getLogRecord(start + 50).getOffset();
     segment.truncate(start + 50);
-    Assert.assertEquals(50, segment.numOfEntries());
+    Assertions.assertEquals(50, segment.numOfEntries());
     checkLogSegment(segment, start, start + 49, false, newSize, term);
 
     // truncate all the remaining entries
     segment.truncate(start);
-    Assert.assertEquals(0, segment.numOfEntries());
+    Assertions.assertEquals(0, segment.numOfEntries());
     checkLogSegment(segment, start, start - 1, false,
         SegmentedRaftLogFormat.getHeaderLength(), term);
   }
@@ -300,12 +300,12 @@ public class TestLogSegment extends BaseTest {
       for (int a : preallocated) {
         try(SegmentedRaftLogOutputStream ignored =
                 new SegmentedRaftLogOutputStream(file, false, max, a, ByteBuffer.allocateDirect(bufferSize))) {
-          Assert.assertEquals("max=" + max + ", a=" + a, file.length(), Math.min(max, a));
+          Assertions.assertEquals(file.length(), Math.min(max, a), "max=" + max + ", a=" + a);
         }
         try(SegmentedRaftLogInputStream in = SegmentedRaftLogTestUtils.newSegmentedRaftLogInputStream(
             file, 0, INVALID_LOG_INDEX, true)) {
           LogEntryProto entry = in.nextEntry();
-          Assert.assertNull(entry);
+          Assertions.assertNull(entry);
         }
       }
     }
@@ -321,14 +321,14 @@ public class TestLogSegment extends BaseTest {
       size = LogSegment.getEntrySize(entry, Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       out.write(entry);
     }
-    Assert.assertEquals(file.length(),
+    Assertions.assertEquals(file.length(),
         size + SegmentedRaftLogFormat.getHeaderLength());
     try (SegmentedRaftLogInputStream in = SegmentedRaftLogTestUtils.newSegmentedRaftLogInputStream(
         file, 0, INVALID_LOG_INDEX, true)) {
       LogEntryProto entry = in.nextEntry();
-      Assert.assertArrayEquals(content,
+      Assertions.assertArrayEquals(content,
           entry.getStateMachineLogEntry().getLogData().toByteArray());
-      Assert.assertNull(in.nextEntry());
+      Assertions.assertNull(in.nextEntry());
     }
   }
 
@@ -351,19 +351,19 @@ public class TestLogSegment extends BaseTest {
     long preallocated = 16 * 1024;
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
         max.getSize(), 16 * 1024, ByteBuffer.allocateDirect(10 * 1024))) {
-      Assert.assertEquals(preallocated, file.length());
+      Assertions.assertEquals(preallocated, file.length());
       while (totalSize + entrySize < max.getSize()) {
         totalSize += entrySize;
         out.write(entry);
         if (totalSize > preallocated) {
-          Assert.assertEquals("totalSize==" + totalSize,
-              preallocated + 16 * 1024, file.length());
+          Assertions.assertEquals(preallocated + 16 * 1024, file.length(),
+              "totalSize==" + totalSize);
           preallocated += 16 * 1024;
         }
       }
     }
 
-    Assert.assertEquals(totalSize, file.length());
+    Assertions.assertEquals(totalSize, file.length());
   }
 
   @Test
@@ -374,14 +374,14 @@ public class TestLogSegment extends BaseTest {
 
     // create zero size in-progress file
     LOG.info("file: " + file);
-    Assert.assertTrue(file.createNewFile());
+    Assertions.assertTrue(file.createNewFile());
     final Path path = file.toPath();
-    Assert.assertTrue(Files.exists(path));
-    Assert.assertEquals(0, Files.size(path));
+    Assertions.assertTrue(Files.exists(path));
+    Assertions.assertEquals(0, Files.size(path));
 
     // getLogSegmentPaths should remove it.
     final List<LogSegmentPath> logs = LogSegmentPath.getLogSegmentPaths(storage);
-    Assert.assertEquals(0, logs.size());
-    Assert.assertFalse(Files.exists(path));
+    Assertions.assertEquals(0, logs.size());
+    Assertions.assertFalse(Files.exists(path));
   }
 }

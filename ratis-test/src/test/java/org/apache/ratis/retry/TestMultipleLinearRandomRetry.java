@@ -19,8 +19,8 @@ package org.apache.ratis.retry;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TestMultipleLinearRandomRetry extends BaseTest {
   @Override
@@ -49,12 +49,12 @@ public class TestMultipleLinearRandomRetry extends BaseTest {
 
   private static void assertIllegalInput(String input) {
     final MultipleLinearRandomRetry computed = MultipleLinearRandomRetry.parseCommaSeparated(input);
-    Assert.assertNull(computed);
+    Assertions.assertNull(computed);
   }
   private static MultipleLinearRandomRetry assertLegalInput(String expected, String input) {
     final MultipleLinearRandomRetry computed = MultipleLinearRandomRetry.parseCommaSeparated(input);
-    Assert.assertNotNull(computed);
-    Assert.assertTrue(computed.toString().endsWith(expected));
+    Assertions.assertNotNull(computed);
+    Assertions.assertTrue(computed.toString().endsWith(expected));
     return computed;
   }
 
@@ -69,18 +69,18 @@ public class TestMultipleLinearRandomRetry extends BaseTest {
       for (int j = 1; j <= counts[i]; j++) {
         final int attempt = ++k;
         final RetryPolicy.Action action = r.handleAttemptFailure(() -> attempt);
-        Assert.assertTrue(action.shouldRetry());
+        Assertions.assertTrue(action.shouldRetry());
         final TimeDuration randomized = action.getSleepTime();
         final TimeDuration expected = times[i].to(randomized.getUnit());
         final long d = expected.getDuration();
         LOG.info("times[{},{}] = {}, randomized={}", i, j, times[i], randomized);
-        Assert.assertTrue(randomized.getDuration() >= d*0.5);
-        Assert.assertTrue(randomized.getDuration() < (d*1.5 + precision));
+        Assertions.assertTrue(randomized.getDuration() >= d*0.5);
+        Assertions.assertTrue(randomized.getDuration() < (d*1.5 + precision));
       }
     }
 
     final int attempt = ++k;
     final RetryPolicy.Action action = r.handleAttemptFailure(() -> attempt);
-    Assert.assertFalse(action.shouldRetry());
+    Assertions.assertFalse(action.shouldRetry());
   }
 }
