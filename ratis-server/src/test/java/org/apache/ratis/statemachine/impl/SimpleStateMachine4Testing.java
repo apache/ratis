@@ -84,7 +84,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return (SimpleStateMachine4Testing)s.getStateMachine();
   }
 
-  private final SortedMap<Long, LogEntryProto> indexMap = Collections.synchronizedSortedMap(new TreeMap<>());
+  private final SortedMap<Long, ReferenceCountedObject<LogEntryProto>> indexMap = Collections.synchronizedSortedMap(new TreeMap<>());
   private final SortedMap<String, LogEntryProto> dataMap = Collections.synchronizedSortedMap(new TreeMap<>());
   private final Daemon checkpointer;
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
@@ -199,8 +199,9 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return leaderElectionTimeoutInfo;
   }
 
-  private void put(LogEntryProto entry) {
-    final LogEntryProto previous = indexMap.put(entry.getIndex(), entry);
+  private void put(ReferenceCountedObject<LogEntryProto> entryRef) {
+    LogEntryProto entry = entryRef.retain();
+    final ReferenceCountedObject<LogEntryProto> previous = indexMap.put(entry.getIndex(), entryRef);
     Preconditions.assertNull(previous, "previous");
     final String s = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
     dataMap.put(s, entry);
@@ -246,25 +247,15 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     blocking.await(Blocking.Type.APPLY_TRANSACTION);
-    LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
+    ReferenceCountedObject<LogEntryProto> entryRef = Objects.requireNonNull(trx.getLogEntryRef());
+    LogEntryProto entry = entryRef.get();
     LOG.info("applyTransaction for log index {}", entry.getIndex());
 
-    // TODO: Logs kept in StateMachine's cache may be corrupted. Copy for now to have the test pass.
-    // Use ReferenceCount per RATIS-1997.
-    LogEntryProto copied = copy(entry);
-    put(copied);
+    put(entryRef);
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
 
     final SimpleMessage m = new SimpleMessage(entry.getIndex() + " OK");
     return collecting.collect(Collecting.Type.APPLY_TRANSACTION, m);
-  }
-
-  private LogEntryProto copy(LogEntryProto log) {
-    try {
-      return LogEntryProto.parseFrom(log.toByteString());
-    } catch (InvalidProtocolBufferException e) {
-      throw new IllegalStateException("Error copying log entry", e);
-    }
   }
 
   @Override
@@ -280,7 +271,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LOG.debug("Taking a snapshot with {}, file:{}", termIndex, snapshotFile);
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(snapshotFile, false,
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
-      for (final LogEntryProto entry : indexMap.values()) {
+      for (final ReferenceCountedObject<LogEntryProto> entryRef : indexMap.values()) {
+        LogEntryProto entry = entryRef.get();
         if (entry.getIndex() > endIndex) {
           break;
         } else {
@@ -315,7 +307,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
-          put(entry);
+          put(ReferenceCountedObject.wrap(entry));
           updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
         }
       }
@@ -390,10 +382,11 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       running = false;
       checkpointer.interrupt();
     });
+    indexMap.values().forEach(ReferenceCountedObject::release);
   }
 
   public LogEntryProto[] getContent() {
-    return indexMap.values().toArray(new LogEntryProto[0]);
+    return indexMap.values().stream().map(ReferenceCountedObject::get).toArray(LogEntryProto[]::new);
   }
 
   public void blockStartTransaction() {

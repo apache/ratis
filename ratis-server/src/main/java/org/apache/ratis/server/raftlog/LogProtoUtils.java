@@ -27,6 +27,7 @@ import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.com.google.protobuf.AbstractMessage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
@@ -220,5 +221,22 @@ public final class LogProtoUtils {
     final List<RaftPeer> oldConf = ProtoUtils.toRaftPeers(proto.getOldPeersList());
     final List<RaftPeer> oldListener = ProtoUtils.toRaftPeers(proto.getOldListenersList());
     return ServerImplUtils.newRaftConfiguration(conf, listener, entry.getIndex(), oldConf, oldListener);
+  }
+
+  public static LogEntryProto copy(LogEntryProto proto) {
+    if (proto == null) {
+      return null;
+    }
+
+    if (!proto.hasStateMachineLogEntry() && !proto.hasMetadataEntry() && !proto.hasConfigurationEntry()) {
+      // empty entry, just return as is.
+      return proto;
+    }
+
+    try {
+      return LogEntryProto.parseFrom(proto.toByteString());
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalArgumentException("Failed to copy log entry " + TermIndex.valueOf(proto), e);
+    }
   }
 }

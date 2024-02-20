@@ -318,7 +318,7 @@ class ServerState {
 
   void appendLog(TransactionContext operation) throws StateMachineException {
     getLog().append(currentTerm.get(), operation);
-    Objects.requireNonNull(operation.getLogEntry());
+    Objects.requireNonNull(operation.getLogEntryUnsafe(), "transaction-logEntry");
   }
 
   /** @return true iff the given peer id is recognized as the leader. */

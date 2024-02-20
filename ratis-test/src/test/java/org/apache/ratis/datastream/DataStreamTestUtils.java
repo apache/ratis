@@ -165,7 +165,7 @@ public interface DataStreamTestUtils {
 
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-      final LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
+      final LogEntryProto entry = Objects.requireNonNull(trx.getLogEntryUnsafe());
       updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
       final SingleDataStream s = getSingleDataStream(ClientInvocationId.valueOf(entry.getStateMachineLogEntry()));
       final ByteString bytesWritten = bytesWritten2ByteString(s.getDataChannel().getBytesWritten());
