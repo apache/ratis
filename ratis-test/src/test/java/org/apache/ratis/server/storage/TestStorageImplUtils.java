@@ -22,9 +22,9 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,7 +55,7 @@ public class TestStorageImplUtils extends BaseTest {
     return new File(vol, sub);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() throws IOException {
     FileUtils.deleteFully(rootTestDir.get());
   }
@@ -75,9 +75,9 @@ public class TestStorageImplUtils extends BaseTest {
     final File storageDirTwo = chooseNewStorageDir(directories, subDirTwo);
     File expectedOne = new File(testDir, subDirOne);
     File expectedTwo = new File(testDir, subDirTwo);
-    Assert.assertEquals(expectedOne.getCanonicalPath(),
+    Assertions.assertEquals(expectedOne.getCanonicalPath(),
         storageDirOne.getCanonicalPath());
-    Assert.assertEquals(expectedTwo.getCanonicalPath(),
+    Assertions.assertEquals(expectedTwo.getCanonicalPath(),
         storageDirTwo.getCanonicalPath());
   }
 
@@ -113,7 +113,7 @@ public class TestStorageImplUtils extends BaseTest {
     String subDir = UUID.randomUUID().toString();
     final File storageDirectory = chooseNewStorageDir(directories, subDir);
     File expected = new File(directories.get(6), subDir);
-    Assert.assertEquals(expected.getCanonicalPath(),
+    Assertions.assertEquals(expected.getCanonicalPath(),
         storageDirectory.getCanonicalPath());
   }
 
@@ -124,10 +124,10 @@ public class TestStorageImplUtils extends BaseTest {
   public void testChooseStorageDirWithNoVolume() {
     try {
       chooseNewStorageDir(Collections.emptyList(), UUID.randomUUID().toString());
-      Assert.fail();
+      Assertions.fail();
     } catch (IOException ex) {
       String expectedErrMsg = "No storage directory found.";
-      Assert.assertEquals(expectedErrMsg, ex.getMessage());
+      Assertions.assertEquals(expectedErrMsg, ex.getMessage());
     }
   }
 
@@ -144,7 +144,7 @@ public class TestStorageImplUtils extends BaseTest {
 
     final RaftStorageImpl storage = StorageImplUtils.initRaftStorage(
         "group-1", RaftStorage.StartupOption.RECOVER, properties);
-    Assert.assertNotNull(storage);
+    Assertions.assertNotNull(storage);
     storage.close();
   }
 
@@ -172,6 +172,6 @@ public class TestStorageImplUtils extends BaseTest {
         () -> StorageImplUtils.initRaftStorage(
             "group-1", RaftStorage.StartupOption.RECOVER, properties),
         IOException.class);
-    Assert.assertTrue(ioe.getMessage().contains("Failed to RECOVER: Storage directory not found"));
+    Assertions.assertTrue(ioe.getMessage().contains("Failed to RECOVER: Storage directory not found"));
   }
 }

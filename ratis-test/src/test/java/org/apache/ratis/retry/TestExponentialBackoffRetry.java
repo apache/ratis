@@ -19,8 +19,8 @@ package org.apache.ratis.retry;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -36,12 +36,12 @@ public class TestExponentialBackoffRetry extends BaseTest {
 
     // Test maxAttempts
     ExponentialBackoffRetry retryPolicy = createPolicy(baseSleep, null, 1);
-    Assert.assertFalse(retryPolicy.handleAttemptFailure(() -> 1).shouldRetry());
+    Assertions.assertFalse(retryPolicy.handleAttemptFailure(() -> 1).shouldRetry());
 
     try {
       // baseSleep should not be null
       createPolicy(null, null, 1);
-      Assert.fail("Policy creation should have failed");
+      Assertions.fail("Policy creation should have failed");
     } catch (Exception e) {
     }
 
@@ -67,9 +67,9 @@ public class TestExponentialBackoffRetry extends BaseTest {
       // sleep time with randomness added
       long randomizedDuration = action.getSleepTime().toLong(TimeUnit.MILLISECONDS);
 
-      Assert.assertTrue(action.shouldRetry());
-      Assert.assertTrue(randomizedDuration >= d * 0.5);
-      Assert.assertTrue(randomizedDuration <= d * 1.5);
+      Assertions.assertTrue(action.shouldRetry());
+      Assertions.assertTrue(randomizedDuration >= d * 0.5);
+      Assertions.assertTrue(randomizedDuration <= d * 1.5);
     }
   }
 

@@ -18,9 +18,8 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.util.StringUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -40,8 +39,8 @@ public class TestBufferedWriteChannel extends BaseTest {
     private long forcedPosition = 0;
 
     void assertValues(long expectedPosition, long expectedForcedPosition) {
-      Assert.assertEquals(expectedPosition, position);
-      Assert.assertEquals(expectedForcedPosition, forcedPosition);
+      Assertions.assertEquals(expectedPosition, position);
+      Assertions.assertEquals(expectedForcedPosition, forcedPosition);
     }
 
     @Override
@@ -200,7 +199,7 @@ public class TestBufferedWriteChannel extends BaseTest {
       AtomicInteger pos, AtomicInteger force) throws IOException {
     final int existing = out.writeBufferPosition();
     out.flush();
-    Assert.assertEquals(0, out.writeBufferPosition());
+    Assertions.assertEquals(0, out.writeBufferPosition());
     pos.addAndGet(existing);
     force.set(pos.get());
     fake.assertValues(pos.get(), force.get());
@@ -213,9 +212,9 @@ public class TestBufferedWriteChannel extends BaseTest {
     out.writeToBuffer(n, b -> b.put(buffer));
     if (existing + n > bufferCapacity) {
       pos.addAndGet(existing);
-      Assert.assertEquals(n, out.writeBufferPosition());
+      Assertions.assertEquals(n, out.writeBufferPosition());
     } else {
-      Assert.assertEquals(existing + n, out.writeBufferPosition());
+      Assertions.assertEquals(existing + n, out.writeBufferPosition());
     }
     fake.assertValues(pos.get(), force.get());
   }

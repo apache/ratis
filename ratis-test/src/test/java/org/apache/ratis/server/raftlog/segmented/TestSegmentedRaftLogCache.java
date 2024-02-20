@@ -37,10 +37,10 @@ import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.Op;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.ReferenceCountedObject;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestSegmentedRaftLogCache {
   private static final RaftProperties prop = new RaftProperties();
@@ -49,14 +49,14 @@ public class TestSegmentedRaftLogCache {
   private SegmentedRaftLogMetrics raftLogMetrics;
   private RatisMetricRegistryImpl ratisMetricRegistry;
 
-  @Before
+  @BeforeEach
   public void setup() {
     raftLogMetrics = new SegmentedRaftLogMetrics(RaftServerTestUtil.TEST_MEMBER_ID);
     ratisMetricRegistry = (RatisMetricRegistryImpl) raftLogMetrics.getRegistry();
     cache = new SegmentedRaftLogCache(null, null, prop, raftLogMetrics);
   }
 
-  @After
+  @AfterEach
   public void clear() {
     raftLogMetrics.unregister();
   }
@@ -75,14 +75,14 @@ public class TestSegmentedRaftLogCache {
   }
 
   private void checkCache(long start, long end, int segmentSize) {
-    Assert.assertEquals(start, cache.getStartIndex());
-    Assert.assertEquals(end, cache.getEndIndex());
+    Assertions.assertEquals(start, cache.getStartIndex());
+    Assertions.assertEquals(end, cache.getEndIndex());
 
     for (long index = start; index <= end; index++) {
       final LogSegment segment = cache.getSegment(index);
       final LogRecord record = segment.getLogRecord(index);
       final LogEntryProto entry = segment.getEntryFromCache(record.getTermIndex());
-      Assert.assertEquals(index, entry.getIndex());
+      Assertions.assertEquals(index, entry.getIndex());
     }
 
     long[] offsets = new long[]{start, start + 1, start + (end - start) / 2,
@@ -99,9 +99,9 @@ public class TestSegmentedRaftLogCache {
   private void checkCacheEntries(long offset, int size, long end) {
     final LogEntryHeader[] entries = cache.getTermIndices(offset, offset + size);
     long realEnd = offset + size > end + 1 ? end + 1 : offset + size;
-    Assert.assertEquals(realEnd - offset, entries.length);
+    Assertions.assertEquals(realEnd - offset, entries.length);
     for (long i = offset; i < realEnd; i++) {
-      Assert.assertEquals(i, entries[(int) (i - offset)].getIndex());
+      Assertions.assertEquals(i, entries[(int) (i - offset)].getIndex());
     }
   }
 
@@ -114,7 +114,7 @@ public class TestSegmentedRaftLogCache {
     try {
       LogSegment s = prepareLogSegment(102, 103, true);
       cache.addSegment(s);
-      Assert.fail("should fail since there is gap between two segments");
+      Assertions.fail("should fail since there is gap between two segments");
     } catch (IllegalStateException ignored) {
     }
 
@@ -125,7 +125,7 @@ public class TestSegmentedRaftLogCache {
     try {
       LogSegment s = prepareLogSegment(201, 202, true);
       cache.addSegment(s);
-      Assert.fail("should fail since there is still an open segment in cache");
+      Assertions.fail("should fail since there is still an open segment in cache");
     } catch (IllegalStateException ignored) {
     }
 
@@ -135,17 +135,17 @@ public class TestSegmentedRaftLogCache {
     try {
       LogSegment s = prepareLogSegment(202, 203, true);
       cache.addSegment(s);
-      Assert.fail("should fail since there is gap between two segments");
+      Assertions.fail("should fail since there is gap between two segments");
     } catch (IllegalStateException ignored) {
     }
 
     LogSegment s3 = prepareLogSegment(201, 300, true);
     cache.addSegment(s3);
-    Assert.assertNotNull(cache.getOpenSegment());
+    Assertions.assertNotNull(cache.getOpenSegment());
     checkCache(1, 300, 100);
 
     cache.rollOpenSegment(true);
-    Assert.assertNotNull(cache.getOpenSegment());
+    Assertions.assertNotNull(cache.getOpenSegment());
     checkCache(1, 300, 100);
   }
 
@@ -159,7 +159,7 @@ public class TestSegmentedRaftLogCache {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, 0);
       cache.appendEntry(Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry)
       );
-      Assert.fail("the open segment is null");
+      Assertions.fail("the open segment is null");
     } catch (IllegalStateException ignored) {
     }
 
@@ -171,7 +171,7 @@ public class TestSegmentedRaftLogCache {
       );
     }
 
-    Assert.assertNotNull(cache.getOpenSegment());
+    Assertions.assertNotNull(cache.getOpenSegment());
     checkCache(0, 199, 100);
   }
 
@@ -188,7 +188,7 @@ public class TestSegmentedRaftLogCache {
     cache.addSegment(s);
 
     long end = cache.getEndIndex();
-    Assert.assertEquals(599, end);
+    Assertions.assertEquals(599, end);
     int numOfSegments = 6;
     // start truncation
     for (int i = 0; i < 10; i++) { // truncate 10 times
@@ -200,46 +200,46 @@ public class TestSegmentedRaftLogCache {
       // check TruncationSegments
       int currentNum= (int) (end / 100 + 1);
       if (currentNum < numOfSegments) {
-        Assert.assertEquals(1, ts.getToDelete().length);
+        Assertions.assertEquals(1, ts.getToDelete().length);
         numOfSegments = currentNum;
       } else {
-        Assert.assertEquals(0, ts.getToDelete().length);
+        Assertions.assertEquals(0, ts.getToDelete().length);
       }
     }
 
     // 230 entries remaining. truncate at the segment boundary
     TruncationSegments ts = cache.truncate(200);
     checkCache(0, 199, 100);
-    Assert.assertEquals(1, ts.getToDelete().length);
-    Assert.assertEquals(200, ts.getToDelete()[0].getStartIndex());
-    Assert.assertEquals(229, ts.getToDelete()[0].getEndIndex());
-    Assert.assertEquals(0, ts.getToDelete()[0].getTargetLength());
-    Assert.assertFalse(ts.getToDelete()[0].isOpen());
-    Assert.assertNull(ts.getToTruncate());
+    Assertions.assertEquals(1, ts.getToDelete().length);
+    Assertions.assertEquals(200, ts.getToDelete()[0].getStartIndex());
+    Assertions.assertEquals(229, ts.getToDelete()[0].getEndIndex());
+    Assertions.assertEquals(0, ts.getToDelete()[0].getTargetLength());
+    Assertions.assertFalse(ts.getToDelete()[0].isOpen());
+    Assertions.assertNull(ts.getToTruncate());
 
     // add another open segment and truncate it as a whole
     LogSegment newOpen = prepareLogSegment(200, 249, true);
     cache.addSegment(newOpen);
     ts = cache.truncate(200);
     checkCache(0, 199, 100);
-    Assert.assertEquals(1, ts.getToDelete().length);
-    Assert.assertEquals(200, ts.getToDelete()[0].getStartIndex());
-    Assert.assertEquals(249, ts.getToDelete()[0].getEndIndex());
-    Assert.assertEquals(0, ts.getToDelete()[0].getTargetLength());
-    Assert.assertTrue(ts.getToDelete()[0].isOpen());
-    Assert.assertNull(ts.getToTruncate());
+    Assertions.assertEquals(1, ts.getToDelete().length);
+    Assertions.assertEquals(200, ts.getToDelete()[0].getStartIndex());
+    Assertions.assertEquals(249, ts.getToDelete()[0].getEndIndex());
+    Assertions.assertEquals(0, ts.getToDelete()[0].getTargetLength());
+    Assertions.assertTrue(ts.getToDelete()[0].isOpen());
+    Assertions.assertNull(ts.getToTruncate());
 
     // add another open segment and truncate part of it
     newOpen = prepareLogSegment(200, 249, true);
     cache.addSegment(newOpen);
     ts = cache.truncate(220);
     checkCache(0, 219, 100);
-    Assert.assertNull(cache.getOpenSegment());
-    Assert.assertEquals(0, ts.getToDelete().length);
-    Assert.assertTrue(ts.getToTruncate().isOpen());
-    Assert.assertEquals(219, ts.getToTruncate().getNewEndIndex());
-    Assert.assertEquals(200, ts.getToTruncate().getStartIndex());
-    Assert.assertEquals(249, ts.getToTruncate().getEndIndex());
+    Assertions.assertNull(cache.getOpenSegment());
+    Assertions.assertEquals(0, ts.getToDelete().length);
+    Assertions.assertTrue(ts.getToTruncate().isOpen());
+    Assertions.assertEquals(219, ts.getToTruncate().getNewEndIndex());
+    Assertions.assertEquals(200, ts.getToTruncate().getStartIndex());
+    Assertions.assertEquals(249, ts.getToTruncate().getEndIndex());
   }
 
   @Test
@@ -255,9 +255,9 @@ public class TestSegmentedRaftLogCache {
     int purgeIndex = sIndex;
     // open segment should never be purged
     TruncationSegments ts = cache.purge(purgeIndex);
-    Assert.assertNull(ts.getToTruncate());
-    Assert.assertEquals(end - start, ts.getToDelete().length);
-    Assert.assertEquals(sIndex, cache.getStartIndex());
+    Assertions.assertNull(ts.getToTruncate());
+    Assertions.assertEquals(end - start, ts.getToDelete().length);
+    Assertions.assertEquals(sIndex, cache.getStartIndex());
   }
 
   @Test
@@ -272,9 +272,9 @@ public class TestSegmentedRaftLogCache {
     // overlapped close segment will not purged. Passing in index - 1 since
     // we purge a closed segment when end index == passed in purge index.
     TruncationSegments ts = cache.purge(purgeIndex - 1);
-    Assert.assertNull(ts.getToTruncate());
-    Assert.assertEquals(end - start - 1, ts.getToDelete().length);
-    Assert.assertEquals(1, cache.getNumOfSegments());
+    Assertions.assertNull(ts.getToTruncate());
+    Assertions.assertEquals(end - start - 1, ts.getToDelete().length);
+    Assertions.assertEquals(1, cache.getNumOfSegments());
   }
 
   private void populatedSegment(int start, int end, int segmentSize, boolean isOpen) {
@@ -291,15 +291,15 @@ public class TestSegmentedRaftLogCache {
     TermIndex prev = null;
     while (iterator.hasNext()) {
       TermIndex termIndex = iterator.next();
-      Assert.assertEquals(cache.getLogRecord(termIndex.getIndex()).getTermIndex(), termIndex);
+      Assertions.assertEquals(cache.getLogRecord(termIndex.getIndex()).getTermIndex(), termIndex);
       if (prev != null) {
-        Assert.assertEquals(prev.getIndex() + 1, termIndex.getIndex());
+        Assertions.assertEquals(prev.getIndex() + 1, termIndex.getIndex());
       }
       prev = termIndex;
     }
     if (startIndex <= cache.getEndIndex()) {
-      Assert.assertNotNull(prev);
-      Assert.assertEquals(cache.getEndIndex(), prev.getIndex());
+      Assertions.assertNotNull(prev);
+      Assertions.assertEquals(cache.getEndIndex(), prev.getIndex());
     }
   }
 
@@ -321,7 +321,7 @@ public class TestSegmentedRaftLogCache {
     testIterator(299);
 
     Iterator<TermIndex> iterator = cache.iterator(300);
-    Assert.assertFalse(iterator.hasNext());
+    Assertions.assertFalse(iterator.hasNext());
   }
 
   @Test
@@ -332,14 +332,14 @@ public class TestSegmentedRaftLogCache {
 
     Long closedSegmentsNum = (Long) ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM)).values().iterator().next().getValue();
-    Assert.assertEquals(2L, closedSegmentsNum.longValue());
+    Assertions.assertEquals(2L, closedSegmentsNum.longValue());
 
     Long closedSegmentsSizeInBytes = (Long) ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES)).values().iterator().next().getValue();
-    Assert.assertEquals(closedSegmentsSizeInBytes.longValue(), cache.getClosedSegmentsSizeInBytes());
+    Assertions.assertEquals(closedSegmentsSizeInBytes.longValue(), cache.getClosedSegmentsSizeInBytes());
 
     Long openSegmentSizeInBytes = (Long) ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES)).values().iterator().next().getValue();
-    Assert.assertEquals(openSegmentSizeInBytes.longValue(), cache.getOpenSegmentSizeInBytes());
+    Assertions.assertEquals(openSegmentSizeInBytes.longValue(), cache.getOpenSegmentSizeInBytes());
   }
 }

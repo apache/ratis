@@ -23,9 +23,9 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,7 +51,7 @@ public class TestRaftServerConfigKeys {
           JavaUtils.getClassSimpleName(TestRaftServerConfigKeys.class) +
               Integer.toHexString(ThreadLocalRandom.current().nextInt())));
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() throws IOException {
     FileUtils.deleteFully(rootTestDir.get());
   }
@@ -74,7 +74,7 @@ public class TestRaftServerConfigKeys {
     final String expected = directories.stream().map(File::getAbsolutePath)
         .collect(Collectors.joining(","));
     final String actual = properties.get(RaftServerConfigKeys.STORAGE_DIR_KEY);
-    Assert.assertEquals(expected, actual);
+    Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -97,8 +97,8 @@ public class TestRaftServerConfigKeys {
     final List<String> actualDirs = storageDirs.stream()
         .map(File::getAbsolutePath).collect(Collectors.toList());
     actualDirs.removeAll(expectedDirs);
-    Assert.assertEquals(directories.size(), storageDirs.size());
-    Assert.assertEquals(0, actualDirs.size());
+    Assertions.assertEquals(directories.size(), storageDirs.size());
+    Assertions.assertEquals(0, actualDirs.size());
   }
 
   /**
@@ -113,6 +113,6 @@ public class TestRaftServerConfigKeys {
     int pendingRequestMegabyteLimit = Math.toIntExact(
         RaftServerConfigKeys.Write.byteLimit(properties).getSize()
             / SizeInBytes.ONE_MB.getSize());
-    Assert.assertEquals(4096, pendingRequestMegabyteLimit);
+    Assertions.assertEquals(4096, pendingRequestMegabyteLimit);
   }
 }

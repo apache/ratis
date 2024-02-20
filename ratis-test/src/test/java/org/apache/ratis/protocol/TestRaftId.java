@@ -19,16 +19,14 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.UUID;
 
+@Timeout(value = 1)
 public class TestRaftId extends BaseTest {
-  @Override
-  public int getGlobalTimeoutSeconds() {
-    return 1;
-  }
 
   @Test
   public void testRaftId() {
@@ -39,35 +37,35 @@ public class TestRaftId extends BaseTest {
   static void assertRaftId(UUID original, ByteString expected) {
     final ByteString bytes = RaftId.toByteString(original);
     if (expected != null) {
-      Assert.assertEquals(expected, bytes);
+      Assertions.assertEquals(expected, bytes);
     }
     final UUID computed = RaftId.toUuid(bytes);
 
-    Assert.assertEquals(original, computed);
-    Assert.assertEquals(bytes, RaftId.toByteString(computed));
+    Assertions.assertEquals(original, computed);
+    Assertions.assertEquals(bytes, RaftId.toByteString(computed));
   }
 
   @Test
   public void testClientId() {
     final ClientId id = ClientId.randomId();
     final ByteString bytes = id.toByteString();
-    Assert.assertEquals(bytes, id.toByteString());
-    Assert.assertEquals(id, ClientId.valueOf(bytes));
+    Assertions.assertEquals(bytes, id.toByteString());
+    Assertions.assertEquals(id, ClientId.valueOf(bytes));
   }
 
   @Test
   public void testRaftGroupId() {
     final RaftGroupId id = RaftGroupId.randomId();
     final ByteString bytes = id.toByteString();
-    Assert.assertEquals(bytes, id.toByteString());
-    Assert.assertEquals(id, RaftGroupId.valueOf(bytes));
+    Assertions.assertEquals(bytes, id.toByteString());
+    Assertions.assertEquals(id, RaftGroupId.valueOf(bytes));
   }
 
   @Test
   public void testRaftPeerId() {
     final RaftPeerId id = RaftPeerId.valueOf("abc");
     final ByteString bytes = id.toByteString();
-    Assert.assertEquals(bytes, id.toByteString());
-    Assert.assertEquals(id, RaftPeerId.valueOf(bytes));
+    Assertions.assertEquals(bytes, id.toByteString());
+    Assertions.assertEquals(id, RaftPeerId.valueOf(bytes));
   }
 }

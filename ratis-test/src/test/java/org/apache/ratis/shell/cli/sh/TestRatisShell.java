@@ -27,8 +27,8 @@ import org.apache.ratis.shell.cli.sh.command.LocalCommand;
 import org.apache.ratis.shell.cli.sh.command.PeerCommand;
 import org.apache.ratis.shell.cli.sh.command.SnapshotCommand;
 import org.apache.ratis.util.ReflectionUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.reflections.Reflections;
 
 import java.io.PrintStream;
@@ -49,12 +49,12 @@ public class TestRatisShell extends BaseTest {
   static final Class<?>[] ARG_CLASSES = new Class[] {Context.class};
 
   static void assertCommand(String message, Command expected, Command computed) {
-    Assert.assertEquals(message, expected.getClass(), computed.getClass());
-    Assert.assertEquals(message, expected.getCommandName(), computed.getCommandName());
+    Assertions.assertEquals(expected.getClass(), computed.getClass(), message);
+    Assertions.assertEquals(expected.getCommandName(), computed.getCommandName(), message);
   }
 
   static void assertCommands(List<Command> expected, List<Command> computed) {
-    Assert.assertEquals(expected.size(), computed.size());
+    Assertions.assertEquals(expected.size(), computed.size());
     for(int i = 0; i < expected.size(); i++) {
       assertCommand("Command " + i, expected.get(i), computed.get(i));
     }
@@ -103,7 +103,7 @@ public class TestRatisShell extends BaseTest {
     final List<Command> computed = new ArrayList<>(parent.getSubCommands().values());
     Collections.sort(computed);
 
-    Assert.assertFalse(computed.isEmpty());
+    Assertions.assertFalse(computed.isEmpty());
 
     final Package pkg = computed.iterator().next().getClass().getPackage();
     final List<Command> expected = new ArrayList<>(loadCommands(pkg));

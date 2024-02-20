@@ -30,8 +30,8 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.io.File;
@@ -67,7 +67,7 @@ public abstract class SnapshotCommandIntegrationTest <CLUSTER extends MiniRaftCl
     try (final RaftClient client = cluster.createClient(leaderId)) {
       for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties()); i++) {
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
     }
     final String address = getClusterAddress(cluster);
@@ -75,14 +75,14 @@ public abstract class SnapshotCommandIntegrationTest <CLUSTER extends MiniRaftCl
     RatisShell shell = new RatisShell(out.getPrintStream());
     int ret = shell.run("snapshot", "create", "-peers", address, "-peerId",
         leader.getPeer().getId().toString());
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
     String[] str = out.toString().trim().split(" ");
     int snapshotIndex = Integer.parseInt(str[str.length-1]);
     LOG.info("snapshotIndex = {}", snapshotIndex);
 
     final File snapshotFile = SimpleStateMachine4Testing.get(leader)
         .getStateMachineStorage().getSnapshotFile(leader.getInfo().getCurrentTerm(), snapshotIndex);
-    Assert.assertTrue(snapshotFile.exists());
+    Assertions.assertTrue(snapshotFile.exists());
   }
 
   void runTestSnapshotCreateCommandOnSpecificServer(MiniRaftCluster cluster) throws Exception {
@@ -91,16 +91,16 @@ public abstract class SnapshotCommandIntegrationTest <CLUSTER extends MiniRaftCl
     try (final RaftClient client = cluster.createClient(leaderId)) {
       for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties()); i++) {
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
     }
     final String address = getClusterAddress(cluster);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    Assert.assertEquals(2, cluster.getFollowers().size());
+    Assertions.assertEquals(2, cluster.getFollowers().size());
     int ret = shell.run("snapshot", "create", "-peers", address, "-peerId",
         cluster.getFollowers().get(0).getId().toString());
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
     String[] str = out.toString().trim().split(" ");
     int snapshotIndex = Integer.parseInt(str[str.length-1]);
     LOG.info("snapshotIndex = {}", snapshotIndex);
@@ -108,7 +108,7 @@ public abstract class SnapshotCommandIntegrationTest <CLUSTER extends MiniRaftCl
     final File snapshotFile = SimpleStateMachine4Testing.get(cluster.getFollowers().get(0))
         .getStateMachineStorage()
         .getSnapshotFile(cluster.getFollowers().get(0).getInfo().getCurrentTerm(), snapshotIndex);
-    Assert.assertTrue(snapshotFile.exists());
+    Assertions.assertTrue(snapshotFile.exists());
   }
 
 }

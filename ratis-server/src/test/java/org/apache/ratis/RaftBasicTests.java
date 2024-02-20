@@ -42,8 +42,9 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
@@ -152,12 +153,12 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
           });
         } else {
           final RaftClientReply reply = client.io().send(message);
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
       }
       if (async) {
         f.join();
-        Assert.assertEquals(messages.length, asyncReplyCount.get());
+        Assertions.assertEquals(messages.length, asyncReplyCount.get());
       }
     }
     Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
@@ -194,7 +195,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
     for (RaftServer.Division followerToSendLog : followersToSendLog) {
       RaftLog followerLog = followerToSendLog.getRaftLog();
-      Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, messages));
+      Assertions.assertTrue(RaftTestUtil.logEntriesContains(followerLog, messages));
     }
 
     LOG.info(String.format("killing old leader: %s", leaderId.toString()));
@@ -212,7 +213,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     Set<RaftPeerId> followersToSendLogIds =
         followersToSendLog.stream().map(f -> f.getId()).collect(Collectors.toSet());
 
-    Assert.assertTrue(followersToSendLogIds.contains(newLeaderId));
+    Assertions.assertTrue(followersToSendLogIds.contains(newLeaderId));
 
     cluster.getServerAliveStream()
         .map(RaftServer.Division::getRaftLog)
@@ -234,8 +235,8 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         cluster.killServer(followers.get(i).getId());
       }
     } catch (IndexOutOfBoundsException e) {
-      throw new org.junit.AssumptionViolatedException("The assumption is follower.size() = NUM_SERVERS - 1, "
-              + "actual NUM_SERVERS is " + NUM_SERVERS + ", and actual follower.size() is " + followers.size(), e);
+      Assumptions.abort("The assumption is follower.size() = NUM_SERVERS - 1, "
+          + "actual NUM_SERVERS is " + NUM_SERVERS + ", and actual follower.size() is " + followers.size());
     }
 
     SimpleMessage[] messages = SimpleMessage.create(1);
@@ -293,7 +294,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
           if (!useAsync) {
             final RaftClientReply reply =
                 client.io().send(messages[step.getAndIncrement()]);
-            Assert.assertTrue(reply.isSuccess());
+            Assertions.assertTrue(reply.isSuccess());
           } else {
             final CompletableFuture<RaftClientReply> replyFuture =
                 client.async().send(messages[i]);
@@ -305,13 +306,13 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
               if (step.incrementAndGet() == messages.length) {
                 f.complete(null);
               }
-              Assert.assertTrue(r.isSuccess());
+              Assertions.assertTrue(r.isSuccess());
             });
           }
         }
         if (useAsync) {
           f.join();
-          Assert.assertTrue(step.get() == messages.length);
+          Assertions.assertEquals(step.get(), messages.length);
         }
       } catch(Exception t) {
         if (exceptionInClientThread.compareAndSet(null, t)) {
@@ -393,7 +394,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       }
 
       final int n = clients.stream().mapToInt(c -> c.step.get()).sum();
-      Assert.assertTrue(n >= lastStep.get());
+      Assertions.assertTrue(n >= lastStep.get());
 
       if (n - lastStep.get() < 50 * numClients) { // Change leader at least 50 steps.
         Thread.sleep(10);
@@ -447,7 +448,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       // The duration for which the client waits should be more than the retryCacheExpiryDuration.
       final TimeDuration duration = startTime.elapsedTime();
       TimeDuration retryCacheExpiryDuration = RaftServerConfigKeys.RetryCache.expiryTime(cluster.getProperties());
-      Assert.assertTrue(duration.compareTo(retryCacheExpiryDuration) >= 0);
+      Assertions.assertTrue(duration.compareTo(retryCacheExpiryDuration) >= 0);
     }
   }
 
@@ -479,10 +480,10 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       long smAppliedIndexAfter = (Long) smAppliedIndexGauge.getValue();
       checkFollowerCommitLagsLeader(cluster);
 
-      Assert.assertTrue("StateMachine Applied Index not incremented",
-          appliedIndexAfter > appliedIndexBefore);
-      Assert.assertTrue("StateMachine Apply completed Index not incremented",
-          smAppliedIndexAfter > smAppliedIndexBefore);
+      Assertions.assertTrue(appliedIndexAfter > appliedIndexBefore,
+          "StateMachine Applied Index not incremented");
+      Assertions.assertTrue(smAppliedIndexAfter > smAppliedIndexBefore,
+          "StateMachine Apply completed Index not incremented");
     }
   }
 
@@ -495,12 +496,12 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     for (RaftServer.Division f : followers) {
       final RaftGroupMemberId follower = f.getMemberId();
       Gauge followerCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, follower.getPeerId());
-      Assert.assertTrue((Long)leaderCommitGauge.getValue() >=
+      Assertions.assertTrue((Long)leaderCommitGauge.getValue() >=
           (Long)followerCommitGauge.getValue());
       Gauge followerMetric = ServerMetricsTestUtils.getPeerCommitIndexGauge(follower, follower.getPeerId());
       System.out.println(followerCommitGauge.getValue());
       System.out.println(followerMetric.getValue());
-      Assert.assertTrue((Long)followerCommitGauge.getValue()  <= (Long)followerMetric.getValue());
+      Assertions.assertTrue((Long)followerCommitGauge.getValue()  <= (Long)followerMetric.getValue());
     }
   }
 
@@ -511,7 +512,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC);
 
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
-    Assert.assertTrue(metricRegistry.isPresent());
+    Assertions.assertTrue(metricRegistry.isPresent());
 
     return ServerMetricsTestUtils.getGaugeWithName(gaugeName, metricRegistry::get);
   }

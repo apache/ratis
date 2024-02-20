@@ -30,8 +30,8 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.concurrent.TimeUnit;
@@ -63,13 +63,13 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     RaftServer.Division newLeader = cluster.getFollowers().get(0);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    Assert.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
+    Assertions.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
     int ret = shell.run("election", "transfer", "-peers", address, "-address",
         newLeader.getPeer().getAddress());
 
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
     JavaUtils.attempt(() -> {
-      Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
+      Assertions.assertEquals(cluster.getLeader().getId(), newLeader.getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferCommand", LOG);
   }
 
@@ -85,28 +85,28 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     RaftServer.Division newLeader = cluster.getFollowers().get(0);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    Assert.assertTrue(cluster.getFollowers().contains(newLeader));
+    Assertions.assertTrue(cluster.getFollowers().contains(newLeader));
 
     // set current leader's priority to 2
     int ret = shell.run("peer", "setPriority", "-peers", address, "-addressPriority",
         leader.getPeer().getAddress()+ "|" + 2);
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
 
     // transfer to new leader will set its priority to 2 (with timeout 1s)
     ret = shell.run("election", "transfer", "-peers", address, "-address",
         newLeader.getPeer().getAddress(), "-timeout", "1");
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
 
-    JavaUtils.attempt(() -> Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId()),
+    JavaUtils.attempt(() -> Assertions.assertEquals(cluster.getLeader().getId(), newLeader.getId()),
         10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionTransferLeaderCommand", LOG);
 
     // verify that priorities of new leader and old leader are both 2
     ret = shell.run("group", "info", "-peers", address);
-    Assert.assertEquals(0 , ret);
+    Assertions.assertEquals(0 , ret);
     String expected = String.format("\"%s\"%n  priority: %d", newLeader.getPeer().getAddress(), 2);
     String expected2 = String.format("\"%s\"%n  priority: %d", leader.getPeer().getAddress(), 2);
-    Assert.assertTrue(out.toString().contains(expected));
-    Assert.assertTrue(out.toString().contains(expected2));
+    Assertions.assertTrue(out.toString().contains(expected));
+    Assertions.assertTrue(out.toString().contains(expected2));
   }
 
   @Test
@@ -120,25 +120,25 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     RaftServer.Division newLeader = cluster.getFollowers().get(0);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    Assert.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
+    Assertions.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
     int ret = shell.run("election", "pause", "-peers", sb.toString(), "-address",
         newLeader.getPeer().getAddress());
 
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
     ret = shell.run("peer", "setPriority", "-peers", sb.toString(), "-addressPriority",
         newLeader.getPeer().getAddress() + "|" + 2);
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
 
     JavaUtils.attempt(() -> {
-      Assert.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
+      Assertions.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionPauseResumeCommand", LOG);
 
     ret = shell.run("election", "resume", "-peers", sb.toString(), "-address",
         newLeader.getPeer().getAddress());
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
 
     JavaUtils.attempt(() -> {
-      Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
+      Assertions.assertEquals(cluster.getLeader().getId(), newLeader.getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionPauseResumeCommand", LOG);
   }
 
@@ -153,10 +153,10 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     RaftServer.Division newLeader = cluster.getFollowers().get(0);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    Assert.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
-    Assert.assertEquals(2, cluster.getFollowers().size());
+    Assertions.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
+    Assertions.assertEquals(2, cluster.getFollowers().size());
     int ret = shell.run("election", "stepDown", "-peers", sb.toString());
-    Assert.assertEquals(0, ret);
-    Assert.assertEquals(3, cluster.getFollowers().size());
+    Assertions.assertEquals(0, ret);
+    Assertions.assertEquals(3, cluster.getFollowers().size());
   }
 }

@@ -33,8 +33,8 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.concurrent.TimeUnit;
@@ -68,11 +68,11 @@ public abstract class PeerCommandIntegrationTest <CLUSTER extends MiniRaftCluste
     RaftPeer[] peers = new RaftPeer[]{cluster.getFollowers().get(1).getPeer(), leader.getPeer()};
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    Assert.assertTrue(cluster.getFollowers().contains(toRemove));
+    Assertions.assertTrue(cluster.getFollowers().contains(toRemove));
     int ret = shell.run("peer", "remove", "-peers", address, "-peerId",
         toRemove.getPeer().getId().toString());
 
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
     RaftServerTestUtil.waitAndCheckNewConf(cluster, peers,1, null);
   }
 
@@ -95,7 +95,7 @@ public abstract class PeerCommandIntegrationTest <CLUSTER extends MiniRaftCluste
     int ret = shell.run("peer", "add", "-peers", sb.toString(), "-address",
         newPeers[0].getAdminAddress(), "-peerId", newPeers[0].getId().toString());
 
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
     RaftServerTestUtil.waitAndCheckNewConf(cluster, ObjectArrays.concat(peers, newPeers[0]), 0, null);
 
   }
@@ -112,12 +112,12 @@ public abstract class PeerCommandIntegrationTest <CLUSTER extends MiniRaftCluste
     RaftServer.Division newLeader = cluster.getFollowers().get(0);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    Assert.assertTrue(cluster.getFollowers().contains(newLeader));
+    Assertions.assertTrue(cluster.getFollowers().contains(newLeader));
     int ret = shell.run("peer", "setPriority", "-peers", address, "-addressPriority",
         newLeader.getPeer().getAddress()+ "|" + 2);
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
     JavaUtils.attempt(() -> {
-      Assert.assertEquals(cluster.getLeader().getId(), newLeader.getId());
+      Assertions.assertEquals(cluster.getLeader().getId(), newLeader.getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testPeerSetPriorityCommand", LOG);
   }
 

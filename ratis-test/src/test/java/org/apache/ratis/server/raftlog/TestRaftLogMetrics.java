@@ -36,8 +36,8 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.management.ObjectName;
 import java.lang.management.ManagementFactory;
@@ -116,7 +116,7 @@ public class TestRaftLogMetrics extends BaseTest
   static void assertCommitCount(RaftServer.Division server, int expectedMsgs) {
     final RatisMetricRegistry rlm = ((RatisMetrics)server.getRaftLog().getRaftLogMetrics()).getRegistry();
     long stmCount = rlm.counter(STATE_MACHINE_LOG_ENTRY_COUNT).getCount();
-    Assert.assertEquals(expectedMsgs, stmCount);
+    Assertions.assertEquals(expectedMsgs, stmCount);
   }
 
   static RatisMetricRegistryImpl getRegistry(RaftGroupMemberId memberId) {
@@ -127,21 +127,21 @@ public class TestRaftLogMetrics extends BaseTest
     final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getMemberId().toString());
     final RatisMetricRegistryImpl ratisMetricRegistry = getRegistry(server.getMemberId());
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_FLUSH_TIME);
-    Assert.assertNotNull(tm);
+    Assertions.assertNotNull(tm);
 
     final MetricsStateMachine stateMachine = MetricsStateMachine.get(server);
     final int expectedFlush = stateMachine.getFlushCount();
 
     JavaUtils.attemptRepeatedly(() -> {
-      Assert.assertEquals(expectedFlush, tm.getCount());
+      Assertions.assertEquals(expectedFlush, tm.getCount());
       return null;
     }, 50, HUNDRED_MILLIS, "expectedFlush == tm.getCount()", null);
 
-    Assert.assertTrue(tm.getMeanRate() > 0);
+    Assertions.assertTrue(tm.getMeanRate() > 0);
 
     // Test jmx
     ObjectName oname = new ObjectName(RATIS_APPLICATION_NAME_METRICS, "name", flushTimeMetric);
-    Assert.assertEquals(expectedFlush,
+    Assertions.assertEquals(expectedFlush,
         ((Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count"))
             .intValue());
   }
@@ -152,42 +152,42 @@ public class TestRaftLogMetrics extends BaseTest
 
     //Test sync count
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_SYNC_TIME);
-    Assert.assertNotNull(tm);
+    Assertions.assertNotNull(tm);
     final MetricsStateMachine stateMachine = MetricsStateMachine.get(server);
     final int expectedFlush = stateMachine.getFlushCount();
-    Assert.assertEquals(expectedFlush, tm.getCount()); // Ideally, flushCount should be same as syncCount.
-    Assert.assertTrue(tm.getMeanRate() > 0);
+    Assertions.assertEquals(expectedFlush, tm.getCount()); // Ideally, flushCount should be same as syncCount.
+    Assertions.assertTrue(tm.getMeanRate() > 0);
 
     // Test jmx. Just testing one metric's JMX is good enough.
     ObjectName oname = new ObjectName(RATIS_APPLICATION_NAME_METRICS, "name", syncTimeMetric);
-    Assert.assertEquals(expectedFlush,
+    Assertions.assertEquals(expectedFlush,
         ((Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count"))
             .intValue());
 
     long cacheMissCount = ratisMetricRegistry.counter(RAFT_LOG_CACHE_MISS_COUNT).getCount();
-    Assert.assertEquals(0, cacheMissCount);
+    Assertions.assertEquals(0, cacheMissCount);
 
     long cacheHitsCount = ratisMetricRegistry.counter(RAFT_LOG_CACHE_HIT_COUNT).getCount();
-    Assert.assertTrue(cacheHitsCount > 0);
+    Assertions.assertTrue(cacheHitsCount > 0);
 
-    Assert.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_FLUSH_COUNT).getCount() > 0);
-    Assert.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_APPEND_ENTRY_COUNT).getCount() > 0);
+    Assertions.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_FLUSH_COUNT).getCount() > 0);
+    Assertions.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_APPEND_ENTRY_COUNT).getCount() > 0);
 
     final DefaultTimekeeperImpl appendEntry = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_APPEND_ENTRY_LATENCY);
-    Assert.assertTrue(appendEntry.getTimer().getMeanRate() > 0);
+    Assertions.assertTrue(appendEntry.getTimer().getMeanRate() > 0);
 
     final DefaultTimekeeperImpl taskQueue = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_QUEUE_TIME);
-    Assert.assertTrue(taskQueue.getTimer().getMeanRate() > 0);
+    Assertions.assertTrue(taskQueue.getTimer().getMeanRate() > 0);
 
     final DefaultTimekeeperImpl enqueueDelay = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_ENQUEUE_DELAY);
-    Assert.assertTrue(enqueueDelay.getTimer().getMeanRate() > 0);
+    Assertions.assertTrue(enqueueDelay.getTimer().getMeanRate() > 0);
 
     final DefaultTimekeeperImpl write = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(
         String.format(RAFT_LOG_TASK_EXECUTION_TIME, "writelog"));
-    Assert.assertTrue(write.getTimer().getMeanRate() > 0);
+    Assertions.assertTrue(write.getTimer().getMeanRate() > 0);
 
-    Assert.assertNotNull(ratisMetricRegistry.get(RAFT_LOG_DATA_QUEUE_SIZE));
-    Assert.assertNotNull(ratisMetricRegistry.get(RAFT_LOG_WORKER_QUEUE_SIZE));
-    Assert.assertNotNull(ratisMetricRegistry.get(RAFT_LOG_SYNC_BATCH_SIZE));
+    Assertions.assertNotNull(ratisMetricRegistry.get(RAFT_LOG_DATA_QUEUE_SIZE));
+    Assertions.assertNotNull(ratisMetricRegistry.get(RAFT_LOG_WORKER_QUEUE_SIZE));
+    Assertions.assertNotNull(ratisMetricRegistry.get(RAFT_LOG_SYNC_BATCH_SIZE));
   }
 }

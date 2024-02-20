@@ -24,8 +24,9 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.util.JmxRegister;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import javax.management.JMException;
 import javax.management.MBeanServer;
@@ -38,7 +39,8 @@ import java.util.Set;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 public class TestRaftServerJmx extends BaseTest {
-  @Test(timeout = 30000)
+  @Test
+  @Timeout(value = 30000)
   public void testJmxBeans() throws Exception {
     final int NUM_SERVERS = 3;
     final MiniRaftClusterWithSimulatedRpc cluster
@@ -48,16 +50,17 @@ public class TestRaftServerJmx extends BaseTest {
 
     MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
     Set<ObjectInstance> objectInstances = platformMBeanServer.queryMBeans(new ObjectName("Ratis:*"), null);
-    Assert.assertEquals(NUM_SERVERS, objectInstances.size());
+    Assertions.assertEquals(NUM_SERVERS, objectInstances.size());
 
     for (ObjectInstance instance : objectInstances) {
       Object groupId = platformMBeanServer.getAttribute(instance.getObjectName(), "GroupId");
-      Assert.assertEquals(cluster.getGroupId().toString(), groupId);
+      Assertions.assertEquals(cluster.getGroupId().toString(), groupId);
     }
     cluster.shutdown();
   }
 
-  @Test(timeout = 30000)
+  @Test
+  @Timeout(value = 30000)
   public void testRegister() throws JMException {
     {
       final JmxRegister jmx = new JmxRegister();
@@ -102,11 +105,11 @@ public class TestRaftServerJmx extends BaseTest {
     final String id = RaftPeerId.valueOf(name).toString();
     final String groupId = RaftGroupId.randomId().toString();
     final boolean succeeded = RaftServerJmxAdapter.registerMBean(id, groupId, mBean, jmx);
-    Assert.assertEquals(expectToSucceed, succeeded);
+    Assertions.assertEquals(expectToSucceed, succeeded);
   }
 
   static void runUnregister(boolean expectToSucceed, JmxRegister jmx) throws JMException {
     final boolean succeeded = jmx.unregister();
-    Assert.assertEquals(expectToSucceed, succeeded);
+    Assertions.assertEquals(expectToSucceed, succeeded);
   }
 }

@@ -35,7 +35,8 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.Collections;
@@ -48,7 +49,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test StateMachine related functionality
@@ -162,9 +166,9 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     final SMTransactionContext sm = SMTransactionContext.get(raftServer);
     final List<Long> ll = new ArrayList<>(sm.applied);
     Collections.sort(ll);
-    assertEquals(ll.toString(), ll.size(), numTrx);
+    assertEquals(ll.size(), numTrx, ll.toString());
     for (int i=0; i < numTrx; i++) {
-      assertEquals(ll.toString(), Long.valueOf(i+1), ll.get(i));
+      assertEquals(Long.valueOf(i+1), ll.get(i), ll.toString());
     }
   }
 
@@ -193,7 +197,7 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
 
       final RaftServer server = cluster.getServer(id);
       for(Map.Entry<RaftGroupId, StateMachine> e: registry.entrySet()) {
-        Assert.assertSame(e.getValue(), server.getDivision(e.getKey()).getStateMachine());
+        Assertions.assertSame(e.getValue(), server.getDivision(e.getKey()).getStateMachine());
       }
     }
   }
