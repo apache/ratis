@@ -111,19 +111,19 @@ public class TestTraditionalBinaryPrefix {
         { // n = 2^e
           final long n = 1L << e;
           final String expected = (n/p.getValue()) + " " + p.getSymbol();
-          assertEquals("n=" + n, expected, long2String(n, null, 2));
+          assertEquals(expected, long2String(n, null, 2), "n=" + n);
         }
 
         { // n = 2^e + 1
           final long n = (1L << e) + 1;
           final String expected = (n/p.getValue()) + trailingZeros + p.getSymbol();
-          assertEquals("n=" + n, expected, long2String(n, null, decimalPlace));
+          assertEquals(expected, long2String(n, null, decimalPlace), "n=" + n);
         }
 
         { // n = 2^e - 1
           final long n = (1L << e) - 1;
           final String expected = ((n+1)/p.getValue()) + trailingZeros + p.getSymbol();
-          assertEquals("n=" + n, expected, long2String(n, null, decimalPlace));
+          assertEquals(expected, long2String(n, null, decimalPlace), "n=" + n);
         }
       }
     }
