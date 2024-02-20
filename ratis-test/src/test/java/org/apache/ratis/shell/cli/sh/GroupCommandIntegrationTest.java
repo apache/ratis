@@ -29,8 +29,8 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluster>
@@ -64,11 +64,11 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
     RatisShell shell = new RatisShell(out.getPrintStream());
     int ret = shell.run("group", "list", "-peers", address, "-peerId",
         leader.getPeer().getId().toString());
-    Assert.assertEquals(0, ret);
+    Assertions.assertEquals(0, ret);
     String info = out.toString().trim();
     String expected = String.format("The peerId %s (server %s) is in 1 groups, and the groupIds is: [%s]",
         leader.getId(), leader.getPeer().getAddress(), leader.getGroup().getGroupId());
-    Assert.assertEquals(expected, info);
+    Assertions.assertEquals(expected, info);
   }
 
   @Test
@@ -82,12 +82,12 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
     int ret = shell.run("group", "info", "-peers", address);
-    Assert.assertEquals(0 , ret);
+    Assertions.assertEquals(0 , ret);
     String result = out.toString().trim();
     String hearder = String.format("group id: %s%sleader info: %s(%s)%s%s",
         cluster.getGroupId().getUuid(), NEW_LINE, leader.getId(),
         cluster.getLeader().getPeer().getAddress(), NEW_LINE, NEW_LINE);
     String info = result.substring(0, hearder.length());
-    Assert.assertEquals(hearder, info);
+    Assertions.assertEquals(hearder, info);
   }
 }

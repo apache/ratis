@@ -18,8 +18,8 @@
 package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.BaseTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -34,10 +34,10 @@ public class TestRaftLogIndex extends BaseTest {
 
   static void assertUpdate(RaftLogIndex index, BiFunction<RaftLogIndex, LongUnaryOperator, Boolean> update,
       long oldValue, LongUnaryOperator op, boolean expectUpdate) {
-    Assert.assertEquals(oldValue, index.get());
+    Assertions.assertEquals(oldValue, index.get());
     final boolean updated = update.apply(index, op);
-    Assert.assertEquals(expectUpdate, updated);
-    Assert.assertEquals(expectUpdate? op.applyAsLong(oldValue): oldValue, index.get());
+    Assertions.assertEquals(expectUpdate, updated);
+    Assertions.assertEquals(expectUpdate? op.applyAsLong(oldValue): oldValue, index.get());
   }
 
 
@@ -45,7 +45,7 @@ public class TestRaftLogIndex extends BaseTest {
   public void testIndex() {
     final int initialValue = 900;
     final RaftLogIndex index = new RaftLogIndex("index", initialValue);
-    Assert.assertEquals(initialValue, index.get());
+    Assertions.assertEquals(initialValue, index.get());
 
     final Consumer<Object> log = System.out::println;
     { // test updateIncreasingly

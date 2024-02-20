@@ -17,15 +17,18 @@
  */
 package org.apache.ratis.util;
 
-import org.junit.Test;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static org.apache.ratis.util.TraditionalBinaryPrefix.long2String;
 import static org.apache.ratis.util.TraditionalBinaryPrefix.string2long;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestTraditionalBinaryPrefix {
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testTraditionalBinaryPrefix() {
     //test string2long(..)
     String[] symbol = {"k", "m", "g", "t", "p", "e"};
@@ -108,19 +111,19 @@ public class TestTraditionalBinaryPrefix {
         { // n = 2^e
           final long n = 1L << e;
           final String expected = (n/p.getValue()) + " " + p.getSymbol();
-          assertEquals("n=" + n, expected, long2String(n, null, 2));
+          assertEquals(expected, long2String(n, null, 2), "n=" + n);
         }
 
         { // n = 2^e + 1
           final long n = (1L << e) + 1;
           final String expected = (n/p.getValue()) + trailingZeros + p.getSymbol();
-          assertEquals("n=" + n, expected, long2String(n, null, decimalPlace));
+          assertEquals(expected, long2String(n, null, decimalPlace), "n=" + n);
         }
 
         { // n = 2^e - 1
           final long n = (1L << e) - 1;
           final String expected = ((n+1)/p.getValue()) + trailingZeros + p.getSymbol();
-          assertEquals("n=" + n, expected, long2String(n, null, decimalPlace));
+          assertEquals(expected, long2String(n, null, decimalPlace), "n=" + n);
         }
       }
     }
@@ -143,7 +146,8 @@ public class TestTraditionalBinaryPrefix {
     return long2String(len, "B", 2);
   }
 
-  @Test(timeout = 1000)
+  @Test
+  @Timeout(value = 1000)
   public void testUnderscore() {
     final SizeInBytes value = SizeInBytes.valueOf("1_000_000_000_000_000");
     assertEquals(1_000_000_000_000_000L, value.getSize());
