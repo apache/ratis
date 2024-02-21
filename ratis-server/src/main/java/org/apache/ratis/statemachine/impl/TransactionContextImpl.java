@@ -25,11 +25,13 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * Implementation of {@link TransactionContext}
@@ -71,6 +73,11 @@ public class TransactionContextImpl implements TransactionContext {
   /** Committed LogEntry. */
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile LogEntryProto logEntry;
+  /** Committed LogEntry copy. */
+  private volatile Supplier<LogEntryProto> logEntryCopy;
+
+  /** For wrapping {@link #logEntry} in order to release the underlying buffer. */
+  private volatile ReferenceCountedObject<?> delegatedRef;
 
   private final CompletableFuture<Long> logIndexFuture = new CompletableFuture<>();
 
@@ -112,7 +119,7 @@ public class TransactionContextImpl implements TransactionContext {
    */
   TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
     this(serverRole, null, stateMachine, logEntry.getStateMachineLogEntry());
-    this.logEntry = logEntry;
+    setLogEntry(logEntry);
     this.logIndexFuture.complete(logEntry.getIndex());
   }
 
@@ -124,6 +131,22 @@ public class TransactionContextImpl implements TransactionContext {
   @Override
   public RaftClientRequest getClientRequest() {
     return clientRequest;
+  }
+
+  public void setDelegatedRef(ReferenceCountedObject<?> ref) {
+    this.delegatedRef = ref;
+  }
+
+  @Override
+  public ReferenceCountedObject<LogEntryProto> wrap(LogEntryProto entry) {
+    if (delegatedRef == null) {
+      return TransactionContext.super.wrap(entry);
+    }
+    final LogEntryProto expected = getLogEntryUnsafe();
+    Objects.requireNonNull(expected, "logEntry == null");
+    Preconditions.assertSame(expected.getTerm(), entry.getTerm(), "entry.term");
+    Preconditions.assertSame(expected.getIndex(), entry.getIndex(), "entry.index");
+    return delegatedRef.delegate(entry);
   }
 
   @Override
@@ -154,17 +177,30 @@ public class TransactionContextImpl implements TransactionContext {
     Objects.requireNonNull(stateMachineLogEntry, "stateMachineLogEntry == null");
 
     logIndexFuture.complete(index);
-    return logEntry = LogProtoUtils.toLogEntryProto(stateMachineLogEntry, term, index);
+    return setLogEntry(LogProtoUtils.toLogEntryProto(stateMachineLogEntry, term, index));
   }
 
   public CompletableFuture<Long> getLogIndexFuture() {
     return logIndexFuture;
   }
 
+  private LogEntryProto setLogEntry(LogEntryProto entry) {
+    this.logEntry = entry;
+    this.logEntryCopy = MemoizedSupplier.valueOf(() -> LogProtoUtils.copy(entry));
+    return entry;
+  }
+
+
   @Override
   public LogEntryProto getLogEntry() {
+    return logEntryCopy == null ? null : logEntryCopy.get();
+  }
+
+  @Override
+  public LogEntryProto getLogEntryUnsafe() {
     return logEntry;
   }
+
 
   @Override
   public TransactionContext setException(Exception ioe) {
@@ -192,5 +228,9 @@ public class TransactionContextImpl implements TransactionContext {
   @Override
   public TransactionContext cancelTransaction() throws IOException {
     return stateMachine.cancelTransaction(this);
+  }
+
+  public static LogEntryProto getLogEntry(TransactionContext context) {
+    return ((TransactionContextImpl) context).logEntry;
   }
 }
