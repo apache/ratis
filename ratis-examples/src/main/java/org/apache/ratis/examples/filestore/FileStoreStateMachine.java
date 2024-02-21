@@ -218,7 +218,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    final LogEntryProto entry = trx.getLogEntry();
+    final LogEntryProto entry = trx.getLogEntryUnsafe();
 
     final long index = entry.getIndex();
     updateLastAppliedTermIndex(entry.getTerm(), index);
