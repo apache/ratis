@@ -18,10 +18,11 @@
 
 package org.apache.ratis.netty.server;
 
-import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.metrics.Timekeeper;
@@ -111,12 +112,12 @@ public class DataStreamManagement {
   }
 
   static class RemoteStream {
-    private final DataStreamOutputRpc out;
+    private final DataStreamOutputImpl out;
     private final AtomicReference<CompletableFuture<DataStreamReply>> sendFuture
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
     private final RequestMetrics metrics;
 
-    RemoteStream(DataStreamOutputRpc out, RequestMetrics metrics) {
+    RemoteStream(DataStreamOutputImpl out, RequestMetrics metrics) {
       this.metrics = metrics;
       this.out = out;
     }
@@ -132,7 +133,7 @@ public class DataStreamManagement {
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
       final Timekeeper.Context context = metrics.start();
       return composeAsync(sendFuture, executor,
-          n -> out.writeAsync(request.slice().nioBuffer(), addFlush(request.getWriteOptionList()))
+          n -> out.writeAsync(request.slice().retain(), addFlush(request.getWriteOptionList()))
               .whenComplete((l, e) -> metrics.stop(context, e == null)));
     }
   }
@@ -147,7 +148,7 @@ public class DataStreamManagement {
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     StreamInfo(RaftClientRequest request, boolean primary, CompletableFuture<DataStream> stream, RaftServer server,
-        CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams,
+        CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams,
         Function<RequestType, RequestMetrics> metricsConstructor)
         throws IOException {
       this.request = request;
@@ -155,7 +156,7 @@ public class DataStreamManagement {
       this.local = new LocalStream(stream, metricsConstructor.apply(RequestType.LOCAL_WRITE));
       this.server = server;
       final Set<RaftPeer> successors = getSuccessors(server.getId());
-      final Set<DataStreamOutputRpc> outs = getStreams.apply(request, successors);
+      final Set<DataStreamOutputImpl> outs = getStreams.apply(request, successors);
       this.remotes = outs.stream()
           .map(o -> new RemoteStream(o, metricsConstructor.apply(RequestType.REMOTE_WRITE)))
           .collect(Collectors.toSet());
@@ -315,7 +316,7 @@ public class DataStreamManagement {
   }
 
   private StreamInfo newStreamInfo(ByteBuf buf,
-      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
+      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams) {
     try {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
@@ -449,7 +450,7 @@ public class DataStreamManagement {
   }
 
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
-      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
+      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
     try {
       readImpl(request, ctx, getStreams);
@@ -459,7 +460,7 @@ public class DataStreamManagement {
   }
 
   private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
-      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
+      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams) {
     final boolean close = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
     ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
 

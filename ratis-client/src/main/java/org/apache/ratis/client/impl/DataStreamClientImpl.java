@@ -40,6 +40,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.rpc.CallId;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -169,6 +170,10 @@ public class DataStreamClientImpl implements DataStreamClient {
       return f;
     }
 
+    public CompletableFuture<DataStreamReply> writeAsync(ByteBuf src, Iterable<WriteOption> options) {
+      return writeAsyncImpl(src, src.readableBytes(), options);
+    }
+
     @Override
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, Iterable<WriteOption> options) {
       return writeAsyncImpl(src, src.remaining(), options);
@@ -235,7 +240,7 @@ public class DataStreamClientImpl implements DataStreamClient {
   }
 
   @Override
-  public DataStreamOutputRpc stream(RaftClientRequest request) {
+  public DataStreamOutputImpl stream(RaftClientRequest request) {
     return new DataStreamOutputImpl(request);
   }
 

@@ -23,7 +23,7 @@ import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
-import org.apache.ratis.netty.server.DataStreamRequestByteBuf;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
@@ -126,6 +126,20 @@ public interface NettyDataStreamUtils {
       return;
     }
     out.accept(Unpooled.wrappedBuffer(buffer));
+  }
+
+  static void encodeDataStreamRequestByteBuf(DataStreamRequestByteBuf request, Consumer<Object> out,
+      ByteBufAllocator allocator) {
+    encodeDataStreamRequestHeader(request, out, allocator);
+    encodeByteBuf(request.slice(), out);
+  }
+
+  static void encodeByteBuf(ByteBuf buffer, Consumer<Object> out) {
+    if (buffer.readableBytes() == 0) {
+      out.accept(Unpooled.EMPTY_BUFFER); // to avoid EncoderException: must produce at least one message
+      return;
+    }
+    out.accept(buffer);
   }
 
   static void encodeDataStreamRequestFilePositionCount(
