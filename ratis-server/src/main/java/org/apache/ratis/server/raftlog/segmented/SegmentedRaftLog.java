@@ -181,7 +181,8 @@ public final class SegmentedRaftLog extends RaftLogBase {
       @Override
       public void notifyTruncatedLogEntry(TermIndex ti) {
         try {
-          final LogEntryProto entry = get(ti.getIndex());
+          ReferenceCountedObject<LogEntryProto> ref = getWithRef(ti.getIndex());
+          final LogEntryProto entry = ref != null ? ref.get() : null;
           notifyTruncatedLogEntry.accept(entry);
         } catch (RaftLogIOException e) {
           LOG.error("{}: Failed to read log {}", getName(), ti, e);

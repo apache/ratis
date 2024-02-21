@@ -241,7 +241,7 @@ public abstract class RaftLogBase implements RaftLog {
       return false;
     }
     try {
-      if (get(newCommitIndex).hasMetadataEntry()) {
+      if (getWithRef(newCommitIndex).get().hasMetadataEntry()) {
         // do not log the metadata entry
         return false;
       }

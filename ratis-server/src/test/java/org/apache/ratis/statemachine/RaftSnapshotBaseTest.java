@@ -95,7 +95,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   public static void assertLogContent(RaftServer.Division server, boolean isLeader) throws Exception {
     final RaftLog log = server.getRaftLog();
     final long lastIndex = log.getLastEntryTermIndex().getIndex();
-    final LogEntryProto e = log.get(lastIndex);
+    final LogEntryProto e = log.getWithRef(lastIndex).get();
     Assert.assertTrue(e.hasMetadataEntry());
 
     JavaUtils.attemptRepeatedly(() -> {

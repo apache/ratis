@@ -72,7 +72,7 @@ public interface RaftStorageTestUtils {
       b.append(i == committed? 'c': ' ');
       b.append(String.format("%3d: ", i));
       try {
-        b.append(LogProtoUtils.toLogEntryString(log.get(i)));
+        b.append(LogProtoUtils.toLogEntryString(log.getWithRef(i).get()));
       } catch (RaftLogIOException e) {
         b.append(e);
       }

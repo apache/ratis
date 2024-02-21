@@ -383,7 +383,7 @@ public interface DataStreamTestUtils {
 
   static LogEntryProto searchLogEntry(ClientInvocationId invocationId, RaftLog log) throws Exception {
     for (LogEntryHeader termIndex : log.getEntries(0, Long.MAX_VALUE)) {
-      final LogEntryProto entry = log.get(termIndex.getIndex());
+      final LogEntryProto entry = log.getWithRef(termIndex.getIndex()).get();
       if (entry.hasStateMachineLogEntry()) {
         if (invocationId.match(entry.getStateMachineLogEntry())) {
           return entry;

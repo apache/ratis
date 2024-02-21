@@ -204,7 +204,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
   private LogEntryProto getLastEntry(SegmentedRaftLog raftLog)
       throws IOException {
-    return raftLog.get(raftLog.getLastEntryTermIndex().getIndex());
+    return raftLog.getWithRef(raftLog.getLastEntryTermIndex().getIndex()).get();
   }
 
   @ParameterizedTest
@@ -229,7 +229,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
           .map(ti -> {
             try {
-              return raftLog.get(ti.getIndex());
+              return raftLog.getWithRef(ti.getIndex()).get();
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
@@ -451,7 +451,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
           .map(ti -> {
             try {
-              return raftLog.get(ti.getIndex());
+              return raftLog.getWithRef(ti.getIndex()).get();
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
