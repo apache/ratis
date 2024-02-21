@@ -20,9 +20,11 @@ package org.apache.ratis.netty.server;
 
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamOutputRpc;
+import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.netty.NettyUtils;
@@ -90,8 +92,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       map.addRaftPeers(newPeers);
     }
 
-    Set<DataStreamOutputRpc> getDataStreamOutput(RaftClientRequest request, Set<RaftPeer> peers) throws IOException {
-      final Set<DataStreamOutputRpc> outs = new HashSet<>();
+    Set<DataStreamOutputImpl> getDataStreamOutput(RaftClientRequest request, Set<RaftPeer> peers) throws IOException {
+      final Set<DataStreamOutputImpl> outs = new HashSet<>();
       try {
         getDataStreamOutput(request, peers, outs);
       } catch (IOException e) {
@@ -101,11 +103,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       return outs;
     }
 
-    private void getDataStreamOutput(RaftClientRequest request, Set<RaftPeer> peers, Set<DataStreamOutputRpc> outs)
+    private void getDataStreamOutput(RaftClientRequest request, Set<RaftPeer> peers, Set<DataStreamOutputImpl> outs)
         throws IOException {
       for (RaftPeer peer : peers) {
         try {
-          outs.add((DataStreamOutputRpc) map.computeIfAbsent(peer).get().stream(request));
+          outs.add((DataStreamOutputImpl) map.computeIfAbsent(peer).get().stream(request));
         } catch (IOException e) {
           map.handleException(peer.getId(), e, true);
           throw new IOException(map.getName() + ": Failed to getDataStreamOutput for " + peer, e);
@@ -238,7 +240,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       }
 
       @Override
-      public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+      public void channelInactive(ChannelHandlerContext ctx) {
         requests.cleanUpOnChannelInactive(ctx.channel().id(), channelInactiveGracePeriod);
       }
 
