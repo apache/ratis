@@ -271,7 +271,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  public LogEntryProto get(long index) throws RaftLogIOException {
+  public ReferenceCountedObject<LogEntryProto> getWithRef(long index) throws RaftLogIOException {
     checkLogState();
     final LogSegment segment;
     final LogRecord record;
@@ -284,7 +284,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       if (record == null) {
         return null;
       }
-      final LogEntryProto entry = segment.getEntryFromCache(record.getTermIndex());
+      final ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(record.getTermIndex());
       if (entry != null) {
         getRaftLogMetrics().onRaftLogCacheHit();
         return entry;
@@ -299,10 +299,12 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   public EntryWithData getEntryWithData(long index) throws RaftLogIOException {
-    final LogEntryProto entry = get(index);
-    if (entry == null) {
+    final ReferenceCountedObject<LogEntryProto> entryRef = getWithRef(index);
+    if (entryRef == null) {
       throw new RaftLogIOException("Log entry not found: index = " + index);
     }
+    // TODO. The reference counted object should be passed to LogAppender RATIS-2026.
+    final LogEntryProto entry = entryRef.get();
     if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
       return newEntryWithData(entry, null);
     }

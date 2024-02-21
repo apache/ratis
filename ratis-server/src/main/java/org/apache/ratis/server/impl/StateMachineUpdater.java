@@ -233,22 +233,27 @@ class StateMachineUpdater implements Runnable {
     final long committed = raftLog.getLastCommittedIndex();
     for(long applied; (applied = getLastAppliedIndex()) < committed && state == State.RUNNING && !shouldStop(); ) {
       final long nextIndex = applied + 1;
-      final LogEntryProto next = raftLog.get(nextIndex);
+      final ReferenceCountedObject<LogEntryProto> next = raftLog.getWithRef(nextIndex);
       if (next != null) {
-        if (LOG.isTraceEnabled()) {
-          LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(next));
-        } else {
-          LOG.debug("{}: applying nextIndex={}", this, nextIndex);
-        }
+        LogEntryProto entry = next.retain();
+        try {
+          if (LOG.isTraceEnabled()) {
+            LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(entry));
+          } else {
+            LOG.debug("{}: applying nextIndex={}", this, nextIndex);
+          }
 
-        final CompletableFuture<Message> f = server.applyLogToStateMachine(next);
-        final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
-        Preconditions.assertTrue(incremented == nextIndex);
-        if (f != null) {
-          futures.get().add(f);
-          f.thenAccept(m -> notifyAppliedIndex(incremented));
-        } else {
-          notifyAppliedIndex(incremented);
+          final CompletableFuture<Message> f = server.applyLogToStateMachine(next);
+          final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
+          Preconditions.assertTrue(incremented == nextIndex);
+          if (f != null) {
+            futures.get().add(f);
+            f.thenAccept(m -> notifyAppliedIndex(incremented));
+          } else {
+            notifyAppliedIndex(incremented);
+          }
+        } finally {
+          next.release();
         }
       } else {
         LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",

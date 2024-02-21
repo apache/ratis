@@ -21,6 +21,7 @@ import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +60,17 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
    * @return null if the log entry is not found in this log;
    *         otherwise, return the log entry corresponding to the given index.
    */
-  LogEntryProto get(long index) throws RaftLogIOException;
+  default LogEntryProto get(long index) throws RaftLogIOException {
+    return getWithRef(index).get();
+  }
+
+  /**
+   * @return a ReferenceCountedObject to the  log entry corresponding to the given log index if it exists.
+   * otherwise, null.
+   */
+  default ReferenceCountedObject<LogEntryProto> getWithRef(long index) throws RaftLogIOException {
+    return ReferenceCountedObject.wrap(get(index));
+  }
 
   /**
    * @return null if the log entry is not found in this log;

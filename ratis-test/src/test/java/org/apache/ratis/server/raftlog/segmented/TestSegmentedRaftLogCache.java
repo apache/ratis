@@ -81,8 +81,8 @@ public class TestSegmentedRaftLogCache {
     for (long index = start; index <= end; index++) {
       final LogSegment segment = cache.getSegment(index);
       final LogRecord record = segment.getLogRecord(index);
-      final LogEntryProto entry = segment.getEntryFromCache(record.getTermIndex());
-      Assertions.assertEquals(index, entry.getIndex());
+      final ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(record.getTermIndex());
+      Assertions.assertEquals(index, entry.get().getIndex());
     }
 
     long[] offsets = new long[]{start, start + 1, start + (end - start) / 2,

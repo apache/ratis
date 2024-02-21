@@ -45,16 +45,16 @@ public class MemoryRaftLog extends RaftLogBase {
   static class EntryList {
     private final List<ReferenceCountedObject<LogEntryProto>> entries = new ArrayList<>();
 
-    LogEntryProto get(int i) {
-      return i >= 0 && i < entries.size() ? entries.get(i).get() : null;
+    ReferenceCountedObject<LogEntryProto> get(int i) {
+      return i >= 0 && i < entries.size() ? entries.get(i) : null;
     }
 
     TermIndex getTermIndex(int i) {
-      return TermIndex.valueOf(get(i));
+      return TermIndex.valueOf(get(i).get());
     }
 
     private LogEntryHeader getLogEntryHeader(int i) {
-      return LogEntryHeader.valueOf(get(i));
+      return LogEntryHeader.valueOf(get(i).get());
     }
 
     int size() {
@@ -108,16 +108,17 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public LogEntryProto get(long index) {
+  public ReferenceCountedObject<LogEntryProto> getWithRef(long index) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    try (AutoCloseableLock readLock = readLock()) {
       return entries.get(Math.toIntExact(index));
     }
   }
 
   @Override
   public EntryWithData getEntryWithData(long index) {
-    return newEntryWithData(get(index), null);
+    // TODO. The reference counted object should be passed to LogAppender RATIS-2026.
+    return newEntryWithData(getWithRef(index).get(), null);
   }
 
   @Override
@@ -213,7 +214,7 @@ public class MemoryRaftLog extends RaftLogBase {
       int index = 0;
       for (; truncateIndex < getNextIndex() && index < logEntryProtos.size();
            index++, truncateIndex++) {
-        if (this.entries.get(truncateIndex).getTerm() !=
+        if (this.entries.get(truncateIndex).get().getTerm() !=
             logEntryProtos.get(index).getTerm()) {
           toTruncate = true;
           break;
