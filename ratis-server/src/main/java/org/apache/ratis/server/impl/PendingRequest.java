@@ -38,7 +38,7 @@ class PendingRequest {
   private final CompletableFuture<RaftClientReply> futureToReturn;
 
   PendingRequest(RaftClientRequest request, TransactionContext entry) {
-    this.termIndex = entry == null? null: TermIndex.valueOf(entry.getLogEntry());
+    this.termIndex = entry == null? null: TermIndex.valueOf(entry.getLogEntryUnsafe());
     this.request = request;
     this.entry = entry;
     if (request.is(TypeCase.FORWARD)) {

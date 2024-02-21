@@ -19,6 +19,7 @@ package org.apache.ratis;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -366,10 +367,11 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-      LOG.debug("apply trx with index=" + trx.getLogEntry().getIndex());
-      updateLastAppliedTermIndex(trx.getLogEntry().getTerm(), trx.getLogEntry().getIndex());
+      final RaftProtos.LogEntryProto logEntry = trx.getLogEntryUnsafe();
+      LOG.debug("apply trx with index=" + logEntry.getIndex());
+      updateLastAppliedTermIndex(logEntry.getTerm(), logEntry.getIndex());
 
-      String command = trx.getLogEntry().getStateMachineLogEntry()
+      String command = logEntry.getStateMachineLogEntry()
           .getLogData().toString(StandardCharsets.UTF_8);
 
       LOG.info("receive command: {}", command);

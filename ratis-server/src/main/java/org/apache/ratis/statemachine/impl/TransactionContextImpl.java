@@ -25,12 +25,14 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * Implementation of {@link TransactionContext}
@@ -69,6 +71,9 @@ public class TransactionContextImpl implements TransactionContext {
 
   /** Committed LogEntry. */
   private volatile LogEntryProto logEntry;
+  /** Committed LogEntry copy. */
+  private volatile Supplier<LogEntryProto> logEntryCopy;
+
   /** For wrapping {@link #logEntry} in order to release the underlying buffer. */
   private volatile ReferenceCountedObject<?> delegatedRef;
 
@@ -112,7 +117,7 @@ public class TransactionContextImpl implements TransactionContext {
    */
   TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
     this(serverRole, null, stateMachine, logEntry.getStateMachineLogEntry());
-    this.logEntry = logEntry;
+    setLogEntry(logEntry);
     this.logIndexFuture.complete(logEntry.getIndex());
   }
 
@@ -135,8 +140,10 @@ public class TransactionContextImpl implements TransactionContext {
     if (delegatedRef == null) {
       return TransactionContext.super.wrap(entry);
     }
-    Preconditions.assertSame(getLogEntry().getTerm(), entry.getTerm(), "entry.term");
-    Preconditions.assertSame(getLogEntry().getIndex(), entry.getIndex(), "entry.index");
+    final LogEntryProto expected = getLogEntryUnsafe();
+    Objects.requireNonNull(expected, "logEntry == null");
+    Preconditions.assertSame(expected.getTerm(), entry.getTerm(), "entry.term");
+    Preconditions.assertSame(expected.getIndex(), entry.getIndex(), "entry.index");
     return delegatedRef.delegate(entry);
   }
 
@@ -168,17 +175,30 @@ public class TransactionContextImpl implements TransactionContext {
     Objects.requireNonNull(stateMachineLogEntry, "stateMachineLogEntry == null");
 
     logIndexFuture.complete(index);
-    return logEntry = LogProtoUtils.toLogEntryProto(stateMachineLogEntry, term, index);
+    return setLogEntry(LogProtoUtils.toLogEntryProto(stateMachineLogEntry, term, index));
   }
 
   public CompletableFuture<Long> getLogIndexFuture() {
     return logIndexFuture;
   }
 
+  private LogEntryProto setLogEntry(LogEntryProto entry) {
+    this.logEntry = entry;
+    this.logEntryCopy = MemoizedSupplier.valueOf(() -> LogProtoUtils.copy(entry));
+    return entry;
+  }
+
+
   @Override
   public LogEntryProto getLogEntry() {
+    return logEntryCopy == null ? null : logEntryCopy.get();
+  }
+
+  @Override
+  public LogEntryProto getLogEntryUnsafe() {
     return logEntry;
   }
+
 
   @Override
   public TransactionContext setException(Exception ioe) {
@@ -208,5 +228,9 @@ public class TransactionContextImpl implements TransactionContext {
     // TODO: This is not called from Raft server / log yet. When an IOException happens, we should
     // call this to let the SM know that Transaction cannot be synced
     return stateMachine.cancelTransaction(this);
+  }
+
+  public static LogEntryProto getLogEntry(TransactionContext context) {
+    return ((TransactionContextImpl) context).logEntry;
   }
 }

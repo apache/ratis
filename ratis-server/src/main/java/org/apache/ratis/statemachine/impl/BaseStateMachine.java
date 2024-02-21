@@ -18,7 +18,7 @@
 
 package org.apache.ratis.statemachine.impl;
 
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -110,10 +110,10 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     // return the same message contained in the entry
-    RaftProtos.LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
+    final LogEntryProto entry = Objects.requireNonNull(trx.getLogEntryUnsafe());
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
     return CompletableFuture.completedFuture(
-        Message.valueOf(trx.getLogEntry().getStateMachineLogEntry().getLogData()));
+        Message.valueOf(entry.getStateMachineLogEntry().getLogData()));
   }
 
   @Override

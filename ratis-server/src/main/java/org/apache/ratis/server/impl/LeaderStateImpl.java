@@ -527,7 +527,7 @@ class LeaderStateImpl implements LeaderState {
   PendingRequest addPendingRequest(PendingRequests.Permit permit, RaftClientRequest request, TransactionContext entry) {
     if (LOG.isDebugEnabled()) {
       LOG.debug("{}: addPendingRequest at {}, entry={}", this, request,
-          LogProtoUtils.toLogEntryString(entry.getLogEntry()));
+          LogProtoUtils.toLogEntryString(entry.getLogEntryUnsafe()));
     }
     return pendingRequests.add(permit, request, entry);
   }

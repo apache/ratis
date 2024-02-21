@@ -28,6 +28,7 @@ import org.apache.ratis.util.ReflectionUtils;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Context for a transaction.
@@ -94,10 +95,39 @@ public interface TransactionContext {
   LogEntryProto initLogEntry(long term, long index);
 
   /**
-   * Returns the committed log entry
-   * @return the committed log entry
+   * @return a copy of the committed log entry if it exists; otherwise, returns null
+   *
+   * @deprecated Use {@link #getLogEntryRef()} or {@link #getLogEntryUnsafe()} to avoid copying.
    */
+  @Deprecated
   LogEntryProto getLogEntry();
+
+  /**
+   * @return the committed log entry if it exists; otherwise, returns null.
+   *         The returned value is safe to use only before {@link StateMachine#applyTransaction} returns.
+   *         Once {@link StateMachine#applyTransaction} has returned, it is unsafe to use the log entry
+   *         since the underlying buffers can possiby be released.
+   */
+  default LogEntryProto getLogEntryUnsafe() {
+    return getLogEntryRef().get();
+  }
+
+  /**
+   * Get a {@link ReferenceCountedObject} to the committed log entry.
+   *
+   * It is safe to access the log entry by calling {@link ReferenceCountedObject#get()}
+   * (without {@link ReferenceCountedObject#retain()})
+   * inside the scope of {@link StateMachine#applyTransaction}.
+   *
+   * If the log entry is needed after {@link StateMachine#applyTransaction} returns,
+   * e.g. for asynchronous computation or caching,
+   * the caller must invoke {@link ReferenceCountedObject#retain()} and {@link ReferenceCountedObject#release()}.
+   *
+   * @return a reference to the committed log entry if it exists; otherwise, returns null.
+   */
+  default ReferenceCountedObject<LogEntryProto> getLogEntryRef() {
+    return Optional.ofNullable(getLogEntryUnsafe()).map(this::wrap).orElse(null);
+  }
 
   /** Wrap the given log entry as a {@link ReferenceCountedObject} for retaining it for later use. */
   default ReferenceCountedObject<LogEntryProto> wrap(LogEntryProto entry) {

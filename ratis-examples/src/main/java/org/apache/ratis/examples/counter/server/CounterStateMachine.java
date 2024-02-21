@@ -247,7 +247,7 @@ public class CounterStateMachine extends BaseStateMachine {
    */
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    final LogEntryProto entry = trx.getLogEntry();
+    final LogEntryProto entry = trx.getLogEntryUnsafe();
     //increment the counter and update term-index
     final TermIndex termIndex = TermIndex.valueOf(entry);
     final int incremented = incrementCounter(termIndex);

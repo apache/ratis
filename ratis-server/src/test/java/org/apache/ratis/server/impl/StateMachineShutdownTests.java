@@ -56,7 +56,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
           }
         }
       }
-      RaftProtos.LogEntryProto entry = trx.getLogEntry();
+      final RaftProtos.LogEntryProto entry = trx.getLogEntryUnsafe();
       updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
       return CompletableFuture.completedFuture(new RaftTestUtil.SimpleMessage("done"));
     }
