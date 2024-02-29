@@ -20,7 +20,6 @@ package org.apache.ratis.server;
 import org.apache.ratis.protocol.RaftPeer;
 
 import java.io.Closeable;
-import java.net.InetSocketAddress;
 
 /**
  * A server interface handling incoming streams

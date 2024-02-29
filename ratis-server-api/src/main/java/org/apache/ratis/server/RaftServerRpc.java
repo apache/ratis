@@ -26,7 +26,6 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.util.JavaUtils;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.net.InetSocketAddress;
 
 /**
