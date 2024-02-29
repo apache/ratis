@@ -18,14 +18,7 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.RaftConfigKeys;
-import org.apache.ratis.client.api.AdminApi;
-import org.apache.ratis.client.api.AsyncApi;
-import org.apache.ratis.client.api.BlockingApi;
-import org.apache.ratis.client.api.DataStreamApi;
-import org.apache.ratis.client.api.GroupManagementApi;
-import org.apache.ratis.client.api.LeaderElectionManagementApi;
-import org.apache.ratis.client.api.MessageStreamApi;
-import org.apache.ratis.client.api.SnapshotManagementApi;
+import org.apache.ratis.client.api.*;
 import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -61,6 +54,9 @@ public interface RaftClient extends Closeable {
 
   /** Get the {@link GroupManagementApi} for the given server. */
   GroupManagementApi getGroupManagementApi(RaftPeerId server);
+
+  /** Get the {@link GroupManagementApi} for the given server. */
+  PeerManagementApi getPeerManagementApi(RaftPeerId server);
 
   /** Get the {@link SnapshotManagementApi} for the given server. */
   SnapshotManagementApi getSnapshotManagementApi();

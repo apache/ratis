@@ -53,16 +53,7 @@ import org.apache.ratis.util.TimeoutExecutor;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -186,6 +177,7 @@ public final class RaftClientImpl implements RaftClient {
 
   private final Supplier<AdminImpl> adminApi;
   private final ConcurrentMap<RaftPeerId, GroupManagementImpl> groupManagement = new ConcurrentHashMap<>();
+  private final ConcurrentMap<RaftPeerId, PeerManagementImpl> peerManagement = new ConcurrentHashMap<>();
   private final ConcurrentMap<RaftPeerId, SnapshotManagementApi> snapshotManagement = new ConcurrentHashMap<>();
   private final ConcurrentMap<RaftPeerId, LeaderElectionManagementApi>
       leaderElectionManagement = new ConcurrentHashMap<>();
@@ -306,6 +298,12 @@ public final class RaftClientImpl implements RaftClient {
   public GroupManagementImpl getGroupManagementApi(RaftPeerId server) {
     return groupManagement.computeIfAbsent(server, id -> new GroupManagementImpl(id, this));
   }
+
+  @Override
+  public PeerManagementImpl getPeerManagementApi(RaftPeerId server) {
+    return peerManagement.computeIfAbsent(server, id -> new PeerManagementImpl(id, this));
+  }
+
 
   @Override
   public SnapshotManagementApi getSnapshotManagementApi() {
