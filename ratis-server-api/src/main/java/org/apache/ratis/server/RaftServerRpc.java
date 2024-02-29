@@ -33,13 +33,7 @@ import java.net.InetSocketAddress;
  * An server-side interface for supporting different RPC implementations
  * such as Netty, gRPC and Hadoop.
  */
-public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, RaftPeer.Add, Closeable {
-  /** Start the RPC service. */
-  void start() throws IOException;
-
-  /** @return the address where this RPC server is listening */
-  InetSocketAddress getInetSocketAddress();
-
+public interface RaftServerRpc extends RaftServerProtocol, ServerRpc, RpcType.Get, RaftPeer.Add, Closeable {
   /** @return the address where this RPC server is listening for client requests */
   default InetSocketAddress getClientServerAddress() {
     return getInetSocketAddress();

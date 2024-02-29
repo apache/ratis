@@ -70,13 +70,10 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
@@ -219,52 +216,10 @@ public class DataStreamManagement {
     }
   }
 
-  static class StreamMap {
-    private final ConcurrentMap<ClientInvocationId, StreamInfo> map = new ConcurrentHashMap<>();
-
-    StreamInfo computeIfAbsent(ClientInvocationId key, Function<ClientInvocationId, StreamInfo> function) {
-      final StreamInfo info = map.computeIfAbsent(key, function);
-      LOG.debug("computeIfAbsent({}) returns {}", key, info);
-      return info;
-    }
-
-    StreamInfo get(ClientInvocationId key) {
-      final StreamInfo info = map.get(key);
-      LOG.debug("get({}) returns {}", key, info);
-      return info;
-    }
-
-    StreamInfo remove(ClientInvocationId key) {
-      final StreamInfo info = map.remove(key);
-      LOG.debug("remove({}) returns {}", key, info);
-      return info;
-    }
-  }
-
-  public static class ChannelMap {
-    private final Map<ChannelId, Map<ClientInvocationId, ClientInvocationId>> map = new ConcurrentHashMap<>();
-
-    public void add(ChannelId channelId,
-                    ClientInvocationId clientInvocationId) {
-      map.computeIfAbsent(channelId, (e) -> new ConcurrentHashMap<>()).put(clientInvocationId, clientInvocationId);
-    }
-
-    public void remove(ChannelId channelId,
-                       ClientInvocationId clientInvocationId) {
-      Optional.ofNullable(map.get(channelId)).ifPresent((ids) -> ids.remove(clientInvocationId));
-    }
-
-    public Set<ClientInvocationId> remove(ChannelId channelId) {
-      return Optional.ofNullable(map.remove(channelId))
-          .map(Map::keySet)
-          .orElse(Collections.emptySet());
-    }
-  }
-
   private final RaftServer server;
   private final String name;
 
-  private final StreamMap streams = new StreamMap();
+  private final StreamMap<StreamInfo> streams = new StreamMap<>();
   private final ChannelMap channels;
   private final ExecutorService requestExecutor;
   private final ExecutorService writeExecutor;
