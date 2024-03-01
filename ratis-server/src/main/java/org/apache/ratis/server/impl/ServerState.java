@@ -158,6 +158,7 @@ class ServerState {
   }
 
   void start() {
+    // initialize stateMachineUpdater
     stateMachineUpdater.get().start();
   }
 
@@ -421,7 +422,6 @@ class ServerState {
       }
       LOG.warn(getMemberId() + ": Failed to join " + getStateMachineUpdater(), e);
     }
-    LOG.info("{}: applyIndex: {}", getMemberId(), getLastAppliedIndex());
 
     try {
       if (log.isInitialized()) {
