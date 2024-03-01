@@ -133,6 +133,8 @@ class StateMachineUpdater implements Runnable {
   private void stop() {
     state = State.STOP;
     try {
+      LOG.info("{}: closing {}, lastApplied={}", name,
+          JavaUtils.getClassSimpleName(stateMachine.getClass()), stateMachine.getLastAppliedTermIndex());
       stateMachine.close();
       if (stateMachineMetrics.isInitialized()) {
         stateMachineMetrics.get().unregister();
