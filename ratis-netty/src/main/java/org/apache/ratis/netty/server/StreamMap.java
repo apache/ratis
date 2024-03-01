@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
 /**
- * Map: {@link ClientInvocationId} -> {@link STREAM}s.
+ * Map: {@link ClientInvocationId} -> {@link STREAM}.
  *
  * @param <STREAM> the stream type.
  */
