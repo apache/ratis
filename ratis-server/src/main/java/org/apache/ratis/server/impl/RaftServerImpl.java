@@ -1786,7 +1786,8 @@ class RaftServerImpl implements RaftServer.Division,
         MemoizedSupplier.valueOf(() -> stateMachine.startTransaction(entry, getInfo().getCurrentRole())));
   }
 
-  CompletableFuture<Message> applyLogToStateMachine(ReferenceCountedObject<LogEntryProto> nextRef) throws RaftLogIOException {
+  CompletableFuture<Message> applyLogToStateMachine(ReferenceCountedObject<LogEntryProto> nextRef)
+      throws RaftLogIOException {
     LogEntryProto next = nextRef.get();
     if (!next.hasStateMachineLogEntry()) {
       stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());

@@ -50,7 +50,8 @@ public class MemoryRaftLog extends RaftLogBase {
     }
 
     TermIndex getTermIndex(int i) {
-      return TermIndex.valueOf(get(i).get());
+      ReferenceCountedObject<LogEntryProto> ref = get(i);
+      return TermIndex.valueOf(ref != null ? ref.get() : null);
     }
 
     private LogEntryHeader getLogEntryHeader(int i) {
