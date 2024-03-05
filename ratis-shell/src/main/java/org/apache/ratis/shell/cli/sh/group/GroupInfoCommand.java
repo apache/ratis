@@ -26,7 +26,6 @@ import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
 
-import static org.apache.ratis.shell.cli.sh.group.GroupListCommand.SERVER_ADDRESS_OPTION_NAME;
 
 /**
  * Command for querying ratis group information.
@@ -63,9 +62,8 @@ public class GroupInfoCommand extends AbstractRatisCommand {
   public String getUsage() {
     return String.format("%s"
         + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
-        + " [-%s <RAFT_GROUP_ID>]"
-        + " -%s <PEER0_HOST:PEER0_PORT>",
-        getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME, SERVER_ADDRESS_OPTION_NAME);
+        + " [-%s <RAFT_GROUP_ID>]",
+        getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME);
   }
 
   @Override

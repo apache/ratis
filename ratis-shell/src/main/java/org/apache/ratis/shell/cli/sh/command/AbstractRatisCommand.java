@@ -40,7 +40,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.ratis.shell.cli.sh.group.GroupListCommand.SERVER_ADDRESS_OPTION_NAME;
 
 /**
  * The base class for the ratis shell which need to connect to server.
@@ -120,16 +119,10 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
         }
       }
 
-      String address = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
-      // the original address format from input is P0_HOST:P0_PORT,
-      // however, the format in PeerProxyMap is P0_HOST_P0_PORT,
-      // so we need to change ":" to "_",
-      // otherwise, the PeerProxyMap can't find the peer
-      groupInfoReply = client.getGroupManagementApi(RaftPeerId.valueOf(address.replace(":","_")))
-          .info(remoteGroupId);
-      processReply(groupInfoReply,
-          () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
-      raftGroup = groupInfoReply.getGroup();
+      groupInfoReply = run(peers, p -> client.getGroupManagementApi((p.getId())).info(remoteGroupId));
+        processReply(groupInfoReply,
+            () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
+        raftGroup = groupInfoReply.getGroup();
     }
     return 0;
   }
@@ -144,8 +137,7 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
                     .required()
                     .desc("Peer addresses seperated by comma")
                     .build())
-            .addOption(GROUPID_OPTION_NAME, true, "Raft group id")
-            .addOption(SERVER_ADDRESS_OPTION_NAME, true, "Raft server address");
+            .addOption(GROUPID_OPTION_NAME, true, "Raft group id");
   }
 
   protected RaftGroup getRaftGroup() {
