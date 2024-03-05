@@ -652,11 +652,14 @@ class RaftServerImpl implements RaftServer.Division,
     commitInfoProtos.forEach(commitInfoProto -> {
       PeerInfoProto.Builder peerInfoBuilder = PeerInfoProto.newBuilder();
       peerInfoBuilder.setCommitInfo(commitInfoProto);
-
+      // only set the value of AppliedIndex, CurrentTerm, SnapshotIndex
+      // for current server
       if (commitInfoProto.getServer().getId().equals(getId().toByteString())) {
         peerInfoBuilder.setAppliedIndex(getInfo().getLastAppliedIndex());
         peerInfoBuilder.setCurrentTerm(getInfo().getCurrentTerm());
-        peerInfoBuilder.setSnapshotIndex(getStateMachine().getLatestSnapshot().getIndex());
+        if (getStateMachine().getLatestSnapshot() != null) {
+          peerInfoBuilder.setSnapshotIndex(getStateMachine().getLatestSnapshot().getIndex());
+        }
       }
       infos.add(peerInfoBuilder.build());
     });

@@ -18,11 +18,9 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
-import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
