@@ -19,7 +19,6 @@ package org.apache.ratis.shell.cli.sh.command;
 
 import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.sh.peer.AddCommand;
-import org.apache.ratis.shell.cli.sh.peer.InfoCommand;
 import org.apache.ratis.shell.cli.sh.peer.RemoveCommand;
 import org.apache.ratis.shell.cli.sh.peer.SetPriorityCommand;
 
@@ -35,7 +34,7 @@ public class PeerCommand extends AbstractParentCommand{
 
   private static final List<Function<Context, Command>> SUB_COMMAND_CONSTRUCTORS
       = Collections.unmodifiableList(Arrays.asList(AddCommand::new, RemoveCommand::new,
-      SetPriorityCommand::new, InfoCommand::new));
+      SetPriorityCommand::new));
 
   /**
    * @param context command context

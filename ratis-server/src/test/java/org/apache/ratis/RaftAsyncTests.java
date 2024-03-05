@@ -23,6 +23,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -64,6 +65,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
@@ -304,7 +306,9 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       final RaftClientReply lastWriteReply = replies.get(replies.size() - 1);
       final RaftPeerId leader = lastWriteReply.getServerId();
       LOG.info("leader = " + leader);
-      final Collection<CommitInfoProto> commitInfos = lastWriteReply.getCommitInfos();
+      final Collection<CommitInfoProto> commitInfos =
+          lastWriteReply.getPeerInfos().stream().map(
+              PeerInfoProto::getCommitInfo).collect(Collectors.toList());
       LOG.info("commitInfos = " + commitInfos);
       final CommitInfoProto followerCommitInfo = commitInfos.stream()
           .filter(info -> !RaftPeerId.valueOf(info.getServer().getId()).equals(leader))

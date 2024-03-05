@@ -23,6 +23,7 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
@@ -97,8 +98,10 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
       //Confirm that followers have committed
       RaftClientReply watchReply = client.io().watch(
               logIndex, RaftProtos.ReplicationLevel.ALL_COMMITTED);
-      watchReply.getCommitInfos().forEach(
-              val -> Assert.assertTrue(val.getCommitIndex() >= logIndex));
+      watchReply.getPeerInfos().stream().map(
+          PeerInfoProto::getCommitInfo).forEach(
+          val -> Assert.assertTrue(val.getCommitIndex() >= logIndex)
+      );
       final RaftServer.Division secondFollower = cluster.getFollowers().get(1);
       // Second follower is blocked in apply transaction
       Assert.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);

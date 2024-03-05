@@ -19,9 +19,11 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -34,20 +36,20 @@ public class GroupInfoReply extends RaftClientReply {
   private final boolean isRaftStorageHealthy;
   private final RaftConfigurationProto conf;
 
-  public GroupInfoReply(RaftClientRequest request, Collection<CommitInfoProto> commitInfos,
+  public GroupInfoReply(RaftClientRequest request, List<PeerInfoProto> peerInfos,
       RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy,
       RaftConfigurationProto conf) {
     this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
-        request.getCallId(), commitInfos,
+        request.getCallId(), peerInfos,
         group, roleInfoProto, isRaftStorageHealthy, conf);
   }
 
   @SuppressWarnings("parameternumber")
   public GroupInfoReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
-      Collection<CommitInfoProto> commitInfos,
+      List<PeerInfoProto> peerInfos,
       RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy,
       RaftConfigurationProto conf) {
-    super(clientId, serverId, groupId, callId, true, null, null, 0L, commitInfos);
+    super(clientId, serverId, groupId, callId, true, null, null, 0L, peerInfos);
     this.group = group;
     this.roleInfoProto = roleInfoProto;
     this.isRaftStorageHealthy = isRaftStorageHealthy;

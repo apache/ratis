@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
@@ -436,9 +437,9 @@ class LeaderStateImpl implements LeaderState {
     // do not interrupt event processor since it may be in the middle of logSync
     final CompletableFuture<Void> f = senders.stopAll();
     final NotLeaderException nle = server.generateNotLeaderException();
-    final Collection<CommitInfoProto> commitInfos = server.getCommitInfos();
+    final List<PeerInfoProto> peerInfos = server.getPeerInfos();
     try {
-      final Collection<TransactionContext> transactions = pendingRequests.sendNotLeaderResponses(nle, commitInfos);
+      final Collection<TransactionContext> transactions = pendingRequests.sendNotLeaderResponses(nle, peerInfos);
       server.getStateMachine().leaderEvent().notifyNotLeader(transactions);
       watchRequests.failWatches(nle);
     } catch (IOException e) {

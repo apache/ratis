@@ -18,6 +18,7 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
@@ -36,6 +37,7 @@ import org.apache.ratis.util.ReflectionUtils;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * Reply from server to client
@@ -55,11 +57,11 @@ public class RaftClientReply extends RaftClientMessage {
     private RaftException exception;
 
     private long logIndex;
-    private Collection<CommitInfoProto> commitInfos;
+    private List<PeerInfoProto> peerInfos;
 
     public RaftClientReply build() {
       return new RaftClientReply(clientId, serverId, groupId, callId,
-          success, message, exception, logIndex, commitInfos);
+          success, message, exception, logIndex, peerInfos);
     }
 
     public Builder setClientId(ClientId clientId) {
@@ -106,8 +108,8 @@ public class RaftClientReply extends RaftClientMessage {
       return this;
     }
 
-    public Builder setCommitInfos(Collection<CommitInfoProto> commitInfos) {
-      this.commitInfos = commitInfos;
+    public Builder setPeerInfos(List<PeerInfoProto> peerInfos) {
+      this.peerInfos = peerInfos;
       return this;
     }
 
@@ -151,18 +153,18 @@ public class RaftClientReply extends RaftClientMessage {
    */
   private final long logIndex;
   /** The commit information when the reply is created. */
-  private final Collection<CommitInfoProto> commitInfos;
+  private final List<PeerInfoProto> peerInfos;
 
   @SuppressWarnings("parameternumber")
   RaftClientReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, boolean success, Message message, RaftException exception,
-      long logIndex, Collection<CommitInfoProto> commitInfos) {
+      long logIndex, List<PeerInfoProto> peerInfos) {
     super(clientId, serverId, groupId, callId);
     this.success = success;
     this.message = message;
     this.exception = exception;
     this.logIndex = logIndex;
-    this.commitInfos = commitInfos != null? commitInfos: Collections.emptyList();
+    this.peerInfos = peerInfos != null? peerInfos: Collections.emptyList();
 
     if (exception != null) {
       Preconditions.assertTrue(!success,
@@ -178,13 +180,13 @@ public class RaftClientReply extends RaftClientMessage {
   }
 
   /**
-   * Get the commit information for the entire group.
-   * The commit information may be unavailable for exception reply.
+   * Get the peer information for the entire group.
+   * The peer information may be unavailable for exception reply.
    *
-   * @return the commit information if it is available; otherwise, return null.
+   * @return the peer information if it is available; otherwise, return null.
    */
-  public Collection<CommitInfoProto> getCommitInfos() {
-    return commitInfos;
+  public List<PeerInfoProto> getPeerInfos() {
+    return peerInfos;
   }
 
   @Override
@@ -200,7 +202,7 @@ public class RaftClientReply extends RaftClientMessage {
   public String toString() {
     return super.toString() + ", "
         + (isSuccess()? "SUCCESS":  "FAILED " + exception)
-        + ", logIndex=" + getLogIndex() + ", commits" + ProtoUtils.toString(commitInfos);
+        + ", logIndex=" + getLogIndex() + ", peer info=" + ProtoUtils.toString(peerInfos);
   }
 
   public boolean isSuccess() {
