@@ -26,7 +26,7 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -92,7 +92,7 @@ class PendingRequest {
     futureToComplete.complete(r);
   }
 
-  TransactionContext setNotLeaderException(NotLeaderException nle, List<PeerInfoProto> peerInfos) {
+  TransactionContext setNotLeaderException(NotLeaderException nle, Collection<PeerInfoProto> peerInfos) {
     setReply(RaftClientReply.newBuilder()
         .setRequest(getRequest())
         .setException(nle)

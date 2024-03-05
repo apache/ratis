@@ -185,7 +185,7 @@ class PendingRequests {
     }
 
     Collection<TransactionContext> setNotLeaderException(NotLeaderException nle,
-                                                         List<PeerInfoProto> peerInfos) {
+                                                         Collection<PeerInfoProto> peerInfos) {
       synchronized (this) {
         resource.close();
         permits.clear();
@@ -283,7 +283,7 @@ class PendingRequests {
    * requests since they have not got applied to the state machine yet.
    */
   Collection<TransactionContext> sendNotLeaderResponses(NotLeaderException nle,
-                                                        List<PeerInfoProto> peerInfos) {
+                                                        Collection<PeerInfoProto> peerInfos) {
     LOG.info("{}: sendNotLeaderResponses", name);
 
     final Collection<TransactionContext> transactions = pendingRequests.setNotLeaderException(nle, peerInfos);

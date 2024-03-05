@@ -21,7 +21,7 @@ import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 /**
@@ -34,7 +34,7 @@ public class GroupInfoReply extends RaftClientReply {
   private final boolean isRaftStorageHealthy;
   private final RaftConfigurationProto conf;
 
-  public GroupInfoReply(RaftClientRequest request, List<PeerInfoProto> peerInfos,
+  public GroupInfoReply(RaftClientRequest request, Collection<PeerInfoProto> peerInfos,
       RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy,
       RaftConfigurationProto conf) {
     this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
@@ -44,7 +44,7 @@ public class GroupInfoReply extends RaftClientReply {
 
   @SuppressWarnings("parameternumber")
   public GroupInfoReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
-      List<PeerInfoProto> peerInfos,
+      Collection<PeerInfoProto> peerInfos,
       RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy,
       RaftConfigurationProto conf) {
     super(clientId, serverId, groupId, callId, true, null, null, 0L, peerInfos);

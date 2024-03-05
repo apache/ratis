@@ -34,6 +34,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -55,7 +56,7 @@ public class RaftClientReply extends RaftClientMessage {
     private RaftException exception;
 
     private long logIndex;
-    private List<PeerInfoProto> peerInfos;
+    private Collection<PeerInfoProto> peerInfos;
 
     public RaftClientReply build() {
       return new RaftClientReply(clientId, serverId, groupId, callId,
@@ -106,7 +107,7 @@ public class RaftClientReply extends RaftClientMessage {
       return this;
     }
 
-    public Builder setPeerInfos(List<PeerInfoProto> peerInfos) {
+    public Builder setPeerInfos(Collection<PeerInfoProto> peerInfos) {
       this.peerInfos = peerInfos;
       return this;
     }
@@ -151,12 +152,12 @@ public class RaftClientReply extends RaftClientMessage {
    */
   private final long logIndex;
   /** The commit information when the reply is created. */
-  private final List<PeerInfoProto> peerInfos;
+  private final Collection<PeerInfoProto> peerInfos;
 
   @SuppressWarnings("parameternumber")
   RaftClientReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, boolean success, Message message, RaftException exception,
-      long logIndex, List<PeerInfoProto> peerInfos) {
+      long logIndex, Collection<PeerInfoProto> peerInfos) {
     super(clientId, serverId, groupId, callId);
     this.success = success;
     this.message = message;
@@ -183,7 +184,7 @@ public class RaftClientReply extends RaftClientMessage {
    *
    * @return the peer information if it is available; otherwise, return null.
    */
-  public List<PeerInfoProto> getPeerInfos() {
+  public Collection<PeerInfoProto> getPeerInfos() {
     return peerInfos;
   }
 
@@ -200,7 +201,7 @@ public class RaftClientReply extends RaftClientMessage {
   public String toString() {
     return super.toString() + ", "
         + (isSuccess()? "SUCCESS":  "FAILED " + exception)
-        + ", logIndex=" + getLogIndex() + ", peer info=" + ProtoUtils.toString(peerInfos);
+        + ", logIndex=" + getLogIndex() + ", peer info=" + ProtoUtils.toString((List<PeerInfoProto>) peerInfos);
   }
 
   public boolean isSuccess() {
