@@ -36,7 +36,6 @@ import org.apache.ratis.util.ReflectionUtils;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 
 /**
  * Reply from server to client
@@ -201,7 +200,7 @@ public class RaftClientReply extends RaftClientMessage {
   public String toString() {
     return super.toString() + ", "
         + (isSuccess()? "SUCCESS":  "FAILED " + exception)
-        + ", logIndex=" + getLogIndex() + ", peer info=" + ProtoUtils.toString((List<PeerInfoProto>) peerInfos);
+        + ", logIndex=" + getLogIndex() + ", peer info=" + ProtoUtils.toStringPeerInfo(peerInfos);
   }
 
   public boolean isSuccess() {

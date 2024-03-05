@@ -235,7 +235,7 @@ public interface ProtoUtils {
     return protos.stream().map(ProtoUtils::toString).collect(Collectors.toList()).toString();
   }
 
-  static String toString(List<PeerInfoProto> protos) {
+  static String toStringPeerInfo(Collection<PeerInfoProto> protos) {
     return protos.stream().map(ProtoUtils::toString).collect(Collectors.toList()).toString();
   }
 
