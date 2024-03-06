@@ -119,9 +119,9 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
       }
 
       groupInfoReply = run(peers, p -> client.getGroupManagementApi((p.getId())).info(remoteGroupId));
-       processReply(groupInfoReply,
-           () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
-       raftGroup = groupInfoReply.getGroup();
+      processReply(groupInfoReply,
+          () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
+      raftGroup = groupInfoReply.getGroup();
     }
     return 0;
   }
