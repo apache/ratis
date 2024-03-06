@@ -30,7 +30,6 @@ import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
-import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
@@ -60,7 +59,6 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 /**
  * Streaming client implementation
@@ -231,8 +229,7 @@ public class DataStreamClientImpl implements DataStreamClient {
           .setBuffer(ClientProtoUtils.toRaftClientReplyProto(clientReply).toByteString().asReadOnlyByteBuffer())
           .setSuccess(clientReply.isSuccess())
           .setBytesWritten(writeReply.getBytesWritten())
-          .setCommitInfos(clientReply.getPeerInfos().stream().map(PeerInfoProto::getCommitInfo).collect(
-              Collectors.toList()))
+          .setCommitInfos(clientReply.getCommitInfos())
           .build());
     }
   }

@@ -24,7 +24,7 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
+import org.apache.ratis.proto.RaftProtos.LogInfoProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
@@ -642,28 +642,22 @@ class RaftServerImpl implements RaftServer.Division,
     final RaftStorageDirectory dir = state.getStorage().getStorageDir();
     final RaftConfigurationProto conf =
         LogProtoUtils.toRaftConfigurationProtoBuilder(getRaftConf()).build();
-    return new GroupInfoReply(request, getPeerInfos(), getGroup(), getRoleInfoProto(),
-        dir.isHealthy(), conf);
+    return new GroupInfoReply(request, getCommitInfos(), getGroup(), getRoleInfoProto(),
+        dir.isHealthy(), conf, getLogInfo());
   }
 
-  List<PeerInfoProto> getPeerInfos(){
-    final List<PeerInfoProto> infos = new ArrayList<>();
-    Collection<CommitInfoProto> commitInfoProtos = getCommitInfos();
-    commitInfoProtos.forEach(commitInfoProto -> {
-      PeerInfoProto.Builder peerInfoBuilder = PeerInfoProto.newBuilder();
-      peerInfoBuilder.setCommitInfo(commitInfoProto);
-      // only set the value of AppliedIndex, CurrentTerm, SnapshotIndex
-      // for current server
-      if (commitInfoProto.getServer().getId().equals(getId().toByteString())) {
-        peerInfoBuilder.setAppliedIndex(getInfo().getLastAppliedIndex());
-        peerInfoBuilder.setCurrentTerm(getInfo().getCurrentTerm());
-        if (getStateMachine().getLatestSnapshot() != null) {
-          peerInfoBuilder.setSnapshotIndex(getStateMachine().getLatestSnapshot().getIndex());
-        }
-      }
-      infos.add(peerInfoBuilder.build());
-    });
-    return infos;
+  LogInfoProto getLogInfo(){
+    long currentTerm = getInfo().getCurrentTerm();
+    LogInfoProto.Builder logInfoBuilder = LogInfoProto.newBuilder();
+    logInfoBuilder.setApplied(TermIndex.valueOf(currentTerm, getInfo().getLastAppliedIndex()).toProto());
+    logInfoBuilder.setCommitted(getRaftLog().getLastEntryTermIndex().toProto());
+    if (getStateMachine().getLatestSnapshot() != null) {
+      logInfoBuilder.setLastSnapshot(
+          TermIndex.valueOf(currentTerm,
+              getStateMachine().getLatestSnapshot().getIndex())
+              .toProto());
+    }
+    return logInfoBuilder.build();
   }
 
 
@@ -690,7 +684,7 @@ class RaftServerImpl implements RaftServer.Division,
   RaftClientReply.Builder newReplyBuilder(RaftClientRequest request) {
     return RaftClientReply.newBuilder()
         .setRequest(request)
-        .setPeerInfos(getPeerInfos());
+        .setCommitInfos(getCommitInfos());
   }
 
   private RaftClientReply.Builder newReplyBuilder(ClientInvocationId invocationId, long logIndex) {
@@ -698,7 +692,7 @@ class RaftServerImpl implements RaftServer.Division,
         .setClientInvocationId(invocationId)
         .setLogIndex(logIndex)
         .setServerId(getMemberId())
-        .setPeerInfos(getPeerInfos());
+        .setCommitInfos(getCommitInfos());
   }
 
   RaftClientReply newSuccessReply(RaftClientRequest request) {

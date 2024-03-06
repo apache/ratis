@@ -18,7 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -185,7 +185,7 @@ class PendingRequests {
     }
 
     Collection<TransactionContext> setNotLeaderException(NotLeaderException nle,
-                                                         Collection<PeerInfoProto> peerInfos) {
+                                                         Collection<CommitInfoProto> commitInfos) {
       synchronized (this) {
         resource.close();
         permits.clear();
@@ -201,7 +201,7 @@ class PendingRequests {
 
         final PendingRequest pending = map.remove(i.next());
         if (pending != null) {
-          transactions.add(pending.setNotLeaderException(nle, peerInfos));
+          transactions.add(pending.setNotLeaderException(nle, commitInfos));
         }
       }
     }
@@ -283,12 +283,12 @@ class PendingRequests {
    * requests since they have not got applied to the state machine yet.
    */
   Collection<TransactionContext> sendNotLeaderResponses(NotLeaderException nle,
-                                                        Collection<PeerInfoProto> peerInfos) {
+                                                        Collection<CommitInfoProto> commitInfos) {
     LOG.info("{}: sendNotLeaderResponses", name);
 
-    final Collection<TransactionContext> transactions = pendingRequests.setNotLeaderException(nle, peerInfos);
+    final Collection<TransactionContext> transactions = pendingRequests.setNotLeaderException(nle, commitInfos);
     if (pendingSetConf != null) {
-      pendingSetConf.setNotLeaderException(nle, peerInfos);
+      pendingSetConf.setNotLeaderException(nle, commitInfos);
     }
     return transactions;
   }

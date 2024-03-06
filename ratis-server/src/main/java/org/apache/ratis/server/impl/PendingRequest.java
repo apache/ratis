@@ -18,7 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
-import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -55,7 +55,7 @@ class PendingRequest {
   RaftClientReply convert(RaftClientRequest q, RaftClientReply p) {
     return RaftClientReply.newBuilder()
         .setRequest(q)
-        .setPeerInfos(p.getPeerInfos())
+        .setCommitInfos(p.getCommitInfos())
         .setLogIndex(p.getLogIndex())
         .setMessage(p.getMessage())
         .setException(p.getException())
@@ -92,11 +92,11 @@ class PendingRequest {
     futureToComplete.complete(r);
   }
 
-  TransactionContext setNotLeaderException(NotLeaderException nle, Collection<PeerInfoProto> peerInfos) {
+  TransactionContext setNotLeaderException(NotLeaderException nle, Collection<CommitInfoProto> commitInfos) {
     setReply(RaftClientReply.newBuilder()
         .setRequest(getRequest())
         .setException(nle)
-        .setPeerInfos(peerInfos)
+        .setCommitInfos(commitInfos)
         .build());
     return getEntry();
   }

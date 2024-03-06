@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
@@ -55,11 +55,11 @@ public class RaftClientReply extends RaftClientMessage {
     private RaftException exception;
 
     private long logIndex;
-    private Collection<PeerInfoProto> peerInfos;
+    private Collection<CommitInfoProto> commitInfos;
 
     public RaftClientReply build() {
       return new RaftClientReply(clientId, serverId, groupId, callId,
-          success, message, exception, logIndex, peerInfos);
+          success, message, exception, logIndex, commitInfos);
     }
 
     public Builder setClientId(ClientId clientId) {
@@ -106,8 +106,8 @@ public class RaftClientReply extends RaftClientMessage {
       return this;
     }
 
-    public Builder setPeerInfos(Collection<PeerInfoProto> peerInfos) {
-      this.peerInfos = peerInfos;
+    public Builder setCommitInfos(Collection<CommitInfoProto> commitInfos) {
+      this.commitInfos = commitInfos;
       return this;
     }
 
@@ -151,18 +151,18 @@ public class RaftClientReply extends RaftClientMessage {
    */
   private final long logIndex;
   /** The commit information when the reply is created. */
-  private final Collection<PeerInfoProto> peerInfos;
+  private final Collection<CommitInfoProto> commitInfos;
 
   @SuppressWarnings("parameternumber")
   RaftClientReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, boolean success, Message message, RaftException exception,
-      long logIndex, Collection<PeerInfoProto> peerInfos) {
+      long logIndex, Collection<CommitInfoProto> commitInfos) {
     super(clientId, serverId, groupId, callId);
     this.success = success;
     this.message = message;
     this.exception = exception;
     this.logIndex = logIndex;
-    this.peerInfos = peerInfos != null? peerInfos: Collections.emptyList();
+    this.commitInfos = commitInfos != null? commitInfos: Collections.emptyList();
 
     if (exception != null) {
       Preconditions.assertTrue(!success,
@@ -183,8 +183,8 @@ public class RaftClientReply extends RaftClientMessage {
    *
    * @return the peer information if it is available; otherwise, return null.
    */
-  public Collection<PeerInfoProto> getPeerInfos() {
-    return peerInfos;
+  public Collection<CommitInfoProto> getCommitInfos() {
+    return commitInfos;
   }
 
   @Override
@@ -200,7 +200,7 @@ public class RaftClientReply extends RaftClientMessage {
   public String toString() {
     return super.toString() + ", "
         + (isSuccess()? "SUCCESS":  "FAILED " + exception)
-        + ", logIndex=" + getLogIndex() + ", peer info=" + ProtoUtils.toStringPeerInfo(peerInfos);
+        + ", logIndex=" + getLogIndex() + ", peer info=" + ProtoUtils.toString(commitInfos);
   }
 
   public boolean isSuccess() {

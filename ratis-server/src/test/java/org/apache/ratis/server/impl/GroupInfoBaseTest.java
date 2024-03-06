@@ -22,7 +22,6 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.Slf4jUtils;
 import org.junit.Assert;
@@ -83,8 +82,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
     {
       // send some messages and get max commit from the last reply
       final RaftClientReply reply = sendMessages(numMessages, cluster);
-      maxCommit = reply.getPeerInfos().stream().map(PeerInfoProto::getCommitInfo)
-          .mapToLong(CommitInfoProto::getCommitIndex).max().getAsLong();
+      maxCommit = reply.getCommitInfos().stream().mapToLong(CommitInfoProto::getCommitIndex).max().getAsLong();
     }
     // kill a follower
     final RaftPeerId killedFollower = cluster.getFollowers().iterator().next().getId();
@@ -92,9 +90,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
     {
       // send more messages and check last reply
       final RaftClientReply reply = sendMessages(numMessages, cluster);
-      Collection<CommitInfoProto> commitInfoProtos =
-          reply.getPeerInfos().stream().map(PeerInfoProto::getCommitInfo).collect(Collectors.toList());
-      for(CommitInfoProto i : commitInfoProtos) {
+      for(CommitInfoProto i : reply.getCommitInfos()) {
         if (!RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
           Assert.assertTrue(i.getCommitIndex() > maxCommit);
         }
@@ -109,8 +105,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
       try(final RaftClient client = cluster.createClient(peer.getId())) {
         final GroupListReply info = client.getGroupManagementApi(peer.getId()).list();
         Assert.assertEquals(1, info.getGroupIds().stream().filter(id -> group.getGroupId().equals(id)).count());
-        Collection<CommitInfoProto> commitInfoProtos = info.getPeerInfos().stream()
-            .map(PeerInfoProto::getCommitInfo).collect(Collectors.toList());
+        Collection<CommitInfoProto> commitInfoProtos = info.getCommitInfos();
         for(CommitInfoProto i : commitInfoProtos) {
           if (RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
             Assert.assertTrue(i.getCommitIndex() <= maxCommit);

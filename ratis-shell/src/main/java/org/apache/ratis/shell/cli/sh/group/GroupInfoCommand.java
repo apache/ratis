@@ -54,7 +54,8 @@ public class GroupInfoCommand extends AbstractRatisCommand {
     } else {
       printf("leader info: %s(%s)%n%n", leader.getId().toStringUtf8(), leader.getAddress());
     }
-    println(reply.getPeerInfos());
+    println(reply.getCommitInfos());
+    println(reply.getLogInfoProto());
     return 0;
   }
 

@@ -101,6 +101,7 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
 
   void runTestGroupInfoCommandWithPeerInfoVerification(MiniRaftCluster cluster) throws Exception {
     RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+
     try (final RaftClient client = cluster.createClient(leader.getId())) {
       for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties()); i++) {
         RaftClientReply
@@ -108,6 +109,7 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
         Assertions.assertTrue(reply.isSuccess());
       }
     }
+
     leader.getStateMachine().takeSnapshot();
 
     final String address = getClusterAddress(cluster);
@@ -121,12 +123,17 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
         cluster.getLeader().getPeer().getAddress(), NEW_LINE, NEW_LINE);
     String info = result.substring(0, hearder.length());
     Assertions.assertEquals(hearder, info);
-    Assertions.assertTrue(result.contains("currentTerm: "
-        + leader.getInfo().getCurrentTerm()));
-    Assertions.assertTrue(result.contains("appliedIndex: "
-        + leader.getStateMachine().getLastAppliedTermIndex().getIndex()));
-    Assertions.assertTrue(result.contains("snapshotIndex: "
-        + leader.getStateMachine().getLatestSnapshot().getIndex()));
+    long currentTerm = leader.getInfo().getCurrentTerm();
+    String LogInfoProtoFormat = "%s {" + NEW_LINE + "  term: " + currentTerm + NEW_LINE + "  index: %s";
+    Assertions.assertTrue(result.contains(
+        String.format(LogInfoProtoFormat, "applied",
+            leader.getStateMachine().getLastAppliedTermIndex().getIndex())));
+    Assertions.assertTrue(result.contains(
+        String.format(LogInfoProtoFormat, "committed",
+            leader.getRaftLog().getLastCommittedIndex())));
+    Assertions.assertTrue(result.contains(
+        String.format(LogInfoProtoFormat, "lastSnapshot",
+            leader.getStateMachine().getLatestSnapshot().getIndex())));
   }
 
 }

@@ -175,11 +175,10 @@ message CommitInfoProto {
   uint64 commitIndex = 2;
 }
 
-message PeerInfoProto {
-  CommitInfoProto commitInfo = 1;
-  uint64 appliedIndex = 2;
-  uint64 currentTerm = 3;
-  uint64 snapshotIndex = 4;
+message LogInfoProto {
+  TermIndexProto lastSnapshot = 1;
+  TermIndexProto applied = 2;
+  TermIndexProto committed = 3;
 }
 
 message AppendEntriesRequestProto {
@@ -425,7 +424,7 @@ message RaftClientReplyProto {
   }
 
   uint64 logIndex = 14; // When the request is a write request and the reply is success, the log index of the transaction
-  repeated PeerInfoProto peerInfos = 15;
+  repeated CommitInfoProto commitInfos = 15;
 }
 
 // setConfiguration request
@@ -561,6 +560,7 @@ message GroupInfoReplyProto {
   RaftGroupProto group = 2;
   RoleInfoProto role = 3;
   bool isRaftStorageHealthy = 4;
-  repeated PeerInfoProto peerInfos = 5;
+  repeated CommitInfoProto commitInfos = 5;
   RaftConfigurationProto conf = 6;
+  LogInfoProto logInfo = 7;
 }

@@ -267,7 +267,7 @@ public interface ClientProtoUtils {
       if (reply.getMessage() != null) {
         b.setMessage(toClientMessageEntryProtoBuilder(reply.getMessage()));
       }
-      b.addAllPeerInfos(reply.getPeerInfos());
+      b.addAllCommitInfos(reply.getCommitInfos());
 
       final NotLeaderException nle = reply.getNotLeaderException();
       if (nle != null) {
@@ -363,7 +363,8 @@ public interface ClientProtoUtils {
         b.setGroup(ProtoUtils.toRaftGroupProtoBuilder(reply.getGroup()));
         b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
         b.setRole(reply.getRoleInfoProto());
-        b.addAllPeerInfos(reply.getPeerInfos());
+        b.addAllCommitInfos(reply.getCommitInfos());
+        b.setLogInfo(reply.getLogInfoProto());
       }
     }
     return b.build();
@@ -427,7 +428,7 @@ public interface ClientProtoUtils {
         .setMessage(toMessage(replyProto.getMessage()))
         .setException(e)
         .setLogIndex(replyProto.getLogIndex())
-        .setPeerInfos(replyProto.getPeerInfosList())
+        .setCommitInfos(replyProto.getCommitInfosList())
         .build();
   }
 
@@ -502,11 +503,12 @@ public interface ClientProtoUtils {
         RaftPeerId.valueOf(rpc.getReplyId()),
         ProtoUtils.toRaftGroupId(rpc.getRaftGroupId()),
         rpc.getCallId(),
-        replyProto.getPeerInfosList(),
+        replyProto.getCommitInfosList(),
         ProtoUtils.toRaftGroup(replyProto.getGroup()),
         replyProto.getRole(),
         replyProto.getIsRaftStorageHealthy(),
-        replyProto.hasConf()? replyProto.getConf(): null);
+        replyProto.hasConf()? replyProto.getConf(): null,
+        replyProto.getLogInfo());
   }
 
   static Message toMessage(final ClientMessageEntryProto p) {

@@ -21,7 +21,6 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.PeerInfoProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
@@ -283,8 +282,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
 
       final RaftClientReply watchMajorityCommittedReply = watchReplies.getMajorityCommitted();
       { // check commit infos
-        final Collection<CommitInfoProto> commitInfos = watchMajorityCommittedReply.getPeerInfos()
-            .stream().map(PeerInfoProto::getCommitInfo).collect(Collectors.toList());
+        final Collection<CommitInfoProto> commitInfos = watchMajorityCommittedReply.getCommitInfos();
 
         final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
         Assert.assertEquals(NUM_SERVERS, commitInfos.size());
@@ -310,9 +308,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
 
       final RaftClientReply watchAllCommittedReply = watchReplies.getAllCommitted();
       { // check commit infos
-        final Collection<CommitInfoProto> commitInfos =
-            watchAllCommittedReply.getPeerInfos().stream().map(
-                PeerInfoProto::getCommitInfo).collect(Collectors.toList());
+        final Collection<CommitInfoProto> commitInfos = watchAllCommittedReply.getCommitInfos();
         final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
         Assert.assertEquals(NUM_SERVERS, commitInfos.size());
         commitInfos.forEach(info -> Assert.assertTrue(message, logIndex <= info.getCommitIndex()));
