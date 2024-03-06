@@ -227,9 +227,9 @@ public interface ProtoUtils {
   }
 
   static String toString(LogInfoProto proto) {
-//    return RaftPeerId.valueOf(proto.getCommitInfo().getServer().getId())
-//        + ":c" + proto.getCommitInfo().getCommitIndex();
-      return "test";
+    return "lastSnapshot: " + proto.getLastSnapshot()
+        + ", applied: " + proto.getApplied()
+        + ", committed: " + proto.getCommitted();
   }
 
   static String toString(Collection<CommitInfoProto> protos) {

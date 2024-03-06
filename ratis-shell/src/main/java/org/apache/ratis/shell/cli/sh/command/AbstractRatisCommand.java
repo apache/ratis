@@ -40,7 +40,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
 /**
  * The base class for the ratis shell which need to connect to server.
  */
@@ -120,9 +119,9 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
       }
 
       groupInfoReply = run(peers, p -> client.getGroupManagementApi((p.getId())).info(remoteGroupId));
-        processReply(groupInfoReply,
-            () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
-        raftGroup = groupInfoReply.getGroup();
+       processReply(groupInfoReply,
+           () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
+       raftGroup = groupInfoReply.getGroup();
     }
     return 0;
   }

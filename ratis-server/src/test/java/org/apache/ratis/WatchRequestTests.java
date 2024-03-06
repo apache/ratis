@@ -283,7 +283,6 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       final RaftClientReply watchMajorityCommittedReply = watchReplies.getMajorityCommitted();
       { // check commit infos
         final Collection<CommitInfoProto> commitInfos = watchMajorityCommittedReply.getCommitInfos();
-
         final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
         Assert.assertEquals(NUM_SERVERS, commitInfos.size());
 

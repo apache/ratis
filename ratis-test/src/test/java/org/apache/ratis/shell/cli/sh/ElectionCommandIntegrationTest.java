@@ -103,8 +103,8 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     // verify that priorities of new leader and old leader are both 2
     ret = shell.run("group", "info", "-peers", address);
     Assertions.assertEquals(0 , ret);
-    String expected = String.format("\"%s\"%n    priority: %d", newLeader.getPeer().getAddress(), 2);
-    String expected2 = String.format("\"%s\"%n    priority: %d", leader.getPeer().getAddress(), 2);
+    String expected = String.format("\"%s\"%n  priority: %d", newLeader.getPeer().getAddress(), 2);
+    String expected2 = String.format("\"%s\"%n  priority: %d", leader.getPeer().getAddress(), 2);
     Assertions.assertTrue(out.toString().contains(expected));
     Assertions.assertTrue(out.toString().contains(expected2));
   }

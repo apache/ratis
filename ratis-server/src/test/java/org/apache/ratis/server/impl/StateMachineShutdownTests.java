@@ -98,7 +98,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
       RaftClientReply watchReply = client.io().watch(
               logIndex, RaftProtos.ReplicationLevel.ALL_COMMITTED);
       watchReply.getCommitInfos().forEach(
-          val -> Assert.assertTrue(val.getCommitIndex() >= logIndex));
+              val -> Assert.assertTrue(val.getCommitIndex() >= logIndex));
       final RaftServer.Division secondFollower = cluster.getFollowers().get(1);
       // Second follower is blocked in apply transaction
       Assert.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);

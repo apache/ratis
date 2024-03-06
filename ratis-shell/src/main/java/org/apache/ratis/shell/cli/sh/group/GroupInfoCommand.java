@@ -26,7 +26,6 @@ import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
 
-
 /**
  * Command for querying ratis group information.
  */

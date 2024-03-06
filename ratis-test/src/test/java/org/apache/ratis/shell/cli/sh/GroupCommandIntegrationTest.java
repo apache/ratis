@@ -78,7 +78,7 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
   }
 
   void runTestGroupInfoCommand(MiniRaftCluster cluster) throws Exception {
-    RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final String address = getClusterAddress(cluster);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
@@ -93,13 +93,13 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
   }
 
   @Test
-  public void testGroupInfoCommandIncludesCorrectPeerInfo() throws Exception {
-    // set number of server to 1 so that we can make sure which server returns the peer information
+  public void testGroupInfoCommandIncludesCorrectLogInfo() throws Exception {
+    // set number of server to 1 so that we can make sure which server returns the LogInfoProto
     // since information of applied index, snapshot index are not shared between servers
-    runWithNewCluster(1, this::runTestGroupInfoCommandWithPeerInfoVerification);
+    runWithNewCluster(1, this::runTestGroupInfoCommandWithLogInfoVerification);
   }
 
-  void runTestGroupInfoCommandWithPeerInfoVerification(MiniRaftCluster cluster) throws Exception {
+  void runTestGroupInfoCommandWithLogInfoVerification(MiniRaftCluster cluster) throws Exception {
     RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
 
     try (final RaftClient client = cluster.createClient(leader.getId())) {

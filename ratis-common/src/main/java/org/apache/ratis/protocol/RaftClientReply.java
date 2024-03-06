@@ -178,10 +178,10 @@ public class RaftClientReply extends RaftClientMessage {
   }
 
   /**
-   * Get the peer information for the entire group.
-   * The peer information may be unavailable for exception reply.
+   * Get the commit information for the entire group.
+   * The commit information may be unavailable for exception reply.
    *
-   * @return the peer information if it is available; otherwise, return null.
+   * @return the commit information if it is available; otherwise, return null.
    */
   public Collection<CommitInfoProto> getCommitInfos() {
     return commitInfos;
@@ -200,7 +200,7 @@ public class RaftClientReply extends RaftClientMessage {
   public String toString() {
     return super.toString() + ", "
         + (isSuccess()? "SUCCESS":  "FAILED " + exception)
-        + ", logIndex=" + getLogIndex() + ", peer info=" + ProtoUtils.toString(commitInfos);
+        + ", logIndex=" + getLogIndex() + ", commits" + ProtoUtils.toString(commitInfos);
   }
 
   public boolean isSuccess() {

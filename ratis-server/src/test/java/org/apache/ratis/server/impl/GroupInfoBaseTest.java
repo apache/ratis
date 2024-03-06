@@ -105,8 +105,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
       try(final RaftClient client = cluster.createClient(peer.getId())) {
         final GroupListReply info = client.getGroupManagementApi(peer.getId()).list();
         Assert.assertEquals(1, info.getGroupIds().stream().filter(id -> group.getGroupId().equals(id)).count());
-        Collection<CommitInfoProto> commitInfoProtos = info.getCommitInfos();
-        for(CommitInfoProto i : commitInfoProtos) {
+        for(CommitInfoProto i : info.getCommitInfos()) {
           if (RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
             Assert.assertTrue(i.getCommitIndex() <= maxCommit);
           } else {
