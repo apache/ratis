@@ -175,15 +175,6 @@ message CommitInfoProto {
   uint64 commitIndex = 2;
 }
 
-/** Add new LogInfoProto for RATIS-2030, allow GroupInfoCommand to show each server's last committed log,
-    last applied log, last snapshot log, last entry log.*/
-message LogInfoProto {
-  TermIndexProto lastSnapshot = 1;
-  TermIndexProto applied = 2;
-  TermIndexProto committed = 3;
-  TermIndexProto lastEntry = 4;
-}
-
 message AppendEntriesRequestProto {
   RaftRpcRequestProto serverRequest = 1;
   uint64 leaderTerm = 2;
@@ -566,4 +557,13 @@ message GroupInfoReplyProto {
   repeated CommitInfoProto commitInfos = 5;
   RaftConfigurationProto conf = 6;
   LogInfoProto logInfo = 7;
+}
+
+/** Add new LogInfoProto for RATIS-2030, allow GroupInfoCommand to show each server's last committed log,
+    last applied log, last snapshot log, last entry log.*/
+message LogInfoProto {
+  TermIndexProto lastSnapshot = 1;
+  TermIndexProto applied = 2;
+  TermIndexProto committed = 3;
+  TermIndexProto lastEntry = 4;
 }

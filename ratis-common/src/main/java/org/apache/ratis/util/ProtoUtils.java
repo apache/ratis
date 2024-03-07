@@ -20,7 +20,6 @@ package org.apache.ratis.util;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.RaftPeerIdProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.LogInfoProto;
 import org.apache.ratis.proto.RaftProtos.RouteProto;
 import org.apache.ratis.proto.RaftProtos.ThrowableProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupIdProto;
@@ -226,17 +225,7 @@ public interface ProtoUtils {
     return RaftPeerId.valueOf(proto.getServer().getId()) + ":c" + proto.getCommitIndex();
   }
 
-  static String toString(LogInfoProto proto) {
-    return "lastSnapshot: " + proto.getLastSnapshot()
-        + ", applied: " + proto.getApplied()
-        + ", committed: " + proto.getCommitted();
-  }
-
   static String toString(Collection<CommitInfoProto> protos) {
-    return protos.stream().map(ProtoUtils::toString).collect(Collectors.toList()).toString();
-  }
-
-  static String toStringLogInfo(Collection<LogInfoProto> protos) {
     return protos.stream().map(ProtoUtils::toString).collect(Collectors.toList()).toString();
   }
 

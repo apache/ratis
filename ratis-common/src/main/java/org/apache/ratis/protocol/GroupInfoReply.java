@@ -34,7 +34,7 @@ public class GroupInfoReply extends RaftClientReply {
   private final RoleInfoProto roleInfoProto;
   private final boolean isRaftStorageHealthy;
   private final RaftConfigurationProto conf;
-  private LogInfoProto logInfoProto;
+  private final LogInfoProto logInfoProto;
 
   public GroupInfoReply(RaftClientRequest request, Collection<CommitInfoProto> commitInfos,
       RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy,
