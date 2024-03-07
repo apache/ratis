@@ -67,7 +67,7 @@ abstract class DataStreamBaseTest extends BaseTest {
       return raftServer;
     }
 
-    void start() {
+    void start() throws IOException {
       dataStreamServer.getServerRpc().start();
     }
 
@@ -90,7 +90,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     return servers.get(0);
   }
 
-  void setup(RaftGroupId groupId, List<RaftPeer> peers, List<RaftServer> raftServers) {
+  void setup(RaftGroupId groupId, List<RaftPeer> peers, List<RaftServer> raftServers) throws Exception {
     raftGroup = RaftGroup.valueOf(groupId, peers);
     this.peers = peers;
     servers = new ArrayList<>(peers.size());
