@@ -95,7 +95,7 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
   @Test
   public void testGroupInfoCommandIncludesCorrectLogInfo() throws Exception {
     // set number of server to 1 so that we can make sure which server returns the LogInfoProto
-    // since information of applied index, snapshot index are not shared between servers
+    // since information of applied index, snapshot index, and last entry index are not shared between servers
     runWithNewCluster(1, this::runTestGroupInfoCommandWithLogInfoVerification);
   }
 
