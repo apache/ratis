@@ -661,7 +661,6 @@ class RaftServerImpl implements RaftServer.Division,
     return logInfoBuilder.build();
   }
 
-
   RoleInfoProto getRoleInfoProto() {
     return role.buildRoleInfoProto(this);
   }
