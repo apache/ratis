@@ -650,7 +650,8 @@ class RaftServerImpl implements RaftServer.Division,
     long currentTerm = getInfo().getCurrentTerm();
     LogInfoProto.Builder logInfoBuilder = LogInfoProto.newBuilder();
     logInfoBuilder.setApplied(TermIndex.valueOf(currentTerm, getInfo().getLastAppliedIndex()).toProto());
-    logInfoBuilder.setCommitted(getRaftLog().getLastEntryTermIndex().toProto());
+    logInfoBuilder.setCommitted(TermIndex.valueOf(currentTerm, getRaftLog().getLastCommittedIndex()).toProto());
+    logInfoBuilder.setLastEntry(getRaftLog().getLastEntryTermIndex().toProto());
     if (getStateMachine().getLatestSnapshot() != null) {
       logInfoBuilder.setLastSnapshot(
           TermIndex.valueOf(currentTerm,

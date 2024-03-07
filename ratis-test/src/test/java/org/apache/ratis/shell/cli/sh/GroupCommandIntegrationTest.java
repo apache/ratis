@@ -134,6 +134,9 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
     Assertions.assertTrue(result.contains(
         String.format(LogInfoProtoFormat, "lastSnapshot",
             leader.getStateMachine().getLatestSnapshot().getIndex())));
+    Assertions.assertTrue(result.contains(
+        String.format(LogInfoProtoFormat, "lastEntry",
+            leader.getRaftLog().getLastCommittedIndex())));
   }
 
 }
