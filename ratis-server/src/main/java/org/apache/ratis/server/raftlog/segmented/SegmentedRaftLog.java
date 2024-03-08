@@ -277,6 +277,19 @@ public final class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
+  public LogEntryProto get(long index) throws RaftLogIOException {
+    final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
+    if (ref == null) {
+      return null;
+    }
+    try {
+      return LogProtoUtils.copy(ref.get());
+    } finally {
+      ref.release();
+    }
+  }
+
+  @Override
   public ReferenceCountedObject<LogEntryProto> retainLog(long index) throws RaftLogIOException {
     checkLogState();
     final LogSegment segment;
@@ -316,28 +329,31 @@ public final class SegmentedRaftLog extends RaftLogBase {
     }
     try {
       // TODO. The reference counted object should be passed to LogAppender RATIS-2026.
-      final LogEntryProto entry = entryRef.get();
-      if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
-        return newEntryWithData(entry, null);
-      }
-
-      try {
-        CompletableFuture<ByteString> future = null;
-        if (stateMachine != null) {
-          future = stateMachine.data().read(entry, server.getTransactionContext(entry, false)).exceptionally(ex -> {
-            stateMachine.event().notifyLogFailed(ex, entry);
-            throw new CompletionException("Failed to read state machine data for log entry " + entry, ex);
-          });
-        }
-        return newEntryWithData(entry, future);
-      } catch (Exception e) {
-        final String err = getName() + ": Failed readStateMachineData for " +
-            LogProtoUtils.toLogEntryString(entry);
-        LOG.error(err, e);
-        throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
-      }
+      return getEntryWithData(entryRef.get());
     } finally {
       entryRef.release();
+    }
+  }
+
+  private EntryWithData getEntryWithData(LogEntryProto entry) throws RaftLogIOException {
+    if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
+      return newEntryWithData(entry, null);
+    }
+
+    try {
+      CompletableFuture<ByteString> future = null;
+      if (stateMachine != null) {
+        future = stateMachine.data().read(entry, server.getTransactionContext(entry, false)).exceptionally(ex -> {
+          stateMachine.event().notifyLogFailed(ex, entry);
+          throw new CompletionException("Failed to read state machine data for log entry " + entry, ex);
+        });
+      }
+      return newEntryWithData(entry, future);
+    } catch (Exception e) {
+      final String err = getName() + ": Failed readStateMachineData for " +
+          LogProtoUtils.toLogEntryString(entry);
+      LOG.error(err, e);
+      throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
     }
   }
 

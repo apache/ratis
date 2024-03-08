@@ -22,8 +22,10 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.metrics.RaftLogMetricsBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
+import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.AutoCloseableLock;
@@ -45,17 +47,21 @@ public class MemoryRaftLog extends RaftLogBase {
   static class EntryList {
     private final List<ReferenceCountedObject<LogEntryProto>> entries = new ArrayList<>();
 
-    ReferenceCountedObject<LogEntryProto> get(int i) {
+    ReferenceCountedObject<LogEntryProto> getRef(int i) {
       return i >= 0 && i < entries.size() ? entries.get(i) : null;
     }
 
+    LogEntryProto get(int i) {
+      final ReferenceCountedObject<LogEntryProto> ref = getRef(i);
+      return ref != null ? ref.get() : null;
+    }
+
     TermIndex getTermIndex(int i) {
-      ReferenceCountedObject<LogEntryProto> ref = get(i);
-      return TermIndex.valueOf(ref != null ? ref.get() : null);
+      return TermIndex.valueOf(get(i));
     }
 
     private LogEntryHeader getLogEntryHeader(int i) {
-      return LogEntryHeader.valueOf(get(i).get());
+      return LogEntryHeader.valueOf(get(i));
     }
 
     int size() {
@@ -109,10 +115,23 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
+  public LogEntryProto get(long index) throws RaftLogIOException {
+    final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
+    if (ref == null) {
+      return null;
+    }
+    try {
+      return LogProtoUtils.copy(ref.get());
+    } finally {
+      ref.release();
+    }
+  }
+
+  @Override
   public ReferenceCountedObject<LogEntryProto> retainLog(long index) {
     checkLogState();
     try (AutoCloseableLock readLock = readLock()) {
-      ReferenceCountedObject<LogEntryProto> ref = entries.get(Math.toIntExact(index));
+      ReferenceCountedObject<LogEntryProto> ref = entries.getRef(Math.toIntExact(index));
       ref.retain();
       return ref;
     }
@@ -222,7 +241,7 @@ public class MemoryRaftLog extends RaftLogBase {
       int index = 0;
       for (; truncateIndex < getNextIndex() && index < logEntryProtos.size();
            index++, truncateIndex++) {
-        if (this.entries.get(truncateIndex).get().getTerm() !=
+        if (this.entries.get(truncateIndex).getTerm() !=
             logEntryProtos.get(index).getTerm()) {
           toTruncate = true;
           break;

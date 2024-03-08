@@ -234,31 +234,31 @@ class StateMachineUpdater implements Runnable {
     for(long applied; (applied = getLastAppliedIndex()) < committed && state == State.RUNNING && !shouldStop(); ) {
       final long nextIndex = applied + 1;
       final ReferenceCountedObject<LogEntryProto> next = raftLog.retainLog(nextIndex);
-      if (next != null) {
-        try {
-          LogEntryProto entry = next.get();
-          if (LOG.isTraceEnabled()) {
-            LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(entry));
-          } else {
-            LOG.debug("{}: applying nextIndex={}", this, nextIndex);
-          }
-
-          final CompletableFuture<Message> f = server.applyLogToStateMachine(next);
-          final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
-          Preconditions.assertTrue(incremented == nextIndex);
-          if (f != null) {
-            futures.get().add(f);
-            f.thenAccept(m -> notifyAppliedIndex(incremented));
-          } else {
-            notifyAppliedIndex(incremented);
-          }
-        } finally {
-          next.release();
-        }
-      } else {
+      if (next == null) {
         LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
             this, nextIndex, state);
         break;
+      }
+
+      try {
+        final LogEntryProto entry = next.get();
+        if (LOG.isTraceEnabled()) {
+          LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(entry));
+        } else {
+          LOG.debug("{}: applying nextIndex={}", this, nextIndex);
+        }
+
+        final CompletableFuture<Message> f = server.applyLogToStateMachine(next);
+        final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
+        Preconditions.assertTrue(incremented == nextIndex);
+        if (f != null) {
+          futures.get().add(f);
+          f.thenAccept(m -> notifyAppliedIndex(incremented));
+        } else {
+          notifyAppliedIndex(incremented);
+        }
+      } finally {
+        next.release();
       }
     }
     return futures;

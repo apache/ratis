@@ -243,6 +243,7 @@ public final class LogSegment {
         final TermIndex ti = TermIndex.valueOf(entry);
         putEntryCache(ti, entryRef, Op.LOAD_SEGMENT_FILE);
         if (ti.equals(key.getTermIndex())) {
+          entryRef.retain();
           toReturn.set(entryRef);
         }
         entryRef.release();
