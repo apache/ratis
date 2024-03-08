@@ -117,9 +117,6 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   public LogEntryProto get(long index) throws RaftLogIOException {
     final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
-    if (ref == null) {
-      return null;
-    }
     try {
       return LogProtoUtils.copy(ref.get());
     } finally {
