@@ -364,6 +364,7 @@ public interface ClientProtoUtils {
         b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
         b.setRole(reply.getRoleInfoProto());
         b.addAllCommitInfos(reply.getCommitInfos());
+        b.setLogInfo(reply.getLogInfoProto());
       }
     }
     return b.build();
@@ -506,7 +507,8 @@ public interface ClientProtoUtils {
         ProtoUtils.toRaftGroup(replyProto.getGroup()),
         replyProto.getRole(),
         replyProto.getIsRaftStorageHealthy(),
-        replyProto.hasConf()? replyProto.getConf(): null);
+        replyProto.hasConf()? replyProto.getConf(): null,
+        replyProto.getLogInfo());
   }
 
   static Message toMessage(final ClientMessageEntryProto p) {
