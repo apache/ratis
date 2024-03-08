@@ -19,6 +19,7 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.LogInfoProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 
 import java.util.Collection;
@@ -33,25 +34,27 @@ public class GroupInfoReply extends RaftClientReply {
   private final RoleInfoProto roleInfoProto;
   private final boolean isRaftStorageHealthy;
   private final RaftConfigurationProto conf;
+  private final LogInfoProto logInfoProto;
 
   public GroupInfoReply(RaftClientRequest request, Collection<CommitInfoProto> commitInfos,
       RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy,
-      RaftConfigurationProto conf) {
+      RaftConfigurationProto conf, LogInfoProto logInfoProto) {
     this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
         request.getCallId(), commitInfos,
-        group, roleInfoProto, isRaftStorageHealthy, conf);
+        group, roleInfoProto, isRaftStorageHealthy, conf, logInfoProto);
   }
 
   @SuppressWarnings("parameternumber")
   public GroupInfoReply(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
       Collection<CommitInfoProto> commitInfos,
       RaftGroup group, RoleInfoProto roleInfoProto, boolean isRaftStorageHealthy,
-      RaftConfigurationProto conf) {
+      RaftConfigurationProto conf, LogInfoProto logInfoProto) {
     super(clientId, serverId, groupId, callId, true, null, null, 0L, commitInfos);
     this.group = group;
     this.roleInfoProto = roleInfoProto;
     this.isRaftStorageHealthy = isRaftStorageHealthy;
     this.conf = conf;
+    this.logInfoProto = logInfoProto;
   }
 
   public RaftGroup getGroup() {
@@ -68,5 +71,9 @@ public class GroupInfoReply extends RaftClientReply {
 
   public Optional<RaftConfigurationProto> getConf() {
     return Optional.ofNullable(conf);
+  }
+
+  public LogInfoProto getLogInfoProto() {
+    return logInfoProto;
   }
 }
