@@ -20,6 +20,7 @@ package org.apache.ratis.shell.cli.sh;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
@@ -90,4 +91,52 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
     String info = result.substring(0, hearder.length());
     Assertions.assertEquals(hearder, info);
   }
+
+  @Test
+  public void testGroupInfoCommandIncludesCorrectLogInfo() throws Exception {
+    // set number of server to 1 so that we can make sure which server returns the LogInfoProto
+    // since information of applied index, snapshot index, and last entry index are not shared between servers
+    runWithNewCluster(1, this::runTestGroupInfoCommandWithLogInfoVerification);
+  }
+
+  void runTestGroupInfoCommandWithLogInfoVerification(MiniRaftCluster cluster) throws Exception {
+    RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+
+    try (final RaftClient client = cluster.createClient(leader.getId())) {
+      for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties()); i++) {
+        RaftClientReply
+            reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assertions.assertTrue(reply.isSuccess());
+      }
+    }
+
+    leader.getStateMachine().takeSnapshot();
+
+    final String address = getClusterAddress(cluster);
+    final StringPrintStream out = new StringPrintStream();
+    RatisShell shell = new RatisShell(out.getPrintStream());
+    int ret = shell.run("group", "info", "-peers", address);
+    Assertions.assertEquals(0 , ret);
+    String result = out.toString().trim();
+    String hearder = String.format("group id: %s%sleader info: %s(%s)%s%s",
+        cluster.getGroupId().getUuid(), NEW_LINE, leader.getId(),
+        cluster.getLeader().getPeer().getAddress(), NEW_LINE, NEW_LINE);
+    String info = result.substring(0, hearder.length());
+    Assertions.assertEquals(hearder, info);
+    long currentTerm = leader.getInfo().getCurrentTerm();
+    String LogInfoProtoFormat = "%s {" + NEW_LINE + "  term: " + currentTerm + NEW_LINE + "  index: %s";
+    Assertions.assertTrue(result.contains(
+        String.format(LogInfoProtoFormat, "applied",
+            leader.getStateMachine().getLastAppliedTermIndex().getIndex())));
+    Assertions.assertTrue(result.contains(
+        String.format(LogInfoProtoFormat, "committed",
+            leader.getRaftLog().getLastCommittedIndex())));
+    Assertions.assertTrue(result.contains(
+        String.format(LogInfoProtoFormat, "lastSnapshot",
+            leader.getStateMachine().getLatestSnapshot().getIndex())));
+    Assertions.assertTrue(result.contains(
+        String.format(LogInfoProtoFormat, "lastEntry",
+            leader.getRaftLog().getLastCommittedIndex())));
+  }
+
 }

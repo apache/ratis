@@ -24,6 +24,7 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.LogInfoProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
@@ -642,7 +643,20 @@ class RaftServerImpl implements RaftServer.Division,
     final RaftConfigurationProto conf =
         LogProtoUtils.toRaftConfigurationProtoBuilder(getRaftConf()).build();
     return new GroupInfoReply(request, getCommitInfos(), getGroup(), getRoleInfoProto(),
-        dir.isHealthy(), conf);
+        dir.isHealthy(), conf, getLogInfo());
+  }
+
+  LogInfoProto getLogInfo(){
+    final RaftLog log = getRaftLog();
+    LogInfoProto.Builder logInfoBuilder = LogInfoProto.newBuilder()
+        .setApplied(getStateMachine().getLastAppliedTermIndex().toProto())
+        .setCommitted(log.getTermIndex(log.getLastCommittedIndex()).toProto())
+        .setLastEntry(log.getLastEntryTermIndex().toProto());
+    final SnapshotInfo snapshot = getStateMachine().getLatestSnapshot();
+    if (snapshot != null) {
+      logInfoBuilder.setLastSnapshot(snapshot.getTermIndex().toProto());
+    }
+    return logInfoBuilder.build();
   }
 
   RoleInfoProto getRoleInfoProto() {
