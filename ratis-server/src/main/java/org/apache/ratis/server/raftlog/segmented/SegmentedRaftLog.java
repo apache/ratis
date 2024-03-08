@@ -314,11 +314,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     // the entry is not in the segment's cache. Load the cache without holding the lock.
     getRaftLogMetrics().onRaftLogCacheMiss();
     cacheEviction.signal();
-    ReferenceCountedObject<LogEntryProto> loaded = segment.loadCache(record);
-    if (loaded != null) {
-      loaded.retain();
-    }
-    return loaded;
+    return segment.loadCache(record);
   }
 
   @Override
