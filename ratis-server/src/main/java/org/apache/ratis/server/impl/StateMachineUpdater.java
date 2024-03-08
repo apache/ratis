@@ -233,10 +233,10 @@ class StateMachineUpdater implements Runnable {
     final long committed = raftLog.getLastCommittedIndex();
     for(long applied; (applied = getLastAppliedIndex()) < committed && state == State.RUNNING && !shouldStop(); ) {
       final long nextIndex = applied + 1;
-      final ReferenceCountedObject<LogEntryProto> next = raftLog.getWithRef(nextIndex);
+      final ReferenceCountedObject<LogEntryProto> next = raftLog.retainLog(nextIndex);
       if (next != null) {
-        LogEntryProto entry = next.retain();
         try {
+          LogEntryProto entry = next.get();
           if (LOG.isTraceEnabled()) {
             LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(entry));
           } else {

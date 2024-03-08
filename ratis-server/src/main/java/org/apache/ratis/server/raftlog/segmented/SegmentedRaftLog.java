@@ -180,12 +180,17 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
       @Override
       public void notifyTruncatedLogEntry(TermIndex ti) {
+        ReferenceCountedObject<LogEntryProto> ref = null;
         try {
-          ReferenceCountedObject<LogEntryProto> ref = getWithRef(ti.getIndex());
+          ref = retainLog(ti.getIndex());
           final LogEntryProto entry = ref != null ? ref.get() : null;
           notifyTruncatedLogEntry.accept(entry);
         } catch (RaftLogIOException e) {
           LOG.error("{}: Failed to read log {}", getName(), ti, e);
+        } finally {
+          if (ref != null) {
+            ref.release();
+          }
         }
       }
 
@@ -272,7 +277,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  public ReferenceCountedObject<LogEntryProto> getWithRef(long index) throws RaftLogIOException {
+  public ReferenceCountedObject<LogEntryProto> retainLog(long index) throws RaftLogIOException {
     checkLogState();
     final LogSegment segment;
     final LogRecord record;
@@ -288,6 +293,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       final ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(record.getTermIndex());
       if (entry != null) {
         getRaftLogMetrics().onRaftLogCacheHit();
+        entry.retain();
         return entry;
       }
     }
@@ -295,35 +301,43 @@ public final class SegmentedRaftLog extends RaftLogBase {
     // the entry is not in the segment's cache. Load the cache without holding the lock.
     getRaftLogMetrics().onRaftLogCacheMiss();
     cacheEviction.signal();
-    return segment.loadCache(record);
+    ReferenceCountedObject<LogEntryProto> loaded = segment.loadCache(record);
+    if (loaded != null) {
+      loaded.retain();
+    }
+    return loaded;
   }
 
   @Override
   public EntryWithData getEntryWithData(long index) throws RaftLogIOException {
-    final ReferenceCountedObject<LogEntryProto> entryRef = getWithRef(index);
+    final ReferenceCountedObject<LogEntryProto> entryRef = retainLog(index);
     if (entryRef == null) {
       throw new RaftLogIOException("Log entry not found: index = " + index);
     }
-    // TODO. The reference counted object should be passed to LogAppender RATIS-2026.
-    final LogEntryProto entry = entryRef.get();
-    if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
-      return newEntryWithData(entry, null);
-    }
-
     try {
-      CompletableFuture<ByteString> future = null;
-      if (stateMachine != null) {
-        future = stateMachine.data().read(entry, server.getTransactionContext(entry, false)).exceptionally(ex -> {
-          stateMachine.event().notifyLogFailed(ex, entry);
-          throw new CompletionException("Failed to read state machine data for log entry " + entry, ex);
-        });
+      // TODO. The reference counted object should be passed to LogAppender RATIS-2026.
+      final LogEntryProto entry = entryRef.get();
+      if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
+        return newEntryWithData(entry, null);
       }
-      return newEntryWithData(entry, future);
-    } catch (Exception e) {
-      final String err = getName() + ": Failed readStateMachineData for " +
-          LogProtoUtils.toLogEntryString(entry);
-      LOG.error(err, e);
-      throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
+
+      try {
+        CompletableFuture<ByteString> future = null;
+        if (stateMachine != null) {
+          future = stateMachine.data().read(entry, server.getTransactionContext(entry, false)).exceptionally(ex -> {
+            stateMachine.event().notifyLogFailed(ex, entry);
+            throw new CompletionException("Failed to read state machine data for log entry " + entry, ex);
+          });
+        }
+        return newEntryWithData(entry, future);
+      } catch (Exception e) {
+        final String err = getName() + ": Failed readStateMachineData for " +
+            LogProtoUtils.toLogEntryString(entry);
+        LOG.error(err, e);
+        throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
+      }
+    } finally {
+      entryRef.release();
     }
   }
 

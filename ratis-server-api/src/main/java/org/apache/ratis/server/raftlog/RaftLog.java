@@ -59,20 +59,30 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
   /**
    * @return null if the log entry is not found in this log;
    *         otherwise, return the log entry corresponding to the given index.
-   * @deprecated use {@link RaftLog#getWithRef(long)} instead.
+   * @deprecated use {@link RaftLog#retainLog(long)} instead.
    */
   @Deprecated
   default LogEntryProto get(long index) throws RaftLogIOException {
-    ReferenceCountedObject<LogEntryProto> ref = getWithRef(index);
-    return ref != null ? ref.get() : null;
+    ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
+    try {
+      return ref != null ? ref.get() : null;
+    } finally {
+      if (ref != null) {
+        ref.release();
+      }
+    }
   }
 
   /**
-   * @return a ReferenceCountedObject to the  log entry corresponding to the given log index if it exists.
-   * otherwise, null.
+   * @return a retained {@link ReferenceCountedObject} to the log entry corresponding to the given index if it exists;
+   *         otherwise, return null.
+   *         Since the returned reference is retained, the caller must call {@link ReferenceCountedObject#release()}}
+   *         after use.
    */
-  default ReferenceCountedObject<LogEntryProto> getWithRef(long index) throws RaftLogIOException {
-    return ReferenceCountedObject.wrap(get(index));
+  default ReferenceCountedObject<LogEntryProto> retainLog(long index) throws RaftLogIOException {
+    ReferenceCountedObject<LogEntryProto> wrap = ReferenceCountedObject.wrap(get(index));
+    wrap.retain();
+    return wrap;
   }
 
   /**
