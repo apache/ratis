@@ -169,7 +169,7 @@ public interface DataStreamTestUtils {
 
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-      final LogEntryProto entry = Objects.requireNonNull(trx.getLogEntryUnsafe());
+      final LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
       updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
       final SingleDataStream s = getSingleDataStream(ClientInvocationId.valueOf(entry.getStateMachineLogEntry()));
       final ByteString bytesWritten = bytesWritten2ByteString(s.getDataChannel().getBytesWritten());
@@ -418,5 +418,14 @@ public interface DataStreamTestUtils {
 
     final LogEntryProto entryFromLog = searchLogEntry(ClientInvocationId.valueOf(request), division.getRaftLog());
     Assertions.assertEquals(entryFromStream, entryFromLog);
+  }
+
+  ResourceLeakDetector.LeakListener LEAK_LISTENER = (resourceType, records) -> {
+    throw new IllegalStateException("Leak detected for resource type: " + resourceType + records);
+  };
+
+  static void enableResourceLeakDetector() {
+    ResourceLeakDetector.setLevel(Level.PARANOID);
+    ByteBufUtil.setLeakListener(DataStreamTestUtils.LEAK_LISTENER);
   }
 }
