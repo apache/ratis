@@ -69,6 +69,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static org.apache.ratis.server.storage.RaftStorageTestUtils.getLogUnsafe;
+
 public interface DataStreamTestUtils {
   Logger LOG = LoggerFactory.getLogger(DataStreamTestUtils.class);
 
@@ -383,7 +385,7 @@ public interface DataStreamTestUtils {
 
   static LogEntryProto searchLogEntry(ClientInvocationId invocationId, RaftLog log) throws Exception {
     for (LogEntryHeader termIndex : log.getEntries(0, Long.MAX_VALUE)) {
-      final LogEntryProto entry = log.get(termIndex.getIndex());
+      final LogEntryProto entry = getLogUnsafe(log, termIndex.getIndex());
       if (entry.hasStateMachineLogEntry()) {
         if (invocationId.match(entry.getStateMachineLogEntry())) {
           return entry;

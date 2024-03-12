@@ -22,8 +22,10 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.metrics.RaftLogMetricsBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
+import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.AutoCloseableLock;
@@ -45,8 +47,13 @@ public class MemoryRaftLog extends RaftLogBase {
   static class EntryList {
     private final List<ReferenceCountedObject<LogEntryProto>> entries = new ArrayList<>();
 
+    ReferenceCountedObject<LogEntryProto> getRef(int i) {
+      return i >= 0 && i < entries.size() ? entries.get(i) : null;
+    }
+
     LogEntryProto get(int i) {
-      return i >= 0 && i < entries.size() ? entries.get(i).get() : null;
+      final ReferenceCountedObject<LogEntryProto> ref = getRef(i);
+      return ref != null ? ref.get() : null;
     }
 
     TermIndex getTermIndex(int i) {
@@ -108,16 +115,34 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public LogEntryProto get(long index) {
+  public LogEntryProto get(long index) throws RaftLogIOException {
+    final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
+    try {
+      return LogProtoUtils.copy(ref.get());
+    } finally {
+      ref.release();
+    }
+  }
+
+  @Override
+  public ReferenceCountedObject<LogEntryProto> retainLog(long index) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
-      return entries.get(Math.toIntExact(index));
+    try (AutoCloseableLock readLock = readLock()) {
+      ReferenceCountedObject<LogEntryProto> ref = entries.getRef(Math.toIntExact(index));
+      ref.retain();
+      return ref;
     }
   }
 
   @Override
   public EntryWithData getEntryWithData(long index) {
-    return newEntryWithData(get(index), null);
+    // TODO. The reference counted object should be passed to LogAppender RATIS-2026.
+    ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
+    try {
+      return newEntryWithData(ref.get(), null);
+    } finally {
+      ref.release();
+    }
   }
 
   @Override

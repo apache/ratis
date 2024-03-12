@@ -235,10 +235,17 @@ class StateMachineUpdater implements Runnable {
     final long committed = raftLog.getLastCommittedIndex();
     for(long applied; (applied = getLastAppliedIndex()) < committed && state == State.RUNNING && !shouldStop(); ) {
       final long nextIndex = applied + 1;
-      final LogEntryProto next = raftLog.get(nextIndex);
-      if (next != null) {
+      final ReferenceCountedObject<LogEntryProto> next = raftLog.retainLog(nextIndex);
+      if (next == null) {
+        LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
+            this, nextIndex, state);
+        break;
+      }
+
+      try {
+        final LogEntryProto entry = next.get();
         if (LOG.isTraceEnabled()) {
-          LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(next));
+          LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(entry));
         } else {
           LOG.debug("{}: applying nextIndex={}", this, nextIndex);
         }
@@ -252,10 +259,8 @@ class StateMachineUpdater implements Runnable {
         } else {
           notifyAppliedIndex(incremented);
         }
-      } else {
-        LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
-            this, nextIndex, state);
-        break;
+      } finally {
+        next.release();
       }
     }
     return futures;

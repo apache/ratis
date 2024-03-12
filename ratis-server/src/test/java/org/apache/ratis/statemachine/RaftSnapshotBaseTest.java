@@ -21,6 +21,7 @@ import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHIN
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_TAKE_SNAPSHOT_TIMER;
 import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
+import static org.apache.ratis.server.storage.RaftStorageTestUtils.getLogUnsafe;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.metrics.LongCounter;
@@ -43,6 +44,7 @@ import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
@@ -95,7 +97,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   public static void assertLogContent(RaftServer.Division server, boolean isLeader) throws Exception {
     final RaftLog log = server.getRaftLog();
     final long lastIndex = log.getLastEntryTermIndex().getIndex();
-    final LogEntryProto e = log.get(lastIndex);
+    final LogEntryProto e = getLogUnsafe(log, lastIndex);
     Assert.assertTrue(e.hasMetadataEntry());
 
     JavaUtils.attemptRepeatedly(() -> {

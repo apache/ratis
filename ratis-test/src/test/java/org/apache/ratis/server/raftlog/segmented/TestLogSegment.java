@@ -141,11 +141,11 @@ public class TestLogSegment extends BaseTest {
       Assertions.assertEquals(term, ti.getTerm());
       Assertions.assertEquals(offset, record.getOffset());
 
-      LogEntryProto entry = segment.getEntryFromCache(ti);
+      ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(ti);
       if (entry == null) {
         entry = segment.loadCache(record);
       }
-      offset += getEntrySize(entry, Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+      offset += getEntrySize(entry.get(), Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
     }
   }
 
