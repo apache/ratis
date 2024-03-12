@@ -84,6 +84,7 @@ import org.slf4j.event.Level;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogWorker.RUN_WORKER;
+import static org.apache.ratis.server.storage.RaftStorageTestUtils.getLogUnsafe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -216,7 +217,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
   private LogEntryProto getLastEntry(SegmentedRaftLog raftLog)
       throws IOException {
-    return raftLog.get(raftLog.getLastEntryTermIndex().getIndex());
+    return getLogUnsafe(raftLog, raftLog.getLastEntryTermIndex().getIndex());
   }
 
   @ParameterizedTest
@@ -241,7 +242,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
           .map(ti -> {
             try {
-              return raftLog.get(ti.getIndex());
+              return getLogUnsafe(raftLog, ti.getIndex());
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
@@ -540,7 +541,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
           .map(ti -> {
             try {
-              return raftLog.get(ti.getIndex());
+              return getLogUnsafe(raftLog, ti.getIndex());
             } catch (IOException e) {
               throw new RuntimeException(e);
             }

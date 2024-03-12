@@ -1939,8 +1939,12 @@ class RaftServerImpl implements RaftServer.Division,
         MemoizedSupplier.valueOf(() -> stateMachine.startTransaction(entry, getInfo().getCurrentRole())));
   }
 
-  CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) throws RaftLogIOException {
-    CompletableFuture<Message> messageFuture = null;
+  CompletableFuture<Message> applyLogToStateMachine(ReferenceCountedObject<LogEntryProto> nextRef)
+      throws RaftLogIOException {
+    LogEntryProto next = nextRef.get();
+    if (!next.hasStateMachineLogEntry()) {
+      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
+    }
 
     switch (next.getLogEntryBodyCase()) {
     case CONFIGURATIONENTRY:
@@ -1956,11 +1960,7 @@ class RaftServerImpl implements RaftServer.Division,
       Objects.requireNonNull(trx, "trx == null");
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
       writeIndexCache.add(invocationId.getClientId(), ((TransactionContextImpl) trx).getLogIndexFuture());
-
-      // TODO: RaftLog to provide the log entry as a ReferenceCountedObject as per RATIS-2028.
-      ReferenceCountedObject<?> ref = ReferenceCountedObject.wrap(next);
-      ((TransactionContextImpl) trx).setDelegatedRef(ref);
-      ref.retain();
+      ((TransactionContextImpl) trx).setDelegatedRef(nextRef);
       try {
         // Let the StateMachine inject logic for committed transactions in sequential order.
         trx = stateMachine.applyTransactionSerial(trx);
@@ -1969,8 +1969,6 @@ class RaftServerImpl implements RaftServer.Division,
         messageFuture = replyPendingRequest(invocationId, TermIndex.valueOf(next), stateMachineFuture);
       } catch (Exception e) {
         throw new RaftLogIOException(e);
-      } finally {
-        ref.release();
       }
       break;
     case METADATAENTRY:

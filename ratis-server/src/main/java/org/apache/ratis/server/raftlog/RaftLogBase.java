@@ -243,9 +243,21 @@ public abstract class RaftLogBase implements RaftLog {
       // do not log the first conf entry
       return false;
     }
-    final LogEntryProto last = lastMetadataEntry.get();
-    // do not log entries with a smaller commit index.
-    return last == null || newCommitIndex > last.getMetadataEntry().getCommitIndex();
+    ReferenceCountedObject<LogEntryProto> ref = null;
+    try {
+      ref = retainLog(newCommitIndex);
+      if (ref.get().hasMetadataEntry()) {
+        // do not log the metadata entry
+        return false;
+      }
+    } catch(RaftLogIOException e) {
+      LOG.error("Failed to get log entry for index " + newCommitIndex, e);
+    } finally {
+      if (ref != null) {
+        ref.release();
+      }
+    }
+    return true;
   }
 
   @Override
