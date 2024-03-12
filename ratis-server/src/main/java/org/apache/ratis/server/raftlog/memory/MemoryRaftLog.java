@@ -136,13 +136,7 @@ public class MemoryRaftLog extends RaftLogBase {
 
   @Override
   public EntryWithData getEntryWithData(long index) {
-    // TODO. The reference counted object should be passed to LogAppender RATIS-2026.
-    ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
-    try {
-      return newEntryWithData(ref.get(), null);
-    } finally {
-      ref.release();
-    }
+    return newEntryWithData(retainLog(index), null);
   }
 
   @Override

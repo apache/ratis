@@ -379,7 +379,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   private void appendLog(boolean heartbeat) throws IOException {
-    final AppendEntriesRequestProto pending;
+    final ReferenceCountedObject<AppendEntriesRequestProto> pending;
     final AppendEntriesRequest request;
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       // Prepare and send the append request.
@@ -388,21 +388,25 @@ public class GrpcLogAppender extends LogAppenderBase {
       if (pending == null) {
         return;
       }
-      request = new AppendEntriesRequest(pending, getFollowerId(), grpcServerMetrics);
+      request = new AppendEntriesRequest(pending.get(), getFollowerId(), grpcServerMetrics);
       pendingRequests.put(request);
-      increaseNextIndex(pending);
+      increaseNextIndex(pending.get());
       if (appendLogRequestObserver == null) {
         appendLogRequestObserver = new StreamObservers(
             getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
       }
     }
 
-    final TimeDuration remaining = getRemainingWaitTime();
-    if (remaining.isPositive()) {
-      sleep(remaining, heartbeat);
-    }
-    if (isRunning()) {
-      sendRequest(request, pending);
+    try {
+      final TimeDuration remaining = getRemainingWaitTime();
+      if (remaining.isPositive()) {
+        sleep(remaining, heartbeat);
+      }
+      if (isRunning()) {
+        sendRequest(request, pending.get());
+      }
+    } finally {
+      pending.release();
     }
   }
 

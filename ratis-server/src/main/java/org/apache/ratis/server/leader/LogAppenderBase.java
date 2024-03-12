@@ -33,6 +33,7 @@ import org.apache.ratis.util.DataQueue;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
@@ -43,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongUnaryOperator;
+import java.util.stream.Collectors;
 
 /**
  * An abstract implementation of {@link LogAppender}.
@@ -220,14 +222,18 @@ public abstract class LogAppenderBase implements LogAppender {
 
 
   @Override
-  public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat)
+  public ReferenceCountedObject<AppendEntriesRequestProto> newAppendEntriesRequest(long callId, boolean heartbeat)
       throws RaftLogIOException {
     final long heartbeatWaitTimeMs = getHeartbeatWaitTimeMs();
     final TermIndex previous = getPrevious(follower.getNextIndex());
     if (heartbeatWaitTimeMs <= 0L || heartbeat) {
       // heartbeat
-      return leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(),
-          hasPendingDataRequests()? null : previous, callId);
+      AppendEntriesRequestProto heartbeatRequest =
+          leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(),
+              hasPendingDataRequests() ? null : previous, callId);
+      ReferenceCountedObject<AppendEntriesRequestProto> ref = ReferenceCountedObject.wrap(heartbeatRequest);
+      ref.retain();
+      return ref;
     }
 
     Preconditions.assertTrue(buffer.isEmpty(), () -> "buffer has " + buffer.getNumElements() + " elements.");
@@ -245,12 +251,19 @@ public abstract class LogAppenderBase implements LogAppender {
       return null;
     }
 
-    final List<LogEntryProto> protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
+    final List<ReferenceCountedObject<LogEntryProto>> refs = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
         (entry, time, exception) -> LOG.warn("Failed to get " + entry
             + " in " + time.toString(TimeUnit.MILLISECONDS, 3), exception));
+    // Release failed entries.
+    for (EntryWithData entry : buffer) {
+      entry.release();
+    }
     buffer.clear();
+    List<LogEntryProto> protos = refs.stream().map(ReferenceCountedObject::get).collect(Collectors.toList());
     assertProtos(protos, followerNext, previous, snapshotIndex);
-    return leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
+    AppendEntriesRequestProto appendEntriesProto =
+        leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
+    return ReferenceCountedObject.delegateFrom(refs, appendEntriesProto);
   }
 
   private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous, long snapshotIndex) {
