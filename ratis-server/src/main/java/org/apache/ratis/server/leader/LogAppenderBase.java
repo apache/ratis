@@ -253,7 +253,8 @@ public abstract class LogAppenderBase implements LogAppender {
       return null;
     }
 
-    final List<ReferenceCountedObject<LogEntryProto>> refs = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
+    final List<ReferenceCountedObject<LogEntryProto>> refs = buffer.pollList(getHeartbeatWaitTimeMs(),
+        EntryWithData::getEntry,
         (entry, time, exception) -> LOG.warn("Failed to get " + entry
             + " in " + time.toString(TimeUnit.MILLISECONDS, 3), exception));
     // Release failed entries.
