@@ -129,7 +129,8 @@ public interface LogAppender {
    * contains retained underlying resources and the client code needs to ensure calling {@link ReferenceCountedObject#release()}
    * after finishing using it.
    */
-  ReferenceCountedObject<AppendEntriesRequestProto> newAppendEntriesRequest(long callId, boolean heartbeat) throws RaftLogIOException;
+  ReferenceCountedObject<AppendEntriesRequestProto> newAppendEntriesRequest(long callId, boolean heartbeat)
+      throws RaftLogIOException;
 
   /** @return a new {@link InstallSnapshotRequestProto} object. */
   InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex);

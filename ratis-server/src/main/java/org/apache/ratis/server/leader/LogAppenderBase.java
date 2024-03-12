@@ -243,7 +243,9 @@ public abstract class LogAppenderBase implements LogAppender {
     final long followerNext = follower.getNextIndex();
     final long halfMs = heartbeatWaitTimeMs/2;
     for (long next = followerNext; leaderNext > next && getHeartbeatWaitTimeMs() - halfMs > 0; ) {
-      if (!buffer.offer(getRaftLog().getEntryWithData(next++))) {
+      EntryWithData entryWithData = getRaftLog().getEntryWithData(next++);
+      if (!buffer.offer(entryWithData)) {
+        entryWithData.release();
         break;
       }
     }
