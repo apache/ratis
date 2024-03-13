@@ -440,7 +440,7 @@ public abstract class RaftLogBase implements RaftLog {
     }
 
     @Override
-    public ReferenceCountedObject<LogEntryProto> getEntry(TimeDuration timeout)
+    public ReferenceCountedObject<LogEntryProto> getEntryRef(TimeDuration timeout)
         throws RaftLogIOException, TimeoutException {
       if (future == null) {
         return logEntry;

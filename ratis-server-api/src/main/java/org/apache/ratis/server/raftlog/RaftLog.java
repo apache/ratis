@@ -21,6 +21,7 @@ import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -81,7 +82,7 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
    *         otherwise, return the {@link EntryWithData} corresponding to the given index.
    *         The {@link EntryWithData} enclosed retained underlying resource. The client code need to ensure either
    *         calling {@link ReferenceCountedObject#release()} on the result of
-   *         {@link EntryWithData#getEntry(TimeDuration)} or {@link EntryWithData#release()} if the entry is discarded.
+   *         {@link EntryWithData#getEntryRef(TimeDuration)} or {@link EntryWithData#release()} if the entry is discarded.
    */
   EntryWithData getEntryWithData(long index) throws RaftLogIOException;
 
@@ -179,16 +180,38 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
     int getSerializedSize();
 
     /**
+     * @return the {@link LogEntryProto} containing both the log entry and the state machine data.
+     * @deprecated use {@link EntryWithData#getEntryRef(TimeDuration)}.
+     * */
+    @Deprecated
+    default LogEntryProto getEntry(TimeDuration timeout) throws RaftLogIOException, TimeoutException {
+      ReferenceCountedObject<LogEntryProto> ref = getEntryRef(timeout);
+      try {
+        return LogEntryProto.parseFrom(ref.get().toByteString());
+      } catch (InvalidProtocolBufferException e) {
+        throw new RuntimeException("Error copying LogEntryProto", e);
+      } finally {
+        ref.release();
+      }
+    }
+
+    /**
      * @return the {@link ReferenceCountedObject} wraps the {@link LogEntryProto} containing both the log entry and
      * the state machine data.
      * The return proto object contains underlying retained resources, so the client code needs to ensure calling
      * {@link ReferenceCountedObject#release()} to release those resources.
      * */
-    ReferenceCountedObject<LogEntryProto> getEntry(TimeDuration timeout) throws RaftLogIOException, TimeoutException;
+    default ReferenceCountedObject<LogEntryProto> getEntryRef(TimeDuration timeout)
+        throws RaftLogIOException, TimeoutException {
+      LogEntryProto entry = getEntry(timeout);
+      ReferenceCountedObject<LogEntryProto> ref = ReferenceCountedObject.wrap(entry);
+      ref.retain();
+      return ref;
+    }
 
     /**
      * Releasing underlying resource. This is used to clear up this entry in case a {@link ReferenceCountedObject} is
-     * not handed successfully to the client code via {@link EntryWithData#getEntry(TimeDuration)}.
+     * not handed successfully to the client code via {@link EntryWithData#getEntryRef(TimeDuration)}.
      */
     default void release() {
     }
