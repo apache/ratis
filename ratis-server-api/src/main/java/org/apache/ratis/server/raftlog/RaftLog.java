@@ -82,7 +82,8 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
    *         otherwise, return the {@link EntryWithData} corresponding to the given index.
    *         The {@link EntryWithData} enclosed retained underlying resource. The client code need to ensure either
    *         calling {@link ReferenceCountedObject#release()} on the result of
-   *         {@link EntryWithData#getEntryRef(TimeDuration)} or {@link EntryWithData#release()} if the entry is discarded.
+   *         {@link EntryWithData#getEntryRef(TimeDuration)} or {@link EntryWithData#release()} if the entry
+   *         is discarded.
    */
   EntryWithData getEntryWithData(long index) throws RaftLogIOException;
 
