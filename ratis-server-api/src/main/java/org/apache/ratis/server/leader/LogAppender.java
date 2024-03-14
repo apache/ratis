@@ -27,7 +27,6 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.AwaitForSignal;
-import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.ReflectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,13 +120,13 @@ public interface LogAppender {
    * The {@link AppendEntriesRequestProto} object may contain zero or more log entries.
    * When there is zero log entries, the {@link AppendEntriesRequestProto} object is a heartbeat.
    *
-   *
    * @param callId The call id of the returned request.
    * @param heartbeat the returned request must be a heartbeat.
    *
    * @return a new {@link AppendEntriesRequestProto} object.
    * @deprecated this is not supposed to be an external-facing API.
    */
+  @Deprecated
   AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat) throws RaftLogIOException;
 
   /** @return a new {@link InstallSnapshotRequestProto} object. */
