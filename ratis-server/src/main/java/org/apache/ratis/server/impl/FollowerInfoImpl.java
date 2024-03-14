@@ -190,11 +190,12 @@ class FollowerInfoImpl implements FollowerInfo {
   public RaftPeer getPeer() {
     final RaftPeer newPeer = getPeer.apply(getId());
     if (newPeer != null) {
-      peer.set(newPeer);
-      return newPeer;
-    } else {
-      return peer.get();
+      RaftPeer curPeer = peer.get();
+      if (!curPeer.isSame(newPeer)) {
+        peer.compareAndSet(peer.get(), newPeer);
+      }
     }
+    return peer.get();
   }
 
   @Override

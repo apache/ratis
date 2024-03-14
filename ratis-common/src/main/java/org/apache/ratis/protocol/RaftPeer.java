@@ -261,4 +261,14 @@ public final class RaftPeer {
   public int hashCode() {
     return id.hashCode();
   }
+
+  public boolean isSame(RaftPeer other) {
+    return this.id.equals(other.id) &&
+        this.address.equals(other.address) &&
+        this.dataStreamAddress.equals(other.dataStreamAddress) &&
+        this.adminAddress.equals(other.adminAddress) &&
+        this.clientAddress.equals(other.clientAddress) &&
+        this.priority == other.priority &&
+        this.startupRole.equals(other.startupRole);
+  }
 }
