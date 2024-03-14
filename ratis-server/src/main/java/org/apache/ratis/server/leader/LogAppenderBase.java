@@ -28,6 +28,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLog.EntryWithData;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.AwaitForSignal;
 import org.apache.ratis.util.DataQueue;
 import org.apache.ratis.util.JavaUtils;
@@ -220,9 +221,31 @@ public abstract class LogAppenderBase implements LogAppender {
     };
   }
 
-
   @Override
-  public ReferenceCountedObject<AppendEntriesRequestProto> newAppendEntriesRequest(long callId, boolean heartbeat)
+  public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat) throws RaftLogIOException {
+    ReferenceCountedObject<AppendEntriesRequestProto> ref = nextAppendEntriesRequest(callId, heartbeat);
+    try {
+      return AppendEntriesRequestProto.parseFrom(ref.get().toByteString());
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalStateException("Error copying AppendEntriesRequest.", e);
+    } finally {
+      ref.release();
+    }
+  }
+
+/**
+ * Create a {@link AppendEntriesRequestProto} object using the {@link FollowerInfo} of this {@link LogAppender}.
+ * The {@link AppendEntriesRequestProto} object may contain zero or more log entries.
+ * When there is zero log entries, the {@link AppendEntriesRequestProto} object is a heartbeat.
+ *
+ * @param callId The call id of the returned request.
+ * @param heartbeat the returned request must be a heartbeat.
+ *
+ * @return a new {@link ReferenceCountedObject} that wraps {@link AppendEntriesRequestProto} object. The return proto
+ *    contains retained underlying resources and the client code needs to ensure calling
+ *    {@link ReferenceCountedObject#release()} after finishing using it.
+ */
+  protected ReferenceCountedObject<AppendEntriesRequestProto> nextAppendEntriesRequest(long callId, boolean heartbeat)
       throws RaftLogIOException {
     final long heartbeatWaitTimeMs = getHeartbeatWaitTimeMs();
     final TermIndex previous = getPrevious(follower.getNextIndex());

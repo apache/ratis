@@ -125,12 +125,10 @@ public interface LogAppender {
    * @param callId The call id of the returned request.
    * @param heartbeat the returned request must be a heartbeat.
    *
-   * @return a new {@link ReferenceCountedObject} that wraps {@link AppendEntriesRequestProto} object. The return proto
-   * contains retained underlying resources and the client code needs to ensure calling
-   * {@link ReferenceCountedObject#release()} after finishing using it.
+   * @return a new {@link AppendEntriesRequestProto} object.
+   * @deprecated this is not supposed to be an external-facing API.
    */
-  ReferenceCountedObject<AppendEntriesRequestProto> newAppendEntriesRequest(long callId, boolean heartbeat)
-      throws RaftLogIOException;
+  AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat) throws RaftLogIOException;
 
   /** @return a new {@link InstallSnapshotRequestProto} object. */
   InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex);

@@ -59,7 +59,7 @@ class LogAppenderDefault extends LogAppenderBase {
       throws InterruptedException, InterruptedIOException, RaftLogIOException {
     int retry = 0;
 
-    ReferenceCountedObject<AppendEntriesRequestProto> request = newAppendEntriesRequest(
+    ReferenceCountedObject<AppendEntriesRequestProto> request = nextAppendEntriesRequest(
         CallId.getAndIncrement(), false);
     while (isRunning()) { // keep retrying for IOException
       try {
@@ -67,7 +67,7 @@ class LogAppenderDefault extends LogAppenderBase {
           if (request != null) {
             request.release();
           }
-          request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
+          request = nextAppendEntriesRequest(CallId.getAndIncrement(), false);
         }
 
         if (request == null) {
