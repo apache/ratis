@@ -263,12 +263,12 @@ public final class RaftPeer {
   }
 
   public boolean isSame(RaftPeer other) {
-    return this.id.equals(other.id) &&
-        this.address.equals(other.address) &&
-        this.dataStreamAddress.equals(other.dataStreamAddress) &&
-        this.adminAddress.equals(other.adminAddress) &&
-        this.clientAddress.equals(other.clientAddress) &&
-        this.priority == other.priority &&
-        this.startupRole.equals(other.startupRole);
+    return other != null && priority == other.priority &&
+        Objects.equals(id, other.id) &&
+        Objects.equals(address, other.address) &&
+        Objects.equals(adminAddress, other.adminAddress) &&
+        Objects.equals(clientAddress, other.clientAddress) &&
+        Objects.equals(dataStreamAddress, other.dataStreamAddress) &&
+        startupRole == other.startupRole;
   }
 }
