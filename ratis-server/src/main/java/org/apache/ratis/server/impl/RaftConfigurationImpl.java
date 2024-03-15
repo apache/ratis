@@ -298,7 +298,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
 
   @Override
   public String toString() {
-    return logEntryIndex + ": " + conf + ", old=" + oldConf;
+    return "conf: {index: " + logEntryIndex + ", cur=" + conf + ", old=" + oldConf + "}";
   }
 
   boolean hasNoChange(Collection<RaftPeer> newMembers, Collection<RaftPeer> newListeners) {
