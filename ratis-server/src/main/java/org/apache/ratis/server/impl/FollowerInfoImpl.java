@@ -32,7 +32,7 @@ import java.util.function.LongUnaryOperator;
 class FollowerInfoImpl implements FollowerInfo {
   private final String name;
 
-  private final AtomicReference<RaftPeer> peer;
+  private final RaftPeerId peerId;
   private final Function<RaftPeerId, RaftPeer> getPeer;
   private final AtomicReference<Timestamp> lastRpcResponseTime;
   private final AtomicReference<Timestamp> lastRpcSendTime;
@@ -47,9 +47,8 @@ class FollowerInfoImpl implements FollowerInfo {
 
   FollowerInfoImpl(RaftGroupMemberId id, RaftPeer peer, Function<RaftPeerId, RaftPeer> getPeer,
       Timestamp lastRpcTime, long nextIndex, boolean caughtUp) {
-    this.name = id + "->" + peer.getId();
-
-    this.peer = new AtomicReference<>(peer);
+    this.peerId = peer.getId();
+    this.name = id + "->" + peerId;
     this.getPeer = getPeer;
     this.lastRpcResponseTime = new AtomicReference<>(lastRpcTime);
     this.lastRpcSendTime = new AtomicReference<>(lastRpcTime);
@@ -183,19 +182,12 @@ class FollowerInfoImpl implements FollowerInfo {
 
   @Override
   public RaftPeerId getId() {
-    return peer.get().getId();
+    return peerId;
   }
 
   @Override
   public RaftPeer getPeer() {
-    final RaftPeer newPeer = getPeer.apply(getId());
-    if (newPeer != null) {
-      RaftPeer curPeer = peer.get();
-      if (!curPeer.isSame(newPeer)) {
-        peer.compareAndSet(peer.get(), newPeer);
-      }
-    }
-    return peer.get();
+    return getPeer.apply(getId());
   }
 
   @Override
