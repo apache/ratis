@@ -1210,7 +1210,7 @@ class RaftServerImpl implements RaftServer.Division,
 
       if (!conf.isHighestPriority(request.getNewLeader())) {
         String msg = getMemberId() + " refused to transfer leadership to peer " + request.getNewLeader() +
-            " as it does not has highest priority " + conf;
+            " as it does not has highest priority in " + conf;
         return logAndReturnTransferLeadershipFail(request, msg);
       }
 
