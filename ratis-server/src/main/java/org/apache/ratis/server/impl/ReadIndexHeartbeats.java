@@ -23,6 +23,7 @@ import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,8 +124,15 @@ class ReadIndexHeartbeats {
 
   class AppendEntriesListeners {
     private final NavigableMap<Long, AppendEntriesListener> sorted = new TreeMap<>();
+    private Exception exception = null;
 
     synchronized AppendEntriesListener add(long commitIndex, Function<Long, AppendEntriesListener> constructor) {
+      if (exception != null) {
+        Preconditions.assertTrue(sorted.isEmpty());
+        final AppendEntriesListener listener = constructor.apply(commitIndex);
+        listener.getFuture().completeExceptionally(exception);
+        return listener;
+      }
       return sorted.computeIfAbsent(commitIndex, constructor);
     }
 
@@ -152,6 +160,10 @@ class ReadIndexHeartbeats {
     }
 
     synchronized void failAll(Exception e) {
+      if (exception != null) {
+        return;
+      }
+      exception = e;
       sorted.forEach((index, listener) -> listener.getFuture().completeExceptionally(e));
       sorted.clear();
     }
