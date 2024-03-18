@@ -1159,11 +1159,6 @@ class LeaderStateImpl implements LeaderState {
       return CompletableFuture.completedFuture(readIndex);
     }
 
-    if (!isRunning()) {
-      // to eliminate the potential data race on AppendEntriesListeners
-      return JavaUtils.completeExceptionally(server.generateNotLeaderException());
-    }
-
     return listener.getFuture();
   }
 
