@@ -355,4 +355,3 @@ class SnapshotInstallationHandler {
         .build();
   }
 }
-
