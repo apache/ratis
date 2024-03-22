@@ -19,7 +19,6 @@ package org.apache.ratis.server.storage;
 
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.NoSuchFileException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftConfiguration;
@@ -153,14 +152,16 @@ public class RaftStorageImpl implements RaftStorage {
 
   public RaftConfiguration readRaftConfiguration() {
     File confFile = storageDir.getMetaConfFile();
-    try (InputStream fio = FileUtils.newInputStream(confFile)) {
-      LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
-      return LogProtoUtils.toRaftConfiguration(confProto);
-    } catch (FileNotFoundException | NoSuchFileException e) {
+    if (!confFile.exists()) {
       return null;
-    } catch (Exception e) {
-      LOG.error("Failed reading configuration from file:" + confFile, e);
-      return null;
+    } else {
+      try (InputStream fio = FileUtils.newInputStream(confFile)) {
+        LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
+        return LogProtoUtils.toRaftConfiguration(confProto);
+      } catch (Exception e) {
+        LOG.error("Failed reading configuration from file:" + confFile, e);
+        return null;
+      }
     }
   }
 
