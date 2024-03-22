@@ -116,7 +116,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
 
     final List<SingleFileSnapshotInfo> allSnapshotFiles = getSingleFileSnapshotInfos(stateMachineDir.toPath());
 
-    if (allSnapshotFiles.size() > snapshotRetentionPolicy.getNumSnapshotsRetained()) {
+    if (allSnapshotFiles.size() > numSnapshotsRetained) {
       allSnapshotFiles.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
       allSnapshotFiles.subList(numSnapshotsRetained, allSnapshotFiles.size())
           .stream()
