@@ -40,6 +40,7 @@ public final class MemoizedSupplier<T> implements Supplier<T> {
   }
 
   private final Supplier<T> initializer;
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for immutable object warning
   private volatile T value = null;
 
   /**

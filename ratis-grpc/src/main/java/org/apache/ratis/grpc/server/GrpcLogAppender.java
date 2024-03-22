@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.grpc.server;
 
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcUtil;
@@ -157,7 +158,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   private final int maxOutstandingInstallSnapshots;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
-  private volatile StreamObservers appendLogRequestObserver;
+  private AtomicReference<StreamObservers> appendLogRequestObserver = new AtomicReference<>();
   private final boolean useSeparateHBChannel;
 
   private final GrpcServerMetrics grpcServerMetrics;
@@ -203,9 +204,9 @@ public class GrpcLogAppender extends LogAppenderBase {
   private void resetClient(AppendEntriesRequest request, Event event) {
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       getClient().resetConnectBackoff();
-      if (appendLogRequestObserver != null) {
-        appendLogRequestObserver.stop();
-        appendLogRequestObserver = null;
+      if (appendLogRequestObserver.get() != null) {
+        appendLogRequestObserver.get().stop();
+        appendLogRequestObserver.set(null);
       }
       final int errorCount = replyState.process(event);
       // clear the pending requests queue and reset the next index of follower
@@ -264,7 +265,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       getLeaderState().checkHealth(getFollower());
     }
 
-    Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObservers::onCompleted);
+    Optional.ofNullable(appendLogRequestObserver.get()).ifPresent(StreamObservers::onCompleted);
   }
 
   public long getWaitTimeMs() {
@@ -308,7 +309,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   @Override
   public boolean shouldSendAppendEntries() {
-    return appendLogRequestObserver == null || super.shouldSendAppendEntries();
+    return appendLogRequestObserver.get() == null || super.shouldSendAppendEntries();
   }
 
   @Override
@@ -391,9 +392,9 @@ public class GrpcLogAppender extends LogAppenderBase {
       request = new AppendEntriesRequest(pending, getFollowerId(), grpcServerMetrics);
       pendingRequests.put(request);
       increaseNextIndex(pending);
-      if (appendLogRequestObserver == null) {
-        appendLogRequestObserver = new StreamObservers(
-            getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
+      if (appendLogRequestObserver.get() == null) {
+        appendLogRequestObserver.set(new StreamObservers(
+            getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin()));
       }
     }
 
@@ -423,7 +424,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         getServer().getId(), null, proto);
     resetHeartbeatTrigger();
 
-    StreamObservers observers = appendLogRequestObserver;
+    StreamObservers observers = appendLogRequestObserver.get();
     if (observers != null) {
       request.startRequestTimer();
       observers.onNext(proto);
@@ -863,6 +864,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   static class AppendEntriesRequest {
     private final Timekeeper timer;
+    @SuppressWarnings({"squid:S3077"}) // Suppress volatile for immutable object warning
     private volatile Timekeeper.Context timerContext;
 
     private final long callId;
@@ -871,7 +873,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     private final TermIndex firstEntry;
     private final TermIndex lastEntry;
-
+    @SuppressWarnings({"squid:S3077"}) // Suppress volatile for immutable object warning
     private volatile Timestamp sendTime;
 
     AppendEntriesRequest(AppendEntriesRequestProto proto, RaftPeerId followerId, GrpcServerMetrics grpcServerMetrics) {

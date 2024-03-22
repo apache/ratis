@@ -87,6 +87,7 @@ public class TestRaftStorage extends BaseTest {
     return impl;
   }
 
+  @SuppressWarnings({"squid:S5783"}) // Suppress same exception warning
   @Test
   public void testNotExistent() throws IOException {
     FileUtils.deleteFully(storageDir);
