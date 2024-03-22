@@ -647,6 +647,18 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, TRIGGER_WHEN_STOP_ENABLED_KEY, triggerWhenStopEnabled);
     }
 
+    /** whether trigger snapshot when remove raft server */
+    String TRIGGER_WHEN_REMOVE_ENABLED_KEY = PREFIX + ".trigger-when-remove.enabled";
+    /** by default let the state machine to trigger snapshot when remove */
+    boolean TRIGGER_WHEN_REMOVE_ENABLED_DEFAULT = true;
+    static boolean triggerWhenRemoveEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          TRIGGER_WHEN_REMOVE_ENABLED_KEY, TRIGGER_WHEN_REMOVE_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setTriggerWhenRemoveEnabled(RaftProperties properties, boolean triggerWhenRemoveEnabled) {
+      setBoolean(properties::setBoolean, TRIGGER_WHEN_REMOVE_ENABLED_KEY, triggerWhenRemoveEnabled);
+    }
+
     /** The log index gap between to two snapshot creations. */
     String CREATION_GAP_KEY = PREFIX + ".creation.gap";
     long CREATION_GAP_DEFAULT = 1024;
