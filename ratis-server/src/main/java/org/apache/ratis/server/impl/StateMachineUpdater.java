@@ -74,6 +74,8 @@ class StateMachineUpdater implements Runnable {
 
   private final boolean triggerSnapshotWhenStopEnabled;
 
+  private final boolean triggerSnapshotWhenRemoveEnabled;
+
   private final Long autoSnapshotThreshold;
   private final boolean purgeUptoSnapshotIndex;
 
@@ -91,6 +93,8 @@ class StateMachineUpdater implements Runnable {
 
   private final Consumer<Long> appliedIndexConsumer;
 
+  private volatile boolean isRemoving;
+
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
       ServerState serverState, long lastAppliedIndex, RaftProperties properties, Consumer<Long> appliedIndexConsumer) {
     this.name = serverState.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -106,6 +110,7 @@ class StateMachineUpdater implements Runnable {
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", lastAppliedIndex);
 
     this.triggerSnapshotWhenStopEnabled = RaftServerConfigKeys.Snapshot.triggerWhenStopEnabled(properties);
+    this.triggerSnapshotWhenRemoveEnabled = RaftServerConfigKeys.Snapshot.triggerWhenRemoveEnabled(properties);
     final boolean autoSnapshot = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties);
     this.autoSnapshotThreshold = autoSnapshot? RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties): null;
     final int numSnapshotFilesRetained = RaftServerConfigKeys.Snapshot.retentionFileNum(properties);
@@ -327,10 +332,31 @@ class StateMachineUpdater implements Runnable {
     if (autoSnapshotThreshold == null) {
       return false;
     } else if (shouldStop()) {
-      return triggerSnapshotWhenStopEnabled && getLastAppliedIndex() - snapshotIndex.get() > 0;
+      return shouldTakeSnapshotAtStop() && getLastAppliedIndex() - snapshotIndex.get() > 0;
     }
     return state == State.RUNNING &&
         getStateMachineLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold;
+  }
+
+  /**
+   * In view of the three variables triggerSnapshotWhenStopEnabled, triggerSnapshotWhenRemoveEnabled and isRemoving,
+   * we can draw the following 8 combination:
+   * true true true => true
+   * true true false => true
+   * true false true => false
+   * true false false => true
+   * false true true => true
+   * false true false =>  false
+   * false false true => false
+   * false false false => false
+   * @return result
+   */
+  private boolean shouldTakeSnapshotAtStop() {
+    return isRemoving ? triggerSnapshotWhenRemoveEnabled : triggerSnapshotWhenStopEnabled;
+  }
+
+  void setRemoving() {
+    this.isRemoving = true;
   }
 
   private long getLastAppliedIndex() {
