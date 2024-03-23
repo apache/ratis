@@ -461,6 +461,7 @@ class RaftServerImpl implements RaftServer.Division,
     final RaftStorageDirectory dir = state.getStorage().getStorageDir();
 
     /* Shutdown is triggered here inorder to avoid any locked files. */
+    state.getStateMachineUpdater().setRemoving();
     close();
     getStateMachine().event().notifyGroupRemove();
     if (deleteDirectory) {
