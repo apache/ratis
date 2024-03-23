@@ -332,7 +332,7 @@ class StateMachineUpdater implements Runnable {
     if (autoSnapshotThreshold == null) {
       return false;
     } else if (shouldStop()) {
-      return shouldTakeSnapshotAccordingToConfAndStatus() && getLastAppliedIndex() - snapshotIndex.get() > 0;
+      return shouldTakeSnapshotAtStop() && getLastAppliedIndex() - snapshotIndex.get() > 0;
     }
     return state == State.RUNNING &&
         getStateMachineLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold;
@@ -351,9 +351,12 @@ class StateMachineUpdater implements Runnable {
    * false false false => false
    * @return result
    */
-  private boolean shouldTakeSnapshotAccordingToConfAndStatus() {
-    return (triggerSnapshotWhenStopEnabled || isRemoving)
-        && (triggerSnapshotWhenRemoveEnabled || !isRemoving);
+  private boolean shouldTakeSnapshotAtStop() {
+    return isRemoving ? triggerSnapshotWhenRemoveEnabled : triggerSnapshotWhenStopEnabled;
+  }
+
+  void setRemoving() {
+    this.isRemoving = true;
   }
 
   private long getLastAppliedIndex() {
@@ -362,10 +365,6 @@ class StateMachineUpdater implements Runnable {
 
   private void notifyAppliedIndex(long index) {
     appliedIndexConsumer.accept(index);
-  }
-
-  void setRemoving() {
-    this.isRemoving = true;
   }
 
   long getStateMachineLastAppliedIndex() {
