@@ -172,7 +172,7 @@ public final class RaftClientImpl implements RaftClient {
   private final RaftGroupId groupId;
   private final RetryPolicy retryPolicy;
 
-  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for immutable object warning
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile RaftPeerId leaderId;
   /** The callIds of the replied requests. */
   private final RepliedCallIds repliedCallIds;

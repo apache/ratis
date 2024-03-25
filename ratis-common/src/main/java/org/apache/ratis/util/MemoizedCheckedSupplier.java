@@ -45,7 +45,7 @@ public final class MemoizedCheckedSupplier<RETURN, THROW extends Throwable>
 
   private final CheckedSupplier<RETURN, THROW> initializer;
 
-  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for immutable object warning
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile RETURN value = null;
 
   /**
