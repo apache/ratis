@@ -32,7 +32,6 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.common.base.MoreObjects;
 import org.apache.ratis.util.FileUtils;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
@@ -40,7 +39,7 @@ import java.util.Collections;
 /**
  * A simple raft server using {@link CounterStateMachine}.
  */
-public class CServer implements Closeable {
+public class CServer {
   public static final RaftGroupId GROUP_ID = RaftGroupId.randomId();
   public static final String LOCAL_ADDR = "0.0.0.0";
 
@@ -78,7 +77,6 @@ public class CServer implements Closeable {
     return server.getPeer();
   }
 
-  @Override
   public void close() throws IOException {
     server.close();
     FileUtils.deleteFully(storageDir);
