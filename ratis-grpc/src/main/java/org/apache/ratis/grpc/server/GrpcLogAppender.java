@@ -156,7 +156,6 @@ public class GrpcLogAppender extends LogAppenderBase {
   private final TimeDuration logMessageBatchDuration;
   private final int maxOutstandingInstallSnapshots;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
-
   private volatile StreamObservers appendLogRequestObserver;
   private final boolean useSeparateHBChannel;
 
@@ -863,6 +862,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   static class AppendEntriesRequest {
     private final Timekeeper timer;
+    @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
     private volatile Timekeeper.Context timerContext;
 
     private final long callId;
@@ -871,7 +871,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     private final TermIndex firstEntry;
     private final TermIndex lastEntry;
-
+    @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
     private volatile Timestamp sendTime;
 
     AppendEntriesRequest(AppendEntriesRequestProto proto, RaftPeerId followerId, GrpcServerMetrics grpcServerMetrics) {

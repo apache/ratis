@@ -34,6 +34,7 @@ public final class Server {
   private Server(){
   }
 
+  @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   public static void main(String[] args) throws IOException {
     if (args.length < 1) {
       System.err.println("The arguments should be <ip:port>");
