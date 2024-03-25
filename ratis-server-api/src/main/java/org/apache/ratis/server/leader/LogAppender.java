@@ -87,10 +87,11 @@ public interface LogAppender {
   default CompletableFuture<?> stopAsync() {
     stop();
     return CompletableFuture.supplyAsync(() -> {
-      for (; isRunning(); ) {
+      while (isRunning()) {
         try {
           Thread.sleep(10);
         } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
           throw new CompletionException("stopAsync interrupted", e);
         }
       }

@@ -162,6 +162,9 @@ public abstract class Client extends SubCommandBase {
       Process pro = Runtime.getRuntime().exec(cmds);
       pro.waitFor();
     } catch (Throwable t) {
+      if (t instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
       System.err.println("Failed to run command:" + Arrays.toString(cmds) + ":" + t.getMessage());
     }
   }
