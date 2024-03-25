@@ -24,7 +24,8 @@ public final class SnapshotManagementRequest extends RaftClientRequest {
   public abstract static class Op {
 
   }
-  public static class Create extends Op {
+
+  public static final class Create extends Op {
     private final long creationGap;
     private Create(long creationGap) {
       this.creationGap = creationGap;
