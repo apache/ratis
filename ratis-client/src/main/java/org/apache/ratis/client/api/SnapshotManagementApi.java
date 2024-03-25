@@ -32,5 +32,11 @@ public interface SnapshotManagementApi {
     return create(0, timeoutMs);
   }
 
+  /** trigger create snapshot file. If forced, ignore the creation gap. */
+  default RaftClientReply create(boolean force, long timeoutMs) throws IOException {
+    return create(1, timeoutMs);
+  }
+
+  /** trigger create snapshot file if the number of newly applied logs since last snapshot exceeds creationGap. */
   RaftClientReply create(long creationGap, long timeoutMs) throws IOException;
 }
