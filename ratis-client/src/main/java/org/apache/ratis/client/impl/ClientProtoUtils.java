@@ -659,7 +659,8 @@ public interface ClientProtoUtils {
     switch(p.getOpCase()) {
       case CREATE:
         return SnapshotManagementRequest.newCreate(clientId, serverId,
-            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId(), m.getTimeoutMs());
+            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId(), m.getTimeoutMs(),
+            p.getCreate().getCreationGap());
       default:
         throw new IllegalArgumentException("Unexpected op " + p.getOpCase() + " in " + p);
     }
@@ -671,7 +672,7 @@ public interface ClientProtoUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
     final SnapshotManagementRequest.Create create = request.getCreate();
     if (create != null) {
-      b.setCreate(SnapshotCreateRequestProto.newBuilder().build());
+      b.setCreate(SnapshotCreateRequestProto.newBuilder().setCreationGap(create.getCreationGap()).build());
     }
     return b.build();
   }
