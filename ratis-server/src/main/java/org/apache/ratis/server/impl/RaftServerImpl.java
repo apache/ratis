@@ -1223,9 +1223,10 @@ class RaftServerImpl implements RaftServer.Division,
     LOG.info("{}: takeSnapshotAsync {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(getMemberId(), request);
+    Preconditions.assertNotNull(request.getCreate(), "create");
 
-    //TODO(liuyaolong): get the gap value from shell command
-    long minGapValue = RaftServerConfigKeys.Snapshot.creationGap(proxy.getProperties());
+    final long creationGap = request.getCreate().getCreationGap();
+    long minGapValue = creationGap > 0? creationGap : RaftServerConfigKeys.Snapshot.creationGap(proxy.getProperties());
     final long lastSnapshotIndex = Optional.ofNullable(stateMachine.getLatestSnapshot())
         .map(SnapshotInfo::getIndex)
         .orElse(0L);
