@@ -135,8 +135,14 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public EntryWithData getEntryWithData(long index) {
-    return newEntryWithData(retainLog(index), null);
+  public EntryWithData getEntryWithData(long index) throws RaftLogIOException {
+    throw new UnsupportedOperationException("Use retainEntryWithData(" + index + ") instead.");
+  }
+
+  @Override
+  public ReferenceCountedObject<EntryWithData> retainEntryWithData(long index) {
+    final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
+    return ref.delegate(newEntryWithData(ref.get(), null));
   }
 
   @Override

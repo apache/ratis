@@ -319,17 +319,19 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   public EntryWithData getEntryWithData(long index) throws RaftLogIOException {
+    throw new UnsupportedOperationException("Use retainEntryWithData(" + index + ") instead.");
+  }
+
+  @Override
+  public ReferenceCountedObject<EntryWithData> retainEntryWithData(long index) throws RaftLogIOException {
     final ReferenceCountedObject<LogEntryProto> entryRef = retainLog(index);
     if (entryRef == null) {
       throw new RaftLogIOException("Log entry not found: index = " + index);
     }
-    return getEntryWithData(entryRef);
-  }
 
-  private EntryWithData getEntryWithData(ReferenceCountedObject<LogEntryProto> entryRef) throws RaftLogIOException {
-    LogEntryProto entry = entryRef.get();
+    final LogEntryProto entry = entryRef.get();
     if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
-      return newEntryWithData(entryRef, null);
+      return entryRef.delegate(newEntryWithData(entry, null));
     }
 
     try {
@@ -340,7 +342,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
           throw new CompletionException("Failed to read state machine data for log entry " + entry, ex);
         });
       }
-      return newEntryWithData(entryRef, future);
+      return entryRef.delegate(newEntryWithData(entry, future));
     } catch (Exception e) {
       final String err = getName() + ": Failed readStateMachineData for " +
           LogProtoUtils.toLogEntryString(entry);

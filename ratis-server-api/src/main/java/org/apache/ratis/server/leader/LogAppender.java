@@ -124,7 +124,7 @@ public interface LogAppender {
    * @param heartbeat the returned request must be a heartbeat.
    *
    * @return a new {@link AppendEntriesRequestProto} object.
-   * @deprecated this is not supposed to be an external-facing API.
+   * @deprecated this is no longer a public API.
    */
   @Deprecated
   AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat) throws RaftLogIOException;
