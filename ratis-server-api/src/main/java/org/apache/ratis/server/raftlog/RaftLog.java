@@ -79,8 +79,22 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
   /**
    * @return null if the log entry is not found in this log;
    *         otherwise, return the {@link EntryWithData} corresponding to the given index.
+   * @deprecated use {@link #retainEntryWithData(long)}.
    */
+  @Deprecated
   EntryWithData getEntryWithData(long index) throws RaftLogIOException;
+
+  /**
+   * @return null if the log entry is not found in this log;
+   *         otherwise, return a retained reference of the {@link EntryWithData} corresponding to the given index.
+   *         Since the returned reference is retained, the caller must call {@link ReferenceCountedObject#release()}}
+   *         after use.
+   */
+  default ReferenceCountedObject<EntryWithData> retainEntryWithData(long index) throws RaftLogIOException {
+    final ReferenceCountedObject<EntryWithData> wrap = ReferenceCountedObject.wrap(getEntryWithData(index));
+    wrap.retain();
+    return wrap;
+}
 
   /**
    * @param startIndex the starting log index (inclusive)
@@ -172,6 +186,15 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
    * containing both the log entry and the state machine data.
    */
   interface EntryWithData {
+    /** @return the index of this entry. */
+    default long getIndex() {
+      try {
+        return getEntry(TimeDuration.ONE_MINUTE).getIndex();
+      } catch (Exception e) {
+        throw new IllegalStateException("Failed to getIndex", e);
+      }
+    }
+
     /** @return the serialized size including both log entry and state machine data. */
     int getSerializedSize();
 

@@ -26,6 +26,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
@@ -58,11 +59,15 @@ class LogAppenderDefault extends LogAppenderBase {
       throws InterruptedException, InterruptedIOException, RaftLogIOException {
     int retry = 0;
 
-    AppendEntriesRequestProto request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
+    ReferenceCountedObject<AppendEntriesRequestProto> request = nextAppendEntriesRequest(
+        CallId.getAndIncrement(), false);
     while (isRunning()) { // keep retrying for IOException
       try {
-        if (request == null || request.getEntriesCount() == 0) {
-          request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
+        if (request == null || request.get().getEntriesCount() == 0) {
+          if (request != null) {
+            request.release();
+          }
+          request = nextAppendEntriesRequest(CallId.getAndIncrement(), false);
         }
 
         if (request == null) {
@@ -73,14 +78,8 @@ class LogAppenderDefault extends LogAppenderBase {
           return null;
         }
 
-        resetHeartbeatTrigger();
-        final Timestamp sendTime = Timestamp.currentTime();
-        getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
-        final AppendEntriesReplyProto r = getServerRpc().appendEntries(request);
-        getFollower().updateLastRpcResponseTime();
-        getFollower().updateLastRespondedAppendEntriesSendTime(sendTime);
-
-        getLeaderState().onFollowerCommitIndex(getFollower(), r.getFollowerCommit());
+        AppendEntriesReplyProto r = sendAppendEntries(request.get());
+        request.release();
         return r;
       } catch (InterruptedIOException | RaftLogIOException e) {
         throw e;
@@ -96,6 +95,18 @@ class LogAppenderDefault extends LogAppenderBase {
       }
     }
     return null;
+  }
+
+  private AppendEntriesReplyProto sendAppendEntries(AppendEntriesRequestProto request) throws IOException {
+    resetHeartbeatTrigger();
+    final Timestamp sendTime = Timestamp.currentTime();
+    getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
+    final AppendEntriesReplyProto r = getServerRpc().appendEntries(request);
+    getFollower().updateLastRpcResponseTime();
+    getFollower().updateLastRespondedAppendEntriesSendTime(sendTime);
+
+    getLeaderState().onFollowerCommitIndex(getFollower(), r.getFollowerCommit());
+    return r;
   }
 
   private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot) throws InterruptedIOException {

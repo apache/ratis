@@ -33,11 +33,14 @@ import org.apache.ratis.util.DataQueue;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -218,16 +221,35 @@ public abstract class LogAppenderBase implements LogAppender {
     };
   }
 
-
   @Override
-  public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat)
+  public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat) {
+    throw new UnsupportedOperationException("Use nextAppendEntriesRequest(" + callId + ", " + heartbeat +") instead.");
+  }
+
+/**
+ * Create a {@link AppendEntriesRequestProto} object using the {@link FollowerInfo} of this {@link LogAppender}.
+ * The {@link AppendEntriesRequestProto} object may contain zero or more log entries.
+ * When there is zero log entries, the {@link AppendEntriesRequestProto} object is a heartbeat.
+ *
+ * @param callId The call id of the returned request.
+ * @param heartbeat the returned request must be a heartbeat.
+ *
+ * @return a retained reference of {@link AppendEntriesRequestProto} object.
+ *         Since the returned reference is retained, the caller must call {@link ReferenceCountedObject#release()}}
+ *         after use.
+ */
+  protected ReferenceCountedObject<AppendEntriesRequestProto> nextAppendEntriesRequest(long callId, boolean heartbeat)
       throws RaftLogIOException {
     final long heartbeatWaitTimeMs = getHeartbeatWaitTimeMs();
     final TermIndex previous = getPrevious(follower.getNextIndex());
     if (heartbeatWaitTimeMs <= 0L || heartbeat) {
       // heartbeat
-      return leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(),
-          hasPendingDataRequests()? null : previous, callId);
+      AppendEntriesRequestProto heartbeatRequest =
+          leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(),
+              hasPendingDataRequests() ? null : previous, callId);
+      ReferenceCountedObject<AppendEntriesRequestProto> ref = ReferenceCountedObject.wrap(heartbeatRequest);
+      ref.retain();
+      return ref;
     }
 
     Preconditions.assertTrue(buffer.isEmpty(), () -> "buffer has " + buffer.getNumElements() + " elements.");
@@ -236,10 +258,14 @@ public abstract class LogAppenderBase implements LogAppender {
     final long leaderNext = getRaftLog().getNextIndex();
     final long followerNext = follower.getNextIndex();
     final long halfMs = heartbeatWaitTimeMs/2;
-    for (long next = followerNext; leaderNext > next && getHeartbeatWaitTimeMs() - halfMs > 0; ) {
-      if (!buffer.offer(getRaftLog().getEntryWithData(next++))) {
+    final Map<Long, ReferenceCountedObject<EntryWithData>> offered = new HashMap<>();
+    for (long next = followerNext; leaderNext > next && getHeartbeatWaitTimeMs() - halfMs > 0; next++) {
+      final ReferenceCountedObject<EntryWithData> entryWithData = getRaftLog().retainEntryWithData(next);
+      if (!buffer.offer(entryWithData.get())) {
+        entryWithData.release();
         break;
       }
+      offered.put(next, entryWithData);
     }
     if (buffer.isEmpty()) {
       return null;
@@ -248,9 +274,15 @@ public abstract class LogAppenderBase implements LogAppender {
     final List<LogEntryProto> protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
         (entry, time, exception) -> LOG.warn("Failed to get " + entry
             + " in " + time.toString(TimeUnit.MILLISECONDS, 3), exception));
+    for (EntryWithData entry : buffer) {
+      // Release remaining entries.
+      offered.remove(entry.getIndex()).release();
+    }
     buffer.clear();
     assertProtos(protos, followerNext, previous, snapshotIndex);
-    return leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
+    AppendEntriesRequestProto appendEntriesProto =
+        leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
+    return ReferenceCountedObject.delegateFrom(offered.values(), appendEntriesProto);
   }
 
   private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous, long snapshotIndex) {

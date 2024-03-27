@@ -428,9 +428,14 @@ public abstract class RaftLogBase implements RaftLog {
 
     private ByteString checkStateMachineData(ByteString data) {
       if (data == null) {
-        throw new IllegalStateException("State machine data is null for log entry " + logEntry);
+        throw new IllegalStateException("State machine data is null for log entry " + this);
       }
       return data;
+    }
+
+    @Override
+    public long getIndex() {
+      return logEntry.getIndex();
     }
 
     @Override
@@ -440,11 +445,11 @@ public abstract class RaftLogBase implements RaftLog {
 
     @Override
     public LogEntryProto getEntry(TimeDuration timeout) throws RaftLogIOException, TimeoutException {
-      LogEntryProto entryProto;
       if (future == null) {
         return logEntry;
       }
 
+      final LogEntryProto entryProto;
       try {
         entryProto = future.thenApply(data -> LogProtoUtils.addStateMachineData(data, logEntry))
             .get(timeout.getDuration(), timeout.getUnit());
@@ -457,14 +462,14 @@ public abstract class RaftLogBase implements RaftLog {
         if (e instanceof InterruptedException) {
           Thread.currentThread().interrupt();
         }
-        final String err = getName() + ": Failed readStateMachineData for " + toLogEntryString(logEntry);
+        final String err = getName() + ": Failed readStateMachineData for " + this;
         LOG.error(err, e);
         throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
       }
       // by this time we have already read the state machine data,
       // so the log entry data should be set now
       if (LogProtoUtils.isStateMachineDataEmpty(entryProto)) {
-        final String err = getName() + ": State machine data not set for " + toLogEntryString(logEntry);
+        final String err = getName() + ": State machine data not set for " + this;
         LOG.error(err);
         throw new RaftLogIOException(err);
       }
