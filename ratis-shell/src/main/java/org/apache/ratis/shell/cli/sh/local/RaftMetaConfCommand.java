@@ -24,7 +24,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
-import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shell.cli.sh.command.AbstractCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -49,6 +49,9 @@ public class RaftMetaConfCommand extends AbstractCommand {
   private static final String RAFT_META_CONF = "raft-meta.conf";
   private static final String NEW_RAFT_META_CONF = "new-raft-meta.conf";
 
+  private static final String SEPARATOR = "\\|";
+
+
   /**
    * @param context command context
    */
@@ -70,10 +73,14 @@ public class RaftMetaConfCommand extends AbstractCommand {
       return -1;
     }
     List<RaftPeerProto> raftPeerProtos = new ArrayList<>();
-    for (String address : peersStr.split(",")) {
-      String peerId = RaftUtils.getPeerId(parseInetSocketAddress(address)).toString();
+    for (String idWithAddress : peersStr.split(",")) {
+      String[] peerIdWithAddress = idWithAddress.split(SEPARATOR);
+
+      String peerId = RaftPeerId.getRaftPeerId(peerIdWithAddress[0]).toString();
+
       raftPeerProtos.add(RaftPeerProto.newBuilder()
-          .setId(ByteString.copyFrom(peerId.getBytes(StandardCharsets.UTF_8))).setAddress(address)
+          .setId(ByteString.copyFrom(peerId.getBytes(StandardCharsets.UTF_8)))
+          .setAddress(parseInetSocketAddress(peerIdWithAddress[1]).toString())
           .setStartupRole(RaftPeerRole.FOLLOWER).build());
     }
     try (InputStream in = Files.newInputStream(Paths.get(path, RAFT_META_CONF));
