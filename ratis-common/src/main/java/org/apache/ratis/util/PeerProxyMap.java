@@ -45,6 +45,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
   /** Peer and its proxy. */
   private class PeerAndProxy {
     private final RaftPeer peer;
+    @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
     private volatile PROXY proxy = null;
     private final LifeCycle lifeCycle;
 

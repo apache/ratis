@@ -51,6 +51,7 @@ public final class LeaderElectionMetrics extends RatisMetrics {
 
   private final Timekeeper electionTime = getRegistry().timer(LEADER_ELECTION_TIME_TAKEN);
 
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile Timestamp lastElectionTime;
 
   private LeaderElectionMetrics(RaftGroupMemberId serverId, LongSupplier getLastLeaderElapsedTimeMs) {

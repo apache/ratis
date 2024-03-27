@@ -77,6 +77,7 @@ public class SnapshotManager {
         new File(dir.get().getRoot(), c.getFilename()).toPath()).toString();
   }
 
+  @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   private FileChannel open(FileChunkProto chunk, File tmpSnapshotFile) throws IOException {
     final FileChannel out;
     final boolean exists = tmpSnapshotFile.exists();
