@@ -156,6 +156,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   private final TimeDuration logMessageBatchDuration;
   private final int maxOutstandingInstallSnapshots;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile StreamObservers appendLogRequestObserver;
   private final boolean useSeparateHBChannel;
 

@@ -211,6 +211,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   private final boolean stateMachineCachingEnabled;
   private final SegmentedRaftLogMetrics metrics;
 
+  @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   private SegmentedRaftLog(Builder b) {
     super(b.memberId, b.snapshotIndexSupplier, b.properties);
     this.metrics = new SegmentedRaftLogMetrics(b.memberId);
