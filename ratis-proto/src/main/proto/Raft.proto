@@ -469,7 +469,7 @@ message SnapshotManagementRequestProto {
 }
 
 message SnapshotCreateRequestProto {
-
+  uint64 creationGap = 1;
 }
 
 message StartLeaderElectionRequestProto {

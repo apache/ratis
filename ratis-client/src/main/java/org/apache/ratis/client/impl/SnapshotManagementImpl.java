@@ -37,9 +37,10 @@ class SnapshotManagementImpl implements SnapshotManagementApi {
   }
 
   @Override
-  public RaftClientReply create(long timeoutMs) throws IOException {
+  public RaftClientReply create(long creationGap, long timeoutMs) throws IOException {
     final long callId = CallId.getAndIncrement();
     return client.io().sendRequestWithRetry(() -> SnapshotManagementRequest.newCreate(client.getId(),
-        Optional.ofNullable(server).orElseGet(client::getLeaderId), client.getGroupId(), callId, timeoutMs));
+        Optional.ofNullable(server).orElseGet(client::getLeaderId),
+        client.getGroupId(), callId, timeoutMs, creationGap));
   }
 }
