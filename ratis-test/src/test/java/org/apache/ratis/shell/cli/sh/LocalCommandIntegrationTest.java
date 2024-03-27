@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.shell.cli.sh;
 
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
@@ -78,7 +79,7 @@ public class LocalCommandIntegrationTest {
     map.put("peer2_Id", "host2:9872");
     map.put("peer3_Id", "host3:9872");
     map.put("peer4_Id", "host4:9872");
-    List<RaftProtos.RaftPeerProto> raftPeerProtos = new ArrayList<>();
+    List<RaftPeerProto> raftPeerProtos = new ArrayList<>();
     for (Map.Entry<String, String> en : map.entrySet()) {
       raftPeerProtos.add(RaftPeerProto.newBuilder()
           .setId(ByteString.copyFrom(en.getKey().getBytes(StandardCharsets.UTF_8))).setAddress(en.getValue())
