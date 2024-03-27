@@ -50,8 +50,6 @@ public class RaftMetaConfCommand extends AbstractCommand {
   private static final String NEW_RAFT_META_CONF = "new-raft-meta.conf";
 
   private static final String SEPARATOR = "\\|";
-
-
   /**
    * @param context command context
    */
