@@ -137,8 +137,9 @@ public final class LogProtoUtils {
   }
 
   private static LogEntryProto replaceStateMachineDataWithSerializedSize(LogEntryProto entry) {
-    return replaceStateMachineEntry(entry,
+    LogEntryProto replaced = replaceStateMachineEntry(entry,
         StateMachineEntryProto.newBuilder().setLogEntryProtoSerializedSize(entry.getSerializedSize()));
+    return copy(replaced);
   }
 
   private static LogEntryProto replaceStateMachineEntry(LogEntryProto proto, StateMachineEntryProto.Builder newEntry) {
@@ -158,6 +159,13 @@ public final class LogProtoUtils {
     Preconditions.assertTrue(isStateMachineDataEmpty(entry),
         () -> "Failed to addStateMachineData to " + entry + " since shouldReadStateMachineData is false.");
     return replaceStateMachineEntry(entry, StateMachineEntryProto.newBuilder().setStateMachineData(stateMachineData));
+  }
+
+  public static boolean hasStateMachineData(LogEntryProto entry) {
+    return getStateMachineEntry(entry)
+        .map(StateMachineEntryProto::getStateMachineData)
+        .map(data -> !data.isEmpty())
+        .orElse(false);
   }
 
   public static boolean isStateMachineDataEmpty(LogEntryProto entry) {

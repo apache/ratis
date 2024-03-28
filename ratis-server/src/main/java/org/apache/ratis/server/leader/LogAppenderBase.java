@@ -39,6 +39,7 @@ import org.apache.ratis.util.TimeDuration;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -46,6 +47,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongUnaryOperator;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * An abstract implementation of {@link LogAppender}.
@@ -271,7 +274,8 @@ public abstract class LogAppenderBase implements LogAppender {
       return null;
     }
 
-    final List<LogEntryProto> protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
+    final List<ReferenceCountedObject<LogEntryProto>> protoWithDataRefs = buffer.pollList(getHeartbeatWaitTimeMs(),
+        EntryWithData::getEntryWithRetainedData,
         (entry, time, exception) -> LOG.warn("Failed to get " + entry
             + " in " + time.toString(TimeUnit.MILLISECONDS, 3), exception));
     for (EntryWithData entry : buffer) {
@@ -279,10 +283,16 @@ public abstract class LogAppenderBase implements LogAppender {
       offered.remove(entry.getIndex()).release();
     }
     buffer.clear();
+    List<LogEntryProto> protos = protoWithDataRefs.stream().map(ReferenceCountedObject::get).collect(toList());
     assertProtos(protos, followerNext, previous, snapshotIndex);
     AppendEntriesRequestProto appendEntriesProto =
         leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
-    return ReferenceCountedObject.delegateFrom(offered.values(), appendEntriesProto);
+
+    // Combine LogEntry all log entry references and data references.
+    List<ReferenceCountedObject<?>> allRefs = new LinkedList<>();
+    allRefs.addAll(protoWithDataRefs);
+    allRefs.addAll(offered.values());
+    return ReferenceCountedObject.delegateFrom(allRefs, appendEntriesProto);
   }
 
   private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous, long snapshotIndex) {

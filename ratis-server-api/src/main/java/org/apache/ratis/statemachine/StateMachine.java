@@ -89,6 +89,28 @@ public interface StateMachine extends Closeable {
     }
 
     /**
+     * Read asynchronously the state machine data from this state machine.
+     * StateMachines implement this method when the read result contains retained resources that should be released
+     * after using.
+     *
+     * @return a future for the read task. The result of the future is a {@link ReferenceCountedObject} wrapping the
+     * read result. Client code of this method should ensure calling  {@link ReferenceCountedObject#release()} after
+     * using it.
+     */
+    default CompletableFuture<ReferenceCountedObject<ByteString>> retainRead(LogEntryProto entry,
+        TransactionContext context) {
+      return read(entry, context).thenApply(r -> {
+        if (r == null) {
+          return null;
+        }
+        ReferenceCountedObject<ByteString> ref = ReferenceCountedObject.wrap(r);
+        ref.retain();
+        return ref;
+
+      });
+    }
+
+    /**
      * Write asynchronously the state machine data in the given log entry to this state machine.
      *
      * @return a future for the write task

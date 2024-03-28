@@ -102,7 +102,7 @@ public interface ReferenceCountedObject<T> {
     return wrap(value, () -> {}, ignored -> {});
   }
 
-  static <T, V> ReferenceCountedObject<V> delegateFrom(Collection<ReferenceCountedObject<T>> fromRefs, V value) {
+  static <V> ReferenceCountedObject<V> delegateFrom(Collection<ReferenceCountedObject<?>> fromRefs, V value) {
     return new ReferenceCountedObject<V>() {
       @Override
       public V get() {
@@ -118,7 +118,7 @@ public interface ReferenceCountedObject<T> {
       @Override
       public boolean release() {
         boolean allReleased = true;
-        for (ReferenceCountedObject<T> ref : fromRefs) {
+        for (ReferenceCountedObject<?> ref : fromRefs) {
           if (!ref.release()) {
             allReleased = false;
           }
