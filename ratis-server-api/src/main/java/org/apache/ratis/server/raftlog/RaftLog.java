@@ -220,7 +220,9 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
      */
     default ReferenceCountedObject<LogEntryProto> getEntryWithRetainedData(TimeDuration timeout)
         throws RaftLogIOException, TimeoutException  {
-      throw new UnsupportedOperationException();
+      ReferenceCountedObject<LogEntryProto> ref = ReferenceCountedObject.wrap(getEntry(timeout));
+      ref.retain();
+      return ref;
     }
   }
 }
