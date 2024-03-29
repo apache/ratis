@@ -494,6 +494,11 @@ further wait for 5sec for max times ((5sec*980)/2 times ~= 40min)
 | **Type**        | boolean                                            |
 | **Default**     | true                                               |
 
+| **Property**    | `raft.server.snapshot.trigger-when-remove.enabled`      |
+|:----------------|:--------------------------------------------------------|
+| **Description** | whether to trigger snapshot when raft server is removed |
+| **Type**        | boolean                                                 |
+| **Default**     | true                                                    |
 
 | **Property**    | `raft.server.snapshot.creation.gap`                  |
 |:----------------|:-----------------------------------------------------|
