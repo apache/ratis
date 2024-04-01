@@ -419,7 +419,7 @@ public abstract class RaftLogBase implements RaftLog {
       CompletableFuture<ReferenceCountedObject<ByteString>> stateMachineDataFuture) {
     final EntryWithDataImpl impl = new EntryWithDataImpl(retained.get(), stateMachineDataFuture);
     return new ReferenceCountedObject<EntryWithData>() {
-      CompletableFuture<ReferenceCountedObject<ByteString>> future
+      private CompletableFuture<ReferenceCountedObject<ByteString>> future
           = Objects.requireNonNull(stateMachineDataFuture, "stateMachineDataFuture == null");
 
       @Override
