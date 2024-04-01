@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.raftlog;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -410,9 +411,43 @@ public abstract class RaftLogBase implements RaftLog {
     return name;
   }
 
-  protected EntryWithData newEntryWithData(LogEntryProto logEntry,
-      CompletableFuture<ReferenceCountedObject<ByteString>> future) {
-    return new EntryWithDataImpl(logEntry, future);
+  protected ReferenceCountedObject<EntryWithData> newEntryWithData(ReferenceCountedObject<LogEntryProto> retained) {
+    return retained.delegate(new EntryWithDataImpl(retained.get(), null));
+  }
+
+  protected ReferenceCountedObject<EntryWithData> newEntryWithData(ReferenceCountedObject<LogEntryProto> retained,
+      CompletableFuture<ReferenceCountedObject<ByteString>> stateMachineDataFuture) {
+    final EntryWithDataImpl impl = new EntryWithDataImpl(retained.get(), stateMachineDataFuture);
+    return new ReferenceCountedObject<EntryWithData>() {
+      CompletableFuture<ReferenceCountedObject<ByteString>> future
+          = Objects.requireNonNull(stateMachineDataFuture, "stateMachineDataFuture == null");
+
+      @Override
+      public EntryWithData get() {
+        return impl;
+      }
+
+      synchronized void updateFuture(Consumer<ReferenceCountedObject<?>> action) {
+        future = future.whenComplete((ref, e) -> {
+          if (ref != null) {
+            action.accept(ref);
+          }
+        });
+      }
+
+      @Override
+      public EntryWithData retain() {
+        retained.retain();
+        updateFuture(ReferenceCountedObject::retain);
+        return impl;
+      }
+
+      @Override
+      public boolean release() {
+        updateFuture(ReferenceCountedObject::release);
+        return retained.release();
+      }
+    };
   }
 
   /**
@@ -445,14 +480,9 @@ public abstract class RaftLogBase implements RaftLog {
     }
 
     @Override
-    public ReferenceCountedObject<LogEntryProto> getEntryWithRetainedData(TimeDuration timeout)
-        throws RaftLogIOException, TimeoutException {
-
+    public LogEntryProto getEntry(TimeDuration timeout) throws RaftLogIOException, TimeoutException {
       if (future == null) {
-        ReferenceCountedObject<LogEntryProto> dataRef = ReferenceCountedObject.wrap(logEntry);
-        // simulate the retained data.
-        dataRef.retain();
-        return dataRef;
+        return logEntry;
       }
 
       final LogEntryProto entryProto;
@@ -483,7 +513,7 @@ public abstract class RaftLogBase implements RaftLog {
         data.release();
         throw new RaftLogIOException(err);
       }
-      return data.delegate(entryProto);
+      return entryProto;
     }
 
     private void discardData() {

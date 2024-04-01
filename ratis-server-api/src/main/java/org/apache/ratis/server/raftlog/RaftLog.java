@@ -188,41 +188,17 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
   interface EntryWithData {
     /** @return the index of this entry. */
     default long getIndex() {
-      ReferenceCountedObject<LogEntryProto> ref = null;
       try {
-        ref = getEntryWithRetainedData(TimeDuration.ONE_MINUTE);
-        return ref.get().getIndex();
+        return getEntry(TimeDuration.ONE_MINUTE).getIndex();
       } catch (Exception e) {
         throw new IllegalStateException("Failed to getIndex", e);
-      } finally {
-        if (ref != null) {
-          ref.release();
-        }
       }
     }
 
     /** @return the serialized size including both log entry and state machine data. */
     int getSerializedSize();
 
-    /**
-     * @return the {@link LogEntryProto} containing both the log entry and the state machine data.
-     * @deprecated
-     */
-    default LogEntryProto getEntry(TimeDuration timeout) throws RaftLogIOException, TimeoutException {
-      throw new UnsupportedOperationException();
-    }
-
-    /**
-     * @return a {@link ReferenceCountedObject} wrapping {@link LogEntryProto} containing both the log entry
-     * and the state machine data.
-     * The state machine data are retained (by the state machine) and this is represented by the wrapping
-     * {@link ReferenceCountedObject}. The caller must call {@link ReferenceCountedObject#release()}} after use.
-     */
-    default ReferenceCountedObject<LogEntryProto> getEntryWithRetainedData(TimeDuration timeout)
-        throws RaftLogIOException, TimeoutException  {
-      ReferenceCountedObject<LogEntryProto> ref = ReferenceCountedObject.wrap(getEntry(timeout));
-      ref.retain();
-      return ref;
-    }
+    /** @return the {@link LogEntryProto} containing both the log entry and the state machine data. */
+    LogEntryProto getEntry(TimeDuration timeout) throws RaftLogIOException, TimeoutException;
   }
 }

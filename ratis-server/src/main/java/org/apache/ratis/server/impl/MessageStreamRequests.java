@@ -42,7 +42,7 @@ class MessageStreamRequests {
     private final ClientInvocationId key;
     private long nextId = -1;
     private ByteString bytes = ByteString.EMPTY;
-    private final List<ReferenceCountedObject<?>> pendingRefs = new LinkedList<>();
+    private final List<ReferenceCountedObject<RaftClientRequest>> pendingRefs = new LinkedList<>();
 
     PendingStream(ClientInvocationId key) {
       this.key = key;

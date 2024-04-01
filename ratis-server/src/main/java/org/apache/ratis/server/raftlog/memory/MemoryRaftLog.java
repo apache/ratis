@@ -142,7 +142,7 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   public ReferenceCountedObject<EntryWithData> retainEntryWithData(long index) {
     final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
-    return ref.delegate(newEntryWithData(ref.get(), null));
+    return newEntryWithData(ref);
   }
 
   @Override
