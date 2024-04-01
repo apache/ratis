@@ -288,7 +288,7 @@ public abstract class LogAppenderBase implements LogAppender {
     AppendEntriesRequestProto appendEntriesProto =
         leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
 
-    // Combine LogEntry all log entry references and data references.
+    // Combine all log entry references and (StateMachine's) data references.
     List<ReferenceCountedObject<?>> allRefs = new LinkedList<>();
     allRefs.addAll(protoWithDataRefs);
     allRefs.addAll(offered.values());
