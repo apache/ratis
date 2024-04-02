@@ -73,7 +73,7 @@ public final class LogSegment {
       case CHECK_SEGMENT_FILE_FULL:
       case LOAD_SEGMENT_FILE:
       case WRITE_CACHE_WITH_STATE_MACHINE_CACHE:
-        Preconditions.assertTrue(entry == LogProtoUtils.removeStateMachineData(entry),
+        Preconditions.assertTrue(!LogProtoUtils.hasStateMachineData(entry),
             () -> "Unexpected LogEntryProto with StateMachine data: op=" + op + ", entry=" + entry);
         break;
       case WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE:

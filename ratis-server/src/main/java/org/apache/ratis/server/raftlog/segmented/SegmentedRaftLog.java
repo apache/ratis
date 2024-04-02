@@ -331,18 +331,18 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
     final LogEntryProto entry = entryRef.get();
     if (!LogProtoUtils.isStateMachineDataEmpty(entry)) {
-      return entryRef.delegate(newEntryWithData(entry, null));
+      return newEntryWithData(entryRef);
     }
 
     try {
-      CompletableFuture<ByteString> future = null;
+      CompletableFuture<ReferenceCountedObject<ByteString>> future = null;
       if (stateMachine != null) {
-        future = stateMachine.data().read(entry, server.getTransactionContext(entry, false)).exceptionally(ex -> {
+        future = stateMachine.data().retainRead(entry, server.getTransactionContext(entry, false)).exceptionally(ex -> {
           stateMachine.event().notifyLogFailed(ex, entry);
           throw new CompletionException("Failed to read state machine data for log entry " + entry, ex);
         });
       }
-      return entryRef.delegate(newEntryWithData(entry, future));
+      return future != null? newEntryWithData(entryRef, future): newEntryWithData(entryRef);
     } catch (Exception e) {
       final String err = getName() + ": Failed readStateMachineData for " +
           LogProtoUtils.toLogEntryString(entry);
@@ -459,7 +459,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       if (stateMachineCachingEnabled) {
         // The stateMachineData will be cached inside the StateMachine itself.
         cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE,
-            entryRef.delegate(removedStateMachineData));
+            ReferenceCountedObject.wrap(removedStateMachineData));
       } else {
         cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, entryRef
         );

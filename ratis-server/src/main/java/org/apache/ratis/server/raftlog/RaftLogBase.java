@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.raftlog;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -410,8 +411,43 @@ public abstract class RaftLogBase implements RaftLog {
     return name;
   }
 
-  protected EntryWithData newEntryWithData(LogEntryProto logEntry, CompletableFuture<ByteString> future) {
-    return new EntryWithDataImpl(logEntry, future);
+  protected ReferenceCountedObject<EntryWithData> newEntryWithData(ReferenceCountedObject<LogEntryProto> retained) {
+    return retained.delegate(new EntryWithDataImpl(retained.get(), null));
+  }
+
+  protected ReferenceCountedObject<EntryWithData> newEntryWithData(ReferenceCountedObject<LogEntryProto> retained,
+      CompletableFuture<ReferenceCountedObject<ByteString>> stateMachineDataFuture) {
+    final EntryWithDataImpl impl = new EntryWithDataImpl(retained.get(), stateMachineDataFuture);
+    return new ReferenceCountedObject<EntryWithData>() {
+      private CompletableFuture<ReferenceCountedObject<ByteString>> future
+          = Objects.requireNonNull(stateMachineDataFuture, "stateMachineDataFuture == null");
+
+      @Override
+      public EntryWithData get() {
+        return impl;
+      }
+
+      synchronized void updateFuture(Consumer<ReferenceCountedObject<?>> action) {
+        future = future.whenComplete((ref, e) -> {
+          if (ref != null) {
+            action.accept(ref);
+          }
+        });
+      }
+
+      @Override
+      public EntryWithData retain() {
+        retained.retain();
+        updateFuture(ReferenceCountedObject::retain);
+        return impl;
+      }
+
+      @Override
+      public boolean release() {
+        updateFuture(ReferenceCountedObject::release);
+        return retained.release();
+      }
+    };
   }
 
   /**
@@ -419,14 +455,14 @@ public abstract class RaftLogBase implements RaftLog {
    */
   class EntryWithDataImpl implements EntryWithData {
     private final LogEntryProto logEntry;
-    private final CompletableFuture<ByteString> future;
+    private final CompletableFuture<ReferenceCountedObject<ByteString>> future;
 
-    EntryWithDataImpl(LogEntryProto logEntry, CompletableFuture<ByteString> future) {
+    EntryWithDataImpl(LogEntryProto logEntry, CompletableFuture<ReferenceCountedObject<ByteString>> future) {
       this.logEntry = logEntry;
       this.future = future == null? null: future.thenApply(this::checkStateMachineData);
     }
 
-    private ByteString checkStateMachineData(ByteString data) {
+    private ReferenceCountedObject<ByteString> checkStateMachineData(ReferenceCountedObject<ByteString> data) {
       if (data == null) {
         throw new IllegalStateException("State machine data is null for log entry " + this);
       }
@@ -450,18 +486,21 @@ public abstract class RaftLogBase implements RaftLog {
       }
 
       final LogEntryProto entryProto;
+      ReferenceCountedObject<ByteString> data;
       try {
-        entryProto = future.thenApply(data -> LogProtoUtils.addStateMachineData(data, logEntry))
-            .get(timeout.getDuration(), timeout.getUnit());
+        data = future.get(timeout.getDuration(), timeout.getUnit());
+        entryProto = LogProtoUtils.addStateMachineData(data.get(), logEntry);
       } catch (TimeoutException t) {
         if (timeout.compareTo(stateMachineDataReadTimeout) > 0) {
           getRaftLogMetrics().onStateMachineDataReadTimeout();
         }
+        discardData();
         throw t;
       } catch (Exception e) {
         if (e instanceof InterruptedException) {
           Thread.currentThread().interrupt();
         }
+        discardData();
         final String err = getName() + ": Failed readStateMachineData for " + this;
         LOG.error(err, e);
         throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
@@ -471,9 +510,18 @@ public abstract class RaftLogBase implements RaftLog {
       if (LogProtoUtils.isStateMachineDataEmpty(entryProto)) {
         final String err = getName() + ": State machine data not set for " + this;
         LOG.error(err);
+        data.release();
         throw new RaftLogIOException(err);
       }
       return entryProto;
+    }
+
+    private void discardData() {
+      future.whenComplete((r, ex) -> {
+        if (r != null) {
+          r.release();
+        }
+      });
     }
 
     @Override
