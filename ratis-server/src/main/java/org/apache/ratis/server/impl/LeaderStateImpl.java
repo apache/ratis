@@ -269,7 +269,7 @@ class LeaderStateImpl implements LeaderState {
 
   static class FollowerInfoMap {
     private final Map<RaftPeerId, FollowerInfo> map = new ConcurrentHashMap<>();
-
+    @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
     private volatile CurrentOldFollowerInfos followerInfos;
 
     void put(RaftPeerId id, FollowerInfo info) {
@@ -333,6 +333,7 @@ class LeaderStateImpl implements LeaderState {
   private final RaftServerImpl server;
   private final RaftLog raftLog;
   private final long currentTerm;
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile ConfigurationStagingState stagingState;
 
   private final FollowerInfoMap followerInfoMap = new FollowerInfoMap();

@@ -199,6 +199,7 @@ class StateMachineUpdater implements Runnable {
         }
       } catch (Throwable t) {
         if (t instanceof InterruptedException && state == State.STOP) {
+          Thread.currentThread().interrupt();
           LOG.info("{} was interrupted.  Exiting ...", this);
         } else {
           state = State.EXCEPTION;
