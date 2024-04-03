@@ -59,6 +59,7 @@ class FollowerState extends Daemon {
   private final RaftServerImpl server;
 
   private final Timestamp creationTime = Timestamp.currentTime();
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile Timestamp lastRpcTime = creationTime;
   private volatile boolean isRunning = true;
   private final AtomicInteger outstandingOp = new AtomicInteger();

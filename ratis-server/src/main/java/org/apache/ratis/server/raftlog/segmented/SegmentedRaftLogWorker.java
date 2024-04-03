@@ -143,6 +143,7 @@ class SegmentedRaftLogWorker {
   private volatile boolean running = true;
   private final ExecutorService workerThreadExecutor;
   private final RaftStorage storage;
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile SegmentedRaftLogOutputStream out;
   private final Runnable submitUpdateCommitEvent;
   private final StateMachine stateMachine;

@@ -78,6 +78,11 @@ public interface Preconditions {
     }
   }
 
+  static void assertSame(int expected, int computed, String name) {
+    assertTrue(expected == computed,
+        () -> name + ": expected == " + expected + " but computed == " + computed);
+  }
+
   static void assertSame(long expected, long computed, String name) {
     assertTrue(expected == computed,
         () -> name + ": expected == " + expected + " but computed == " + computed);
