@@ -148,6 +148,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return oldConf == null;
   }
 
+  @SuppressWarnings({"squid:S6466"}) // Suppress  ArrayIndexOutOfBoundsException warning
   boolean containsInConf(RaftPeerId peerId, RaftPeerRole... roles) {
     if (roles == null || roles.length == 0) {
       return conf.contains(peerId);

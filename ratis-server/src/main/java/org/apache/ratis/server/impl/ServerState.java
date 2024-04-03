@@ -87,6 +87,7 @@ class ServerState {
   /**
    * Candidate that this peer granted vote for in current term (or null if none)
    */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile RaftPeerId votedFor;
 
   /**
@@ -171,6 +172,7 @@ class ServerState {
     }
   }
 
+  @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   private static RaftLog initRaftLog(RaftGroupMemberId memberId, RaftServerImpl server, RaftStorage storage,
       Consumer<LogEntryProto> logConsumer, LongSupplier getSnapshotIndexFromStateMachine,
       RaftProperties prop) throws IOException {

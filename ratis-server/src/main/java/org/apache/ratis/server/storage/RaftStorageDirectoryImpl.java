@@ -210,6 +210,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
    * <code>null</code> if storage is already locked.
    * @throws IOException if locking fails.
    */
+  @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   private FileLock tryLock(File lockF) throws IOException {
     boolean deletionHookAdded = false;
     if (!lockF.exists()) {

@@ -92,7 +92,7 @@ class LeaderLease {
       return Timestamp.currentTime();
     }
 
-    final int mid = followers.size() / 2;
+    final long mid = followers.size() / 2;
     return followers.stream()
         .map(FollowerInfo::getLastRespondedAppendEntriesSendTime)
         .sorted()

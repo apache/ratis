@@ -294,10 +294,10 @@ public final class LogSegment {
   private volatile boolean isOpen;
   private long totalFileSize = SegmentedRaftLogFormat.getHeaderLength();
   /** Segment start index, inclusive. */
-  private long startIndex;
+  private final long startIndex;
   /** Segment end index, inclusive. */
   private volatile long endIndex;
-  private RaftStorage storage;
+  private final RaftStorage storage;
   private final SizeInBytes maxOpSize;
   private final LogEntryLoader cacheLoader;
   /** later replace it with a metric */

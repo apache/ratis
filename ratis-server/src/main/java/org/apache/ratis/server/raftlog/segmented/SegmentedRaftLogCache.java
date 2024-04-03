@@ -394,6 +394,7 @@ public class SegmentedRaftLogCache {
   }
 
   private final String name;
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile LogSegment openSegment;
   private final LogSegmentList closedSegments;
   private final RaftStorage storage;

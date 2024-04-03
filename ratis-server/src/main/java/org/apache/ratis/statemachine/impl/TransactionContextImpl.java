@@ -47,6 +47,7 @@ public class TransactionContextImpl implements TransactionContext {
   private final RaftClientRequest clientRequest;
 
   /** Exception from the {@link StateMachine} or from the log */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile Exception exception;
 
   /** Data from the {@link StateMachine} */
@@ -58,6 +59,7 @@ public class TransactionContextImpl implements TransactionContext {
    * {@link StateMachine#startTransaction(RaftClientRequest)} and
    * {@link StateMachine#applyTransaction(TransactionContext)}.
    */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile Object stateMachineContext;
 
   /**
@@ -68,8 +70,10 @@ public class TransactionContextImpl implements TransactionContext {
   private boolean shouldCommit = true;
 
   /** Committed LogEntry. */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile LogEntryProto logEntry;
   /** For wrapping {@link #logEntry} in order to release the underlying buffer. */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile ReferenceCountedObject<?> delegatedRef;
 
   private final CompletableFuture<Long> logIndexFuture = new CompletableFuture<>();
