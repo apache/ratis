@@ -74,9 +74,11 @@ public class TransactionContextImpl implements TransactionContext {
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile LogEntryProto logEntry;
   /** Committed LogEntry copy. */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile Supplier<LogEntryProto> logEntryCopy;
 
   /** For wrapping {@link #logEntry} in order to release the underlying buffer. */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile ReferenceCountedObject<?> delegatedRef;
 
   private final CompletableFuture<Long> logIndexFuture = new CompletableFuture<>();

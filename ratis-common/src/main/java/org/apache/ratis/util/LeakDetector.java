@@ -84,6 +84,7 @@ public class LeakDetector {
           tracker.reportLeak();
         }
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         LOG.warn("Thread interrupted, exiting.", e);
         break;
       }
