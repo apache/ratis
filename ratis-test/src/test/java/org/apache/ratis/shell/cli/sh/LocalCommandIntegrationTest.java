@@ -41,35 +41,47 @@ public class LocalCommandIntegrationTest {
 
   private static final String RAFT_META_CONF = "raft-meta.conf";
   private static final String NEW_RAFT_META_CONF = "new-raft-meta.conf";
+  private static Pattern p = Pattern.compile("(?:\\w+\\|\\w+:\\d+,?)+");
+
 
   @Test
   public void testRunMethod(@TempDir Path tempDir) throws Exception {
     int index = 1;
     generateRaftConf(tempDir.resolve(RAFT_META_CONF), index);
 
-    final StringPrintStream out = new StringPrintStream();
-    RatisShell shell = new RatisShell(out.getPrintStream());
-    String updatedPeersList = "peer1_Id|host1:9872,peer2_id|host2:9872,peer3_id|host3:9872";
-    int ret = shell.run("local", "raftMetaConf", "-peers", updatedPeersList, "-path", tempDir.toString());
-    Assertions.assertEquals(0, ret);
+     String[] testPeersListArray = {"peer1_Id|host1:9872,peer2_id|host2:9872,peer3_id|host3:9872",
+      "host1:9872,host2:9872,host3:9872"};
 
-    // verify the contents of the new-raft-meta.conf file
-    long indexFromNewConf;
-    List<RaftPeerProto> peers;
-    try (InputStream in = Files.newInputStream(tempDir.resolve(NEW_RAFT_META_CONF))) {
-      LogEntryProto logEntry = LogEntryProto.newBuilder().mergeFrom(in).build();
-      indexFromNewConf = logEntry.getIndex();
-      peers = logEntry.getConfigurationEntry().getPeersList();
+    for (String peersListStr : testPeersListArray) {
+      getRaftConf(output, index);
+      StringPrintStream out = new StringPrintStream();
+      RatisShell shell = new RatisShell(out.getPrintStream());
+      int ret = shell.run("local", "raftMetaConf", "-peers", peersListStr, "-path", tempDir.toString());
+      Assertions.assertEquals(0, ret);
+
+      // read & verify the contents of the new-raft-meta.conf file
+      long indexFromNewConf;
+      List<RaftPeerProto> peers;
+      try (InputStream in = Files.newInputStream(tempDir.resolve(NEW_RAFT_META_CONF))) {
+        LogEntryProto logEntry = LogEntryProto.newBuilder().mergeFrom(in).build();
+        indexFromNewConf = logEntry.getIndex();
+        peers = logEntry.getConfigurationEntry().getPeersList();
+      }
+
+      Assertions.assertEquals(index + 1, indexFromNewConf);
+
+      String peersListStrFromNewMetaConf;
+      if (containsPeerId(peersStr)) {
+        peersListStrFromNewMetaConf = peers.stream()
+            .map(peer -> peer.getId().toStringUtf8() + "|" + peer.getAddress())
+            .collect(Collectors.joining(","));
+      } else {
+        peersListStrFromNewMetaConf = peers.stream().map(RaftPeerProto::getAddress)
+            .collect(Collectors.joining(","));
+      }
+
+      Assertions.assertEquals(updatedPeersList, peersListStrFromNewMetaConf);
     }
-
-    Assertions.assertEquals(index + 1, indexFromNewConf);
-
-    StringBuilder sb = new StringBuilder();
-    peers.stream().forEach(peer ->
-        sb.append(peer.getId().toStringUtf8()).append("|").append(peer.getAddress()).append(","));
-    sb.deleteCharAt(sb.length() - 1); // delete trailing comma
-
-    Assertions.assertEquals(updatedPeersList, sb.toString());
   }
 
 
@@ -92,6 +104,10 @@ public class LocalCommandIntegrationTest {
     try (OutputStream out = Files.newOutputStream(path)) {
       generateLogEntryProto.writeTo(out);
     }
+  }
+
+  private boolean containsPeerId(String str) {
+    return p.matcher(str).find();
   }
 
 }
