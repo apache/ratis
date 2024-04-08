@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.leader;
 
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -30,7 +31,7 @@ import java.util.List;
 public interface LeaderState {
   /** The reasons that this leader steps down and becomes a follower. */
   enum StepDownReason {
-    HIGHER_TERM, HIGHER_PRIORITY, LOST_MAJORITY_HEARTBEATS, STATE_MACHINE_EXCEPTION, JVM_PAUSE;
+    HIGHER_TERM, HIGHER_PRIORITY, LOST_MAJORITY_HEARTBEATS, STATE_MACHINE_EXCEPTION, JVM_PAUSE, FORCE;
 
     private final String longName = JavaUtils.getClassSimpleName(getClass()) + ":" + name();
 
@@ -61,5 +62,8 @@ public interface LeaderState {
 
   /** Check if a follower is bootstrapping. */
   boolean isFollowerBootstrapping(FollowerInfo follower);
+
+  /** Received an {@link AppendEntriesReplyProto} */
+  void onAppendEntriesReply(LogAppender appender, AppendEntriesReplyProto reply);
 
 }

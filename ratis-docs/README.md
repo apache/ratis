@@ -18,38 +18,18 @@
 
 This subproject contains the inline documentation for Apache Ratis.
 
-You can create a new page with:
+## View rendered documents
+To view the documents locally, you can run:
 
 ```
-hugo new content/title.md
+cd ratis-docs
+mvn site:run
 ```
 
-You can check the rendering with:
+Then visit http://localhost:8080/ to view rendered documents.
 
-```
-hugo serve
-```
+## Write document
+To create new document, please add markdown files into `src/site/markdown` folder, and then create a link in `site.xml`. For example, `site/markdown/cli.md` could be accessed by `cli.html`.
 
-This maven project will create the rendered HTML page during the build (ONLY if hugo is available).
-And the dist project will include the documentation.
+For more about the usage, please refer to the [documentation of maven-site-plugin](https://maven.apache.org/guides/mini/guide-site.html).
 
-You can adjust the menu hierarchy with adjusting the header of the markdown file:
-
-To show it in the main header add the menu entry:
-
-```
----
-menu: main
----
-```
-
-To show it as a subpage, you can set the parent. (The value could be the title of the parent page,
-our you can defined an `id: ...` in the parent markdown and use that in the parent reference.
-
-```
----
-menu:
-   main:
-	   parent: "Getting started"
----
-```

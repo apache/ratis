@@ -25,11 +25,12 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.thirdparty.com.google.protobuf.AbstractMessage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -51,26 +52,39 @@ public final class LogProtoUtils {
     } else if (entry.hasMetadataEntry()) {
       final MetadataProto metadata = entry.getMetadataEntry();
       s = "(c:" + metadata.getCommitIndex() + ")";
+    } else if (entry.hasConfigurationEntry()) {
+      final RaftConfigurationProto config = entry.getConfigurationEntry();
+      s = "(current:" + peersToString(config.getPeersList())
+          + ", old:" + peersToString(config.getOldPeersList()) + ")";
     } else {
       s = "";
     }
     return TermIndex.valueOf(entry) + ", " + entry.getLogEntryBodyCase() + s;
   }
 
-  public static String toLogEntryString(LogEntryProto entry) {
-    return toLogEntryString(entry, null);
+  static String peersToString(List<RaftPeerProto> peers) {
+    return peers.stream().map(AbstractMessage::toString)
+        .map(s -> s.replace("\n", ""))
+        .map(s -> s.replace(" ", ""))
+        .collect(Collectors.joining(", "));
   }
 
-  public static String toLogEntriesString(LogEntryProto... entries) {
+  static String stateMachineLogEntryProtoToString(StateMachineLogEntryProto p) {
+    return "logData:" + p.getLogData() + ", stateMachineEntry:" + p.getType() + ":" + p.getStateMachineEntry();
+  }
+
+  public static String toLogEntryString(LogEntryProto entry) {
+    return toLogEntryString(entry, LogProtoUtils::stateMachineLogEntryProtoToString);
+  }
+
+  public static String toLogEntriesString(List<LogEntryProto> entries) {
     return entries == null ? null
-        : entries.length == 0 ? "[]"
-        : entries.length == 1 ? toLogEntryString(entries[0])
-        : "" + Arrays.stream(entries).map(LogProtoUtils::toLogEntryString).collect(Collectors.toList());
+        : entries.stream().map(LogProtoUtils::toLogEntryString).collect(Collectors.toList()).toString();
   }
 
   public static String toLogEntriesShortString(List<LogEntryProto> entries) {
     return entries == null ? null
-        : entries.size() == 0 ? "<empty>"
+        : entries.isEmpty()? "<empty>"
         : "size=" + entries.size() + ", first=" + LogProtoUtils.toLogEntryString(entries.get(0));
   }
 
@@ -82,10 +96,13 @@ public final class LogProtoUtils {
         .build();
   }
 
-  private static RaftConfigurationProto.Builder toRaftConfigurationProtoBuilder(RaftConfiguration conf) {
+  public static RaftConfigurationProto.Builder toRaftConfigurationProtoBuilder(RaftConfiguration conf) {
     return RaftConfigurationProto.newBuilder()
         .addAllPeers(ProtoUtils.toRaftPeerProtos(conf.getCurrentPeers()))
-        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers()));
+        .addAllListeners(ProtoUtils.toRaftPeerProtos(conf.getCurrentPeers(RaftPeerRole.LISTENER)))
+        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers()))
+        .addAllOldListeners(
+            ProtoUtils.toRaftPeerProtos(conf.getPreviousPeers(RaftPeerRole.LISTENER)));
   }
 
   public static LogEntryProto toLogEntryProto(StateMachineLogEntryProto proto, long term, long index) {
@@ -120,8 +137,9 @@ public final class LogProtoUtils {
   }
 
   private static LogEntryProto replaceStateMachineDataWithSerializedSize(LogEntryProto entry) {
-    return replaceStateMachineEntry(entry,
+    LogEntryProto replaced = replaceStateMachineEntry(entry,
         StateMachineEntryProto.newBuilder().setLogEntryProtoSerializedSize(entry.getSerializedSize()));
+    return copy(replaced);
   }
 
   private static LogEntryProto replaceStateMachineEntry(LogEntryProto proto, StateMachineEntryProto.Builder newEntry) {
@@ -141,6 +159,13 @@ public final class LogProtoUtils {
     Preconditions.assertTrue(isStateMachineDataEmpty(entry),
         () -> "Failed to addStateMachineData to " + entry + " since shouldReadStateMachineData is false.");
     return replaceStateMachineEntry(entry, StateMachineEntryProto.newBuilder().setStateMachineData(stateMachineData));
+  }
+
+  public static boolean hasStateMachineData(LogEntryProto entry) {
+    return getStateMachineEntry(entry)
+        .map(StateMachineEntryProto::getStateMachineData)
+        .map(data -> !data.isEmpty())
+        .orElse(false);
   }
 
   public static boolean isStateMachineDataEmpty(LogEntryProto entry) {
@@ -200,8 +225,26 @@ public final class LogProtoUtils {
     Preconditions.assertTrue(entry.hasConfigurationEntry());
     final RaftConfigurationProto proto = entry.getConfigurationEntry();
     final List<RaftPeer> conf = ProtoUtils.toRaftPeers(proto.getPeersList());
-    final List<RaftPeer> oldConf = proto.getOldPeersCount() == 0? null
-        : ProtoUtils.toRaftPeers(proto.getOldPeersList());
-    return ServerImplUtils.newRaftConfiguration(conf, entry.getIndex(), oldConf);
+    final List<RaftPeer> listener = ProtoUtils.toRaftPeers(proto.getListenersList());
+    final List<RaftPeer> oldConf = ProtoUtils.toRaftPeers(proto.getOldPeersList());
+    final List<RaftPeer> oldListener = ProtoUtils.toRaftPeers(proto.getOldListenersList());
+    return ServerImplUtils.newRaftConfiguration(conf, listener, entry.getIndex(), oldConf, oldListener);
+  }
+
+  public static LogEntryProto copy(LogEntryProto proto) {
+    if (proto == null) {
+      return null;
+    }
+
+    if (!proto.hasStateMachineLogEntry() && !proto.hasMetadataEntry() && !proto.hasConfigurationEntry()) {
+      // empty entry, just return as is.
+      return proto;
+    }
+
+    try {
+      return LogEntryProto.parseFrom(proto.toByteString());
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalArgumentException("Failed to copy log entry " + TermIndex.valueOf(proto), e);
+    }
   }
 }

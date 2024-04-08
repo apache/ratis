@@ -21,6 +21,7 @@ import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,15 +58,43 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
 
   /**
    * @return null if the log entry is not found in this log;
-   *         otherwise, return the log entry corresponding to the given index.
+   *         otherwise, return a copy of the log entry corresponding to the given index.
+   * @deprecated use {@link RaftLog#retainLog(long)} instead in order to avoid copying.
    */
+  @Deprecated
   LogEntryProto get(long index) throws RaftLogIOException;
+
+  /**
+   * @return a retained {@link ReferenceCountedObject} to the log entry corresponding to the given index if it exists;
+   *         otherwise, return null.
+   *         Since the returned reference is retained, the caller must call {@link ReferenceCountedObject#release()}}
+   *         after use.
+   */
+  default ReferenceCountedObject<LogEntryProto> retainLog(long index) throws RaftLogIOException {
+    ReferenceCountedObject<LogEntryProto> wrap = ReferenceCountedObject.wrap(get(index));
+    wrap.retain();
+    return wrap;
+  }
 
   /**
    * @return null if the log entry is not found in this log;
    *         otherwise, return the {@link EntryWithData} corresponding to the given index.
+   * @deprecated use {@link #retainEntryWithData(long)}.
    */
+  @Deprecated
   EntryWithData getEntryWithData(long index) throws RaftLogIOException;
+
+  /**
+   * @return null if the log entry is not found in this log;
+   *         otherwise, return a retained reference of the {@link EntryWithData} corresponding to the given index.
+   *         Since the returned reference is retained, the caller must call {@link ReferenceCountedObject#release()}}
+   *         after use.
+   */
+  default ReferenceCountedObject<EntryWithData> retainEntryWithData(long index) throws RaftLogIOException {
+    final ReferenceCountedObject<EntryWithData> wrap = ReferenceCountedObject.wrap(getEntryWithData(index));
+    wrap.retain();
+    return wrap;
+}
 
   /**
    * @param startIndex the starting log index (inclusive)
@@ -157,6 +186,15 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
    * containing both the log entry and the state machine data.
    */
   interface EntryWithData {
+    /** @return the index of this entry. */
+    default long getIndex() {
+      try {
+        return getEntry(TimeDuration.ONE_MINUTE).getIndex();
+      } catch (Exception e) {
+        throw new IllegalStateException("Failed to getIndex", e);
+      }
+    }
+
     /** @return the serialized size including both log entry and state machine data. */
     int getSerializedSize();
 

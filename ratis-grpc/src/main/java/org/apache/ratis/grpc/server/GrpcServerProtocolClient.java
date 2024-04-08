@@ -19,11 +19,14 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.util.StreamObserverWithTimeout;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
+import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc;
@@ -42,35 +45,45 @@ import java.io.Closeable;
  * ring. The stream implementation utilizes gRPC.
  */
 public class GrpcServerProtocolClient implements Closeable {
+  // Common channel
   private final ManagedChannel channel;
-  private final TimeDuration requestTimeoutDuration;
-  private final RaftServerProtocolServiceBlockingStub blockingStub;
+  // Channel and stub for heartbeat
+  private ManagedChannel hbChannel;
+  private RaftServerProtocolServiceStub hbAsyncStub;
   private final RaftServerProtocolServiceStub asyncStub;
+  private final RaftServerProtocolServiceBlockingStub blockingStub;
+  private final boolean useSeparateHBChannel;
+
+  private final TimeDuration requestTimeoutDuration;
   private static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolClient.class);
   //visible for using in log / error messages AND to use in instrumented tests
   private final RaftPeerId raftPeerId;
 
   public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
-      TimeDuration requestTimeoutDuration, GrpcTlsConfig tlsConfig) {
+      TimeDuration requestTimeout, GrpcTlsConfig tlsConfig, boolean separateHBChannel) {
     raftPeerId = target.getId();
+    LOG.info("Build channel for {}", target);
+    useSeparateHBChannel = separateHBChannel;
+    channel = buildChannel(target, flowControlWindow, tlsConfig);
+    blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
+    asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
+    if (useSeparateHBChannel) {
+      hbChannel = buildChannel(target, flowControlWindow, tlsConfig);
+      hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
+    }
+    requestTimeoutDuration = requestTimeout;
+  }
+
+  private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow,
+      GrpcTlsConfig tlsConfig) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(target.getAddress());
 
     if (tlsConfig!= null) {
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
-      if (tlsConfig.isFileBasedConfig()) {
-        sslContextBuilder.trustManager(tlsConfig.getTrustStoreFile());
-      } else {
-        sslContextBuilder.trustManager(tlsConfig.getTrustStore());
-      }
+      GrpcUtil.setTrustManager(sslContextBuilder, tlsConfig.getTrustManager());
       if (tlsConfig.getMtlsEnabled()) {
-        if (tlsConfig.isFileBasedConfig()) {
-          sslContextBuilder.keyManager(tlsConfig.getCertChainFile(),
-              tlsConfig.getPrivateKeyFile());
-        } else {
-          sslContextBuilder.keyManager(tlsConfig.getPrivateKey(),
-              tlsConfig.getCertChain());
-        }
+        GrpcUtil.setKeyManager(sslContextBuilder, tlsConfig.getKeyManager());
       }
       try {
         channelBuilder.useTransportSecurity().sslContext(sslContextBuilder.build());
@@ -81,14 +94,16 @@ public class GrpcServerProtocolClient implements Closeable {
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
-    channel = channelBuilder.flowControlWindow(flowControlWindow).build();
-    blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
-    asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
-    this.requestTimeoutDuration = requestTimeoutDuration;
+    channelBuilder.disableRetry();
+    return channelBuilder.flowControlWindow(flowControlWindow).build();
   }
 
   @Override
   public void close() {
+    LOG.info("{} Close channels", raftPeerId);
+    if (useSeparateHBChannel) {
+      GrpcUtil.shutdownManagedChannel(hbChannel);
+    }
     GrpcUtil.shutdownManagedChannel(channel);
   }
 
@@ -107,19 +122,31 @@ public class GrpcServerProtocolClient implements Closeable {
     return r;
   }
 
-  StreamObserver<AppendEntriesRequestProto> appendEntries(
-      StreamObserver<AppendEntriesReplyProto> responseHandler) {
-    return asyncStub.appendEntries(responseHandler);
+  void readIndex(ReadIndexRequestProto request, StreamObserver<ReadIndexReplyProto> s) {
+    asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+        .readIndex(request, s);
+  }
+
+  CallStreamObserver<AppendEntriesRequestProto> appendEntries(
+      StreamObserver<AppendEntriesReplyProto> responseHandler, boolean isHeartbeat) {
+    if (isHeartbeat && useSeparateHBChannel) {
+      return (CallStreamObserver<AppendEntriesRequestProto>) hbAsyncStub.appendEntries(responseHandler);
+    } else {
+      return (CallStreamObserver<AppendEntriesRequestProto>) asyncStub.appendEntries(responseHandler);
+    }
   }
 
   StreamObserver<InstallSnapshotRequestProto> installSnapshot(
-      StreamObserver<InstallSnapshotReplyProto> responseHandler) {
-    return asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-        .installSnapshot(responseHandler);
+      String name, TimeDuration timeout, int limit, StreamObserver<InstallSnapshotReplyProto> responseHandler) {
+    return StreamObserverWithTimeout.newInstance(name, ServerStringUtils::toInstallSnapshotRequestString,
+        () -> timeout, limit, i -> asyncStub.withInterceptors(i).installSnapshot(responseHandler));
   }
 
   // short-circuit the backoff timer and make them reconnect immediately.
   public void resetConnectBackoff() {
+    if (useSeparateHBChannel) {
+      hbChannel.resetConnectBackoff();
+    }
     channel.resetConnectBackoff();
   }
 }

@@ -19,7 +19,6 @@ package org.apache.ratis.statemachine;
 
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
@@ -34,8 +33,11 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.ratis.util.Log4jUtils;
-import org.junit.*;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
+import org.apache.ratis.util.Slf4jUtils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.slf4j.event.Level;
 
 import java.util.Collections;
 import java.util.List;
@@ -47,15 +49,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test StateMachine related functionality
  */
 public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
   static {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;
@@ -86,7 +91,7 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
       try {
-        assertNotNull(trx.getLogEntry());
+        assertNotNull(trx.getLogEntryUnsafe());
         assertNotNull(trx.getStateMachineLogEntry());
         Object context = trx.getStateMachineContext();
         if (isLeader.get()) {
@@ -161,9 +166,9 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     final SMTransactionContext sm = SMTransactionContext.get(raftServer);
     final List<Long> ll = new ArrayList<>(sm.applied);
     Collections.sort(ll);
-    assertEquals(ll.toString(), ll.size(), numTrx);
+    assertEquals(ll.size(), numTrx, ll.toString());
     for (int i=0; i < numTrx; i++) {
-      assertEquals(ll.toString(), Long.valueOf(i+1), ll.get(i));
+      assertEquals(Long.valueOf(i+1), ll.get(i), ll.toString());
     }
   }
 
@@ -192,7 +197,7 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
 
       final RaftServer server = cluster.getServer(id);
       for(Map.Entry<RaftGroupId, StateMachine> e: registry.entrySet()) {
-        Assert.assertSame(e.getValue(), server.getDivision(e.getKey()).getStateMachine());
+        Assertions.assertSame(e.getValue(), server.getDivision(e.getKey()).getStateMachine());
       }
     }
   }

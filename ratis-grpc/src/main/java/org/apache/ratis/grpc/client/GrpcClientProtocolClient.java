@@ -29,36 +29,36 @@ import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupListReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupListRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
+import org.apache.ratis.proto.RaftProtos.LeaderElectionManagementRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
-import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
 import org.apache.ratis.proto.RaftProtos.SnapshotManagementRequestProto;
-import org.apache.ratis.proto.RaftProtos.LeaderElectionManagementRequestProto;
-import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
-import org.apache.ratis.protocol.exceptions.TimeoutIOException;
-import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
 import org.apache.ratis.proto.grpc.AdminProtocolServiceGrpc;
 import org.apache.ratis.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceBlockingStub;
 import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc;
 import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceStub;
-import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
+import org.apache.ratis.protocol.exceptions.NotLeaderException;
+import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
+import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutScheduler;
+import org.apache.ratis.util.TimeoutExecutor;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +86,7 @@ public class GrpcClientProtocolClient implements Closeable {
 
   private final TimeDuration requestTimeoutDuration;
   private final TimeDuration watchRequestTimeoutDuration;
-  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+  private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
   private final RaftClientProtocolServiceStub asyncStub;
   private final AdminProtocolServiceBlockingStub adminBlockingStub;
@@ -131,19 +131,9 @@ public class GrpcClientProtocolClient implements Closeable {
 
     if (tlsConf != null) {
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
-      if (tlsConf.isFileBasedConfig()) {
-        sslContextBuilder.trustManager(tlsConf.getTrustStoreFile());
-      } else {
-        sslContextBuilder.trustManager(tlsConf.getTrustStore());
-      }
+      GrpcUtil.setTrustManager(sslContextBuilder, tlsConf.getTrustManager());
       if (tlsConf.getMtlsEnabled()) {
-        if (tlsConf.isFileBasedConfig()) {
-          sslContextBuilder.keyManager(tlsConf.getCertChainFile(),
-              tlsConf.getPrivateKeyFile());
-        } else {
-          sslContextBuilder.keyManager(tlsConf.getPrivateKey(),
-              tlsConf.getCertChain());
-        }
+        GrpcUtil.setKeyManager(sslContextBuilder, tlsConf.getKeyManager());
       }
       try {
         channelBuilder.useTransportSecurity().sslContext(
@@ -173,7 +163,6 @@ public class GrpcClientProtocolClient implements Closeable {
     if (clientChannel != adminChannel) {
       GrpcUtil.shutdownManagedChannel(adminChannel);
     }
-    scheduler.close();
     metricClientInterceptor.close();
   }
 
@@ -382,7 +371,7 @@ public class GrpcClientProtocolClient implements Closeable {
 
     private void timeoutCheck(long callId, TimeDuration timeOutDuration) {
       handleReplyFuture(callId, f -> f.completeExceptionally(
-          new TimeoutIOException("Request #" + callId + " timeout " + timeOutDuration)));
+          new TimeoutIOException(getName() + " request #" + callId + " timeout " + timeOutDuration)));
     }
 
     private void handleReplyFuture(long callId, Consumer<CompletableFuture<RaftClientReply>> handler) {

@@ -22,6 +22,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 
 import java.io.InterruptedIOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
 
 import org.apache.ratis.util.LifeCycle.State;
@@ -42,13 +43,15 @@ class LogAppenderDaemon {
   private final LifeCycle lifeCycle;
   private final Daemon daemon;
 
-  private final LogAppender logAppender;
+  private final LogAppenderBase logAppender;
+  private final CompletableFuture<State> closeFuture = new CompletableFuture<>();
 
-  LogAppenderDaemon(LogAppender logAppender) {
+  LogAppenderDaemon(LogAppenderBase logAppender) {
     this.logAppender = logAppender;
     this.name = logAppender + "-" + JavaUtils.getClassSimpleName(getClass());
     this.lifeCycle = new LifeCycle(name);
-    this.daemon = new Daemon(this::run, name);
+    this.daemon = Daemon.newBuilder().setName(name).setRunnable(this::run)
+        .setThreadGroup(logAppender.getServer().getThreadGroup()).build();
   }
 
   public boolean isWorking() {
@@ -83,12 +86,14 @@ class LogAppenderDaemon {
     } catch (InterruptedIOException e) {
       LOG.info(this + " I/O was interrupted: " + e);
     } catch (Throwable e) {
-      LOG.error(this + " failed", e);
+      LOG.warn(this + " failed", e);
       lifeCycle.transitionIfValid(EXCEPTION);
     } finally {
-      if (lifeCycle.transitionAndGet(TRANSITION_FINALLY) == EXCEPTION) {
-        logAppender.getLeaderState().restart(logAppender);
+      final State finalState = lifeCycle.transitionAndGet(TRANSITION_FINALLY);
+      if (finalState == EXCEPTION) {
+        logAppender.restart();
       }
+      closeFuture.complete(finalState);
     }
   }
 
@@ -102,10 +107,11 @@ class LogAppenderDaemon {
     }
   };
 
-  public void tryToClose() {
+  public CompletableFuture<State> tryToClose() {
     if (lifeCycle.transition(TRY_TO_CLOSE) == CLOSING) {
       daemon.interrupt();
     }
+    return closeFuture;
   }
 
   static final UnaryOperator<State> TRY_TO_CLOSE = current -> {

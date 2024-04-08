@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedFunction;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
@@ -25,6 +26,8 @@ import org.slf4j.LoggerFactory;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
@@ -38,7 +41,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -49,7 +51,7 @@ import java.util.function.Supplier;
 public interface JavaUtils {
   Logger LOG = LoggerFactory.getLogger(JavaUtils.class);
 
-  CompletableFuture[] EMPTY_COMPLETABLE_FUTURE_ARRAY = {};
+  CompletableFuture<?>[] EMPTY_COMPLETABLE_FUTURE_ARRAY = {};
 
   ConcurrentMap<Class<?>, String> CLASS_SIMPLE_NAMES = new ConcurrentHashMap<>();
   static String getClassSimpleName(Class<?> clazz) {
@@ -120,6 +122,55 @@ public interface JavaUtils {
     }
   }
 
+  static <T> T doPrivileged(Supplier<T> action, Function<SecurityException, T> exceptionHandler) {
+    try {
+      return System.getSecurityManager() == null? action.get()
+          : AccessController.doPrivileged((PrivilegedAction<T>) action::get);
+    } catch (SecurityException e) {
+      return exceptionHandler.apply(e);
+    }
+  }
+
+  static <T> T doPrivileged(Supplier<T> action, Supplier<String> name) {
+    return doPrivileged(action, e -> {
+      LOG.warn("Failed to " + name.get(), e);
+      return null;
+    });
+  }
+
+  /**
+   * Similar to {@link System#getProperty(String)}
+   * except that this method may invoke {@link AccessController#doPrivileged(PrivilegedAction)}
+   * if there is a {@link SecurityManager}.
+   *
+   * @return null if either the property is not set or there is a {@link SecurityException};
+   *         otherwise, return system property value.
+   */
+  static String getSystemProperty(final String key) {
+    Preconditions.assertNotNull(key, "key");
+    Preconditions.assertTrue(!key.isEmpty(), "key is empty.");
+    return doPrivileged(() -> System.getProperty(key), () -> "get system property " + key);
+  }
+
+  static String getEnv(String variable) {
+    final String value = System.getenv().get(variable);
+    LOG.info("ENV: {} = {}", variable, value);
+    return value;
+  }
+
+  /**
+   * Similar to {@link System#setProperty(String, String)}
+   * except that this method may invoke {@link AccessController#doPrivileged(PrivilegedAction)}
+   * if there is a {@link SecurityManager}.
+   * When there is a {@link SecurityException}, this becomes a NOOP.
+   */
+  static void setSystemProperty(String key, String value) {
+    Preconditions.assertNotNull(key, "key");
+    Preconditions.assertTrue(!key.isEmpty(), "key is empty.");
+    Preconditions.assertNotNull(value, "value");
+    doPrivileged(() -> System.setProperty(key, value), () -> "set system property " + key + " to " + value);
+  }
+
   /**
    * Create a memoized supplier which gets a value by invoking the initializer once
    * and then keeps returning the same value as its supplied results.
@@ -157,20 +208,27 @@ public interface JavaUtils {
       CheckedSupplier<RETURN, THROWABLE> supplier,
       int numAttempts, TimeDuration sleepTime, Supplier<?> name, Logger log)
       throws THROWABLE, InterruptedException {
-    Objects.requireNonNull(supplier, "supplier == null");
+    return attempt(i -> supplier.get(), numAttempts, sleepTime, name, log);
+  }
+
+  static <RETURN, THROWABLE extends Throwable> RETURN attempt(
+      CheckedFunction<Integer, RETURN, THROWABLE> attemptMethod,
+      int numAttempts, TimeDuration sleepTime, Supplier<?> name, Logger log)
+      throws THROWABLE, InterruptedException {
+    Objects.requireNonNull(attemptMethod, "attemptMethod == null");
     Preconditions.assertTrue(numAttempts > 0, () -> "numAttempts = " + numAttempts + " <= 0");
     Preconditions.assertTrue(!sleepTime.isNegative(), () -> "sleepTime = " + sleepTime + " < 0");
 
     for(int i = 1; i <= numAttempts; i++) {
       try {
-        return supplier.get();
+        return attemptMethod.apply(i);
       } catch (Throwable t) {
         if (i == numAttempts) {
           throw t;
         }
         if (log != null && log.isWarnEnabled()) {
           log.warn("FAILED \"" + name.get() + "\", attempt #" + i + "/" + numAttempts
-              + ": " + t + ", sleep " + sleepTime + " and then retry.", t);
+              + ", sleep " + sleepTime + " and then retry: " + t);
         }
       }
 
@@ -185,19 +243,6 @@ public interface JavaUtils {
       throws THROWABLE, InterruptedException {
     attemptRepeatedly(CheckedRunnable.asCheckedSupplier(runnable), numAttempts, sleepTime, name, log);
   }
-
-  /** Attempt to wait the given condition to return true multiple times. */
-  static void attemptUntilTrue(
-      BooleanSupplier condition, int numAttempts, TimeDuration sleepTime, String name, Logger log)
-      throws InterruptedException {
-    Objects.requireNonNull(condition, "condition == null");
-    attempt(() -> {
-      if (!condition.getAsBoolean()) {
-        throw new IllegalStateException("Condition " + name + " is false.");
-      }
-    }, numAttempts, sleepTime, name, log);
-  }
-
 
   static Timer runRepeatedly(Runnable runnable, long delay, long period, TimeUnit unit) {
     final Timer timer = new Timer(true);
@@ -224,12 +269,19 @@ public interface JavaUtils {
     return future;
   }
 
+  static boolean isCompletedNormally(CompletableFuture<?> future) {
+    return future.isDone() && !future.isCancelled() && !future.isCompletedExceptionally();
+  }
+
   static Throwable unwrapCompletionException(Throwable t) {
     Objects.requireNonNull(t, "t == null");
     return t instanceof CompletionException && t.getCause() != null? t.getCause(): t;
   }
 
   static <T> CompletableFuture<Void> allOf(Collection<CompletableFuture<T>> futures) {
+    if (futures == null || futures.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
     return CompletableFuture.allOf(futures.toArray(EMPTY_COMPLETABLE_FUTURE_ARRAY));
   }
 

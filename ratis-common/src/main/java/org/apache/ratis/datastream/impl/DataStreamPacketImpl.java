@@ -33,7 +33,7 @@ public abstract class DataStreamPacketImpl implements DataStreamPacket {
   private final long streamId;
   private final long streamOffset;
 
-  public DataStreamPacketImpl(ClientId clientId, Type type, long streamId, long streamOffset) {
+  protected DataStreamPacketImpl(ClientId clientId, Type type, long streamId, long streamOffset) {
     this.clientId = clientId;
     this.type = type;
     this.streamId = streamId;

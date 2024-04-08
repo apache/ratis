@@ -19,8 +19,8 @@ package org.apache.ratis.examples.arithmetic.cli;
 
 import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.ADD;
 import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.MULT;
@@ -32,55 +32,55 @@ import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op
 public class TestAssignCli {
   @Test
   public void createExpression() {
-    Assert.assertEquals(
+    Assertions.assertEquals(
         new DoubleValue(2.0),
         new Assign().createExpression("2.0"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         new DoubleValue(42.0),
         new Assign().createExpression("42"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         MULT.apply(2.0, new Variable("a")),
         new Assign().createExpression("2*a"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         MULT.apply(new Variable("v1"), 2.0),
         new Assign().createExpression("v1 * 2"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         ADD.apply(2.0, 1.0),
         new Assign().createExpression("2+1"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         SUBTRACT.apply(1.0, 6.0),
         new Assign().createExpression("1 - 6"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         ADD.apply(new Variable("a"), new Variable("v2")),
         new Assign().createExpression("a+v2"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         ADD.apply(new Variable("v1"), new Variable("b")),
         new Assign().createExpression("v1 + b"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         SQRT.apply(new Variable("a")),
         new Assign().createExpression("√a"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         SQRT.apply(new Variable("ABC")),
         new Assign().createExpression("√ABC"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         SQRT.apply(2.0),
         new Assign().createExpression("√2"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         NEG.apply(2.0),
         new Assign().createExpression("~2.0"));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         MINUS.apply(6.0),
         new Assign().createExpression("-6.0"));
   }

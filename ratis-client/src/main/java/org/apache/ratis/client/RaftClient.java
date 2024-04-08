@@ -47,6 +47,9 @@ public interface RaftClient extends Closeable {
   /** @return the id of this client. */
   ClientId getId();
 
+  /** @return the group id of this client. */
+  RaftGroupId getGroupId();
+
   /** @return the cluster leaderId recorded by this client. */
   RaftPeerId getLeaderId();
 
@@ -86,7 +89,7 @@ public interface RaftClient extends Closeable {
   }
 
   /** To build {@link RaftClient} objects. */
-  class Builder {
+  final class Builder {
     private ClientId clientId;
     private RaftClientRpc clientRpc;
     private RaftGroup group;
@@ -118,8 +121,8 @@ public interface RaftClient extends Closeable {
         }
       }
       return ClientImplUtils.newRaftClient(clientId, group, leaderId, primaryDataStreamServer,
-          Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
-          properties, retryPolicy);
+          Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."), retryPolicy,
+          properties, parameters);
     }
 
     /** Set {@link RaftClient} ID. */

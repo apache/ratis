@@ -21,11 +21,15 @@ import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_F
 import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RATIS_LOG_WORKER_METRICS;
 
 import org.apache.ratis.metrics.RatisMetrics;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,7 +37,13 @@ import java.util.function.Consumer;
 
 public interface RaftStorageTestUtils {
   static RaftStorage newRaftStorage(File dir) throws IOException {
-    return new RaftStorageImpl(dir, null, 0L);
+    final RaftStorage storage = RaftStorage.newBuilder()
+        .setDirectory(dir)
+        .setOption(RaftStorage.StartupOption.RECOVER)
+        .setStorageFreeSpaceMin(RaftServerConfigKeys.STORAGE_FREE_SPACE_MIN_DEFAULT)
+        .build();
+    storage.initialize();
+    return storage;
   }
 
   static String getLogFlushTimeMetric(String memberId) {
@@ -65,11 +75,22 @@ public interface RaftStorageTestUtils {
       b.append(i == committed? 'c': ' ');
       b.append(String.format("%3d: ", i));
       try {
-        b.append(LogProtoUtils.toLogEntryString(log.get(i)));
+        b.append(LogProtoUtils.toLogEntryString(getLogUnsafe(log, i)));
       } catch (RaftLogIOException e) {
         b.append(e);
       }
       println.accept(b.toString());
+    }
+  }
+
+  static LogEntryProto getLogUnsafe(RaftLog log, long index) throws RaftLogIOException {
+    ReferenceCountedObject<LogEntryProto> ref = log.retainLog(index);
+    try {
+      return ref != null ? ref.get() : null;
+    } finally {
+      if (ref != null) {
+        ref.release();
+      }
     }
   }
 }

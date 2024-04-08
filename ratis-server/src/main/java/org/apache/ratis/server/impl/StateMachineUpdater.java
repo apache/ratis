@@ -17,12 +17,13 @@
  */
 package org.apache.ratis.server.impl;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -42,18 +43,16 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
-
-import com.codahale.metrics.Timer;
 
 /**
  * This class tracks the log entries that have been committed in a quorum and
  * applies them to the state machine. We let a separate thread do this work
  * asynchronously so that this will not block normal raft protocol.
- *
+ * <p>
  * If the auto log compaction is enabled, the state machine updater thread will
  * trigger a snapshot of the state machine by calling
  * {@link StateMachine#takeSnapshot} when the log size exceeds a limit.
@@ -73,22 +72,33 @@ class StateMachineUpdater implements Runnable {
   private final RaftServerImpl server;
   private final RaftLog raftLog;
 
+  private final boolean triggerSnapshotWhenStopEnabled;
+
+  private final boolean triggerSnapshotWhenRemoveEnabled;
+
   private final Long autoSnapshotThreshold;
   private final boolean purgeUptoSnapshotIndex;
 
   private final Thread updater;
+  private final AwaitForSignal awaitForSignal;
+
   private final RaftLogIndex appliedIndex;
   private final RaftLogIndex snapshotIndex;
   private final AtomicReference<Long> stopIndex = new AtomicReference<>();
   private volatile State state = State.RUNNING;
-  private final AtomicBoolean notified = new AtomicBoolean();
 
-  private SnapshotRetentionPolicy snapshotRetentionPolicy;
-  private StateMachineMetrics stateMachineMetrics = null;
+  private final SnapshotRetentionPolicy snapshotRetentionPolicy;
+
+  private final MemoizedSupplier<StateMachineMetrics> stateMachineMetrics;
+
+  private final Consumer<Long> appliedIndexConsumer;
+
+  private volatile boolean isRemoving;
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
-      ServerState serverState, long lastAppliedIndex, RaftProperties properties) {
+      ServerState serverState, long lastAppliedIndex, RaftProperties properties, Consumer<Long> appliedIndexConsumer) {
     this.name = serverState.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
+    this.appliedIndexConsumer = appliedIndexConsumer;
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
     this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
 
@@ -99,6 +109,8 @@ class StateMachineUpdater implements Runnable {
     this.appliedIndex = new RaftLogIndex("appliedIndex", lastAppliedIndex);
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", lastAppliedIndex);
 
+    this.triggerSnapshotWhenStopEnabled = RaftServerConfigKeys.Snapshot.triggerWhenStopEnabled(properties);
+    this.triggerSnapshotWhenRemoveEnabled = RaftServerConfigKeys.Snapshot.triggerWhenRemoveEnabled(properties);
     final boolean autoSnapshot = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties);
     this.autoSnapshotThreshold = autoSnapshot? RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties): null;
     final int numSnapshotFilesRetained = RaftServerConfigKeys.Snapshot.retentionFileNum(properties);
@@ -109,29 +121,29 @@ class StateMachineUpdater implements Runnable {
       }
     };
     this.purgeUptoSnapshotIndex = RaftServerConfigKeys.Log.purgeUptoSnapshotIndex(properties);
-
-    updater = new Daemon(this);
+    updater = Daemon.newBuilder().setName(name).setRunnable(this)
+        .setThreadGroup(server.getThreadGroup()).build();
+    this.awaitForSignal = new AwaitForSignal(name);
+    this.stateMachineMetrics = MemoizedSupplier.valueOf(
+        () -> StateMachineMetrics.getStateMachineMetrics(server, appliedIndex, stateMachine));
   }
 
   void start() {
     //wait for RaftServerImpl and ServerState constructors to complete
-    initializeMetrics();
+    stateMachineMetrics.get();
     updater.start();
-  }
-
-  private void initializeMetrics() {
-    if (stateMachineMetrics == null) {
-      stateMachineMetrics =
-          StateMachineMetrics.getStateMachineMetrics(
-              server, appliedIndex, stateMachine);
-    }
+    notifyAppliedIndex(appliedIndex.get());
   }
 
   private void stop() {
     state = State.STOP;
     try {
+      LOG.info("{}: closing {}, lastApplied={}", name,
+          JavaUtils.getClassSimpleName(stateMachine.getClass()), stateMachine.getLastAppliedTermIndex());
       stateMachine.close();
-      stateMachineMetrics.unregister();
+      if (stateMachineMetrics.isInitialized()) {
+        stateMachineMetrics.get().unregister();
+      }
     } catch(Throwable t) {
       LOG.warn(name + ": Failed to close " + JavaUtils.getClassSimpleName(stateMachine.getClass())
           + " " + stateMachine, t);
@@ -159,10 +171,8 @@ class StateMachineUpdater implements Runnable {
     notifyUpdater();
   }
 
-  @SuppressFBWarnings("NN_NAKED_NOTIFY")
-  synchronized void notifyUpdater() {
-    notified.set(true);
-    notifyAll();
+  void notifyUpdater() {
+    awaitForSignal.signal();
   }
 
   @Override
@@ -189,6 +199,7 @@ class StateMachineUpdater implements Runnable {
         }
       } catch (Throwable t) {
         if (t instanceof InterruptedException && state == State.STOP) {
+          Thread.currentThread().interrupt();
           LOG.info("{} was interrupted.  Exiting ...", this);
         } else {
           state = State.EXCEPTION;
@@ -199,14 +210,13 @@ class StateMachineUpdater implements Runnable {
     }
   }
 
-  private synchronized void waitForCommit() throws InterruptedException {
+  private void waitForCommit() throws InterruptedException {
     // When a peer starts, the committed is initialized to 0.
     // It will be updated only after the leader contacts other peers.
     // Thus it is possible to have applied > committed initially.
     final long applied = getLastAppliedIndex();
     for(; applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop(); ) {
-      wait();
-      if (notified.getAndSet(false)) {
+      if (awaitForSignal.await(100, TimeUnit.MILLISECONDS)) {
         return;
       }
     }
@@ -222,6 +232,7 @@ class StateMachineUpdater implements Runnable {
     final long i = snapshot.getIndex();
     snapshotIndex.setUnconditionally(i, infoIndexChange);
     appliedIndex.setUnconditionally(i, infoIndexChange);
+    notifyAppliedIndex(i);
     state = State.RUNNING;
   }
 
@@ -230,24 +241,32 @@ class StateMachineUpdater implements Runnable {
     final long committed = raftLog.getLastCommittedIndex();
     for(long applied; (applied = getLastAppliedIndex()) < committed && state == State.RUNNING && !shouldStop(); ) {
       final long nextIndex = applied + 1;
-      final LogEntryProto next = raftLog.get(nextIndex);
-      if (next != null) {
+      final ReferenceCountedObject<LogEntryProto> next = raftLog.retainLog(nextIndex);
+      if (next == null) {
+        LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
+            this, nextIndex, state);
+        break;
+      }
+
+      try {
+        final LogEntryProto entry = next.get();
         if (LOG.isTraceEnabled()) {
-          LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(next));
+          LOG.trace("{}: applying nextIndex={}, nextLog={}", this, nextIndex, LogProtoUtils.toLogEntryString(entry));
         } else {
           LOG.debug("{}: applying nextIndex={}", this, nextIndex);
         }
 
         final CompletableFuture<Message> f = server.applyLogToStateMachine(next);
-        if (f != null) {
-          futures.get().add(f);
-        }
         final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
         Preconditions.assertTrue(incremented == nextIndex);
-      } else {
-        LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
-            this, nextIndex, state);
-        break;
+        if (f != null) {
+          futures.get().add(f);
+          f.thenAccept(m -> notifyAppliedIndex(incremented));
+        } else {
+          notifyAppliedIndex(incremented);
+        }
+      } finally {
+        next.release();
       }
     }
     return futures;
@@ -268,9 +287,9 @@ class StateMachineUpdater implements Runnable {
   private void takeSnapshot() {
     final long i;
     try {
-      Timer.Context takeSnapshotTimerContext = stateMachineMetrics.getTakeSnapshotTimer().time();
-      i = stateMachine.takeSnapshot();
-      takeSnapshotTimerContext.stop();
+      try(UncheckedAutoCloseable ignored = Timekeeper.start(stateMachineMetrics.get().getTakeSnapshotTimer())) {
+        i = stateMachine.takeSnapshot();
+      }
       server.getSnapshotRequestHandler().completeTakingSnapshot(i);
 
       final long lastAppliedIndex = getLastAppliedIndex();
@@ -314,16 +333,44 @@ class StateMachineUpdater implements Runnable {
     if (autoSnapshotThreshold == null) {
       return false;
     } else if (shouldStop()) {
-      return getLastAppliedIndex() - snapshotIndex.get() > 0;
+      return shouldTakeSnapshotAtStop() && getLastAppliedIndex() - snapshotIndex.get() > 0;
     }
-    return state == State.RUNNING && getLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold;
+    return state == State.RUNNING &&
+        getStateMachineLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold;
+  }
+
+  /**
+   * In view of the three variables triggerSnapshotWhenStopEnabled, triggerSnapshotWhenRemoveEnabled and isRemoving,
+   * we can draw the following 8 combination:
+   * true true true => true
+   * true true false => true
+   * true false true => false
+   * true false false => true
+   * false true true => true
+   * false true false =>  false
+   * false false true => false
+   * false false false => false
+   * @return result
+   */
+  private boolean shouldTakeSnapshotAtStop() {
+    return isRemoving ? triggerSnapshotWhenRemoveEnabled : triggerSnapshotWhenStopEnabled;
+  }
+
+  void setRemoving() {
+    this.isRemoving = true;
   }
 
   private long getLastAppliedIndex() {
     return appliedIndex.get();
   }
 
+  private void notifyAppliedIndex(long index) {
+    appliedIndexConsumer.accept(index);
+  }
+
   long getStateMachineLastAppliedIndex() {
-    return stateMachine.getLastAppliedTermIndex().getIndex();
+    return Optional.ofNullable(stateMachine.getLastAppliedTermIndex())
+        .map(TermIndex::getIndex)
+        .orElse(RaftLog.INVALID_LOG_INDEX);
   }
 }

@@ -19,6 +19,8 @@ package org.apache.ratis.util;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -42,6 +44,9 @@ public interface Preconditions {
    */
   static void assertTrue(boolean value, Object message) {
     if (!value) {
+      if (message instanceof Supplier) {
+        message = ((Supplier<?>) message).get();
+      }
       throw new IllegalStateException(String.valueOf(message));
     }
   }
@@ -73,12 +78,27 @@ public interface Preconditions {
     }
   }
 
+  static void assertSame(int expected, int computed, String name) {
+    assertTrue(expected == computed,
+        () -> name + ": expected == " + expected + " but computed == " + computed);
+  }
+
   static void assertSame(long expected, long computed, String name) {
     assertTrue(expected == computed,
         () -> name + ": expected == " + expected + " but computed == " + computed);
   }
 
-  static void assertNull(Object object, Supplier<String> message) {
+  static void assertSame(Object expected, Object computed, String name) {
+    assertTrue(expected == computed,
+        () -> name + ": expected == " + expected + " but computed == " + computed);
+  }
+
+  static void assertEquals(Object expected, Object computed, String name) {
+    assertTrue(Objects.equals(expected, computed),
+        () -> name + ": expected == " + expected + " but computed == " + computed);
+  }
+
+  static void assertNull(Object object, Supplier<Object> message) {
     assertTrue(object == null, message);
   }
 
@@ -87,20 +107,29 @@ public interface Preconditions {
         + name + " = " + object + " != null, class = " + object.getClass());
   }
 
-  static <T> T assertNotNull(T object, Supplier<String> message) {
+  static <T> T assertNotNull(T object, Supplier<Object> message) {
     assertTrue(object != null, message);
     return object;
   }
 
   static <T> T assertNotNull(T object, String name) {
-    return assertNotNull(object, () -> name + " is expected to not be null but "
-        + name + " = " + object + " == null, class = " + object.getClass());
+    Preconditions.assertTrue(object != null, () -> name + " == null");
+    return object;
+  }
+
+  static <T> T assertNotNull(T object, String format, Object... args) {
+    assertTrue(object != null, format, args);
+    return object;
   }
 
   static <T> T assertInstanceOf(Object object, Class<T> clazz) {
     assertTrue(clazz.isInstance(object),
         () -> "Required instance of " + clazz + " but object.getClass() is " + object.getClass());
     return clazz.cast(object);
+  }
+
+  static <K, V> void assertEmpty(Map<K, V> map, Object name) {
+    assertTrue(map.isEmpty(), () -> "The " + name + " map is non-empty: " + map);
   }
 
   static <T> void assertUnique(Iterable<T> first) {

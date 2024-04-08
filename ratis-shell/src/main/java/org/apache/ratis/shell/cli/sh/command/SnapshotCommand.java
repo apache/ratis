@@ -17,36 +17,26 @@
  */
 package org.apache.ratis.shell.cli.sh.command;
 
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
 import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.sh.snapshot.TakeSnapshotCommand;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Command for the ratis snapshot
  */
-public class SnapshotCommand extends AbstractRatisCommand {
-
-  private static final List<Function<Context, AbstractRatisCommand>> SUB_COMMAND_CONSTRUCTORS
+public class SnapshotCommand extends AbstractParentCommand {
+  private static final List<Function<Context, Command>> SUB_COMMAND_CONSTRUCTORS
       = Collections.unmodifiableList(Arrays.asList(TakeSnapshotCommand::new));
-
-  private final Map<String, Command> subs;
 
   /**
    * @param context command context
    */
   public SnapshotCommand(Context context) {
-    super(context);
-    this.subs = Collections.unmodifiableMap(SUB_COMMAND_CONSTRUCTORS.stream()
-        .map(constructor -> constructor.apply(context))
-        .collect(Collectors.toMap(Command::getCommandName, Function.identity())));
+    super(context, SUB_COMMAND_CONSTRUCTORS);
   }
 
   @Override
@@ -55,34 +45,8 @@ public class SnapshotCommand extends AbstractRatisCommand {
   }
 
   @Override
-  public String getUsage() {
-
-    StringBuilder usage = new StringBuilder(getCommandName());
-    for (String cmd : subs.keySet()) {
-      usage.append(" [").append(cmd).append("]");
-    }
-    return usage.toString();
-  }
-
-  @Override
   public String getDescription() {
     return description();
-  }
-
-  @Override
-  public Map<String, Command> getSubCommands() {
-    return subs;
-  }
-
-  @Override
-  public Options getOptions() {
-    return super.getOptions().addOption(
-        Option.builder()
-            .option(GROUPID_OPTION_NAME)
-            .hasArg()
-            .required()
-            .desc("the group id")
-            .build());
   }
 
   /**

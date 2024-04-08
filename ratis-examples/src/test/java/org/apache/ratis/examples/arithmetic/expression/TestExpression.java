@@ -19,8 +19,8 @@ package org.apache.ratis.examples.arithmetic.expression;
 
 
 import org.apache.ratis.BaseTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -42,21 +42,21 @@ public class TestExpression extends BaseTest {
         final int n = ran.nextInt();
         Expression.Utils.int2bytes(n, buf, offset);
         final int m = Expression.Utils.bytes2int(buf, offset);
-        Assert.assertEquals(n, m);
+        Assertions.assertEquals(n, m);
         offset += 4;
       }
       {
         final long n = ran.nextLong();
         Expression.Utils.long2bytes(n, buf, offset);
         final long m = Expression.Utils.bytes2long(buf, offset);
-        Assert.assertEquals(n, m);
+        Assertions.assertEquals(n, m);
         offset += 8;
       }
       {
         final double n = ran.nextDouble();
         Expression.Utils.double2bytes(n, buf, offset);
         final double m = Expression.Utils.bytes2double(buf, offset);
-        Assert.assertTrue(n == m);
+        Assertions.assertEquals(n, m);
         offset += 8;
       }
     }
@@ -65,11 +65,11 @@ public class TestExpression extends BaseTest {
   public void testOp() throws Exception {
     for(BinaryExpression.Op op : BinaryExpression.Op.values()) {
       final byte b = op.byteValue();
-      Assert.assertEquals(op, BinaryExpression.Op.valueOf(b));
+      Assertions.assertEquals(op, BinaryExpression.Op.valueOf(b));
     }
     for(UnaryExpression.Op op : UnaryExpression.Op.values()) {
       final byte b = op.byteValue();
-      Assert.assertEquals(op, UnaryExpression.Op.valueOf(b));
+      Assertions.assertEquals(op, UnaryExpression.Op.valueOf(b));
     }
   }
 
@@ -84,9 +84,9 @@ public class TestExpression extends BaseTest {
       final int len = a.toBytes(buf, offset);
       final Variable a2 = new Variable(buf, offset);
       LOG.info("var a2: " + a2);
-      Assert.assertEquals(a.getName(), a2.getName());
-      Assert.assertEquals(len, a.length());
-      Assert.assertEquals(len, a2.length());
+      Assertions.assertEquals(a.getName(), a2.getName());
+      Assertions.assertEquals(len, a.length());
+      Assertions.assertEquals(len, a2.length());
       offset += len;
     }
 
@@ -96,9 +96,9 @@ public class TestExpression extends BaseTest {
       final int len = three.toBytes(buf, offset);
       final DoubleValue three2 = new DoubleValue(buf, offset);
       LOG.info("double three2: " + three2.evaluate(null));
-      Assert.assertTrue(three.evaluate(null).equals(three2.evaluate(null)));
-      Assert.assertEquals(len, three.length());
-      Assert.assertEquals(len, three2.length());
+      Assertions.assertEquals(three.evaluate(null), three2.evaluate(null));
+      Assertions.assertEquals(len, three.length());
+      Assertions.assertEquals(len, three2.length());
     }
   }
 }

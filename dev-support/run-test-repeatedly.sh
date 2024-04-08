@@ -24,10 +24,12 @@ fi
 TEST_PATTERN=$1
 TEST_NAME=`echo ${TEST_PATTERN} | cut -d# -f 1`
 
-MVN="mvn"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source "${DIR}/find_maven.sh"
+
 set -ex
 
-mvn clean
+${MVN} clean
 
 for i in `seq 1 99`;
 do

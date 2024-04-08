@@ -16,16 +16,24 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../.." || exit 1
 
-MAVEN_OPTIONS='-B -fae'
+source "${DIR}/../find_maven.sh"
+
+: ${WITH_COVERAGE:="false"}
+
+MAVEN_OPTIONS='-B -fae --no-transfer-progress'
 
 if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
   #shellcheck disable=SC2086
-  mvn ${MAVEN_OPTIONS} test-compile spotbugs:check
+  ${MVN} ${MAVEN_OPTIONS} test-compile spotbugs:check
   exit $?
 fi
 
+if [[ "${WITH_COVERAGE}" != "true" ]]; then
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} -Djacoco.skip"
+fi
+
 #shellcheck disable=SC2086
-mvn ${MAVEN_OPTIONS} test-compile spotbugs:spotbugs
+${MVN} ${MAVEN_OPTIONS} test-compile spotbugs:spotbugs
 rc=$?
 
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/findbugs"}

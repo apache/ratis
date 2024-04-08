@@ -20,43 +20,33 @@ package org.apache.ratis.shell.cli.sh.command;
 import org.apache.commons.cli.Option;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.FollowerInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * The base class for all the ratis shell {@link Command} classes.
+ * The base class for the ratis shell which need to connect to server.
  */
-public abstract class AbstractRatisCommand implements Command {
+public abstract class AbstractRatisCommand extends AbstractCommand {
   public static final String PEER_OPTION_NAME = "peers";
   public static final String GROUPID_OPTION_NAME = "groupid";
   public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.randomId();
-
-  public static InetSocketAddress parseInetSocketAddress(String address) {
-    try {
-      final String[] hostPortPair = address.split(":");
-      if (hostPortPair.length < 2) {
-        throw new IllegalArgumentException("Unexpected address format <HOST:PORT>.");
-      }
-      return new InetSocketAddress(hostPortPair[0], Integer.parseInt(hostPortPair[1]));
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to parse the server address parameter \"" + address + "\".", e);
-    }
-  }
 
   /**
    * Execute a given function with input parameter from the members of a list.
@@ -82,12 +72,11 @@ public abstract class AbstractRatisCommand implements Command {
     return null;
   }
 
-  private final PrintStream printStream;
   private RaftGroup raftGroup;
   private GroupInfoReply groupInfoReply;
 
   protected AbstractRatisCommand(Context context) {
-    printStream = context.getPrintStream();
+    super(context);
   }
 
   @Override
@@ -150,14 +139,6 @@ public abstract class AbstractRatisCommand implements Command {
             .addOption(GROUPID_OPTION_NAME, true, "Raft group id");
   }
 
-  protected void printf(String format, Object... args) {
-    printStream.printf(format, args);
-  }
-
-  protected void println(Object message) {
-    printStream.println(message);
-  }
-
   protected RaftGroup getRaftGroup() {
     return raftGroup;
   }
@@ -195,5 +176,35 @@ public abstract class AbstractRatisCommand implements Command {
       printf("%s. Error: %s%n", message, e);
       throw new IOException(message, e);
     }
+  }
+
+  protected List<RaftPeerId> getIds(String[] optionValues, BiConsumer<RaftPeerId, InetSocketAddress> consumer) {
+    if (optionValues == null) {
+      return Collections.emptyList();
+    }
+    final List<RaftPeerId> ids = new ArrayList<>();
+    for (String address : optionValues) {
+      final InetSocketAddress serverAddress = parseInetSocketAddress(address);
+      final RaftPeerId peerId = RaftUtils.getPeerId(serverAddress);
+      consumer.accept(peerId, serverAddress);
+      ids.add(peerId);
+    }
+    return ids;
+  }
+
+  protected Stream<RaftPeer> getPeerStream(RaftPeerRole role) {
+    final RaftConfigurationProto conf = groupInfoReply.getConf().orElse(null);
+    if (conf == null) {
+      // Assume all peers are followers in order preserve the pre-listener behaviors.
+      return role == RaftPeerRole.FOLLOWER ? getRaftGroup().getPeers().stream() : Stream.empty();
+    }
+    final Set<RaftPeer> targets = (role == RaftPeerRole.LISTENER ? conf.getListenersList() : conf.getPeersList())
+        .stream()
+        .map(ProtoUtils::toRaftPeer)
+        .collect(Collectors.toSet());
+    return getRaftGroup()
+        .getPeers()
+        .stream()
+        .filter(targets::contains);
   }
 }

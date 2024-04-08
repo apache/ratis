@@ -40,8 +40,8 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   public static final Factory<MiniRaftClusterWithSimulatedRpc> FACTORY
       = new Factory<MiniRaftClusterWithSimulatedRpc>() {
     @Override
-    public MiniRaftClusterWithSimulatedRpc newCluster(
-        String[] ids, RaftProperties prop) {
+    public MiniRaftClusterWithSimulatedRpc newCluster(String[] ids, String[] listenerIds,
+        RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SimulatedRpc.INSTANCE);
       if (ThreadLocalRandom.current().nextBoolean()) {
         // turn off simulate latency half of the times.
@@ -54,7 +54,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
           = new SimulatedRequestReply<>(simulateLatencyMs);
       final SimulatedClientRpc client2serverRequestReply
           = new SimulatedClientRpc(simulateLatencyMs);
-      return new MiniRaftClusterWithSimulatedRpc(ids, prop,
+      return new MiniRaftClusterWithSimulatedRpc(ids, listenerIds, prop,
           serverRequestReply, client2serverRequestReply);
     }
   };
@@ -70,10 +70,10 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   private final SimulatedClientRpc client2serverRequestReply;
 
   private MiniRaftClusterWithSimulatedRpc(
-      String[] ids, RaftProperties properties,
+      String[] ids, String[] listenerIds, RaftProperties properties,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
       SimulatedClientRpc client2serverRequestReply) {
-    super(ids, properties,
+    super(ids, listenerIds, properties,
         SimulatedRpc.Factory.newRaftParameters(serverRequestReply, client2serverRequestReply));
     this.serverRequestReply = serverRequestReply;
     this.client2serverRequestReply = client2serverRequestReply;
@@ -108,7 +108,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
         .map(s -> serverRequestReply.getQueue(s.getId().toString()))
         .forEach(q -> q.delayTakeRequestTo.set(delayMs));
 
-    final long sleepMs = 3 * getTimeoutMax().toLong(TimeUnit.MILLISECONDS) / 2;
+    final long sleepMs = 3 * getTimeoutMax().toLong(TimeUnit.MILLISECONDS);
     Thread.sleep(sleepMs);
   }
 

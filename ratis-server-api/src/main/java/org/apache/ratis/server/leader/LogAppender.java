@@ -32,6 +32,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Comparator;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * A {@link LogAppender} is for the leader to send appendEntries to a particular follower.
@@ -67,8 +70,34 @@ public interface LogAppender {
   /** Is this {@link LogAppender} running? */
   boolean isRunning();
 
-  /** Stop this {@link LogAppender}. */
-  void stop();
+  /**
+   * Stop this {@link LogAppender} asynchronously.
+   * @deprecated override {@link #stopAsync()} instead.
+   */
+  @Deprecated
+  default void stop() {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Stop this {@link LogAppender} asynchronously.
+   *
+   * @return a future of the final state.
+   */
+  default CompletableFuture<?> stopAsync() {
+    stop();
+    return CompletableFuture.supplyAsync(() -> {
+      while (isRunning()) {
+        try {
+          Thread.sleep(10);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new CompletionException("stopAsync interrupted", e);
+        }
+      }
+      return null;
+    });
+  }
 
   /** @return the leader state. */
   LeaderState getLeaderState();
@@ -78,8 +107,14 @@ public interface LogAppender {
 
   /** The same as getFollower().getPeer().getId(). */
   default RaftPeerId getFollowerId() {
-    return getFollower().getPeer().getId();
+    return getFollower().getId();
   }
+
+  /** @return the call id for the next {@link AppendEntriesRequestProto}. */
+  long getCallId();
+
+  /** @return the a {@link Comparator} for comparing call ids. */
+  Comparator<Long> getCallIdComparator();
 
   /**
    * Create a {@link AppendEntriesRequestProto} object using the {@link FollowerInfo} of this {@link LogAppender}.
@@ -90,7 +125,9 @@ public interface LogAppender {
    * @param heartbeat the returned request must be a heartbeat.
    *
    * @return a new {@link AppendEntriesRequestProto} object.
+   * @deprecated this is no longer a public API.
    */
+  @Deprecated
   AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat) throws RaftLogIOException;
 
   /** @return a new {@link InstallSnapshotRequestProto} object. */
@@ -158,6 +195,9 @@ public interface LogAppender {
   default boolean hasAppendEntries() {
     return getFollower().getNextIndex() < getRaftLog().getNextIndex();
   }
+
+  /** Trigger to send a heartbeat AppendEntries. */
+  void triggerHeartbeat();
 
   /** @return the wait time in milliseconds to send the next heartbeat. */
   default long getHeartbeatWaitTimeMs() {

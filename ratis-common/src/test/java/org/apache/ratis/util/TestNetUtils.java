@@ -17,21 +17,41 @@
  */
 package org.apache.ratis.util;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-
-public class TestNetUtils {
+class TestNetUtils {
 
   @Test
-  public void createsUniqueAddresses() {
+  void createsUniqueAddresses() {
     for (int i = 0; i < 10; i++) {
       List<InetSocketAddress> addresses = NetUtils.createLocalServerAddress(100);
-      assertEquals(addresses.stream().distinct().collect(Collectors.toList()), addresses);
+      Assertions.assertEquals(addresses.stream().distinct().collect(Collectors.toList()), addresses);
+    }
+  }
+
+  @Test
+  void returnsUniquePorts() {
+    List<Integer> addresses = new ArrayList<>();
+    for (int i = 0; i < 10; i++) {
+      addresses.add(NetUtils.getFreePort());
+    }
+    Assertions.assertEquals(addresses.stream().distinct().collect(Collectors.toList()), addresses);
+  }
+
+  @Test
+  void skipsUsedPort() throws IOException {
+    int port = NetUtils.getFreePort();
+    try (ServerSocket ignored = new ServerSocket(port + 1)) {
+      int nextPort = NetUtils.getFreePort();
+      Assertions.assertEquals(port + 2, nextPort);
     }
   }
 }

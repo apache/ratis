@@ -26,9 +26,11 @@ public final class GroupManagementRequest extends RaftClientRequest {
 
   public static class Add extends Op {
     private final RaftGroup group;
+    private final boolean format;
 
-    public Add(RaftGroup group) {
+    public Add(RaftGroup group, boolean format) {
       this.group = group;
+      this.format = format;
     }
 
     @Override
@@ -38,6 +40,10 @@ public final class GroupManagementRequest extends RaftClientRequest {
 
     public RaftGroup getGroup() {
       return group;
+    }
+
+    public boolean isFormat() {
+      return format;
     }
 
     @Override
@@ -79,8 +85,14 @@ public final class GroupManagementRequest extends RaftClientRequest {
     }
   }
 
+  /** The same as newAdd(clientId, serverId, callId, group, true). */
   public static GroupManagementRequest newAdd(ClientId clientId, RaftPeerId serverId, long callId, RaftGroup group) {
-    return new GroupManagementRequest(clientId, serverId, callId, new Add(group));
+    return newAdd(clientId, serverId, callId, group, true);
+  }
+
+  public static GroupManagementRequest newAdd(ClientId clientId, RaftPeerId serverId, long callId,
+      RaftGroup group, boolean format) {
+    return new GroupManagementRequest(clientId, serverId, callId, new Add(group, format));
   }
 
   public static GroupManagementRequest newRemove(ClientId clientId, RaftPeerId serverId, long callId,
@@ -92,7 +104,7 @@ public final class GroupManagementRequest extends RaftClientRequest {
   private final Op op;
 
   private GroupManagementRequest(ClientId clientId, RaftPeerId serverId, long callId, Op op) {
-    super(clientId, serverId, op.getGroupId(), callId, false, writeRequestType());
+    super(clientId, serverId, op.getGroupId(), callId, writeRequestType());
     this.op = op;
   }
 

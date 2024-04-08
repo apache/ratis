@@ -18,9 +18,7 @@
 
 package org.apache.ratis.statemachine.impl;
 
-import com.codahale.metrics.Timer;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -52,6 +50,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     StateMachine.EventApi, StateMachine.LeaderEventApi, StateMachine.FollowerEventApi {
   private final CompletableFuture<RaftServer> server = new CompletableFuture<>();
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile RaftGroupId groupId;
   private final LifeCycle lifeCycle = new LifeCycle(JavaUtils.getClassSimpleName(getClass()));
 
@@ -112,10 +111,10 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     // return the same message contained in the entry
-    RaftProtos.LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
+    final LogEntryProto entry = Objects.requireNonNull(trx.getLogEntryUnsafe());
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
     return CompletableFuture.completedFuture(
-        Message.valueOf(trx.getLogEntry().getStateMachineLogEntry().getLogData()));
+        Message.valueOf(entry.getStateMachineLogEntry().getLogData()));
   }
 
   @Override
@@ -132,9 +131,12 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     updateLastAppliedTermIndex(term, index);
   }
 
-  @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
   protected boolean updateLastAppliedTermIndex(long term, long index) {
-    final TermIndex newTI = TermIndex.valueOf(term, index);
+    return updateLastAppliedTermIndex(TermIndex.valueOf(term, index));
+  }
+
+  protected boolean updateLastAppliedTermIndex(TermIndex newTI) {
+    Objects.requireNonNull(newTI, "newTI == null");
     final TermIndex oldTI = lastAppliedTermIndex.getAndSet(newTI);
     if (!newTI.equals(oldTI)) {
       LOG.trace("{}: update lastAppliedTermIndex from {} to {}", getId(), oldTI, newTI);
@@ -147,7 +149,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     }
 
     synchronized (transactionFutures) {
-      for(long i; !transactionFutures.isEmpty() && (i = transactionFutures.firstKey()) <= index; ) {
+      for(long i; !transactionFutures.isEmpty() && (i = transactionFutures.firstKey()) <= newTI.getIndex(); ) {
         transactionFutures.remove(i).complete(null);
       }
     }
@@ -195,7 +197,6 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   }
 
   @Override
-  @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
   public CompletableFuture<Message> query(Message request) {
     return CompletableFuture.completedFuture(null);
   }
@@ -228,19 +229,4 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     return JavaUtils.getClassSimpleName(getClass()) + ":"
         + (!server.isDone()? "uninitialized": getId() + ":" + groupId);
   }
-
-
-  protected CompletableFuture<Message> recordTime(Timer timer, Task task) {
-    final Timer.Context timerContext = timer.time();
-    try {
-      return task.run();
-    } finally {
-      timerContext.stop();
-    }
-  }
-
-  protected interface Task {
-    CompletableFuture<Message> run();
-  }
-
 }

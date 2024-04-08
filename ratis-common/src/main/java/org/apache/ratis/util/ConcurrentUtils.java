@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedConsumer;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.util.ArrayList;
@@ -33,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 /**
  * Utilities related to concurrent programming.
@@ -80,6 +82,21 @@ public interface ConcurrentUtils {
   }
 
   /**
+    * This method is similar to {@link java.util.concurrent.Executors#newSingleThreadExecutor(ThreadFactory)}
+    * except that this method takes a specific thread name as there is only one thread.g
+    *
+    * @param name the thread name for only one thread.
+    * @return a new {@link ExecutorService}.
+    */
+  static ExecutorService newSingleThreadExecutor(String name) {
+      return Executors.newSingleThreadExecutor(runnable -> {
+          final Thread t = new Thread(runnable);
+          t.setName(name);
+          return t;
+        });
+  }
+
+  /**
    * The same as {@link java.util.concurrent.Executors#newCachedThreadPool(ThreadFactory)}
    * except that this method takes a maximumPoolSize parameter.
    *
@@ -116,41 +133,77 @@ public interface ConcurrentUtils {
    * @param executor The executor to be shut down.
    */
   static void shutdownAndWait(ExecutorService executor) {
+    shutdownAndWait(TimeDuration.ONE_DAY, executor, timeout -> {
+      throw new IllegalStateException(executor.getClass().getName() + " shutdown timeout in " + timeout);
+    });
+  }
+
+  static void shutdownAndWait(TimeDuration waitTime, ExecutorService executor, Consumer<TimeDuration> timoutHandler) {
+    executor.shutdown();
     try {
-      executor.shutdown();
-      Preconditions.assertTrue(executor.awaitTermination(1, TimeUnit.DAYS));
+      if (executor.awaitTermination(waitTime.getDuration(), waitTime.getUnit())) {
+        return;
+      }
     } catch (InterruptedException ignored) {
       Thread.currentThread().interrupt();
+      return;
+    }
+    if (timoutHandler != null) {
+      timoutHandler.accept(waitTime);
     }
   }
 
   /**
-   * The same as collection.parallelStream().forEach(action) except that
-   * (1) this method is asynchronous, and
-   * (2) an executor can be passed to this method.
+   * The same as {@link Collection#parallelStream()}.forEach(action) except that
+   * (1) this method is asynchronous,
+   * (2) this method has an executor parameter, and
+   * (3) the action can throw a checked exception.
    *
-   * @param collection The given collection.
-   * @param action To act on each element in the collection.
+   * @param stream The stream to be processed.
+   * @param size The estimated size of the stream.
+   * @param action To act on each element in the stream.
    * @param executor To execute the action.
-   * @param <T> The element type.
+   * @param <E> The element type.
+   * @param <THROWABLE> the exception type.
    *
    * @return a {@link CompletableFuture} that is completed
    *         when the action is completed for each element in the collection.
+   *         When the action throws an exception, the future will be completed exceptionally.
    *
    * @see Collection#parallelStream()
    * @see java.util.stream.Stream#forEach(Consumer)
    */
-  static <T> CompletableFuture<Void> parallelForEachAsync(Collection<T> collection, Consumer<? super T> action,
-      Executor executor) {
-    final List<CompletableFuture<T>> futures = new ArrayList<>(collection.size());
-    collection.forEach(element -> {
-      final CompletableFuture<T> f = new CompletableFuture<>();
+  static <E, THROWABLE extends Throwable> CompletableFuture<Void> parallelForEachAsync(
+      Stream<E> stream, int size, CheckedConsumer<? super E, THROWABLE> action, Executor executor) {
+    final List<CompletableFuture<E>> futures = new ArrayList<>(size);
+    stream.forEach(element -> {
+      final CompletableFuture<E> f = new CompletableFuture<>();
       futures.add(f);
-      executor.execute(() -> {
-        action.accept(element);
-        f.complete(element);
-      });
+      executor.execute(() -> accept(action, element, f));
     });
     return JavaUtils.allOf(futures);
+  }
+
+  /** The same as parallelForEachAsync(collection.stream(), collection.size(), action, executor). */
+  static <E, THROWABLE extends Throwable> CompletableFuture<Void> parallelForEachAsync(
+      Collection<E> collection, CheckedConsumer<? super E, THROWABLE> action, Executor executor) {
+    return parallelForEachAsync(collection.stream(), collection.size(), action, executor);
+  }
+
+  /** The same as parallelForEachAsync(collection.stream(), collection.size(), action, executor). */
+  static <THROWABLE extends Throwable> CompletableFuture<Void> parallelForEachAsync(
+      int size, CheckedConsumer<Integer, THROWABLE> action, Executor executor) {
+    final AtomicInteger i = new AtomicInteger();
+    return parallelForEachAsync(Stream.generate(i::getAndIncrement).limit(size), size, action, executor);
+  }
+
+  static <E, THROWABLE extends Throwable> void accept(
+      CheckedConsumer<? super E, THROWABLE> action, E element, CompletableFuture<E> f) {
+    try {
+      action.accept(element);
+      f.complete(element);
+    } catch (Throwable t) {
+      f.completeExceptionally(t);
+    }
   }
 }

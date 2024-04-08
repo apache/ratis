@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.server.impl.MiniRaftCluster;
@@ -32,13 +33,15 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.CollectionUtils;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedConsumer;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
-import java.io.FileInputStream;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -60,6 +63,11 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
   @Test
   public void testStreamWrites() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::testStreamWrites);
+  }
+
+  @Test
+  public void testStreamWithInvalidRoutingTable() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestInvalidPrimaryInRoutingTable);
   }
 
   void testStreamWrites(CLUSTER cluster) throws Exception {
@@ -96,6 +104,31 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     assertLogEntry(cluster, request);
   }
 
+  void runTestInvalidPrimaryInRoutingTable(CLUSTER cluster) throws Exception {
+    final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
+
+    RaftPeer notPrimary = null;
+    for (RaftPeer peer: cluster.getGroup().getPeers()) {
+      if (!peer.equals(primaryServer)) {
+        notPrimary = peer;
+        break;
+      }
+    }
+
+    Assertions.assertNotNull(notPrimary,
+        "Cannot find peer other than the primary");
+    Assertions.assertNotEquals(primaryServer, notPrimary);
+
+    try (RaftClient client = cluster.createClient(primaryServer)) {
+      RoutingTable routingTableWithWrongPrimary =
+          getRoutingTable(cluster.getGroup().getPeers(), notPrimary);
+      testFailureCase("",
+          () -> client.getDataStreamApi().stream(null,
+              routingTableWithWrongPrimary),
+          IllegalStateException.class);
+    }
+  }
+
   void runTestWriteFile(CLUSTER cluster, int i,
       CheckedConsumer<DataStreamOutputImpl, Exception> testCase) throws Exception {
     final RaftClientRequest request;
@@ -121,9 +154,9 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     return new CheckedConsumer<DataStreamOutputImpl, Exception>() {
       @Override
       public void accept(DataStreamOutputImpl out) throws Exception {
-        try (FileInputStream in = new FileInputStream(f)) {
-          final long transferred = in.getChannel().transferTo(0, size, out.getWritableByteChannel());
-          Assert.assertEquals(size, transferred);
+        try (FileChannel in = FileUtils.newFileChannel(f, StandardOpenOption.READ)) {
+          final long transferred = in.transferTo(0, size, out.getWritableByteChannel());
+          Assertions.assertEquals(size, transferred);
         }
       }
 
@@ -138,7 +171,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     return new CheckedConsumer<DataStreamOutputImpl, Exception>() {
       @Override
       public void accept(DataStreamOutputImpl out) {
-        final DataStreamReply dataStreamReply = out.writeAsync(f).join();
+        final DataStreamReply dataStreamReply = out.writeAsync(f, StandardWriteOption.FLUSH).join();
         DataStreamTestUtils.assertSuccessReply(Type.STREAM_DATA, size, dataStreamReply);
       }
 
@@ -163,7 +196,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
       final RaftServer.Division impl = proxy.getDivision(cluster.getGroupId());
       final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) impl.getStateMachine();
       final SingleDataStream s = stateMachine.getSingleDataStream(request);
-      Assert.assertFalse(s.getDataChannel().isOpen());
+      Assertions.assertFalse(s.getDataChannel().isOpen());
       DataStreamTestUtils.assertLogEntry(impl, s);
     }
   }

@@ -17,16 +17,13 @@
  */
 package org.apache.ratis.statemachine;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
-import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -35,11 +32,13 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -50,6 +49,10 @@ import java.util.function.Function;
  * StateMachine is the entry point for the custom implementation of replicated state as defined in
  * the "State Machine Approach" in the literature
  * (see https://en.wikipedia.org/wiki/State_machine_replication).
+ *
+ *  A {@link StateMachine} implementation must be threadsafe.
+ *  For example, the {@link #applyTransaction(TransactionContext)} method and the {@link #query(Message)} method
+ *  can be invoked in parallel.
  */
 public interface StateMachine extends Closeable {
   Logger LOG = LoggerFactory.getLogger(StateMachine.class);
@@ -72,8 +75,49 @@ public interface StateMachine extends Closeable {
      *
      * @return a future for the read task.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<ByteString> read(LogEntryProto entry) {
+      throw new UnsupportedOperationException("This method is NOT supported.");
+    }
+
+    /**
+     * Read asynchronously the state machine data from this state machine.
+     *
+     * @return a future for the read task.
+     */
+    default CompletableFuture<ByteString> read(LogEntryProto entry, TransactionContext context) {
+      return read(entry);
+    }
+
+    /**
+     * Read asynchronously the state machine data from this state machine.
+     * StateMachines implement this method when the read result contains retained resources that should be released
+     * after use.
+     *
+     * @return a future for the read task. The result of the future is a {@link ReferenceCountedObject} wrapping the
+     * read result. Client code of this method must call  {@link ReferenceCountedObject#release()} after
+     * use.
+     */
+    default CompletableFuture<ReferenceCountedObject<ByteString>> retainRead(LogEntryProto entry,
+        TransactionContext context) {
+      return read(entry, context).thenApply(r -> {
+        if (r == null) {
+          return null;
+        }
+        ReferenceCountedObject<ByteString> ref = ReferenceCountedObject.wrap(r);
+        ref.retain();
+        return ref;
+
+      });
+    }
+
+    /**
+     * Write asynchronously the state machine data in the given log entry to this state machine.
+     *
+     * @return a future for the write task
+     * @deprecated Applications should implement {@link #write(ReferenceCountedObject, TransactionContext)} instead.
+     */
+    @Deprecated
+    default CompletableFuture<?> write(LogEntryProto entry) {
       return CompletableFuture.completedFuture(null);
     }
 
@@ -81,10 +125,34 @@ public interface StateMachine extends Closeable {
      * Write asynchronously the state machine data in the given log entry to this state machine.
      *
      * @return a future for the write task
+     * @deprecated Applications should implement {@link #write(ReferenceCountedObject, TransactionContext)} instead.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
-    default CompletableFuture<?> write(LogEntryProto entry) {
-      return CompletableFuture.completedFuture(null);
+    @Deprecated
+    default CompletableFuture<?> write(LogEntryProto entry, TransactionContext context) {
+      return write(entry);
+    }
+
+    /**
+     * Write asynchronously the state machine data in the given log entry to this state machine.
+     *
+     * @param entryRef Reference to a log entry.
+     *                 Implementations of this method may call {@link ReferenceCountedObject#get()}
+     *                 to access the log entry before this method returns.
+     *                 If the log entry is needed after this method returns,
+     *                 e.g. for asynchronous computation or caching,
+     *                 the implementation must invoke {@link ReferenceCountedObject#retain()}
+     *                 and {@link ReferenceCountedObject#release()}.
+     * @return a future for the write task
+     */
+    default CompletableFuture<?> write(ReferenceCountedObject<LogEntryProto> entryRef, TransactionContext context) {
+      final LogEntryProto entry = entryRef.get();
+      try {
+        final LogEntryProto copy = LogEntryProto.parseFrom(entry.toByteString());
+        return write(copy, context);
+      } catch (InvalidProtocolBufferException e) {
+        return JavaUtils.completeExceptionally(new IllegalStateException(
+            "Failed to copy log entry " + TermIndex.valueOf(entry), e));
+      }
     }
 
     /**
@@ -93,7 +161,6 @@ public interface StateMachine extends Closeable {
      *
      * @return a future of the stream.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<DataStream> stream(RaftClientRequest request) {
       return CompletableFuture.completedFuture(null);
     }
@@ -108,7 +175,6 @@ public interface StateMachine extends Closeable {
      * @param entry the log entry to be linked.
      * @return a future for the link task.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<?> link(DataStream stream, LogEntryProto entry) {
       return CompletableFuture.completedFuture(null);
     }
@@ -119,7 +185,6 @@ public interface StateMachine extends Closeable {
      * @param logIndex The log index to flush.
      * @return a future for the flush task.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<Void> flush(long logIndex) {
       return CompletableFuture.completedFuture(null);
     }
@@ -131,7 +196,6 @@ public interface StateMachine extends Closeable {
      * @param logIndex The last log index after truncation.
      * @return a future for truncate task.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<Void> truncate(long logIndex) {
       return CompletableFuture.completedFuture(null);
     }
@@ -155,9 +219,9 @@ public interface StateMachine extends Closeable {
 
     /**
      * Notify the {@link StateMachine} a term-index update event.
-     * This method will be invoked when a {@link RaftProtos.MetadataProto}
-     * or {@link RaftProtos.RaftConfigurationProto} is processed.
-     * For {@link RaftProtos.StateMachineLogEntryProto}, this method will not be invoked.
+     * This method will be invoked when a {@link MetadataProto}
+     * or {@link RaftConfigurationProto} is processed.
+     * For {@link StateMachineLogEntryProto}, this method will not be invoked.
      *
      * @param term The term of the log entry
      * @param index The index of the log entry
@@ -166,7 +230,7 @@ public interface StateMachine extends Closeable {
 
     /**
      * Notify the {@link StateMachine} a configuration change.
-     * This method will be invoked when a {@link RaftProtos.RaftConfigurationProto} is processed.
+     * This method will be invoked when a {@link RaftConfigurationProto} is processed.
      *
      * @param term term of the current log entry
      * @param index index which is being updated
@@ -187,6 +251,21 @@ public interface StateMachine extends Closeable {
      * @param failedEntry The failed log entry, if there is any.
      */
     default void notifyLogFailed(Throwable cause, LogEntryProto failedEntry) {}
+
+    /**
+     * Notify the {@link StateMachine} that the progress of install snapshot is
+     * completely done. Could trigger the cleanup of snapshots.
+     *
+     * @param result {@link InstallSnapshotResult}
+     * @param snapshotIndex the index of installed snapshot
+     * @param peer the peer who installed the snapshot
+     */
+    default void notifySnapshotInstalled(InstallSnapshotResult result, long snapshotIndex,  RaftPeer peer) {}
+
+    /**
+     * Notify the {@link StateMachine} that a raft server has step down.
+     */
+    default void notifyServerShutdown(RoleInfoProto roleInfo) {}
   }
 
   /**
@@ -201,16 +280,26 @@ public interface StateMachine extends Closeable {
      * Notify the {@link StateMachine} that the given follower is slow.
      * This notification is based on "raft.server.rpc.slowness.timeout".
      *
-     * @param roleInfoProto information about the current node role and rpc delay information
+     * @param leaderInfo information about the current node role and rpc delay information
+     * @param slowFollower The follower being slow.
      *
      * @see org.apache.ratis.server.RaftServerConfigKeys.Rpc#SLOWNESS_TIMEOUT_KEY
      */
-    default void notifyFollowerSlowness(RoleInfoProto roleInfoProto) {}
+    default void notifyFollowerSlowness(RoleInfoProto leaderInfo, RaftPeer slowFollower) {}
+
+    /** @deprecated Use {@link #notifyFollowerSlowness(RoleInfoProto, RaftPeer)}. */
+    @Deprecated
+    default void notifyFollowerSlowness(RoleInfoProto leaderInfo) {}
 
     /**
      * Notify {@link StateMachine} that this server is no longer the leader.
      */
     default void notifyNotLeader(Collection<TransactionContext> pendingEntries) throws IOException {}
+
+    /**
+     * Notify the {@link StateMachine} that this server becomes ready after changed to leader.
+     */
+    default void notifyLeaderReady() {}
   }
 
   /**
@@ -239,7 +328,6 @@ public interface StateMachine extends Closeable {
      * @param firstTermIndexInLog The term-index of the first append entry available in the leader's log.
      * @return return the last term-index in the snapshot after the snapshot installation.
      */
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
         RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog) {
       return CompletableFuture.completedFuture(null);
@@ -250,6 +338,40 @@ public interface StateMachine extends Closeable {
    * For write state machine data.
    */
   interface DataChannel extends WritableByteChannel {
+    /**
+     * This method is the same as {@link WritableByteChannel#write(ByteBuffer)}.
+     *
+     * If the implementation has overridden {@link #write(ReferenceCountedObject)},
+     * then it does not have to override this method.
+     */
+    @Override
+    default int write(ByteBuffer buffer) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Similar to {@link #write(ByteBuffer)}
+     * except that the parameter is a {@link ReferenceCountedObject}.
+     *
+     * This is an optional method.
+     * The default implementation is the same as write(referenceCountedBuffer.get()).
+     *
+     * The implementation may choose to override this method in order to retain the buffer for later use.
+     *
+     * - If the buffer is retained, it must be released afterward.
+     *   Otherwise, the buffer will not be returned, and it will cause a memory leak.
+     *
+     * - If the buffer is retained multiple times, it must be released the same number of time.
+     *
+     * - It is safe to access the buffer before this method returns with or without retaining it.
+     *
+     * - If the buffer is not retained but is accessed after this method returns,
+     *   the content of the buffer could possibly be changed unexpectedly, and it will cause data corruption.
+     */
+    default int write(ReferenceCountedObject<ByteBuffer> referenceCountedBuffer) throws IOException {
+      return write(referenceCountedBuffer.get());
+    }
+
     /**
      * Similar to {@link java.nio.channels.FileChannel#force(boolean)},
      * the underlying implementation should force writing the data and/or metadata to the underlying storage.
@@ -421,18 +543,42 @@ public interface StateMachine extends Closeable {
   CompletableFuture<Message> queryStale(Message request, long minIndex);
 
   /**
-   * Validate/pre-process the incoming update request in the state machine.
-   * @return the content to be written to the log entry. Null means the request
-   * should be rejected.
+   * Start a transaction for the given request.
+   * This method can be invoked in parallel when there are multiple requests.
+   * The implementation should validate the request,
+   * prepare a {@link StateMachineLogEntryProto},
+   * and then build a {@link TransactionContext}.
+   * The implementation should also be light-weighted.
+   *
+   * @return a transaction with the content to be written to the log.
    * @throws IOException thrown by the state machine while validation
+   *
+   * @see TransactionContext.Builder
    */
   TransactionContext startTransaction(RaftClientRequest request) throws IOException;
 
   /**
+   * Start a transaction for the given log entry for non-leaders.
+   * This method can be invoked in parallel when there are multiple requests.
+   * The implementation should prepare a {@link StateMachineLogEntryProto},
+   * and then build a {@link TransactionContext}.
+   * The implementation should also be light-weighted.
+   *
+   * @return a transaction with the content to be written to the log.
+   */
+  default TransactionContext startTransaction(LogEntryProto entry, RaftPeerRole role) {
+    return TransactionContext.newBuilder()
+        .setStateMachine(this)
+        .setLogEntry(entry)
+        .setServerRole(role)
+        .build();
+  }
+
+  /**
    * This is called before the transaction passed from the StateMachine is appended to the raft log.
-   * This method will be called from log append and having the same strict serial order that the
-   * transactions will have in the RAFT log. Since this is called serially in the critical path of
-   * log append, it is important to do only required operations here.
+   * This method is called with the same strict serial order as the transaction order in the raft log.
+   * Since this is called serially in the critical path of log append,
+   * it is important to do only required operations here.
    * @return The Transaction context.
    */
   TransactionContext preAppendTransaction(TransactionContext trx) throws IOException;
@@ -462,8 +608,24 @@ public interface StateMachine extends Closeable {
    * method, which returns a future, is asynchronous. The state machine implementation may
    * choose to apply the log entries in parallel. In that case, the order of applying entries to
    * state machine could possibly be different from the log commit order.
-   * @param trx the transaction state including the log entry that has been committed to a quorum
-   *            of the raft peers
+   *
+   * The implementation must be deterministic so that the raft log can be replayed in any raft peers.
+   * Note that, if there are three or more servers,
+   * the Raft algorithm makes sure the that log remains consistent
+   * even if there are hardware errors in one machine (or less than the majority number of machines).
+   *
+   * Any exceptions thrown in this method are treated as unrecoverable errors (such as hardware errors).
+   * The server will be shut down when it occurs.
+   * Administrators should manually fix the underlying problem and then restart the machine.
+   *
+   * @param trx the transaction state including the log entry that has been replicated to a majority of the raft peers.
+   *
+   * @return a future containing the result message of the transaction,
+   *         where the result message will be replied to the client.
+   *         When there is an application level exception (e.g. access denied),
+   *         the state machine may complete the returned future exceptionally.
+   *         The exception will be wrapped in an {@link org.apache.ratis.protocol.exceptions.StateMachineException}
+   *         and then replied to the client.
    */
   CompletableFuture<Message> applyTransaction(TransactionContext trx);
 
@@ -476,7 +638,7 @@ public interface StateMachine extends Closeable {
    * @param proto state machine proto
    * @return the string representation of the proto.
    */
-  default String toStateMachineLogEntryString(RaftProtos.StateMachineLogEntryProto proto) {
+  default String toStateMachineLogEntryString(StateMachineLogEntryProto proto) {
     return JavaUtils.getClassSimpleName(proto.getClass()) +  ":" + ClientInvocationId.valueOf(proto);
   }
 }

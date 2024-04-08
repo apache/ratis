@@ -39,6 +39,7 @@ public final class AutoCloseableLock implements AutoCloseable {
     return acquire(lock, null);
   }
 
+  @SuppressWarnings("java:S2222") // Locks should be release by calling {@link #close()}
   public static AutoCloseableLock acquire(final Lock lock, Runnable preUnlock) {
     lock.lock();
     return new AutoCloseableLock(lock, preUnlock);

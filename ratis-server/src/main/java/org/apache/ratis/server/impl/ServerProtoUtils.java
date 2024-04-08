@@ -20,10 +20,13 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.util.Preconditions;
 
 import java.util.Collection;
 import java.util.List;
@@ -79,7 +82,7 @@ final class ServerProtoUtils {
       RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, int requestIndex, InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, result == InstallSnapshotResult.SUCCESS);
+        replyId, isSuccess(result));
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result)
         .setRequestIndex(requestIndex);
@@ -89,24 +92,42 @@ final class ServerProtoUtils {
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, InstallSnapshotResult result, long installedSnapshotIndex) {
-    final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, result == InstallSnapshotResult.SUCCESS);
-    final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
-        .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result);
-    if (installedSnapshotIndex > 0) {
-      builder.setSnapshotIndex(installedSnapshotIndex);
-    }
-    return builder.build();
+    final boolean success = isSuccess(result);
+    Preconditions.assertTrue(success || installedSnapshotIndex == RaftLog.INVALID_LOG_INDEX,
+        () -> "result=" + result + " but installedSnapshotIndex=" + installedSnapshotIndex);
+    final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId, replyId, success);
+    return InstallSnapshotReplyProto.newBuilder()
+        .setServerReply(rb)
+        .setTerm(currentTerm)
+        .setResult(result)
+        .setSnapshotIndex(installedSnapshotIndex > 0? installedSnapshotIndex: 0)
+        .build();
   }
 
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId,
-      InstallSnapshotResult result) {
-    final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, result == InstallSnapshotResult.SUCCESS);
-    final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
-        .newBuilder().setServerReply(rb).setResult(result);
-    return builder.build();
+      long currentTerm, InstallSnapshotResult result) {
+    return toInstallSnapshotReplyProto(requestorId, replyId, currentTerm, result, RaftLog.INVALID_LOG_INDEX);
+  }
+
+  static ReadIndexRequestProto toReadIndexRequestProto(
+      RaftClientRequest clientRequest, RaftGroupMemberId requestorId, RaftPeerId replyId) {
+    return ReadIndexRequestProto.newBuilder()
+        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId))
+        .setClientRequest(ClientProtoUtils.toRaftClientRequestProto(clientRequest))
+        .build();
+  }
+
+  static ReadIndexReplyProto toReadIndexReplyProto(
+      RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success, long index) {
+    return ReadIndexReplyProto.newBuilder()
+        .setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success))
+        .setReadIndex(index)
+        .build();
+  }
+
+  static ReadIndexReplyProto toReadIndexReplyProto(RaftPeerId requestorId, RaftGroupMemberId replyId) {
+    return toReadIndexReplyProto(requestorId, replyId, false, RaftLog.INVALID_LOG_INDEX);
   }
 
   @SuppressWarnings("parameternumber")
@@ -159,5 +180,16 @@ final class ServerProtoUtils {
         .setId(peer.getRaftPeerProto())
         .setLastRpcElapsedTimeMs(delay)
         .build();
+  }
+
+  static boolean isSuccess(InstallSnapshotResult result) {
+    switch (result) {
+      case SUCCESS:
+      case SNAPSHOT_INSTALLED:
+      case ALREADY_INSTALLED:
+        return true;
+      default:
+        return false;
+    }
   }
 }

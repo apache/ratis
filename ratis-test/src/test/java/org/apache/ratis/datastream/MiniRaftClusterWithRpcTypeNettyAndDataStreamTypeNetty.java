@@ -34,10 +34,11 @@ public class MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty extends MiniR
   public static final Factory<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty> FACTORY
       = new Factory<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty>() {
     @Override
-    public MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty newCluster(String[] ids, RaftProperties prop) {
+    public MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty newCluster(String[] ids,
+        String[] listenerIds, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.NETTY);
       RaftConfigKeys.DataStream.setType(prop, SupportedDataStreamType.NETTY);
-      return new MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty(ids, prop);
+      return new MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty(ids, listenerIds, prop);
     }
   };
 
@@ -48,8 +49,8 @@ public class MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty extends MiniR
     }
   }
 
-  private MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty(String[] ids, RaftProperties properties) {
-    super(ids, properties);
+  private MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty(String[] ids, String[] listenerIds, RaftProperties properties) {
+    super(ids, listenerIds, properties);
   }
 
   @Override

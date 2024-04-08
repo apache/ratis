@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
@@ -34,44 +35,44 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedCheckedSupplier;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 
-import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
-import java.nio.channels.OverlappingFileLockException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.RaftServer.Division.LOG;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
  */
-class ServerState implements Closeable {
+class ServerState {
   private final RaftGroupMemberId memberId;
   private final RaftServerImpl server;
   /** Raft log */
-  private final RaftLog log;
+  private final MemoizedSupplier<RaftLog> log;
   /** Raft configuration */
   private final ConfigurationManager configurationManager;
   /** The thread that applies committed log entries to the state machine */
-  private final StateMachineUpdater stateMachineUpdater;
+  private final MemoizedSupplier<StateMachineUpdater> stateMachineUpdater;
   /** local storage for log and snapshot */
-  private RaftStorageImpl storage;
+  private final MemoizedCheckedSupplier<RaftStorageImpl, IOException> raftStorage;
   private final SnapshotManager snapshotManager;
-  private volatile Timestamp lastNoLeaderTime;
+  private final AtomicReference<Timestamp> lastNoLeaderTime;
   private final TimeDuration noLeaderTimeout;
+
+  private final ReadRequests readRequests;
 
   /**
    * Latest term server has seen.
@@ -82,10 +83,11 @@ class ServerState implements Closeable {
    * The server ID of the leader for this term. Null means either there is
    * no leader for this term yet or this server does not know who it is yet.
    */
-  private volatile RaftPeerId leaderId;
+  private final AtomicReference<RaftPeerId> leaderId = new AtomicReference<>();
   /**
    * Candidate that this peer granted vote for in current term (or null if none)
    */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile RaftPeerId votedFor;
 
   /**
@@ -95,103 +97,82 @@ class ServerState implements Closeable {
    */
   private final AtomicReference<TermIndex> latestInstalledSnapshot = new AtomicReference<>();
 
-  ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
-              RaftServerImpl server, StateMachine stateMachine)
-      throws IOException {
+  ServerState(RaftPeerId id, RaftGroup group, StateMachine stateMachine, RaftServerImpl server,
+      RaftStorage.StartupOption option, RaftProperties prop) {
     this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId());
     this.server = server;
-    final RaftConfigurationImpl initialConf = RaftConfigurationImpl.newBuilder().setConf(group.getPeers()).build();
-    configurationManager = new ConfigurationManager(initialConf);
+    Collection<RaftPeer> followerPeers = group.getPeers().stream()
+        .filter(peer -> peer.getStartupRole() == RaftPeerRole.FOLLOWER)
+        .collect(Collectors.toList());
+    Collection<RaftPeer> listenerPeers = group.getPeers().stream()
+        .filter(peer -> peer.getStartupRole() == RaftPeerRole.LISTENER)
+        .collect(Collectors.toList());
+    final RaftConfigurationImpl initialConf = RaftConfigurationImpl.newBuilder()
+        .setConf(followerPeers, listenerPeers)
+        .build();
+    configurationManager = new ConfigurationManager(id, initialConf);
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
-    boolean storageFound = false;
-    List<File> directories = RaftServerConfigKeys.storageDir(prop);
-    while (!directories.isEmpty()) {
-      // use full uuid string to create a subdirectory
-      File dir = chooseStorageDir(directories, group.getGroupId().getUuid().toString());
-      try {
-        storage = new RaftStorageImpl(dir, RaftServerConfigKeys.Log.corruptionPolicy(prop),
-            RaftServerConfigKeys.storageFreeSpaceMin(prop).getSize());
-        storageFound = true;
-        break;
-      } catch (IOException e) {
-        if (e.getCause() instanceof OverlappingFileLockException) {
-          throw e;
-        }
-        LOG.warn("Failed to init RaftStorage under {} for {}: {}",
-            dir.getParent(), group.getGroupId().getUuid().toString(), e);
-        directories.removeIf(d -> d.getAbsolutePath().equals(dir.getParent()));
-      }
-    }
+    final String storageDirName = group.getGroupId().getUuid().toString();
+    this.raftStorage = MemoizedCheckedSupplier.valueOf(
+        () -> StorageImplUtils.initRaftStorage(storageDirName, option, prop));
 
-    if (!storageFound) {
-      throw new IOException("No healthy directories found for RaftStorage among: " +
-          RaftServerConfigKeys.storageDir(prop));
-    }
-
-    snapshotManager = new SnapshotManager(storage, id);
-
-    stateMachine.initialize(server.getRaftServer(), group.getGroupId(), storage);
-    // read configuration from the storage
-    Optional.ofNullable(storage.readRaftConfiguration()).ifPresent(this::setRaftConf);
+    this.snapshotManager = StorageImplUtils.newSnapshotManager(id, () -> getStorage().getStorageDir(),
+        stateMachine.getStateMachineStorage());
 
     // On start the leader is null, start the clock now
-    leaderId = null;
-    this.lastNoLeaderTime = Timestamp.currentTime();
+    this.lastNoLeaderTime = new AtomicReference<>(Timestamp.currentTime());
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
 
     final LongSupplier getSnapshotIndexFromStateMachine = () -> Optional.ofNullable(stateMachine.getLatestSnapshot())
         .map(SnapshotInfo::getIndex)
         .filter(i -> i >= 0)
         .orElse(RaftLog.INVALID_LOG_INDEX);
+    this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
+    this.readRequests = new ReadRequests(prop, stateMachine);
+    this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
+        stateMachine, server, this, getLog().getSnapshotIndex(), prop,
+        this.readRequests.getAppliedIndexConsumer()));
+  }
+
+  void initialize(StateMachine stateMachine) throws IOException {
+    // initialize raft storage
+    final RaftStorageImpl storage = raftStorage.get();
+    // read configuration from the storage
+    Optional.ofNullable(storage.readRaftConfiguration()).ifPresent(this::setRaftConf);
+
+    stateMachine.initialize(server.getRaftServer(), getMemberId().getGroupId(), storage);
 
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
-    this.log = initRaftLog(getMemberId(), server, storage, this::setRaftConf, getSnapshotIndexFromStateMachine, prop);
-
-    final RaftStorageMetadata metadata = log.loadMetadata();
+    final RaftStorageMetadata metadata = log.get().loadMetadata();
     currentTerm.set(metadata.getTerm());
     votedFor = metadata.getVotedFor();
-
-    stateMachineUpdater = new StateMachineUpdater(stateMachine, server, this, log.getSnapshotIndex(), prop);
   }
 
   RaftGroupMemberId getMemberId() {
     return memberId;
   }
 
-  static File chooseStorageDir(List<File> volumes, String targetSubDir) throws IOException {
-    final Map<File, Integer> numberOfStorageDirPerVolume = new HashMap<>();
-    final File[] empty = {};
-    final List<File> resultList = new ArrayList<>();
-    volumes.stream().flatMap(volume -> {
-      final File[] dirs = Optional.ofNullable(volume.listFiles()).orElse(empty);
-      numberOfStorageDirPerVolume.put(volume, dirs.length);
-      return Arrays.stream(dirs);
-    }).filter(dir -> targetSubDir.equals(dir.getName()))
-        .forEach(resultList::add);
-
-    if (resultList.size() > 1) {
-      throw new IOException("More than one directories found for " + targetSubDir + ": " + resultList);
-    }
-    if (resultList.size() == 1) {
-      return resultList.get(0);
-    }
-    return numberOfStorageDirPerVolume.entrySet().stream()
-        .min(Map.Entry.comparingByValue())
-        .map(Map.Entry::getKey)
-        .map(v -> new File(v, targetSubDir))
-        .orElseThrow(() -> new IOException("No storage directory found."));
-  }
-
   void writeRaftConfiguration(LogEntryProto conf) {
-    storage.writeRaftConfiguration(conf);
+    getStorage().writeRaftConfiguration(conf);
   }
 
   void start() {
-    stateMachineUpdater.start();
+    // initialize stateMachineUpdater
+    stateMachineUpdater.get().start();
   }
 
+  private RaftLog initRaftLog(LongSupplier getSnapshotIndexFromStateMachine, RaftProperties prop) {
+    try {
+      return initRaftLog(getMemberId(), server, getStorage(), this::setRaftConf,
+          getSnapshotIndexFromStateMachine, prop);
+    } catch (IOException e) {
+      throw new IllegalStateException(getMemberId() + ": Failed to initRaftLog.", e);
+    }
+  }
+
+  @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   private static RaftLog initRaftLog(RaftGroupMemberId memberId, RaftServerImpl server, RaftStorage storage,
       Consumer<LogEntryProto> logConsumer, LongSupplier getSnapshotIndexFromStateMachine,
       RaftProperties prop) throws IOException {
@@ -199,11 +180,16 @@ class ServerState implements Closeable {
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
       log = new MemoryRaftLog(memberId, getSnapshotIndexFromStateMachine, prop);
     } else {
-      log = new SegmentedRaftLog(memberId, server,
-          server.getStateMachine(),
-          server::notifyTruncatedLogEntry,
-          server::submitUpdateCommitEvent,
-          storage, getSnapshotIndexFromStateMachine, prop);
+      log = SegmentedRaftLog.newBuilder()
+          .setMemberId(memberId)
+          .setServer(server)
+          .setNotifyTruncatedLogEntry(server::notifyTruncatedLogEntry)
+          .setGetTransactionContext(server::getTransactionContext)
+          .setSubmitUpdateCommitEvent(server::submitUpdateCommitEvent)
+          .setStorage(storage)
+          .setSnapshotIndexSupplier(getSnapshotIndexFromStateMachine)
+          .setProperties(prop)
+          .build();
     }
     log.open(log.getSnapshotIndex(), logConsumer);
     return log;
@@ -211,6 +197,10 @@ class ServerState implements Closeable {
 
   RaftConfigurationImpl getRaftConf() {
     return configurationManager.getCurrent();
+  }
+
+  RaftPeer getCurrentPeer() {
+    return configurationManager.getCurrentPeer();
   }
 
   long getCurrentTerm() {
@@ -228,11 +218,7 @@ class ServerState implements Closeable {
   }
 
   RaftPeerId getLeaderId() {
-    return leaderId;
-  }
-
-  boolean hasLeader() {
-    return leaderId != null;
+    return leaderId.get();
   }
 
   /**
@@ -254,7 +240,7 @@ class ServerState implements Closeable {
   }
 
   void persistMetadata() throws IOException {
-    log.persistMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
+    getLog().persistMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
   }
 
   RaftPeerId getVotedFor() {
@@ -270,44 +256,54 @@ class ServerState implements Closeable {
   }
 
   void setLeader(RaftPeerId newLeaderId, Object op) {
-    if (!Objects.equals(leaderId, newLeaderId)) {
-      String suffix;
+    final RaftPeerId oldLeaderId = leaderId.getAndSet(newLeaderId);
+    if (!Objects.equals(oldLeaderId, newLeaderId)) {
+      final String suffix;
       if (newLeaderId == null) {
         // reset the time stamp when a null leader is assigned
-        lastNoLeaderTime = Timestamp.currentTime();
+        lastNoLeaderTime.set(Timestamp.currentTime());
         suffix = "";
       } else {
-        Timestamp previous = lastNoLeaderTime;
-        lastNoLeaderTime = null;
+        final Timestamp previous = lastNoLeaderTime.getAndSet(null);
         suffix = ", leader elected after " + previous.elapsedTimeMs() + "ms";
+        server.setFirstElection(op);
         server.getStateMachine().event().notifyLeaderChanged(getMemberId(), newLeaderId);
       }
       LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
-          getMemberId(), leaderId, newLeaderId, getCurrentTerm(), op, suffix);
-      leaderId = newLeaderId;
-      if (leaderId != null) {
-        server.finishTransferLeadership();
+          getMemberId(), oldLeaderId, newLeaderId, getCurrentTerm(), op, suffix);
+      if (newLeaderId != null) {
+        server.onGroupLeaderElected();
       }
     }
   }
 
   boolean shouldNotifyExtendedNoLeader() {
-    return Optional.ofNullable(lastNoLeaderTime)
+    return Optional.ofNullable(lastNoLeaderTime.get())
         .map(Timestamp::elapsedTime)
         .filter(t -> t.compareTo(noLeaderTimeout) > 0)
         .isPresent();
   }
 
   long getLastLeaderElapsedTimeMs() {
-    return Optional.ofNullable(lastNoLeaderTime).map(Timestamp::elapsedTimeMs).orElse(0L);
+    return Optional.ofNullable(lastNoLeaderTime.get()).map(Timestamp::elapsedTimeMs).orElse(0L);
   }
 
   void becomeLeader() {
     setLeader(getMemberId().getPeerId(), "becomeLeader");
   }
 
+  StateMachineUpdater getStateMachineUpdater() {
+    if (!stateMachineUpdater.isInitialized()) {
+      throw new IllegalStateException(getMemberId() + ": stateMachineUpdater is uninitialized.");
+    }
+    return stateMachineUpdater.get();
+  }
+
   RaftLog getLog() {
-    return log;
+    if (!log.isInitialized()) {
+      throw new IllegalStateException(getMemberId() + ": log is uninitialized.");
+    }
+    return log.get();
   }
 
   TermIndex getLastEntry() {
@@ -324,26 +320,25 @@ class ServerState implements Closeable {
   }
 
   void appendLog(TransactionContext operation) throws StateMachineException {
-    log.append(currentTerm.get(), operation);
-    Objects.requireNonNull(operation.getLogEntry());
+    getLog().append(currentTerm.get(), operation);
+    Objects.requireNonNull(operation.getLogEntryUnsafe(), "transaction-logEntry");
   }
 
-  /**
-   * Check if accept the leader selfId and term from the incoming AppendEntries rpc.
-   * If accept, update the current state.
-   * @return true if the check passes
-   */
-  boolean recognizeLeader(RaftPeerId peerLeaderId, long leaderTerm) {
+  /** @return true iff the given peer id is recognized as the leader. */
+  boolean recognizeLeader(Object op, RaftPeerId peerId, long peerTerm) {
     final long current = currentTerm.get();
-    if (leaderTerm < current) {
+    if (peerTerm < current) {
+      LOG.warn("{}: Failed to recognize {} as leader for {} since peerTerm = {} < currentTerm = {}",
+          getMemberId(), peerId, op, peerTerm, current);
       return false;
-    } else if (leaderTerm > current || this.leaderId == null) {
-      // If the request indicates a term that is greater than the current term
-      // or no leader has been set for the current term, make sure to update
-      // leader and term later
-      return true;
     }
-    return this.leaderId.equals(peerLeaderId);
+    final RaftPeerId curLeaderId = getLeaderId();
+    if (peerTerm == current && curLeaderId != null && !curLeaderId.equals(peerId)) {
+      LOG.warn("{}: Failed to recognize {} as leader for {} since current leader is {} (peerTerm = currentTerm = {})",
+          getMemberId(), peerId, op, curLeaderId, current);
+      return false;
+    }
+    return true;
   }
 
   static int compareLog(TermIndex lastEntry, TermIndex candidateLastEntry) {
@@ -367,7 +362,7 @@ class ServerState implements Closeable {
 
   @Override
   public String toString() {
-    return getMemberId() + ":t" + currentTerm + ", leader=" + leaderId
+    return getMemberId() + ":t" + currentTerm + ", leader=" + getLeaderId()
         + ", voted=" + votedFor + ", raftlog=" + log + ", conf=" + getRaftConf();
   }
 
@@ -384,63 +379,81 @@ class ServerState implements Closeable {
   void setRaftConf(RaftConfiguration conf) {
     configurationManager.addConfiguration(conf);
     server.getServerRpc().addRaftPeers(conf.getAllPeers());
+    final Collection<RaftPeer> listeners = conf.getAllPeers(RaftPeerRole.LISTENER);
+    if (!listeners.isEmpty()) {
+      server.getServerRpc().addRaftPeers(listeners);
+    }
     LOG.info("{}: set configuration {}", getMemberId(), conf);
     LOG.trace("{}: {}", getMemberId(), configurationManager);
   }
 
-  void updateConfiguration(LogEntryProto[] entries) {
-    if (entries != null && entries.length > 0) {
-      configurationManager.removeConfigurations(entries[0].getIndex());
-      Arrays.stream(entries).forEach(this::setRaftConf);
+  void updateConfiguration(List<LogEntryProto> entries) {
+    if (entries != null && !entries.isEmpty()) {
+      configurationManager.removeConfigurations(entries.get(0).getIndex());
+      entries.forEach(this::setRaftConf);
     }
   }
 
   boolean updateCommitIndex(long majorityIndex, long curTerm, boolean isLeader) {
-    if (log.updateCommitIndex(majorityIndex, curTerm, isLeader)) {
-      stateMachineUpdater.notifyUpdater();
+    if (getLog().updateCommitIndex(majorityIndex, curTerm, isLeader)) {
+      getStateMachineUpdater().notifyUpdater();
       return true;
     }
     return false;
   }
 
   void notifyStateMachineUpdater() {
-    stateMachineUpdater.notifyUpdater();
+    getStateMachineUpdater().notifyUpdater();
   }
 
-  void reloadStateMachine(long lastIndexInSnapshot) {
-    log.updateSnapshotIndex(lastIndexInSnapshot);
-    stateMachineUpdater.reloadStateMachine();
+  void reloadStateMachine(TermIndex snapshotTermIndex) {
+    getStateMachineUpdater().reloadStateMachine();
+
+    getLog().onSnapshotInstalled(snapshotTermIndex.getIndex());
+    latestInstalledSnapshot.set(snapshotTermIndex);
   }
 
-  @Override
-  public void close() throws IOException {
+  void close() {
     try {
-      stateMachineUpdater.stopAndJoin();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      LOG.warn("{}: Interrupted when joining stateMachineUpdater", getMemberId(), e);
+      if (stateMachineUpdater.isInitialized()) {
+        getStateMachineUpdater().stopAndJoin();
+      }
+    } catch (Throwable e) {
+      if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+      }
+      LOG.warn(getMemberId() + ": Failed to join " + getStateMachineUpdater(), e);
     }
-    LOG.info("{}: closes. applyIndex: {}", getMemberId(), getLastAppliedIndex());
 
-    log.close();
-    storage.close();
+    try {
+      if (log.isInitialized()) {
+        getLog().close();
+      }
+    } catch (Throwable e) {
+      LOG.warn(getMemberId() + ": Failed to close raft log " + getLog(), e);
+    }
+
+    try {
+      if (raftStorage.isInitialized()) {
+        getStorage().close();
+      }
+    } catch (Throwable e) {
+      LOG.warn(getMemberId() + ": Failed to close raft storage " + getStorage(), e);
+    }
   }
 
-  RaftStorage getStorage() {
-    return storage;
+  RaftStorageImpl getStorage() {
+    if (!raftStorage.isInitialized()) {
+      throw new IllegalStateException(getMemberId() + ": raftStorage is uninitialized.");
+    }
+    return raftStorage.getUnchecked();
   }
 
   void installSnapshot(InstallSnapshotRequestProto request) throws IOException {
     // TODO: verify that we need to install the snapshot
     StateMachine sm = server.getStateMachine();
     sm.pause(); // pause the SM to prepare for install snapshot
-    snapshotManager.installSnapshot(sm, request);
-    updateInstalledSnapshotIndex(TermIndex.valueOf(request.getSnapshotChunk().getTermIndex()));
-  }
-
-  void updateInstalledSnapshotIndex(TermIndex lastTermIndexInSnapshot) {
-    log.onSnapshotInstalled(lastTermIndexInSnapshot.getIndex());
-    latestInstalledSnapshot.set(lastTermIndexInSnapshot);
+    snapshotManager.installSnapshot(request, sm);
   }
 
   private SnapshotInfo getLatestSnapshot() {
@@ -463,13 +476,13 @@ class ServerState implements Closeable {
   }
 
   long getNextIndex() {
-    final long logNextIndex = log.getNextIndex();
-    final long snapshotNextIndex = getSnapshotIndex() + 1;
+    final long logNextIndex = getLog().getNextIndex();
+    final long snapshotNextIndex = getLog().getSnapshotIndex() + 1;
     return Math.max(logNextIndex, snapshotNextIndex);
   }
 
   long getLastAppliedIndex() {
-    return stateMachineUpdater.getStateMachineLastAppliedIndex();
+    return getStateMachineUpdater().getStateMachineLastAppliedIndex();
   }
 
   boolean containsTermIndex(TermIndex ti) {
@@ -481,6 +494,10 @@ class ServerState implements Closeable {
     if (Optional.ofNullable(getLatestSnapshot()).map(SnapshotInfo::getTermIndex).filter(ti::equals).isPresent()) {
       return true;
     }
-    return log.contains(ti);
+    return getLog().contains(ti);
+  }
+
+  ReadRequests getReadRequests() {
+    return readRequests;
   }
 }

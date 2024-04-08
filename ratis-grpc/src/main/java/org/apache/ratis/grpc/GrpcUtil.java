@@ -17,14 +17,23 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.protocol.RaftClientReply;
+import java.util.function.Consumer;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.security.TlsConf.TrustManagerConf;
+import org.apache.ratis.security.TlsConf.CertificatesConf;
+import org.apache.ratis.security.TlsConf.PrivateKeyConf;
+import org.apache.ratis.security.TlsConf.KeyManagerConf;
+import org.apache.ratis.thirdparty.com.google.protobuf.MessageLite;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.Metadata;
+import org.apache.ratis.thirdparty.io.grpc.MethodDescriptor;
+import org.apache.ratis.thirdparty.io.grpc.ServerCallHandler;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -33,6 +42,8 @@ import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +51,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface GrpcUtil {
-  static final Logger LOG = LoggerFactory.getLogger(GrpcUtil.class);
+  Logger LOG = LoggerFactory.getLogger(GrpcUtil.class);
 
   Metadata.Key<String> EXCEPTION_TYPE_KEY =
       Metadata.Key.of("exception-type", Metadata.ASCII_STRING_MARSHALLER);
@@ -52,14 +63,8 @@ public interface GrpcUtil {
       Metadata.Key.of("heartbeat", Metadata.ASCII_STRING_MARSHALLER);
 
   static StatusRuntimeException wrapException(Throwable t) {
-    return wrapException(t, -1);
-  }
-
-  static StatusRuntimeException wrapException(Throwable t, long callId) {
     t = JavaUtils.unwrapCompletionException(t);
-    Metadata trailers = new StatusRuntimeExceptionMetadataBuilder(t)
-        .addCallId(callId)
-        .build();
+    Metadata trailers = new StatusRuntimeExceptionMetadataBuilder(t).build();
     return wrapException(t, trailers);
   }
 
@@ -79,20 +84,20 @@ public interface GrpcUtil {
 
   static Throwable unwrapThrowable(Throwable t) {
     if (t instanceof StatusRuntimeException) {
-      final IOException ioe = tryUnwrapException((StatusRuntimeException)t);
-      if (ioe != null) {
-        return ioe;
+      final Throwable unwrapped = tryUnwrapThrowable((StatusRuntimeException)t);
+      if (unwrapped != null) {
+        return unwrapped;
       }
     }
     return t;
   }
 
   static IOException unwrapException(StatusRuntimeException se) {
-    final IOException ioe = tryUnwrapException(se);
-    return ioe != null? ioe: new IOException(se);
+    final Throwable t = tryUnwrapThrowable(se);
+    return t instanceof IOException? (IOException) t: new IOException(t != null? t: se);
   }
 
-  static IOException tryUnwrapException(StatusRuntimeException se) {
+  static Throwable tryUnwrapThrowable(StatusRuntimeException se) {
     final Status status = se.getStatus();
     if (status != null && status.getCode() == Status.Code.DEADLINE_EXCEEDED) {
       return new TimeoutIOException(status.getDescription(), se);
@@ -106,7 +111,7 @@ public interface GrpcUtil {
     final byte[] bytes = trailers.get(EXCEPTION_OBJECT_KEY);
     if (bytes != null) {
       try {
-        return IOUtils.bytes2Object(bytes, IOException.class);
+        return IOUtils.bytes2Object(bytes, Throwable.class);
       } catch (Exception e) {
         se.addSuppressed(e);
       }
@@ -118,7 +123,7 @@ public interface GrpcUtil {
         try {
           final Class<? extends Throwable> clazz = Class.forName(className).asSubclass(Throwable.class);
           final Throwable unwrapped = ReflectionUtils.instantiateException(clazz, status.getDescription());
-          return IOUtils.asIOException(unwrapped.initCause(se));
+          return unwrapped.initCause(se);
         } catch (Throwable e) {
           se.addSuppressed(e);
           return new IOException(se);
@@ -156,13 +161,22 @@ public interface GrpcUtil {
     return e;
   }
 
-  static <REPLY extends RaftClientReply, REPLY_PROTO> void asyncCall(
+  static <REPLY, REPLY_PROTO> void asyncCall(
       StreamObserver<REPLY_PROTO> responseObserver,
       CheckedSupplier<CompletableFuture<REPLY>, IOException> supplier,
       Function<REPLY, REPLY_PROTO> toProto) {
+    asyncCall(responseObserver, supplier, toProto, throwable -> {});
+  }
+
+  static <REPLY, REPLY_PROTO> void asyncCall(
+          StreamObserver<REPLY_PROTO> responseObserver,
+          CheckedSupplier<CompletableFuture<REPLY>, IOException> supplier,
+          Function<REPLY, REPLY_PROTO> toProto,
+          Consumer<Throwable> warning) {
     try {
-      supplier.get().whenCompleteAsync((reply, exception) -> {
+      supplier.get().whenComplete((reply, exception) -> {
         if (exception != null) {
+          warning.accept(exception);
           responseObserver.onError(GrpcUtil.wrapException(exception));
         } else {
           responseObserver.onNext(toProto.apply(reply));
@@ -170,6 +184,7 @@ public interface GrpcUtil {
         }
       });
     } catch (Exception e) {
+      warning.accept(e);
       responseObserver.onError(GrpcUtil.wrapException(e));
     }
   }
@@ -215,6 +230,8 @@ public interface GrpcUtil {
         if (!managedChannel.awaitTermination(3, TimeUnit.SECONDS)) {
           LOG.warn("Timed out gracefully shutting down connection: {}. ", managedChannel);
         }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } catch (Exception e) {
         LOG.error("Unexpected exception while waiting for channel termination", e);
       }
@@ -227,9 +244,84 @@ public interface GrpcUtil {
         if (!managedChannel.awaitTermination(2, TimeUnit.SECONDS)) {
           LOG.warn("Timed out forcefully shutting down connection: {}. ", managedChannel);
         }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } catch (Exception e) {
         LOG.error("Unexpected exception while waiting for channel termination", e);
       }
     }
+  }
+
+  static SslContextBuilder initSslContextBuilderForServer(KeyManagerConf keyManagerConfig) {
+    final KeyManager keyManager = keyManagerConfig.getKeyManager();
+    if (keyManager != null) {
+      return SslContextBuilder.forServer(keyManager);
+    }
+    final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
+    final CertificatesConf certificates = keyManagerConfig.getKeyCertificates();
+
+    if (keyManagerConfig.isFileBased()) {
+      return SslContextBuilder.forServer(certificates.getFile(), privateKey.getFile());
+    } else {
+      return SslContextBuilder.forServer(privateKey.get(), certificates.get());
+    }
+  }
+
+  static void setTrustManager(SslContextBuilder b, TrustManagerConf trustManagerConfig) {
+    if (trustManagerConfig == null) {
+      return;
+    }
+    final TrustManager trustManager = trustManagerConfig.getTrustManager();
+    if (trustManager != null) {
+      b.trustManager(trustManager);
+      return;
+    }
+    final CertificatesConf certificates = trustManagerConfig.getTrustCertificates();
+    if (certificates.isFileBased()) {
+      b.trustManager(certificates.getFile());
+    } else {
+      b.trustManager(certificates.get());
+    }
+  }
+
+  static void setKeyManager(SslContextBuilder b, KeyManagerConf keyManagerConfig) {
+    if (keyManagerConfig == null) {
+      return;
+    }
+    final KeyManager keyManager = keyManagerConfig.getKeyManager();
+    if (keyManager != null) {
+      b.keyManager(keyManager);
+      return;
+    }
+    final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
+    final CertificatesConf certificates = keyManagerConfig.getKeyCertificates();
+
+    if (keyManagerConfig.isFileBased()) {
+      b.keyManager(certificates.getFile(), privateKey.getFile());
+    } else {
+      b.keyManager(privateKey.get(), certificates.get());
+    }
+  }
+
+  /**
+   * Used to add a method to Service definition with a custom request marshaller.
+   *
+   * @param orig original service definition.
+   * @param newServiceBuilder builder of the new service definition.
+   * @param origMethod the original method definition.
+   * @param customMarshaller custom marshaller to be set for the method.
+   * @param <Req>
+   * @param <Resp>
+   */
+  static <Req extends MessageLite, Resp> void addMethodWithCustomMarshaller(
+      ServerServiceDefinition orig, ServerServiceDefinition.Builder newServiceBuilder,
+      MethodDescriptor<Req, Resp> origMethod, MethodDescriptor.PrototypeMarshaller<Req> customMarshaller) {
+    MethodDescriptor<Req, Resp> newMethod = origMethod.toBuilder()
+        .setRequestMarshaller(customMarshaller)
+        .build();
+    @SuppressWarnings("unchecked")
+    ServerCallHandler<Req, Resp> serverCallHandler =
+        (ServerCallHandler<Req, Resp>) orig.getMethod(newMethod.getFullMethodName()).getServerCallHandler();
+    newServiceBuilder.addMethod(newMethod, serverCallHandler);
   }
 }

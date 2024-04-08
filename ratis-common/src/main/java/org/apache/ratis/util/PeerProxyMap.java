@@ -21,16 +21,22 @@ import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.function.CheckedFunction;
+import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** A map from peer id to peer and its proxy. */
 public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Closeable {
@@ -39,6 +45,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
   /** Peer and its proxy. */
   private class PeerAndProxy {
     private final RaftPeer peer;
+    @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
     private volatile PROXY proxy = null;
     private final LifeCycle lifeCycle;
 
@@ -60,7 +67,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
               throw new AlreadyClosedException(name + " is already " + current);
             }
             lifeCycle.startAndTransition(
-                () -> proxy = createProxy.apply(peer), IOException.class);
+                () -> proxy = createProxyImpl(peer), IOException.class);
           }
         }
       }
@@ -78,7 +85,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
 
     @Override
     public String toString() {
-      return peer.toString();
+      return peer.getId().toString();
     }
   }
 
@@ -87,19 +94,22 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
   private final Object resetLock = new Object();
 
   private final CheckedFunction<RaftPeer, PROXY, IOException> createProxy;
+  private final AtomicBoolean closed = new AtomicBoolean();
 
   public PeerProxyMap(String name, CheckedFunction<RaftPeer, PROXY, IOException> createProxy) {
     this.name = name;
     this.createProxy = createProxy;
   }
 
-  public PeerProxyMap(String name) {
-    this.name = name;
-    this.createProxy = this::createProxyImpl;
-  }
-
   public String getName() {
     return name;
+  }
+
+  private PROXY createProxyImpl(RaftPeer peer) throws IOException {
+    if (closed.get()) {
+      throw new AlreadyClosedException(name + ": Failed to create proxy for " + peer);
+    }
+    return createProxy.apply(peer);
   }
 
   public PROXY getProxy(RaftPeerId id) throws IOException {
@@ -121,8 +131,16 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
     }
   }
 
-  public void computeIfAbsent(RaftPeer p) {
-    peers.computeIfAbsent(p.getId(), k -> new PeerAndProxy(p));
+  /**
+   * This method is similar to {@link Map#computeIfAbsent(Object, java.util.function.Function)}
+   * except that this method does not require a mapping function.
+   *
+   * @param peer the peer for retrieving/building a proxy.
+   * @return a supplier of the proxy for the given peer.
+   */
+  public CheckedSupplier<PROXY, IOException> computeIfAbsent(RaftPeer peer) {
+    final PeerAndProxy peerAndProxy = peers.computeIfAbsent(peer.getId(), k -> new PeerAndProxy(peer));
+    return peerAndProxy::getProxy;
   }
 
   public void resetProxy(RaftPeerId id) {
@@ -138,10 +156,11 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
       }
     }
     // close proxy without holding the reset lock
-    optional.ifPresent(proxy -> closeProxy(proxy, pp));
+    optional.map(proxy -> closeProxy(proxy, pp))
+        .ifPresent(e -> LOG.warn("Failed to close the previous proxy", e));
   }
 
-  /** @return true if the given throwable is handled; otherwise, the call is an no-op, return false. */
+  /** @return true if the given throwable is handled; otherwise, the call is a no-op, return false. */
   public boolean handleException(RaftPeerId serverId, Throwable e, boolean reconnect) {
     if (reconnect || IOUtils.shouldReconnect(e)) {
       resetProxy(serverId);
@@ -150,23 +169,36 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
     return false;
   }
 
-  public PROXY createProxyImpl(RaftPeer peer) throws IOException {
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public void close() {
-    peers.values().parallelStream().forEach(
-        pp -> pp.setNullProxyAndClose().ifPresent(proxy -> closeProxy(proxy, pp)));
+    if (!closed.compareAndSet(false, true)) {
+      return;
+    }
+
+    final List<IOException> exceptions = Collections.synchronizedList(new ArrayList<>());
+    ConcurrentUtils.parallelForEachAsync(peers.values(),
+        pp -> pp.setNullProxyAndClose().map(proxy -> closeProxy(proxy, pp)).ifPresent(exceptions::add),
+        r -> new Thread(r).start()
+    ).join();
+
+    final int size = exceptions.size();
+    if (size > 0) {
+      final Iterator<IOException> i = exceptions.iterator();
+      final IOException e = new IOException(name + ": Failed to close proxy map", i.next());
+      for(; i.hasNext(); ) {
+        e.addSuppressed(i.next());
+      }
+      LOG.warn("{}: {} exception(s)", name, size, e);
+    }
   }
 
-  private void closeProxy(PROXY proxy, PeerAndProxy pp) {
+  private IOException closeProxy(PROXY proxy, PeerAndProxy pp) {
     try {
-      LOG.debug("{}: Closing proxy for peer {}", name, pp);
+      LOG.debug("{}: Closing proxy {} {} for peer {}", name, proxy.getClass().getSimpleName(), proxy, pp);
       proxy.close();
+      return null;
     } catch (IOException e) {
-      LOG.warn("{}: Failed to close proxy for peer {}, proxy class: {}",
-          name, pp, proxy.getClass(), e);
+      return new IOException(name + ": Failed to close proxy for peer " + pp + ", " + proxy.getClass(), e);
     }
   }
 }

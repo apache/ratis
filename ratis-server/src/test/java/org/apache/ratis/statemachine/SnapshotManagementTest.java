@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.statemachine;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -29,14 +28,15 @@ import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
+import org.apache.ratis.util.Slf4jUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 
 import java.io.File;
 
@@ -44,9 +44,9 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftLog.LOG, Level.INFO);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftLog.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.INFO);
   }
 
   static final Logger LOG = LoggerFactory.getLogger(SnapshotManagementTest.class);
@@ -141,6 +141,36 @@ public abstract class SnapshotManagementTest<CLUSTER extends MiniRaftCluster>
 
     final File snapshotFile = SimpleStateMachine4Testing.get(follower)
         .getStateMachineStorage().getSnapshotFile(follower.getInfo().getCurrentTerm(), snapshotIndex);
+    Assert.assertTrue(snapshotFile.exists());
+  }
+
+
+  @Test
+  public void testReceiveLogAndTakeSnapshotOnListener() throws Exception {
+    runWithNewCluster(2, 1, this::runTestReceiveLogAndTakeSnapshotOnListener);
+  }
+
+  void runTestReceiveLogAndTakeSnapshotOnListener(CLUSTER cluster) throws Exception {
+    final RaftClientReply snapshotReply;
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division listener = cluster.getListeners().get(0);
+    final RaftPeerId listenerId = listener.getId();
+    Assert.assertTrue(listener.getInfo().isListener());
+    try (final RaftClient client = cluster.createClient(listenerId)) {
+      for (int i = 0; i < RaftServerConfigKeys.Snapshot.creationGap(getProperties()); i++) {
+        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
+      snapshotReply = client.getSnapshotManagementApi(listenerId).create(3000);
+    }
+
+    Assert.assertTrue(snapshotReply.isSuccess());
+    final long snapshotIndex = snapshotReply.getLogIndex();
+    LOG.info("snapshotIndex = {} on {} server {}",
+        snapshotIndex, listener.getInfo().getCurrentRole(), listener.getId());
+
+    final File snapshotFile = SimpleStateMachine4Testing.get(listener)
+        .getStateMachineStorage().getSnapshotFile(listener.getInfo().getCurrentTerm(), snapshotIndex);
     Assert.assertTrue(snapshotFile.exists());
   }
 }

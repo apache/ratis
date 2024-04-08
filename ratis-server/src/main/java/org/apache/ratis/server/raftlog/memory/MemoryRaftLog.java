@@ -22,11 +22,15 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.metrics.RaftLogMetricsBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
+import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,10 +45,15 @@ import java.util.function.LongSupplier;
  */
 public class MemoryRaftLog extends RaftLogBase {
   static class EntryList {
-    private final List<LogEntryProto> entries = new ArrayList<>();
+    private final List<ReferenceCountedObject<LogEntryProto>> entries = new ArrayList<>();
+
+    ReferenceCountedObject<LogEntryProto> getRef(int i) {
+      return i >= 0 && i < entries.size() ? entries.get(i) : null;
+    }
 
     LogEntryProto get(int i) {
-      return i >= 0 && i < entries.size() ? entries.get(i) : null;
+      final ReferenceCountedObject<LogEntryProto> ref = getRef(i);
+      return ref != null ? ref.get() : null;
     }
 
     TermIndex getTermIndex(int i) {
@@ -61,18 +70,25 @@ public class MemoryRaftLog extends RaftLogBase {
 
     void truncate(int index) {
       if (entries.size() > index) {
-        entries.subList(index, entries.size()).clear();
+        clear(index, entries.size());
       }
     }
 
     void purge(int index) {
       if (entries.size() > index) {
-        entries.subList(0, index).clear();
+        clear(0, index);
       }
     }
 
-    void add(LogEntryProto entry) {
-      entries.add(entry);
+    void clear(int from, int to) {
+      List<ReferenceCountedObject<LogEntryProto>> subList = entries.subList(from, to);
+      subList.forEach(ReferenceCountedObject::release);
+      subList.clear();
+    }
+
+    void add(ReferenceCountedObject<LogEntryProto> entryRef) {
+      entryRef.retain();
+      entries.add(entryRef);
     }
   }
 
@@ -99,16 +115,34 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public LogEntryProto get(long index) {
-    checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
-      return entries.get(Math.toIntExact(index));
+  public LogEntryProto get(long index) throws RaftLogIOException {
+    final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
+    try {
+      return LogProtoUtils.copy(ref.get());
+    } finally {
+      ref.release();
     }
   }
 
   @Override
-  public EntryWithData getEntryWithData(long index) {
-    return newEntryWithData(get(index), null);
+  public ReferenceCountedObject<LogEntryProto> retainLog(long index) {
+    checkLogState();
+    try (AutoCloseableLock readLock = readLock()) {
+      ReferenceCountedObject<LogEntryProto> ref = entries.getRef(Math.toIntExact(index));
+      ref.retain();
+      return ref;
+    }
+  }
+
+  @Override
+  public EntryWithData getEntryWithData(long index) throws RaftLogIOException {
+    throw new UnsupportedOperationException("Use retainEntryWithData(" + index + ") instead.");
+  }
+
+  @Override
+  public ReferenceCountedObject<EntryWithData> retainEntryWithData(long index) {
+    final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
+    return newEntryWithData(ref);
   }
 
   @Override
@@ -165,11 +199,15 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
+  protected CompletableFuture<Long> appendEntryImpl(ReferenceCountedObject<LogEntryProto> entryRef,
+      TransactionContext context) {
     checkLogState();
-    try(AutoCloseableLock writeLock = writeLock()) {
+    LogEntryProto entry = entryRef.retain();
+    try (AutoCloseableLock writeLock = writeLock()) {
       validateLogEntry(entry);
-      entries.add(entry);
+      entries.add(entryRef);
+    } finally {
+      entryRef.release();
     }
     return CompletableFuture.completedFuture(entry.getIndex());
   }
@@ -180,12 +218,14 @@ public class MemoryRaftLog extends RaftLogBase {
   }
 
   @Override
-  public List<CompletableFuture<Long>> appendImpl(LogEntryProto... logEntryProtos) {
+  public List<CompletableFuture<Long>> appendImpl(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
     checkLogState();
-    if (logEntryProtos == null || logEntryProtos.length == 0) {
+    final List<LogEntryProto> logEntryProtos = entriesRef.retain();
+    if (logEntryProtos == null || logEntryProtos.isEmpty()) {
+      entriesRef.release();
       return Collections.emptyList();
     }
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try (AutoCloseableLock writeLock = writeLock()) {
       // Before truncating the entries, we first need to check if some
       // entries are duplicated. If the leader sends entry 6, entry 7, then
       // entry 6 again, without this check the follower may truncate entry 7
@@ -194,28 +234,31 @@ public class MemoryRaftLog extends RaftLogBase {
       // been committed but in the system the entry has not been committed to
       // the quorum of peers' disks.
       boolean toTruncate = false;
-      int truncateIndex = (int) logEntryProtos[0].getIndex();
+      int truncateIndex = (int) logEntryProtos.get(0).getIndex();
       int index = 0;
-      for (; truncateIndex < getNextIndex() && index < logEntryProtos.length;
+      for (; truncateIndex < getNextIndex() && index < logEntryProtos.size();
            index++, truncateIndex++) {
         if (this.entries.get(truncateIndex).getTerm() !=
-            logEntryProtos[index].getTerm()) {
+            logEntryProtos.get(index).getTerm()) {
           toTruncate = true;
           break;
         }
       }
       final List<CompletableFuture<Long>> futures;
       if (toTruncate) {
-        futures = new ArrayList<>(logEntryProtos.length - index + 1);
+        futures = new ArrayList<>(logEntryProtos.size() - index + 1);
         futures.add(truncate(truncateIndex));
       } else {
-        futures = new ArrayList<>(logEntryProtos.length - index);
+        futures = new ArrayList<>(logEntryProtos.size() - index);
       }
-      for (int i = index; i < logEntryProtos.length; i++) {
-        this.entries.add(logEntryProtos[i]);
-        futures.add(CompletableFuture.completedFuture(logEntryProtos[i].getIndex()));
+      for (int i = index; i < logEntryProtos.size(); i++) {
+        LogEntryProto logEntryProto = logEntryProtos.get(i);
+        entries.add(entriesRef.delegate(logEntryProto));
+        futures.add(CompletableFuture.completedFuture(logEntryProto.getIndex()));
       }
       return futures;
+    } finally {
+      entriesRef.release();
     }
   }
 

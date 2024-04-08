@@ -40,6 +40,7 @@ public final class MemoizedSupplier<T> implements Supplier<T> {
   }
 
   private final Supplier<T> initializer;
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile T value = null;
 
   /**
@@ -70,5 +71,10 @@ public final class MemoizedSupplier<T> implements Supplier<T> {
   /** @return is the object initialized? */
   public boolean isInitialized() {
     return value != null;
+  }
+
+  @Override
+  public String toString() {
+    return isInitialized()? "Memoized:" + get(): "UNINITIALIZED";
   }
 }

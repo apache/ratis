@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
@@ -54,18 +55,19 @@ class FollowerState extends Daemon {
 
   static final Logger LOG = LoggerFactory.getLogger(FollowerState.class);
 
-  private final String name;
   private final Object reason;
   private final RaftServerImpl server;
 
   private final Timestamp creationTime = Timestamp.currentTime();
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile Timestamp lastRpcTime = creationTime;
   private volatile boolean isRunning = true;
   private final AtomicInteger outstandingOp = new AtomicInteger();
 
   FollowerState(RaftServerImpl server, Object reason) {
-    this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
-    this.setName(this.name);
+    super(newBuilder()
+        .setName(server.getMemberId() + "-" + JavaUtils.getClassSimpleName(FollowerState.class))
+        .setThreadGroup(server.getThreadGroup()));
     this.server = server;
     this.reason = reason;
   }
@@ -109,10 +111,19 @@ class FollowerState extends Daemon {
     return true;
   }
 
+  private boolean shouldRun() {
+    final DivisionInfo info = server.getInfo();
+    final boolean run = isRunning && (info.isFollower() || info.isListener());
+    if (!run) {
+      LOG.info("{}: Stopping now (isRunning? {}, role = {})", this, isRunning, info.getCurrentRole());
+    }
+    return run;
+  }
+
   @Override
   public  void run() {
     final TimeDuration sleepDeviationThreshold = server.getSleepDeviationThreshold();
-    while (isRunning && server.getInfo().isFollower()) {
+    while (shouldRun()) {
       final TimeDuration electionTimeout = server.getRandomElectionTimeout();
       try {
         final TimeDuration extraSleep = electionTimeout.sleep();
@@ -122,14 +133,12 @@ class FollowerState extends Daemon {
           continue;
         }
 
-        final boolean isFollower = server.getInfo().isFollower();
-        if (!isRunning || !isFollower) {
-          LOG.info("{}: Stopping now (isRunning? {}, isFollower? {})", this, isRunning, isFollower);
+        if (!shouldRun()) {
           break;
         }
         synchronized (server) {
           if (outstandingOp.get() == 0
-              && isRunning
+              && isRunning && server.getInfo().isFollower()
               && lastRpcTime.elapsedTime().compareTo(electionTimeout) >= 0
               && !lostMajorityHeartbeatsRecently()) {
             LOG.info("{}: change to CANDIDATE, lastRpcElapsedTime:{}, electionTimeout:{}",
@@ -153,6 +162,6 @@ class FollowerState extends Daemon {
 
   @Override
   public String toString() {
-    return name;
+    return getName();
   }
 }

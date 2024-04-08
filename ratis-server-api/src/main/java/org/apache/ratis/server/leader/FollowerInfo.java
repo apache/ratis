@@ -18,9 +18,12 @@
 package org.apache.ratis.server.leader;
 
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.function.LongUnaryOperator;
 
 /**
  * Information of a follower, provided the local server is the Leader
@@ -31,7 +34,15 @@ public interface FollowerInfo {
   /** @return the name of this object. */
   String getName();
 
-  /** @return this follower's peer info. */
+  /** @return this follower's peer id. */
+  RaftPeerId getId();
+
+  /**
+   * Return this follower's {@link RaftPeer}.
+   * To obtain the {@link RaftPeerId}, use {@link #getId()} which is more efficient than this method.
+   *
+   * @return this follower's peer info.
+   */
   RaftPeer getPeer();
 
   /** @return the matchIndex acknowledged by this follower. */
@@ -75,8 +86,14 @@ public interface FollowerInfo {
   /** Update the nextIndex for this follower. */
   void updateNextIndex(long newNextIndex);
 
+  /** Set the nextIndex for this follower. */
+  void computeNextIndex(LongUnaryOperator op);
+
   /** @return the lastRpcResponseTime . */
   Timestamp getLastRpcResponseTime();
+
+  /** @return the lastRpcSendTime . */
+  Timestamp getLastRpcSendTime();
 
   /** Update lastRpcResponseTime to the current time. */
   void updateLastRpcResponseTime();
@@ -89,4 +106,10 @@ public interface FollowerInfo {
 
   /** @return the latest heartbeat send time. */
   Timestamp getLastHeartbeatSendTime();
+
+  /** @return the send time of last responded rpc */
+  Timestamp getLastRespondedAppendEntriesSendTime();
+
+  /** Update lastRpcResponseTime and LastRespondedAppendEntriesSendTime */
+  void updateLastRespondedAppendEntriesSendTime(Timestamp sendTime);
 }

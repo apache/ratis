@@ -20,12 +20,12 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.ConcurrentUtils;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -110,7 +110,7 @@ class RaftStorageMetadataFileImpl implements RaftStorageMetadataFile {
       return RaftStorageMetadata.getDefault();
     }
     try(BufferedReader br = new BufferedReader(new InputStreamReader(
-        new FileInputStream(file), StandardCharsets.UTF_8))) {
+        FileUtils.newInputStream(file), StandardCharsets.UTF_8))) {
       Properties properties = new Properties();
       properties.load(br);
       return RaftStorageMetadata.valueOf(getTerm(properties), getVotedFor(properties));

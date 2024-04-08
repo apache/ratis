@@ -17,9 +17,7 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Timer;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientInvocationId;
@@ -39,6 +37,7 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog.Task;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,8 +49,7 @@ import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -143,16 +141,12 @@ class SegmentedRaftLogWorker {
   private final DataBlockingQueue<Task> queue;
   private final WriteLogTasks writeTasks = new WriteLogTasks();
   private volatile boolean running = true;
-  private final Thread workerThread;
-
+  private final ExecutorService workerThreadExecutor;
   private final RaftStorage storage;
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile SegmentedRaftLogOutputStream out;
   private final Runnable submitUpdateCommitEvent;
   private final StateMachine stateMachine;
-  private final Timer logFlushTimer;
-  private final Timer raftLogSyncTimer;
-  private final Timer raftLogQueueingTimer;
-  private final Timer raftLogEnqueueingDelayTimer;
   private final SegmentedRaftLogMetrics raftLogMetrics;
   private final ByteBuffer writeBuffer;
 
@@ -163,6 +157,7 @@ class SegmentedRaftLogWorker {
   private int pendingFlushNum = 0;
   /** the index of the last entry that has been written */
   private long lastWrittenIndex;
+  private volatile int flushBatchSize = 0;
   /** the largest index of the entry that has been flushed */
   private final RaftLogIndex flushIndex = new RaftLogIndex("flushIndex", 0);
   /** the index up to which cache can be evicted - max of snapshotIndex and
@@ -174,7 +169,10 @@ class SegmentedRaftLogWorker {
   private final long segmentMaxSize;
   private final long preallocatedSize;
   private final RaftServer.Division server;
-  private int flushBatchSize;
+
+  private final boolean asyncFlush;
+  private final boolean unsafeFlush;
+  private final ExecutorService flushExecutor;
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
@@ -197,23 +195,34 @@ class SegmentedRaftLogWorker {
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
-    this.flushBatchSize = 0;
 
     this.stateMachineDataPolicy = new StateMachineDataPolicy(properties, metricRegistry);
 
-    this.workerThread = new Thread(this::run, name);
+    this.workerThreadExecutor = ConcurrentUtils.newSingleThreadExecutor(name);
 
     // Server Id can be null in unit tests
-    metricRegistry.addDataQueueSizeGauge(queue);
-    metricRegistry.addLogWorkerQueueSizeGauge(writeTasks.q);
-    metricRegistry.addFlushBatchSizeGauge(() -> (Gauge<Integer>) () -> flushBatchSize);
-    this.logFlushTimer = metricRegistry.getFlushTimer();
-    this.raftLogSyncTimer = metricRegistry.getRaftLogSyncTimer();
-    this.raftLogQueueingTimer = metricRegistry.getRaftLogQueueTimer();
-    this.raftLogEnqueueingDelayTimer = metricRegistry.getRaftLogEnqueueDelayTimer();
+    metricRegistry.addDataQueueSizeGauge(queue::getNumElements);
+    metricRegistry.addLogWorkerQueueSizeGauge(writeTasks.q::size);
+    metricRegistry.addFlushBatchSizeGauge(() -> flushBatchSize);
 
     final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
+    final int logEntryLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
+    // 4 bytes (serialized size) + logEntryLimit + 4 bytes (checksum)
+    if (bufferSize < logEntryLimit + 8) {
+      throw new IllegalArgumentException(RaftServerConfigKeys.Log.WRITE_BUFFER_SIZE_KEY
+          + " (= " + bufferSize
+          + ") is less than " + RaftServerConfigKeys.Log.Appender.BUFFER_BYTE_LIMIT_KEY
+          + " + 8 (= " + (logEntryLimit + 8) + ")");
+    }
+    this.unsafeFlush = RaftServerConfigKeys.Log.unsafeFlushEnabled(properties);
+    this.asyncFlush = RaftServerConfigKeys.Log.asyncFlushEnabled(properties);
+    if (asyncFlush && unsafeFlush) {
+      throw new IllegalStateException("Cannot enable both " +  RaftServerConfigKeys.Log.UNSAFE_FLUSH_ENABLED_KEY +
+          " and " + RaftServerConfigKeys.Log.ASYNC_FLUSH_ENABLED_KEY);
+    }
+    this.flushExecutor = (!asyncFlush && !unsafeFlush)? null
+        : ConcurrentUtils.newSingleThreadExecutor(name + "-flush");
   }
 
   void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
@@ -225,17 +234,14 @@ class SegmentedRaftLogWorker {
       Preconditions.assertTrue(openSegmentFile.exists());
       allocateSegmentedRaftLogOutputStream(openSegmentFile, true);
     }
-    workerThread.start();
+    workerThreadExecutor.submit(this::run);
   }
 
   void close() {
     this.running = false;
-    workerThread.interrupt();
-    try {
-      workerThread.join(3000);
-    } catch (InterruptedException ignored) {
-      Thread.currentThread().interrupt();
-    }
+    Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND.multiply(3),
+        workerThreadExecutor, timeout -> LOG.warn("{}: shutdown timeout in " + timeout, name));
     IOUtils.cleanup(LOG, out);
     LOG.info("{} close()", name);
   }
@@ -262,28 +268,27 @@ class SegmentedRaftLogWorker {
    */
   private Task addIOTask(Task task) {
     LOG.debug("{} adds IO task {}", name, task);
-    try {
-      final Timer.Context enqueueTimerContext = raftLogEnqueueingDelayTimer.time();
+    try(UncheckedAutoCloseable ignored = raftLogMetrics.startQueuingDelayTimer()) {
       for(; !queue.offer(task, ONE_SECOND); ) {
         Preconditions.assertTrue(isAlive(),
             "the worker thread is not alive");
       }
-      enqueueTimerContext.stop();
-      task.startTimerOnEnqueue(raftLogQueueingTimer);
     } catch (Exception e) {
       if (e instanceof InterruptedException && !running) {
         LOG.info("Got InterruptedException when adding task " + task
             + ". The SegmentedRaftLogWorker already stopped.");
+        Thread.currentThread().interrupt();
       } else {
         LOG.error("Failed to add IO task {}", task, e);
         Optional.ofNullable(server).ifPresent(RaftServer.Division::close);
       }
     }
+    task.startTimerOnEnqueue(raftLogMetrics.getEnqueuedTimer());
     return task;
   }
 
   boolean isAlive() {
-    return running && workerThread.isAlive();
+    return running && !workerThreadExecutor.isTerminated();
   }
 
   private void run() {
@@ -299,10 +304,9 @@ class SegmentedRaftLogWorker {
             if (logIOException != null) {
               throw logIOException;
             } else {
-              final Timer.Context executionTimeContext = raftLogMetrics.getRaftLogTaskExecutionTimer(
-                  JavaUtils.getClassSimpleName(task.getClass()).toLowerCase()).time();
-              task.execute();
-              executionTimeContext.stop();
+              try (UncheckedAutoCloseable ignored = raftLogMetrics.startTaskExecutionTimer(task.getClass())) {
+                task.execute();
+              }
             }
           } catch (IOException e) {
             if (task.getEndIndex() < lastWrittenIndex) {
@@ -344,45 +348,76 @@ class SegmentedRaftLogWorker {
   }
 
   private boolean shouldFlush() {
-    return pendingFlushNum >= forceSyncNum ||
-        (pendingFlushNum > 0 && queue.isEmpty());
+    if (out == null) {
+      return false;
+    } else if (pendingFlushNum >= forceSyncNum) {
+      return true;
+    }
+    return pendingFlushNum > 0 && queue.isEmpty();
   }
 
-  @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
-  private void flushWrites() throws IOException {
-    if (out != null) {
+  private void flushIfNecessary() throws IOException {
+    if (shouldFlush()) {
+      raftLogMetrics.onRaftLogFlush();
       LOG.debug("{}: flush {}", name, out);
-      final Timer.Context timerContext = logFlushTimer.time();
-      try {
+      try(UncheckedAutoCloseable ignored = raftLogMetrics.startFlushTimer()) {
         final CompletableFuture<Void> f = stateMachine != null ?
             stateMachine.data().flush(lastWrittenIndex) :
             CompletableFuture.completedFuture(null);
         if (stateMachineDataPolicy.isSync()) {
           stateMachineDataPolicy.getFromFuture(f, () -> this + "-flushStateMachineData");
         }
-        final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
         flushBatchSize = (int)(lastWrittenIndex - flushIndex.get());
-        out.flush();
-        logSyncTimerContext.stop();
-        if (!stateMachineDataPolicy.isSync()) {
-          IOUtils.getFromFuture(f, () -> this + "-flushStateMachineData");
+        if (unsafeFlush) {
+          // unsafe-flush: call updateFlushedIndexIncreasingly() without waiting the underlying FileChannel.force(..).
+          unsafeFlushOutStream();
+          updateFlushedIndexIncreasingly();
+        } else if (asyncFlush) {
+          asyncFlushOutStream(f);
+        } else {
+          flushOutStream();
+          if (!stateMachineDataPolicy.isSync()) {
+            IOUtils.getFromFuture(f, () -> this + "-flushStateMachineData");
+          }
+          updateFlushedIndexIncreasingly();
         }
-      } finally {
-        timerContext.stop();
       }
-      updateFlushedIndexIncreasingly();
+    }
+  }
+
+  private void unsafeFlushOutStream() throws IOException {
+    final Timekeeper.Context logSyncTimerContext = raftLogMetrics.getSyncTimer().time();
+    out.asyncFlush(flushExecutor).whenComplete((v, e) -> logSyncTimerContext.stop());
+  }
+
+  private void asyncFlushOutStream(CompletableFuture<Void> stateMachineFlush) throws IOException {
+    final Timekeeper.Context logSyncTimerContext = raftLogMetrics.getSyncTimer().time();
+    out.asyncFlush(flushExecutor)
+        .thenCombine(stateMachineFlush, (async, sm) -> async)
+        .whenComplete((v, e) -> {
+          updateFlushedIndexIncreasingly(lastWrittenIndex);
+          logSyncTimerContext.stop();
+        });
+  }
+
+  private void flushOutStream() throws IOException {
+    try(UncheckedAutoCloseable ignored = Timekeeper.start(raftLogMetrics.getSyncTimer())) {
+      out.flush();
     }
   }
 
   private void updateFlushedIndexIncreasingly() {
-    final long i = lastWrittenIndex;
-    flushIndex.updateIncreasingly(i, traceIndexChange);
-    postUpdateFlushedIndex();
-    writeTasks.updateIndex(i);
+    updateFlushedIndexIncreasingly(lastWrittenIndex);
   }
 
-  private void postUpdateFlushedIndex() {
-    pendingFlushNum = 0;
+  private void updateFlushedIndexIncreasingly(long index) {
+    flushIndex.updateIncreasingly(index, traceIndexChange);
+    postUpdateFlushedIndex(Math.toIntExact(lastWrittenIndex - index));
+    writeTasks.updateIndex(index);
+  }
+
+  private void postUpdateFlushedIndex(int count) {
+    pendingFlushNum = count;
     Optional.ofNullable(submitUpdateCommitEvent).ifPresent(Runnable::run);
   }
 
@@ -390,7 +425,6 @@ class SegmentedRaftLogWorker {
    * The following several methods (startLogSegment, rollLogSegment,
    * writeLogEntry, and truncate) are only called by SegmentedRaftLog which is
    * protected by RaftServer's lock.
-   *
    * Thus all the tasks are created and added sequentially.
    */
   void startLogSegment(long startIndex) {
@@ -405,8 +439,9 @@ class SegmentedRaftLogWorker {
     addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
 
-  Task writeLogEntry(LogEntryProto entry) {
-    return addIOTask(new WriteLog(entry));
+  Task writeLogEntry(ReferenceCountedObject<LogEntryProto> entry,
+      LogEntryProto removedStateMachineData, TransactionContext context) {
+    return addIOTask(new WriteLog(entry, removedStateMachineData, context));
   }
 
   Task truncate(TruncationSegments ts, long index) {
@@ -434,11 +469,11 @@ class SegmentedRaftLogWorker {
     @Override
     void execute() throws IOException {
       if (segments.getToDelete() != null) {
-        Timer.Context purgeLogContext = raftLogMetrics.getRaftLogPurgeTimer().time();
-        for (SegmentFileInfo fileInfo : segments.getToDelete()) {
-          FileUtils.deleteFile(fileInfo.getFile(storage));
+        try(UncheckedAutoCloseable ignored = raftLogMetrics.startPurgeTimer()) {
+          for (SegmentFileInfo fileInfo : segments.getToDelete()) {
+            FileUtils.deleteFile(fileInfo.getFile(storage));
+          }
         }
-        purgeLogContext.stop();
       }
     }
 
@@ -453,25 +488,28 @@ class SegmentedRaftLogWorker {
     private final CompletableFuture<?> stateMachineFuture;
     private final CompletableFuture<Long> combined;
 
-    WriteLog(LogEntryProto entry) {
-      this.entry = LogProtoUtils.removeStateMachineData(entry);
-      if (this.entry == entry) {
-        final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
+    WriteLog(ReferenceCountedObject<LogEntryProto> entryRef, LogEntryProto removedStateMachineData,
+        TransactionContext context) {
+      LogEntryProto origEntry = entryRef.get();
+      this.entry = removedStateMachineData;
+      if (this.entry == origEntry) {
+        final StateMachineLogEntryProto proto = origEntry.hasStateMachineLogEntry() ?
+            origEntry.getStateMachineLogEntry(): null;
         if (stateMachine != null && proto != null && proto.getType() == StateMachineLogEntryProto.Type.DATASTREAM) {
           final ClientInvocationId invocationId = ClientInvocationId.valueOf(proto);
           final CompletableFuture<DataStream> removed = server.getDataStreamMap().remove(invocationId);
-          this.stateMachineFuture = removed == null? stateMachine.data().link(null, entry)
-              : removed.thenApply(stream -> stateMachine.data().link(stream, entry));
+          this.stateMachineFuture = removed == null? stateMachine.data().link(null, origEntry)
+              : removed.thenApply(stream -> stateMachine.data().link(stream, origEntry));
         } else {
           this.stateMachineFuture = null;
         }
       } else {
         try {
-          // this.entry != entry iff the entry has state machine data
-          this.stateMachineFuture = stateMachine.data().write(entry);
+          // this.entry != origEntry if it has state machine data
+          this.stateMachineFuture = stateMachine.data().write(entryRef, context);
         } catch (Exception e) {
-          LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
-              + ", entry=" + LogProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
+          LOG.error(name + ": writeStateMachineData failed for index " + origEntry.getIndex()
+              + ", entry=" + LogProtoUtils.toLogEntryString(origEntry, stateMachine::toStateMachineLogEntryString), e);
           throw e;
         }
       }
@@ -513,10 +551,7 @@ class SegmentedRaftLogWorker {
       out.write(entry);
       lastWrittenIndex = entry.getIndex();
       pendingFlushNum++;
-      if (shouldFlush()) {
-        raftLogMetrics.onRaftLogFlush();
-        flushWrites();
-      }
+      flushIfNecessary();
     }
 
     @Override
@@ -630,6 +665,21 @@ class SegmentedRaftLogWorker {
     void execute() throws IOException {
       freeSegmentedRaftLogOutputStream();
 
+      if (segments.getToDelete() != null && segments.getToDelete().length > 0) {
+        long minStart = segments.getToDelete()[0].getStartIndex();
+        for (SegmentFileInfo del : segments.getToDelete()) {
+          final File delFile = del.getFile(storage);
+          Preconditions.assertTrue(delFile.exists(),
+              "File %s to be deleted does not exist", delFile);
+          FileUtils.deleteFile(delFile);
+          LOG.info("{}: Deleted log file {}", name, delFile);
+          minStart = Math.min(minStart, del.getStartIndex());
+        }
+        if (segments.getToTruncate() == null) {
+          lastWrittenIndex = minStart - 1;
+        }
+      }
+
       if (segments.getToTruncate() != null) {
         final File fileToTruncate = segments.getToTruncate().getFile(storage);
         Preconditions.assertTrue(fileToTruncate.exists(),
@@ -647,26 +697,13 @@ class SegmentedRaftLogWorker {
         // update lastWrittenIndex
         lastWrittenIndex = segments.getToTruncate().getNewEndIndex();
       }
-      if (segments.getToDelete() != null && segments.getToDelete().length > 0) {
-        long minStart = segments.getToDelete()[0].getStartIndex();
-        for (SegmentFileInfo del : segments.getToDelete()) {
-          final File delFile = del.getFile(storage);
-          Preconditions.assertTrue(delFile.exists(),
-              "File %s to be deleted does not exist", delFile);
-          FileUtils.deleteFile(delFile);
-          LOG.info("{}: Deleted log file {}", name, delFile);
-          minStart = Math.min(minStart, del.getStartIndex());
-        }
-        if (segments.getToTruncate() == null) {
-          lastWrittenIndex = minStart - 1;
-        }
-      }
+
       if (stateMachineFuture != null) {
         IOUtils.getFromFuture(stateMachineFuture, () -> this + "-truncateStateMachineData");
       }
       flushIndex.setUnconditionally(lastWrittenIndex, infoIndexChange);
       safeCacheEvictIndex.setUnconditionally(lastWrittenIndex, infoIndexChange);
-      postUpdateFlushedIndex();
+      postUpdateFlushedIndex(0);
     }
 
     @Override
@@ -700,8 +737,9 @@ class SegmentedRaftLogWorker {
   }
 
   private void allocateSegmentedRaftLogOutputStream(File file, boolean append) throws IOException {
-    Preconditions.assertTrue(out == null && writeBuffer.position() == 0);
+    Preconditions.assertNull(out, "out");
+    Preconditions.assertSame(0, writeBuffer.position(), "writeBuffer.position()");
     out = new SegmentedRaftLogOutputStream(file, append, segmentMaxSize,
-            preallocatedSize, writeBuffer);
+        preallocatedSize, writeBuffer);
   }
 }

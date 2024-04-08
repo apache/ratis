@@ -17,24 +17,6 @@
  */
 package org.apache.ratis.server;
 
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.server.metrics.RaftServerMetrics;
-import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
-import org.apache.ratis.server.protocol.RaftServerProtocol;
-import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.IOUtils;
-import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.ReflectionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -42,6 +24,32 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
+import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.protocol.AdminAsynchronousProtocol;
+import org.apache.ratis.protocol.AdminProtocol;
+import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
+import org.apache.ratis.protocol.RaftClientProtocol;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.metrics.RaftServerMetrics;
+import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
+import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.thirdparty.com.google.common.collect.Iterables;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.ReflectionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Raft server interface */
 public interface RaftServer extends Closeable, RpcType.Get,
@@ -67,9 +75,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link RaftPeer} for this division. */
     default RaftPeer getPeer() {
-      return Optional.ofNullable(getGroup())
-          .map(g -> g.getPeer(getId()))
-          .orElseGet(() -> getRaftServer().getPeer());
+      return Optional.ofNullable(getRaftConf().getPeer(getId(), RaftPeerRole.FOLLOWER, RaftPeerRole.LISTENER))
+        .orElseGet(() -> getRaftServer().getPeer());
     }
 
     /** @return the information about this division. */
@@ -77,7 +84,10 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link RaftGroup} for this division. */
     default RaftGroup getGroup() {
-      return RaftGroup.valueOf(getMemberId().getGroupId(), getRaftConf().getAllPeers());
+      final Collection<RaftPeer> allFollowerPeers = getRaftConf().getAllPeers(RaftPeerRole.FOLLOWER);
+      final Collection<RaftPeer> allListenerPeers = getRaftConf().getAllPeers(RaftPeerRole.LISTENER);
+      Iterable<RaftPeer> peers = Iterables.concat(allFollowerPeers, allListenerPeers);
+      return RaftGroup.valueOf(getMemberId().getGroupId(), peers);
     }
 
     /** @return the current {@link RaftConfiguration} for this division. */
@@ -107,8 +117,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** @return the data stream map of this division. */
     DataStreamMap getDataStreamMap();
 
-    /** @return the internal {@link RaftClient} of this division. */
-    RaftClient getRaftClient();
+    /** @return the {@link ThreadGroup} the threads of this Division belong to. */
+    ThreadGroup getThreadGroup();
 
     @Override
     void close();
@@ -117,7 +127,10 @@ public interface RaftServer extends Closeable, RpcType.Get,
   /** @return the server ID. */
   RaftPeerId getId();
 
-  /** @return the {@link RaftPeer} for this server. */
+  /**
+   * @return the general {@link RaftPeer} for this server.
+   *         To obtain a specific {@link RaftPeer} for a {@link RaftGroup}, use {@link Division#getPeer()}.
+   */
   RaftPeer getPeer();
 
   /** @return the group IDs the server is part of. */
@@ -161,8 +174,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     private static Method initNewRaftServerMethod() {
       final String className = RaftServer.class.getPackage().getName() + ".impl.ServerImplUtils";
-      final Class<?>[] argClasses = {RaftPeerId.class, RaftGroup.class, StateMachine.Registry.class,
-          RaftProperties.class, Parameters.class};
+      final Class<?>[] argClasses = {RaftPeerId.class, RaftGroup.class, RaftStorage.StartupOption.class,
+          StateMachine.Registry.class, ThreadGroup.class, RaftProperties.class, Parameters.class};
       try {
         final Class<?> clazz = ReflectionUtils.getClassByName(className);
         return clazz.getMethod("newRaftServer", argClasses);
@@ -171,12 +184,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
       }
     }
 
-    private static RaftServer newRaftServer(RaftPeerId serverId, RaftGroup group,
-        StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
-        throws IOException {
+    private static RaftServer newRaftServer(RaftPeerId serverId, RaftGroup group, RaftStorage.StartupOption option,
+        StateMachine.Registry stateMachineRegistry, ThreadGroup threadGroup, RaftProperties properties,
+        Parameters parameters) throws IOException {
       try {
         return (RaftServer) NEW_RAFT_SERVER_METHOD.invoke(null,
-            serverId, group, stateMachineRegistry, properties, parameters);
+            serverId, group, option, stateMachineRegistry, threadGroup, properties, parameters);
       } catch (IllegalAccessException e) {
         throw new IllegalStateException("Failed to build " + serverId, e);
       } catch (InvocationTargetException e) {
@@ -187,16 +200,20 @@ public interface RaftServer extends Closeable, RpcType.Get,
     private RaftPeerId serverId;
     private StateMachine.Registry stateMachineRegistry ;
     private RaftGroup group = null;
+    private RaftStorage.StartupOption option = RaftStorage.StartupOption.FORMAT;
     private RaftProperties properties;
     private Parameters parameters;
+    private ThreadGroup threadGroup;
 
     /** @return a {@link RaftServer} object. */
     public RaftServer build() throws IOException {
       return newRaftServer(
           serverId,
           group,
+          option,
           Objects.requireNonNull(stateMachineRegistry , "Neither 'stateMachine' nor 'setStateMachineRegistry' " +
               "is initialized."),
+          threadGroup,
           Objects.requireNonNull(properties, "The 'properties' field is not initialized."),
           parameters);
     }
@@ -224,6 +241,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
       return this;
     }
 
+    /** Set the startup option for the group. */
+    public Builder setOption(RaftStorage.StartupOption option) {
+      this.option = option;
+      return this;
+    }
+
     /** Set {@link RaftProperties}. */
     public Builder setProperties(RaftProperties properties) {
       this.properties = properties;
@@ -233,6 +256,16 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /** Set {@link Parameters}. */
     public Builder setParameters(Parameters parameters) {
       this.parameters = parameters;
+      return this;
+    }
+
+    /**
+     * Set {@link ThreadGroup} so the application can control RaftServer threads consistently with the application.
+     * For example, configure {@link ThreadGroup#uncaughtException(Thread, Throwable)} for the whole thread group.
+     * If not set, the new thread will be put into the thread group of the caller thread.
+     */
+    public Builder setThreadGroup(ThreadGroup threadGroup) {
+      this.threadGroup = threadGroup;
       return this;
     }
   }

@@ -20,46 +20,52 @@ package org.apache.ratis.server.metrics;
 
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_ELECTION_ELAPSED_TIME;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import java.util.SortedMap;
 
 /**
  * Test for LeaderElectionMetrics.
  */
-public class TestLeaderElectionMetrics {
+public class TestLeaderElectionMetrics extends BaseTest {
 
   private static LeaderElectionMetrics leaderElectionMetrics;
-  private static RatisMetricRegistry ratisMetricRegistry;
+  private static RatisMetricRegistryImpl ratisMetricRegistry;
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() {
     RaftGroupId raftGroupId = RaftGroupId.randomId();
     RaftPeerId raftPeerId = RaftPeerId.valueOf("TestId");
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
     leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(raftGroupMemberId, () -> 1000L);
-    ratisMetricRegistry = leaderElectionMetrics.getRegistry();
+    ratisMetricRegistry = (RatisMetricRegistryImpl) leaderElectionMetrics.getRegistry();
   }
 
   @Test
   public void testOnLeaderElectionCompletion() throws Exception {
     leaderElectionMetrics.onNewLeaderElectionCompletion();
-    Long leaderElectionLatency = (Long) ratisMetricRegistry.getGauges((s, metric) ->
-        s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME)).values().iterator().next().getValue();
-    assertTrue(leaderElectionLatency > 0L);
+    final SortedMap<String, Gauge> gauges = ratisMetricRegistry.getGauges(
+        (s, metric) -> s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME));
+    LOG.info("{} gauges: {}", LAST_LEADER_ELECTION_ELAPSED_TIME, gauges);
+    final Long leaderElectionLatency = (Long)gauges.values().iterator().next().getValue();
+    assertTrue(leaderElectionLatency >= 0L, "leaderElectionLatency = " + leaderElectionLatency);
   }
 
   @Test
   public void testOnLeaderElectionTimeout() throws Exception {
     long numLeaderElectionTimeouts = ratisMetricRegistry.counter(
         LEADER_ELECTION_TIMEOUT_COUNT_METRIC).getCount();
-    assertTrue(numLeaderElectionTimeouts == 0);
+    assertEquals(0, numLeaderElectionTimeouts);
     leaderElectionMetrics.onLeaderElectionTimeout();
     numLeaderElectionTimeouts = ratisMetricRegistry.counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC).getCount();
     assertEquals(1, numLeaderElectionTimeouts);

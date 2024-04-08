@@ -81,6 +81,16 @@ public interface RaftServerConfigKeys {
     setInt(properties::setInt, SLEEP_DEVIATION_THRESHOLD_KEY, thresholdMs);
   }
 
+  String CLOSE_THRESHOLD_KEY = PREFIX + ".close.threshold";
+  TimeDuration CLOSE_THRESHOLD_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+  static TimeDuration closeThreshold(RaftProperties properties) {
+    return getTimeDuration(properties.getTimeDuration(CLOSE_THRESHOLD_DEFAULT.getUnit()),
+        CLOSE_THRESHOLD_KEY, CLOSE_THRESHOLD_DEFAULT, getDefaultLog());
+  }
+  static void setCloseThreshold(RaftProperties properties, int thresholdMs) {
+    setInt(properties::setInt, CLOSE_THRESHOLD_KEY, thresholdMs);
+  }
+
   /**
    * When bootstrapping a new peer, If the gap between the match index of the
    * peer and the leader's latest committed index is less than this gap, we
@@ -114,8 +124,8 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, PROXY_SIZE_KEY, PROXY_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
-    static void setProxySize(RaftProperties properties, int port) {
-      setInt(properties::setInt, PROXY_SIZE_KEY, port);
+    static void setProxySize(RaftProperties properties, int size) {
+      setInt(properties::setInt, PROXY_SIZE_KEY, size);
     }
 
     String SERVER_CACHED_KEY = PREFIX + ".server.cached";
@@ -133,8 +143,8 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, SERVER_SIZE_KEY, SERVER_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
-    static void setServerSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, SERVER_SIZE_KEY, port);
+    static void setServerSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, SERVER_SIZE_KEY, size);
     }
 
     String CLIENT_CACHED_KEY = PREFIX + ".client.cached";
@@ -152,8 +162,83 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, CLIENT_SIZE_KEY, CLIENT_SIZE_DEFAULT, getDefaultLog(),
           requireMin(0), requireMax(65536));
     }
-    static void setClientSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, CLIENT_SIZE_KEY, port);
+    static void setClientSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, CLIENT_SIZE_KEY, size);
+    }
+  }
+
+  interface Read {
+    String PREFIX = RaftServerConfigKeys.PREFIX
+        + "." + JavaUtils.getClassSimpleName(Read.class).toLowerCase();
+
+    String TIMEOUT_KEY = PREFIX + ".timeout";
+    TimeDuration TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+    static TimeDuration timeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(TIMEOUT_DEFAULT.getUnit()),
+          TIMEOUT_KEY, TIMEOUT_DEFAULT, getDefaultLog(), requirePositive());
+    }
+    static void setTimeout(RaftProperties properties, TimeDuration readOnlyTimeout) {
+      setTimeDuration(properties::setTimeDuration, TIMEOUT_KEY, readOnlyTimeout);
+    }
+
+    enum Option {
+      /** Directly query statemachine. Efficient but may undermine linearizability */
+      DEFAULT,
+
+      /** Use ReadIndex (see Raft Paper section 6.4). Maintains linearizability */
+      LINEARIZABLE
+    }
+
+    String OPTION_KEY = PREFIX + ".option";
+    Option OPTION_DEFAULT = Option.DEFAULT;
+    static Option option(RaftProperties properties) {
+      Option option =  get(properties::getEnum, OPTION_KEY, OPTION_DEFAULT, getDefaultLog());
+      if (option != Option.DEFAULT && option != Option.LINEARIZABLE) {
+        throw new IllegalArgumentException("Unexpected read option: " + option);
+      }
+      return option;
+    }
+    static void setOption(RaftProperties properties, Option option) {
+      set(properties::setEnum, OPTION_KEY, option);
+    }
+
+    String LEADER_LEASE_ENABLED_KEY = PREFIX + ".leader.lease.enabled";
+    boolean LEADER_LEASE_ENABLED_DEFAULT = false;
+    static boolean leaderLeaseEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, LEADER_LEASE_ENABLED_KEY,
+          LEADER_LEASE_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setLeaderLeaseEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, LEADER_LEASE_ENABLED_KEY, enabled);
+    }
+
+    String LEADER_LEASE_TIMEOUT_RATIO_KEY = PREFIX + ".leader.lease.timeout.ratio";
+    double LEADER_LEASE_TIMEOUT_RATIO_DEFAULT = 0.9;
+    static double leaderLeaseTimeoutRatio(RaftProperties properties) {
+      return getDouble(properties::getDouble, LEADER_LEASE_TIMEOUT_RATIO_KEY,
+          LEADER_LEASE_TIMEOUT_RATIO_DEFAULT, getDefaultLog(),
+          requireMin(0.0), requireMax(1.0));
+    }
+
+    static void setLeaderLeaseTimeoutRatio(RaftProperties properties, double ratio) {
+      setDouble(properties::setDouble, LEADER_LEASE_TIMEOUT_RATIO_KEY, ratio);
+    }
+
+    interface ReadAfterWriteConsistent {
+      String PREFIX = Read.PREFIX + ".read-after-write-consistent";
+
+      String WRITE_INDEX_CACHE_EXPIRY_TIME_KEY = PREFIX + ".write-index-cache.expiry-time";
+      /** Must be larger than {@link Read#TIMEOUT_DEFAULT}. */
+      TimeDuration WRITE_INDEX_CACHE_EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+
+      static TimeDuration writeIndexCacheExpiryTime(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(WRITE_INDEX_CACHE_EXPIRY_TIME_DEFAULT.getUnit()),
+            WRITE_INDEX_CACHE_EXPIRY_TIME_KEY, WRITE_INDEX_CACHE_EXPIRY_TIME_DEFAULT, getDefaultLog());
+      }
+
+      static void setWriteIndexCacheExpiryTime(RaftProperties properties, TimeDuration expiryTime) {
+        setTimeDuration(properties::setTimeDuration, WRITE_INDEX_CACHE_EXPIRY_TIME_KEY, expiryTime);
+      }
     }
   }
 
@@ -285,8 +370,18 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, PURGE_UPTO_SNAPSHOT_INDEX_KEY, shouldPurgeUptoSnapshotIndex);
     }
 
+    String PURGE_PRESERVATION_LOG_NUM_KEY = PREFIX + ".purge.preservation.log.num";
+    long PURGE_PRESERVATION_LOG_NUM_DEFAULT = 0L;
+    static long purgePreservationLogNum(RaftProperties properties) {
+      return getLong(properties::getLong, PURGE_PRESERVATION_LOG_NUM_KEY,
+              PURGE_PRESERVATION_LOG_NUM_DEFAULT, getDefaultLog());
+    }
+    static void setPurgePreservationLogNum(RaftProperties properties, long purgePreserveLogNum) {
+      setLong(properties::setLong, PURGE_PRESERVATION_LOG_NUM_KEY, purgePreserveLogNum);
+    }
+
     String SEGMENT_SIZE_MAX_KEY = PREFIX + ".segment.size.max";
-    SizeInBytes SEGMENT_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("8MB");
+    SizeInBytes SEGMENT_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("32MB");
     static SizeInBytes segmentSizeMax(RaftProperties properties) {
       return getSizeInBytes(properties::getSizeInBytes,
           SEGMENT_SIZE_MAX_KEY, SEGMENT_SIZE_MAX_DEFAULT, getDefaultLog());
@@ -329,7 +424,7 @@ public interface RaftServerConfigKeys {
     }
 
     String WRITE_BUFFER_SIZE_KEY = PREFIX + ".write.buffer.size";
-    SizeInBytes WRITE_BUFFER_SIZE_DEFAULT =SizeInBytes.valueOf("64KB");
+    SizeInBytes WRITE_BUFFER_SIZE_DEFAULT = SizeInBytes.valueOf("8MB");
     static SizeInBytes writeBufferSize(RaftProperties properties) {
       return getSizeInBytes(properties::getSizeInBytes,
           WRITE_BUFFER_SIZE_KEY, WRITE_BUFFER_SIZE_DEFAULT, getDefaultLog());
@@ -346,6 +441,28 @@ public interface RaftServerConfigKeys {
     }
     static void setForceSyncNum(RaftProperties properties, int forceSyncNum) {
       setInt(properties::setInt, FORCE_SYNC_NUM_KEY, forceSyncNum);
+    }
+
+    /** Unsafe-flush allow increasing flush index without waiting the actual flush to complete. */
+    String UNSAFE_FLUSH_ENABLED_KEY = PREFIX + ".unsafe-flush.enabled";
+    boolean UNSAFE_FLUSH_ENABLED_DEFAULT = false;
+    static boolean unsafeFlushEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+              UNSAFE_FLUSH_ENABLED_KEY, UNSAFE_FLUSH_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setUnsafeFlushEnabled(RaftProperties properties, boolean unsafeFlush) {
+      setBoolean(properties::setBoolean, UNSAFE_FLUSH_ENABLED_KEY, unsafeFlush);
+    }
+
+    /** Async-flush will increase flush index until the actual flush has completed. */
+    String ASYNC_FLUSH_ENABLED_KEY = PREFIX + ".async-flush.enabled";
+    boolean ASYNC_FLUSH_ENABLED_DEFAULT = false;
+    static boolean asyncFlushEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          ASYNC_FLUSH_ENABLED_KEY, ASYNC_FLUSH_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setAsyncFlushEnabled(RaftProperties properties, boolean asyncFlush) {
+      setBoolean(properties::setBoolean, ASYNC_FLUSH_ENABLED_KEY, asyncFlush);
     }
 
     /** The policy to handle corrupted raft log. */
@@ -475,6 +592,31 @@ public interface RaftServerConfigKeys {
       static void setInstallSnapshotEnabled(RaftProperties properties, boolean shouldInstallSnapshot) {
         setBoolean(properties::setBoolean, INSTALL_SNAPSHOT_ENABLED_KEY, shouldInstallSnapshot);
       }
+
+      String WAIT_TIME_MIN_KEY = PREFIX + ".wait-time.min";
+      TimeDuration WAIT_TIME_MIN_DEFAULT = TimeDuration.ONE_MILLISECOND;
+      static TimeDuration waitTimeMin(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(WAIT_TIME_MIN_DEFAULT.getUnit()),
+            WAIT_TIME_MIN_KEY, WAIT_TIME_MIN_DEFAULT, getDefaultLog());
+      }
+      static void setWaitTimeMin(RaftProperties properties, TimeDuration minDuration) {
+        setTimeDuration(properties::setTimeDuration, WAIT_TIME_MIN_KEY, minDuration);
+      }
+
+      String RETRY_POLICY_KEY = PREFIX + ".retry.policy";
+      /**
+       * The min wait time as 1ms (0 is not allowed) for first 10,
+       * (5 iteration with 2 times grpc client retry)
+       * next wait 1sec for next 20 retry (10 iteration with 2 times grpc client)
+       * further wait for 5sec for max times ((5sec*980)/2 times ~= 40min)
+       */
+      String RETRY_POLICY_DEFAULT = "1ms,10, 1s,20, 5s,1000";
+      static String retryPolicy(RaftProperties properties) {
+        return properties.get(RETRY_POLICY_KEY, RETRY_POLICY_DEFAULT);
+      }
+      static void setRetryPolicy(RaftProperties properties, String retryPolicy) {
+        properties.set(RETRY_POLICY_KEY, retryPolicy);
+      }
     }
   }
 
@@ -489,8 +631,32 @@ public interface RaftServerConfigKeys {
       return getBoolean(properties::getBoolean,
           AUTO_TRIGGER_ENABLED_KEY, AUTO_TRIGGER_ENABLED_DEFAULT, getDefaultLog());
     }
-    static void setAutoTriggerEnabled(RaftProperties properties, boolean autoTriggerThreshold) {
-      setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerThreshold);
+    static void setAutoTriggerEnabled(RaftProperties properties, boolean autoTriggerEnabled) {
+      setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerEnabled);
+    }
+
+    /** whether trigger snapshot when stop raft server */
+    String TRIGGER_WHEN_STOP_ENABLED_KEY = PREFIX + ".trigger-when-stop.enabled";
+    /** by default let the state machine to trigger snapshot when stop */
+    boolean TRIGGER_WHEN_STOP_ENABLED_DEFAULT = true;
+    static boolean triggerWhenStopEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          TRIGGER_WHEN_STOP_ENABLED_KEY, TRIGGER_WHEN_STOP_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setTriggerWhenStopEnabled(RaftProperties properties, boolean triggerWhenStopEnabled) {
+      setBoolean(properties::setBoolean, TRIGGER_WHEN_STOP_ENABLED_KEY, triggerWhenStopEnabled);
+    }
+
+    /** whether trigger snapshot when remove raft server */
+    String TRIGGER_WHEN_REMOVE_ENABLED_KEY = PREFIX + ".trigger-when-remove.enabled";
+    /** by default let the state machine to trigger snapshot when remove */
+    boolean TRIGGER_WHEN_REMOVE_ENABLED_DEFAULT = true;
+    static boolean triggerWhenRemoveEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          TRIGGER_WHEN_REMOVE_ENABLED_KEY, TRIGGER_WHEN_REMOVE_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setTriggerWhenRemoveEnabled(RaftProperties properties, boolean triggerWhenRemoveEnabled) {
+      setBoolean(properties::setBoolean, TRIGGER_WHEN_REMOVE_ENABLED_KEY, triggerWhenRemoveEnabled);
     }
 
     /** The log index gap between to two snapshot creations. */
@@ -550,8 +716,8 @@ public interface RaftServerConfigKeys {
           requireMin(0), requireMax(65536));
     }
 
-    static void setAsyncRequestThreadPoolSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY, port);
+    static void setAsyncRequestThreadPoolSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY, size);
     }
 
     String ASYNC_WRITE_THREAD_POOL_SIZE_KEY = PREFIX + ".async.write.thread.pool.size";
@@ -563,8 +729,8 @@ public interface RaftServerConfigKeys {
           requireMin(0), requireMax(65536));
     }
 
-    static void setAsyncWriteThreadPoolSize(RaftProperties properties, int port) {
-      setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, port);
+    static void setAsyncWriteThreadPoolSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, ASYNC_WRITE_THREAD_POOL_SIZE_KEY, size);
     }
 
     String CLIENT_POOL_SIZE_KEY = PREFIX + ".client.pool.size";
@@ -587,9 +753,12 @@ public interface RaftServerConfigKeys {
 
     String TIMEOUT_MIN_KEY = PREFIX + ".timeout.min";
     TimeDuration TIMEOUT_MIN_DEFAULT = TimeDuration.valueOf(150, TimeUnit.MILLISECONDS);
-    static TimeDuration timeoutMin(RaftProperties properties) {
+    static TimeDuration timeoutMin(RaftProperties properties, Consumer<String> logger) {
       return getTimeDuration(properties.getTimeDuration(TIMEOUT_MIN_DEFAULT.getUnit()),
-          TIMEOUT_MIN_KEY, TIMEOUT_MIN_DEFAULT, getDefaultLog());
+          TIMEOUT_MIN_KEY, TIMEOUT_MIN_DEFAULT, logger);
+    }
+    static TimeDuration timeoutMin(RaftProperties properties) {
+      return timeoutMin(properties, getDefaultLog());
     }
     static void setTimeoutMin(RaftProperties properties, TimeDuration minDuration) {
       setTimeDuration(properties::setTimeDuration, TIMEOUT_MIN_KEY, minDuration);
@@ -597,12 +766,40 @@ public interface RaftServerConfigKeys {
 
     String TIMEOUT_MAX_KEY = PREFIX + ".timeout.max";
     TimeDuration TIMEOUT_MAX_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
-    static TimeDuration timeoutMax(RaftProperties properties) {
+    static TimeDuration timeoutMax(RaftProperties properties, Consumer<String> logger) {
       return getTimeDuration(properties.getTimeDuration(TIMEOUT_MAX_DEFAULT.getUnit()),
-          TIMEOUT_MAX_KEY, TIMEOUT_MAX_DEFAULT, getDefaultLog());
+          TIMEOUT_MAX_KEY, TIMEOUT_MAX_DEFAULT, logger);
+    }
+    static TimeDuration timeoutMax(RaftProperties properties) {
+      return timeoutMax(properties, getDefaultLog());
     }
     static void setTimeoutMax(RaftProperties properties, TimeDuration maxDuration) {
       setTimeDuration(properties::setTimeDuration, TIMEOUT_MAX_KEY, maxDuration);
+    }
+
+    /** separate first timeout so that the startup unavailable time can be reduced */
+    String FIRST_ELECTION_TIMEOUT_MIN_KEY = PREFIX + ".first-election.timeout.min";
+    TimeDuration FIRST_ELECTION_TIMEOUT_MIN_DEFAULT = null;
+    static TimeDuration firstElectionTimeoutMin(RaftProperties properties) {
+      final TimeDuration fallbackFirstElectionTimeoutMin = Rpc.timeoutMin(properties, null);
+      return getTimeDuration(properties.getTimeDuration(fallbackFirstElectionTimeoutMin.getUnit()),
+          FIRST_ELECTION_TIMEOUT_MIN_KEY, FIRST_ELECTION_TIMEOUT_MIN_DEFAULT,
+          Rpc.TIMEOUT_MIN_KEY, fallbackFirstElectionTimeoutMin, getDefaultLog());
+    }
+    static void setFirstElectionTimeoutMin(RaftProperties properties, TimeDuration firstMinDuration) {
+      setTimeDuration(properties::setTimeDuration, FIRST_ELECTION_TIMEOUT_MIN_KEY, firstMinDuration);
+    }
+
+    String FIRST_ELECTION_TIMEOUT_MAX_KEY = PREFIX + ".first-election.timeout.max";
+    TimeDuration FIRST_ELECTION_TIMEOUT_MAX_DEFAULT = null;
+    static TimeDuration firstElectionTimeoutMax(RaftProperties properties) {
+      final TimeDuration fallbackFirstElectionTimeoutMax = Rpc.timeoutMax(properties, null);
+      return getTimeDuration(properties.getTimeDuration(fallbackFirstElectionTimeoutMax.getUnit()),
+          FIRST_ELECTION_TIMEOUT_MAX_KEY, FIRST_ELECTION_TIMEOUT_MAX_DEFAULT,
+          Rpc.TIMEOUT_MAX_KEY, fallbackFirstElectionTimeoutMax, getDefaultLog());
+    }
+    static void setFirstElectionTimeoutMax(RaftProperties properties, TimeDuration firstMaxDuration) {
+      setTimeDuration(properties::setTimeDuration, FIRST_ELECTION_TIMEOUT_MAX_KEY, firstMaxDuration);
     }
 
     String REQUEST_TIMEOUT_KEY = PREFIX + ".request.timeout";
@@ -640,6 +837,7 @@ public interface RaftServerConfigKeys {
   interface RetryCache {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".retrycache";
 
+    /** We should set expiry time longer than total client retry to guarantee exactly-once semantic */
     String EXPIRY_TIME_KEY = PREFIX + ".expirytime";
     TimeDuration EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
     static TimeDuration expiryTime(RaftProperties properties) {
@@ -651,7 +849,7 @@ public interface RaftServerConfigKeys {
     }
 
     String STATISTICS_EXPIRY_TIME_KEY = PREFIX + ".statistics.expirytime";
-    TimeDuration STATISTICS_EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(100, TimeUnit.MICROSECONDS);
+    TimeDuration STATISTICS_EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     static TimeDuration statisticsExpiryTime(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(STATISTICS_EXPIRY_TIME_DEFAULT.getUnit()),
           STATISTICS_EXPIRY_TIME_KEY, STATISTICS_EXPIRY_TIME_DEFAULT, getDefaultLog());
@@ -686,8 +884,8 @@ public interface RaftServerConfigKeys {
       return getTimeDuration(properties.getTimeDuration(LEADER_STEP_DOWN_WAIT_TIME_DEFAULT.getUnit()),
           LEADER_STEP_DOWN_WAIT_TIME_KEY, LEADER_STEP_DOWN_WAIT_TIME_DEFAULT, getDefaultLog());
     }
-    static void setLeaderStepDownWaitTime(RaftProperties properties, TimeDuration noLeaderTimeout) {
-      setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, noLeaderTimeout);
+    static void setLeaderStepDownWaitTime(RaftProperties properties, TimeDuration leaderStepDownWaitTime) {
+      setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, leaderStepDownWaitTime);
     }
 
     String PRE_VOTE_KEY = PREFIX + ".pre-vote";
@@ -695,9 +893,28 @@ public interface RaftServerConfigKeys {
     static boolean preVote(RaftProperties properties) {
       return getBoolean(properties::getBoolean, PRE_VOTE_KEY, PRE_VOTE_DEFAULT, getDefaultLog());
     }
-
     static void setPreVote(RaftProperties properties, boolean enablePreVote) {
       setBoolean(properties::setBoolean, PRE_VOTE_KEY, enablePreVote);
+    }
+
+    /**
+     * Does it allow majority-add, i.e. adding a majority of members in a single setConf?
+     * <p>
+     * Note that, when a single setConf removes and adds members at the same time,
+     * the majority is counted after the removal.
+     * For examples, setConf to a 3-member group by adding 2 new members is NOT a majority-add.
+     * However, setConf to a 3-member group by removing 2 of members and adding 2 new members is a majority-add.
+     * <p>
+     * Note also that adding 1 new member to an 1-member group is always allowed,
+     * although it is a majority-add.
+     */
+    String MEMBER_MAJORITY_ADD_KEY = PREFIX + ".member.majority-add";
+    boolean MEMBER_MAJORITY_ADD_DEFAULT = false;
+    static boolean memberMajorityAdd(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, MEMBER_MAJORITY_ADD_KEY, MEMBER_MAJORITY_ADD_DEFAULT, getDefaultLog());
+    }
+    static void setMemberMajorityAdd(RaftProperties properties, boolean enableMemberMajorityAdd) {
+      setBoolean(properties::setBoolean, MEMBER_MAJORITY_ADD_KEY, enableMemberMajorityAdd);
     }
   }
 

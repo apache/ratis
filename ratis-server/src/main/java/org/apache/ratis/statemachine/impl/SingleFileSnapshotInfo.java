@@ -19,16 +19,21 @@ package org.apache.ratis.statemachine.impl;
 
 import java.util.Collections;
 
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 
 /**
  * Each snapshot only has a single file.
- *
+ * <p>
  * The objects of this class are immutable.
  */
 public class SingleFileSnapshotInfo extends FileListSnapshotInfo {
+  public SingleFileSnapshotInfo(FileInfo fileInfo, TermIndex termIndex) {
+    super(Collections.singletonList(fileInfo), termIndex);
+  }
+
   public SingleFileSnapshotInfo(FileInfo fileInfo, long term, long endIndex) {
-    super(Collections.singletonList(fileInfo), term, endIndex);
+    this(fileInfo, TermIndex.valueOf(term, endIndex));
   }
 
   /** @return the file associated with the snapshot. */

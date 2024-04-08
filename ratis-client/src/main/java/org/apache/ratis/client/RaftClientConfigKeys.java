@@ -95,7 +95,7 @@ public interface RaftClientConfigKeys {
     String PREFIX = RaftClientConfigKeys.PREFIX + ".data-stream";
 
     String OUTSTANDING_REQUESTS_MAX_KEY = PREFIX + ".outstanding-requests.max";
-    int OUTSTANDING_REQUESTS_MAX_DEFAULT = 10;
+    int OUTSTANDING_REQUESTS_MAX_DEFAULT = 100;
     static int outstandingRequestsMax(RaftProperties properties) {
       return getInt(properties::getInt, OUTSTANDING_REQUESTS_MAX_KEY,
           OUTSTANDING_REQUESTS_MAX_DEFAULT, getDefaultLog(), requireMin(2));
@@ -104,8 +104,28 @@ public interface RaftClientConfigKeys {
       setInt(properties::setInt, OUTSTANDING_REQUESTS_MAX_KEY, outstandingRequests);
     }
 
+    String FLUSH_REQUEST_COUNT_MIN_KEY = PREFIX + ".flush.request.count.min";
+    int FLUSH_REQUEST_COUNT_MIN_DEFAULT = 0;
+    static int flushRequestCountMin(RaftProperties properties) {
+      return getInt(properties::getInt, FLUSH_REQUEST_COUNT_MIN_KEY,
+          FLUSH_REQUEST_COUNT_MIN_DEFAULT, getDefaultLog(), requireMin(0));
+    }
+    static void setFlushRequestCountMin(RaftProperties properties, int flushRequestCountMin) {
+      setInt(properties::setInt, FLUSH_REQUEST_COUNT_MIN_KEY, flushRequestCountMin);
+    }
+
+    String FLUSH_REQUEST_BYTES_MIN_KEY = PREFIX + ".flush.request.bytes.min";
+    SizeInBytes FLUSH_REQUEST_BYTES_MIN_DEFAULT = SizeInBytes.ONE_MB;
+    static SizeInBytes flushRequestBytesMin(RaftProperties properties) {
+      return getSizeInBytes(properties::getSizeInBytes, FLUSH_REQUEST_BYTES_MIN_KEY,
+          FLUSH_REQUEST_BYTES_MIN_DEFAULT, getDefaultLog(), requireMinSizeInByte(SizeInBytes.ZERO));
+    }
+    static void setFlushRequestBytesMin(RaftProperties properties, SizeInBytes flushRequestBytesMin) {
+      setSizeInBytes(properties::set, FLUSH_REQUEST_BYTES_MIN_KEY, flushRequestBytesMin);
+    }
+
     String REQUEST_TIMEOUT_KEY = PREFIX + ".request.timeout";
-    TimeDuration REQUEST_TIMEOUT_DEFAULT = TimeDuration.valueOf(3000, TimeUnit.MILLISECONDS);
+    TimeDuration REQUEST_TIMEOUT_DEFAULT = TimeDuration.valueOf(10000, TimeUnit.MILLISECONDS);
     static TimeDuration requestTimeout(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(REQUEST_TIMEOUT_DEFAULT.getUnit()),
           REQUEST_TIMEOUT_KEY, REQUEST_TIMEOUT_DEFAULT, getDefaultLog());

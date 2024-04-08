@@ -20,53 +20,10 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>2.3.0-SNAPSHOT</version>
+    <version>3.1.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>ratis-docs</artifactId>
   <name>Apache Ratis Documentation</name>
   <packaging>jar</packaging>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>1.6.0</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <phase>compile</phase>
-          </execution>
-        </executions>
-        <configuration>
-          <executable>bash</executable>
-          <arguments>dev-support/bin/generate-site.sh</arguments>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.rat</groupId>
-        <artifactId>apache-rat-plugin</artifactId>
-        <configuration>
-          <excludes>
-            <exclude>themes/ratisdoc/static/js/bootstrap.min.js</exclude>
-            <exclude>themes/ratisdoc/static/js/jquery-3.4.1.min.js</exclude>
-            <exclude>themes/ratisdoc/static/css/bootstrap-theme.min.css
-            </exclude>
-            <exclude>themes/ratisdoc/static/css/bootstrap.min.css.map</exclude>
-            <exclude>themes/ratisdoc/static/css/bootstrap.min.css</exclude>
-            <exclude>themes/ratisdoc/static/css/bootstrap-theme.min.css.map
-            </exclude>
-            <exclude>
-              themes/ratisdoc/static/fonts/glyphicons-halflings-regular.svg
-            </exclude>
-            <exclude>themes/ratisdoc/layouts/index.html</exclude>
-            <exclude>themes/ratisdoc/theme.toml</exclude>
-          </excludes>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
 </project>

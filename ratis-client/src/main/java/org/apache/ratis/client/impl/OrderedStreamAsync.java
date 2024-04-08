@@ -21,18 +21,17 @@ import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
-import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SlidingWindow;
-import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +58,8 @@ public class OrderedStreamAsync {
     DataStreamRequest getDataStreamRequest() {
       if (header.getDataLength() == 0) {
         return new DataStreamRequestByteBuffer(header, DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER);
+      } else if (data instanceof ByteBuf) {
+        return new DataStreamRequestByteBuf(header, (ByteBuf)data);
       } else if (data instanceof ByteBuffer) {
         return new DataStreamRequestByteBuffer(header, (ByteBuffer)data);
       } else if (data instanceof FilePositionCount) {
@@ -104,13 +105,10 @@ public class OrderedStreamAsync {
   private final DataStreamClientRpc dataStreamClientRpc;
 
   private final Semaphore requestSemaphore;
-  private final TimeDuration requestTimeout;
-  private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
   OrderedStreamAsync(DataStreamClientRpc dataStreamClientRpc, RaftProperties properties){
     this.dataStreamClientRpc = dataStreamClientRpc;
     this.requestSemaphore = new Semaphore(RaftClientConfigKeys.DataStream.outstandingRequestsMax(properties));
-    this.requestTimeout = RaftClientConfigKeys.DataStream.requestTimeout(properties);
   }
 
   CompletableFuture<DataStreamReply> sendRequest(DataStreamRequestHeader header, Object data,
@@ -118,9 +116,11 @@ public class OrderedStreamAsync {
     try {
       requestSemaphore.acquire();
     } catch (InterruptedException e){
+      Thread.currentThread().interrupt();
       return JavaUtils.completeExceptionally(IOUtils.toInterruptedIOException(
           "Interrupted when sending " + JavaUtils.getClassSimpleName(data.getClass()) + ", header= " + header, e));
     }
+    LOG.debug("sendRequest {}, data={}", header, data);
     final LongFunction<DataStreamWindowRequest> constructor
         = seqNum -> new DataStreamWindowRequest(header, data, seqNum);
     return slidingWindow.submitNewRequest(constructor, r -> sendRequestToNetwork(r, slidingWindow)).
@@ -145,8 +145,6 @@ public class OrderedStreamAsync {
         request.getDataStreamRequest());
     long seqNum = request.getSeqNum();
 
-    scheduleWithTimeout(request);
-
     requestFuture.thenApply(reply -> {
       slidingWindow.receiveReply(
           seqNum, reply, r -> sendRequestToNetwork(r, slidingWindow));
@@ -160,14 +158,5 @@ public class OrderedStreamAsync {
       f.completeExceptionally(e);
       return null;
     });
-  }
-
-  private void scheduleWithTimeout(DataStreamWindowRequest request) {
-    scheduler.onTimeout(requestTimeout, () -> {
-      if (!request.getReplyFuture().isDone()) {
-        request.getReplyFuture().completeExceptionally(
-            new TimeoutIOException("Timeout " + requestTimeout + ": Failed to send " + request));
-      }
-    }, LOG, () -> "Failed to completeExceptionally for " + request);
   }
 }

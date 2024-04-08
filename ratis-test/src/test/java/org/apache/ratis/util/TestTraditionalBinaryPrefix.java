@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,16 +17,19 @@
  */
 package org.apache.ratis.util;
 
-import org.junit.Test;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static org.apache.ratis.util.TraditionalBinaryPrefix.long2String;
 import static org.apache.ratis.util.TraditionalBinaryPrefix.string2long;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestTraditionalBinaryPrefix {
-  @Test(timeout = 1000)
-  public void testTraditionalBinaryPrefix() throws Exception {
+  @Test
+  @Timeout(value = 1000)
+  public void testTraditionalBinaryPrefix() {
     //test string2long(..)
     String[] symbol = {"k", "m", "g", "t", "p", "e"};
     long m = 1024;
@@ -39,8 +42,8 @@ public class TestTraditionalBinaryPrefix {
     assertEquals(0L, string2long("0"));
     assertEquals(1024L, string2long("1k"));
     assertEquals(-1024L, string2long("-1k"));
-    assertEquals(1259520L, string2long("1230K"));
-    assertEquals(-1259520L, string2long("-1230K"));
+    assertEquals(1259520L, string2long("1_230K"));
+    assertEquals(-1259520L, string2long("-1_230K"));
     assertEquals(104857600L, string2long("100m"));
     assertEquals(-104857600L, string2long("-100M"));
     assertEquals(956703965184L, string2long("891g"));
@@ -108,19 +111,19 @@ public class TestTraditionalBinaryPrefix {
         { // n = 2^e
           final long n = 1L << e;
           final String expected = (n/p.getValue()) + " " + p.getSymbol();
-          assertEquals("n=" + n, expected, long2String(n, null, 2));
+          assertEquals(expected, long2String(n, null, 2), "n=" + n);
         }
 
         { // n = 2^e + 1
           final long n = (1L << e) + 1;
           final String expected = (n/p.getValue()) + trailingZeros + p.getSymbol();
-          assertEquals("n=" + n, expected, long2String(n, null, decimalPlace));
+          assertEquals(expected, long2String(n, null, decimalPlace), "n=" + n);
         }
 
         { // n = 2^e - 1
           final long n = (1L << e) - 1;
           final String expected = ((n+1)/p.getValue()) + trailingZeros + p.getSymbol();
-          assertEquals("n=" + n, expected, long2String(n, null, decimalPlace));
+          assertEquals(expected, long2String(n, null, decimalPlace), "n=" + n);
         }
       }
     }
@@ -141,5 +144,12 @@ public class TestTraditionalBinaryPrefix {
 
   private static String byteDescription(long len) {
     return long2String(len, "B", 2);
+  }
+
+  @Test
+  @Timeout(value = 1000)
+  public void testUnderscore() {
+    final SizeInBytes value = SizeInBytes.valueOf("1_000_000_000_000_000");
+    assertEquals(1_000_000_000_000_000L, value.getSize());
   }
 }

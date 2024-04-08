@@ -17,11 +17,15 @@
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>2.3.0-SNAPSHOT</version>
+    <version>3.1.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>ratis-examples</artifactId>
   <name>Apache Ratis Examples</name>
+
+  <properties>
+    <jcommander.version>1.82</jcommander.version>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -65,6 +69,11 @@
     </dependency>
 
     <dependency>
+      <artifactId>ratis-metrics-default</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+
+    <dependency>
       <artifactId>ratis-grpc</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
@@ -95,11 +104,7 @@
     <dependency>
       <groupId>com.beust</groupId>
       <artifactId>jcommander</artifactId>
-    </dependency>
-
-    <dependency>
-       <groupId>io.dropwizard.metrics</groupId>
-       <artifactId>metrics-jvm</artifactId>
+      <version>${jcommander.version}</version>
     </dependency>
 
     <dependency>
@@ -108,7 +113,7 @@
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
+      <artifactId>slf4j-reload4j</artifactId>
       <scope>runtime</scope>
     </dependency>
 
@@ -117,12 +122,20 @@
       <artifactId>junit</artifactId>
       <scope>test</scope>
     </dependency>
-
     <dependency>
-      <groupId>com.github.spotbugs</groupId>
-      <artifactId>spotbugs-annotations</artifactId>
-      <scope>provided</scope>
-      <optional>true</optional>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
   <build>
@@ -152,9 +165,8 @@
                     <exclude>META-INF/*.DSA</exclude>
                     <exclude>META-INF/*.RSA</exclude>
                     <exclude>**/org/apache/log4j/chainsaw/**</exclude>
-                    <exclude>**/org/apache/log4j/jdbc/JDBCAppender.class</exclude>
-                    <exclude>**/org/apache/log4j/net/JMSAppender.class</exclude>
-                    <exclude>**/org/apache/log4j/net/JMSSink.class</exclude>
+                    <exclude>**/org/apache/log4j/jdbc/**</exclude>
+                    <exclude>**/org/apache/log4j/net/**</exclude>
                   </excludes>
                 </filter>
               </filters>

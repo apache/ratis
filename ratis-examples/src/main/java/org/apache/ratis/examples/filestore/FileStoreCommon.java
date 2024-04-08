@@ -59,7 +59,6 @@ public interface FileStoreCommon {
 
   static <T> CompletableFuture<T> completeExceptionally(
       String message, Throwable cause) {
-    return JavaUtils.completeExceptionally(
-        new IOException(message).initCause(cause));
+    return JavaUtils.completeExceptionally(new IOException(message, cause));
   }
 }

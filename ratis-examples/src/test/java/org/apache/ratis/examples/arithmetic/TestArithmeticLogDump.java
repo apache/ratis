@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
@@ -30,19 +29,20 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.tools.ParseRatisLog;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.event.Level;
 
 public class TestArithmeticLogDump extends BaseTest {
   static {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 1;
@@ -60,13 +60,13 @@ public class TestArithmeticLogDump extends BaseTest {
     return properties;
   }
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException {
-    Assert.assertNull(cluster.getLeader());
+    Assertions.assertNull(cluster.getLeader());
     cluster.start();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     if (cluster != null) {
       cluster.shutdown();
@@ -77,7 +77,7 @@ public class TestArithmeticLogDump extends BaseTest {
   public void testLogDump() throws Exception {
     final RaftServer.Division leaderServer = RaftTestUtil.waitForLeader(cluster);
     final List<LogSegmentPath> files = LogSegmentPath.getLogSegmentPaths(leaderServer.getRaftStorage());
-    Assert.assertEquals(1, files.size());
+    Assertions.assertEquals(1, files.size());
     cluster.shutdown();
 
     ParseRatisLog.Builder builder =  new ParseRatisLog.Builder();

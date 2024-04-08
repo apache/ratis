@@ -20,10 +20,14 @@ package org.apache.ratis.util;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketAddress;
 
 /** Tests for {@link PeerProxyMap}. */
 public class TestPeerProxyMap extends BaseTest {
@@ -48,7 +52,8 @@ public class TestPeerProxyMap extends BaseTest {
     }
   }
 
-  @Test(timeout = 10_000)
+  @Test
+  @Timeout(value = 10_000)
   public void testCloseDeadLock() throws Exception {
     final PeerProxyMap<DummyProxy> map = new PeerProxyMap<>("test", DummyProxy::new);
     final RaftPeerId id = RaftPeerId.valueOf("s0");
@@ -65,7 +70,7 @@ public class TestPeerProxyMap extends BaseTest {
           HUNDRED_MILLIS.sleep();
           LOG.info("Try getProxy");
           final DummyProxy newProxy = map.getProxy(id);
-          Assert.assertNotSame(proxy, newProxy);
+          Assertions.assertNotSame(proxy, newProxy);
         } catch (Exception e) {
           setFirstException(e);
         }
@@ -76,5 +81,52 @@ public class TestPeerProxyMap extends BaseTest {
 
     map.resetProxy(id); // hold resetLock and then call close() with requires proxy lock
     t.join();
+  }
+
+  /** Copied from {@link org.apache.ratis.thirdparty.io.netty.channel.AbstractChannel}. */
+  private static final class AnnotatedConnectException extends ConnectException {
+    private static final long serialVersionUID = 3901958112696433556L;
+
+    AnnotatedConnectException(ConnectException exception, SocketAddress remoteAddress) {
+      super(exception.getMessage() + ": " + remoteAddress);
+      initCause(exception);
+    }
+
+    // Suppress a warning since this method doesn't need synchronization
+    @Override
+    public Throwable fillInStackTrace() {
+      return this;
+    }
+  }
+
+  private static class ExceptionProxy implements Closeable {
+    private final RaftPeer peer;
+
+    ExceptionProxy(RaftPeer peer) {
+      this.peer = peer;
+    }
+
+    @Override
+    public void close() throws IOException {
+      throw new AnnotatedConnectException(new ConnectException("Failed to connect to " + peer.getId()), null);
+    }
+
+    @Override
+    public String toString() {
+      return peer.getId().toString();
+    }
+  }
+
+  @Test
+  @Timeout(value = 1000)
+  public void testStackTrace() {
+    final RaftPeerId id = RaftPeerId.valueOf("s0");
+    final RaftPeer peer = RaftPeer.newBuilder().setId(id).build();
+    try(final PeerProxyMap<ExceptionProxy> map = new PeerProxyMap<>("test", ExceptionProxy::new);
+        final ExceptionProxy ignored = map.computeIfAbsent(peer).get()) {
+    } catch (IOException e) {
+      assertThrowable("closeProxy", e, AnnotatedConnectException.class, LOG, ConnectException.class);
+      Assertions.assertEquals(0, e.getStackTrace().length);
+    }
   }
 }

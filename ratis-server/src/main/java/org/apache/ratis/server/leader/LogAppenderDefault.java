@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.leader;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
@@ -27,9 +26,12 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.util.ReferenceCountedObject;
+import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.util.Comparator;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -42,16 +44,30 @@ class LogAppenderDefault extends LogAppenderBase {
     super(server, leaderState, f);
   }
 
+  @Override
+  public long getCallId() {
+    return CallId.get();
+  }
+
+  @Override
+  public Comparator<Long> getCallIdComparator() {
+    return CallId.getComparator();
+  }
+
   /** Send an appendEntries RPC; retry indefinitely. */
-  @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
   private AppendEntriesReplyProto sendAppendEntriesWithRetries()
       throws InterruptedException, InterruptedIOException, RaftLogIOException {
     int retry = 0;
-    AppendEntriesRequestProto request = null;
+
+    ReferenceCountedObject<AppendEntriesRequestProto> request = nextAppendEntriesRequest(
+        CallId.getAndIncrement(), false);
     while (isRunning()) { // keep retrying for IOException
       try {
-        if (request == null || request.getEntriesCount() == 0) {
-          request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
+        if (request == null || request.get().getEntriesCount() == 0) {
+          if (request != null) {
+            request.release();
+          }
+          request = nextAppendEntriesRequest(CallId.getAndIncrement(), false);
         }
 
         if (request == null) {
@@ -62,18 +78,15 @@ class LogAppenderDefault extends LogAppenderBase {
           return null;
         }
 
-        getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
-        final AppendEntriesReplyProto r = getServerRpc().appendEntries(request);
-        getFollower().updateLastRpcResponseTime();
-
-        getLeaderState().onFollowerCommitIndex(getFollower(), r.getFollowerCommit());
+        AppendEntriesReplyProto r = sendAppendEntries(request.get());
+        request.release();
         return r;
       } catch (InterruptedIOException | RaftLogIOException e) {
         throw e;
       } catch (IOException ioe) {
         // TODO should have more detailed retry policy here.
         if (retry++ % 10 == 0) { // to reduce the number of messages
-          LOG.warn("{}: Failed to appendEntries (retry={}): {}", this, retry++, ioe);
+          LOG.warn("{}: Failed to appendEntries (retry={})", this, retry, ioe);
         }
         handleException(ioe);
       }
@@ -82,6 +95,18 @@ class LogAppenderDefault extends LogAppenderBase {
       }
     }
     return null;
+  }
+
+  private AppendEntriesReplyProto sendAppendEntries(AppendEntriesRequestProto request) throws IOException {
+    resetHeartbeatTrigger();
+    final Timestamp sendTime = Timestamp.currentTime();
+    getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
+    final AppendEntriesReplyProto r = getServerRpc().appendEntries(request);
+    getFollower().updateLastRpcResponseTime();
+    getFollower().updateLastRespondedAppendEntriesSendTime(sendTime);
+
+    getLeaderState().onFollowerCommitIndex(getFollower(), r.getFollowerCommit());
+    return r;
   }
 
   private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot) throws InterruptedIOException {
@@ -100,7 +125,7 @@ class LogAppenderDefault extends LogAppenderBase {
     } catch (InterruptedIOException iioe) {
       throw iioe;
     } catch (Exception ioe) {
-      LOG.warn("{}: Failed to installSnapshot {}: {}", this, snapshot, ioe);
+      LOG.warn("{}: Failed to installSnapshot {}", this, snapshot, ioe);
       handleException(ioe);
       return null;
     }
@@ -182,6 +207,7 @@ class LogAppenderDefault extends LogAppenderBase {
           break;
         default: throw new IllegalArgumentException("Unable to process result " + reply.getResult());
       }
+      getLeaderState().onAppendEntriesReply(this, reply);
     }
   }
 

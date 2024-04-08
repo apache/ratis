@@ -17,11 +17,52 @@
  */
 package org.apache.ratis.client.impl;
 
-import java.nio.ByteBuffer;
-import java.util.Optional;
-
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.proto.RaftProtos.AlreadyClosedExceptionProto;
+import org.apache.ratis.proto.RaftProtos.ClientMessageEntryProto;
+import org.apache.ratis.proto.RaftProtos.GroupAddRequestProto;
+import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
+import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
+import org.apache.ratis.proto.RaftProtos.GroupListReplyProto;
+import org.apache.ratis.proto.RaftProtos.GroupListRequestProto;
+import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
+import org.apache.ratis.proto.RaftProtos.GroupRemoveRequestProto;
+import org.apache.ratis.proto.RaftProtos.LeaderElectionManagementRequestProto;
+import org.apache.ratis.proto.RaftProtos.LeaderElectionPauseRequestProto;
+import org.apache.ratis.proto.RaftProtos.LeaderElectionResumeRequestProto;
+import org.apache.ratis.proto.RaftProtos.LeaderNotReadyExceptionProto;
+import org.apache.ratis.proto.RaftProtos.NotLeaderExceptionProto;
+import org.apache.ratis.proto.RaftProtos.NotReplicatedExceptionProto;
+import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.RaftRpcReplyProto;
+import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.ratis.proto.RaftProtos.RouteProto;
+import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.ratis.proto.RaftProtos.SnapshotCreateRequestProto;
+import org.apache.ratis.proto.RaftProtos.SnapshotManagementRequestProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineExceptionProto;
+import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.GroupInfoReply;
+import org.apache.ratis.protocol.GroupInfoRequest;
+import org.apache.ratis.protocol.GroupListReply;
+import org.apache.ratis.protocol.GroupListRequest;
+import org.apache.ratis.protocol.GroupManagementRequest;
+import org.apache.ratis.protocol.LeaderElectionManagementRequest;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RoutingTable;
+import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.SnapshotManagementRequest;
+import org.apache.ratis.protocol.TransferLeadershipRequest;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
@@ -29,16 +70,19 @@ import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.protocol.exceptions.ReadException;
+import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
+import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.ALREADYCLOSEDEXCEPTION;
@@ -47,6 +91,8 @@ import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDe
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.LEADERSTEPPINGDOWNEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTREPLICATEDEXCEPTION;
+import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.READEXCEPTION;
+import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.READINDEXEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.STATEMACHINEEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.TRANSFERLEADERSHIPEXCEPTION;
 
@@ -62,55 +108,31 @@ public interface ClientProtoUtils {
         .setSuccess(success);
   }
 
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
+      ByteString requestorId, RaftPeerId replyId, RaftGroupId groupId) {
+    return RaftRpcRequestProto.newBuilder()
+        .setRequestorId(requestorId)
+        .setReplyId(replyId.toByteString())
+        .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId));
+  }
+
+  /** For server requests. */
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(RaftGroupMemberId requestorId, RaftPeerId replyId) {
-    return toRaftRpcRequestProtoBuilder(requestorId.getPeerId().toByteString(),
-        replyId.toByteString(), requestorId.getGroupId(), null, false, null, null, 0);
+    return toRaftRpcRequestProtoBuilder(requestorId.getPeerId().toByteString(), replyId, requestorId.getGroupId());
   }
 
-  @SuppressWarnings("parameternumber")
-  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      ByteString requesterId, ByteString replyId, RaftGroupId groupId, Long callId, boolean toLeader,
-      SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable, long timeoutMs) {
-    if (slidingWindowEntry == null) {
-      slidingWindowEntry = SlidingWindowEntry.getDefaultInstance();
-    }
+  /** For client requests. */
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(RaftClientRequest request) {
+    final RaftRpcRequestProto.Builder b = toRaftRpcRequestProtoBuilder(
+        request.getClientId().toByteString(), request.getServerId(), request.getRaftGroupId());
 
-    RaftRpcRequestProto.Builder b = RaftRpcRequestProto.newBuilder()
-        .setRequestorId(requesterId)
-        .setReplyId(replyId)
-        .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId))
-        .setCallId(Optional.ofNullable(callId).orElseGet(CallId::getDefault))
-        .setToLeader(toLeader)
-        .setSlidingWindowEntry(slidingWindowEntry)
-        .setTimeoutMs(timeoutMs);
+    Optional.ofNullable(request.getSlidingWindowEntry()).ifPresent(b::setSlidingWindowEntry);
+    Optional.ofNullable(request.getRoutingTable()).map(RoutingTable::toProto).ifPresent(b::setRoutingTable);
 
-    if (routingTable != null) {
-      b.setRoutingTable(routingTable.toProto());
-    }
-
-    return b;
-  }
-
-  @SuppressWarnings("parameternumber")
-  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      ClientId requesterId, RaftPeerId replyId, RaftGroupId groupId, long callId, boolean toLeader,
-      SlidingWindowEntry slidingWindowEntry, RoutingTable routingTable, long timeoutMs) {
-    return toRaftRpcRequestProtoBuilder(
-        requesterId.toByteString(), replyId.toByteString(), groupId, callId, toLeader, slidingWindowEntry, routingTable,
-        timeoutMs);
-  }
-
-  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      RaftClientRequest request) {
-    return toRaftRpcRequestProtoBuilder(
-        request.getClientId(),
-        request.getServerId(),
-        request.getRaftGroupId(),
-        request.getCallId(),
-        request.isToLeader(),
-        request.getSlidingWindowEntry(),
-        request.getRoutingTable(),
-        request.getTimeoutMs());
+    return b.setCallId(request.getCallId())
+        .setToLeader(request.isToLeader())
+        .addAllRepliedCallIds(request.getRepliedCallIds())
+        .setTimeoutMs(request.getTimeoutMs());
   }
 
   static RaftClientRequest.Type toRaftClientRequestType(RaftClientRequestProto p) {
@@ -163,12 +185,15 @@ public interface ClientProtoUtils {
     } else {
       b.setServerId(perrId);
     }
+    if (request.hasSlidingWindowEntry()) {
+      b.setSlidingWindowEntry(request.getSlidingWindowEntry());
+    }
     return b.setClientId(ClientId.valueOf(request.getRequestorId()))
         .setGroupId(ProtoUtils.toRaftGroupId(request.getRaftGroupId()))
         .setCallId(request.getCallId())
         .setMessage(toMessage(p.getMessage()))
         .setType(type)
-        .setSlidingWindowEntry(request.getSlidingWindowEntry())
+        .setRepliedCallIds(request.getRepliedCallIdsList())
         .setRoutingTable(getRoutingTable(request))
         .setTimeoutMs(request.getTimeoutMs())
         .build();
@@ -214,17 +239,6 @@ public interface ClientProtoUtils {
     }
 
     return b.build();
-  }
-
-  static RaftClientRequestProto toRaftClientRequestProto(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
-      long seqNum, ByteString content) {
-    return RaftClientRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(
-            clientId, serverId, groupId, callId, false, ProtoUtils.toSlidingWindowEntry(seqNum, false), null, 0))
-        .setWrite(WriteRequestTypeProto.getDefaultInstance())
-        .setMessage(toClientMessageEntryProtoBuilder(content))
-        .build();
   }
 
   static StateMachineExceptionProto.Builder toStateMachineExceptionProtoBuilder(StateMachineException e) {
@@ -276,12 +290,9 @@ public interface ClientProtoUtils {
         b.setNotReplicatedException(nreBuilder);
       }
 
-      final LeaderNotReadyException lnre = reply.getLeaderNotReadyException();
-      if (lnre != null) {
-        LeaderNotReadyExceptionProto.Builder lnreBuilder = LeaderNotReadyExceptionProto.newBuilder()
-            .setServerId(ProtoUtils.toRaftGroupMemberIdProtoBuilder(lnre.getServerId()));
-        b.setLeaderNotReadyException(lnreBuilder);
-      }
+      Optional.ofNullable(reply.getLeaderNotReadyException())
+          .map(e -> LeaderNotReadyExceptionProto.newBuilder().setServerId(e.getRaftGroupMemberIdProto()))
+          .ifPresent(b::setLeaderNotReadyException);
 
       Optional.ofNullable(reply.getStateMachineException())
           .map(ClientProtoUtils::toStateMachineExceptionProtoBuilder)
@@ -302,6 +313,14 @@ public interface ClientProtoUtils {
       Optional.ofNullable(reply.getTransferLeadershipException())
           .map(ProtoUtils::toThrowableProto)
           .ifPresent(b::setTransferLeadershipException);
+
+      Optional.ofNullable(reply.getReadException())
+          .map(ProtoUtils::toThrowableProto)
+          .ifPresent(b::setReadException);
+
+      Optional.ofNullable(reply.getReadIndexException())
+          .map(ProtoUtils::toThrowableProto)
+          .ifPresent(b::setReadIndexException);
 
       final RaftClientReplyProto serialized = b.build();
       final RaftException e = reply.getException();
@@ -345,6 +364,7 @@ public interface ClientProtoUtils {
         b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
         b.setRole(reply.getRoleInfoProto());
         b.addAllCommitInfos(reply.getCommitInfos());
+        b.setLogInfo(reply.getLogInfoProto());
       }
     }
     return b.build();
@@ -392,6 +412,10 @@ public interface ClientProtoUtils {
       e = ProtoUtils.toThrowable(replyProto.getLeaderSteppingDownException(), LeaderSteppingDownException.class);
     } else if (replyProto.getExceptionDetailsCase().equals(TRANSFERLEADERSHIPEXCEPTION)) {
       e = ProtoUtils.toThrowable(replyProto.getTransferLeadershipException(), TransferLeadershipException.class);
+    } else if (replyProto.getExceptionDetailsCase().equals(READEXCEPTION)) {
+      e = ProtoUtils.toThrowable(replyProto.getReadException(), ReadException.class);
+    } else if (replyProto.getExceptionDetailsCase().equals(READINDEXEXCEPTION)) {
+      e = ProtoUtils.toThrowable(replyProto.getReadIndexException(), ReadIndexException.class);
     } else {
       e = null;
     }
@@ -482,7 +506,9 @@ public interface ClientProtoUtils {
         replyProto.getCommitInfosList(),
         ProtoUtils.toRaftGroup(replyProto.getGroup()),
         replyProto.getRole(),
-        replyProto.getIsRaftStorageHealthy());
+        replyProto.getIsRaftStorageHealthy(),
+        replyProto.hasConf()? replyProto.getConf(): null,
+        replyProto.getLogInfo());
   }
 
   static Message toMessage(final ClientMessageEntryProto p) {
@@ -499,42 +525,70 @@ public interface ClientProtoUtils {
 
   static SetConfigurationRequest toSetConfigurationRequest(
       SetConfigurationRequestProto p) {
+    final SetConfigurationRequest.Arguments arguments = SetConfigurationRequest.Arguments.newBuilder()
+        .setServersInNewConf(ProtoUtils.toRaftPeers(p.getPeersList()))
+        .setListenersInNewConf(ProtoUtils.toRaftPeers(p.getListenersList()))
+        .setServersInCurrentConf(ProtoUtils.toRaftPeers(p.getCurrentPeersList()))
+        .setListenersInCurrentConf(ProtoUtils.toRaftPeers(p.getCurrentListenersList()))
+        .setMode(toSetConfigurationMode(p.getMode()))
+        .build();
     final RaftRpcRequestProto m = p.getRpcRequest();
-    final List<RaftPeer> peers = ProtoUtils.toRaftPeers(p.getPeersList());
     return new SetConfigurationRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-        p.getRpcRequest().getCallId(), peers);
+        p.getRpcRequest().getCallId(), arguments);
+  }
+
+  static SetConfigurationRequest.Mode toSetConfigurationMode(
+      SetConfigurationRequestProto.Mode p) {
+    switch (p) {
+      case SET_UNCONDITIONALLY:
+        return SetConfigurationRequest.Mode.SET_UNCONDITIONALLY;
+      case ADD:
+        return SetConfigurationRequest.Mode.ADD;
+      case COMPARE_AND_SET:
+        return SetConfigurationRequest.Mode.COMPARE_AND_SET;
+      default:
+        throw new IllegalArgumentException("Unexpected mode " + p);
+    }
   }
 
   static SetConfigurationRequestProto toSetConfigurationRequestProto(
       SetConfigurationRequest request) {
+    final SetConfigurationRequest.Arguments arguments = request.getArguments();
     return SetConfigurationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .addAllPeers(ProtoUtils.toRaftPeerProtos(request.getPeersInNewConf()))
+        .addAllPeers(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.FOLLOWER)))
+        .addAllListeners(ProtoUtils.toRaftPeerProtos(arguments.getPeersInNewConf(RaftPeerRole.LISTENER)))
+        .addAllCurrentPeers(ProtoUtils.toRaftPeerProtos(arguments.getServersInCurrentConf()))
+        .addAllCurrentListeners(ProtoUtils.toRaftPeerProtos(arguments.getListenersInCurrentConf()))
+        .setMode(SetConfigurationRequestProto.Mode.valueOf(arguments.getMode().name()))
         .build();
   }
 
   static TransferLeadershipRequest toTransferLeadershipRequest(
       TransferLeadershipRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    final RaftPeer newLeader = ProtoUtils.toRaftPeer(p.getNewLeader());
+    final RaftPeerId newLeader = p.hasNewLeader()? ProtoUtils.toRaftPeer(p.getNewLeader()).getId(): null;
     return new TransferLeadershipRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
         p.getRpcRequest().getCallId(),
-        newLeader.getId(),
+        newLeader,
         m.getTimeoutMs());
   }
 
   static TransferLeadershipRequestProto toTransferLeadershipRequestProto(
       TransferLeadershipRequest request) {
-    return TransferLeadershipRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .setNewLeader(RaftPeer.newBuilder().setId(request.getNewLeader()).build().getRaftPeerProto())
-        .build();
+    final TransferLeadershipRequestProto.Builder b = TransferLeadershipRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    Optional.ofNullable(request.getNewLeader())
+        .map(l -> RaftPeer.newBuilder().setId(l).build())
+        .map(RaftPeer::getRaftPeerProto)
+        .ifPresent(b::setNewLeader);
+    return b.build();
   }
 
   static GroupManagementRequest toGroupManagementRequest(GroupManagementRequestProto p) {
@@ -543,8 +597,9 @@ public interface ClientProtoUtils {
     final RaftPeerId serverId = RaftPeerId.valueOf(m.getReplyId());
     switch(p.getOpCase()) {
       case GROUPADD:
+        final GroupAddRequestProto add = p.getGroupAdd();
         return GroupManagementRequest.newAdd(clientId, serverId, m.getCallId(),
-            ProtoUtils.toRaftGroup(p.getGroupAdd().getGroup()));
+            ProtoUtils.toRaftGroup(add.getGroup()), add.getFormat());
       case GROUPREMOVE:
         final GroupRemoveRequestProto remove = p.getGroupRemove();
         return GroupManagementRequest.newRemove(clientId, serverId, m.getCallId(),
@@ -581,8 +636,10 @@ public interface ClientProtoUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
     final GroupManagementRequest.Add add = request.getAdd();
     if (add != null) {
-      b.setGroupAdd(GroupAddRequestProto.newBuilder().setGroup(
-          ProtoUtils.toRaftGroupProtoBuilder(add.getGroup())).build());
+      b.setGroupAdd(GroupAddRequestProto.newBuilder()
+          .setGroup(ProtoUtils.toRaftGroupProtoBuilder(add.getGroup()))
+          .setFormat(add.isFormat())
+          .build());
     }
     final GroupManagementRequest.Remove remove = request.getRemove();
     if (remove != null) {
@@ -602,7 +659,8 @@ public interface ClientProtoUtils {
     switch(p.getOpCase()) {
       case CREATE:
         return SnapshotManagementRequest.newCreate(clientId, serverId,
-            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId(), m.getTimeoutMs());
+            ProtoUtils.toRaftGroupId(m.getRaftGroupId()), m.getCallId(), m.getTimeoutMs(),
+            p.getCreate().getCreationGap());
       default:
         throw new IllegalArgumentException("Unexpected op " + p.getOpCase() + " in " + p);
     }
@@ -614,7 +672,7 @@ public interface ClientProtoUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
     final SnapshotManagementRequest.Create create = request.getCreate();
     if (create != null) {
-      b.setCreate(SnapshotCreateRequestProto.newBuilder().build());
+      b.setCreate(SnapshotCreateRequestProto.newBuilder().setCreationGap(create.getCreationGap()).build());
     }
     return b.build();
   }

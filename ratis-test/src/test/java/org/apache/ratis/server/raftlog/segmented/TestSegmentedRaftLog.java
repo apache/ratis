@@ -17,13 +17,11 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import static org.junit.Assert.assertTrue;
-
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -39,24 +37,21 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -66,14 +61,36 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
-import com.codahale.metrics.Timer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.event.Level;
+
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
+import static org.apache.ratis.server.storage.RaftStorageTestUtils.getLogUnsafe;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 public class TestSegmentedRaftLog extends BaseTest {
   static {
-    Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.TRACE);
-    Log4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.TRACE);
+    Slf4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.INFO);
+  }
+
+  public static Stream<Arguments> data() {
+    return Stream.of(
+        arguments(FALSE, FALSE),
+        arguments(FALSE, TRUE),
+        arguments(TRUE, FALSE),
+        arguments(TRUE, TRUE));
   }
 
   public static long getOpenSegmentSize(RaftLog raftLog) {
@@ -118,17 +135,24 @@ public class TestSegmentedRaftLog extends BaseTest {
   }
 
   static SegmentedRaftLog newSegmentedRaftLog(RaftStorage storage, RaftProperties properties) {
-    return new SegmentedRaftLog(memberId, null, null, null, null, storage,
-        () -> -1, properties);
+    return SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build();
   }
 
   private SegmentedRaftLog newSegmentedRaftLogWithSnapshotIndex(RaftStorage storage, RaftProperties properties,
                                                                 LongSupplier getSnapshotIndexFromStateMachine) {
-    return new SegmentedRaftLog(memberId, null, null, null, null, storage,
-        getSnapshotIndexFromStateMachine, properties);
+    return SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setStorage(storage)
+        .setSnapshotIndexSupplier(getSnapshotIndexFromStateMachine)
+        .setProperties(properties)
+        .build();
   }
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     storageDir = getTestDir();
     properties = new RaftProperties();
@@ -142,7 +166,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     if (storageDir != null) {
       FileUtils.deleteFully(storageDir.getParentFile());
@@ -181,11 +205,14 @@ public class TestSegmentedRaftLog extends BaseTest {
 
   private LogEntryProto getLastEntry(SegmentedRaftLog raftLog)
       throws IOException {
-    return raftLog.get(raftLog.getLastEntryTermIndex().getIndex());
+    return getLogUnsafe(raftLog, raftLog.getLastEntryTermIndex().getIndex());
   }
 
-  @Test
-  public void testLoadLogSegments() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testLoadLogSegments(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
     // first generate log files
     List<SegmentRange> ranges = prepareRanges(0, 5, 100, 0);
     LogEntryProto[] entries = prepareLog(ranges);
@@ -196,29 +223,29 @@ public class TestSegmentedRaftLog extends BaseTest {
       // check if log entries are loaded correctly
       for (LogEntryProto e : entries) {
         LogEntryProto entry = raftLog.get(e.getIndex());
-        Assert.assertEquals(e, entry);
+        Assertions.assertEquals(e, entry);
       }
 
       final LogEntryHeader[] termIndices = raftLog.getEntries(0, 500);
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
           .map(ti -> {
             try {
-              return raftLog.get(ti.getIndex());
+              return getLogUnsafe(raftLog, ti.getIndex());
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
           })
           .toArray(LogEntryProto[]::new);
-      Assert.assertArrayEquals(entries, entriesFromLog);
-      Assert.assertEquals(entries[entries.length - 1], getLastEntry(raftLog));
+      Assertions.assertArrayEquals(entries, entriesFromLog);
+      Assertions.assertEquals(entries[entries.length - 1], getLastEntry(raftLog));
 
-      final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
+      final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.createRegistry(memberId);
 
-      Timer raftLogSegmentLoadLatencyTimer = metricRegistryForLogWorker.timer("segmentLoadLatency");
-      assertTrue(raftLogSegmentLoadLatencyTimer.getMeanRate() > 0);
+      final DefaultTimekeeperImpl load = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("segmentLoadLatency");
+      assertTrue(load.getTimer().getMeanRate() > 0);
 
-      Timer raftLogReadLatencyTimer = metricRegistryForLogWorker.timer("readEntryLatency");
-      assertTrue(raftLogReadLatencyTimer.getMeanRate() > 0);
+      final DefaultTimekeeperImpl read = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("readEntryLatency");
+      assertTrue(read.getTimer().getMeanRate() > 0);
     }
   }
 
@@ -249,8 +276,11 @@ public class TestSegmentedRaftLog extends BaseTest {
   /**
    * Append entry one by one and check if log state is correct.
    */
-  @Test
-  public void testAppendEntry() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testAppendEntry(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
     List<SegmentRange> ranges = prepareRanges(0, 5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
@@ -300,12 +330,15 @@ public class TestSegmentedRaftLog extends BaseTest {
         ex = e;
       }
       assertTrue(ex.getMessage().contains("Difference between entry index and RaftLog's latest snapshot " +
-          "index -1 is greater than 1"));
+          "index 999 is greater than 1"));
     }
   }
 
-  @Test
-  public void testAppendEntryAfterPurge() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testAppendEntryAfterPurge(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
     List<SegmentRange> ranges = prepareRanges(0, 5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
@@ -335,8 +368,11 @@ public class TestSegmentedRaftLog extends BaseTest {
   /**
    * Keep appending entries, make sure the rolling is correct.
    */
-  @Test
-  public void testAppendAndRoll() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testAppendAndRoll(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
     RaftServerConfigKeys.Log.setPreallocatedSize(properties, SizeInBytes.valueOf("16KB"));
     RaftServerConfigKeys.Log.setSegmentSizeMax(properties, SizeInBytes.valueOf("128KB"));
 
@@ -355,12 +391,15 @@ public class TestSegmentedRaftLog extends BaseTest {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // check if the raft log is correct
       checkEntries(raftLog, entries, 0, entries.size());
-      Assert.assertEquals(9, raftLog.getRaftLogCache().getNumOfSegments());
+      Assertions.assertEquals(9, raftLog.getRaftLogCache().getNumOfSegments());
     }
   }
 
-  @Test
-  public void testTruncate() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testTruncate(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
     // prepare the log for truncation
     List<SegmentRange> ranges = prepareRanges(0, 5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
@@ -391,10 +430,10 @@ public class TestSegmentedRaftLog extends BaseTest {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // check if the raft log is correct
       if (fromIndex > 0) {
-        Assert.assertEquals(entries.get((int) (fromIndex - 1)),
+        Assertions.assertEquals(entries.get((int) (fromIndex - 1)),
             getLastEntry(raftLog));
       } else {
-        Assert.assertNull(raftLog.getLastEntryTermIndex());
+        Assertions.assertNull(raftLog.getLastEntryTermIndex());
       }
       checkEntries(raftLog, entries, 0, (int) fromIndex);
     }
@@ -405,7 +444,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     if (size > 0) {
       for (int i = offset; i < size + offset; i++) {
         LogEntryProto entry = raftLog.get(expected.get(i).getIndex());
-        Assert.assertEquals(expected.get(i), entry);
+        Assertions.assertEquals(expected.get(i), entry);
       }
       final LogEntryHeader[] termIndices = raftLog.getEntries(
           expected.get(offset).getIndex(),
@@ -413,7 +452,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
           .map(ti -> {
             try {
-              return raftLog.get(ti.getIndex());
+              return getLogUnsafe(raftLog, ti.getIndex());
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
@@ -421,7 +460,7 @@ public class TestSegmentedRaftLog extends BaseTest {
           .toArray(LogEntryProto[]::new);
       LogEntryProto[] expectedArray = expected.subList(offset, offset + size)
           .stream().toArray(LogEntryProto[]::new);
-      Assert.assertArrayEquals(expectedArray, entriesFromLog);
+      Assertions.assertArrayEquals(expectedArray, entriesFromLog);
     }
   }
 
@@ -462,9 +501,10 @@ public class TestSegmentedRaftLog extends BaseTest {
     int segmentSize = 200;
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
-    final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.getLogWorkerMetricRegistry(memberId);
+    final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.createRegistry(memberId);
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
-    assertTrue(metricRegistryForLogWorker.timer("purgeLog").getCount() > 0);
+    final DefaultTimekeeperImpl purge = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("purgeLog");
+    assertTrue(purge.getTimer().getCount() > 0);
   }
 
   @Test
@@ -489,15 +529,18 @@ public class TestSegmentedRaftLog extends BaseTest {
       final CompletableFuture<Long> f = raftLog.purge(purgeIndex);
       final Long purged = f.get();
       LOG.info("purgeIndex = {}, purged = {}", purgeIndex, purged);
-      Assert.assertEquals(expectedIndex, raftLog.getRaftLogCache().getStartIndex());
+      Assertions.assertEquals(expectedIndex, raftLog.getRaftLogCache().getStartIndex());
     }
   }
 
   /**
    * Test append with inconsistent entries
    */
-  @Test
-  public void testAppendEntriesWithInconsistency() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testAppendEntriesWithInconsistency(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
     // prepare the log for truncation
     List<SegmentRange> ranges = prepareRanges(0, 5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
@@ -523,14 +566,14 @@ public class TestSegmentedRaftLog extends BaseTest {
       LOG.info("newEntries[0] = {}", newEntries.get(0));
       final int last = newEntries.size() - 1;
       LOG.info("newEntries[{}] = {}", last, newEntries.get(last));
-      raftLog.append(newEntries.toArray(new LogEntryProto[0])).forEach(CompletableFuture::join);
+      raftLog.append(ReferenceCountedObject.wrap(newEntries)).forEach(CompletableFuture::join);
 
       checkFailedEntries(entries, 650, retryCache);
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);
-      Assert.assertEquals(newEntries.get(newEntries.size() - 1),
+      Assertions.assertEquals(newEntries.get(newEntries.size() - 1),
           getLastEntry(raftLog));
-      Assert.assertEquals(newEntries.get(newEntries.size() - 1).getIndex(),
+      Assertions.assertEquals(newEntries.get(newEntries.size() - 1).getIndex(),
           raftLog.getFlushIndex());
     }
 
@@ -539,23 +582,31 @@ public class TestSegmentedRaftLog extends BaseTest {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);
-      Assert.assertEquals(newEntries.get(newEntries.size() - 1),
+      Assertions.assertEquals(newEntries.get(newEntries.size() - 1),
           getLastEntry(raftLog));
-      Assert.assertEquals(newEntries.get(newEntries.size() - 1).getIndex(),
+      Assertions.assertEquals(newEntries.get(newEntries.size() - 1).getIndex(),
           raftLog.getFlushIndex());
 
       SegmentedRaftLogCache cache = raftLog.getRaftLogCache();
-      Assert.assertEquals(5, cache.getNumOfSegments());
+      Assertions.assertEquals(5, cache.getNumOfSegments());
     }
   }
 
-  @Test
-  public void testSegmentedRaftLogStateMachineData() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testSegmentedRaftLogStateMachineData(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
     final SegmentRange range = new SegmentRange(0, 10, 1, true);
     final List<LogEntryProto> entries = prepareLogEntries(range, null, true, new ArrayList<>());
 
     final SimpleStateMachine4Testing sm = new SimpleStateMachine4Testing();
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, () -> -1, properties)) {
+    try (SegmentedRaftLog raftLog = SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setStateMachine(sm)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build()) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
 
       int next = 0;
@@ -589,8 +640,11 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
   }
 
-  @Test(expected = TimeoutIOException.class)
-  public void testServerShutdownOnTimeoutIOException() throws Throwable {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testServerShutdownOnTimeoutIOException(Boolean useAsyncFlush, Boolean smSyncFlush) throws Throwable {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
     RaftServerConfigKeys.Log.StateMachineData.setSync(properties, true);
     final TimeDuration syncTimeout = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     RaftServerConfigKeys.Log.StateMachineData.setSyncTimeout(properties, syncTimeout);
@@ -600,7 +654,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     final LogEntryProto entry = prepareLogEntry(0, 0, null, true);
     final StateMachine sm = new BaseStateMachine() {
       @Override
-      public CompletableFuture<Void> write(LogEntryProto entry) {
+      public CompletableFuture<Void> write(ReferenceCountedObject<LogEntryProto> entry, TransactionContext context) {
         getLifeCycle().transition(LifeCycle.State.STARTING);
         getLifeCycle().transition(LifeCycle.State.RUNNING);
 
@@ -612,28 +666,28 @@ public class TestSegmentedRaftLog extends BaseTest {
         LOG.info("Test StateMachine: Ratis log failed notification received as expected.", cause);
 
         LOG.info("Test StateMachine: Transition to PAUSED state.");
-        Assert.assertNotNull(entry);
+        Assertions.assertNotNull(entry);
 
         getLifeCycle().transition(LifeCycle.State.PAUSING);
         getLifeCycle().transition(LifeCycle.State.PAUSED);
       }
     };
 
-    Throwable ex = null; // TimeoutIOException
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, null, sm, null, null, storage, () -> -1, properties)) {
+    ExecutionException ex;
+    try (SegmentedRaftLog raftLog = SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setStateMachine(sm)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build()) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // SegmentedRaftLogWorker should catch TimeoutIOException
       CompletableFuture<Long> f = raftLog.appendEntry(entry);
       // Wait for async writeStateMachineData to finish
-      try {
-        f.get();
-      } catch (ExecutionException e) {
-        ex = e.getCause();
-      }
+      ex = Assertions.assertThrows(ExecutionException.class, f::get);
     }
-    Assert.assertNotNull(ex);
-    Assert.assertSame(LifeCycle.State.PAUSED, sm.getLifeCycleState());
-    throw ex;
+    Assertions.assertSame(LifeCycle.State.PAUSED, sm.getLifeCycleState());
+    Assertions.assertInstanceOf(TimeoutIOException.class, ex.getCause());
   }
 
   static Thread startAppendEntryThread(RaftLog raftLog, LogEntryProto entry) {
@@ -650,9 +704,9 @@ public class TestSegmentedRaftLog extends BaseTest {
 
   void assertIndices(RaftLog raftLog, long expectedFlushIndex, long expectedNextIndex) {
     LOG.info("assert expectedFlushIndex={}", expectedFlushIndex);
-    Assert.assertEquals(expectedFlushIndex, raftLog.getFlushIndex());
+    Assertions.assertEquals(expectedFlushIndex, raftLog.getFlushIndex());
     LOG.info("assert expectedNextIndex={}", expectedNextIndex);
-    Assert.assertEquals(expectedNextIndex, raftLog.getNextIndex());
+    Assertions.assertEquals(expectedNextIndex, raftLog.getNextIndex());
   }
 
   void assertIndicesMultipleAttempts(RaftLog raftLog, long expectedFlushIndex, long expectedNextIndex) throws Exception {
@@ -660,22 +714,55 @@ public class TestSegmentedRaftLog extends BaseTest {
         10, HUNDRED_MILLIS, "assertIndices", LOG);
   }
 
-  @Test
-  public void testSegmentedRaftLogFormatInternalHeader() throws Exception {
-    testFailureCase("testSegmentedRaftLogFormatInternalHeader",
-        () -> SegmentedRaftLogFormat.applyHeaderTo(header -> {
-          LOG.info("header  = " + new String(header, StandardCharsets.UTF_8));
-          header[0] += 1; // try changing the internal header
-          LOG.info("header' = " + new String(header, StandardCharsets.UTF_8));
-          return null;
-        }), IllegalStateException.class);
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testAsyncFlushPerf1(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
+    List<SegmentRange> ranges = prepareRanges(0, 50, 20000, 0);
+    List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
-    // reset the header
-    SegmentedRaftLogFormat.applyHeaderTo(header -> {
-      LOG.info("header'  = " + new String(header, StandardCharsets.UTF_8));
-      header[0] -= 1; // try changing the internal header
-      LOG.info("header'' = " + new String(header, StandardCharsets.UTF_8));
-      return null;
-    });
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLog()) {
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      // append entries to the raftlog
+      List<List<CompletableFuture<Long>>> futures = new ArrayList<>();
+      long start = System.nanoTime();
+      for (int i = 0; i < entries.size(); i += 5) {
+        // call append API
+        List<LogEntryProto> entries1 = Arrays.asList(
+            entries.get(i), entries.get(i + 1), entries.get(i + 2), entries.get(i + 3), entries.get(i + 4));
+        futures.add(raftLog.append(ReferenceCountedObject.wrap(entries1)));
+      }
+      for (List<CompletableFuture<Long>> futureList: futures) {
+        futureList.forEach(CompletableFuture::join);
+      }
+      System.out.println(entries.size() + " appendEntry finished in " + (System.nanoTime() - start) +
+          " ns with asyncFlush " + useAsyncFlush);
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testAsyncFlushPerf2(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
+    List<SegmentRange> ranges = prepareRanges(0, 50, 20000, 0);
+    List<LogEntryProto> entries = prepareLogEntries(ranges, null);
+
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLog()) {
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      // append entries to the raftlog
+      List<CompletableFuture<Long>> futures = new ArrayList<>();
+      long start = System.nanoTime();
+      for (int i = 0; i < entries.size(); i++) {
+        // call appendEntry API
+        futures.add(raftLog.appendEntry(entries.get(i)));
+      }
+      for (CompletableFuture<Long> futureList: futures) {
+        futureList.join();
+      }
+      System.out.println(entries.size() + " appendEntry finished in " + (System.nanoTime() - start) +
+          " ns with asyncFlush " + useAsyncFlush);
+    }
   }
 }

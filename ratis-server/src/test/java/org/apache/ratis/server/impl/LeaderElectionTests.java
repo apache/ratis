@@ -17,12 +17,13 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
@@ -34,24 +35,30 @@ import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.ratis.util.function.CheckedBiConsumer;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_ELECTION_ELAPSED_TIME;
@@ -65,14 +72,15 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import org.slf4j.event.Level;
 
 public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   @Test
@@ -124,6 +132,48 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testLeaderNotCountListenerForMajority() throws Exception {
+    runWithNewCluster(3, 2, this::runTestLeaderNotCountListenerForMajority);
+  }
+
+  void runTestLeaderNotCountListenerForMajority(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    Assertions.assertEquals(2, ((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).getMajorityCount());
+    try (RaftClient client = cluster.createClient(leader.getId())) {
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+      List<RaftPeer> listeners = cluster.getListeners()
+          .stream().map(RaftServer.Division::getPeer).collect(Collectors.toList());
+      Assertions.assertEquals(2, listeners.size());
+      RaftClientReply reply = client.admin().setConfiguration(cluster.getPeers());
+      Assertions.assertTrue(reply.isSuccess());
+      Collection<RaftPeer> peer = leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
+      Assertions.assertEquals(0, peer.size());
+    }
+    Assertions.assertEquals(3, ((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).getMajorityCount());
+  }
+
+  @Test
+  public void testListenerNotStartLeaderElection() throws Exception {
+    runWithNewCluster(3, 2, this::runTestListenerNotStartLeaderElection);
+  }
+
+  void runTestListenerNotStartLeaderElection(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final TimeDuration maxTimeout = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
+
+    final RaftServer.Division listener = cluster.getListeners().get(0);
+    final RaftPeerId listenerId = listener.getId();
+    try {
+      isolate(cluster, listenerId);
+      maxTimeout.sleep();
+      maxTimeout.sleep();
+      Assertions.assertEquals(RaftProtos.RaftPeerRole.LISTENER, listener.getInfo().getCurrentRole());
+    } finally {
+      deIsolate(cluster, listener.getId());
+    }
+  }
+
+  @Test
   public void testTransferLeader() throws Exception {
     try(final MiniRaftCluster cluster = newCluster(3)) {
       cluster.start();
@@ -133,23 +183,52 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         client.io().send(new RaftTestUtil.SimpleMessage("message"));
 
         List<RaftServer.Division> followers = cluster.getFollowers();
-        Assert.assertEquals(followers.size(), 2);
+        Assertions.assertEquals(2, followers.size());
+        RaftServer.Division newLeader = followers.get(0);
+
+        RaftClientReply reply = client.admin().transferLeadership(newLeader.getId(), 20000);
+        Assertions.assertTrue(reply.isSuccess());
+
+        final RaftServer.Division currLeader = waitForLeader(cluster);
+        Assertions.assertEquals(newLeader.getId(), currLeader.getId());
+
+        reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        Assertions.assertEquals(newLeader.getId().toString(), reply.getReplierId());
+        Assertions.assertTrue(reply.isSuccess());
+      }
+
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testYieldLeaderToHigherPriority() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+
+        List<RaftServer.Division> followers = cluster.getFollowers();
+        Assertions.assertEquals(2, followers.size());
         RaftServer.Division newLeader = followers.get(0);
 
         List<RaftPeer> peers = cluster.getPeers();
         List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
         RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
 
-        reply = client.admin().transferLeadership(newLeader.getId(), 20000);
-        assertTrue(reply.isSuccess());
+        // Wait the old leader to step down.
+        // TODO: make it more deterministic.
+        TimeDuration.valueOf(1, TimeUnit.SECONDS).sleep();
 
         final RaftServer.Division currLeader = waitForLeader(cluster);
-        assertTrue(newLeader.getId() == currLeader.getId());
+        Assertions.assertEquals(newLeader.getId(), currLeader.getId());
 
         reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Assert.assertTrue(reply.getReplierId().equals(newLeader.getId().toString()));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertEquals(newLeader.getId().toString(), reply.getReplierId());
+        Assertions.assertTrue(reply.isSuccess());
       }
 
       cluster.shutdown();
@@ -164,16 +243,13 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       final RaftServer.Division leader = waitForLeader(cluster);
       try (RaftClient client = cluster.createClient(leader.getId())) {
         List<RaftServer.Division> followers = cluster.getFollowers();
-        Assert.assertEquals(followers.size(), 2);
+        Assertions.assertEquals(followers.size(), 2);
         RaftServer.Division newLeader = followers.get(0);
 
         // isolate new leader, so that transfer leadership will timeout
         isolate(cluster, newLeader.getId());
 
         List<RaftPeer> peers = cluster.getPeers();
-        List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
-        RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
-        Assert.assertTrue(reply.isSuccess());
 
         CompletableFuture<Boolean> transferTimeoutFuture = CompletableFuture.supplyAsync(() -> {
           try {
@@ -183,9 +259,9 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
               client.admin().transferLeadership(newLeader.getId(), timeoutMs);
             } catch (TransferLeadershipException e) {
               long cost = System.currentTimeMillis() - start;
-              Assert.assertTrue(cost > timeoutMs);
-              Assert.assertTrue(e.getMessage().contains("Failed to transfer leadership to"));
-              Assert.assertTrue(e.getMessage().contains("timed out"));
+              Assertions.assertTrue(cost > timeoutMs);
+              Assertions.assertTrue(e.getMessage().contains("Failed to transfer leadership to"));
+              Assertions.assertTrue(e.getMessage().contains(TransferLeadership.Result.Type.TIMED_OUT.toString()));
             }
 
             return true;
@@ -199,17 +275,17 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
           try {
             client.io().send(new RaftTestUtil.SimpleMessage("message"));
           } catch (LeaderSteppingDownException e) {
-            Assert.assertTrue(e.getMessage().contains("is stepping down"));
+            Assertions.assertTrue(e.getMessage().contains("is stepping down"));
           }
           return null;
         }, 5, TimeDuration.ONE_SECOND, "check leader steppingDown", RaftServer.LOG);
 
-        Assert.assertTrue(transferTimeoutFuture.get());
+        Assertions.assertTrue(transferTimeoutFuture.get());
 
         // after transfer timeout, leader should accept request
-        reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Assert.assertTrue(reply.getReplierId().equals(leader.getId().toString()));
-        Assert.assertTrue(reply.isSuccess());
+        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        Assertions.assertEquals(leader.getId().toString(), reply.getReplierId());
+        Assertions.assertTrue(reply.isSuccess());
 
         deIsolate(cluster, newLeader.getId());
       }
@@ -242,11 +318,12 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       final RaftServer.Division currLeader = cluster.getLeader();
       LOG.info("try enforcing leader to " + newLeader + " but " +
           (currLeader == null ? "no leader for round " + i : "new leader is " + currLeader.getId()));
+      TimeDuration.ONE_SECOND.sleep();
     }
     LOG.info(cluster.printServers());
 
     final RaftServer.Division leader = cluster.getLeader();
-    Assert.assertEquals(newLeader, leader.getId().toString());
+    Assertions.assertEquals(newLeader, leader.getId().toString());
   }
 
   @Test
@@ -275,7 +352,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
             .orElseThrow(() -> new IllegalStateException("No leader yet")),
         10, ONE_SECOND, "getLeaderId", LOG);
     LOG.info(cluster.printServers());
-    Assert.assertEquals(leader.getId(), lastServerLeaderId);
+    Assertions.assertEquals(leader.getId(), lastServerLeaderId);
+    cluster.shutdown();
   }
 
   protected void testDisconnectLeader() throws Exception {
@@ -288,8 +366,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         Thread.sleep(1000);
         isolate(cluster, leader.getId());
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Assert.assertNotEquals(reply.getReplierId(), leader.getId().toString());
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertNotEquals(reply.getReplierId(), leader.getId().toString());
+        Assertions.assertTrue(reply.isSuccess());
       } finally {
         deIsolate(cluster, leader.getId());
       }
@@ -313,14 +391,123 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testAddListener() throws Exception {
+    try (final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        List<RaftPeer> servers = cluster.getPeers();
+        Assertions.assertEquals(servers.size(), 3);
+        MiniRaftCluster.PeerChanges changes = cluster.addNewPeers(1,
+            true, false, RaftProtos.RaftPeerRole.LISTENER);
+        RaftClientReply reply = client.admin().setConfiguration(servers, Arrays.asList(changes.newPeers));
+        Assertions.assertTrue(reply.isSuccess());
+        Collection<RaftPeer> listener =
+            leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
+        Assertions.assertEquals(1, listener.size());
+        Assertions.assertEquals(changes.newPeers[0].getId(), new ArrayList<>(listener).get(0).getId());
+      }
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testAddFollowerWhenExistsListener() throws Exception {
+    try (final MiniRaftCluster cluster = newCluster(3, 1)) {
+      cluster.start();
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        List<RaftPeer> servers = cluster.getPeers();
+        Assertions.assertEquals(4, servers.size());
+        List<RaftPeer> listener = new ArrayList<>(
+            leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER));
+        Assertions.assertEquals(1, listener.size());
+        MiniRaftCluster.PeerChanges changes = cluster.addNewPeers(1, true, false);
+        ArrayList<RaftPeer> newPeers = new ArrayList<>(Arrays.asList(changes.newPeers));
+        newPeers.addAll(leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.FOLLOWER));
+        RaftClientReply reply = client.admin().setConfiguration(newPeers, listener);
+        Assertions.assertTrue(reply.isSuccess());
+        Assertions.assertEquals(4,
+            leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.FOLLOWER).size());
+        Assertions.assertEquals(1,
+            leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER).size());
+      }
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testRemoveListener() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(3,1)) {
+      cluster.start();
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        Assertions.assertEquals(1, cluster.getListeners().size());
+        List<RaftPeer> servers = cluster.getFollowers().stream().map(RaftServer.Division::getPeer).collect(
+            Collectors.toList());
+        servers.add(leader.getPeer());
+        RaftClientReply reply = client.admin().setConfiguration(servers);
+        Assertions.assertTrue(reply.isSuccess());
+        Assertions.assertEquals(0, leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER).size());
+      }
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testChangeFollowerToListener() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient()) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        List<RaftPeer> followers = cluster.getFollowers().stream().map(
+            RaftServer.Division::getPeer).collect(Collectors.toList());
+        Assertions.assertEquals(2, followers.size());
+        List<RaftPeer> listeners = new ArrayList<>();
+        listeners.add(followers.get(1));
+        followers.remove(1);
+        RaftClientReply reply = client.admin().setConfiguration(followers, listeners);
+        Assertions.assertTrue(reply.isSuccess());
+        Collection<RaftPeer> peer = leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
+        Assertions.assertEquals(1, peer.size());
+        Assertions.assertEquals(listeners.get(0).getId(), new ArrayList<>(peer).get(0).getId());
+      }
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testChangeListenerToFollower() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(2, 1)) {
+      cluster.start();
+      final RaftServer.Division leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        List<RaftPeer> listeners = cluster.getListeners()
+            .stream().map(RaftServer.Division::getPeer).collect(Collectors.toList());
+        Assertions.assertEquals(listeners.size(), 1);
+        RaftClientReply reply = client.admin().setConfiguration(cluster.getPeers());
+        Assertions.assertTrue(reply.isSuccess());
+        Collection<RaftPeer> peer = leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
+        Assertions.assertEquals(0, peer.size());
+      }
+      cluster.shutdown();
+    }
+  }
+
+  @Test
   public void testLeaderElectionMetrics() throws IOException, InterruptedException {
     Timestamp timestamp = Timestamp.currentTime();
     final MiniRaftCluster cluster = newCluster(3);
     cluster.start();
     final RaftServer.Division leaderServer = waitForLeader(cluster);
 
-    final RatisMetricRegistry ratisMetricRegistry = LeaderElectionMetrics.getMetricRegistryForLeaderElection(
-        leaderServer.getMemberId());
+    final RatisMetricRegistryImpl ratisMetricRegistry = (RatisMetricRegistryImpl)
+        LeaderElectionMetrics.createRegistry(leaderServer.getMemberId());
 
     // Verify each metric individually.
     long numLeaderElections = ratisMetricRegistry.counter(LEADER_ELECTION_COUNT_METRIC).getCount();
@@ -329,13 +516,15 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     long numLeaderElectionTimeout = ratisMetricRegistry.counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC).getCount();
     assertTrue(numLeaderElectionTimeout > 0);
 
-    Timer timer = ratisMetricRegistry.timer(LEADER_ELECTION_TIME_TAKEN);
+    final DefaultTimekeeperImpl timekeeper = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(LEADER_ELECTION_TIME_TAKEN);
+    final Timer timer = timekeeper.getTimer();
     double meanTimeNs = timer.getSnapshot().getMean();
     long elapsedNs = timestamp.elapsedTime().toLong(TimeUnit.NANOSECONDS);
     assertTrue(timer.getCount() > 0 && meanTimeNs < elapsedNs);
     Long leaderElectionLatency = (Long) ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME)).values().iterator().next().getValue();
     assertTrue(leaderElectionLatency > 0L);
+    cluster.shutdown();
   }
 
   @Test
@@ -384,7 +573,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         isolate(cluster, follower.getId());
         // send message so that the isolated follower's log lag the others
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
 
         final long savedTerm = leader.getInfo().getCurrentTerm();
         LOG.info("Wait follower {} timeout and trigger pre-vote", follower.getId());
@@ -399,7 +588,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertEquals(savedTerm, leader.getInfo().getCurrentTerm());
 
         reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
 
       cluster.shutdown();
@@ -407,6 +596,21 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       fail(e.getMessage());
     }
   }
+
+  @Test
+  public void testListenerRejectRequestVote() throws Exception {
+    runWithNewCluster(3, 2, this::runTestListenerRejectRequestVote);
+  }
+  void runTestListenerRejectRequestVote(CLUSTER cluster) throws IOException, InterruptedException {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final TermIndex lastEntry = leader.getRaftLog().getLastEntryTermIndex();
+    RaftServer.Division listener = cluster.getListeners().get(0);
+    final RaftProtos.RequestVoteRequestProto r = ServerProtoUtils.toRequestVoteRequestProto(
+        leader.getMemberId(), listener.getId(),  leader.getRaftLog().getLastEntryTermIndex().getTerm() + 1, lastEntry, true);
+    RaftProtos.RequestVoteReplyProto listenerReply = listener.getRaftServer().requestVote(r);
+    Assertions.assertFalse(listenerReply.getServerReply().getSuccess());
+  }
+
 
   @Test
   public void testPauseResumeLeaderElection() throws Exception {
@@ -418,26 +622,109 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
     final List<RaftServer.Division> followers = cluster.getFollowers();
-    Assert.assertTrue(followers.size() >= 1);
+    Assertions.assertTrue(followers.size() >= 1);
     final RaftServerImpl f1 = (RaftServerImpl)followers.get(0);
 
     try (final RaftClient client = cluster.createClient()) {
       pauseLeaderReply = client.getLeaderElectionManagementApi(f1.getId()).pause();
-      Assert.assertTrue(pauseLeaderReply.isSuccess());
+      Assertions.assertTrue(pauseLeaderReply.isSuccess());
       client.io().send(new RaftTestUtil.SimpleMessage("message"));
       RaftServer.Division newLeader = followers.get(0);
       List<RaftPeer> peers = cluster.getPeers();
       List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
       RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
-      Assert.assertTrue(reply.isSuccess());
-      JavaUtils.attempt(() -> Assert.assertEquals(leaderId, leader.getId()),
+      Assertions.assertTrue(reply.isSuccess());
+      JavaUtils.attempt(() -> Assertions.assertEquals(leaderId, leader.getId()),
           20, HUNDRED_MILLIS, "check leader id", LOG);
       final RaftClientReply resumeLeaderReply = client.getLeaderElectionManagementApi(f1.getId()).resume();
-      Assert.assertTrue(resumeLeaderReply.isSuccess());
-      JavaUtils.attempt(() -> Assert.assertEquals(f1.getId(), cluster.getLeader().getId()),
+      Assertions.assertTrue(resumeLeaderReply.isSuccess());
+      JavaUtils.attempt(() -> Assertions.assertEquals(f1.getId(), cluster.getLeader().getId()),
           20, HUNDRED_MILLIS, "check new leader", LOG);
     }
   }
+
+  private void runLeaseTest(CLUSTER cluster, CheckedBiConsumer<CLUSTER, Long, Exception> testCase) throws Exception {
+    final double leaseRatio = RaftServerConfigKeys.Read.leaderLeaseTimeoutRatio(getProperties());
+    final long leaseTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(getProperties())
+        .multiply(leaseRatio)
+        .toIntExact(TimeUnit.MILLISECONDS);
+    testCase.accept(cluster, leaseTimeoutMs);
+  }
+
+  @Test
+  public void testLeaderLease() throws Exception {
+    // use a strict lease
+    RaftServerConfigKeys.Read.setLeaderLeaseEnabled(getProperties(), true);
+    RaftServerConfigKeys.Read.setLeaderLeaseTimeoutRatio(getProperties(), 0.5);
+    runWithNewCluster(3, c -> runLeaseTest(c, this::runTestLeaderLease));
+  }
+
+  void runTestLeaderLease(CLUSTER cluster, long leaseTimeoutMs) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    try (final RaftClient client = cluster.createClient(leader.getId())) {
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+
+      Assertions.assertTrue(leader.getInfo().isLeader());
+      Assertions.assertTrue(leader.getInfo().isLeaderReady());
+      RaftServerTestUtil.assertLeaderLease(leader, true);
+
+      isolate(cluster, leader.getId());
+      Thread.sleep(leaseTimeoutMs);
+
+      Assertions.assertTrue(leader.getInfo().isLeader());
+      Assertions.assertTrue(leader.getInfo().isLeaderReady());
+      RaftServerTestUtil.assertLeaderLease(leader, false);
+    } finally {
+      deIsolate(cluster, leader.getId());
+    }
+  }
+
+  @Test
+  public void testLeaderLeaseDuringReconfiguration() throws Exception {
+    // use a strict lease
+    RaftServerConfigKeys.Read.setLeaderLeaseEnabled(getProperties(), true);
+    RaftServerConfigKeys.Read.setLeaderLeaseTimeoutRatio(getProperties(), 0.5);
+    runWithNewCluster(3, c -> runLeaseTest(c, this::runTestLeaderLeaseDuringReconfiguration));
+  }
+
+  void runTestLeaderLeaseDuringReconfiguration(CLUSTER cluster, long leaseTimeoutMs) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    try (final RaftClient client = cluster.createClient(leader.getId())) {
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+
+      Assertions.assertTrue(leader.getInfo().isLeader());
+      Assertions.assertTrue(leader.getInfo().isLeaderReady());
+      RaftServerTestUtil.assertLeaderLease(leader, true);
+
+      final List<RaftServer.Division> followers = cluster.getFollowers();
+      final MiniRaftCluster.PeerChanges changes = cluster.addNewPeers(2, true);
+
+      // blocking the original 2 followers
+      BlockRequestHandlingInjection.getInstance().blockReplier(followers.get(0).getId().toString());
+      BlockRequestHandlingInjection.getInstance().blockReplier(followers.get(1).getId().toString());
+
+      // start reconfiguration in another thread, shall fail eventually
+      new Thread(() -> {
+        try {
+          client.admin().setConfiguration(changes.allPeersInNewConf);
+        } catch (IOException e) {
+          System.out.println("as expected: " + e.getMessage());
+        }
+      }).start();
+
+      Thread.sleep(leaseTimeoutMs);
+
+      Assertions.assertTrue(leader.getInfo().isLeader());
+      Assertions.assertTrue(leader.getInfo().isLeaderReady());
+      RaftServerTestUtil.assertLeaderLease(leader, false);
+
+    } finally {
+      BlockRequestHandlingInjection.getInstance().unblockAll();
+    }
+  }
+
+
+
 
   private static RaftServerImpl createMockServer(boolean alive) {
     final DivisionInfo info = mock(DivisionInfo.class);

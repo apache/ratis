@@ -20,9 +20,11 @@ package org.apache.ratis.client.api;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -30,14 +32,43 @@ import java.util.List;
  * such as setting raft configuration and transferring leadership.
  */
 public interface AdminApi {
-  /** Set the configuration request to the raft service. */
-  RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf) throws IOException;
+  RaftClientReply setConfiguration(SetConfigurationRequest.Arguments arguments)
+      throws IOException;
+
+  /** The same as setConfiguration(serversInNewConf, Collections.emptyList()). */
+  default RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf) throws IOException {
+    return setConfiguration(serversInNewConf, Collections.emptyList());
+  }
 
   /** The same as setConfiguration(Arrays.asList(serversInNewConf)). */
   default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException {
-    return setConfiguration(Arrays.asList(serversInNewConf));
+    return setConfiguration(Arrays.asList(serversInNewConf), Collections.emptyList());
+  }
+
+  /** Set the configuration request to the raft service. */
+  default RaftClientReply setConfiguration(List<RaftPeer> serversInNewConf, List<RaftPeer> listenersInNewConf)
+      throws IOException {
+    return setConfiguration(SetConfigurationRequest.Arguments
+        .newBuilder()
+        .setServersInNewConf(serversInNewConf)
+        .setListenersInNewConf(listenersInNewConf)
+        .build());
+  }
+
+  /** The same as setConfiguration(Arrays.asList(serversInNewConf), Arrays.asList(listenersInNewConf)). */
+  default RaftClientReply setConfiguration(RaftPeer[] serversInNewConf, RaftPeer[] listenersInNewConf)
+      throws IOException {
+    return setConfiguration(SetConfigurationRequest.Arguments
+        .newBuilder()
+        .setListenersInNewConf(serversInNewConf)
+        .setListenersInNewConf(listenersInNewConf)
+        .build());
   }
 
   /** Transfer leadership to the given server.*/
-  RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException;
+  default RaftClientReply transferLeadership(RaftPeerId newLeader, long timeoutMs) throws IOException {
+    return transferLeadership(newLeader, null, timeoutMs);
+  }
+
+  RaftClientReply transferLeadership(RaftPeerId newLeader, RaftPeerId leaderId, long timeoutMs) throws IOException;
 }

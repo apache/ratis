@@ -18,7 +18,7 @@
 
 package org.apache.ratis.server.metrics;
 
-import com.codahale.metrics.Timer;
+import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
@@ -34,49 +34,33 @@ public class RaftLogMetricsBase extends RatisMetrics implements RaftLogMetrics {
   public static final String CONFIG_LOG_ENTRY_COUNT = "configLogEntryCount";
   public static final String STATE_MACHINE_LOG_ENTRY_COUNT = "stateMachineLogEntryCount";
 
-  //////////////////////////////
-  // Raft Log Read Path Metrics
-  /////////////////////////////
-  // Time required to read a raft log entry from actual raft log file and create a raft log entry
-  public static final String RAFT_LOG_READ_ENTRY_LATENCY = "readEntryLatency";
-  // Time required to load and process raft log segments during restart
-  public static final String RAFT_LOG_LOAD_SEGMENT_LATENCY = "segmentLoadLatency";
+  private final LongCounter configLogEntryCount = getRegistry().counter(CONFIG_LOG_ENTRY_COUNT);
+  private final LongCounter metadataLogEntryCount = getRegistry().counter(METADATA_LOG_ENTRY_COUNT);
+  private final LongCounter stateMachineLogEntryCount = getRegistry().counter(STATE_MACHINE_LOG_ENTRY_COUNT);
 
   public RaftLogMetricsBase(RaftGroupMemberId serverId) {
-    this.registry = getLogWorkerMetricRegistry(serverId);
+    super(createRegistry(serverId));
   }
 
-  public static RatisMetricRegistry getLogWorkerMetricRegistry(RaftGroupMemberId serverId) {
+  public static RatisMetricRegistry createRegistry(RaftGroupMemberId serverId) {
     return create(new MetricRegistryInfo(serverId.toString(),
         RATIS_APPLICATION_NAME_METRICS,
         RATIS_LOG_WORKER_METRICS, RATIS_LOG_WORKER_METRICS_DESC));
-  }
-
-  private Timer getTimer(String timerName) {
-    return registry.timer(timerName);
   }
 
   @Override
   public void onLogEntryCommitted(LogEntryHeader header) {
     switch (header.getLogEntryBodyCase()) {
       case CONFIGURATIONENTRY:
-        registry.counter(CONFIG_LOG_ENTRY_COUNT).inc();
+        configLogEntryCount.inc();
         return;
       case METADATAENTRY:
-        registry.counter(METADATA_LOG_ENTRY_COUNT).inc();
+        metadataLogEntryCount.inc();
         return;
       case STATEMACHINELOGENTRY:
-        registry.counter(STATE_MACHINE_LOG_ENTRY_COUNT).inc();
+        stateMachineLogEntryCount.inc();
         return;
       default:
     }
-  }
-
-  public Timer getRaftLogReadEntryTimer() {
-    return getTimer(RAFT_LOG_READ_ENTRY_LATENCY);
-  }
-
-  public Timer getRaftLogLoadSegmentTimer() {
-    return getTimer(RAFT_LOG_LOAD_SEGMENT_LATENCY);
   }
 }

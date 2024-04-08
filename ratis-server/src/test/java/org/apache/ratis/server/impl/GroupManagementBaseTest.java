@@ -17,10 +17,10 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
@@ -33,13 +33,14 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedBiConsumer;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 
 import java.io.File;
 import java.io.IOException;
@@ -57,17 +58,19 @@ public abstract class GroupManagementBaseTest extends BaseTest {
   static final Logger LOG = LoggerFactory.getLogger(GroupManagementBaseTest.class);
 
   {
-    Log4jUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   static final RaftProperties prop = new RaftProperties();
 
   static {
     // avoid flaky behaviour in CI environment
-    RaftServerConfigKeys.Rpc.setTimeoutMin(prop, TimeDuration.valueOf(300, TimeUnit.MILLISECONDS));
-    RaftServerConfigKeys.Rpc.setTimeoutMax(prop, TimeDuration.valueOf(600, TimeUnit.MILLISECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMin(prop, TimeDuration.valueOf(1500, TimeUnit.MILLISECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(prop, TimeDuration.valueOf(2000, TimeUnit.MILLISECONDS));
+    // it takes 5s+ to finish the blocking group add call
+    RaftClientConfigKeys.Rpc.setRequestTimeout(prop, TimeDuration.valueOf(12, TimeUnit.SECONDS));
   }
 
   public abstract MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory();
@@ -264,77 +267,80 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     LOG.info("start: " + cluster.printServers());
     Assert.assertNull(cluster.getLeader());
 
-    // Reinitialize servers to three groups
-    final List<RaftPeer> allPeers = cluster.getPeers();
-    Collections.sort(allPeers, Comparator.comparing(p -> p.getId().toString()));
-    final RaftGroup[] groups = new RaftGroup[idIndex.length];
-    for (int i = 0; i < idIndex.length; i++) {
-      final RaftGroupId gid = RaftGroupId.randomId();
-      final int previous = i == 0 ? 0 : idIndex[i - 1];
-      final RaftPeer[] peers = allPeers.subList(previous, idIndex[i]).toArray(RaftPeer.emptyArray());
-      groups[i] = RaftGroup.valueOf(gid, peers);
+    try {
+      // Reinitialize servers to three groups
+      final List<RaftPeer> allPeers = cluster.getPeers();
+      Collections.sort(allPeers, Comparator.comparing(p -> p.getId().toString()));
+      final RaftGroup[] groups = new RaftGroup[idIndex.length];
+      for (int i = 0; i < idIndex.length; i++) {
+        final RaftGroupId gid = RaftGroupId.randomId();
+        final int previous = i == 0 ? 0 : idIndex[i - 1];
+        final RaftPeer[] peers = allPeers.subList(previous, idIndex[i]).toArray(RaftPeer.emptyArray());
+        groups[i] = RaftGroup.valueOf(gid, peers);
 
-      LOG.info(i + ") starting " + groups[i]);
-      for(RaftPeer p : peers) {
-        try(final RaftClient client = cluster.createClient(p.getId(), emptyGroup)) {
-          client.getGroupManagementApi(p.getId()).add(groups[i]);
-        }
-      }
-      Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, gid));
-      checker.accept(cluster, groups[i]);
-    }
-    printThreadCount(type, "start groups");
-    LOG.info("start groups: " + cluster.printServers());
-
-    // randomly remove two of the groups
-    LOG.info("chosen = " + chosen + ", " + groups[chosen]);
-
-    for (int i = 0; i < groups.length; i++) {
-      if (i != chosen) {
-        final RaftGroup g = groups[i];
-        LOG.info(i + ") close " + cluster.printServers(g.getGroupId()));
-        for(RaftPeer p : g.getPeers()) {
-          final RaftServer.Division d = cluster.getDivision(p.getId(), g.getGroupId());
-          final File root = d.getRaftStorage().getStorageDir().getRoot();
-          Assert.assertTrue(root.exists());
-          Assert.assertTrue(root.isDirectory());
-
-          final RaftClientReply r;
-          try (final RaftClient client = cluster.createClient(p.getId(), g)) {
-            r = client.getGroupManagementApi(p.getId()).remove(g.getGroupId(), true, false);
-          }
-          Assert.assertTrue(r.isSuccess());
-          Assert.assertFalse(root.exists());
-        }
-      }
-    }
-    printThreadCount(type, "close groups");
-    LOG.info("close groups: " + cluster.printServers());
-
-    // update chosen group to use all the peers
-    final RaftGroup newGroup = RaftGroup.valueOf(groups[chosen].getGroupId());
-    for(int i = 0; i < groups.length; i++) {
-      if (i != chosen) {
-        LOG.info(i + ") groupAdd: " + cluster.printServers(groups[i].getGroupId()));
-        for (RaftPeer p : groups[i].getPeers()) {
+        LOG.info(i + ") starting " + groups[i]);
+        for (RaftPeer p : peers) {
           try (final RaftClient client = cluster.createClient(p.getId(), groups[i])) {
-            client.getGroupManagementApi(p.getId()).add(newGroup);
+            client.getGroupManagementApi(p.getId()).add(groups[i]);
+          }
+        }
+        Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, gid));
+        checker.accept(cluster, groups[i]);
+      }
+      printThreadCount(type, "start groups");
+      LOG.info("start groups: " + cluster.printServers());
+
+      // randomly remove two of the groups
+      LOG.info("chosen = " + chosen + ", " + groups[chosen]);
+
+      for (int i = 0; i < groups.length; i++) {
+        if (i != chosen) {
+          final RaftGroup g = groups[i];
+          LOG.info(i + ") close " + cluster.printServers(g.getGroupId()));
+          for (RaftPeer p : g.getPeers()) {
+            final RaftServer.Division d = cluster.getDivision(p.getId(), g.getGroupId());
+            final File root = d.getRaftStorage().getStorageDir().getRoot();
+            Assert.assertTrue(root.exists());
+            Assert.assertTrue(root.isDirectory());
+
+            final RaftClientReply r;
+            try (final RaftClient client = cluster.createClient(p.getId(), g)) {
+              r = client.getGroupManagementApi(p.getId()).remove(g.getGroupId(), true, false);
+            }
+            Assert.assertTrue(r.isSuccess());
+            Assert.assertFalse(root.exists());
           }
         }
       }
-    }
-    LOG.info(chosen + ") setConfiguration: " + cluster.printServers(groups[chosen].getGroupId()));
-    try (final RaftClient client = cluster.createClient(groups[chosen])) {
-      client.admin().setConfiguration(allPeers.toArray(RaftPeer.emptyArray()));
-    }
+      printThreadCount(type, "close groups");
+      LOG.info("close groups: " + cluster.printServers());
 
-    Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
-    checker.accept(cluster, groups[chosen]);
-    LOG.info("update groups: " + cluster.printServers());
-    printThreadCount(type, "update groups");
+      // update chosen group to use all the peers
+      final RaftGroup newGroup = RaftGroup.valueOf(groups[chosen].getGroupId());
+      for (int i = 0; i < groups.length; i++) {
+        if (i != chosen) {
+          LOG.info(i + ") groupAdd: " + cluster.printServers(groups[i].getGroupId()));
+          for (RaftPeer p : groups[i].getPeers()) {
+            try (final RaftClient client = cluster.createClient(p.getId(), groups[i])) {
+              client.getGroupManagementApi(p.getId()).add(newGroup);
+            }
+          }
+        }
+      }
+      LOG.info(chosen + ") setConfiguration: " + cluster.printServers(groups[chosen].getGroupId()));
+      try (final RaftClient client = cluster.createClient(groups[chosen])) {
+        RaftServerTestUtil.runWithMinorityPeers(cluster, allPeers,
+            peers -> client.admin().setConfiguration(peers.toArray(RaftPeer.emptyArray())));
+      }
 
-    cluster.shutdown();
-    printThreadCount(type, "shutdown");
+      Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
+      checker.accept(cluster, groups[chosen]);
+      LOG.info("update groups: " + cluster.printServers());
+      printThreadCount(type, "update groups");
+    } finally {
+      cluster.shutdown();
+      printThreadCount(type, "shutdown");
+    }
   }
 
   static void printThreadCount(String type, String label) {

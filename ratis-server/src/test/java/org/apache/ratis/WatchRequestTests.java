@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
@@ -32,11 +31,13 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerConfigKeys.Watch;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -45,14 +46,17 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
+import org.slf4j.event.Level;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.fail;
@@ -62,7 +66,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
     RaftServerTestUtil.setWatchRequestsLogLevel(Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
   }
 
   static final int NUM_SERVERS = 3;
@@ -208,6 +212,9 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
         throw e;
       }
       log.info("{}-Watch({}) returns {}", name, logIndex, reply);
+
+      Assert.assertTrue(reply.isSuccess());
+      Assert.assertTrue(reply.getLogIndex() >= logIndex);
       return reply;
     }
   }
@@ -272,10 +279,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
       Assert.assertEquals(logIndex, watchReplies.logIndex);
       final RaftClientReply watchMajorityReply = watchReplies.getMajority();
-      Assert.assertTrue(watchMajorityReply.isSuccess());
 
       final RaftClientReply watchMajorityCommittedReply = watchReplies.getMajorityCommitted();
-      Assert.assertTrue(watchMajorityCommittedReply.isSuccess());
       { // check commit infos
         final Collection<CommitInfoProto> commitInfos = watchMajorityCommittedReply.getCommitInfos();
         final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
@@ -299,10 +304,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       final long logIndex = watchReplies.logIndex;
       LOG.info("checkAll {}: logIndex={}", i, logIndex);
       final RaftClientReply watchAllReply = watchReplies.getAll();
-      Assert.assertTrue(watchAllReply.isSuccess());
 
       final RaftClientReply watchAllCommittedReply = watchReplies.getAllCommitted();
-      Assert.assertTrue(watchAllCommittedReply.isSuccess());
       { // check commit infos
         final Collection<CommitInfoProto> commitInfos = watchAllCommittedReply.getCommitInfos();
         final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
@@ -466,6 +469,59 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
           Assert.assertEquals(TimeoutIOException.class,
               ex.getCause().getCause().getClass());
         }
+      }
+    }
+  }
+
+  @Test
+  public void testWatchMetrics() throws Exception {
+    final RaftProperties p = getProperties();
+    RaftServerConfigKeys.Watch.setElementLimit(p, 10);
+    RaftServerConfigKeys.Watch.setTimeout(p, TimeDuration.valueOf(2, TimeUnit.SECONDS));
+    try {
+      runWithNewCluster(NUM_SERVERS,
+          cluster -> runSingleTest(WatchRequestTests::runTestWatchMetrics, cluster, LOG));
+    } finally {
+      RaftServerConfigKeys.Watch.setElementLimit(p, Watch.ELEMENT_LIMIT_DEFAULT);
+      RaftServerConfigKeys.Watch.setTimeout(p, RaftServerConfigKeys.Watch.TIMEOUT_DEFAULT);
+    }
+  }
+
+  static RaftServerMetricsImpl getRaftServerMetrics(RaftServer.Division division) {
+    return (RaftServerMetricsImpl) division.getRaftServerMetrics();
+  }
+
+  static void runTestWatchMetrics(TestParameters p) throws Exception {
+    final MiniRaftCluster cluster = p.cluster;
+
+    List<RaftClient> clients = new ArrayList<>();
+
+    final ReplicationLevel replicationLevel = ReplicationLevel.MAJORITY;
+    try {
+      long initialWatchRequestTimeoutCount = getRaftServerMetrics(cluster.getLeader())
+          .getNumWatchRequestsTimeout(replicationLevel).getCount();
+      long initialLimitHit = getRaftServerMetrics(cluster.getLeader())
+          .getNumWatchRequestQueueLimitHits(replicationLevel).getCount();
+
+      int uncommittedBaseIndex = 10000;
+      // Logs with indices 10001 - 10011 will never be committed, so it should fail with NotReplicatedException
+      for (int i = 1; i <= 11; i++) {
+        RaftClient client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
+        clients.add(client);
+        client.async().watch(uncommittedBaseIndex + i, replicationLevel);
+      }
+
+      // All the watch timeout for each unique index should increment the metric
+      RaftTestUtil.waitFor(() -> getRaftServerMetrics(cluster.getLeader())
+              .getNumWatchRequestsTimeout(replicationLevel).getCount() == initialWatchRequestTimeoutCount + 10,
+          300, 5000);
+      // There are 11 pending watch request, but the pending watch request limit is 10
+      RaftTestUtil.waitFor(() -> getRaftServerMetrics(cluster.getLeader())
+          .getNumWatchRequestQueueLimitHits(replicationLevel).getCount() ==
+          initialLimitHit + 1, 300, 5000);
+    } finally {
+      for(RaftClient client : clients) {
+        client.close();
       }
     }
   }

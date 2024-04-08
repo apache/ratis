@@ -19,6 +19,7 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -84,13 +85,31 @@ abstract class FileInfo {
       final ByteBuffer buffer = ByteBuffer.allocateDirect(FileStoreCommon.getChunkSize(length));
       in.position(offset).read(buffer);
       buffer.flip();
-      return ByteString.copyFrom(buffer);
+      return UnsafeByteOperations.unsafeWrap(buffer);
     }
   }
 
   UnderConstruction asUnderConstruction() {
     throw new UnsupportedOperationException(
         "File " + getRelativePath() + " is not under construction.");
+  }
+
+  static class Watch extends FileInfo {
+    private final CompletableFuture<UnderConstruction> future = new CompletableFuture<>();
+
+    Watch(Path relativePath) {
+      super(relativePath);
+    }
+
+    CompletableFuture<UnderConstruction> getFuture() {
+      return future;
+    }
+
+    CompletableFuture<UnderConstruction> complete(UnderConstruction uc) {
+      Preconditions.assertTrue(getRelativePath().equals(uc.getRelativePath()));
+      future.complete(uc);
+      return future;
+    }
   }
 
   static class ReadOnly extends FileInfo {

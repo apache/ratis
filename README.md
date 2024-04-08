@@ -24,7 +24,7 @@ The paper introduces Raft and states its motivations in following words:
 
 Ratis aims to make Raft available as a java library that can be used by any system that needs to use a replicated log.
 It provides pluggability for state machine implementations to manage replicated states.
-It also provides pluggability for Raft log, and rpc implementations to make it easy for integration with other projects.
+It also provides pluggability for Raft log, rpc implementations and metric implementations to make it easy for integration with other projects.
 Another important goal is to support high throughput data ingest so that it can be used for more general data replication use cases.
 
 * To build the artifacts, see [BUILDING.md](BUILDING.md).

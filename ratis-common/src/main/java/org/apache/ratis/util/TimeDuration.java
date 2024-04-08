@@ -29,10 +29,11 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongUnaryOperator;
+import java.util.stream.Stream;
 
 /**
  * Time duration is represented by a long together with a {@link TimeUnit}.
- *
+ * <p>
  * This is a value-based class.
  */
 public final class TimeDuration implements Comparable<TimeDuration> {
@@ -42,6 +43,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
   public static final TimeDuration ONE_MILLISECOND = TimeDuration.valueOf(1, TimeUnit.MILLISECONDS);
   public static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
   public static final TimeDuration ONE_MINUTE = TimeDuration.valueOf(1, TimeUnit.MINUTES);
+  public static final TimeDuration ONE_DAY = TimeDuration.valueOf(1, TimeUnit.DAYS);
 
   static final double ERROR_THRESHOLD = 0.001; // accept 0.1% error
 
@@ -56,6 +58,22 @@ public final class TimeDuration implements Comparable<TimeDuration> {
     final int ordinal = unit.ordinal();
     final TimeUnit[] timeUnits = TimeUnit.values();
     return ordinal == timeUnits.length - 1? unit: timeUnits[ordinal + 1];
+  }
+
+  /** @return the minimum of the given parameters. */
+  public static TimeDuration min(TimeDuration left, TimeDuration right) {
+    Objects.requireNonNull(left, "left == null");
+    Objects.requireNonNull(right, "right == null");
+    return Stream.of(left, right).min(TimeDuration::compareTo).orElseThrow(
+        () -> new IllegalStateException("Failed to compute min(" + left + ", " + right + ")"));
+  }
+
+  /** @return the maximum of the given parameters. */
+  public static TimeDuration max(TimeDuration left, TimeDuration right) {
+    Objects.requireNonNull(left, "left == null");
+    Objects.requireNonNull(right, "right == null");
+    return Stream.of(left, right).max(TimeDuration::compareTo).orElseThrow(
+        () -> new IllegalStateException("Failed to compute max(" + left + ", " + right + ")"));
   }
 
   /** Abbreviations of {@link TimeUnit}. */
@@ -119,10 +137,10 @@ public final class TimeDuration implements Comparable<TimeDuration> {
   }
 
   /**
-   * Parse the given time duration string.
-   * If no unit is specified, use the default unit.
-   * This method support underscores in Numeric Literals as in Java 8.
+   * Parse the given string.
+   * The string is first be trimmed and underscore removed.
    *
+   * @param defaultUnit Use it if no unit is specified.
    * @return a {@link TimeDuration} in the target unit.
    */
   public static TimeDuration valueOf(String timeString, TimeUnit defaultUnit) {
@@ -140,6 +158,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
         }
       }
     }
+    Objects.requireNonNull(defaultUnit, "defaultUnit == null");
     return valueOf(Long.parseLong(lower), defaultUnit);
   }
 
@@ -294,9 +313,19 @@ public final class TimeDuration implements Comparable<TimeDuration> {
     return function.apply(getDuration(), getUnit());
   }
 
-  /** @return Is this {@link TimeDuration} negative? */
+  /** @return Is this {@link TimeDuration} less than zero? */
   public boolean isNegative() {
     return duration < 0;
+  }
+
+  /** @return Is this {@link TimeDuration} greater than or equal to zero? */
+  public boolean isNonNegative() {
+    return duration >= 0;
+  }
+
+  /** @return Is this {@link TimeDuration} greater than zero? */
+  public boolean isPositive() {
+    return duration > 0;
   }
 
   /** @return Is this {@link TimeDuration} less than or equal to zero? */
@@ -373,5 +402,21 @@ public final class TimeDuration implements Comparable<TimeDuration> {
   @Override
   public String toString() {
     return duration + Abbreviation.valueOf(unit).getDefault();
+  }
+
+  /** @return a representation of this object in the given target unit and decimal places. */
+  public String toString(TimeUnit targetUnit, int decimalPlaces) {
+    Objects.requireNonNull(targetUnit, "targetUnit == null");
+    if (targetUnit.compareTo(unit) <= 0) {
+      return to(targetUnit).toString();
+    }
+    final double divisor = unit.convert(1, targetUnit);
+    if (duration % divisor == 0) {
+      return to(targetUnit).toString();
+    }
+    final String decimal = StringUtils.format("%." + decimalPlaces + "f", duration/divisor);
+    final String s = decimal + Abbreviation.valueOf(targetUnit).getDefault();
+    LOG.debug("{}.to({}) = {}", this, targetUnit, s);
+    return s;
   }
 }

@@ -32,7 +32,7 @@ import java.util.Optional;
 /**
  * An interface for all the commands that can be run from a shell.
  */
-public interface Command extends Closeable {
+public interface Command extends Comparable<Command>, Closeable {
 
   /**
    * Gets the command name as input from the shell.
@@ -40,6 +40,11 @@ public interface Command extends Closeable {
    * @return the command name
    */
   String getCommandName();
+
+  @Override
+  default int compareTo(Command that) {
+    return this.getCommandName().compareTo(that.getCommandName());
+  }
 
   /**
    * @return the supported {@link Options} of the command

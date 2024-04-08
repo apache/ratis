@@ -20,11 +20,13 @@ package org.apache.ratis.statemachine;
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS;
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_TAKE_SNAPSHOT_TIMER;
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RATIS_SERVER_INSTALL_SNAPSHOT_COUNT;
 import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
+import static org.apache.ratis.server.storage.RaftStorageTestUtils.getLogUnsafe;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.metrics.LongCounter;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -42,11 +44,13 @@ import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.storage.RaftStorageTestUtils;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -56,19 +60,20 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.Timer;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import org.slf4j.event.Level;
 
 public abstract class RaftSnapshotBaseTest extends BaseTest {
   {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);
@@ -86,22 +91,28 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
   public static void assertLeaderContent(MiniRaftCluster cluster) throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
-    final RaftLog leaderLog = leader.getRaftLog();
-    final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
-    final LogEntryProto e = leaderLog.get(lastIndex);
+    assertLogContent(leader, true);
+  }
+
+  public static void assertLogContent(RaftServer.Division server, boolean isLeader) throws Exception {
+    final RaftLog log = server.getRaftLog();
+    final long lastIndex = log.getLastEntryTermIndex().getIndex();
+    final LogEntryProto e = getLogUnsafe(log, lastIndex);
     Assert.assertTrue(e.hasMetadataEntry());
 
     JavaUtils.attemptRepeatedly(() -> {
-      Assert.assertEquals(leaderLog.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
+      Assert.assertEquals(log.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
       return null;
     }, 50, BaseTest.HUNDRED_MILLIS, "CheckMetadataEntry", LOG);
 
-    SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(leader);
-    Assert.assertTrue("Is not notified as a leader", simpleStateMachine.isNotifiedAsLeader());
+    SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(server);
+    if (isLeader) {
+      Assert.assertTrue("Not notified as a leader", simpleStateMachine.isNotifiedAsLeader());
+    }
     final LogEntryProto[] entries = simpleStateMachine.getContent();
     long message = 0;
     for (int i = 0; i < entries.length; i++) {
-      LOG.info("{}) {} {}", i, message, entries[i]);
+      LOG.info("{}) {} {}", i, message, entries[i].toString().replace("\n", ", "));
       if (entries[i].hasStateMachineLogEntry()) {
         final SimpleMessage m = new SimpleMessage("m" + message++);
         Assert.assertArrayEquals(m.getContent().toByteArray(),
@@ -232,7 +243,8 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
           newPeers, true, false);
       // trigger setConfiguration
-      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
       for (String newPeer : newPeers) {
         final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));
@@ -294,7 +306,8 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
           newPeers, true, false);
       // trigger setConfiguration
-      cluster.setConfiguration(change.allPeersInNewConf);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
+          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
       for (String newPeer : newPeers) {
         final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));
@@ -311,8 +324,8 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   }
 
   protected void verifyInstallSnapshotMetric(RaftServer.Division leader) {
-    final Counter installSnapshotCounter = ((RaftServerMetricsImpl)leader.getRaftServerMetrics())
-        .getCounter(RATIS_SERVER_INSTALL_SNAPSHOT_COUNT);
+    final LongCounter installSnapshotCounter = ((RaftServerMetricsImpl)leader.getRaftServerMetrics())
+        .getNumInstallSnapshot();
     Assert.assertNotNull(installSnapshotCounter);
     Assert.assertTrue(installSnapshotCounter.getCount() >= 1);
   }
@@ -330,6 +343,6 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     Assert.assertTrue(opt.isPresent());
     RatisMetricRegistry metricRegistry = opt.get();
     Assert.assertNotNull(metricRegistry);
-    return metricRegistry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);
+    return ((DefaultTimekeeperImpl)metricRegistry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER)).getTimer();
   }
 }

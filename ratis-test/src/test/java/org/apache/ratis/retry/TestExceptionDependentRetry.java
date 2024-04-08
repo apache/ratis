@@ -21,7 +21,6 @@ package org.apache.ratis.retry;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
@@ -30,18 +29,16 @@ import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import static org.junit.Assert.fail;
 
 /**
  * Class to test {@link ExceptionDependentRetry}.
@@ -99,9 +96,9 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
       builder.setExceptionToPolicy(IOException.class,
           RetryPolicies.retryUpToMaximumCountWithFixedSleep(1,
               TimeDuration.valueOf(1, TimeUnit.SECONDS)));
-      fail("testExceptionDependentRetryFailure failed");
+      Assertions.fail("testExceptionDependentRetryFailure failed");
     } catch (Exception ex) {
-      Assert.assertEquals(IllegalStateException.class, ex.getClass());
+      Assertions.assertEquals(IllegalStateException.class, ex.getClass());
     }
 
   }
@@ -115,9 +112,9 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
           RetryPolicies.retryUpToMaximumCountWithFixedSleep(1,
               TimeDuration.valueOf(1, TimeUnit.SECONDS)));
       builder.setExceptionToPolicy(IOException.class, null);
-      fail("testExceptionDependentRetryFailure failed");
+      Assertions.fail("testExceptionDependentRetryFailure failed");
     } catch (Exception ex) {
-      Assert.assertEquals(IllegalStateException.class, ex.getClass());
+      Assertions.assertEquals(IllegalStateException.class, ex.getClass());
     }
   }
 
@@ -131,9 +128,9 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
           RetryPolicies.retryUpToMaximumCountWithFixedSleep(1,
               TimeDuration.valueOf(1, TimeUnit.SECONDS)));
       builder.build();
-      fail("testExceptionDependentRetryFailureWithNoDefault failed");
+      Assertions.fail("testExceptionDependentRetryFailureWithNoDefault failed");
     } catch (Exception ex) {
-      Assert.assertEquals(IllegalStateException.class, ex.getClass());
+      Assertions.assertEquals(IllegalStateException.class, ex.getClass());
     }
 
     try {
@@ -143,9 +140,9 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
           RetryPolicies.retryUpToMaximumCountWithFixedSleep(1,
               TimeDuration.valueOf(1, TimeUnit.SECONDS)));
       builder.setDefaultPolicy(null);
-      fail("testExceptionDependentRetryFailureWithNoDefault failed");
+      Assertions.fail("testExceptionDependentRetryFailureWithNoDefault failed");
     } catch (Exception ex) {
-      Assert.assertEquals(IllegalStateException.class, ex.getClass());
+      Assertions.assertEquals(IllegalStateException.class, ex.getClass());
     }
   }
 
@@ -154,14 +151,14 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
       long sleepTime) {
     for (int i = 0; i < retries + 1; i++) {
       RetryPolicy.Action action = exceptionDependentRetry
-          .handleAttemptFailure(new ClientRetryEvent(i, null, exception));
+          .handleAttemptFailure(TestRetryPolicy.newClientRetryEvent(i, null, exception));
 
       final boolean expected = i < retries && i < maxAttempts;
-      Assert.assertEquals(expected, action.shouldRetry());
+      Assertions.assertEquals(expected, action.shouldRetry());
       if (expected) {
-        Assert.assertEquals(sleepTime, action.getSleepTime().getDuration());
+        Assertions.assertEquals(sleepTime, action.getSleepTime().getDuration());
       } else {
-        Assert.assertEquals(0L, action.getSleepTime().getDuration());
+        Assertions.assertEquals(0L, action.getSleepTime().getDuration());
       }
     }
   }
@@ -178,12 +175,14 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
   }
 
   void runTestExceptionRetryAttempts(MiniRaftClusterWithGrpc cluster) throws Exception {
-    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final int retryCount = 5;
+    final RetryPolicy timeoutPolicy = MultipleLinearRandomRetry.parseCommaSeparated("1ms, " + retryCount);
     final ExceptionDependentRetry policy = ExceptionDependentRetry.newBuilder()
-        .setExceptionToPolicy(TimeoutIOException.class, MultipleLinearRandomRetry.parseCommaSeparated("1ms, 5"))
+        .setExceptionToPolicy(TimeoutIOException.class, timeoutPolicy)
         .setDefaultPolicy(RetryPolicies.retryForeverNoSleep())
         .build();
 
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     // create a client with the exception dependent policy
     try (final RaftClient client = cluster.createClient(policy)) {
       client.async().send(new RaftTestUtil.SimpleMessage("1")).get();
@@ -193,10 +192,11 @@ public class TestExceptionDependentRetry extends BaseTest implements MiniRaftClu
       SimpleStateMachine4Testing.get(leader).blockWriteStateMachineData();
 
       client.async().send(new RaftTestUtil.SimpleMessage("2")).get();
-      Assert.fail("Test should have failed.");
+      Assertions.fail("Test should have failed.");
     } catch (ExecutionException e) {
       RaftRetryFailureException rrfe = (RaftRetryFailureException) e.getCause();
-      Assert.assertEquals(16, rrfe.getAttemptCount());
+      final int expectedCount = 1 + retryCount; // new request attempt + retry attempts
+      Assertions.assertEquals(expectedCount, rrfe.getAttemptCount());
     } finally {
       SimpleStateMachine4Testing.get(leader).unblockWriteStateMachineData();
       cluster.shutdown();

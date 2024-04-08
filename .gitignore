@@ -8,6 +8,7 @@
 *.sdf
 *.suo
 *.vcxproj.user
+.hugo_build.lock
 .idea
 .classpath
 .project
@@ -15,3 +16,6 @@
 target
 build
 patchprocess
+dependency-reduced-pom.xml
+.mvn/wrapper/maven-wrapper.jar
+.vscode/

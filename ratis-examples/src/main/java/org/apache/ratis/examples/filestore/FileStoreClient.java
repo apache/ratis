@@ -83,9 +83,9 @@ public class FileStoreClient implements Closeable {
   }
 
   static ByteString send(
-      ByteString request, CheckedFunction<Message, RaftClientReply, IOException> sendFunction)
+      Message request, CheckedFunction<Message, RaftClientReply, IOException> sendFunction)
       throws IOException {
-    final RaftClientReply reply = sendFunction.apply(Message.valueOf(request));
+    final RaftClientReply reply = sendFunction.apply(request);
     final StateMachineException sme = reply.getStateMachineException();
     if (sme != null) {
       throw new IOException("Failed to send request " + request, sme);
@@ -95,9 +95,8 @@ public class FileStoreClient implements Closeable {
   }
 
   static CompletableFuture<ByteString> sendAsync(
-      ByteString request, Function<Message, CompletableFuture<RaftClientReply>> sendFunction) {
-    return sendFunction.apply(() -> request
-    ).thenApply(reply -> {
+      Message request, Function<Message, CompletableFuture<RaftClientReply>> sendFunction) {
+    return sendFunction.apply(request).thenApply(reply -> {
       final StateMachineException sme = reply.getStateMachineException();
       if (sme != null) {
         throw new CompletionException("Failed to send request " + request, sme);
@@ -107,19 +106,19 @@ public class FileStoreClient implements Closeable {
     });
   }
 
-  private ByteString send(ByteString request) throws IOException {
+  private ByteString send(Message request) throws IOException {
     return send(request, client.io()::send);
   }
 
-  private ByteString sendReadOnly(ByteString request) throws IOException {
+  private ByteString sendReadOnly(Message request) throws IOException {
     return send(request, client.io()::sendReadOnly);
   }
 
-  private CompletableFuture<ByteString> sendAsync(ByteString request) {
+  private CompletableFuture<ByteString> sendAsync(Message request) {
     return sendAsync(request, client.async()::send);
   }
 
-  private CompletableFuture<ByteString> sendReadOnlyAsync(ByteString request) {
+  private CompletableFuture<ByteString> sendReadOnlyAsync(Message request) {
     return sendAsync(request, client.async()::sendReadOnly);
   }
 
@@ -135,7 +134,7 @@ public class FileStoreClient implements Closeable {
   }
 
   private static <OUTPUT, THROWABLE extends Throwable> OUTPUT readImpl(
-      CheckedFunction<ByteString, OUTPUT, THROWABLE> sendReadOnlyFunction,
+      CheckedFunction<Message, OUTPUT, THROWABLE> sendReadOnlyFunction,
       String path, long offset, long length) throws THROWABLE {
     final ReadRequestProto read = ReadRequestProto.newBuilder()
         .setPath(ProtoUtils.toByteString(path))
@@ -143,7 +142,31 @@ public class FileStoreClient implements Closeable {
         .setLength(length)
         .build();
 
-    return sendReadOnlyFunction.apply(read.toByteString());
+    return sendReadOnlyFunction.apply(Message.valueOf(read));
+  }
+
+  private CompletableFuture<ByteString> sendWatchAsync(Message request) {
+    return sendAsync(request, client.async()::sendReadOnlyUnordered);
+  }
+
+  /**
+   * Watch the path until it is created.
+   */
+  public CompletableFuture<ReadReplyProto> watchAsync(String path) {
+    return watchImpl(this::sendWatchAsync, path)
+        .thenApply(reply -> JavaUtils.supplyAndWrapAsCompletionException(
+            () -> ReadReplyProto.parseFrom(reply)));
+  }
+
+  private static <OUTPUT, THROWABLE extends Throwable> OUTPUT watchImpl(
+      CheckedFunction<Message, OUTPUT, THROWABLE> sendWatchFunction,
+      String path) throws THROWABLE {
+    final ReadRequestProto watch = ReadRequestProto.newBuilder()
+        .setPath(ProtoUtils.toByteString(path))
+        .setIsWatch(true)
+        .build();
+
+    return sendWatchFunction.apply(Message.valueOf(watch));
   }
 
   public long write(String path, long offset, boolean close, ByteBuffer buffer, boolean sync)
@@ -170,7 +193,7 @@ public class FileStoreClient implements Closeable {
   }
 
   private static <OUTPUT, THROWABLE extends Throwable> OUTPUT writeImpl(
-      CheckedFunction<ByteString, OUTPUT, THROWABLE> sendFunction,
+      CheckedFunction<Message, OUTPUT, THROWABLE> sendFunction,
       String path, long offset, boolean close, ByteBuffer data, boolean sync)
       throws THROWABLE {
     final WriteRequestHeaderProto.Builder header = WriteRequestHeaderProto.newBuilder()
@@ -185,16 +208,16 @@ public class FileStoreClient implements Closeable {
         .setData(ByteString.copyFrom(data));
 
     final FileStoreRequestProto request = FileStoreRequestProto.newBuilder().setWrite(write).build();
-    return sendFunction.apply(request.toByteString());
+    return sendFunction.apply(Message.valueOf(request));
   }
 
   private static <OUTPUT, THROWABLE extends Throwable> OUTPUT deleteImpl(
-      CheckedFunction<ByteString, OUTPUT, THROWABLE> sendFunction, String path)
+      CheckedFunction<Message, OUTPUT, THROWABLE> sendFunction, String path)
       throws THROWABLE {
     final DeleteRequestProto.Builder delete = DeleteRequestProto.newBuilder()
         .setPath(ProtoUtils.toByteString(path));
     final FileStoreRequestProto request = FileStoreRequestProto.newBuilder().setDelete(delete).build();
-    return sendFunction.apply(request.toByteString());
+    return sendFunction.apply(Message.valueOf(request));
   }
 
   public String delete(String path) throws IOException {

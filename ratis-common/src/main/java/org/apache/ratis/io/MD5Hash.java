@@ -18,8 +18,6 @@
 
 package org.apache.ratis.io;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -53,12 +51,11 @@ public class MD5Hash {
   }
 
   /** Constructs an MD5Hash with a specified value. */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public MD5Hash(byte[] digest) {
     if (digest.length != MD5_LEN) {
       throw new IllegalArgumentException("Wrong length: " + digest.length);
     }
-    this.digest = digest;
+    this.digest = digest.clone();
   }
 
   public void readFields(DataInput in) throws IOException {
@@ -82,9 +79,8 @@ public class MD5Hash {
   }
 
   /** Returns the digest bytes. */
-  @SuppressFBWarnings("EI_EXPOSE_REP")
   public byte[] getDigest() {
-    return digest;
+    return digest.clone();
   }
 
   /** Construct a hash value for a byte array. */

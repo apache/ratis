@@ -21,6 +21,8 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
+import org.apache.ratis.proto.RaftProtos.ReadIndexRequestProto;
+import org.apache.ratis.proto.RaftProtos.ReadIndexReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
@@ -38,6 +40,7 @@ import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.ServerFactory;
+import org.apache.ratis.server.storage.RaftStorage.StartupOption;
 import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JvmPauseMonitor;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -46,8 +49,10 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.Closeable;
@@ -71,7 +76,7 @@ import java.util.stream.Stream;
 class RaftServerProxy implements RaftServer {
   /**
    * A map: {@link RaftGroupId} -> {@link RaftServerImpl} futures.
-   *
+   * <p>
    * The map is synchronized for mutations and the bulk {@link #getGroupIds()}/{@link #getAll()} methods
    * but the (non-bulk) {@link #get(RaftGroupId)} and {@link #containsGroup(RaftGroupId)} methods are not.
    * The thread safety and atomicity guarantees for the non-bulk methods are provided by {@link ConcurrentMap}.
@@ -80,7 +85,7 @@ class RaftServerProxy implements RaftServer {
     private final ConcurrentMap<RaftGroupId, CompletableFuture<RaftServerImpl>> map = new ConcurrentHashMap<>();
     private boolean isClosed = false;
 
-    synchronized CompletableFuture<RaftServerImpl> addNew(RaftGroup group) {
+    synchronized CompletableFuture<RaftServerImpl> addNew(RaftGroup group, StartupOption option) {
       if (isClosed) {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(
             getId() + ": Failed to add " + group + " since the server is already closed"));
@@ -90,7 +95,7 @@ class RaftServerProxy implements RaftServer {
             getId() + ": Failed to add " + group + " since the group already exists in the map."));
       }
       final RaftGroupId groupId = group.getGroupId();
-      final CompletableFuture<RaftServerImpl> newImpl = newRaftServerImpl(group);
+      final CompletableFuture<RaftServerImpl> newImpl = newRaftServerImpl(group, option);
       final CompletableFuture<RaftServerImpl> previous = map.put(groupId, newImpl);
       Preconditions.assertNull(previous, "previous");
       LOG.info("{}: addNew {} returns {}", getId(), group, toString(groupId, newImpl));
@@ -115,7 +120,9 @@ class RaftServerProxy implements RaftServer {
         return;
       }
       isClosed = true;
-      map.entrySet().parallelStream().forEach(entry -> close(entry.getKey(), entry.getValue()));
+      ConcurrentUtils.parallelForEachAsync(map.entrySet(),
+          entry -> close(entry.getKey(), entry.getValue()),
+          executor.get());
     }
 
     private void close(RaftGroupId groupId, CompletableFuture<RaftServerImpl> future) {
@@ -187,13 +194,14 @@ class RaftServerProxy implements RaftServer {
   private final DataStreamServerRpc dataStreamServerRpc;
 
   private final ImplMap impls = new ImplMap();
-  private final ExecutorService implExecutor = Executors.newSingleThreadExecutor();
-  private final ExecutorService executor;
+  private final MemoizedSupplier<ExecutorService> implExecutor;
+  private final MemoizedSupplier<ExecutorService> executor;
 
   private final JvmPauseMonitor pauseMonitor;
+  private final ThreadGroup threadGroup;
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
-      RaftProperties properties, Parameters parameters) {
+      RaftProperties properties, Parameters parameters, ThreadGroup threadGroup) {
     this.properties = properties;
     this.stateMachineRegistry = stateMachineRegistry;
 
@@ -207,28 +215,38 @@ class RaftServerProxy implements RaftServer {
 
     this.dataStreamServerRpc = new DataStreamServerImpl(this, parameters).getServerRpc();
 
-    this.executor = ConcurrentUtils.newThreadPoolWithMax(
+    this.implExecutor = MemoizedSupplier.valueOf(
+        () -> ConcurrentUtils.newSingleThreadExecutor(id + "-groupManagement"));
+    this.executor = MemoizedSupplier.valueOf(() -> ConcurrentUtils.newThreadPoolWithMax(
         RaftServerConfigKeys.ThreadPool.proxyCached(properties),
         RaftServerConfigKeys.ThreadPool.proxySize(properties),
-        id + "-impl");
+        id + "-impl"));
 
-    final TimeDuration rpcSlownessTimeout = RaftServerConfigKeys.Rpc.slownessTimeout(properties);
+    final TimeDuration sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
+    final TimeDuration closeThreshold = RaftServerConfigKeys.closeThreshold(properties);
     final TimeDuration leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
-    this.pauseMonitor = new JvmPauseMonitor(id,
-        extraSleep -> handleJvmPause(extraSleep, rpcSlownessTimeout, leaderStepDownWaitTime));
+    this.pauseMonitor = JvmPauseMonitor.newBuilder().setName(id)
+        .setSleepDeviationThreshold(sleepDeviationThreshold)
+        .setHandler(extraSleep -> handleJvmPause(extraSleep, closeThreshold, leaderStepDownWaitTime))
+        .build();
+    this.threadGroup = threadGroup == null ? new ThreadGroup(this.id.toString()) : threadGroup;
   }
 
   private void handleJvmPause(TimeDuration extraSleep, TimeDuration closeThreshold, TimeDuration stepDownThreshold)
       throws IOException {
     if (extraSleep.compareTo(closeThreshold) > 0) {
+      LOG.error("{}: JVM pause detected {} longer than the close-threshold {}, shutting down ...",
+          getId(), extraSleep.toString(TimeUnit.SECONDS, 3), closeThreshold.toString(TimeUnit.SECONDS, 3));
       close();
     } else if (extraSleep.compareTo(stepDownThreshold) > 0) {
+      LOG.warn("{}: JVM pause detected {} longer than the step-down-threshold {}",
+          getId(), extraSleep.toString(TimeUnit.SECONDS, 3), stepDownThreshold.toString(TimeUnit.SECONDS, 3));
       getImpls().forEach(RaftServerImpl::stepDownOnJvmPause);
     }
   }
 
   /** Check the storage dir and add groups*/
-  void initGroups(RaftGroup group) {
+  void initGroups(RaftGroup group, StartupOption option) {
     final Optional<RaftGroup> raftGroup = Optional.ofNullable(group);
     final RaftGroupId raftGroupId = raftGroup.map(RaftGroup::getGroupId).orElse(null);
     final Predicate<RaftGroupId> shouldAdd = gid -> gid != null && !gid.equals(raftGroupId);
@@ -238,8 +256,8 @@ class RaftServerProxy implements RaftServer {
             .map(Arrays::stream).orElse(Stream.empty())
             .filter(File::isDirectory)
             .forEach(sub -> initGroupDir(sub, shouldAdd)),
-        executor).join();
-    raftGroup.ifPresent(this::addGroup);
+        executor.get()).join();
+    raftGroup.ifPresent(g -> addGroup(g, option));
   }
 
   private void initGroupDir(File sub, Predicate<RaftGroupId> shouldAdd) {
@@ -253,7 +271,7 @@ class RaftServerProxy implements RaftServer {
             " ignoring it. ", getId(), sub.getAbsolutePath());
       }
       if (shouldAdd.test(groupId)) {
-        addGroup(RaftGroup.valueOf(groupId));
+        addGroup(RaftGroup.valueOf(groupId), StartupOption.RECOVER);
       }
     } catch (Exception e) {
       LOG.warn(getId() + ": Failed to initialize the group directory "
@@ -267,15 +285,15 @@ class RaftServerProxy implements RaftServer {
     getDataStreamServerRpc().addRaftPeers(others);
   }
 
-  private CompletableFuture<RaftServerImpl> newRaftServerImpl(RaftGroup group) {
+  private CompletableFuture<RaftServerImpl> newRaftServerImpl(RaftGroup group, StartupOption option) {
     return CompletableFuture.supplyAsync(() -> {
       try {
         addRaftPeers(group.getPeers());
-        return new RaftServerImpl(group, stateMachineRegistry.apply(group.getGroupId()), this);
+        return new RaftServerImpl(group, stateMachineRegistry.apply(group.getGroupId()), this, option);
       } catch(IOException e) {
         throw new CompletionException(getId() + ": Failed to initialize server for " + group, e);
       }
-    }, implExecutor);
+    }, implExecutor.get());
   }
 
   private static String getIdStringFrom(RaftServerRpc rpc) {
@@ -339,8 +357,8 @@ class RaftServerProxy implements RaftServer {
     return dataStreamServerRpc;
   }
 
-  private CompletableFuture<RaftServerImpl> addGroup(RaftGroup group) {
-    return impls.addNew(group);
+  private CompletableFuture<RaftServerImpl> addGroup(RaftGroup group, StartupOption option) {
+    return impls.addNew(group, option);
   }
 
   private CompletableFuture<RaftServerImpl> getImplFuture(RaftGroupId groupId) {
@@ -374,26 +392,27 @@ class RaftServerProxy implements RaftServer {
     return lifeCycle.getCurrentState();
   }
 
+  ThreadGroup getThreadGroup() {
+    return threadGroup;
+  }
+
   @Override
   public void start() throws IOException {
-    ConcurrentUtils.parallelForEachAsync(getImpls(), RaftServerImpl::start, executor).join();
+    lifeCycle.startAndTransition(this::startImpl, IOException.class);
+  }
 
-    lifeCycle.startAndTransition(() -> {
-      LOG.info("{}: start RPC server", getId());
-      getServerRpc().start();
-      getDataStreamServerRpc().start();
-    }, IOException.class);
+  private void startImpl() throws IOException {
+    ConcurrentUtils.parallelForEachAsync(getImpls(), RaftServerImpl::start, executor.get()).join();
+
+    LOG.info("{}: start RPC server", getId());
+    getServerRpc().start();
+    getDataStreamServerRpc().start();
+
     pauseMonitor.start();
   }
 
   @Override
   public void close() {
-    try {
-      ConcurrentUtils.shutdownAndWait(implExecutor);
-    } catch (Exception ignored) {
-      LOG.warn(getId() + ": Failed to shutdown implExecutor", ignored);
-    }
-
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: close", getId());
       impls.close();
@@ -409,20 +428,32 @@ class RaftServerProxy implements RaftServer {
       } catch (IOException ignored) {
         LOG.warn(getId() + ": Failed to close " + SupportedDataStreamType.NETTY + " server", ignored);
       }
+
+      try {
+        ConcurrentUtils.shutdownAndWait(implExecutor.get());
+      } catch (Exception ignored) {
+        LOG.warn(getId() + ": Failed to shutdown implExecutor", ignored);
+      }
+
+      try {
+        ConcurrentUtils.shutdownAndWait(executor.get());
+      } catch (Exception ignored) {
+        LOG.warn(getId() + ": Failed to shutdown executor", ignored);
+      }
     });
     pauseMonitor.stop();
-
-    try {
-      ConcurrentUtils.shutdownAndWait(executor);
-    } catch (Exception ignored) {
-      LOG.warn(getId() + ": Failed to shutdown executor", ignored);
-    }
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) {
-    return getImplFuture(request.getRaftGroupId())
-        .thenCompose(impl -> impl.executeSubmitClientRequestAsync(request));
+  public CompletableFuture<RaftClientReply> submitClientRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.retain();
+    try {
+      return getImplFuture(request.getRaftGroupId())
+          .thenCompose(impl -> impl.executeSubmitClientRequestAsync(requestRef));
+    } finally {
+      requestRef.release();
+    }
   }
 
   @Override
@@ -461,7 +492,7 @@ class RaftServerProxy implements RaftServer {
     }
     final GroupManagementRequest.Add add = request.getAdd();
     if (add != null) {
-      return groupAddAsync(request, add.getGroup());
+      return groupAddAsync(request, add.getGroup(), add.isFormat());
     }
     final GroupManagementRequest.Remove remove = request.getRemove();
     if (remove != null) {
@@ -472,18 +503,23 @@ class RaftServerProxy implements RaftServer {
         getId() + ": Request not supported " + request));
   }
 
-  private CompletableFuture<RaftClientReply> groupAddAsync(GroupManagementRequest request, RaftGroup newGroup) {
+  private CompletableFuture<RaftClientReply> groupAddAsync(
+      GroupManagementRequest request, RaftGroup newGroup, boolean format) {
     if (!request.getRaftGroupId().equals(newGroup.getGroupId())) {
       return JavaUtils.completeExceptionally(new GroupMismatchException(
           getId() + ": Request group id (" + request.getRaftGroupId() + ") does not match the new group " + newGroup));
     }
-    return impls.addNew(newGroup)
+    return impls.addNew(newGroup, format? StartupOption.FORMAT: StartupOption.RECOVER)
         .thenApplyAsync(newImpl -> {
           LOG.debug("{}: newImpl = {}", getId(), newImpl);
-          final boolean started = newImpl.start();
-          Preconditions.assertTrue(started, () -> getId()+ ": failed to start a new impl: " + newImpl);
+          try {
+            final boolean started = newImpl.start();
+            Preconditions.assertTrue(started, () -> getId()+ ": failed to start a new impl: " + newImpl);
+          } catch (IOException e) {
+            throw new CompletionException(e);
+          }
           return newImpl.newSuccessReply(request);
-        }, implExecutor)
+        }, implExecutor.get())
         .whenComplete((raftClientReply, throwable) -> {
           if (throwable != null) {
             if (!(throwable.getCause() instanceof AlreadyExistsException)) {
@@ -609,10 +645,23 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request) {
+  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
+      ReferenceCountedObject<AppendEntriesRequestProto> requestRef) {
+    AppendEntriesRequestProto request = requestRef.retain();
+    try {
+      final RaftGroupId groupId = ProtoUtils.toRaftGroupId(request.getServerRequest().getRaftGroupId());
+      return getImplFuture(groupId)
+          .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.appendEntriesAsync(requestRef)));
+    } finally {
+      requestRef.release();
+    }
+  }
+
+  @Override
+  public CompletableFuture<ReadIndexReplyProto> readIndexAsync(ReadIndexRequestProto request) throws IOException {
     final RaftGroupId groupId = ProtoUtils.toRaftGroupId(request.getServerRequest().getRaftGroupId());
     return getImplFuture(groupId)
-        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.appendEntriesAsync(request)));
+        .thenCompose(impl -> impl.executeSubmitServerRequestAsync(() -> impl.readIndexAsync(request)));
   }
 
   @Override

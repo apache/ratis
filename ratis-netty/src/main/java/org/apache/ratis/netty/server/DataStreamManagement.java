@@ -18,14 +18,17 @@
 
 package org.apache.ratis.netty.server;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.ratis.client.AsyncRpcApi;
-import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
+import org.apache.ratis.metrics.Timekeeper;
+import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
+import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics.RequestMetrics;
+import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics.RequestType;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
@@ -44,14 +47,20 @@ import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServer.Division;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
+import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
 import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
+import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.TimeoutExecutor;
+import org.apache.ratis.util.UncheckedAutoCloseable;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,12 +74,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DataStreamManagement {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamManagement.class);
@@ -78,30 +87,51 @@ public class DataStreamManagement {
   static class LocalStream {
     private final CompletableFuture<DataStream> streamFuture;
     private final AtomicReference<CompletableFuture<Long>> writeFuture;
+    private final RequestMetrics metrics;
 
-    LocalStream(CompletableFuture<DataStream> streamFuture) {
+    LocalStream(CompletableFuture<DataStream> streamFuture, RequestMetrics metrics) {
       this.streamFuture = streamFuture;
       this.writeFuture = new AtomicReference<>(streamFuture.thenApply(s -> 0L));
+      this.metrics = metrics;
     }
 
-    CompletableFuture<Long> write(ByteBuf buf, WriteOption[] options, Executor executor) {
+    CompletableFuture<Long> write(ByteBuf buf, Iterable<WriteOption> options,
+                                  Executor executor) {
+      final Timekeeper.Context context = metrics.start();
       return composeAsync(writeFuture, executor,
-          n -> streamFuture.thenCompose(stream -> writeToAsync(buf, options, stream, executor)));
+          n -> streamFuture.thenCompose(stream -> writeToAsync(buf, options, stream, executor)
+              .whenComplete((l, e) -> metrics.stop(context, e == null))));
+    }
+
+    void cleanUp() {
+      streamFuture.thenAccept(DataStream::cleanUp);
     }
   }
 
   static class RemoteStream {
-    private final DataStreamOutputRpc out;
+    private final DataStreamOutputImpl out;
     private final AtomicReference<CompletableFuture<DataStreamReply>> sendFuture
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
+    private final RequestMetrics metrics;
 
-    RemoteStream(DataStreamOutputRpc out) {
+    RemoteStream(DataStreamOutputImpl out, RequestMetrics metrics) {
+      this.metrics = metrics;
       this.out = out;
     }
 
+    static Iterable<WriteOption> addFlush(List<WriteOption> original) {
+      if (original.contains(StandardWriteOption.FLUSH)) {
+        return original;
+      }
+      return Stream.concat(Stream.of(StandardWriteOption.FLUSH), original.stream())
+          .collect(Collectors.toList());
+    }
+
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
+      final Timekeeper.Context context = metrics.start();
       return composeAsync(sendFuture, executor,
-          n -> out.writeAsync(request.slice().nioBuffer(), request.getWriteOptions()));
+          n -> out.writeAsync(request.slice().retain(), addFlush(request.getWriteOptionList()))
+              .whenComplete((l, e) -> metrics.stop(context, e == null)));
     }
   }
 
@@ -111,20 +141,22 @@ public class DataStreamManagement {
     private final LocalStream local;
     private final Set<RemoteStream> remotes;
     private final Division division;
-    @SuppressFBWarnings("NP_NULL_PARAM_DEREF")
     private final AtomicReference<CompletableFuture<Void>> previous
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     StreamInfo(RaftClientRequest request, boolean primary, CompletableFuture<DataStream> stream, Division division,
-        CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams)
+        CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams,
+        Function<RequestType, RequestMetrics> metricsConstructor)
         throws IOException {
       this.request = request;
       this.primary = primary;
-      this.local = new LocalStream(stream);
+      this.local = new LocalStream(stream, metricsConstructor.apply(RequestType.LOCAL_WRITE));
       this.division = division;
       final Set<RaftPeer> successors = getSuccessors(division.getId());
-      final Set<DataStreamOutputRpc> outs = getStreams.apply(request, successors);
-      this.remotes = outs.stream().map(RemoteStream::new).collect(Collectors.toSet());
+      final Set<DataStreamOutputImpl> outs = getStreams.apply(request, successors);
+      this.remotes = outs.stream()
+          .map(o -> new RemoteStream(o, metricsConstructor.apply(RequestType.REMOTE_WRITE)))
+          .collect(Collectors.toSet());
     }
 
     AtomicReference<CompletableFuture<Void>> getPrevious() {
@@ -180,39 +212,21 @@ public class DataStreamManagement {
     }
   }
 
-  static class StreamMap {
-    private final ConcurrentMap<ClientInvocationId, StreamInfo> map = new ConcurrentHashMap<>();
-
-    StreamInfo computeIfAbsent(ClientInvocationId key, Function<ClientInvocationId, StreamInfo> function) {
-      final StreamInfo info = map.computeIfAbsent(key, function);
-      LOG.debug("computeIfAbsent({}) returns {}", key, info);
-      return info;
-    }
-
-    StreamInfo get(ClientInvocationId key) {
-      final StreamInfo info = map.get(key);
-      LOG.debug("get({}) returns {}", key, info);
-      return info;
-    }
-
-    StreamInfo remove(ClientInvocationId key) {
-      final StreamInfo info = map.remove(key);
-      LOG.debug("remove({}) returns {}", key, info);
-      return info;
-    }
-  }
-
   private final RaftServer server;
   private final String name;
 
-  private final StreamMap streams = new StreamMap();
-  private final Executor requestExecutor;
-  private final Executor writeExecutor;
+  private final StreamMap<StreamInfo> streams = new StreamMap<>();
+  private final ChannelMap channels;
+  private final ExecutorService requestExecutor;
+  private final ExecutorService writeExecutor;
 
-  DataStreamManagement(RaftServer server) {
+  private final NettyServerStreamRpcMetrics nettyServerStreamRpcMetrics;
+
+  DataStreamManagement(RaftServer server, NettyServerStreamRpcMetrics metrics) {
     this.server = server;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
+    this.channels = new ChannelMap();
     final RaftProperties properties = server.getProperties();
     final boolean useCachedThreadPool = RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties);
     this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
@@ -221,29 +235,46 @@ public class DataStreamManagement {
     this.writeExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
           RaftServerConfigKeys.DataStream.asyncWriteThreadPoolSize(properties),
           name + "-write-");
+
+    this.nettyServerStreamRpcMetrics = metrics;
+  }
+
+  void shutdown() {
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, requestExecutor,
+        timeout -> LOG.warn("{}: requestExecutor shutdown timeout in {}", this, timeout));
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, writeExecutor,
+        timeout -> LOG.warn("{}: writeExecutor shutdown timeout in {}", this, timeout));
+  }
+
+  private CompletableFuture<DataStream> stream(RaftClientRequest request, StateMachine stateMachine) {
+    final RequestMetrics metrics = getMetrics().newRequestMetrics(RequestType.STATE_MACHINE_STREAM);
+    final Timekeeper.Context context = metrics.start();
+    return stateMachine.data().stream(request)
+        .whenComplete((r, e) -> metrics.stop(context, e == null));
   }
 
   private CompletableFuture<DataStream> computeDataStreamIfAbsent(RaftClientRequest request) throws IOException {
     final Division division = server.getDivision(request.getRaftGroupId());
     final ClientInvocationId invocationId = ClientInvocationId.valueOf(request);
-    final MemoizedSupplier<CompletableFuture<DataStream>> supplier = JavaUtils.memoize(
-        () -> division.getStateMachine().data().stream(request));
-    final CompletableFuture<DataStream> f = division.getDataStreamMap()
-        .computeIfAbsent(invocationId, key -> supplier.get());
-    if (!supplier.isInitialized()) {
+    final CompletableFuture<DataStream> created = new CompletableFuture<>();
+    final CompletableFuture<DataStream> returned = division.getDataStreamMap()
+        .computeIfAbsent(invocationId, key -> created);
+    if (returned != created) {
       throw new AlreadyExistsException("A DataStream already exists for " + invocationId);
     }
-    return f;
+    stream(request, division.getStateMachine()).whenComplete(JavaUtils.asBiConsumer(created));
+    return created;
   }
 
   private StreamInfo newStreamInfo(ByteBuf buf,
-      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
+      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams) {
     try {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
       final boolean isPrimary = server.getId().equals(request.getServerId());
       final Division division = server.getDivision(request.getRaftGroupId());
-      return new StreamInfo(request, isPrimary, computeDataStreamIfAbsent(request), division, getStreams);
+      return new StreamInfo(request, isPrimary, computeDataStreamIfAbsent(request), division, getStreams,
+          getMetrics()::newRequestMetrics);
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
@@ -251,23 +282,26 @@ public class DataStreamManagement {
 
   static <T> CompletableFuture<T> composeAsync(AtomicReference<CompletableFuture<T>> future, Executor executor,
       Function<T, CompletableFuture<T>> function) {
-    final CompletableFuture<T> composed = future.get().thenComposeAsync(function, executor);
-    future.set(composed);
-    return composed;
+    return future.updateAndGet(previous -> previous.thenComposeAsync(function, executor));
   }
 
-  static CompletableFuture<Long> writeToAsync(ByteBuf buf, WriteOption[] options, DataStream stream,
+  static CompletableFuture<Long> writeToAsync(ByteBuf buf,
+                                              Iterable<WriteOption> options,
+                                              DataStream stream,
       Executor defaultExecutor) {
     final Executor e = Optional.ofNullable(stream.getExecutor()).orElse(defaultExecutor);
     return CompletableFuture.supplyAsync(() -> writeTo(buf, options, stream), e);
   }
 
-  static long writeTo(ByteBuf buf, WriteOption[] options, DataStream stream) {
+  static long writeTo(ByteBuf buf, Iterable<WriteOption> options,
+                      DataStream stream) {
     final DataChannel channel = stream.getDataChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
-      try {
-        byteWritten += channel.write(buffer);
+      final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.wrap(
+          buffer, buf::retain, ignored -> buf.release());
+      try(UncheckedAutoCloseable ignore = wrapped.retainAndReleaseOnClose()) {
+        byteWritten += channel.write(wrapped);
       } catch (Throwable t) {
         throw new CompletionException(t);
       }
@@ -296,14 +330,12 @@ public class DataStreamManagement {
   }
 
   static DataStreamReplyByteBuffer newDataStreamReplyByteBuffer(DataStreamRequestByteBuf request,
-      RaftClientReply reply, long bytesWritten, Collection<CommitInfoProto> commitInfos) {
+      RaftClientReply reply) {
     final ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
     return DataStreamReplyByteBuffer.newBuilder()
         .setDataStreamPacket(request)
         .setBuffer(buffer)
         .setSuccess(reply.isSuccess())
-        .setBytesWritten(bytesWritten)
-        .setCommitInfos(commitInfos)
         .build();
   }
 
@@ -319,25 +351,6 @@ public class DataStreamManagement {
       builder.setBytesWritten(bytesWritten);
     }
     ctx.writeAndFlush(builder.build());
-  }
-
-  private CompletableFuture<RaftClientReply> startTransaction(StreamInfo info, DataStreamRequestByteBuf request,
-      long bytesWritten, ChannelHandlerContext ctx) {
-    try {
-      AsyncRpcApi asyncRpcApi = (AsyncRpcApi) (server.getDivision(info.getRequest()
-          .getRaftGroupId())
-          .getRaftClient()
-          .async());
-      return asyncRpcApi.sendForward(info.request).whenCompleteAsync((reply, e) -> {
-        if (e != null) {
-          replyDataStreamException(server, e, info.getRequest(), request, ctx);
-        } else {
-          ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply, bytesWritten, info.getCommitInfos()));
-        }
-      }, requestExecutor);
-    } catch (IOException e) {
-      throw new CompletionException(e);
-    }
   }
 
   static void replyDataStreamException(RaftServer server, Throwable cause, RaftClientRequest raftClientRequest,
@@ -363,22 +376,39 @@ public class DataStreamManagement {
       ChannelHandlerContext ctx) {
     LOG.warn("Failed to process {}",  request, throwable);
     try {
-      ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply, 0, null));
+      ctx.writeAndFlush(newDataStreamReplyByteBuffer(request, reply));
     } catch (Throwable t) {
       LOG.warn("Failed to sendDataStreamException {} for {}", throwable, request, t);
+    } finally {
+      request.release();
     }
   }
 
+  void cleanUp(Set<ClientInvocationId> ids) {
+    for (ClientInvocationId clientInvocationId : ids) {
+      Optional.ofNullable(streams.remove(clientInvocationId))
+          .map(StreamInfo::getLocal)
+          .ifPresent(LocalStream::cleanUp);
+    }
+  }
+
+  void cleanUpOnChannelInactive(ChannelId channelId, TimeDuration channelInactiveGracePeriod) {
+    // Delayed memory garbage cleanup
+    Optional.ofNullable(channels.remove(channelId)).ifPresent(ids -> {
+      LOG.info("Channel {} is inactive, cleanup clientInvocationIds={}", channelId, ids);
+      TimeoutExecutor.getInstance().onTimeout(channelInactiveGracePeriod, () -> cleanUp(ids),
+          LOG, () -> "Timeout check failed, clientInvocationIds=" + ids);
+    });
+  }
+
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
-      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
+      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
-    final ByteBuf buf = request.slice();
     try {
-      readImpl(request, ctx, buf, getStreams);
+      readImpl(request, ctx, getStreams);
     } catch (Throwable t) {
-      buf.release();
+      replyDataStreamException(t, request, ctx);
       removeDataStream(ClientInvocationId.valueOf(request.getClientId(), request.getStreamId()), null);
-      throw t;
     }
   }
 
@@ -389,21 +419,29 @@ public class DataStreamManagement {
     }
     if (info != null) {
       info.getDivision().getDataStreamMap().remove(invocationId);
+      info.getLocal().cleanUp();
     }
   }
 
-  private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx, ByteBuf buf,
-      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputRpc>, IOException> getStreams) {
-    boolean close = WriteOption.containsOption(request.getWriteOptions(), StandardWriteOption.CLOSE);
+  private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
+      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams) {
+    final boolean close = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
     ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
+
+    // add to ChannelMap
+    final ChannelId channelId = ctx.channel().id();
+    channels.add(channelId, key);
+
     final StreamInfo info;
     if (request.getType() == Type.STREAM_HEADER) {
-      final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(() -> newStreamInfo(buf, getStreams));
+      final MemoizedSupplier<StreamInfo> supplier = JavaUtils.memoize(
+          () -> newStreamInfo(request.slice(), getStreams));
       info = streams.computeIfAbsent(key, id -> supplier.get());
       if (!supplier.isInitialized()) {
         throw new IllegalStateException("Failed to create a new stream for " + request
             + " since a stream already exists Key: " + key + " StreamInfo:" + info);
       }
+      getMetrics().onRequestCreate(RequestType.HEADER);
     } else if (close) {
       info = Optional.ofNullable(streams.remove(key)).orElseThrow(
           () -> new IllegalStateException("Failed to remove StreamInfo for " + request));
@@ -418,7 +456,7 @@ public class DataStreamManagement {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
-      localWrite = info.getLocal().write(buf, request.getWriteOptions(), writeExecutor);
+      localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
@@ -427,15 +465,9 @@ public class DataStreamManagement {
     composeAsync(info.getPrevious(), requestExecutor, n -> JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           if (request.getType() == Type.STREAM_HEADER
-              || (request.getType() == Type.STREAM_DATA && !close)) {
+              || request.getType() == Type.STREAM_DATA
+              || close) {
             sendReply(remoteWrites, request, bytesWritten, info.getCommitInfos(), ctx);
-          } else if (close) {
-            if (info.isPrimary()) {
-              // after all server close stream, primary server start transaction
-              startTransaction(info, request, bytesWritten, ctx);
-            } else {
-              sendReply(remoteWrites, request, bytesWritten, info.getCommitInfos(), ctx);
-            }
           } else {
             throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
           }
@@ -443,11 +475,12 @@ public class DataStreamManagement {
         }, requestExecutor)).whenComplete((v, exception) -> {
       try {
         if (exception != null) {
-          removeDataStream(key, info);
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
+          removeDataStream(key, info);
         }
       } finally {
-        buf.release();
+        request.release();
+        channels.remove(channelId, key);
       }
     });
   }
@@ -477,6 +510,10 @@ public class DataStreamManagement {
       }
     }
     return true;
+  }
+
+  NettyServerStreamRpcMetrics getMetrics() {
+    return nettyServerStreamRpcMetrics;
   }
 
   @Override

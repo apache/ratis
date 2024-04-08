@@ -17,7 +17,7 @@
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>2.3.0-SNAPSHOT</version>
+    <version>3.1.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>ratis-assembly</artifactId>
@@ -115,7 +115,9 @@
           <attach>true</attach>
         </configuration>
       </plugin>
+
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
           <!--Else will use ratis-assembly as final name.-->
@@ -123,14 +125,42 @@
           <skipAssembly>false</skipAssembly>
           <appendAssemblyId>true</appendAssemblyId>
           <tarLongFileMode>gnu</tarLongFileMode>
-          <descriptors>
-            <descriptor>src/main/assembly/src.xml</descriptor>
-            <descriptor>src/main/assembly/bin.xml</descriptor>
-            <descriptor>src/main/assembly/examples-bin.xml</descriptor>
-            <descriptor>src/main/assembly/shell-bin.xml</descriptor>
-          </descriptors>
         </configuration>
+        <executions>
+          <execution>
+            <id>src</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <descriptors>
+                <descriptor>src/main/assembly/src.xml</descriptor>
+              </descriptors>
+              <finalName>apache-ratis-${project.version}-src</finalName>
+              <appendAssemblyId>false</appendAssemblyId>
+            </configuration>
+          </execution>
+          <execution>
+            <id>default-cli</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <descriptors>
+                <descriptor>src/main/assembly/examples-bin.xml</descriptor>
+                <descriptor>src/main/assembly/shell-bin.xml</descriptor>
+                <descriptor>src/main/assembly/bin.xml</descriptor>
+                <descriptor>src/main/assembly/bin-pkg.xml</descriptor>
+              </descriptors>
+              <finalName>apache-ratis-${project.version}-bin</finalName>
+              <appendAssemblyId>false</appendAssemblyId>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
@@ -262,7 +292,11 @@
 
     <dependency>
       <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-metrics</artifactId>
+      <artifactId>ratis-metrics-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-metrics-default</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ratis</groupId>

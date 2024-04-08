@@ -80,9 +80,19 @@ public class RetryCacheTestUtil {
     final RaftServerImpl server = mock(RaftServerImpl.class);
     when(server.getRetryCache()).thenReturn((RetryCacheImpl) retryCache);
     when(server.getMemberId()).thenReturn(memberId);
+
+    final TransactionManager transactionManager = new TransactionManager(memberId.getPeerId());
+    when(server.getTransactionManager()).thenReturn(transactionManager);
     doCallRealMethod().when(server).notifyTruncatedLogEntry(any(LogEntryProto.class));
-    return new SegmentedRaftLog(memberId, server, null,
-        server::notifyTruncatedLogEntry, server::submitUpdateCommitEvent,
-        storage, () -> -1, properties);
+
+    return SegmentedRaftLog.newBuilder()
+        .setMemberId(memberId)
+        .setServer(server)
+        .setNotifyTruncatedLogEntry(server::notifyTruncatedLogEntry)
+        .setGetTransactionContext(server::getTransactionContext)
+        .setSubmitUpdateCommitEvent(server::submitUpdateCommitEvent)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build();
   }
 }

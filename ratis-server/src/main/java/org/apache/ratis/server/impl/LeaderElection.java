@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.protocol.RaftPeer;
@@ -58,20 +59,18 @@ import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
-import com.codahale.metrics.Timer;
-
 /**
  * For a candidate to start an election for becoming the leader.
  * There are two phases: Pre-Vote and Election.
- *
+ * <p>
  * In Pre-Vote, the candidate does not change its term and try to learn
  * if a majority of the cluster would be willing to grant the candidate their votes
  * (if the candidate’s log is sufficiently up-to-date,
  * and the voters have not received heartbeats from a valid leader
  * for at least a baseline election timeout).
- *
+ * <p>
  * Once the Pre-Vote has passed, the candidate increments its term and starts a real Election.
- *
+ * <p>
  * See
  * Ongaro, D. Consensus: Bridging Theory and Practice. PhD thesis, Stanford University, 2014.
  * Available at https://github.com/ongardie/dissertation
@@ -105,7 +104,7 @@ class LeaderElection implements Runnable {
     ELECTION
   }
 
-  enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN, NOT_IN_CONF}
+  enum Result {PASSED, SINGLE_MODE_PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN, NOT_IN_CONF}
 
   private static class ResultAndTerm {
     private final Result result;
@@ -138,7 +137,8 @@ class LeaderElection implements Runnable {
 
     Executor(Object name, int size) {
       Preconditions.assertTrue(size > 0);
-      executor = Executors.newFixedThreadPool(size, r -> new Daemon(r, name + "-" + count.incrementAndGet()));
+      executor = Executors.newFixedThreadPool(size, r ->
+          Daemon.newBuilder().setName(name + "-" + count.incrementAndGet()).setRunnable(r).build());
       service = new ExecutorCompletionService<>(executor);
     }
 
@@ -186,15 +186,23 @@ class LeaderElection implements Runnable {
 
   private final RaftServerImpl server;
   private final boolean skipPreVote;
+  private final ConfAndTerm round0;
 
-  LeaderElection(RaftServerImpl server, boolean skipPreVote) {
+  LeaderElection(RaftServerImpl server, boolean force) {
     this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass()) + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
-    this.daemon = new Daemon(this);
+    this.daemon = Daemon.newBuilder().setName(name).setRunnable(this)
+        .setThreadGroup(server.getThreadGroup()).build();
     this.server = server;
-    this.skipPreVote = skipPreVote ||
+    this.skipPreVote = force ||
         !RaftServerConfigKeys.LeaderElection.preVote(
             server.getRaftServer().getProperties());
+    try {
+      // increase term of the candidate in advance if it's forced to election
+      this.round0 = force ? server.getState().initElection(Phase.ELECTION) : null;
+    } catch (IOException e) {
+      throw new IllegalStateException(name + ": Failed to initialize election", e);
+    }
   }
 
   void start() {
@@ -232,22 +240,24 @@ class LeaderElection implements Runnable {
       return;
     }
 
-    final Timer.Context electionContext = server.getLeaderElectionMetrics().getLeaderElectionTimer().time();
-    try {
-      if (skipPreVote || askForVotes(Phase.PRE_VOTE)) {
-        if (askForVotes(Phase.ELECTION)) {
-          server.changeToLeader();
+    try (AutoCloseable ignored = Timekeeper.start(server.getLeaderElectionMetrics().getLeaderElectionTimer())) {
+      for (int round = 0; shouldRun(); round++) {
+        if (skipPreVote || askForVotes(Phase.PRE_VOTE, round)) {
+          if (askForVotes(Phase.ELECTION, round)) {
+            server.changeToLeader();
+          }
         }
       }
     } catch(Exception e) {
+      if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+      }
       final LifeCycle.State state = lifeCycle.getCurrentState();
       if (state.isClosingOrClosed()) {
-        LOG.info("{}: {} is safely ignored since this is already {}",
-            this, JavaUtils.getClassSimpleName(e.getClass()), state, e);
+        LOG.info(this + ": since this is already " + state + ", safely ignore " + e);
       } else {
         if (!server.getInfo().isAlive()) {
-          LOG.info("{}: {} is safely ignored since the server is not alive: {}",
-              this, JavaUtils.getClassSimpleName(e.getClass()), server, e);
+          LOG.info(this + ": since the server is not alive, safely ignore " + e);
         } else {
           LOG.error("{}: Failed, state={}", this, state, e);
         }
@@ -255,7 +265,6 @@ class LeaderElection implements Runnable {
       }
     } finally {
       // Update leader election completion metric(s).
-      electionContext.stop();
       server.getLeaderElectionMetrics().onNewLeaderElectionCompletion();
       lifeCycle.checkStateAndClose(() -> {});
     }
@@ -294,47 +303,49 @@ class LeaderElection implements Runnable {
   }
 
   /** Send requestVote rpc to all other peers for the given phase. */
-  private boolean askForVotes(Phase phase) throws InterruptedException, IOException {
-    for(int round = 0; shouldRun(); round++) {
-      final long electionTerm;
-      final RaftConfigurationImpl conf;
-      synchronized (server) {
-        if (!shouldRun()) {
-          return false;
-        }
-        final ConfAndTerm confAndTerm = server.getState().initElection(phase);
-        electionTerm = confAndTerm.getTerm();
-        conf = confAndTerm.getConf();
+  private boolean askForVotes(Phase phase, int round) throws InterruptedException, IOException {
+    final long electionTerm;
+    final RaftConfigurationImpl conf;
+    synchronized (server) {
+      if (!shouldRun()) {
+        return false;
+      }
+      // If round0 is non-null, we have already called initElection in the constructor,
+      // reuse round0 to avoid initElection again for the first round
+      final ConfAndTerm confAndTerm = (round == 0 && round0 != null) ?
+          round0 : server.getState().initElection(phase);
+      electionTerm = confAndTerm.getTerm();
+      conf = confAndTerm.getConf();
+    }
+
+    LOG.info("{} {} round {}: submit vote requests at term {} for {}", this, phase, round, electionTerm, conf);
+    final ResultAndTerm r = submitRequestAndWaitResult(phase, conf, electionTerm);
+    LOG.info("{} {} round {}: result {}", this, phase, round, r);
+
+    synchronized (server) {
+      if (!shouldRun(electionTerm)) {
+        return false; // term already passed or this should not run anymore.
       }
 
-      LOG.info("{} {} round {}: submit vote requests at term {} for {}", this, phase, round, electionTerm, conf);
-      final ResultAndTerm r = submitRequestAndWaitResult(phase, conf, electionTerm);
-      LOG.info("{} {} round {}: result {}", this, phase, round, r);
-
-      synchronized (server) {
-        if (!shouldRun(electionTerm)) {
-          return false; // term already passed or this should not run anymore.
-        }
-
-        switch (r.getResult()) {
-          case PASSED:
-            return true;
-          case NOT_IN_CONF:
-          case SHUTDOWN:
-            server.getRaftServer().close();
-            return false;
-          case TIMEOUT:
-            continue; // should retry
-          case REJECTED:
-          case DISCOVERED_A_NEW_TERM:
-            final long term = r.maxTerm(server.getState().getCurrentTerm());
-            server.changeToFollowerAndPersistMetadata(term, r);
-            return false;
-          default: throw new IllegalArgumentException("Unable to process result " + r.result);
-        }
+      switch (r.getResult()) {
+        case PASSED:
+        case SINGLE_MODE_PASSED:
+          return true;
+        case NOT_IN_CONF:
+        case SHUTDOWN:
+          server.getRaftServer().close();
+          server.getStateMachine().event().notifyServerShutdown(server.getRoleInfoProto());
+          return false;
+        case TIMEOUT:
+          return false; // should retry
+        case REJECTED:
+        case DISCOVERED_A_NEW_TERM:
+          final long term = r.maxTerm(server.getState().getCurrentTerm());
+          server.changeToFollowerAndPersistMetadata(term, false, r);
+          return false;
+        default: throw new IllegalArgumentException("Unable to process result " + r.result);
       }
     }
-    return false;
   }
 
   private int submitRequests(Phase phase, long electionTerm, TermIndex lastEntry,
@@ -367,6 +378,7 @@ class LeaderElection implements Runnable {
     Collection<RaftPeerId> votedPeers = new ArrayList<>();
     Collection<RaftPeerId> rejectedPeers = new ArrayList<>();
     Set<RaftPeerId> higherPriorityPeers = getHigherPriorityPeers(conf);
+    final boolean singleMode = conf.isSingleMode(server.getId());
 
     while (waitForNum > 0 && shouldRun(electionTerm)) {
       final TimeDuration waitTime = timeout.elapsedTime().apply(n -> -n);
@@ -375,6 +387,9 @@ class LeaderElection implements Runnable {
           // if some higher priority peer did not response when timeout, but candidate get majority,
           // candidate pass vote
           return logAndReturn(phase, Result.PASSED, responses, exceptions);
+        } else if (singleMode) {
+          // if candidate is in single mode, candidate pass vote.
+          return logAndReturn(phase, Result.SINGLE_MODE_PASSED, responses, exceptions);
         } else {
           return logAndReturn(phase, Result.TIMEOUT, responses, exceptions);
         }
@@ -406,7 +421,7 @@ class LeaderElection implements Runnable {
         }
 
         // If any peer with higher priority rejects vote, candidate can not pass vote
-        if (!r.getServerReply().getSuccess() && higherPriorityPeers.contains(replierId)) {
+        if (!r.getServerReply().getSuccess() && higherPriorityPeers.contains(replierId) && !singleMode) {
           return logAndReturn(phase, Result.REJECTED, responses, exceptions);
         }
 
@@ -417,7 +432,7 @@ class LeaderElection implements Runnable {
         if (r.getServerReply().getSuccess()) {
           votedPeers.add(replierId);
           // If majority and all peers with higher priority have voted, candidate pass vote
-          if (higherPriorityPeers.size() == 0 && conf.hasMajority(votedPeers, server.getId())) {
+          if (higherPriorityPeers.isEmpty() && conf.hasMajority(votedPeers, server.getId())) {
             return logAndReturn(phase, Result.PASSED, responses, exceptions);
           }
         } else {
@@ -435,6 +450,8 @@ class LeaderElection implements Runnable {
     // received all the responses
     if (conf.hasMajority(votedPeers, server.getId())) {
       return logAndReturn(phase, Result.PASSED, responses, exceptions);
+    } else if (singleMode) {
+      return logAndReturn(phase, Result.SINGLE_MODE_PASSED, responses, exceptions);
     } else {
       return logAndReturn(phase, Result.REJECTED, responses, exceptions);
     }

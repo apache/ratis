@@ -17,61 +17,71 @@
  */
 package org.apache.ratis.server.storage;
 
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
+import org.apache.ratis.util.AtomicFileOutputStream;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.nio.file.Files;
 import java.util.Optional;
 
 /** The storage of a {@link org.apache.ratis.server.RaftServer}. */
 public class RaftStorageImpl implements RaftStorage {
-
-  public enum StartupOption {
-    /** Format the storage. */
-    FORMAT
-  }
-
-  // TODO support multiple storage directories
   private final RaftStorageDirectoryImpl storageDir;
-  private final StorageState state;
+  private final StartupOption startupOption;
   private final CorruptionPolicy logCorruptionPolicy;
-  private volatile RaftStorageMetadataFileImpl metaFile;
+  private volatile StorageState state = StorageState.UNINITIALIZED;
+  private final MetaFile metaFile = new MetaFile();
 
-  public RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy,
-      long storageFeeSpaceMin) throws IOException {
-    this(dir, logCorruptionPolicy, null, storageFeeSpaceMin);
+  RaftStorageImpl(File dir, SizeInBytes freeSpaceMin, StartupOption option, CorruptionPolicy logCorruptionPolicy) {
+    LOG.debug("newRaftStorage: {}, freeSpaceMin={}, option={}, logCorruptionPolicy={}",
+        dir, freeSpaceMin, option, logCorruptionPolicy);
+    this.storageDir = new RaftStorageDirectoryImpl(dir, freeSpaceMin);
+    this.logCorruptionPolicy = Optional.ofNullable(logCorruptionPolicy).orElseGet(CorruptionPolicy::getDefault);
+    this.startupOption = option;
   }
 
-  RaftStorageImpl(File dir, CorruptionPolicy logCorruptionPolicy, StartupOption option,
-      long storageFeeSpaceMin) throws IOException {
-    this.storageDir = new RaftStorageDirectoryImpl(dir, storageFeeSpaceMin);
-    if (option == StartupOption.FORMAT) {
-      if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
-        throw new IOException("Cannot format " + storageDir);
+  @Override
+  public void initialize() throws IOException {
+    try {
+      if (startupOption == StartupOption.FORMAT) {
+        if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
+          throw new IOException("Cannot format " + storageDir);
+        }
+        storageDir.lock();
+        format();
+        state = storageDir.analyzeStorage(false);
+      } else {
+        // metaFile is initialized here
+        state = analyzeAndRecoverStorage(true);
       }
-      storageDir.lock();
-      format();
-      state = storageDir.analyzeStorage(false);
-      Preconditions.assertTrue(state == StorageState.NORMAL);
-    } else {
-      state = analyzeAndRecoverStorage(true); // metaFile is initialized here
-      if (state != StorageState.NORMAL) {
-        storageDir.unlock();
-        throw new IOException("Cannot load " + storageDir
-            + ". Its state: " + state);
-      }
+    } catch (Throwable t) {
+      unlockOnFailure(storageDir);
+      throw t;
     }
-    this.logCorruptionPolicy = Optional.ofNullable(logCorruptionPolicy).orElseGet(CorruptionPolicy::getDefault);
+
+    if (state != StorageState.NORMAL) {
+      unlockOnFailure(storageDir);
+      throw new IOException("Failed to load " + storageDir + ": " + state);
+    }
+  }
+
+  static void unlockOnFailure(RaftStorageDirectoryImpl dir) {
+    try {
+      dir.unlock();
+    } catch (Throwable t) {
+      LOG.warn("Failed to unlock " + dir, t);
+    }
   }
 
   StorageState getState() {
@@ -84,13 +94,12 @@ public class RaftStorageImpl implements RaftStorage {
 
   private void format() throws IOException {
     storageDir.clearDirectory();
-    metaFile = new RaftStorageMetadataFileImpl(storageDir.getMetaFile());
-    metaFile.persist(RaftStorageMetadata.getDefault());
-    LOG.info("Storage directory " + storageDir.getRoot() + " has been successfully formatted.");
+    metaFile.set(storageDir.getMetaFile()).persist(RaftStorageMetadata.getDefault());
+    LOG.info("Storage directory {} has been successfully formatted.", storageDir.getRoot());
   }
 
   private void cleanMetaTmpFile() throws IOException {
-    Files.deleteIfExists(storageDir.getMetaTmpFile().toPath());
+    FileUtils.deleteIfExists(storageDir.getMetaTmpFile());
   }
 
   private StorageState analyzeAndRecoverStorage(boolean toLock) throws IOException {
@@ -105,8 +114,7 @@ public class RaftStorageImpl implements RaftStorage {
       if (!f.exists()) {
         throw new FileNotFoundException("Metadata file " + f + " does not exists.");
       }
-      metaFile = new RaftStorageMetadataFileImpl(f);
-      final RaftStorageMetadata metadata = metaFile.getMetadata();
+      final RaftStorageMetadata metadata = metaFile.set(f).getMetadata();
       LOG.info("Read {} from {}", metadata, f);
       return StorageState.NORMAL;
     } else if (storageState == StorageState.NOT_FORMATTED &&
@@ -130,12 +138,12 @@ public class RaftStorageImpl implements RaftStorage {
 
   @Override
   public RaftStorageMetadataFile getMetadataFile() {
-    return metaFile;
+    return metaFile.get();
   }
 
   public void writeRaftConfiguration(LogEntryProto conf) {
     File confFile = storageDir.getMetaConfFile();
-    try (FileOutputStream fio = new FileOutputStream(confFile)) {
+    try (OutputStream fio = new AtomicFileOutputStream(confFile)) {
       conf.writeTo(fio);
     } catch (Exception e) {
       LOG.error("Failed writing configuration to file:" + confFile, e);
@@ -144,19 +152,35 @@ public class RaftStorageImpl implements RaftStorage {
 
   public RaftConfiguration readRaftConfiguration() {
     File confFile = storageDir.getMetaConfFile();
-    try (FileInputStream fio = new FileInputStream(confFile)) {
-      LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
-      return LogProtoUtils.toRaftConfiguration(confProto);
-    } catch (FileNotFoundException e) {
+    if (!confFile.exists()) {
       return null;
-    } catch (Exception e) {
-      LOG.error("Failed reading configuration from file:" + confFile, e);
-      return null;
+    } else {
+      try (InputStream fio = FileUtils.newInputStream(confFile)) {
+        LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
+        return LogProtoUtils.toRaftConfiguration(confProto);
+      } catch (Exception e) {
+        LOG.error("Failed reading configuration from file:" + confFile, e);
+        return null;
+      }
     }
   }
 
   @Override
   public String toString() {
     return JavaUtils.getClassSimpleName(getClass()) + ":" + getStorageDir();
+  }
+
+  static class MetaFile {
+    private final AtomicReference<RaftStorageMetadataFileImpl> ref = new AtomicReference<>();
+
+    RaftStorageMetadataFile get() {
+      return ref.get();
+    }
+
+    RaftStorageMetadataFile set(File file) {
+      final RaftStorageMetadataFileImpl impl = new RaftStorageMetadataFileImpl(file);
+      ref.set(impl);
+      return impl;
+    }
   }
 }

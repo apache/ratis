@@ -19,10 +19,10 @@
 package org.apache.ratis.server.impl;
 
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.*;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.codahale.metrics.Gauge;
-import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -30,9 +30,9 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
-import org.junit.After;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -40,10 +40,10 @@ import java.util.Map;
  * Test for metrics of retry cache.
  */
 public class TestRetryCacheMetrics {
-    private static RatisMetricRegistry ratisMetricRegistry;
+    private static RatisMetricRegistryImpl ratisMetricRegistry;
     private static RetryCacheImpl retryCache;
 
-    @BeforeClass
+    @BeforeAll
     public static void setUp() {
       RaftGroupId raftGroupId = RaftGroupId.randomId();
       RaftPeerId raftPeerId = RaftPeerId.valueOf("TestId");
@@ -52,11 +52,11 @@ public class TestRetryCacheMetrics {
       retryCache = new RetryCacheImpl(RaftServerConfigKeys.RetryCache.EXPIRY_TIME_DEFAULT, null);
 
       final RaftServerMetricsImpl raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
-          raftGroupMemberId, () -> null, retryCache::getStatistics);
-      ratisMetricRegistry = raftServerMetrics.getRegistry();
+          raftGroupMemberId, id -> 0L, retryCache::getStatistics);
+      ratisMetricRegistry = (RatisMetricRegistryImpl) raftServerMetrics.getRegistry();
     }
-    
-    @After
+
+    @AfterEach
     public void tearDown() {
         retryCache.close();
         checkEntryCount(0);
@@ -92,23 +92,23 @@ public class TestRetryCacheMetrics {
     }
 
     private static void checkHit(long count, double rate) {
-      Long hitCount = (Long) ratisMetricRegistry.getGauges((s, metric) ->
+      final long hitCount = (Long) ratisMetricRegistry.getGauges((s, metric) ->
           s.contains(RETRY_CACHE_HIT_COUNT_METRIC)).values().iterator().next().getValue();
-      assertEquals(hitCount.longValue(), count);
+      assertEquals(hitCount, count);
 
-      Double hitRate = (Double) ratisMetricRegistry.getGauges((s, metric) ->
+      final double hitRate = (Double) ratisMetricRegistry.getGauges((s, metric) ->
           s.contains(RETRY_CACHE_HIT_RATE_METRIC)).values().iterator().next().getValue();
-      assertEquals(hitRate.doubleValue(), rate, 0.0);
+      assertEquals(hitRate, rate, 0.0);
     }
 
     private static void checkMiss(long count, double rate) {
-      Long missCount = (Long) ratisMetricRegistry.getGauges((s, metric) ->
+      final long missCount = (Long) ratisMetricRegistry.getGauges((s, metric) ->
           s.contains(RETRY_CACHE_MISS_COUNT_METRIC)).values().iterator().next().getValue();
-      assertEquals(missCount.longValue(), count);
+      assertEquals(missCount, count);
 
-      Double missRate = (Double) ratisMetricRegistry.getGauges((s, metric) ->
+      final double missRate = (Double) ratisMetricRegistry.getGauges((s, metric) ->
           s.contains(RETRY_CACHE_MISS_RATE_METRIC)).values().iterator().next().getValue();
-      assertEquals(missRate.doubleValue(), rate, 0.0);
+      assertEquals(missRate, rate, 0.0);
     }
 
     private static void checkEntryCount(long expected) {

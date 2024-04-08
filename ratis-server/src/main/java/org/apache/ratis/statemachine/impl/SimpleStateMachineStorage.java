@@ -17,7 +17,8 @@
  */
 package org.apache.ratis.statemachine.impl;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import static org.apache.ratis.util.MD5FileUtil.MD5_SUFFIX;
+
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
@@ -38,10 +39,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * A StateMachineStorage that stores the snapshot in a single file.
@@ -55,17 +59,22 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   /** snapshot.term_index */
   public static final Pattern SNAPSHOT_REGEX =
       Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
+  public static final Pattern SNAPSHOT_MD5_REGEX =
+      Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)" + MD5_SUFFIX);
+  private static final DirectoryStream.Filter<Path> SNAPSHOT_MD5_FILTER
+      = entry -> Optional.ofNullable(entry.getFileName())
+      .map(Path::toString)
+      .map(SNAPSHOT_MD5_REGEX::matcher)
+      .filter(Matcher::matches)
+      .isPresent();
 
-  private RaftStorage raftStorage;
-  private File smDir = null;
-
-  private volatile SingleFileSnapshotInfo currentSnapshot = null;
+  private volatile File stateMachineDir = null;
+  private final AtomicReference<SingleFileSnapshotInfo> latestSnapshot = new AtomicReference<>();
 
   @Override
-  public void init(RaftStorage rStorage) throws IOException {
-    this.raftStorage = rStorage;
-    this.smDir = raftStorage.getStorageDir().getStateMachineDir();
-    loadLatestSnapshot();
+  public void init(RaftStorage storage) throws IOException {
+    this.stateMachineDir = storage.getStorageDir().getStateMachineDir();
+    getLatestSnapshot();
   }
 
   @Override
@@ -73,34 +82,64 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     // TODO
   }
 
-  @Override
-  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
-  public void cleanupOldSnapshots(SnapshotRetentionPolicy snapshotRetentionPolicy) throws IOException {
-    if (snapshotRetentionPolicy != null && snapshotRetentionPolicy.getNumSnapshotsRetained() > 0) {
-
-      List<SingleFileSnapshotInfo> allSnapshotFiles = new ArrayList<>();
-      try (DirectoryStream<Path> stream =
-               Files.newDirectoryStream(smDir.toPath())) {
-        for (Path path : stream) {
-          Matcher matcher = SNAPSHOT_REGEX.matcher(path.getFileName().toString());
+  static List<SingleFileSnapshotInfo> getSingleFileSnapshotInfos(Path dir) throws IOException {
+    final List<SingleFileSnapshotInfo> infos = new ArrayList<>();
+    try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+      for (Path path : stream) {
+        final Path filename = path.getFileName();
+        if (filename != null) {
+          final Matcher matcher = SNAPSHOT_REGEX.matcher(filename.toString());
           if (matcher.matches()) {
-            final long endIndex = Long.parseLong(matcher.group(2));
             final long term = Long.parseLong(matcher.group(1));
-            final FileInfo fileInfo = new FileInfo(path, null); //We don't need FileDigest here.
-            allSnapshotFiles.add(new SingleFileSnapshotInfo(fileInfo, term, endIndex));
+            final long index = Long.parseLong(matcher.group(2));
+            final FileInfo fileInfo = new FileInfo(path, null); //No FileDigest here.
+            infos.add(new SingleFileSnapshotInfo(fileInfo, term, index));
           }
         }
       }
+    }
+    return infos;
+  }
 
-      if (allSnapshotFiles.size() > snapshotRetentionPolicy.getNumSnapshotsRetained()) {
-        allSnapshotFiles.sort(new SnapshotFileComparator());
-        List<File> snapshotFilesToBeCleaned = allSnapshotFiles.subList(
-            snapshotRetentionPolicy.getNumSnapshotsRetained(), allSnapshotFiles.size()).stream()
-            .map(singleFileSnapshotInfo -> singleFileSnapshotInfo.getFile().getPath().toFile())
-            .collect(Collectors.toList());
-        for (File snapshotFile : snapshotFilesToBeCleaned) {
-          LOG.info("Deleting old snapshot at {}", snapshotFile.getAbsolutePath());
-          FileUtils.deleteFileQuietly(snapshotFile);
+  @Override
+  public void cleanupOldSnapshots(SnapshotRetentionPolicy snapshotRetentionPolicy) throws IOException {
+    if (stateMachineDir == null) {
+      return;
+    }
+
+    final int numSnapshotsRetained = Optional.ofNullable(snapshotRetentionPolicy)
+        .map(SnapshotRetentionPolicy::getNumSnapshotsRetained)
+        .orElse(SnapshotRetentionPolicy.DEFAULT_ALL_SNAPSHOTS_RETAINED);
+    if (numSnapshotsRetained <= 0) {
+      return;
+    }
+
+    final List<SingleFileSnapshotInfo> allSnapshotFiles = getSingleFileSnapshotInfos(stateMachineDir.toPath());
+
+    if (allSnapshotFiles.size() > numSnapshotsRetained) {
+      allSnapshotFiles.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
+      allSnapshotFiles.subList(numSnapshotsRetained, allSnapshotFiles.size())
+          .stream()
+          .map(SingleFileSnapshotInfo::getFile)
+          .map(FileInfo::getPath)
+          .forEach(snapshotPath -> {
+            LOG.info("Deleting old snapshot at {}", snapshotPath.toAbsolutePath());
+            FileUtils.deletePathQuietly(snapshotPath);
+          });
+      // clean up the md5 files if the corresponding snapshot file does not exist
+      try (DirectoryStream<Path> stream = Files.newDirectoryStream(stateMachineDir.toPath(),
+          SNAPSHOT_MD5_FILTER)) {
+        for (Path md5path : stream) {
+          Path md5FileNamePath = md5path.getFileName();
+          if (md5FileNamePath == null) {
+            continue;
+          }
+          final String md5FileName = md5FileNamePath.toString();
+          final File snapshotFile = new File(stateMachineDir,
+              md5FileName.substring(0, md5FileName.length() - MD5_SUFFIX.length()));
+          if (!snapshotFile.exists()) {
+            FileUtils.deletePathQuietly(md5path);
+          }
         }
       }
     }
@@ -128,40 +167,44 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   }
 
   public File getSnapshotFile(long term, long endIndex) {
-    return new File(smDir, getSnapshotFileName(term, endIndex));
+    final File dir = Objects.requireNonNull(stateMachineDir, "stateMachineDir == null");
+    return new File(dir, getSnapshotFileName(term, endIndex));
   }
 
   protected File getTmpSnapshotFile(long term, long endIndex) {
-    return new File(smDir, getTmpSnapshotFileName(term, endIndex));
+    final File dir = Objects.requireNonNull(stateMachineDir, "stateMachineDir == null");
+    return new File(dir, getTmpSnapshotFileName(term, endIndex));
   }
 
   protected File getCorruptSnapshotFile(long term, long endIndex) {
-    return new File(smDir, getCorruptSnapshotFileName(term, endIndex));
+    final File dir = Objects.requireNonNull(stateMachineDir, "stateMachineDir == null");
+    return new File(dir, getCorruptSnapshotFileName(term, endIndex));
   }
 
-  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH")
-  public SingleFileSnapshotInfo findLatestSnapshot() throws IOException {
-    SingleFileSnapshotInfo latest = null;
-    try (DirectoryStream<Path> stream =
-             Files.newDirectoryStream(smDir.toPath())) {
-      for (Path path : stream) {
-        Matcher matcher = SNAPSHOT_REGEX.matcher(path.getFileName().toString());
-        if (matcher.matches()) {
-          final long endIndex = Long.parseLong(matcher.group(2));
-          if (latest == null || endIndex > latest.getIndex()) {
-            final long term = Long.parseLong(matcher.group(1));
-            MD5Hash fileDigest = MD5FileUtil.readStoredMd5ForFile(path.toFile());
-            final FileInfo fileInfo = new FileInfo(path, fileDigest);
-            latest = new SingleFileSnapshotInfo(fileInfo, term, endIndex);
-          }
-        }
+  static SingleFileSnapshotInfo findLatestSnapshot(Path dir) throws IOException {
+    final Iterator<SingleFileSnapshotInfo> i = getSingleFileSnapshotInfos(dir).iterator();
+    if (!i.hasNext()) {
+      return null;
+    }
+
+    SingleFileSnapshotInfo latest = i.next();
+    for(; i.hasNext(); ) {
+      final SingleFileSnapshotInfo info = i.next();
+      if (info.getIndex() > latest.getIndex()) {
+        latest = info;
       }
     }
-    return latest;
+
+    // read md5
+    final Path path = latest.getFile().getPath();
+    final MD5Hash md5 = MD5FileUtil.readStoredMd5ForFile(path.toFile());
+    final FileInfo info = new FileInfo(path, md5);
+    return new SingleFileSnapshotInfo(info, latest.getTerm(), latest.getIndex());
   }
 
-  public void loadLatestSnapshot() throws IOException {
-    this.currentSnapshot = findLatestSnapshot();
+  public SingleFileSnapshotInfo updateLatestSnapshot(SingleFileSnapshotInfo info) {
+    return latestSnapshot.updateAndGet(
+        previous -> previous == null || info.getIndex() > previous.getIndex()? info: previous);
   }
 
   public static String getSnapshotFileName(long term, long endIndex) {
@@ -170,22 +213,23 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
 
   @Override
   public SingleFileSnapshotInfo getLatestSnapshot() {
-    return currentSnapshot;
+    final SingleFileSnapshotInfo s = latestSnapshot.get();
+    if (s != null) {
+      return s;
+    }
+    final File dir = stateMachineDir;
+    if (dir == null) {
+      return null;
+    }
+    try {
+      return updateLatestSnapshot(findLatestSnapshot(dir.toPath()));
+    } catch (IOException ignored) {
+      return null;
+    }
   }
 
   @VisibleForTesting
-  public File getSmDir() {
-    return smDir;
-  }
-}
-
-/**
- * Compare snapshot files based on transaction indexes.
- */
-@SuppressFBWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
-class SnapshotFileComparator implements Comparator<SingleFileSnapshotInfo> {
-  @Override
-  public int compare(SingleFileSnapshotInfo file1, SingleFileSnapshotInfo file2) {
-    return (int) (file2.getIndex() - file1.getIndex());
+  File getStateMachineDir() {
+    return stateMachineDir;
   }
 }

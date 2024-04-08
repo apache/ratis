@@ -26,13 +26,16 @@ import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -47,26 +50,29 @@ public class TestRaftWithGrpc
         SimpleStateMachine4Testing.class, StateMachine.class);
   }
 
-  @Override
-  @Test
-  public void testWithLoad() throws Exception {
+  public static Collection<Boolean[]> data() {
+    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+  }
+
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testWithLoad(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     super.testWithLoad();
     BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 
-  @Test
-  public void testRequestTimeout() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testRequestTimeout(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(NUM_SERVERS, cluster -> testRequestTimeout(false, cluster, LOG));
   }
 
-  @Test
-  public void testStateMachineMetrics() throws Exception {
-    runWithNewCluster(NUM_SERVERS, cluster ->
-        testStateMachineMetrics(false, cluster, LOG));
-  }
-
-  @Test
-  public void testUpdateViaHeartbeat() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testUpdateViaHeartbeat(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(NUM_SERVERS, this::runTestUpdateViaHeartbeat);
   }
 
@@ -83,7 +89,7 @@ public class TestRaftWithGrpc
           replyFuture = client.async().send(new RaftTestUtil.SimpleMessage("abc"));
       TimeDuration.valueOf(5 , TimeUnit.SECONDS).sleep();
       // replyFuture should not be completed until append request is unblocked.
-      Assert.assertFalse(replyFuture.isDone());
+      Assertions.assertFalse(replyFuture.isDone());
       // unblock append request.
       cluster.getServerAliveStream()
           .filter(impl -> !impl.getInfo().isLeader())
@@ -99,9 +105,9 @@ public class TestRaftWithGrpc
         final LogEntryHeader[] leaderEntries = leaderLog.getEntries(0, Long.MAX_VALUE);
 
         final RaftLog followerLog = raftServer.getRaftLog();
-        Assert.assertEquals(leaderNextIndex, followerLog.getNextIndex());
+        Assertions.assertEquals(leaderNextIndex, followerLog.getNextIndex());
         final LogEntryHeader[] serverEntries = followerLog.getEntries(0, Long.MAX_VALUE);
-        Assert.assertArrayEquals(serverEntries, leaderEntries);
+        Assertions.assertArrayEquals(serverEntries, leaderEntries);
       }, 10, HUNDRED_MILLIS, "assertRaftLog-" + raftServer.getId(), LOG)));
 
       // Wait for heartbeats from leader to be received by followers
@@ -111,8 +117,8 @@ public class TestRaftWithGrpc
         final long leaderNextIndex = leaderLog.getNextIndex();
         // FollowerInfo in the leader state should have updated next and match index.
         final long followerMatchIndex = logAppender.getFollower().getMatchIndex();
-        Assert.assertTrue(followerMatchIndex >= leaderNextIndex - 1);
-        Assert.assertEquals(followerMatchIndex + 1, logAppender.getFollower().getNextIndex());
+        Assertions.assertTrue(followerMatchIndex >= leaderNextIndex - 1);
+        Assertions.assertEquals(followerMatchIndex + 1, logAppender.getFollower().getNextIndex());
       }, 10, HUNDRED_MILLIS, "assertRaftLog-" + logAppender.getFollower(), LOG)));
     }
   }

@@ -23,7 +23,7 @@ import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
-import org.apache.ratis.netty.server.DataStreamRequestByteBuf;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
@@ -41,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -48,18 +49,29 @@ import java.util.function.Function;
 public interface NettyDataStreamUtils {
   Logger LOG = LoggerFactory.getLogger(NettyDataStreamUtils.class);
 
+  static DataStreamPacketHeaderProto.Option getOption(WriteOption option) {
+    if (option == StandardWriteOption.FLUSH) {
+      // FLUSH is a local option which should not be included in the header.
+      return null;
+    } else if (option instanceof StandardWriteOption) {
+      return DataStreamPacketHeaderProto.Option.forNumber(((StandardWriteOption) option).ordinal());
+    }
+    throw new IllegalArgumentException("Unexpected WriteOption " + option);
+  }
+
   static ByteBuffer getDataStreamRequestHeaderProtoByteBuffer(DataStreamRequest request) {
-    DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
-        .newBuilder()
+    final DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto.newBuilder()
         .setClientId(request.getClientId().toByteString())
         .setStreamId(request.getStreamId())
         .setStreamOffset(request.getStreamOffset())
         .setType(request.getType())
         .setDataLength(request.getDataLength());
-    for (WriteOption option : request.getWriteOptions()) {
-      b.addOptions(DataStreamPacketHeaderProto.Option.forNumber(
-          ((StandardWriteOption) option).ordinal()));
-    }
+
+    request.getWriteOptionList().stream()
+        .map(NettyDataStreamUtils::getOption)
+        .filter(Objects::nonNull)
+        .forEach(b::addOptions);
+
     return DataStreamRequestHeaderProto
         .newBuilder()
         .setPacketHeader(b)
@@ -105,7 +117,29 @@ public interface NettyDataStreamUtils {
   static void encodeDataStreamRequestByteBuffer(DataStreamRequestByteBuffer request, Consumer<Object> out,
       ByteBufAllocator allocator) {
     encodeDataStreamRequestHeader(request, out, allocator);
-    out.accept(Unpooled.wrappedBuffer(request.slice()));
+    encodeByteBuffer(request.slice(), out);
+  }
+
+  static void encodeByteBuffer(ByteBuffer buffer, Consumer<Object> out) {
+    if (buffer.remaining() == 0) {
+      out.accept(Unpooled.EMPTY_BUFFER); // to avoid EncoderException: must produce at least one message
+      return;
+    }
+    out.accept(Unpooled.wrappedBuffer(buffer));
+  }
+
+  static void encodeDataStreamRequestByteBuf(DataStreamRequestByteBuf request, Consumer<Object> out,
+      ByteBufAllocator allocator) {
+    encodeDataStreamRequestHeader(request, out, allocator);
+    encodeByteBuf(request.slice(), out);
+  }
+
+  static void encodeByteBuf(ByteBuf buffer, Consumer<Object> out) {
+    if (buffer.readableBytes() == 0) {
+      out.accept(Unpooled.EMPTY_BUFFER); // to avoid EncoderException: must produce at least one message
+      return;
+    }
+    out.accept(buffer);
   }
 
   static void encodeDataStreamRequestFilePositionCount(

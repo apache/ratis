@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.util;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,7 +42,7 @@ public class TestTaskQueue {
     for(int i = 0; i < 10; i++) {
       final int id = i;
       q.submit(() -> randomSleep(id), executor)
-          .thenAccept(j -> Assert.assertTrue("Queue is not empty after task " + id + " completed", q.isEmpty()))
+          .thenAccept(j -> Assertions.assertTrue(q.isEmpty(), "Queue is not empty after task " + id + " completed"))
           .get();
     }
   }

@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 /** An asynchronous output stream supporting zero buffer copying. */
@@ -37,15 +38,25 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
    * @param options - options specifying how the data was written
    * @return a future of the reply.
    */
-  CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, WriteOption... options);
+  default CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, WriteOption... options) {
+    return writeAsync(src, Arrays.asList(options));
+  }
+
+  /**
+   * Send out the data in the source buffer asynchronously.
+   *
+   * @param src the source buffer to be sent.
+   * @param options - options specifying how the data was written
+   * @return a future of the reply.
+   */
+  CompletableFuture<DataStreamReply> writeAsync(ByteBuffer src, Iterable<WriteOption> options);
 
 
   /**
-   * The same as writeAsync(src, 0, src.length(), sync_default).
-   * where sync_default depends on the underlying implementation.
+   * The same as writeAsync(src, 0, src.length(), options).
    */
-  default CompletableFuture<DataStreamReply> writeAsync(File src) {
-    return writeAsync(src, 0, src.length());
+  default CompletableFuture<DataStreamReply> writeAsync(File src, WriteOption... options) {
+    return writeAsync(src, 0, src.length(), options);
   }
 
   /**

@@ -18,8 +18,10 @@
 package org.apache.ratis;
 
 import static org.apache.ratis.conf.ConfUtils.get;
+import static org.apache.ratis.conf.ConfUtils.getBoolean;
 import static org.apache.ratis.conf.ConfUtils.printAll;
 import static org.apache.ratis.conf.ConfUtils.set;
+import static org.apache.ratis.conf.ConfUtils.setBoolean;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
@@ -60,6 +62,17 @@ public interface RaftConfigKeys {
 
     static void setType(RaftProperties properties, SupportedDataStreamType type) {
       set(properties::set, TYPE_KEY, type.name());
+    }
+
+    String SKIP_SEND_FORWARD_KEY = PREFIX + ".skip.send-forward";
+    boolean SKIP_SEND_FORWARD_DEFAULT = false;
+
+    static boolean skipSendForward(RaftProperties properties, Consumer<String> logger) {
+      return getBoolean(properties::getBoolean, SKIP_SEND_FORWARD_KEY, SKIP_SEND_FORWARD_DEFAULT, logger);
+    }
+
+    static void setSkipSendForward(RaftProperties properties, boolean skipSendForward) {
+      setBoolean(properties::setBoolean, SKIP_SEND_FORWARD_KEY, skipSendForward);
     }
   }
 

@@ -24,6 +24,7 @@ github:
     squash:  true
     merge:   false
     rebase:  false
+  autolink_jira: RATIS
 
 notifications:
   commits:      commits@ratis.apache.org

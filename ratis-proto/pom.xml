@@ -17,7 +17,7 @@
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>2.3.0-SNAPSHOT</version>
+    <version>3.1.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>ratis-proto</artifactId>
@@ -99,21 +99,6 @@
                 io.grpc:protoc-gen-grpc-java:${shaded.grpc.version}:exe:${os.detected.classifier}
               </pluginArtifact>
             </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <artifactId>maven-jar-plugin</artifactId>
-        <executions>
-          <execution>
-            <!-- Replace the "default" jar-plugin execution -->
-            <!-- This is a super-dirty hack to work around Yetus
-                 PreCommit not using the package lifecycle phase -->
-            <id>default-jar</id>
-            <phase>process-classes</phase>
-            <goals>
-              <goal>jar</goal>
-            </goals>
           </execution>
         </executions>
       </plugin>

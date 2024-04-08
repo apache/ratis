@@ -20,14 +20,19 @@ package org.apache.ratis.util;
 import org.apache.ratis.thirdparty.com.google.common.collect.Interner;
 import org.apache.ratis.thirdparty.com.google.common.collect.Interners;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.function.StringSupplier;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public final class StringUtils {
@@ -38,6 +43,12 @@ public final class StringUtils {
 
   /** Retains a weak reference to each string instance it has interned. */
   private static final Interner<String> WEAK_INTERNER = Interners.newWeakInterner();
+
+  static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss_SSS");
+
+  public static String currentDateTime() {
+    return LocalDateTime.now().format(DATE_TIME);
+  }
 
   /**
    * Interns and returns a reference to the representative instance
@@ -108,14 +119,18 @@ public final class StringUtils {
     return s.toString();
   }
 
-  public static boolean string2boolean(String s, boolean defaultValue) {
+  public static Boolean string2boolean(String s, Boolean defaultValue) {
     if (s == null || s.isEmpty()) {
       return defaultValue;
     }
 
     if ("true".equalsIgnoreCase(s)) {
       return true;
+    } else if ("t".equalsIgnoreCase(s)) {
+      return true;
     } else if ("false".equalsIgnoreCase(s)) {
+      return false;
+    } else if ("f".equalsIgnoreCase(s)) {
       return false;
     } else {
       return defaultValue;
@@ -130,13 +145,8 @@ public final class StringUtils {
     return stm.toString();
   }
 
-  public static Object stringSupplierAsObject(Supplier<String> supplier) {
-    return new Object() {
-      @Override
-      public String toString() {
-        return supplier.get();
-      }
-    };
+  public static StringSupplier stringSupplierAsObject(Supplier<String> supplier) {
+    return StringSupplier.get(supplier);
   }
 
   public static <K, V> String map2String(Map<K, V> map) {
@@ -167,5 +177,20 @@ public final class StringUtils {
       }
       return "" + future.join();
     }
+  }
+
+  public static <T> String array2String(T[] array, Function<T, String> toStringMethod) {
+    if (array == null) {
+      return null;
+    } else if (array.length == 0) {
+      return "[]";
+    }
+
+    final StringBuilder b = new StringBuilder(128).append('[');
+    Arrays.stream(array).map(toStringMethod).forEach(s -> b.append(s).append(", "));
+    final int length = b.length();
+    b.setCharAt(length - 2, ']');
+    b.setLength(length - 1);
+    return b.toString();
   }
 }

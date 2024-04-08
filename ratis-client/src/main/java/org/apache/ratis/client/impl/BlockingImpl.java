@@ -33,6 +33,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
+import org.apache.ratis.protocol.exceptions.SetConfigurationException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
@@ -59,8 +60,18 @@ class BlockingImpl implements BlockingApi {
   }
 
   @Override
-  public RaftClientReply sendReadOnly(Message message) throws IOException {
-    return send(RaftClientRequest.readRequestType(), message, null);
+  public RaftClientReply sendReadOnly(Message message, RaftPeerId server) throws IOException {
+    return send(RaftClientRequest.readRequestType(), message, server);
+  }
+
+  @Override
+  public RaftClientReply sendReadOnlyNonLinearizable(Message message) throws IOException {
+    return send(RaftClientRequest.readRequestType(true), message, null);
+  }
+
+  @Override
+  public RaftClientReply sendReadAfterWrite(Message message) throws IOException {
+    return send(RaftClientRequest.readAfterWriteConsistentRequestType(), message, null);
   }
 
   @Override
@@ -101,25 +112,29 @@ class BlockingImpl implements BlockingApi {
           return client.handleReply(request, reply);
         }
       } catch (GroupMismatchException | StateMachineException | TransferLeadershipException |
-          LeaderSteppingDownException | AlreadyClosedException | AlreadyExistsException e) {
+               LeaderSteppingDownException | AlreadyClosedException | AlreadyExistsException |
+               SetConfigurationException e) {
         throw e;
       } catch (IOException e) {
         ioe = e;
       }
 
-      pending.incrementExceptionCount(ioe);
-      ClientRetryEvent event = new ClientRetryEvent(request, ioe, pending);
-      final RetryPolicy retryPolicy = client.getRetryPolicy();
-      final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
-      TimeDuration sleepTime = client.getEffectiveSleepTime(ioe, action.getSleepTime());
-
-      if (!action.shouldRetry()) {
-        throw (IOException)client.noMoreRetries(event);
+      if (client.isClosed()) {
+        throw new AlreadyClosedException(this + " is closed.");
       }
 
+      final ClientRetryEvent event = pending.newClientRetryEvent(request, ioe);
+      final RetryPolicy retryPolicy = client.getRetryPolicy();
+      final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
+      if (!action.shouldRetry()) {
+        throw client.noMoreRetries(event);
+      }
+
+      final TimeDuration sleepTime = client.getEffectiveSleepTime(ioe, action.getSleepTime());
       try {
         sleepTime.sleep();
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         throw new InterruptedIOException("retry policy=" + retryPolicy);
       }
     }

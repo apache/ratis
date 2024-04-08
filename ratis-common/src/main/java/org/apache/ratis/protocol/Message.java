@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.thirdparty.com.google.protobuf.AbstractMessage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.StringUtils;
@@ -43,6 +44,10 @@ public interface Message {
         return memoized.get();
       }
     };
+  }
+
+  static Message valueOf(AbstractMessage abstractMessage) {
+    return valueOf(abstractMessage.toByteString(), abstractMessage::toString);
   }
 
   static Message valueOf(ByteString bytes) {

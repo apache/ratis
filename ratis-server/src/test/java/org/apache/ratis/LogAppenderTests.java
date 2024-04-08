@@ -20,11 +20,11 @@ package org.apache.ratis;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -35,10 +35,10 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
 import org.junit.Test;
@@ -54,13 +54,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.codahale.metrics.Gauge;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.slf4j.event.Level;
 
 public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    Log4jUtils.setLogLevel(LogAppender.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(LogAppender.LOG, Level.DEBUG);
   }
 
   {
@@ -141,8 +142,8 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       throw e;
     }
 
-    final RatisMetricRegistry ratisMetricRegistry
-        = ((RaftServerMetricsImpl)leaderServer.getRaftServerMetrics()).getRegistry();
+    final RatisMetricRegistryImpl ratisMetricRegistry = (RatisMetricRegistryImpl)
+        ((RaftServerMetricsImpl)leaderServer.getRaftServerMetrics()).getRegistry();
 
     // Get all last_heartbeat_elapsed_time metric gauges. Should be equal to number of followers.
     SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
@@ -160,11 +161,14 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       // Try to get Heartbeat metrics for follower.
       final RaftServerMetricsImpl followerMetrics = (RaftServerMetricsImpl) followerServer.getRaftServerMetrics();
       // Metric should not exist. It only exists in leader.
-      assertTrue(followerMetrics.getRegistry().getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty());
+      final RatisMetricRegistryImpl followerMetricRegistry = (RatisMetricRegistryImpl)followerMetrics.getRegistry();
+      assertTrue(followerMetricRegistry.getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty());
       for (boolean heartbeat : new boolean[] { true, false }) {
-        assertTrue(followerMetrics.getFollowerAppendEntryTimer(heartbeat).getMeanRate() > 0.0d);
-        assertTrue(followerMetrics.getFollowerAppendEntryTimer(heartbeat).getCount() > 0L);
+        final DefaultTimekeeperImpl t = (DefaultTimekeeperImpl) followerMetrics.getFollowerAppendEntryTimer(heartbeat);
+        assertTrue(t.getTimer().getMeanRate() > 0.0d);
+        assertTrue(t.getTimer().getCount() > 0L);
       }
+      cluster.shutdown();
     }
   }
 

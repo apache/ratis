@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServer;
@@ -25,14 +24,15 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -42,8 +42,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class TestRaftServerNoLeaderTimeout extends BaseTest {
   static {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   private static final int NUM_SERVERS = 3;
@@ -60,13 +60,13 @@ public class TestRaftServerNoLeaderTimeout extends BaseTest {
     return properties;
   }
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException {
-    Assert.assertNull(cluster.getLeader());
+    Assertions.assertNull(cluster.getLeader());
     cluster.start();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     if (cluster != null) {
       cluster.shutdown();
@@ -91,10 +91,10 @@ public class TestRaftServerNoLeaderTimeout extends BaseTest {
 
     RaftProtos.RoleInfoProto roleInfoProto =
         SimpleStateMachine4Testing.get(healthyFollower).getLeaderElectionTimeoutInfo();
-    Assert.assertNotNull(roleInfoProto);
+    Assertions.assertNotNull(roleInfoProto);
 
-    Assert.assertEquals(roleInfoProto.getRole(), RaftProtos.RaftPeerRole.CANDIDATE);
+    Assertions.assertEquals(roleInfoProto.getRole(), RaftProtos.RaftPeerRole.CANDIDATE);
     final long noLeaderTimeoutMs = noLeaderTimeout.toLong(TimeUnit.MILLISECONDS);
-    Assert.assertTrue(roleInfoProto.getCandidateInfo().getLastLeaderElapsedTimeMs() > noLeaderTimeoutMs);
+    Assertions.assertTrue(roleInfoProto.getCandidateInfo().getLastLeaderElapsedTimeMs() > noLeaderTimeoutMs);
   }
 }

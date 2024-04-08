@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -25,15 +24,19 @@ import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Slf4jUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.event.Level;
 
 import java.io.IOException;
 
@@ -45,9 +48,9 @@ import java.io.IOException;
 public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   private static volatile boolean leaderShouldStepDown = false;
@@ -96,6 +99,8 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
       // the client.
       rpc.sendRequest(r);
 
+      // Sleep 1s to let waitForLeader return the new value.
+      TimeDuration.ONE_SECOND.sleep();
       long newTerm =
           RaftTestUtil.waitForLeader(cluster).getRaftLog().getLastEntryTermIndex().getTerm();
 
@@ -106,6 +111,24 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
       }
 
       cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testLeaderStepDownAsync() throws Exception {
+    runWithNewCluster(3, this::runTestLeaderStepDownAsync);
+  }
+
+  void runTestLeaderStepDownAsync(CLUSTER cluster) throws IOException, InterruptedException {
+    RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    RaftPeerId leaderId = leader.getId();
+    RaftServerImpl l = (RaftServerImpl) leader;
+    try (RaftClient client = cluster.createClient(leader.getId())) {
+      JavaUtils.attempt(() -> Assert.assertEquals(leaderId, leader.getId()),
+          20, ONE_SECOND, "check leader id", LOG);
+      RaftClientReply reply = client.admin().transferLeadership(null, 3000);
+      Assert.assertTrue(reply.isSuccess());
+      Assert.assertEquals(2, ((RaftServerImpl) leader).getRole().getCurrentRole().getNumber());
     }
   }
 }

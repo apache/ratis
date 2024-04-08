@@ -43,13 +43,13 @@ class GroupManagementImpl implements GroupManagementApi {
   }
 
   @Override
-  public RaftClientReply add(RaftGroup newGroup) throws IOException {
+  public RaftClientReply add(RaftGroup newGroup, boolean format) throws IOException {
     Objects.requireNonNull(newGroup, "newGroup == null");
 
     final long callId = CallId.getAndIncrement();
     client.getClientRpc().addRaftPeers(newGroup.getPeers());
     return client.io().sendRequestWithRetry(
-        () -> GroupManagementRequest.newAdd(client.getId(), server, callId, newGroup));
+        () -> GroupManagementRequest.newAdd(client.getId(), server, callId, newGroup, format));
   }
 
   @Override

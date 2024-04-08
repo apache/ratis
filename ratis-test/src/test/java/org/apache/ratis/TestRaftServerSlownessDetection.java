@@ -17,43 +17,41 @@
  */
 package org.apache.ratis;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
 
 import java.io.IOException;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
 
-import com.codahale.metrics.Gauge;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.slf4j.event.Level;
 
 /**
  * Test Raft Server Slowness detection and notification to Leader's statemachine.
  */
 //TODO: fix StateMachine.notifySlowness(..); see RATIS-370
-@Ignore
+@Disabled
 public class TestRaftServerSlownessDetection extends BaseTest {
   static {
-    Log4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;
@@ -71,13 +69,13 @@ public class TestRaftServerSlownessDetection extends BaseTest {
     return properties;
   }
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException {
-    Assert.assertNull(cluster.getLeader());
+    Assertions.assertNull(cluster.getLeader());
     cluster.start();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     if (cluster != null) {
       cluster.shutdown();
@@ -91,8 +89,8 @@ public class TestRaftServerSlownessDetection extends BaseTest {
         .slownessTimeout(cluster.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
     RaftServer.Division failedFollower = cluster.getFollowers().get(0);
 
-    final RatisMetricRegistry ratisMetricRegistry
-        = ((RaftServerMetricsImpl)leaderServer.getRaftServerMetrics()).getRegistry();
+    final RatisMetricRegistryImpl ratisMetricRegistry
+        = (RatisMetricRegistryImpl) ((RaftServerMetricsImpl)leaderServer.getRaftServerMetrics()).getRegistry();
     SortedMap<String, Gauge> heartbeatElapsedTimeGauges =
         ratisMetricRegistry.getGauges((s, metric) ->
             s.contains("lastHeartbeatElapsedTime"));
@@ -108,23 +106,23 @@ public class TestRaftServerSlownessDetection extends BaseTest {
     Thread.sleep( slownessTimeout * 2);
 
     long followerHeartBeatElapsedMetricNew = (long) metric.getValue();
-    Assert.assertTrue(followerHeartBeatElapsedMetricNew > followerHeartBeatElapsedMetric);
+    Assertions.assertTrue(followerHeartBeatElapsedMetricNew > followerHeartBeatElapsedMetric);
 
     // Followers should not get any failed not notification
     for (RaftServer.Division followerServer : cluster.getFollowers()) {
-      Assert.assertNull(SimpleStateMachine4Testing.get(followerServer).getSlownessInfo());
+      Assertions.assertNull(SimpleStateMachine4Testing.get(followerServer).getSlownessInfo());
     }
     // the leader should get notification that the follower has failed now
     RaftProtos.RoleInfoProto roleInfoProto =
         SimpleStateMachine4Testing.get(cluster.getLeader()).getSlownessInfo();
-    Assert.assertNotNull(roleInfoProto);
+    Assertions.assertNotNull(roleInfoProto);
 
     List<RaftProtos.ServerRpcProto> followers =
         roleInfoProto.getLeaderInfo().getFollowerInfoList();
     //Assert that the node shutdown is lagging behind
     for (RaftProtos.ServerRpcProto serverProto : followers) {
       if (RaftPeerId.valueOf(serverProto.getId().getId()).equals(failedFollower.getId())) {
-        Assert.assertTrue(serverProto.getLastRpcElapsedTimeMs() > slownessTimeout);
+        Assertions.assertTrue(serverProto.getLastRpcElapsedTimeMs() > slownessTimeout);
       }
     }
   }

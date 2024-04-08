@@ -20,18 +20,10 @@ package org.apache.ratis.server;
 import org.apache.ratis.protocol.RaftPeer;
 
 import java.io.Closeable;
-import java.net.InetSocketAddress;
 
 /**
  * A server interface handling incoming streams
  * Relays those streams to other servers after persisting
  */
-public interface DataStreamServerRpc extends RaftPeer.Add, Closeable {
-  /**
-   * start server
-   */
-  void start();
-
-  /** @return the address where this RPC server is listening to. */
-  InetSocketAddress getInetSocketAddress();
+public interface DataStreamServerRpc extends ServerRpc, RaftPeer.Add, Closeable {
 }

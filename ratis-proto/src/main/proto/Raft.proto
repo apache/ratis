@@ -28,6 +28,7 @@ message RaftPeerProto {
   string dataStreamAddress = 4; // address of the data stream server
   string clientAddress = 5; // address of the client RPC server
   string adminAddress = 6; // address of the admin RPC server
+  optional RaftPeerRole startupRole = 7; // peer start up role
 }
 
 message RaftPeerIdProto {
@@ -51,6 +52,8 @@ message RaftGroupMemberIdProto {
 message RaftConfigurationProto {
   repeated RaftPeerProto peers = 1; // the peers in the current or new conf
   repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
+  repeated RaftPeerProto listeners = 3;
+  repeated RaftPeerProto oldListeners = 4;
 }
 
 message StateMachineEntryProto {
@@ -114,6 +117,7 @@ message RaftRpcRequestProto {
   uint64 callId = 4;
   bool toLeader = 5;
 
+  repeated uint64 repliedCallIds = 12; // The call ids of the replied requests
   uint64 timeoutMs = 13;
   RoutingTableProto routingTable = 14;
   SlidingWindowEntry slidingWindowEntry = 15;
@@ -236,6 +240,16 @@ message InstallSnapshotReplyProto {
   }
 }
 
+message ReadIndexRequestProto {
+  RaftRpcRequestProto serverRequest = 1;
+  RaftClientRequestProto clientRequest = 2; // clientRequest is used to support read-after-write consistency
+}
+
+message ReadIndexReplyProto {
+  RaftRpcReplyProto serverReply = 1;
+  uint64 readIndex = 2;
+}
+
 message ClientMessageEntryProto {
   bytes content = 1;
 }
@@ -263,9 +277,11 @@ enum RaftPeerRole {
   LEADER = 0;
   CANDIDATE = 1;
   FOLLOWER = 2;
+  LISTENER = 3;
 }
 
 message WriteRequestTypeProto {
+  ReplicationLevel replication = 1;
 }
 
 message MessageStreamRequestTypeProto {
@@ -281,6 +297,8 @@ message ForwardRequestTypeProto {
 }
 
 message ReadRequestTypeProto {
+  bool preferNonLinearizable = 1;
+  bool readAfterWriteConsistent = 2;
 }
 
 message StaleReadRequestTypeProto {
@@ -395,6 +413,8 @@ message RaftClientReplyProto {
     ThrowableProto dataStreamException = 8;
     ThrowableProto leaderSteppingDownException = 9;
     ThrowableProto transferLeadershipException = 10;
+    ThrowableProto readException = 11;
+    ThrowableProto readIndexException = 12;
   }
 
   uint64 logIndex = 14; // When the request is a write request and the reply is success, the log index of the transaction
@@ -403,8 +423,17 @@ message RaftClientReplyProto {
 
 // setConfiguration request
 message SetConfigurationRequestProto {
+  enum Mode {
+    SET_UNCONDITIONALLY = 0;
+    ADD = 1;
+    COMPARE_AND_SET = 2;
+  }
   RaftRpcRequestProto rpcRequest = 1;
   repeated RaftPeerProto peers = 2;
+  repeated RaftPeerProto listeners = 3;
+  optional Mode mode = 4;
+  repeated RaftPeerProto currentPeers = 5;
+  repeated RaftPeerProto currentListeners = 6;
 }
 
 // transfer leadership request
@@ -441,7 +470,7 @@ message SnapshotManagementRequestProto {
 }
 
 message SnapshotCreateRequestProto {
-
+  uint64 creationGap = 1;
 }
 
 message StartLeaderElectionRequestProto {
@@ -456,6 +485,7 @@ message StartLeaderElectionReplyProto {
 // A request to add a new group
 message GroupAddRequestProto {
   RaftGroupProto group = 1; // the group to be added.
+  bool format = 2; // Should it format the storage?
 }
 
 message GroupRemoveRequestProto {
@@ -525,4 +555,15 @@ message GroupInfoReplyProto {
   RoleInfoProto role = 3;
   bool isRaftStorageHealthy = 4;
   repeated CommitInfoProto commitInfos = 5;
+  RaftConfigurationProto conf = 6;
+  LogInfoProto logInfo = 7;
+}
+
+/** Add new LogInfoProto for RATIS-2030, allow GroupInfoCommand to show each server's last committed log,
+    last applied log, last snapshot log, last entry log.*/
+message LogInfoProto {
+  TermIndexProto lastSnapshot = 1;
+  TermIndexProto applied = 2;
+  TermIndexProto committed = 3;
+  TermIndexProto lastEntry = 4;
 }

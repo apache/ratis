@@ -17,22 +17,26 @@
  */
 package org.apache.ratis;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.Slf4jUtils;
+import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Rule;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.rules.TestName;
-import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+@Timeout(value = 100)
 public abstract class BaseTest {
   public final Logger LOG = LoggerFactory.getLogger(getClass());
 
@@ -54,8 +59,8 @@ public abstract class BaseTest {
   public static final TimeDuration FIVE_SECONDS = TimeDuration.valueOf(5, TimeUnit.SECONDS);
 
   {
-    Log4jUtils.setLogLevel(ConfUtils.LOG, Level.WARN);
-    Log4jUtils.setLogLevel(FileUtils.LOG, Level.TRACE);
+    Slf4jUtils.setLogLevel(ConfUtils.LOG, Level.WARN);
+    Slf4jUtils.setLogLevel(FileUtils.LOG, Level.TRACE);
 
     ExitUtils.disableSystemExit();
   }
@@ -79,7 +84,24 @@ public abstract class BaseTest {
     return peersWithPriority;
   }
 
+
+  /*
+   * Junit 4 reference will be removed and the code will be refactored once
+   * all the unit tests are migrated to Junit 5.
+   */
+
+  private String testCaseName;
+
+  @BeforeEach
+  public void setup(TestInfo testInfo) {
+    testCaseName = testInfo.getTestMethod()
+        .orElseThrow(() -> new RuntimeException("Exception while getting test name."))
+        .getName();
+  }
+
+  // @After annotation is retained to support junit 4 tests.
   @After
+  @AfterEach
   public void assertNoFailures() {
     final Throwable e = firstException.get();
     if (e != null) {
@@ -89,9 +111,12 @@ public abstract class BaseTest {
     ExitUtils.assertNotTerminated();
   }
 
+  // Retained to support junit 4 tests.
   @Rule
-  public final Timeout globalTimeout = new Timeout(getGlobalTimeoutSeconds(), TimeUnit.SECONDS );
+  public final org.junit.rules.Timeout globalTimeout = new org.junit.rules.Timeout(
+      getGlobalTimeoutSeconds(), TimeUnit.SECONDS );
 
+  // Retained to support junit 4 tests.
   @Rule
   public final TestName testName = new TestName();
 
@@ -121,7 +146,9 @@ public abstract class BaseTest {
   }
 
   public File getTestDir() {
-    return new File(getClassTestDir(), testName.getMethodName());
+    // This will work for both junit 4 and 5.
+    final String name = testCaseName != null ? testCaseName : testName.getMethodName();
+    return new File(getClassTestDir(), name);
   }
 
   @SafeVarargs
@@ -130,15 +157,17 @@ public abstract class BaseTest {
       Class<? extends Throwable> expectedThrowableClass, Logger log,
       Class<? extends Throwable>... expectedCauseClasses) {
     if (log != null) {
-      log.info("The test \"{}\" throws {}", description,  JavaUtils.getClassSimpleName(t.getClass()), t);
+      log.info("Expected the test \"{}\" to throw {} with cause(s) {}",
+          description, expectedThrowableClass.getSimpleName(),
+          StringUtils.array2String(expectedCauseClasses, Class::getSimpleName));
     }
-    Assert.assertEquals(expectedThrowableClass, t.getClass());
+    Assertions.assertEquals(expectedThrowableClass, t.getClass());
 
     for (Class<? extends Throwable> expectedCause : expectedCauseClasses) {
       final Throwable previous = t;
       t = Objects.requireNonNull(previous.getCause(),
           () -> "previous.getCause() == null for previous=" + previous);
-      Assert.assertEquals(expectedCause, t.getClass());
+      Assertions.assertEquals(expectedCause, t.getClass());
     }
   }
 

@@ -31,6 +31,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -44,15 +45,21 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.AssumptionViolatedException;
+import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -108,13 +115,18 @@ public interface RaftTestUtil {
       exception.set(ise);
     };
 
-    final RaftServer.Division leader = JavaUtils.attemptRepeatedly(() -> {
-      final RaftServer.Division l = cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders);
-      if (l != null && !l.getInfo().isLeaderReady()) {
-        throw new IllegalStateException("Leader: "+ l.getMemberId() +  " not ready");
+    final RaftServer.Division leader = JavaUtils.attempt(i -> {
+      try {
+        final RaftServer.Division l = cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders);
+        if (l != null && !l.getInfo().isLeaderReady()) {
+          throw new IllegalStateException("Leader: " + l.getMemberId() + " not ready");
+        }
+        return l;
+      } catch (Exception e) {
+        LOG.warn("Attempt #{} failed: " + e, i);
+        throw e;
       }
-      return l;
-    }, numAttempts, sleepTime, name, LOG);
+    }, numAttempts, sleepTime, () -> name, null);
 
     LOG.info(cluster.printServers(groupId));
     if (expectLeader) {
@@ -243,19 +255,16 @@ public interface RaftTestUtil {
     }
   }
 
-  static void assertLogEntries(RaftServer.Division server, long expectedTerm, SimpleMessage... expectedMessages) {
-    LOG.info("checking raft log for {}", server.getMemberId());
-    final RaftLog log = server.getRaftLog();
-    try {
-      RaftTestUtil.assertLogEntries(log, expectedTerm, expectedMessages);
-    } catch (AssertionError e) {
-      LOG.error("Unexpected raft log in {}", server.getMemberId(), e);
-      throw e;
-    }
+  static void assertLogEntries(RaftServer.Division server, long expectedTerm, SimpleMessage[] expectedMessages,
+      int numAttempts, Logger log) throws Exception {
+    final String name = server.getId() + " assertLogEntries";
+    final Function<Integer, Consumer<String>> print = i -> i < numAttempts? s -> {}: System.out::println;
+    JavaUtils.attempt(i -> assertLogEntries(server.getRaftLog(), expectedTerm, expectedMessages, print.apply(i)),
+        numAttempts, TimeDuration.ONE_SECOND, () -> name, log);
   }
 
   static Iterable<LogEntryProto> getLogEntryProtos(RaftLog log) {
-    return CollectionUtils.as(log.getEntries(0, Long.MAX_VALUE), ti -> {
+    return CollectionUtils.as(log.getEntries(0, log.getLastEntryTermIndex().getIndex() + 1), ti -> {
       try {
         return log.get(ti.getIndex());
       } catch (IOException exception) {
@@ -264,17 +273,54 @@ public interface RaftTestUtil {
     });
   }
 
-  static List<LogEntryProto> getStateMachineLogEntries(RaftLog log) {
+  Comparator<LogEntryProto> LOG_ENTRY_PROTO_COMPARATOR = Comparator.comparing(
+      e -> e.getStateMachineLogEntry().getLogData().asReadOnlyByteBuffer());
+  Comparator<SimpleMessage> SIMPLE_MESSAGE_COMPARATOR = Comparator.comparing(
+      m -> m.getContent().asReadOnlyByteBuffer());
+
+  /** @return a map of message-array-index to {@link LogEntryProto} for the entries found in the given log. */
+  static Map<Integer, LogEntryProto> getStateMachineLogEntries(RaftLog log, SimpleMessage[] messages) {
+    if (messages.length == 0) {
+      return Collections.emptyMap();
+    }
+    final List<LogEntryProto> entries = getStateMachineLogEntries(log, s -> {});
+    if (entries.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    entries.sort(LOG_ENTRY_PROTO_COMPARATOR);
+    Arrays.sort(messages, SIMPLE_MESSAGE_COMPARATOR);
+
+    final Map<Integer, LogEntryProto> found = new HashMap<>();
+    for (int e = 0, m = 0; e < entries.size() && m < messages.length; ) {
+      final int diff = messages[m].getContent().asReadOnlyByteBuffer().compareTo(
+          entries.get(e).getStateMachineLogEntry().getLogData().asReadOnlyByteBuffer());
+      if (diff == 0) {
+        found.put(m, entries.get(e));
+        m++;
+        e++;
+      } else if (diff < 0) {
+        m++; // message < entry
+      } else {
+        e++; // message > entry
+      }
+    }
+
+    Assertions.assertEquals(messages.length, found.size());
+    return found;
+  }
+
+  static List<LogEntryProto> getStateMachineLogEntries(RaftLog log, Consumer<String> print) {
     final List<LogEntryProto> entries = new ArrayList<>();
     for (LogEntryProto e : getLogEntryProtos(log)) {
       final String s = LogProtoUtils.toLogEntryString(e);
       if (e.hasStateMachineLogEntry()) {
-        LOG.info(s + ", " + e.getStateMachineLogEntry().toString().trim().replace("\n", ", "));
+        print.accept(entries.size() + ") " + s);
         entries.add(e);
       } else if (e.hasConfigurationEntry()) {
-        LOG.info("Found {}, ignoring it.", s);
+        print.accept("Ignoring " + s);
       } else if (e.hasMetadataEntry()) {
-        LOG.info("Found {}, ignoring it.", s);
+        print.accept("Ignoring " + s);
       } else {
         throw new AssertionError("Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + s);
       }
@@ -282,13 +328,14 @@ public interface RaftTestUtil {
     return entries;
   }
 
-  static void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage... expectedMessages) {
-    final List<LogEntryProto> entries = getStateMachineLogEntries(log);
+  static Void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage[] expectedMessages, Consumer<String> print) {
+    final List<LogEntryProto> entries = getStateMachineLogEntries(log, print);
     try {
       assertLogEntries(entries, expectedTerm, expectedMessages);
     } catch(Exception t) {
       throw new AssertionError("entries: " + entries, t);
     }
+    return null;
   }
 
   static void assertLogEntries(List<LogEntryProto> entries, long expectedTerm, SimpleMessage... expectedMessages) {
@@ -302,8 +349,7 @@ public interface RaftTestUtil {
       }
       Assert.assertTrue(e.getIndex() > logIndex);
       logIndex = e.getIndex();
-      Assert.assertArrayEquals(expectedMessages[i].getContent().toByteArray(),
-          e.getStateMachineLogEntry().getLogData().toByteArray());
+      Assert.assertEquals(expectedMessages[i].getContent(), e.getStateMachineLogEntry().getLogData());
     }
   }
 
@@ -486,7 +532,7 @@ public interface RaftTestUtil {
     final long lastIndex = expected.getNextIndex() - 1;
     Assert.assertEquals(expected.getLastEntryTermIndex().getIndex(), lastIndex);
     for(long i = 0; i < lastIndex; i++) {
-      Assert.assertEquals(expected.get(i), computed.get(i));
+      Assert.assertEquals("Checking " + TermIndex.valueOf(expected.get(i)), expected.get(i), computed.get(i));
     }
   }
 
@@ -519,5 +565,19 @@ public interface RaftTestUtil {
   static void assertSuccessReply(RaftClientReply reply) {
     Assert.assertNotNull("reply == null", reply);
     Assert.assertTrue("reply is not success: " + reply, reply.isSuccess());
+  }
+
+  static void gc() throws InterruptedException {
+    // use WeakReference to detect gc
+    Object obj = new Object();
+    final WeakReference<Object> weakRef = new WeakReference<>(obj);
+    obj = null;
+
+    // loop until gc has completed.
+    for (int i = 0; weakRef.get() != null; i++) {
+      LOG.info("gc {}", i);
+      System.gc();
+      Thread.sleep(100);
+    }
   }
 }

@@ -19,13 +19,28 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import static org.apache.ratis.conf.ConfUtils.*;
+import static org.apache.ratis.conf.ConfUtils.get;
+import static org.apache.ratis.conf.ConfUtils.getBoolean;
+import static org.apache.ratis.conf.ConfUtils.getInt;
+import static org.apache.ratis.conf.ConfUtils.getSizeInBytes;
+import static org.apache.ratis.conf.ConfUtils.getTimeDuration;
+import static org.apache.ratis.conf.ConfUtils.printAll;
+import static org.apache.ratis.conf.ConfUtils.requireMax;
+import static org.apache.ratis.conf.ConfUtils.requireMin;
+import static org.apache.ratis.conf.ConfUtils.set;
+import static org.apache.ratis.conf.ConfUtils.setBoolean;
+import static org.apache.ratis.conf.ConfUtils.setInt;
+import static org.apache.ratis.conf.ConfUtils.setSizeInBytes;
+import static org.apache.ratis.conf.ConfUtils.setTimeDuration;
 
 public interface GrpcConfigKeys {
   Logger LOG = LoggerFactory.getLogger(GrpcConfigKeys.class);
@@ -97,12 +112,22 @@ public interface GrpcConfigKeys {
   interface Admin {
     String PREFIX = GrpcConfigKeys.PREFIX + ".admin";
 
+    String HOST_KEY = PREFIX + ".host";
+    String HOST_DEFAULT = null;
+    static String host(RaftProperties properties) {
+      final String fallbackServerHost = Server.host(properties, null);
+      return get(properties::get, HOST_KEY, HOST_DEFAULT, Server.HOST_KEY, fallbackServerHost, getDefaultLog());
+    }
+    static void setHost(RaftProperties properties, String host) {
+      set(properties::set, HOST_KEY, host);
+    }
+
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = -1;
     static int port(RaftProperties properties) {
-      final int port = getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(-1), requireMax(65536));
-      return port != PORT_DEFAULT ? port : Server.port(properties);
+      final int fallbackServerPort = Server.port(properties, null);
+      return getInt(properties::getInt, PORT_KEY, PORT_DEFAULT, Server.PORT_KEY, fallbackServerPort,
+          getDefaultLog(), requireMin(-1), requireMax(65536));
     }
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
@@ -121,12 +146,22 @@ public interface GrpcConfigKeys {
   interface Client {
     String PREFIX = GrpcConfigKeys.PREFIX + ".client";
 
+    String HOST_KEY = PREFIX + ".host";
+    String HOST_DEFAULT = null;
+    static String host(RaftProperties properties) {
+      final String fallbackServerHost = Server.host(properties, null);
+      return get(properties::get, HOST_KEY, HOST_DEFAULT, Server.HOST_KEY, fallbackServerHost, getDefaultLog());
+    }
+    static void setHost(RaftProperties properties, String host) {
+      set(properties::set, HOST_KEY, host);
+    }
+
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = -1;
     static int port(RaftProperties properties) {
-      final int port = getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(-1), requireMax(65536));
-      return port != PORT_DEFAULT ? port : Server.port(properties);
+      final int fallbackServerPort = Server.port(properties, null);
+      return getInt(properties::getInt, PORT_KEY, PORT_DEFAULT, Server.PORT_KEY, fallbackServerPort,
+          getDefaultLog(), requireMin(-1), requireMax(65536));
     }
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
@@ -145,12 +180,31 @@ public interface GrpcConfigKeys {
   interface Server {
     String PREFIX = GrpcConfigKeys.PREFIX + ".server";
 
+    String HOST_KEY = PREFIX + ".host";
+    String HOST_DEFAULT = null;
+    static String host(RaftProperties properties) {
+      return host(properties, getDefaultLog());
+    }
+
+    static String host(RaftProperties properties, Consumer<String> logger) {
+      return get(properties::get, HOST_KEY, HOST_DEFAULT, logger);
+    }
+
+    static void setHost(RaftProperties properties, String host) {
+      set(properties::set, HOST_KEY, host);
+    }
+
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = 0;
     static int port(RaftProperties properties) {
-      return getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
+      return port(properties, getDefaultLog());
     }
+
+    static int port(RaftProperties properties, Consumer<String> logger) {
+      return getInt(properties::getInt,
+          PORT_KEY, PORT_DEFAULT, logger, requireMin(0), requireMax(65536));
+    }
+
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
     }
@@ -186,13 +240,57 @@ public interface GrpcConfigKeys {
     }
 
     String LEADER_OUTSTANDING_APPENDS_MAX_KEY = PREFIX + ".leader.outstanding.appends.max";
-    int LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT = 128;
+    int LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT = 8;
     static int leaderOutstandingAppendsMax(RaftProperties properties) {
       return getInt(properties::getInt,
           LEADER_OUTSTANDING_APPENDS_MAX_KEY, LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT, getDefaultLog(), requireMin(0));
     }
     static void setLeaderOutstandingAppendsMax(RaftProperties properties, int maxAppend) {
       setInt(properties::setInt, LEADER_OUTSTANDING_APPENDS_MAX_KEY, maxAppend);
+    }
+
+    String INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_KEY = PREFIX + ".install_snapshot.request.element-limit";
+    int INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_DEFAULT = 8;
+    static int installSnapshotRequestElementLimit(RaftProperties properties) {
+      return getInt(properties::getInt, INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_KEY,
+          INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_DEFAULT, getDefaultLog(), requireMin(0));
+    }
+    static void setInstallSnapshotRequestElementLimit(RaftProperties properties, int elementLimit) {
+      setInt(properties::setInt, INSTALL_SNAPSHOT_REQUEST_ELEMENT_LIMIT_KEY, elementLimit);
+    }
+
+    String INSTALL_SNAPSHOT_REQUEST_TIMEOUT_KEY = PREFIX + ".install_snapshot.request.timeout";
+    TimeDuration INSTALL_SNAPSHOT_REQUEST_TIMEOUT_DEFAULT = RaftServerConfigKeys.Rpc.REQUEST_TIMEOUT_DEFAULT;
+    static TimeDuration installSnapshotRequestTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(INSTALL_SNAPSHOT_REQUEST_TIMEOUT_DEFAULT.getUnit()),
+          INSTALL_SNAPSHOT_REQUEST_TIMEOUT_KEY, INSTALL_SNAPSHOT_REQUEST_TIMEOUT_DEFAULT, getDefaultLog());
+    }
+    static void setInstallSnapshotRequestTimeout(RaftProperties properties,
+                                                 TimeDuration installSnapshotRequestTimeout) {
+      setTimeDuration(properties::setTimeDuration,
+          INSTALL_SNAPSHOT_REQUEST_TIMEOUT_KEY, installSnapshotRequestTimeout);
+    }
+
+    String HEARTBEAT_CHANNEL_KEY = PREFIX + ".heartbeat.channel";
+    boolean HEARTBEAT_CHANNEL_DEFAULT = true;
+    static boolean heartbeatChannel(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, HEARTBEAT_CHANNEL_KEY,
+              HEARTBEAT_CHANNEL_DEFAULT, getDefaultLog());
+    }
+    static void setHeartbeatChannel(RaftProperties properties, boolean useSeparate) {
+      setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useSeparate);
+    }
+
+    String LOG_MESSAGE_BATCH_DURATION_KEY = PREFIX + ".log-message.batch.duration";
+    TimeDuration LOG_MESSAGE_BATCH_DURATION_DEFAULT = TimeDuration.valueOf(5, TimeUnit.SECONDS);
+    static TimeDuration logMessageBatchDuration(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(LOG_MESSAGE_BATCH_DURATION_DEFAULT.getUnit()),
+          LOG_MESSAGE_BATCH_DURATION_KEY, LOG_MESSAGE_BATCH_DURATION_DEFAULT, getDefaultLog());
+    }
+    static void setLogMessageBatchDuration(RaftProperties properties,
+                                           TimeDuration logMessageBatchDuration) {
+      setTimeDuration(properties::setTimeDuration,
+          LOG_MESSAGE_BATCH_DURATION_KEY, logMessageBatchDuration);
     }
   }
 

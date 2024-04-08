@@ -20,6 +20,8 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
+import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.metrics.ZeroCopyMetrics;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -27,10 +29,13 @@ import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
+import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
+import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
@@ -42,8 +47,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
@@ -55,6 +61,41 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   static final Logger LOG = LoggerFactory.getLogger(GrpcService.class);
   public static final String GRPC_SEND_SERVER_REQUEST =
       JavaUtils.getClassSimpleName(GrpcService.class) + ".sendRequest";
+
+  class AsyncService implements RaftServerAsynchronousProtocol {
+
+    @Override
+    public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request)
+        throws IOException {
+      throw new UnsupportedOperationException("This method is not supported");
+    }
+
+    @Override
+    public CompletableFuture<ReadIndexReplyProto> readIndexAsync(ReadIndexRequestProto request) throws IOException {
+      CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, getId(), null, request);
+
+      final CompletableFuture<ReadIndexReplyProto> f = new CompletableFuture<>();
+      final StreamObserver<ReadIndexReplyProto> s = new StreamObserver<ReadIndexReplyProto>() {
+        @Override
+        public void onNext(ReadIndexReplyProto reply) {
+          f.complete(reply);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+          f.completeExceptionally(throwable);
+        }
+
+        @Override
+        public void onCompleted() {
+        }
+      };
+
+      final RaftPeerId target = RaftPeerId.valueOf(request.getServerRequest().getReplyId());
+      getProxies().getProxy(target).readIndex(request, s);
+      return f;
+    }
+  }
 
   public static final class Builder {
     private RaftServer server;
@@ -103,15 +144,18 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     return new Builder();
   }
 
-  private final List<Server> servers = new ArrayList<>(3);
+  private final Map<String, Server> servers = new HashMap<>();
   private final Supplier<InetSocketAddress> addressSupplier;
   private final Supplier<InetSocketAddress> clientServerAddressSupplier;
   private final Supplier<InetSocketAddress> adminServerAddressSupplier;
+
+  private final AsyncService asyncService = new AsyncService();
 
   private final ExecutorService executor;
   private final GrpcClientProtocolService clientProtocolService;
 
   private final MetricServerInterceptor serverInterceptor;
+  private final ZeroCopyMetrics zeroCopyMetrics;
 
   public MetricServerInterceptor getServerInterceptor() {
     return serverInterceptor;
@@ -120,25 +164,33 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   private GrpcService(RaftServer server,
       GrpcTlsConfig adminTlsConfig, GrpcTlsConfig clientTlsConfig, GrpcTlsConfig serverTlsConfig) {
     this(server, server::getId,
-        GrpcConfigKeys.Admin.port(server.getProperties()), adminTlsConfig,
-        GrpcConfigKeys.Client.port(server.getProperties()), clientTlsConfig,
-        GrpcConfigKeys.Server.port(server.getProperties()), serverTlsConfig,
+        GrpcConfigKeys.Admin.host(server.getProperties()),
+        GrpcConfigKeys.Admin.port(server.getProperties()),
+        adminTlsConfig,
+        GrpcConfigKeys.Client.host(server.getProperties()),
+        GrpcConfigKeys.Client.port(server.getProperties()),
+        clientTlsConfig,
+        GrpcConfigKeys.Server.host(server.getProperties()),
+        GrpcConfigKeys.Server.port(server.getProperties()),
+        serverTlsConfig,
         GrpcConfigKeys.messageSizeMax(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Log.Appender.bufferByteLimit(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
-        RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()));
+        RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()),
+        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()));
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber") // private constructor
   private GrpcService(RaftServer raftServer, Supplier<RaftPeerId> idSupplier,
-      int adminPort, GrpcTlsConfig adminTlsConfig,
-      int clientPort, GrpcTlsConfig clientTlsConfig,
-      int serverPort, GrpcTlsConfig serverTlsConfig,
+      String adminHost, int adminPort, GrpcTlsConfig adminTlsConfig,
+      String clientHost, int clientPort, GrpcTlsConfig clientTlsConfig,
+      String serverHost, int serverPort, GrpcTlsConfig serverTlsConfig,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
-      SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration) {
+      SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration,
+      boolean useSeparateHBChannel) {
     super(idSupplier, id -> new PeerProxyMap<>(id.toString(),
         p -> new GrpcServerProtocolClient(p, flowControlWindow.getSizeInt(),
-            requestTimeoutDuration, serverTlsConfig)));
+            requestTimeoutDuration, serverTlsConfig, useSeparateHBChannel)));
     if (appenderBufferSize.getSize() > grpcMessageSizeMax.getSize()) {
       throw new IllegalArgumentException("Illegal configuration: "
           + RaftServerConfigKeys.Log.Appender.BUFFER_BYTE_LIMIT_KEY + " = " + appenderBufferSize
@@ -150,7 +202,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         GrpcConfigKeys.Server.asyncRequestThreadPoolCached(properties),
         GrpcConfigKeys.Server.asyncRequestThreadPoolSize(properties),
         getId() + "-request-");
-    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor);
+    this.zeroCopyMetrics = new ZeroCopyMetrics();
+    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor, zeroCopyMetrics);
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
@@ -161,9 +214,11 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     final boolean separateClientServer = clientPort != serverPort && clientPort > 0;
 
     final NettyServerBuilder serverBuilder =
-        startBuildingNettyServer(serverPort, serverTlsConfig, grpcMessageSizeMax, flowControlWindow);
+        startBuildingNettyServer(serverHost, serverPort, serverTlsConfig, grpcMessageSizeMax, flowControlWindow);
+    GrpcServerProtocolService serverProtocolService = new GrpcServerProtocolService(idSupplier, raftServer,
+        zeroCopyMetrics);
     serverBuilder.addService(ServerInterceptors.intercept(
-        new GrpcServerProtocolService(idSupplier, raftServer), serverInterceptor));
+        serverProtocolService.bindServiceWithZeroCopy(), serverInterceptor));
     if (!separateAdminServer) {
       addAdminService(raftServer, serverBuilder);
     }
@@ -172,15 +227,15 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     }
 
     final Server server = serverBuilder.build();
-    servers.add(server);
+    servers.put(GrpcServerProtocolService.class.getSimpleName(), server);
     addressSupplier = newAddressSupplier(serverPort, server);
 
     if (separateAdminServer) {
       final NettyServerBuilder builder =
-          startBuildingNettyServer(adminPort, adminTlsConfig, grpcMessageSizeMax, flowControlWindow);
+          startBuildingNettyServer(adminHost, adminPort, adminTlsConfig, grpcMessageSizeMax, flowControlWindow);
       addAdminService(raftServer, builder);
       final Server adminServer = builder.build();
-      servers.add(adminServer);
+      servers.put(GrpcAdminProtocolService.class.getName(), adminServer);
       adminServerAddressSupplier = newAddressSupplier(adminPort, adminServer);
     } else {
       adminServerAddressSupplier = addressSupplier;
@@ -188,10 +243,10 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     if (separateClientServer) {
       final NettyServerBuilder builder =
-          startBuildingNettyServer(clientPort, clientTlsConfig, grpcMessageSizeMax, flowControlWindow);
+          startBuildingNettyServer(clientHost, clientPort, clientTlsConfig, grpcMessageSizeMax, flowControlWindow);
       addClientService(builder);
       final Server clientServer = builder.build();
-      servers.add(clientServer);
+      servers.put(GrpcClientProtocolService.class.getName(), clientServer);
       clientServerAddressSupplier = newAddressSupplier(clientPort, clientServer);
     } else {
       clientServerAddressSupplier = addressSupplier;
@@ -203,7 +258,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   }
 
   private void addClientService(NettyServerBuilder builder) {
-    builder.addService(ServerInterceptors.intercept(clientProtocolService, serverInterceptor));
+    builder.addService(ServerInterceptors.intercept(clientProtocolService.bindServiceWithZeroCopy(),
+        serverInterceptor));
   }
 
   private void addAdminService(RaftServer raftServer, NettyServerBuilder nettyServerBuilder) {
@@ -212,27 +268,20 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
           serverInterceptor));
   }
 
-  private static NettyServerBuilder startBuildingNettyServer(int port, GrpcTlsConfig tlsConfig,
+  private static NettyServerBuilder startBuildingNettyServer(String hostname, int port, GrpcTlsConfig tlsConfig,
       SizeInBytes grpcMessageSizeMax, SizeInBytes flowControlWindow) {
-    NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
+    InetSocketAddress address = hostname == null || hostname.isEmpty() ?
+        new InetSocketAddress(port) : new InetSocketAddress(hostname, port);
+    NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forAddress(address)
         .withChildOption(ChannelOption.SO_REUSEADDR, true)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt());
 
     if (tlsConfig != null) {
-      SslContextBuilder sslContextBuilder =
-          tlsConfig.isFileBasedConfig()?
-              SslContextBuilder.forServer(tlsConfig.getCertChainFile(),
-                  tlsConfig.getPrivateKeyFile()):
-              SslContextBuilder.forServer(tlsConfig.getPrivateKey(),
-                  tlsConfig.getCertChain());
+      SslContextBuilder sslContextBuilder = GrpcUtil.initSslContextBuilderForServer(tlsConfig.getKeyManager());
       if (tlsConfig.getMtlsEnabled()) {
         sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
-        if (tlsConfig.isFileBasedConfig()) {
-          sslContextBuilder.trustManager(tlsConfig.getTrustStoreFile());
-        } else {
-            sslContextBuilder.trustManager(tlsConfig.getTrustStore());
-        }
+        GrpcUtil.setTrustManager(sslContextBuilder, tlsConfig.getTrustManager());
       }
       sslContextBuilder = GrpcSslContexts.configure(sslContextBuilder, OPENSSL);
       try {
@@ -251,7 +300,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   @Override
   public void startImpl() {
-    for (Server server : servers) {
+    for (Server server : servers.values()) {
       try {
         server.start();
       } catch (IOException e) {
@@ -264,10 +313,10 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   @Override
   public void closeImpl() throws IOException {
-    for (Server server : servers) {
-      final String name = getId() + ": shutdown server with port " + server.getPort();
+    for (Map.Entry<String, Server> server : servers.entrySet()) {
+      final String name = getId() + ": shutdown server " + server.getKey();
       LOG.info("{} now", name);
-      final Server s = server.shutdownNow();
+      final Server s = server.getValue().shutdownNow();
       super.closeImpl();
       try {
         s.awaitTermination();
@@ -280,6 +329,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     serverInterceptor.close();
     ConcurrentUtils.shutdownAndWait(executor);
+    zeroCopyMetrics.unregister();
   }
 
   @Override
@@ -300,6 +350,11 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   @Override
   public InetSocketAddress getAdminServerAddress() {
     return adminServerAddressSupplier.get();
+  }
+
+  @Override
+  public RaftServerAsynchronousProtocol async() {
+    return asyncService;
   }
 
   @Override
@@ -332,4 +387,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     return getProxies().getProxy(target).startLeaderElection(request);
   }
 
+  @VisibleForTesting
+  public ZeroCopyMetrics getZeroCopyMetrics() {
+    return zeroCopyMetrics;
+  }
 }

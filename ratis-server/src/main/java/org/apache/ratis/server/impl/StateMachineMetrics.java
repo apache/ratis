@@ -21,12 +21,11 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
+import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.statemachine.StateMachine;
 
 import java.util.function.LongSupplier;
-
-import com.codahale.metrics.Timer;
 
 /**
  * Metrics Registry for the State Machine Updater. One instance per group.
@@ -53,23 +52,24 @@ public final class StateMachineMetrics extends RatisMetrics {
     return new StateMachineMetrics(serverId, getApplied, getApplyCompleted);
   }
 
+  private final Timekeeper takeSnapshotTimer = getRegistry().timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);
+
   private StateMachineMetrics(String serverId, LongSupplier getApplied,
       LongSupplier getApplyCompleted) {
-    registry = getMetricRegistryForStateMachine(serverId);
-    registry.gauge(STATEMACHINE_APPLIED_INDEX_GAUGE,
-        () -> () -> getApplied.getAsLong());
-    registry.gauge(STATEMACHINE_APPLY_COMPLETED_GAUGE,
-        () -> () -> getApplyCompleted.getAsLong());
+    super(createRegistry(serverId));
+
+    getRegistry().gauge(STATEMACHINE_APPLIED_INDEX_GAUGE, () -> getApplied::getAsLong);
+    getRegistry().gauge(STATEMACHINE_APPLY_COMPLETED_GAUGE, () -> getApplyCompleted::getAsLong);
   }
 
-  private RatisMetricRegistry getMetricRegistryForStateMachine(String serverId) {
+  private static RatisMetricRegistry createRegistry(String serverId) {
     return create(new MetricRegistryInfo(serverId,
         RATIS_APPLICATION_NAME_METRICS,
         RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC));
   }
 
-  public Timer getTakeSnapshotTimer() {
-    return registry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);
+  public Timekeeper getTakeSnapshotTimer() {
+    return takeSnapshotTimer;
   }
 
 }

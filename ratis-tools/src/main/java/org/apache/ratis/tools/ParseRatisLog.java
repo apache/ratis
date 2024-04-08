@@ -24,6 +24,8 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.server.raftlog.segmented.LogSegment;
+import org.apache.ratis.util.ReferenceCountedObject;
+import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,15 +35,17 @@ public final class ParseRatisLog {
 
   private final File file;
   private final Function<StateMachineLogEntryProto, String> smLogToString;
+  private final SizeInBytes maxOpSize;
 
   private long numConfEntries;
   private long numMetadataEntries;
   private long numStateMachineEntries;
   private long numInvalidEntries;
 
-  private ParseRatisLog(File f , Function<StateMachineLogEntryProto, String> smLogToString) {
+  private ParseRatisLog(File f , Function<StateMachineLogEntryProto, String> smLogToString, SizeInBytes maxOpSize) {
     this.file = f;
     this.smLogToString = smLogToString;
+    this.maxOpSize = maxOpSize;
     this.numConfEntries = 0;
     this.numMetadataEntries = 0;
     this.numStateMachineEntries = 0;
@@ -56,7 +60,7 @@ public final class ParseRatisLog {
     }
 
     System.out.println("Processing Raft Log file: " + file.getAbsolutePath() + " size:" + file.length());
-    final int entryCount = LogSegment.readSegmentFile(file, pi.getStartEnd(),
+    final int entryCount = LogSegment.readSegmentFile(file, pi.getStartEnd(), maxOpSize,
         RaftServerConfigKeys.Log.CorruptionPolicy.EXCEPTION, null, this::processLogEntry);
     System.out.println("Num Total Entries: " + entryCount);
     System.out.println("Num Conf Entries: " + numConfEntries);
@@ -66,7 +70,8 @@ public final class ParseRatisLog {
   }
 
 
-  private void processLogEntry(LogEntryProto proto) {
+  private void processLogEntry(ReferenceCountedObject<LogEntryProto> ref) {
+    final LogEntryProto proto = ref.retain();
     if (proto.hasConfigurationEntry()) {
       numConfEntries++;
     } else if (proto.hasMetadataEntry()) {
@@ -74,18 +79,24 @@ public final class ParseRatisLog {
     } else if (proto.hasStateMachineLogEntry()) {
       numStateMachineEntries++;
     } else {
-      System.out.println("Found invalid entry" + proto.toString());
+      System.out.println("Found an invalid entry: " + proto);
       numInvalidEntries++;
     }
 
     String str = LogProtoUtils.toLogEntryString(proto, smLogToString);
     System.out.println(str);
+    ref.release();
   }
 
   public static class Builder {
     private File file = null;
     private Function<StateMachineLogEntryProto, String> smLogToString = null;
+    private SizeInBytes maxOpSize = SizeInBytes.valueOf("32MB");
 
+    public Builder setMaxOpSize(SizeInBytes maxOpSize) {
+      this.maxOpSize = maxOpSize;
+      return this;
+    }
 
     public Builder setSegmentFile(File segmentFile) {
       this.file = segmentFile;
@@ -98,7 +109,7 @@ public final class ParseRatisLog {
     }
 
     public ParseRatisLog build() {
-      return new ParseRatisLog(file, smLogToString);
+      return new ParseRatisLog(file, smLogToString, maxOpSize);
     }
   }
 }

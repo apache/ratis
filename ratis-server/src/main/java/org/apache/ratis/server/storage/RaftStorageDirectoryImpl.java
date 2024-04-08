@@ -19,6 +19,7 @@ package org.apache.ratis.server.storage;
 
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,8 +40,10 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   private static final String IN_USE_LOCK_NAME = "in_use.lock";
   private static final String META_FILE_NAME = "raft-meta";
   private static final String CONF_EXTENSION = ".conf";
+  private static final String JVM_NAME = ManagementFactory.getRuntimeMXBean().getName();
 
   enum StorageState {
+    UNINITIALIZED,
     NON_EXISTENT,
     NOT_FORMATTED,
     NO_SPACE,
@@ -49,13 +52,13 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
   private final File root; // root directory
   private FileLock lock;   // storage lock
-  private long freeSpaceMin;
+  private final SizeInBytes freeSpaceMin;
 
   /**
    * Constructor
    * @param dir directory corresponding to the storage
    */
-  RaftStorageDirectoryImpl(File dir, long freeSpaceMin) {
+  RaftStorageDirectoryImpl(File dir, SizeInBytes freeSpaceMin) {
     this.root = dir;
     this.lock = null;
     this.freeSpaceMin = freeSpaceMin;
@@ -84,7 +87,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
   private static void clearDirectory(File dir) throws IOException {
     if (dir.exists()) {
-      LOG.info(dir + " already exists.  Deleting it ...");
+      LOG.info("{} already exists.  Deleting it ...", dir);
       FileUtils.deleteFully(dir);
     }
     FileUtils.createDirectories(dir);
@@ -132,16 +135,16 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
     String rootPath = root.getCanonicalPath();
     try { // check that storage exists
       if (!root.exists()) {
-        LOG.info("The storage directory " + rootPath + " does not exist. Creating ...");
+        LOG.info("The storage directory {} does not exist. Creating ...", rootPath);
         FileUtils.createDirectories(root);
       }
       // or is inaccessible
       if (!root.isDirectory()) {
-        LOG.warn(rootPath + " is not a directory");
+        LOG.warn("{} is not a directory", rootPath);
         return StorageState.NON_EXISTENT;
       }
       if (!Files.isWritable(root.toPath())) {
-        LOG.warn("The storage directory " + rootPath + " is not writable.");
+        LOG.warn("The storage directory {} is not writable.", rootPath);
         return StorageState.NON_EXISTENT;
       }
     } catch(SecurityException ex) {
@@ -154,10 +157,10 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
     }
 
     // check enough space
-    if (!hasEnoughSpace()) {
-      LOG.warn("There are not enough space left for directory " + rootPath
-          + " free space min required: " + freeSpaceMin
-          + " free space actual: " + root.getFreeSpace());
+    final long freeSpace = root.getFreeSpace();
+    if (freeSpace < freeSpaceMin.getSize()) {
+      LOG.warn("{} in directory {}: free space = {} < required = {}",
+          StorageState.NO_SPACE, rootPath, freeSpace, freeSpaceMin);
       return StorageState.NO_SPACE;
     }
 
@@ -172,10 +175,6 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   @Override
   public boolean isHealthy() {
     return getMetaFile().exists();
-  }
-
-  private boolean hasEnoughSpace() {
-    return root.getFreeSpace() > freeSpaceMin;
   }
 
   /**
@@ -211,6 +210,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
    * <code>null</code> if storage is already locked.
    * @throws IOException if locking fails.
    */
+  @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   private FileLock tryLock(File lockF) throws IOException {
     boolean deletionHookAdded = false;
     if (!lockF.exists()) {
@@ -218,16 +218,15 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
       deletionHookAdded = true;
     }
     RandomAccessFile file = new RandomAccessFile(lockF, "rws");
-    String jvmName = ManagementFactory.getRuntimeMXBean().getName();
     FileLock res;
     try {
       res = file.getChannel().tryLock();
       if (null == res) {
-        LOG.error("Unable to acquire file lock on path " + lockF.toString());
+        LOG.error("Unable to acquire file lock on path {}", lockF);
         throw new OverlappingFileLockException();
       }
-      file.write(jvmName.getBytes(StandardCharsets.UTF_8));
-      LOG.info("Lock on " + lockF + " acquired by nodename " + jvmName);
+      file.write(JVM_NAME.getBytes(StandardCharsets.UTF_8));
+      LOG.info("Lock on {} acquired by nodename {}", lockF, JVM_NAME);
     } catch (OverlappingFileLockException oe) {
       // Cannot read from the locked file on Windows.
       LOG.error("It appears that another process "

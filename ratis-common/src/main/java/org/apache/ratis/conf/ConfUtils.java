@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.conf;
 
+import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.thirdparty.com.google.common.base.Objects;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public interface ConfUtils {
   Logger LOG = LoggerFactory.getLogger(ConfUtils.class);
@@ -43,6 +45,12 @@ public interface ConfUtils {
     if (logger != null) {
       logger.accept(String.format("%s = %s (%s)", key, value,
           Objects.equal(value, defaultValue)? "default": "custom"));
+    }
+  }
+
+  static <T> void logFallback(String key, String fallbackKey, T fallbackValue, Consumer<String> logger) {
+    if (logger != null) {
+      logger.accept(String.format("%s = %s (fallback to %s)", key, fallbackValue, fallbackKey));
     }
   }
 
@@ -64,6 +72,15 @@ public interface ConfUtils {
       if (value > max) {
         throw new IllegalArgumentException(
             key + " = " + value + " > max = " + max);
+      }
+    };
+  }
+
+  static BiConsumer<String, Double> requireMin(double min) {
+    return (key, value) -> {
+      if (value < min) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " < min = " + min);
       }
     };
   }
@@ -152,6 +169,14 @@ public interface ConfUtils {
   }
 
   @SafeVarargs
+  static int getInt(
+      BiFunction<String, Integer, Integer> integerGetter,
+      String key, int defaultValue, String fallbackKey, int fallbackValue,
+      Consumer<String> logger, BiConsumer<String, Integer>... assertions) {
+    return get(integerGetter, key, defaultValue, fallbackKey, fallbackValue, logger, assertions);
+  }
+
+  @SafeVarargs
   static long getLong(
       BiFunction<String, Long, Long> longGetter,
       String key, long defaultValue, Consumer<String> logger, BiConsumer<String, Long>... assertions) {
@@ -199,12 +224,43 @@ public interface ConfUtils {
   }
 
   @SafeVarargs
+  static TimeDuration getTimeDuration(
+        BiFunction<String, TimeDuration, TimeDuration> getter,
+        String key, TimeDuration defaultValue, String fallbackKey, TimeDuration fallbackValue,
+        Consumer<String> logger, BiConsumer<String, TimeDuration>... assertions) {
+    final TimeDuration value = get(getter, key, defaultValue, fallbackKey, fallbackValue, logger, assertions);
+    requireNonNegativeTimeDuration().accept(key, value);
+    return value;
+  }
+
+
+  static TlsConf getTlsConf(
+      Function<String, TlsConf> tlsConfGetter,
+      String key, Consumer<String> logger) {
+    return get((k, d) -> tlsConfGetter.apply(k), key, null, logger);
+  }
+
+  @SafeVarargs
   static <T> T get(BiFunction<String, T, T> getter,
       String key, T defaultValue, Consumer<String> logger, BiConsumer<String, T>... assertions) {
     final T value = getter.apply(key, defaultValue);
     logGet(key, value, defaultValue, logger);
     Arrays.asList(assertions).forEach(a -> a.accept(key, value));
     return value;
+  }
+
+  @SafeVarargs
+  static <T> T get(BiFunction<String, T, T> getter,
+      String key, T defaultValue, String fallbackKey, T fallbackValue,
+      Consumer<String> logger, BiConsumer<String, T>... assertions) {
+    T value = get(getter, key, defaultValue, null, assertions);
+    if (value != defaultValue) {
+      logGet(key, value, defaultValue, logger);
+      return value;
+    } else {
+      logFallback(key, fallbackKey, fallbackValue, logger);
+      return fallbackValue;
+    }
   }
 
   static InetSocketAddress getInetSocketAddress(
@@ -271,6 +327,11 @@ public interface ConfUtils {
     set(timeDurationSetter, key, value, assertions);
   }
 
+  static void setTlsConf(
+      BiConsumer<String, TlsConf> tlsConfSetter, String key, TlsConf value) {
+    set(tlsConfSetter, key, value);
+  }
+
   @SafeVarargs
   static <T> void set(
       BiConsumer<String, T> setter, String key, T value,
@@ -312,7 +373,7 @@ public interface ConfUtils {
       return;
     }
     final String fieldName = f.getName();
-    if ("LOG".equals(fieldName)) {
+    if ("LOG".equals(fieldName) || "$jacocoData".equals(fieldName)) {
       return;
     }
     if (!"PREFIX".equals(fieldName)) {

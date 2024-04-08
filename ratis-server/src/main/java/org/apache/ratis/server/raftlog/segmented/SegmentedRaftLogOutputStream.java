@@ -23,7 +23,6 @@ import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.PureJavaCrc32C;
-import org.apache.ratis.util.function.CheckedConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +31,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.zip.Checksum;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 public class SegmentedRaftLogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogOutputStream.class);
@@ -40,16 +40,17 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private static final ByteBuffer FILL;
   private static final int BUFFER_SIZE = 1024 * 1024; // 1 MB
   static {
-    FILL = ByteBuffer.allocateDirect(BUFFER_SIZE);
-    for (int i = 0; i < FILL.capacity(); i++) {
-      FILL.put(SegmentedRaftLogFormat.getTerminator());
+    final ByteBuffer buffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
+    for (int i = 0; i < BUFFER_SIZE; i++) {
+      buffer.put(SegmentedRaftLogFormat.getTerminator());
     }
-    FILL.flip();
+    buffer.flip();
+    FILL = buffer.asReadOnlyBuffer();
   }
 
-  private final File file;
+  private final String name;
   private final BufferedWriteChannel out; // buffered FileChannel for writing
-  private final Checksum checksum;
+  private final PureJavaCrc32C checksum = new PureJavaCrc32C();
 
   private final long segmentMaxSize;
   private final long preallocatedSize;
@@ -57,8 +58,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   public SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
       long preallocatedSize, ByteBuffer byteBuffer)
       throws IOException {
-    this.file = file;
-    this.checksum = new PureJavaCrc32C();
+    this.name = JavaUtils.getClassSimpleName(getClass()) + "(" + file.getName() + ")";
     this.segmentMaxSize = segmentMaxSize;
     this.preallocatedSize = preallocatedSize;
     this.out = BufferedWriteChannel.open(file, append, byteBuffer);
@@ -66,19 +66,19 @@ public class SegmentedRaftLogOutputStream implements Closeable {
     if (!append) {
       // write header
       preallocateIfNecessary(SegmentedRaftLogFormat.getHeaderLength());
-      SegmentedRaftLogFormat.applyHeaderTo(CheckedConsumer.asCheckedFunction(out::write));
+      out.writeToChannel(SegmentedRaftLogFormat.getHeaderBytebuffer());
       out.flush();
     }
   }
 
   /**
    * Write the given entry to this output stream.
-   *
+   * <p>
    * Format:
    *   (1) The serialized size of the entry.
    *   (2) The entry.
    *   (3) 4-byte checksum of the entry.
-   *
+   * <p>
    * Size in bytes to be written:
    *   (size to encode n) + n + (checksum size),
    *   where n is the entry serialized size and the checksum size is 4.
@@ -86,18 +86,27 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   public void write(LogEntryProto entry) throws IOException {
     final int serialized = entry.getSerializedSize();
     final int proto = CodedOutputStream.computeUInt32SizeNoTag(serialized) + serialized;
-    final byte[] buf = new byte[proto + 4]; // proto and 4-byte checksum
-    preallocateIfNecessary(buf.length);
+    final int total = proto + 4; // proto and 4-byte checksum
+    preallocateIfNecessary(total);
 
-    CodedOutputStream cout = CodedOutputStream.newInstance(buf);
-    cout.writeUInt32NoTag(serialized);
-    entry.writeTo(cout);
+    out.writeToBuffer(total, buf -> {
+      final int pos = buf.position();
+      final int protoEndPos= pos + proto;
 
-    checksum.reset();
-    checksum.update(buf, 0, proto);
-    ByteBuffer.wrap(buf, proto, 4).putInt((int) checksum.getValue());
+      final CodedOutputStream encoder = CodedOutputStream.newInstance(buf);
+      encoder.writeUInt32NoTag(serialized);
+      entry.writeTo(encoder);
 
-    out.write(buf);
+      // compute checksum
+      final ByteBuffer duplicated = buf.duplicate();
+      duplicated.position(pos).limit(protoEndPos);
+      checksum.reset();
+      checksum.update(duplicated);
+
+      buf.position(protoEndPos);
+      buf.putInt((int) checksum.getValue());
+      Preconditions.assertSame(pos + total, buf.position(), "buf.position()");
+    });
   }
 
   @Override
@@ -117,7 +126,19 @@ public class SegmentedRaftLogOutputStream implements Closeable {
     try {
       out.flush();
     } catch (IOException ioe) {
-      throw new IOException("Failed to flush " + this, ioe);
+      String msg = "Failed to flush " + this;
+      LOG.error(msg, ioe);
+      throw new IOException(msg, ioe);
+    }
+  }
+
+  CompletableFuture<Void> asyncFlush(ExecutorService executor) throws IOException {
+    try {
+      return out.asyncFlush(executor);
+    } catch (IOException ioe) {
+      String msg = "Failed to asyncFlush " + this;
+      LOG.error(msg, ioe);
+      throw new IOException(msg, ioe);
     }
   }
 
@@ -128,10 +149,15 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   }
 
   private long preallocate(FileChannel fc, long outstanding) throws IOException {
-    final long actual = actualPreallocateSize(outstanding, segmentMaxSize - fc.size(), preallocatedSize);
+    final long size = fc.size();
+    final long actual = actualPreallocateSize(outstanding, segmentMaxSize - size, preallocatedSize);
     Preconditions.assertTrue(actual >= outstanding);
+    final long pos = fc.position();
+    LOG.debug("Preallocate {} bytes (pos={}, size={}) for {}", actual, pos, size, this);
     final long allocated = IOUtils.preallocate(fc, actual, FILL);
-    LOG.debug("Pre-allocated {} bytes for {}", allocated, this);
+    Preconditions.assertSame(pos, fc.position(), "fc.position()");
+    Preconditions.assertSame(actual, allocated, "allocated");
+    Preconditions.assertSame(size + allocated, fc.size(), "fc.size()");
     return allocated;
   }
 
@@ -141,6 +167,6 @@ public class SegmentedRaftLogOutputStream implements Closeable {
 
   @Override
   public String toString() {
-    return JavaUtils.getClassSimpleName(getClass()) + "(" + file + ")";
+    return name;
   }
 }

@@ -26,12 +26,13 @@ import org.apache.ratis.proto.ExamplesProtos.ReadRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.StreamWriteRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -40,6 +41,8 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -85,7 +88,8 @@ public class FileStoreStateMachine extends BaseStateMachine {
     }
 
     final String path = proto.getPath().toStringUtf8();
-    return files.read(path, proto.getOffset(), proto.getLength(), true)
+    return (proto.getIsWatch()? files.watch(path)
+        : files.read(path, proto.getOffset(), proto.getLength(), true))
         .thenApply(reply -> Message.valueOf(reply.toByteString()));
   }
 
@@ -96,29 +100,33 @@ public class FileStoreStateMachine extends BaseStateMachine {
     final TransactionContext.Builder b = TransactionContext.newBuilder()
         .setStateMachine(this)
         .setClientRequest(request);
-
     if (proto.getRequestCase() == FileStoreRequestProto.RequestCase.WRITE) {
       final WriteRequestProto write = proto.getWrite();
       final FileStoreRequestProto newProto = FileStoreRequestProto.newBuilder()
           .setWriteHeader(write.getHeader()).build();
-      b.setLogData(newProto.toByteString()).setStateMachineData(write.getData());
+      b.setLogData(newProto.toByteString()).setStateMachineData(write.getData())
+       .setStateMachineContext(newProto);
     } else {
-      b.setLogData(content);
+      b.setLogData(content)
+       .setStateMachineContext(proto);
     }
     return b.build();
   }
 
   @Override
-  public CompletableFuture<Integer> write(LogEntryProto entry) {
-    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-    final ByteString data = smLog.getLogData();
-    final FileStoreRequestProto proto;
-    try {
-      proto = FileStoreRequestProto.parseFrom(data);
-    } catch (InvalidProtocolBufferException e) {
-      return FileStoreCommon.completeExceptionally(
-          entry.getIndex(), "Failed to parse data, entry=" + entry, e);
-    }
+  public TransactionContext startTransaction(LogEntryProto entry, RaftProtos.RaftPeerRole role) {
+    return TransactionContext.newBuilder()
+        .setStateMachine(this)
+        .setLogEntry(entry)
+        .setServerRole(role)
+        .setStateMachineContext(getProto(entry))
+        .build();
+  }
+
+  @Override
+  public CompletableFuture<Integer> write(ReferenceCountedObject<LogEntryProto> entryRef, TransactionContext context) {
+    LogEntryProto entry = entryRef.retain();
+    final FileStoreRequestProto proto = getProto(context, entry);
     if (proto.getRequestCase() != FileStoreRequestProto.RequestCase.WRITEHEADER) {
       return null;
     }
@@ -126,22 +134,33 @@ public class FileStoreStateMachine extends BaseStateMachine {
     final WriteRequestHeaderProto h = proto.getWriteHeader();
     final CompletableFuture<Integer> f = files.write(entry.getIndex(),
         h.getPath().toStringUtf8(), h.getClose(),  h.getSync(), h.getOffset(),
-        smLog.getStateMachineEntry().getStateMachineData());
+        entry.getStateMachineLogEntry().getStateMachineEntry().getStateMachineData()
+    ).whenComplete((r, e) -> entryRef.release());
     // sync only if closing the file
-    return h.getClose()? f: null;
+    return h.getClose() ? f: null;
+  }
+
+  static FileStoreRequestProto getProto(TransactionContext context, LogEntryProto entry) {
+    if (context != null) {
+      final FileStoreRequestProto proto = (FileStoreRequestProto) context.getStateMachineContext();
+      if (proto != null) {
+        return proto;
+      }
+    }
+    return getProto(entry);
+  }
+
+  static FileStoreRequestProto getProto(LogEntryProto entry) {
+    try {
+      return FileStoreRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalArgumentException("Failed to parse data, entry=" + entry, e);
+    }
   }
 
   @Override
-  public CompletableFuture<ByteString> read(LogEntryProto entry) {
-    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-    final ByteString data = smLog.getLogData();
-    final FileStoreRequestProto proto;
-    try {
-      proto = FileStoreRequestProto.parseFrom(data);
-    } catch (InvalidProtocolBufferException e) {
-      return FileStoreCommon.completeExceptionally(
-          entry.getIndex(), "Failed to parse data, entry=" + entry, e);
-    }
+  public CompletableFuture<ByteString> read(LogEntryProto entry, TransactionContext context) {
+    final FileStoreRequestProto proto = getProto(context, entry);
     if (proto.getRequestCase() != FileStoreRequestProto.RequestCase.WRITEHEADER) {
       return null;
     }
@@ -154,9 +173,11 @@ public class FileStoreStateMachine extends BaseStateMachine {
   }
 
   static class LocalStream implements DataStream {
+    private final String name;
     private final DataChannel dataChannel;
 
-    LocalStream(DataChannel dataChannel) {
+    LocalStream(String name, DataChannel dataChannel) {
+      this.name = JavaUtils.getClassSimpleName(getClass()) + "[" + name + "]";
       this.dataChannel = dataChannel;
     }
 
@@ -176,6 +197,11 @@ public class FileStoreStateMachine extends BaseStateMachine {
         }
       });
     }
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 
   @Override
@@ -188,37 +214,32 @@ public class FileStoreStateMachine extends BaseStateMachine {
       return FileStoreCommon.completeExceptionally(
           "Failed to parse stream header", e);
     }
-    return files.createDataChannel(proto.getStream().getPath().toStringUtf8())
-        .thenApply(LocalStream::new);
+    final String file = proto.getStream().getPath().toStringUtf8();
+    return files.createDataChannel(file)
+        .thenApply(channel -> new LocalStream(file, channel));
   }
 
   @Override
   public CompletableFuture<?> link(DataStream stream, LogEntryProto entry) {
-    LOG.info("linking {}", stream);
+    LOG.info("linking {} to {}", stream, LogProtoUtils.toLogEntryString(entry));
     return files.streamLink(stream);
   }
 
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    final LogEntryProto entry = trx.getLogEntry();
+    final LogEntryProto entry = trx.getLogEntryUnsafe();
 
     final long index = entry.getIndex();
     updateLastAppliedTermIndex(entry.getTerm(), index);
 
-    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-    final FileStoreRequestProto request;
-    try {
-      request = FileStoreRequestProto.parseFrom(smLog.getLogData());
-    } catch (InvalidProtocolBufferException e) {
-      return FileStoreCommon.completeExceptionally(index,
-          "Failed to parse logData in" + smLog, e);
-    }
+    final FileStoreRequestProto request = getProto(trx, entry);
 
     switch(request.getRequestCase()) {
       case DELETE:
         return delete(index, request.getDelete());
       case WRITEHEADER:
-        return writeCommit(index, request.getWriteHeader(), smLog.getStateMachineEntry().getStateMachineData().size());
+        return writeCommit(index, request.getWriteHeader(),
+            entry.getStateMachineLogEntry().getStateMachineEntry().getStateMachineData().size());
       case STREAM:
         return streamCommit(request.getStream());
       case WRITE:

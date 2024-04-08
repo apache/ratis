@@ -18,14 +18,12 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.BaseTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
+@Timeout(value = 1)
 public class TestRoutingTable extends BaseTest {
-  @Override
-  public int getGlobalTimeoutSeconds() {
-    return 1;
-  }
 
   private final RaftPeerId[] peers = new RaftPeerId[10];
 
@@ -69,7 +67,7 @@ public class TestRoutingTable extends BaseTest {
   }
 
   void testFailureCase(String name, int... peerIndices) {
-    Assert.assertEquals(0, peerIndices.length % 2);
+    Assertions.assertEquals(0, peerIndices.length % 2);
 
     testFailureCase(name + ": " + toString(peerIndices),
         () -> newRoutingTable(peerIndices),
@@ -77,7 +75,7 @@ public class TestRoutingTable extends BaseTest {
   }
 
   String toString(int... peerIndices) {
-    Assert.assertEquals(0, peerIndices.length % 2);
+    Assertions.assertEquals(0, peerIndices.length % 2);
     if (peerIndices.length == 0) {
       return "<empty>";
     }

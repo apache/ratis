@@ -17,20 +17,26 @@
  */
 package org.apache.ratis.netty;
 
-import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamClientFactory;
+import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.netty.client.NettyClientStreamRpc;
 import org.apache.ratis.netty.server.NettyServerStreamRpc;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DataStreamServerFactory;
+import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 
+import java.util.Optional;
+
 public class NettyDataStreamFactory implements DataStreamServerFactory, DataStreamClientFactory {
-  public NettyDataStreamFactory(Parameters parameters){}
+  private final Parameters parameters;
+
+  public NettyDataStreamFactory(Parameters parameters) {
+    this.parameters = Optional.ofNullable(parameters).orElseGet(Parameters::new);
+  }
 
   @Override
   public SupportedDataStreamType getDataStreamType() {
@@ -39,11 +45,11 @@ public class NettyDataStreamFactory implements DataStreamServerFactory, DataStre
 
   @Override
   public DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties) {
-    return new NettyClientStreamRpc(server, properties);
+    return new NettyClientStreamRpc(server, NettyConfigKeys.DataStream.Client.tlsConf(parameters), properties);
   }
 
   @Override
   public DataStreamServerRpc newDataStreamServerRpc(RaftServer server) {
-    return new NettyServerStreamRpc(server);
+    return new NettyServerStreamRpc(server, parameters);
   }
 }
