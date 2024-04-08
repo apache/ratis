@@ -151,6 +151,7 @@ public interface DataStreamTestUtils {
     @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
       final SingleDataStream s = new SingleDataStream(request);
+      LOG.info("XXX {} put {}, {}", this, ClientInvocationId.valueOf(request), s);
       streams.put(ClientInvocationId.valueOf(request), s);
       return CompletableFuture.completedFuture(s);
     }
@@ -179,7 +180,9 @@ public interface DataStreamTestUtils {
     }
 
     SingleDataStream getSingleDataStream(ClientInvocationId invocationId) {
-      return streams.get(invocationId);
+      final SingleDataStream s = streams.get(invocationId);
+      LOG.info("XXX {}: get {} return {}", this, invocationId, s);
+      return s;
     }
 
     Collection<SingleDataStream> getStreams() {
@@ -329,6 +332,8 @@ public interface DataStreamTestUtils {
 
   static void assertHeader(RaftServer server, RaftClientRequest header, int dataSize, boolean stepDownLeader)
       throws Exception {
+    LOG.info("XXX {}: dataSize={}, stepDownLeader={}, header={}",
+        server.getId(), dataSize, stepDownLeader, header);
     // check header
     Assertions.assertEquals(RaftClientRequest.dataStreamRequestType(), header.getType());
 
