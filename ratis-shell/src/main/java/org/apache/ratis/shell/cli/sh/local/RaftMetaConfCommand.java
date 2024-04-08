@@ -25,6 +25,7 @@ import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -32,11 +33,14 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Command for generate a new raft-meta.conf file based on original raft-meta.conf and new peers,
@@ -71,29 +75,44 @@ public class RaftMetaConfCommand extends AbstractCommand {
       return -1;
     }
     Set<String> addresses = new HashSet<>();
+    Set<String> ids = new HashSet<>();
     List<RaftPeerProto> raftPeerProtos = new ArrayList<>();
     for (String idWithAddress : peersStr.split(",")) {
       String[] peerIdWithAddressArray = idWithAddress.split(SEPARATOR);
 
       if (peerIdWithAddressArray.length < 1 || peerIdWithAddressArray.length > 2) {
-        printf("Please make sure to provide list of peers in format <P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT>, "
-          + "or <P0_Id|P0_HOST:P0_PORT,P1_Id|P1_HOST:P1_PORT,P2_Id|P2_HOST:P2_PORT>");
+        String message =
+            "Failed to parse peer's Id and address for: %s, " +
+                "from option: -peers %s. \n" +
+                "Please make sure to provide list of peers" +
+                " in format <P0_Id|P0_HOST:P0_PORT,P1_Id|P1_HOST:P1_PORT,P2_Id|P2_HOST:P2_PORT> or " +
+                "<P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT>";
+        printf(message, idWithAddress, peersStr);
         return -1;
       }
-      String address = parseInetSocketAddress(peerIdWithAddressArray[peerIdWithAddressArray.length - 1]).toString();
-      if (addresses.contains(address)) {
-        printf("Please make sure the addresses of peers have no duplicated value.");
+      InetSocketAddress inetSocketAddress = parseInetSocketAddress(
+          peerIdWithAddressArray[peerIdWithAddressArray.length - 1]);
+      String addressString = inetSocketAddress.toString();
+      if (addresses.contains(addressString)) {
+        printf("Found duplicated address: %s. Please make sure the address of peer have no duplicated value.",
+            addressString);
         return -1;
       }
-      addresses.add(address);
-      
+      addresses.add(addressString);
+
       String peerId;
       if (peerIdWithAddressArray.length == 2) {
         // Peer ID is provided
         peerId = RaftPeerId.getRaftPeerId(peerIdWithAddressArray[0]).toString();
+
+        if (ids.contains(peerId)) {
+          printf("Found duplicated id: %s. Please make sure the id of peer have no duplicated value.", peerId);
+          return -1;
+        }
+        ids.add(peerId);
       } else {
         // If peer ID is not provided, use host address as peerId value
-        peerId = RaftUtils.getPeerId(parseInetSocketAddress(address)).toString();
+        peerId = RaftUtils.getPeerId(inetSocketAddress).toString();
       }
 
       raftPeerProtos.add(RaftPeerProto.newBuilder()

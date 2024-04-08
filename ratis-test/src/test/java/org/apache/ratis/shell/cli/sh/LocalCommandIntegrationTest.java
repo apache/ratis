@@ -36,6 +36,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class LocalCommandIntegrationTest {
 
@@ -43,6 +45,33 @@ public class LocalCommandIntegrationTest {
   private static final String NEW_RAFT_META_CONF = "new-raft-meta.conf";
   private static Pattern p = Pattern.compile("(?:\\w+\\|\\w+:\\d+,?)+");
 
+
+  @Test
+  public void testDuplicatedPeerAddresses() throws Exception {
+    String[] duplicatedAddressesList = {"peer1_id1|host1:9872,peer2_id|host2:9872,peer1_id2|host1:9872",
+        "host1:9872,host2:9872,host1:9872"};
+
+    testDuplicatedPeers(duplicatedAddressesList, "address", "host1:9872");
+  }
+
+  @Test
+  public void testDuplicatedPeerIds() throws Exception {
+    String[] duplicatedIdsList = {"peer1_id1|host1:9872,peer2_id|host2:9872,peer1_id1|host3:9872"};
+
+    testDuplicatedPeers(duplicatedIdsList, "id", "peer1_id1");
+  }
+
+  private void testDuplicatedPeers(String[] peersList, String expectedErrorMessagePart, String expectedDuplicatedValue) throws Exception {
+    for (String peersStr : peersList) {
+      StringPrintStream out = new StringPrintStream();
+      RatisShell shell = new RatisShell(out.getPrintStream());
+      int ret = shell.run("local", "raftMetaConf", "-peers", peersStr, "-path", "test");
+      Assertions.assertEquals(-1, ret);
+      String message = out.toString().trim();
+      Assertions.assertEquals(String.format("Found duplicated %s: %s. Please make sure the %s of peer have no duplicated value.",
+          expectedErrorMessagePart, expectedDuplicatedValue, expectedErrorMessagePart), message);
+    }
+  }
 
   @Test
   public void testRunMethod(@TempDir Path tempDir) throws Exception {
@@ -53,7 +82,7 @@ public class LocalCommandIntegrationTest {
       "host1:9872,host2:9872,host3:9872"};
 
     for (String peersListStr : testPeersListArray) {
-      getRaftConf(output, index);
+      generateRaftConf(tempDir, index);
       StringPrintStream out = new StringPrintStream();
       RatisShell shell = new RatisShell(out.getPrintStream());
       int ret = shell.run("local", "raftMetaConf", "-peers", peersListStr, "-path", tempDir.toString());
@@ -71,7 +100,7 @@ public class LocalCommandIntegrationTest {
       Assertions.assertEquals(index + 1, indexFromNewConf);
 
       String peersListStrFromNewMetaConf;
-      if (containsPeerId(peersStr)) {
+      if (containsPeerId(peersListStr)) {
         peersListStrFromNewMetaConf = peers.stream()
             .map(peer -> peer.getId().toStringUtf8() + "|" + peer.getAddress())
             .collect(Collectors.joining(","));
@@ -80,12 +109,12 @@ public class LocalCommandIntegrationTest {
             .collect(Collectors.joining(","));
       }
 
-      Assertions.assertEquals(updatedPeersList, peersListStrFromNewMetaConf);
+      Assertions.assertEquals(peersListStr, peersListStrFromNewMetaConf);
     }
   }
 
 
-  void generateRaftConf(Path path, int index) throws IOException {
+  private void generateRaftConf(Path path, int index) throws IOException {
     Map<String, String> map = new HashMap<>();
     map.put("peer1_Id", "host1:9872");
     map.put("peer2_Id", "host2:9872");

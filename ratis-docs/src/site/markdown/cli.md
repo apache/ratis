@@ -182,5 +182,5 @@ It has the following subcommands:
 ### local raftMetaConf
 Generate a new raft-meta.conf file based on original raft-meta.conf and new peers, which is used to move a raft node to a new node.
 ```
-$ ratis sh local raftMetaConf -peers <P0_Id|P0_HOST:P0_PORT,P1_Id|P1_HOST:P1_PORT,P2_Id|P2_HOST:P2_PORT> -path <PARENT_PATH_OF_RAFT_META_CONF>
+$ ratis sh local raftMetaConf -peers <[P0_Id|]P0_HOST:P0_PORT,[P1_Id]|P1_HOST:P1_PORT,[P2_Id]|P2_HOST:P2_PORT> -path <PARENT_PATH_OF_RAFT_META_CONF>
 ```
