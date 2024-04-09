@@ -18,7 +18,7 @@
 
 package org.apache.ratis.statemachine.impl;
 
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -132,8 +132,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   }
 
   @Override
-  public void notifyConfigurationChanged(long term, long index,
-                                         RaftProtos.RaftConfigurationProto newRaftConfiguration) {
+  public void notifyConfigurationChanged(long term, long index, RaftConfigurationProto newRaftConfiguration) {
     // update last applied index for linearizable reads
     notifyTermIndexUpdated(term, index);
   }
