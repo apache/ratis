@@ -48,7 +48,7 @@ public class LocalCommandIntegrationTest {
 
   @Test
   public void testDuplicatedPeerAddresses() throws Exception {
-    String[] duplicatedAddressesList = {"peer1_id1|host1:9872,peer2_id|host2:9872,peer1_id2|host1:9872",
+    String[] duplicatedAddressesList = {"peer1_ID1|host1:9872,peer2_ID|host2:9872,peer1_ID2|host1:9872",
         "host1:9872,host2:9872,host1:9872"};
 
     testDuplicatedPeers(duplicatedAddressesList, "address", "host1:9872");
@@ -56,9 +56,9 @@ public class LocalCommandIntegrationTest {
 
   @Test
   public void testDuplicatedPeerIds() throws Exception {
-    String[] duplicatedIdsList = {"peer1_id1|host1:9872,peer2_id|host2:9872,peer1_id1|host3:9872"};
+    String[] duplicatedIdsList = {"peer1_ID1|host1:9872,peer2_ID|host2:9872,peer1_ID1|host3:9872"};
 
-    testDuplicatedPeers(duplicatedIdsList, "id", "peer1_id1");
+    testDuplicatedPeers(duplicatedIdsList, "ID", "peer1_ID1");
   }
 
   private void testDuplicatedPeers(String[] peersList, String expectedErrorMessagePart, String expectedDuplicatedValue) throws Exception {
@@ -78,7 +78,7 @@ public class LocalCommandIntegrationTest {
     int index = 1;
     generateRaftConf(tempDir.resolve(RAFT_META_CONF), index);
 
-     String[] testPeersListArray = {"peer1_Id|host1:9872,peer2_id|host2:9872,peer3_id|host3:9872",
+     String[] testPeersListArray = {"peer1_ID|host1:9872,peer2_ID|host2:9872,peer3_ID|host3:9872",
       "host1:9872,host2:9872,host3:9872"};
 
     for (String peersListStr : testPeersListArray) {
@@ -116,10 +116,10 @@ public class LocalCommandIntegrationTest {
 
   private void generateRaftConf(Path path, int index) throws IOException {
     Map<String, String> map = new HashMap<>();
-    map.put("peer1_Id", "host1:9872");
-    map.put("peer2_Id", "host2:9872");
-    map.put("peer3_Id", "host3:9872");
-    map.put("peer4_Id", "host4:9872");
+    map.put("peer1_ID", "host1:9872");
+    map.put("peer2_ID", "host2:9872");
+    map.put("peer3_ID", "host3:9872");
+    map.put("peer4_ID", "host4:9872");
     List<RaftPeerProto> raftPeerProtos = new ArrayList<>();
     for (Map.Entry<String, String> en : map.entrySet()) {
       raftPeerProtos.add(RaftPeerProto.newBuilder()

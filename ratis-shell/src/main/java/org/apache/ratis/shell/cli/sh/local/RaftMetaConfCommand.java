@@ -82,11 +82,10 @@ public class RaftMetaConfCommand extends AbstractCommand {
 
       if (peerIdWithAddressArray.length < 1 || peerIdWithAddressArray.length > 2) {
         String message =
-            "Failed to parse peer's Id and address for: %s, " +
+            "Failed to parse peer's ID and address for: %s, " +
                 "from option: -peers %s. \n" +
                 "Please make sure to provide list of peers" +
-                " in format <P0_Id|P0_HOST:P0_PORT,P1_Id|P1_HOST:P1_PORT,P2_Id|P2_HOST:P2_PORT> or " +
-                "<P0_HOST:P0_PORT,P1_HOST:P1_PORT,P2_HOST:P2_PORT>";
+                " in format <[P0_ID|]P0_HOST:P0_PORT,[P1_ID|]P1_HOST:P1_PORT,[P2_ID|]P2_HOST:P2_PORT>";
         printf(message, idWithAddress, peersStr);
         return -1;
       }
@@ -106,7 +105,7 @@ public class RaftMetaConfCommand extends AbstractCommand {
         peerId = RaftPeerId.getRaftPeerId(peerIdWithAddressArray[0]).toString();
 
         if (ids.contains(peerId)) {
-          printf("Found duplicated id: %s. Please make sure the id of peer have no duplicated value.", peerId);
+          printf("Found duplicated ID: %s. Please make sure the ID of peer have no duplicated value.", peerId);
           return -1;
         }
         ids.add(peerId);
@@ -117,7 +116,7 @@ public class RaftMetaConfCommand extends AbstractCommand {
 
       raftPeerProtos.add(RaftPeerProto.newBuilder()
           .setId(ByteString.copyFrom(peerId.getBytes(StandardCharsets.UTF_8)))
-          .setAddress(parseInetSocketAddress(peerIdWithAddressArray[1]).toString())
+          .setAddress(addressString)
           .setStartupRole(RaftPeerRole.FOLLOWER).build());
     }
     try (InputStream in = Files.newInputStream(Paths.get(path, RAFT_META_CONF));
@@ -137,7 +136,7 @@ public class RaftMetaConfCommand extends AbstractCommand {
   @Override
   public String getUsage() {
     return String.format("%s"
-            + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
+            + " -%s <[P0_ID|]P0_HOST:P0_PORT,[P1_ID|]P1_HOST:P1_PORT,[P2_ID|]P2_HOST:P2_PORT>"
             + " -%s <PARENT_PATH_OF_RAFT_META_CONF>",
         getCommandName(), PEER_OPTION_NAME, PATH_OPTION_NAME);
   }
