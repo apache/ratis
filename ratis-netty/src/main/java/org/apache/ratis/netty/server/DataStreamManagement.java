@@ -18,6 +18,7 @@
 
 package org.apache.ratis.netty.server;
 
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
@@ -219,6 +220,7 @@ public class DataStreamManagement {
   private final ChannelMap channels;
   private final ExecutorService requestExecutor;
   private final ExecutorService writeExecutor;
+  private final TimeDuration requestTimeout;
 
   private final NettyServerStreamRpcMetrics nettyServerStreamRpcMetrics;
 
@@ -235,6 +237,7 @@ public class DataStreamManagement {
     this.writeExecutor = ConcurrentUtils.newThreadPoolWithMax(useCachedThreadPool,
           RaftServerConfigKeys.DataStream.asyncWriteThreadPoolSize(properties),
           name + "-write-");
+    this.requestTimeout = RaftClientConfigKeys.DataStream.requestTimeout(server.getProperties());
 
     this.nettyServerStreamRpcMetrics = metrics;
   }
@@ -339,7 +342,7 @@ public class DataStreamManagement {
         .build();
   }
 
-  static void sendReply(List<CompletableFuture<DataStreamReply>> remoteWrites,
+  private void sendReply(List<CompletableFuture<DataStreamReply>> remoteWrites,
       DataStreamRequestByteBuf request, long bytesWritten, Collection<CommitInfoProto> commitInfos,
       ChannelHandlerContext ctx) {
     final boolean success = checkSuccessRemoteWrite(remoteWrites, bytesWritten, request);
@@ -493,10 +496,15 @@ public class DataStreamManagement {
     Preconditions.assertTrue(request.getStreamOffset() == reply.getStreamOffset());
   }
 
-  static boolean checkSuccessRemoteWrite(List<CompletableFuture<DataStreamReply>> replyFutures, long bytesWritten,
+  private boolean checkSuccessRemoteWrite(List<CompletableFuture<DataStreamReply>> replyFutures, long bytesWritten,
       final DataStreamRequestByteBuf request) {
     for (CompletableFuture<DataStreamReply> replyFuture : replyFutures) {
-      final DataStreamReply reply = replyFuture.join();
+      final DataStreamReply reply;
+      try {
+        reply = replyFuture.get(requestTimeout.getDuration(), requestTimeout.getUnit());
+      } catch (Exception e) {
+        throw new CompletionException("Failed to get reply for bytesWritten=" + bytesWritten + ", " + request, e);
+      }
       assertReplyCorrespondingToRequest(request, reply);
       if (!reply.isSuccess()) {
         LOG.warn("reply is not success, request: {}", request);
