@@ -142,6 +142,14 @@ public abstract class RaftLogBase implements RaftLog {
     return false;
   }
 
+  protected void updatePurgeIndex(Long purged) {
+    try (AutoCloseableLock writeLock = writeLock()) {
+      if (purged != null) {
+        purgeIndex.updateToMax(purged, infoIndexChange);
+      }
+    }
+  }
+
   protected void updateSnapshotIndexFromStateMachine() {
       updateSnapshotIndex(getSnapshotIndexFromStateMachine.getAsLong());
   }
@@ -340,9 +348,7 @@ public abstract class RaftLogBase implements RaftLog {
     LOG.info("{}: purge {}", getName(), suggestedIndex);
     final long finalSuggestedIndex = suggestedIndex;
     return purgeImpl(suggestedIndex).whenComplete((purged, e) -> {
-      if (purged != null) {
-        purgeIndex.updateToMax(purged, infoIndexChange);
-      }
+      updatePurgeIndex(purged);
       if (e != null) {
         LOG.warn(getName() + ": Failed to purge " + finalSuggestedIndex, e);
       }
