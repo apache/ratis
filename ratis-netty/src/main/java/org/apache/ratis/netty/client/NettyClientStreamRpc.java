@@ -53,7 +53,6 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
-import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.NetUtils;
@@ -466,15 +465,13 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         LOG.debug("{}: write after {}", this, request);
 
         final TimeDuration timeout = isClose ? closeTimeout : requestTimeout;
-        // if reply success cancel this future
-        final ScheduledFuture<?> timeoutFuture = channel.eventLoop().schedule(() -> {
+        replyEntry.scheduleTimeout(() -> channel.eventLoop().schedule(() -> {
           if (!f.isDone()) {
             f.completeExceptionally(new TimeoutIOException(
-                "Timeout " + timeout + ": Failed to send " + request + " channel: " + channel));
+                "Timeout " + timeout + ": Failed to send " + request + " via channel " + channel));
             replyMap.fail(requestEntry);
           }
-        }, timeout.toLong(timeout.getUnit()), timeout.getUnit());
-        replyEntry.setTimeoutFuture(timeoutFuture);
+        }, timeout.getDuration(), timeout.getUnit()));
       }
     });
     return f;

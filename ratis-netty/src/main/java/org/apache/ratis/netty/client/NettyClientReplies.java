@@ -30,11 +30,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 public class NettyClientReplies {
   public static final Logger LOG = LoggerFactory.getLogger(NettyClientReplies.class);
@@ -56,8 +55,8 @@ public class NettyClientReplies {
 
     ReplyEntry submitRequest(RequestEntry requestEntry, boolean isClose, CompletableFuture<DataStreamReply> f) {
       LOG.debug("put {} to the map for {}", requestEntry, clientInvocationId);
-      final MemoizedSupplier<ReplyEntry> replySupplier = MemoizedSupplier.valueOf(() -> new ReplyEntry(isClose, f));
-      return map.computeIfAbsent(requestEntry, r -> replySupplier.get());
+      // ConcurrentHashMap.computeIfAbsent javadoc: the function is applied at most once per key.
+      return map.computeIfAbsent(requestEntry, r -> new ReplyEntry(isClose, f));
     }
 
     void receiveReply(DataStreamReply reply) {
@@ -147,7 +146,7 @@ public class NettyClientReplies {
   static class ReplyEntry {
     private final boolean isClosed;
     private final CompletableFuture<DataStreamReply> replyFuture;
-    private final AtomicReference<ScheduledFuture<?>> timeoutFuture = new AtomicReference<>();
+    private ScheduledFuture<?> timeoutFuture; // for reply timeout
 
     ReplyEntry(boolean isClosed, CompletableFuture<DataStreamReply> replyFuture) {
       this.isClosed = isClosed;
@@ -158,22 +157,26 @@ public class NettyClientReplies {
       return isClosed;
     }
 
-    void complete(DataStreamReply reply) {
-      cancelTimeoutFuture();
+    synchronized void complete(DataStreamReply reply) {
+      cancel(timeoutFuture);
       replyFuture.complete(reply);
     }
 
-    void completeExceptionally(Throwable t) {
-      cancelTimeoutFuture();
+    synchronized void completeExceptionally(Throwable t) {
+      cancel(timeoutFuture);
       replyFuture.completeExceptionally(t);
     }
 
-    private void cancelTimeoutFuture() {
-      Optional.ofNullable(timeoutFuture.get()).ifPresent(f -> f.cancel(false));
+    static void cancel(ScheduledFuture<?> future) {
+      if (future != null) {
+        future.cancel(true);
+      }
     }
 
-    void setTimeoutFuture(ScheduledFuture<?> timeoutFuture) {
-      this.timeoutFuture.compareAndSet(null, timeoutFuture);
+    synchronized void scheduleTimeout(Supplier<ScheduledFuture<?>> scheduleMethod) {
+      if (!replyFuture.isDone()) {
+        timeoutFuture = scheduleMethod.get();
+      }
     }
   }
 }
