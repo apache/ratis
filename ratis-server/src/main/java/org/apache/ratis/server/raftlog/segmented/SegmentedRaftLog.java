@@ -263,7 +263,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       if (!cache.isEmpty() && cache.getEndIndex() < lastIndexInSnapshot) {
         LOG.warn("End log index {} is smaller than last index in snapshot {}",
             cache.getEndIndex(), lastIndexInSnapshot);
-        purgeImpl(lastIndexInSnapshot);
+        purgeImpl(lastIndexInSnapshot).whenComplete((purged, e) -> updatePurgeIndex(purged));
       }
     }
   }
@@ -518,7 +518,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
         cacheEviction.signal();
       }
     }
-    return purgeImpl(lastSnapshotIndex);
+    return purgeImpl(lastSnapshotIndex).whenComplete((purged, e) -> updatePurgeIndex(purged));
   }
 
   @Override
