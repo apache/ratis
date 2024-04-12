@@ -146,7 +146,7 @@ public class NettyClientReplies {
   static class ReplyEntry {
     private final boolean isClosed;
     private final CompletableFuture<DataStreamReply> replyFuture;
-    private ScheduledFuture<?> timeoutFuture;
+    private ScheduledFuture<?> timeoutFuture; // for reply timeout
 
     ReplyEntry(boolean isClosed, CompletableFuture<DataStreamReply> replyFuture) {
       this.isClosed = isClosed;

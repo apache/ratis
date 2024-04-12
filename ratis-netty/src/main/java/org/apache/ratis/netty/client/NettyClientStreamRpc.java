@@ -454,16 +454,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
           flushRequestCountMin, flushRequestBytesMin, request)? channel::writeAndFlush: channel::write;
       channelFuture = writeMethod.apply(request);
     }
-
-    final TimeDuration timeout = isClose ? closeTimeout : requestTimeout;
-    replyEntry.scheduleTimeout(() -> channel.eventLoop().schedule(() -> {
-      if (!f.isDone()) {
-        f.completeExceptionally(new TimeoutIOException(
-            "Timeout " + timeout + ": Failed to send " + request + " via channel " + channel));
-        replyMap.fail(requestEntry);
-      }
-    }, timeout.getDuration(), timeout.getUnit()));
-
     channelFuture.addListener(future -> {
       if (!future.isSuccess()) {
         final IOException e = new IOException(this + ": Failed to send " + request + " to " + channel.remoteAddress(),
@@ -471,6 +461,17 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         f.completeExceptionally(e);
         replyMap.fail(requestEntry);
         LOG.error("Channel write failed", e);
+      } else {
+        LOG.debug("{}: write after {}", this, request);
+
+        final TimeDuration timeout = isClose ? closeTimeout : requestTimeout;
+        replyEntry.scheduleTimeout(() -> channel.eventLoop().schedule(() -> {
+          if (!f.isDone()) {
+            f.completeExceptionally(new TimeoutIOException(
+                "Timeout " + timeout + ": Failed to send " + request + " via channel " + channel));
+            replyMap.fail(requestEntry);
+          }
+        }, timeout.getDuration(), timeout.getUnit()));
       }
     });
     return f;
