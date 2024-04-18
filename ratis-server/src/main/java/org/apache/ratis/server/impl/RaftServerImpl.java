@@ -1805,17 +1805,7 @@ class RaftServerImpl implements RaftServer.Division,
   CompletableFuture<Message> applyLogToStateMachine(ReferenceCountedObject<LogEntryProto> nextRef)
       throws RaftLogIOException {
     LogEntryProto next = nextRef.get();
-    if (!next.hasStateMachineLogEntry()) {
-      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
-    }
-
-    if (next.hasConfigurationEntry()) {
-      // the reply should have already been set. only need to record
-      // the new conf in the metadata file and notify the StateMachine.
-      state.writeRaftConfiguration(next);
-      stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(), next.getConfigurationEntry());
-      role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
-    } else if (next.hasStateMachineLogEntry()) {
+    if (next.hasStateMachineLogEntry()) {
       TransactionContext trx = getTransactionContext(next, true);
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
       writeIndexCache.add(invocationId.getClientId(), ((TransactionContextImpl) trx).getLogIndexFuture());
@@ -1829,6 +1819,16 @@ class RaftServerImpl implements RaftServer.Division,
       } catch (Exception e) {
         throw new RaftLogIOException(e);
       }
+    } else {
+      if (next.hasConfigurationEntry()) {
+        // the reply should have already been set. only need to record
+        // the new conf in the metadata file and notify the StateMachine.
+        state.writeRaftConfiguration(next);
+        stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(),
+            next.getConfigurationEntry());
+        role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
+      }
+      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
     }
     return null;
   }
