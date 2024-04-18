@@ -1806,6 +1806,15 @@ class RaftServerImpl implements RaftServer.Division,
       throws RaftLogIOException {
     LogEntryProto next = nextRef.get();
     switch (next.getLogEntryBodyCase()) {
+    case CONFIGURATIONENTRY:
+      // the reply should have already been set. only need to record
+      // the new conf in the metadata file and notify the StateMachine.
+      state.writeRaftConfiguration(next);
+      stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(),
+          next.getConfigurationEntry());
+      role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
+      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
+      break;
     case STATEMACHINELOGENTRY:
       TransactionContext trx = getTransactionContext(next, true);
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
@@ -1820,14 +1829,6 @@ class RaftServerImpl implements RaftServer.Division,
       } catch (Exception e) {
         throw new RaftLogIOException(e);
       }
-    case CONFIGURATIONENTRY:
-      // the reply should have already been set. only need to record
-      // the new conf in the metadata file and notify the StateMachine.
-      state.writeRaftConfiguration(next);
-      stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(),
-          next.getConfigurationEntry());
-      role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
-      // break is omitted on purpose to go to the default path.
     default:
       stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
     }
