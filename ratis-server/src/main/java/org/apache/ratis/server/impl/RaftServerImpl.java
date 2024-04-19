@@ -1884,9 +1884,7 @@ class RaftServerImpl implements RaftServer.Division,
   CompletableFuture<Message> applyLogToStateMachine(ReferenceCountedObject<LogEntryProto> nextRef)
       throws RaftLogIOException {
     LogEntryProto next = nextRef.get();
-    if (!next.hasStateMachineLogEntry()) {
-      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
-    }
+    CompletableFuture<Message> messageFuture = null;
 
     switch (next.getLogEntryBodyCase()) {
     case CONFIGURATIONENTRY:
