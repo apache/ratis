@@ -1805,6 +1805,8 @@ class RaftServerImpl implements RaftServer.Division,
   CompletableFuture<Message> applyLogToStateMachine(ReferenceCountedObject<LogEntryProto> nextRef)
       throws RaftLogIOException {
     LogEntryProto next = nextRef.get();
+    CompletableFuture<Message> messageFuture = null;
+
     switch (next.getLogEntryBodyCase()) {
     case CONFIGURATIONENTRY:
       // the reply should have already been set. only need to record
@@ -1813,7 +1815,6 @@ class RaftServerImpl implements RaftServer.Division,
       stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(),
           next.getConfigurationEntry());
       role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
-      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
       break;
     case STATEMACHINELOGENTRY:
       TransactionContext trx = getTransactionContext(next, true);
@@ -1825,14 +1826,21 @@ class RaftServerImpl implements RaftServer.Division,
         trx = stateMachine.applyTransactionSerial(trx);
 
         final CompletableFuture<Message> stateMachineFuture = stateMachine.applyTransaction(trx);
-        return replyPendingRequest(invocationId, TermIndex.valueOf(next), stateMachineFuture);
+        messageFuture = replyPendingRequest(invocationId, TermIndex.valueOf(next), stateMachineFuture);
       } catch (Exception e) {
         throw new RaftLogIOException(e);
       }
+      break;
+    case METADATAENTRY:
+      break;
     default:
+      throw new IllegalStateException("Unexpected LogEntryBodyCase " + next.getLogEntryBodyCase() + ", next=" + next);
+    }
+
+    if (next.getLogEntryBodyCase() != LogEntryProto.LogEntryBodyCase.STATEMACHINELOGENTRY) {
       stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
     }
-    return null;
+    return messageFuture;
   }
 
   /**
