@@ -1787,17 +1787,18 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) throws RaftLogIOException {
-    if (!next.hasStateMachineLogEntry()) {
-      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
-    }
+    CompletableFuture<Message> messageFuture = null;
 
-    if (next.hasConfigurationEntry()) {
+    switch (next.getLogEntryBodyCase()) {
+    case CONFIGURATIONENTRY:
       // the reply should have already been set. only need to record
       // the new conf in the metadata file and notify the StateMachine.
       state.writeRaftConfiguration(next);
-      stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(), next.getConfigurationEntry());
+      stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(),
+          next.getConfigurationEntry());
       role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
-    } else if (next.hasStateMachineLogEntry()) {
+      break;
+    case STATEMACHINELOGENTRY:
       TransactionContext trx = getTransactionContext(next, true);
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
       writeIndexCache.add(invocationId.getClientId(), ((TransactionContextImpl) trx).getLogIndexFuture());
@@ -1807,12 +1808,21 @@ class RaftServerImpl implements RaftServer.Division,
         trx = stateMachine.applyTransactionSerial(trx);
 
         final CompletableFuture<Message> stateMachineFuture = stateMachine.applyTransaction(trx);
-        return replyPendingRequest(invocationId, TermIndex.valueOf(next), stateMachineFuture);
+        messageFuture = replyPendingRequest(invocationId, TermIndex.valueOf(next), stateMachineFuture);
       } catch (Exception e) {
         throw new RaftLogIOException(e);
       }
+      break;
+    case METADATAENTRY:
+      break;
+    default:
+      throw new IllegalStateException("Unexpected LogEntryBodyCase " + next.getLogEntryBodyCase() + ", next=" + next);
     }
-    return null;
+
+    if (next.getLogEntryBodyCase() != LogEntryProto.LogEntryBodyCase.STATEMACHINELOGENTRY) {
+      stateMachine.event().notifyTermIndexUpdated(next.getTerm(), next.getIndex());
+    }
+    return messageFuture;
   }
 
   /**
