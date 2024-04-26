@@ -77,8 +77,13 @@ public interface RaftServerConfigKeys {
     return getTimeDuration(properties.getTimeDuration(SLEEP_DEVIATION_THRESHOLD_DEFAULT.getUnit()),
         SLEEP_DEVIATION_THRESHOLD_KEY, SLEEP_DEVIATION_THRESHOLD_DEFAULT, getDefaultLog());
   }
+  /** @deprecated use {@link #setSleepDeviationThreshold(RaftProperties, TimeDuration)}. */
+  @Deprecated
   static void setSleepDeviationThreshold(RaftProperties properties, int thresholdMs) {
     setInt(properties::setInt, SLEEP_DEVIATION_THRESHOLD_KEY, thresholdMs);
+  }
+  static void setSleepDeviationThreshold(RaftProperties properties, TimeDuration threshold) {
+    setTimeDuration(properties::setTimeDuration, SLEEP_DEVIATION_THRESHOLD_KEY, threshold);
   }
 
   String CLOSE_THRESHOLD_KEY = PREFIX + ".close.threshold";
@@ -87,8 +92,13 @@ public interface RaftServerConfigKeys {
     return getTimeDuration(properties.getTimeDuration(CLOSE_THRESHOLD_DEFAULT.getUnit()),
         CLOSE_THRESHOLD_KEY, CLOSE_THRESHOLD_DEFAULT, getDefaultLog());
   }
-  static void setCloseThreshold(RaftProperties properties, int thresholdMs) {
-    setInt(properties::setInt, CLOSE_THRESHOLD_KEY, thresholdMs);
+  /** @deprecated use {@link #setCloseThreshold(RaftProperties, TimeDuration)}. */
+  @Deprecated
+  static void setCloseThreshold(RaftProperties properties, int thresholdSec) {
+    setInt(properties::setInt, CLOSE_THRESHOLD_KEY, thresholdSec);
+  }
+  static void setCloseThreshold(RaftProperties properties, TimeDuration threshold) {
+    setTimeDuration(properties::setTimeDuration, CLOSE_THRESHOLD_KEY, threshold);
   }
 
   /**
