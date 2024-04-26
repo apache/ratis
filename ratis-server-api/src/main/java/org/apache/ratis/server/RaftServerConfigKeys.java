@@ -82,7 +82,7 @@ public interface RaftServerConfigKeys {
   static void setSleepDeviationThreshold(RaftProperties properties, int thresholdMs) {
     setInt(properties::setInt, SLEEP_DEVIATION_THRESHOLD_KEY, thresholdMs);
   }
-  static void setSleepDeviationThreshold(RaftProperties properties,  TimeDuration threshold) {
+  static void setSleepDeviationThreshold(RaftProperties properties, TimeDuration threshold) {
     setTimeDuration(properties::setTimeDuration, SLEEP_DEVIATION_THRESHOLD_KEY, threshold);
   }
 
