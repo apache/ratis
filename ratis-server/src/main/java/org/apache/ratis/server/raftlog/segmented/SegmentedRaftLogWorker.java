@@ -38,6 +38,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.thirdparty.io.netty.util.internal.PlatformDependent;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -242,6 +243,7 @@ class SegmentedRaftLogWorker {
     Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
     ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND.multiply(3),
         workerThreadExecutor, timeout -> LOG.warn("{}: shutdown timeout in " + timeout, name));
+    PlatformDependent.freeDirectBuffer(writeBuffer);
     IOUtils.cleanup(LOG, out);
     LOG.info("{} close()", name);
   }
