@@ -99,7 +99,7 @@ public class MemoryRaftLog extends RaftLogBase {
   public MemoryRaftLog(RaftGroupMemberId memberId,
                        LongSupplier commitIndexSupplier,
                        RaftProperties properties) {
-    super(memberId, commitIndexSupplier, properties);
+    super(memberId, commitIndexSupplier, properties, null);
     this.metrics = new RaftLogMetricsBase(memberId);
   }
 
