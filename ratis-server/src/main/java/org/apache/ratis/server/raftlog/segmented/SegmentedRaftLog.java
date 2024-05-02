@@ -211,9 +211,11 @@ public final class SegmentedRaftLog extends RaftLogBase {
   private final boolean stateMachineCachingEnabled;
   private final SegmentedRaftLogMetrics metrics;
 
+
   @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   private SegmentedRaftLog(Builder b) {
-    super(b.memberId, b.snapshotIndexSupplier, b.properties);
+    super(b.memberId, b.snapshotIndexSupplier, b.properties,
+        b.stateMachine != null ? b.stateMachine::toStateMachineLogEntryString : null);
     this.metrics = new SegmentedRaftLogMetrics(b.memberId);
 
     this.server = newServerLogMethods(b.server, b.notifyTruncatedLogEntry, b.getTransactionContext);
@@ -345,8 +347,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       }
       return future != null? newEntryWithData(entryRef, future): newEntryWithData(entryRef);
     } catch (Exception e) {
-      final String err = getName() + ": Failed readStateMachineData for " +
-          LogProtoUtils.toLogEntryString(entry);
+      final String err = getName() + ": Failed readStateMachineData for " + toString(entry);
       LOG.error(err, e);
       throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
     }
@@ -467,7 +468,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       }
       return write.getFuture().whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
     } catch (Exception e) {
-      LOG.error("{}: Failed to append {}", getName(), LogProtoUtils.toLogEntryString(entry), e);
+      LOG.error("{}: Failed to append {}", getName(), toString(entry), e);
       throw e;
     } finally {
       entryRef.release();
@@ -576,7 +577,6 @@ public final class SegmentedRaftLog extends RaftLogBase {
     return cache;
   }
 
-  @Override
   public String toLogEntryString(LogEntryProto logEntry) {
     return LogProtoUtils.toLogEntryString(logEntry, stateMachine::toStateMachineLogEntryString);
   }

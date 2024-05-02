@@ -82,10 +82,11 @@ public final class LogProtoUtils {
         : entries.stream().map(LogProtoUtils::toLogEntryString).collect(Collectors.toList()).toString();
   }
 
-  public static String toLogEntriesShortString(List<LogEntryProto> entries) {
+  public static String toLogEntriesShortString(List<LogEntryProto> entries,
+      Function<StateMachineLogEntryProto, String> stateMachineToString) {
     return entries == null ? null
         : entries.isEmpty()? "<empty>"
-        : "size=" + entries.size() + ", first=" + LogProtoUtils.toLogEntryString(entries.get(0));
+        : "size=" + entries.size() + ", first=" + toLogEntryString(entries.get(0), stateMachineToString);
   }
 
   public static LogEntryProto toLogEntryProto(RaftConfiguration conf, Long term, long index) {

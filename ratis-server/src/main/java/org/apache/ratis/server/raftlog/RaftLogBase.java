@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
@@ -43,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 /**
@@ -83,10 +85,12 @@ public abstract class RaftLogBase implements RaftLog {
   private final long purgePreservation;
 
   private final AtomicReference<LogEntryProto> lastMetadataEntry = new AtomicReference<>();
+  private final Function<StateMachineLogEntryProto, String> stateMachineToString;
 
   protected RaftLogBase(RaftGroupMemberId memberId,
                     LongSupplier getSnapshotIndexFromStateMachine,
-                    RaftProperties properties) {
+                    RaftProperties properties,
+                    Function<StateMachineLogEntryProto, String> stateMachineToString) {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     this.memberId = memberId;
     long index = getSnapshotIndexFromStateMachine.getAsLong();
@@ -99,6 +103,11 @@ public abstract class RaftLogBase implements RaftLog {
     this.getSnapshotIndexFromStateMachine = getSnapshotIndexFromStateMachine;
     this.stateMachineDataReadTimeout = RaftServerConfigKeys.Log.StateMachineData.readTimeout(properties);
     this.purgePreservation = RaftServerConfigKeys.Log.purgePreservationLogNum(properties);
+    this.stateMachineToString = stateMachineToString;
+  }
+
+  protected String toString(LogEntryProto entry) {
+    return LogProtoUtils.toLogEntryString(entry, stateMachineToString);
   }
 
   @Override
@@ -199,10 +208,10 @@ public abstract class RaftLogBase implements RaftLog {
 
       appendEntry(operation.wrap(e), operation).whenComplete((returned, t) -> {
         if (t != null) {
-          LOG.error(name + ": Failed to write log entry " + LogProtoUtils.toLogEntryString(e), t);
+          LOG.error(name + ": Failed to write log entry " + toString(e), t);
         } else if (returned != nextIndex) {
           LOG.error("{}: Indices mismatched: returned index={} but nextIndex={} for log entry {}",
-              name, returned, nextIndex, LogProtoUtils.toLogEntryString(e));
+              name, returned, nextIndex, toString(e));
         } else {
           return; // no error
         }
@@ -532,11 +541,8 @@ public abstract class RaftLogBase implements RaftLog {
 
     @Override
     public String toString() {
-      return toLogEntryString(logEntry);
+      return RaftLogBase.this.toString(logEntry);
     }
   }
 
-  public String toLogEntryString(LogEntryProto logEntry) {
-    return LogProtoUtils.toLogEntryString(logEntry);
-  }
 }
