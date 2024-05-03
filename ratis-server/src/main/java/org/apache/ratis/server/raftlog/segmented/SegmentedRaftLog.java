@@ -345,8 +345,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       }
       return future != null? newEntryWithData(entryRef, future): newEntryWithData(entryRef);
     } catch (Exception e) {
-      final String err = getName() + ": Failed readStateMachineData for " +
-          LogProtoUtils.toLogEntryString(entry);
+      final String err = getName() + ": Failed readStateMachineData for " + toLogEntryString(entry);
       LOG.error(err, e);
       throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
     }
@@ -467,7 +466,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       }
       return write.getFuture().whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
     } catch (Exception e) {
-      LOG.error("{}: Failed to append {}", getName(), LogProtoUtils.toLogEntryString(entry), e);
+      LOG.error("{}: Failed to append {}", getName(), toLogEntryString(entry), e);
       throw e;
     } finally {
       entryRef.release();
@@ -578,7 +577,8 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   public String toLogEntryString(LogEntryProto logEntry) {
-    return LogProtoUtils.toLogEntryString(logEntry, stateMachine::toStateMachineLogEntryString);
+    return LogProtoUtils.toLogEntryString(logEntry, stateMachine != null ?
+        stateMachine::toStateMachineLogEntryString : null);
   }
 
   public static Builder newBuilder() {
