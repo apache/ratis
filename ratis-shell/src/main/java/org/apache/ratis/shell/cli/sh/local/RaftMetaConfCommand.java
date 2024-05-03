@@ -91,7 +91,7 @@ public class RaftMetaConfCommand extends AbstractCommand {
       }
       InetSocketAddress inetSocketAddress = parseInetSocketAddress(
           peerIdWithAddressArray[peerIdWithAddressArray.length - 1]);
-      String addressString = inetSocketAddress.toString();
+      String addressString = inetSocketAddress.getHostString() + ":" + inetSocketAddress.getPort();
       if (addresses.contains(addressString)) {
         printf("Found duplicated address: %s. Please make sure the address of peer have no duplicated value.",
             addressString);

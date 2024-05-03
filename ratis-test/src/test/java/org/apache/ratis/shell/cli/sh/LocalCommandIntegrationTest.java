@@ -78,11 +78,11 @@ public class LocalCommandIntegrationTest {
     int index = 1;
     generateRaftConf(tempDir.resolve(RAFT_META_CONF), index);
 
-     String[] testPeersListArray = {"peer1_ID|host1:9872,peer2_ID|host2:9872,peer3_ID|host3:9872",
+     String[] testPeersListArray = {"peer1_ID|localhost:9872,peer2_ID|host2:9872,peer3_ID|host3:9872",
       "host1:9872,host2:9872,host3:9872"};
 
     for (String peersListStr : testPeersListArray) {
-      generateRaftConf(tempDir, index);
+      generateRaftConf(tempDir.resolve(RAFT_META_CONF), index);
       StringPrintStream out = new StringPrintStream();
       RatisShell shell = new RatisShell(out.getPrintStream());
       int ret = shell.run("local", "raftMetaConf", "-peers", peersListStr, "-path", tempDir.toString());
@@ -98,6 +98,11 @@ public class LocalCommandIntegrationTest {
       }
 
       Assertions.assertEquals(index + 1, indexFromNewConf);
+
+      String addressRegex = "^[a-zA-Z0-9.-]+:\\d+$";
+      Pattern pattern = Pattern.compile(addressRegex);
+      peers.forEach(p -> Assertions.assertTrue(
+          pattern.matcher(p.getAddress()).matches()));
 
       String peersListStrFromNewMetaConf;
       if (containsPeerId(peersListStr)) {
