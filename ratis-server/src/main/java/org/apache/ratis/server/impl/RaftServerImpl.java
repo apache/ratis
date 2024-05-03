@@ -1459,7 +1459,8 @@ class RaftServerImpl implements RaftServer.Division,
 
       return appendEntriesAsync(leaderId, request.getCallId(), previous, r);
     } catch(Exception t) {
-      LOG.error("{}: Failed appendEntries* {}", getMemberId(), toAppendEntriesRequestString(r), t);
+      LOG.error("{}: Failed appendEntries* {}", getMemberId(),
+          toAppendEntriesRequestString(r, stateMachine::toStateMachineLogEntryString), t);
       throw IOUtils.asIOException(t);
     }
   }
@@ -1515,7 +1516,7 @@ class RaftServerImpl implements RaftServer.Division,
     final List<LogEntryProto> entries = proto.getEntriesList();
     final boolean isHeartbeat = entries.isEmpty();
     logAppendEntries(isHeartbeat, () -> getMemberId() + ": appendEntries* "
-        + toAppendEntriesRequestString(proto));
+        + toAppendEntriesRequestString(proto, stateMachine::toStateMachineLogEntryString));
 
     final long leaderTerm = proto.getLeaderTerm();
     final long currentTerm;

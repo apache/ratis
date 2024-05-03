@@ -236,7 +236,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
       @Override
       String requestToString(AppendEntriesRequestProto request) {
-        return ServerStringUtils.toAppendEntriesRequestString(request);
+        return ServerStringUtils.toAppendEntriesRequestString(request, null);
       }
 
       @Override
