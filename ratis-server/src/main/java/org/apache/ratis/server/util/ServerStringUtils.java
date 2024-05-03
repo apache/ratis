@@ -24,12 +24,12 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
-import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.List;
+import java.util.function.Function;
 
 /**
  *  This class provides convenient utilities for converting Protocol Buffers messages to strings.
@@ -54,7 +54,8 @@ public final class ServerStringUtils {
         + ",previous=" + TermIndex.valueOf(request.getPreviousLog())
         + ",leaderCommit=" + request.getLeaderCommit()
         + ",initializing? " + request.getInitializing()
-        + "," + (entries.isEmpty()? "HEARTBEAT" : "entries: " + LogProtoUtils.toLogEntriesShortString(entries));
+        + "," + (entries.isEmpty()? "HEARTBEAT" : "entries: " +
+        LogProtoUtils.toLogEntriesShortString(entries, stateMachineToString));
   }
 
   public static String toAppendEntriesReplyString(AppendEntriesReplyProto reply) {
