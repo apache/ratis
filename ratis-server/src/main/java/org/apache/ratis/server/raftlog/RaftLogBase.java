@@ -195,10 +195,10 @@ public abstract class RaftLogBase implements RaftLog {
       }
       appendEntry(e, operation).whenComplete((returned, t) -> {
         if (t != null) {
-          LOG.error(name + ": Failed to write log entry " + LogProtoUtils.toLogEntryString(e), t);
+          LOG.error(name + ": Failed to write log entry " + toLogEntryString(e), t);
         } else if (returned != nextIndex) {
           LOG.error("{}: Indices mismatched: returned index={} but nextIndex={} for log entry {}",
-              name, returned, nextIndex, LogProtoUtils.toLogEntryString(e));
+              name, returned, nextIndex, toLogEntryString(e));
         } else {
           return; // no error
         }

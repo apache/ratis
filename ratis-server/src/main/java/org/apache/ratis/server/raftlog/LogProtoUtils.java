@@ -19,7 +19,6 @@ package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftConfiguration;
@@ -45,9 +44,10 @@ public final class LogProtoUtils {
     }
     final String s;
     if (entry.hasStateMachineLogEntry()) {
-      s = ", " + Optional.ofNullable(function)
-          .orElseGet(() -> proto -> "" + ClientInvocationId.valueOf(proto))
-          .apply(entry.getStateMachineLogEntry());
+      if (function == null) {
+        function = LogProtoUtils::stateMachineLogEntryProtoToString;
+      }
+      s = ", " + function.apply(entry.getStateMachineLogEntry());
     } else if (entry.hasMetadataEntry()) {
       final MetadataProto metadata = entry.getMetadataEntry();
       s = "(c:" + metadata.getCommitIndex() + ")";
@@ -69,7 +69,11 @@ public final class LogProtoUtils {
   }
 
   static String stateMachineLogEntryProtoToString(StateMachineLogEntryProto p) {
-    return "logData:" + p.getLogData() + ", stateMachineEntry:" + p.getType() + ":" + p.getStateMachineEntry();
+    final StateMachineEntryProto stateMachineEntry = p.getStateMachineEntry();
+    return p.getType()
+        + ": logData.size=" + p.getLogData().size()
+        + ", stateMachineData.size=" + stateMachineEntry.getStateMachineData().size()
+        + ", logEntryProtoSerializedSize=" + stateMachineEntry.getLogEntryProtoSerializedSize();
   }
 
   public static String toLogEntryString(LogEntryProto entry) {
@@ -81,10 +85,11 @@ public final class LogProtoUtils {
         : entries.stream().map(LogProtoUtils::toLogEntryString).collect(Collectors.toList()).toString();
   }
 
-  public static String toLogEntriesShortString(List<LogEntryProto> entries) {
+  public static String toLogEntriesShortString(List<LogEntryProto> entries,
+      Function<StateMachineLogEntryProto, String> stateMachineToString) {
     return entries == null ? null
         : entries.isEmpty()? "<empty>"
-        : "size=" + entries.size() + ", first=" + LogProtoUtils.toLogEntryString(entries.get(0));
+        : "size=" + entries.size() + ", first=" + toLogEntryString(entries.get(0), stateMachineToString);
   }
 
   public static LogEntryProto toLogEntryProto(RaftConfiguration conf, Long term, long index) {
