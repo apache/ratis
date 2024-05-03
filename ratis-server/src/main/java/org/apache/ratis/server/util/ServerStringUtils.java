@@ -17,13 +17,13 @@
  */
 package org.apache.ratis.server.util;
 
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.util.ProtoUtils;
@@ -44,7 +44,7 @@ public final class ServerStringUtils {
   private ServerStringUtils() {}
 
   public static String toAppendEntriesRequestString(AppendEntriesRequestProto request,
-      Function<RaftProtos.StateMachineLogEntryProto, String> stateMachineToString) {
+      Function<StateMachineLogEntryProto, String> stateMachineToString) {
     if (request == null) {
       return null;
     }
