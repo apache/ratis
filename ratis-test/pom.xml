@@ -24,7 +24,7 @@
   <name>Apache Ratis Test</name>
 
   <properties>
-    <bouncycastle.version>1.76</bouncycastle.version>
+    <bouncycastle.version>1.78</bouncycastle.version>
   </properties>
 
   <dependencies>
