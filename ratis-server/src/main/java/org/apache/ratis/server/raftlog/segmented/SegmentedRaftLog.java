@@ -55,6 +55,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 import org.apache.ratis.util.UncheckedAutoCloseable;
@@ -577,7 +578,8 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   public String toLogEntryString(LogEntryProto logEntry) {
-    return LogProtoUtils.toLogEntryString(logEntry, stateMachine::toStateMachineLogEntryString);
+    return LogProtoUtils.toLogEntryString(logEntry, stateMachine != null ?
+        stateMachine::toStateMachineLogEntryString : null);
   }
 
   public static Builder newBuilder() {
