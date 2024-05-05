@@ -14,8 +14,12 @@
 # limitations under the License.
 name: build-branch
 on:
-  - push
-  - pull_request
+  push:
+    branches-ignore:
+      - 'dependabot/**'
+    tags:
+      - '**'
+  pull_request:
 env:
   WITH_COVERAGE: true
 jobs:
