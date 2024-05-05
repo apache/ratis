@@ -25,6 +25,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-20.04
+    timeout-minutes: 30
     steps:
       - name: Checkout project
         uses: actions/checkout@v4
@@ -62,6 +63,7 @@ jobs:
     needs:
       - build
     runs-on: ubuntu-20.04
+    timeout-minutes: 30
     strategy:
       matrix:
         java: [ 11 ]
@@ -93,6 +95,7 @@ jobs:
   rat:
     name: rat
     runs-on: ubuntu-20.04
+    timeout-minutes: 15
     steps:
         - name: Checkout project
           uses: actions/checkout@v4
@@ -116,6 +119,7 @@ jobs:
   author:
     name: author
     runs-on: ubuntu-20.04
+    timeout-minutes: 15
     steps:
         - name: Checkout project
           uses: actions/checkout@v4
@@ -130,6 +134,7 @@ jobs:
   unit:
     name: unit
     runs-on: ubuntu-20.04
+    timeout-minutes: 60
     strategy:
       matrix:
         profile:
@@ -173,6 +178,7 @@ jobs:
   checkstyle:
     name: checkstyle
     runs-on: ubuntu-20.04
+    timeout-minutes: 15
     steps:
         - name: Checkout project
           uses: actions/checkout@v4
@@ -196,6 +202,7 @@ jobs:
   findbugs:
     name: findbugs
     runs-on: ubuntu-20.04
+    timeout-minutes: 30
     steps:
         - name: Setup java
           uses: actions/setup-java@v4
@@ -226,6 +233,7 @@ jobs:
       - build
       - unit
     runs-on: ubuntu-20.04
+    timeout-minutes: 30
     if: (github.repository == 'apache/ratis' || github.repository == 'apache/incubator-ratis') && github.event_name != 'pull_request'
     steps:
         - name: Checkout project
