@@ -99,7 +99,7 @@ public class NettyRpcProxy implements Closeable {
 
 
   class Connection implements Closeable {
-    private final NettyClient client = new NettyClient();
+    private final NettyClient client = new NettyClient(peer.getAddress());
     private final Queue<CompletableFuture<RaftNettyServerReplyProto>> replies
         = new LinkedList<>();
 
@@ -137,7 +137,7 @@ public class NettyRpcProxy implements Closeable {
         }
       };
 
-      client.connect(peer.getAddress(), group, initializer);
+      client.connect(group, initializer);
     }
 
     synchronized ChannelFuture offer(RaftNettyServerRequestProto request,
