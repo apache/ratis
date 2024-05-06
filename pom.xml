@@ -176,7 +176,7 @@
     <maven-checkstyle-plugin.version>3.3.0</maven-checkstyle-plugin.version>
     <maven-clover2-plugin.version>4.0.6</maven-clover2-plugin.version>
     <maven-pdf-plugin.version>1.6.1</maven-pdf-plugin.version>
-    <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
+    <maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
 
 
@@ -634,6 +634,7 @@
             <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
             <reuseForks>false</reuseForks>
             <trimStackTrace>false</trimStackTrace>
+            <enableProcessChecker>all</enableProcessChecker>
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
             <!-- @argLine is filled by jacoco maven plugin. @{} means late evaluation -->
             <argLine>-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError @{argLine}</argLine>
