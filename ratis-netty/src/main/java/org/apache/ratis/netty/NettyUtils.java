@@ -49,7 +49,7 @@ import java.util.function.Function;
 
 public interface NettyUtils {
   Logger LOG = LoggerFactory.getLogger(NettyUtils.class);
-  TimeDuration CLOSE_TIMEOUT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+  TimeDuration CLOSE_TIMEOUT = TimeDuration.valueOf(5, TimeUnit.SECONDS);
 
   class Print {
     private static final AtomicBoolean PRINTED_EPOLL_UNAVAILABILITY_CAUSE = new AtomicBoolean();
@@ -184,14 +184,16 @@ public interface NettyUtils {
 
   static void closeChannel(Channel channel, String name) {
     final ChannelFuture f = channel.close();
+    final boolean completed;
     try {
-      f.await(CLOSE_TIMEOUT.getDuration(), CLOSE_TIMEOUT.getUnit());
+      completed = f.await(CLOSE_TIMEOUT.getDuration(), CLOSE_TIMEOUT.getUnit());
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       LOG.info("Interrupted closeChannel {} ", name, e);
+      return;
     }
-    if (!f.isSuccess()) {
-      LOG.warn("Failed to close channel {} in {}", name, CLOSE_TIMEOUT);
+    if (!completed) {
+      LOG.warn("closeChannel {} is not yet completed in {}", name, CLOSE_TIMEOUT);
     }
   }
 }
