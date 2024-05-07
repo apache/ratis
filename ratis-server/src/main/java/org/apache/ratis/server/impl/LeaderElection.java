@@ -137,13 +137,13 @@ class LeaderElection implements Runnable {
 
     Executor(Object name, int size) {
       Preconditions.assertTrue(size > 0);
-      executor = Executors.newFixedThreadPool(size, r ->
+      executor = Executors.newCachedThreadPool(r ->
           Daemon.newBuilder().setName(name + "-" + count.incrementAndGet()).setRunnable(r).build());
       service = new ExecutorCompletionService<>(executor);
     }
 
-    void shutdown() {
-      executor.shutdown();
+    ExecutorService getExecutor() {
+      return executor;
     }
 
     void submit(Callable<RequestVoteReplyProto> task) {
@@ -290,13 +290,9 @@ class LeaderElection implements Runnable {
       r = new ResultAndTerm(Result.PASSED, electionTerm);
     } else {
       final TermIndex lastEntry = server.getState().getLastEntry();
-      final Executor voteExecutor = new Executor(this, others.size());
-      try {
-        final int submitted = submitRequests(phase, electionTerm, lastEntry, others, voteExecutor);
-        r = waitForResults(phase, electionTerm, submitted, conf, voteExecutor);
-      } finally {
-        voteExecutor.shutdown();
-      }
+      final Executor voteExecutor = server.getLeaderElectionExecutor();
+      final int submitted = submitRequests(phase, electionTerm, lastEntry, others, voteExecutor);
+      r = waitForResults(phase, electionTerm, submitted, conf, voteExecutor);
     }
 
     return r;
