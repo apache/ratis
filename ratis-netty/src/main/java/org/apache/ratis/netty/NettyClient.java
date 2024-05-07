@@ -33,13 +33,17 @@ import java.io.Closeable;
 import java.net.InetSocketAddress;
 
 public class NettyClient implements Closeable {
-  private final LifeCycle lifeCycle = new LifeCycle(JavaUtils.getClassSimpleName(getClass()));
-
+  private final LifeCycle lifeCycle;
+  private final String serverAddress;
   private Channel channel;
 
+  NettyClient(String serverAddress) {
+    this.lifeCycle = new LifeCycle(JavaUtils.getClassSimpleName(getClass()) + "-" + serverAddress);
+    this.serverAddress = serverAddress;
+  }
+
   /** Connects to the given server address. */
-  public void connect(String serverAddress, EventLoopGroup group,
-                      ChannelInitializer<SocketChannel> initializer)
+  public void connect(EventLoopGroup group, ChannelInitializer<SocketChannel> initializer)
       throws InterruptedException {
     final InetSocketAddress address = NetUtils.createSocketAddr(serverAddress);
 
@@ -57,13 +61,16 @@ public class NettyClient implements Closeable {
 
   @Override
   public void close() {
-    lifeCycle.checkStateAndClose(() -> {
-      channel.close().syncUninterruptibly();
-    });
+    lifeCycle.checkStateAndClose(() -> NettyUtils.closeChannel(channel, serverAddress));
   }
 
   public ChannelFuture writeAndFlush(Object msg) {
     lifeCycle.assertCurrentState(LifeCycle.States.RUNNING);
     return channel.writeAndFlush(msg);
+  }
+
+  @Override
+  public String toString() {
+    return lifeCycle.toString();
   }
 }
