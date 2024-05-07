@@ -291,7 +291,8 @@ class LeaderElection implements Runnable {
     } else {
       final TermIndex lastEntry = server.getState().getLastEntry();
       final Executor voteExecutor = server.getLeaderElectionExecutor();
-      final int submitted = submitRequests(phase, electionTerm, lastEntry, others, voteExecutor);
+      final Map<Long, RequestVoteRequestProto> submitted = submitRequests(
+          phase, electionTerm, lastEntry, others, voteExecutor);
       r = waitForResults(phase, electionTerm, submitted, conf, voteExecutor);
     }
 
@@ -344,14 +345,14 @@ class LeaderElection implements Runnable {
     }
   }
 
-  private int submitRequests(Phase phase, long electionTerm, TermIndex lastEntry,
+  private Map<Long, RequestVoteRequestProto> submitRequests(Phase phase, long electionTerm, TermIndex lastEntry,
       Collection<RaftPeer> others, Executor voteExecutor) {
-    int submitted = 0;
+    final Map<Long, RequestVoteRequestProto> submitted = new HashMap<>();
     for (final RaftPeer peer : others) {
       final RequestVoteRequestProto r = ServerProtoUtils.toRequestVoteRequestProto(
           server.getMemberId(), peer.getId(), electionTerm, lastEntry, phase == Phase.PRE_VOTE);
+      submitted.put(r.getServerRequest().getCallId(), r);
       voteExecutor.submit(() -> server.getServerRpc().requestVote(r));
-      submitted++;
     }
     return submitted;
   }
@@ -365,12 +366,12 @@ class LeaderElection implements Runnable {
         .collect(Collectors.toSet());
   }
 
-  private ResultAndTerm waitForResults(Phase phase, long electionTerm, int submitted,
+  private ResultAndTerm waitForResults(Phase phase, long electionTerm, Map<Long, RequestVoteRequestProto> submitted,
       RaftConfigurationImpl conf, Executor voteExecutor) throws InterruptedException {
     final Timestamp timeout = Timestamp.currentTime().addTime(server.getRandomElectionTimeout());
     final Map<RaftPeerId, RequestVoteReplyProto> responses = new HashMap<>();
     final List<Exception> exceptions = new ArrayList<>();
-    int waitForNum = submitted;
+    int waitForNum = submitted.size();
     Collection<RaftPeerId> votedPeers = new ArrayList<>();
     Collection<RaftPeerId> rejectedPeers = new ArrayList<>();
     Set<RaftPeerId> higherPriorityPeers = getHigherPriorityPeers(conf);
@@ -398,6 +399,11 @@ class LeaderElection implements Runnable {
         }
 
         final RequestVoteReplyProto r = future.get();
+        final RequestVoteRequestProto removed = submitted.remove(r.getServerReply().getCallId());
+        if (removed == null) {
+          continue; // submitted in previous elections; ignore it.
+        }
+
         final RaftPeerId replierId = RaftPeerId.valueOf(r.getServerReply().getReplyId());
         final RequestVoteReplyProto previous = responses.putIfAbsent(replierId, r);
         if (previous != null) {
