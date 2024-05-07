@@ -75,6 +75,8 @@ Note that Ratis imposes a minimal creation gap between two subsequent snapshot c
   ```java
   // SnapshotManagementApi
   RaftClientReply create(long timeoutMs) throws IOException;
+  RaftClientReply create(boolean force, long timeoutMs) throws IOException;
+  RaftClientReply create(long creationGap, long timeoutMs) throws IOException;
   ```
   
   ```java
