@@ -22,6 +22,8 @@ import org.apache.ratis.security.TlsConf.CertificatesConf;
 import org.apache.ratis.security.TlsConf.KeyManagerConf;
 import org.apache.ratis.security.TlsConf.PrivateKeyConf;
 import org.apache.ratis.security.TlsConf.TrustManagerConf;
+import org.apache.ratis.thirdparty.io.netty.channel.Channel;
+import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.ServerChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.epoll.Epoll;
@@ -35,16 +37,19 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.ConcurrentUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 public interface NettyUtils {
   Logger LOG = LoggerFactory.getLogger(NettyUtils.class);
+  TimeDuration CLOSE_TIMEOUT = TimeDuration.valueOf(5, TimeUnit.SECONDS);
 
   class Print {
     private static final AtomicBoolean PRINTED_EPOLL_UNAVAILABILITY_CAUSE = new AtomicBoolean();
@@ -175,5 +180,20 @@ public interface NettyUtils {
   static Class<? extends ServerChannel> getServerChannelClass(EventLoopGroup eventLoopGroup) {
     return eventLoopGroup instanceof EpollEventLoopGroup ?
         EpollServerSocketChannel.class : NioServerSocketChannel.class;
+  }
+
+  static void closeChannel(Channel channel, String name) {
+    final ChannelFuture f = channel.close();
+    final boolean completed;
+    try {
+      completed = f.await(CLOSE_TIMEOUT.getDuration(), CLOSE_TIMEOUT.getUnit());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      LOG.info("Interrupted closeChannel {} ", name, e);
+      return;
+    }
+    if (!completed) {
+      LOG.warn("closeChannel {} is not yet completed in {}", name, CLOSE_TIMEOUT);
+    }
   }
 }

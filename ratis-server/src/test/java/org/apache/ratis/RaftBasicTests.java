@@ -45,6 +45,7 @@ import org.apache.ratis.util.Timestamp;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
@@ -338,6 +339,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  @Timeout(value = 300)
   public void testWithLoad() throws Exception {
     runWithNewCluster(NUM_SERVERS, cluster -> testWithLoad(10, 300, false, cluster, LOG));
   }
