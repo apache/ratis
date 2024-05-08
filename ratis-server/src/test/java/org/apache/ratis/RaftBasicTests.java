@@ -339,7 +339,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
-  @Timeout(value = 300, unit = TimeUnit.MILLISECONDS)
+  @Timeout(value = 300)
   public void testWithLoad() throws Exception {
     runWithNewCluster(NUM_SERVERS, cluster -> testWithLoad(10, 300, false, cluster, LOG));
   }

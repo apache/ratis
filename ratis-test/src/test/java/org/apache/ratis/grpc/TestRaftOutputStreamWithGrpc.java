@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.TimeUnit;
 
-@Timeout(value = 100, unit = TimeUnit.MILLISECONDS)
+@Timeout(value = 100)
 public class TestRaftOutputStreamWithGrpc
     extends OutputStreamBaseTest<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {

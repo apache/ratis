@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-@Timeout(value = 100, unit = TimeUnit.MILLISECONDS)
+@Timeout(value = 100)
 public abstract class BaseTest {
   public final Logger LOG = LoggerFactory.getLogger(getClass());
 

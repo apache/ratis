@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-@Timeout(value = 1, unit = TimeUnit.MILLISECONDS)
+@Timeout(value = 1)
 public class TestRaftGroup extends BaseTest {
 
   @Test
