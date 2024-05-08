@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Timeout;
 public class TestExitUtils extends BaseTest {
   /** Test if {@link BaseTest} can handle uncaught exception. */
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testUncaughtException() throws Exception {
     Assertions.assertFalse(ExitUtils.isTerminated());
     Assertions.assertFalse(ExitUtils.clear());
@@ -43,7 +43,7 @@ public class TestExitUtils extends BaseTest {
 
   /** Test if {@link BaseTest} can handle ExitUtils.terminate(..). */
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testExitStatus() {
     Assertions.assertFalse(ExitUtils.isTerminated());
     Assertions.assertFalse(ExitUtils.clear());

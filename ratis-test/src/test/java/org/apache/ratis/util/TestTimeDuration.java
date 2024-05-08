@@ -40,7 +40,7 @@ public class TestTimeDuration {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testAbbreviation() {
     Arrays.asList(TimeUnit.values())
         .forEach(a -> assertNotNull(Abbreviation.valueOf(a.name())));
@@ -57,7 +57,7 @@ public class TestTimeDuration {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testParse() {
     assertEquals(1L, parse("1_000_000 ns", TimeUnit.MILLISECONDS));
     assertEquals(10L, parse("10_000_000 nanos", TimeUnit.MILLISECONDS));
@@ -97,7 +97,7 @@ public class TestTimeDuration {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testRoundUp() {
     final long nanosPerSecond = 1_000_000_000L;
     final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
@@ -113,7 +113,7 @@ public class TestTimeDuration {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testTo() {
     final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
     assertTo(1000, "1000ms", oneSecond, TimeUnit.MILLISECONDS);
@@ -137,7 +137,7 @@ public class TestTimeDuration {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testAddAndSubtract() {
     final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
     final TimeDuration tenSecond = TimeDuration.valueOf(10, TimeUnit.SECONDS);
@@ -191,7 +191,7 @@ public class TestTimeDuration {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testNegate() {
     assertNegate(0);
     assertNegate(1);
@@ -213,7 +213,7 @@ public class TestTimeDuration {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testMultiply() {
     assertMultiply(0, TimeDuration.ONE_SECOND, TimeDuration.valueOf(0, TimeUnit.SECONDS));
     assertMultiply(0.001, TimeDuration.ONE_SECOND, TimeDuration.ONE_MILLISECOND);
@@ -244,7 +244,7 @@ public class TestTimeDuration {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testHigherLower() {
     final TimeUnit[] units = {TimeUnit.NANOSECONDS, TimeUnit.MICROSECONDS, TimeUnit.MILLISECONDS,
         TimeUnit.SECONDS, TimeUnit.MINUTES, TimeUnit.HOURS, TimeUnit.DAYS};
@@ -257,7 +257,7 @@ public class TestTimeDuration {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testCompareTo() {
     assertTimeDurationCompareTo(TimeDuration.ONE_MINUTE, TimeDuration.ONE_SECOND);
 

@@ -38,25 +38,25 @@ public class TestDataBlockingQueue {
   final TimeDuration fast = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testElementLimit() {
     TestDataQueue.runTestElementLimit(q);
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testByteLimit() {
     TestDataQueue.runTestByteLimit(q);
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 10)
   public void testSlowOfferFastPoll() throws Exception {
     runTestBlockingCalls(slow, fast, q);
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 10)
   public void testFastOfferSlowPoll() throws Exception {
     runTestBlockingCalls(fast, slow, q);
   }

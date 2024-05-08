@@ -41,7 +41,7 @@ public class TestRaftProperties {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testUnderscore() {
     final RaftProperties p = new RaftProperties();
 

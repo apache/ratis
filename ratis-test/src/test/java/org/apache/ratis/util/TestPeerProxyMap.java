@@ -53,7 +53,7 @@ public class TestPeerProxyMap extends BaseTest {
   }
 
   @Test
-  @Timeout(value = 10_000)
+  @Timeout(value = 10)
   public void testCloseDeadLock() throws Exception {
     final PeerProxyMap<DummyProxy> map = new PeerProxyMap<>("test", DummyProxy::new);
     final RaftPeerId id = RaftPeerId.valueOf("s0");
@@ -118,7 +118,7 @@ public class TestPeerProxyMap extends BaseTest {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testStackTrace() {
     final RaftPeerId id = RaftPeerId.valueOf("s0");
     final RaftPeer peer = RaftPeer.newBuilder().setId(id).build();
