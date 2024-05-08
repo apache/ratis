@@ -29,7 +29,7 @@ import static org.apache.ratis.util.ResourceSemaphore.Group.SUCCESS;
 
 public class TestResourceSemaphore extends BaseTest {
   @Test
-  @Timeout(value = 5000)
+  @Timeout(value = 5)
   public void testGroup() throws InterruptedException, TimeoutException {
     final int FAILED_IN_ELEMENT_LIMIT = 0;
     final int FAILED_IN_BYTE_SIZE_LIMIT = 1;

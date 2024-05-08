@@ -22,7 +22,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-@Timeout(value = 1)
+import java.util.concurrent.TimeUnit;
+
+@Timeout(value = 1, unit = TimeUnit.MILLISECONDS)
 public class TestRoutingTable extends BaseTest {
 
   private final RaftPeerId[] peers = new RaftPeerId[10];

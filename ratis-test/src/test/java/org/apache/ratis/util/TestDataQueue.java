@@ -47,7 +47,7 @@ public class TestDataQueue {
   final DataQueue<Long> q = new DataQueue<>(null, byteLimit, elementLimit, Long::longValue);
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testElementLimit() {
     runTestElementLimit(q);
   }
@@ -82,7 +82,7 @@ public class TestDataQueue {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testByteLimit() {
     runTestByteLimit(q);
   }
@@ -140,7 +140,7 @@ public class TestDataQueue {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testIteratorAndRemove() {
     runTestIteratorAndRemove(q);
   }
@@ -185,7 +185,7 @@ public class TestDataQueue {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testTimeout() {
     assertSizes(0, 0, q);
 

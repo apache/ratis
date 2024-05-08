@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.concurrent.TimeUnit;
+
 public class TestRaftProperties {
   enum Type {APPEND_ENTRIES}
 
@@ -41,7 +43,7 @@ public class TestRaftProperties {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testUnderscore() {
     final RaftProperties p = new RaftProperties();
 

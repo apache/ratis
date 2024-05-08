@@ -25,8 +25,9 @@ import org.junit.jupiter.api.Timeout;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
-@Timeout(value = 1)
+@Timeout(value = 1, unit = TimeUnit.MILLISECONDS)
 public class TestRaftGroup extends BaseTest {
 
   @Test
