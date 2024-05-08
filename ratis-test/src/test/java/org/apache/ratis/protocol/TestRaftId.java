@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Timeout(value = 1)
 public class TestRaftId extends BaseTest {
