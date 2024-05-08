@@ -35,7 +35,7 @@ public class TestLifeCycle {
    * while this test uses successors.
    */
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testIsValid() {
     final Map<LifeCycle.State, List<LifeCycle.State>> successors
         = new EnumMap<>(LifeCycle.State.class);

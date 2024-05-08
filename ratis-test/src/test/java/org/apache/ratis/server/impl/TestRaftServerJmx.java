@@ -40,7 +40,7 @@ import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 public class TestRaftServerJmx extends BaseTest {
   @Test
-  @Timeout(value = 30000)
+  @Timeout(value = 30)
   public void testJmxBeans() throws Exception {
     final int NUM_SERVERS = 3;
     final MiniRaftClusterWithSimulatedRpc cluster
@@ -60,7 +60,7 @@ public class TestRaftServerJmx extends BaseTest {
   }
 
   @Test
-  @Timeout(value = 30000)
+  @Timeout(value = 30)
   public void testRegister() throws JMException {
     {
       final JmxRegister jmx = new JmxRegister();
