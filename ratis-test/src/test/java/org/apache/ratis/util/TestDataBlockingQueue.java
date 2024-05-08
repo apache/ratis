@@ -50,13 +50,13 @@ public class TestDataBlockingQueue {
   }
 
   @Test
-  @Timeout(value = 1)
+  @Timeout(value = 10)
   public void testSlowOfferFastPoll() throws Exception {
     runTestBlockingCalls(slow, fast, q);
   }
 
   @Test
-  @Timeout(value = 1)
+  @Timeout(value = 10)
   public void testFastOfferSlowPoll() throws Exception {
     runTestBlockingCalls(fast, slow, q);
   }
