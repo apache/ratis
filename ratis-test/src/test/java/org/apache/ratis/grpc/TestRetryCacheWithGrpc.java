@@ -172,7 +172,7 @@ public class TestRetryCacheWithGrpc
   }
 
   @Test
-  @Timeout(value = 10000)
+  @Timeout(value = 10)
   public void testRetryOnResourceUnavailableException()
       throws InterruptedException, IOException {
     RaftProperties properties = new RaftProperties();

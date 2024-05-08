@@ -41,7 +41,7 @@ public class TestReferenceCountedObject {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testWrap() {
     final String value = "testWrap";
     final AtomicInteger retained = new AtomicInteger();
@@ -116,7 +116,7 @@ public class TestReferenceCountedObject {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testReleaseWithoutRetaining() {
     final ReferenceCountedObject<String> ref = ReferenceCountedObject.wrap("");
 

@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestTraditionalBinaryPrefix {
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testTraditionalBinaryPrefix() {
     //test string2long(..)
     String[] symbol = {"k", "m", "g", "t", "p", "e"};
@@ -147,7 +147,7 @@ public class TestTraditionalBinaryPrefix {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testUnderscore() {
     final SizeInBytes value = SizeInBytes.valueOf("1_000_000_000_000_000");
     assertEquals(1_000_000_000_000_000L, value.getSize());

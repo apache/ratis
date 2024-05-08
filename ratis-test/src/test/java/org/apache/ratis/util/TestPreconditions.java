@@ -30,7 +30,7 @@ import java.util.Set;
 
 public class TestPreconditions extends BaseTest {
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testAssertUnique() {
     final Set<Integer> empty = Collections.emptySet();
     Preconditions.assertUnique(empty);
@@ -56,7 +56,7 @@ public class TestPreconditions extends BaseTest {
   }
 
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testAssertNull() {
     final Map<String, String> map = new HashMap<>();
     final String key = "abc1234";

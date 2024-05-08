@@ -29,7 +29,7 @@ import java.util.stream.LongStream;
 
 public class TestMinMax {
   @Test
-  @Timeout(value = 1000)
+  @Timeout(value = 1)
   public void testMinMax() {
     runTestMinMax(LongStream.empty());
     runTestMinMax(LongStream.iterate(0, n -> n).limit(10));
