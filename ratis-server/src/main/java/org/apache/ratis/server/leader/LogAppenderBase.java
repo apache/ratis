@@ -271,14 +271,11 @@ public abstract class LogAppenderBase implements LogAppender {
       return null;
     }
 
+    final List<LogEntryProto> protos;
     try {
-      final List<LogEntryProto> protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
-          (entry, time, exception) -> LOG.warn("Failed to get " + entry
-              + " in " + time.toString(TimeUnit.MILLISECONDS, 3), exception));
-      assertProtos(protos, followerNext, previous, snapshotIndex);
-      AppendEntriesRequestProto appendEntriesProto =
-          leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
-      return ReferenceCountedObject.delegateFrom(offered.values(), appendEntriesProto);
+      protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
+          (entry, time, exception) -> LOG.warn("Failed to get {} in {}",
+              entry, time.toString(TimeUnit.MILLISECONDS, 3), exception));
     } finally {
       for (EntryWithData entry : buffer) {
         // Release remaining entries.
@@ -286,6 +283,10 @@ public abstract class LogAppenderBase implements LogAppender {
       }
       buffer.clear();
     }
+    assertProtos(protos, followerNext, previous, snapshotIndex);
+    AppendEntriesRequestProto appendEntriesProto =
+        leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
+    return ReferenceCountedObject.delegateFrom(offered.values(), appendEntriesProto);
   }
 
   private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous, long snapshotIndex) {
