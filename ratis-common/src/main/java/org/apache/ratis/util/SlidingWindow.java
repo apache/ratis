@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.SortedMap;
+import java.util.Timer;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
@@ -71,10 +72,12 @@ public interface SlidingWindow {
     /** Request map: seqNum -> request */
     private final SortedMap<Long, REQUEST> requests = new ConcurrentSkipListMap<>();
 
+    private static Timer timer = new Timer("Timer-SlidingWindow", true);
+
     RequestMap(Object name) {
       this.name = name;
       if (LOG.isDebugEnabled()) {
-        JavaUtils.runRepeatedly(this::log, 5, 10, TimeUnit.SECONDS);
+        JavaUtils.runRepeatedly(timer, this::log, 5, 10, TimeUnit.SECONDS);
       }
     }
 
