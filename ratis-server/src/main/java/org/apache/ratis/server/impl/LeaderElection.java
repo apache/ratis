@@ -143,7 +143,7 @@ class LeaderElection implements Runnable {
     }
 
     void shutdown() {
-      executor.shutdown();
+      executor.shutdownNow();
     }
 
     void submit(Callable<RequestVoteReplyProto> task) {
