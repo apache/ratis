@@ -243,7 +243,6 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
-  private final MemoizedSupplier<LeaderElection.Executor> leaderElectionExecutor;
 
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
   private final ThreadGroup threadGroup;
@@ -282,17 +281,14 @@ class RaftServerImpl implements RaftServer.Division,
     this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
     this.snapshotInstallationHandler = new SnapshotInstallationHandler(this, properties);
 
-    final RaftGroupMemberId memberId = getMemberId();
     this.serverExecutor = ConcurrentUtils.newThreadPoolWithMax(
         RaftServerConfigKeys.ThreadPool.serverCached(properties),
         RaftServerConfigKeys.ThreadPool.serverSize(properties),
-        memberId + "-server");
+        id + "-server");
     this.clientExecutor = ConcurrentUtils.newThreadPoolWithMax(
         RaftServerConfigKeys.ThreadPool.clientCached(properties),
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
-        memberId + "-client");
-    this.leaderElectionExecutor = MemoizedSupplier.valueOf(
-        () -> new LeaderElection.Executor(memberId + "-election" , group.getPeers().size()));
+        id + "-client");
   }
 
   private long getCommitIndex(RaftPeerId id) {
@@ -538,20 +534,12 @@ class RaftServerImpl implements RaftServer.Division,
       try {
         ConcurrentUtils.shutdownAndWait(clientExecutor);
       } catch (Exception e) {
-        LOG.warn("{}: Failed to shutdown clientExecutor", getMemberId(), e);
+        LOG.warn(getMemberId() + ": Failed to shutdown clientExecutor", e);
       }
       try {
         ConcurrentUtils.shutdownAndWait(serverExecutor);
       } catch (Exception e) {
-        LOG.warn("{}: Failed to shutdown serverExecutor", getMemberId(), e);
-      }
-
-      if (leaderElectionExecutor.isInitialized()) {
-        try {
-          ConcurrentUtils.shutdownAndWait(leaderElectionExecutor.get().getExecutor());
-        } catch (Exception e) {
-          LOG.warn("{}: Failed to shutdown leaderElectionExecutor", getMemberId(), e);
-        }
+        LOG.warn(getMemberId() + ": Failed to shutdown serverExecutor", e);
       }
     });
   }
@@ -1535,10 +1523,6 @@ class RaftServerImpl implements RaftServer.Division,
 
   ExecutorService getServerExecutor() {
     return serverExecutor;
-  }
-
-  LeaderElection.Executor getLeaderElectionExecutor() {
-    return leaderElectionExecutor.get();
   }
 
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(RaftPeerId leaderId, long callId,
