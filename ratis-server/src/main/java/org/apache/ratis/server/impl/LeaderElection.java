@@ -42,15 +42,16 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -130,28 +131,22 @@ class LeaderElection implements Runnable {
   }
 
   static class Executor {
-    private final ExecutorCompletionService<RequestVoteReplyProto> service;
     private final ExecutorService executor;
 
     private final AtomicInteger count = new AtomicInteger();
 
     Executor(Object name, int size) {
       Preconditions.assertTrue(size > 0);
-      executor = Executors.newFixedThreadPool(size, r ->
+      executor = Executors.newCachedThreadPool(r ->
           Daemon.newBuilder().setName(name + "-" + count.incrementAndGet()).setRunnable(r).build());
-      service = new ExecutorCompletionService<>(executor);
     }
 
-    void shutdown() {
-      executor.shutdown();
+    ExecutorService getExecutor() {
+      return executor;
     }
 
-    void submit(Callable<RequestVoteReplyProto> task) {
-      service.submit(task);
-    }
-
-    Future<RequestVoteReplyProto> poll(TimeDuration waitTime) throws InterruptedException {
-      return service.poll(waitTime.getDuration(), waitTime.getUnit());
+    Future<RequestVoteReplyProto> submit(Callable<RequestVoteReplyProto> task) {
+      return executor.submit(task);
     }
   }
 
@@ -290,13 +285,9 @@ class LeaderElection implements Runnable {
       r = new ResultAndTerm(Result.PASSED, electionTerm);
     } else {
       final TermIndex lastEntry = server.getState().getLastEntry();
-      final Executor voteExecutor = new Executor(this, others.size());
-      try {
-        final int submitted = submitRequests(phase, electionTerm, lastEntry, others, voteExecutor);
-        r = waitForResults(phase, electionTerm, submitted, conf, voteExecutor);
-      } finally {
-        voteExecutor.shutdown();
-      }
+      final List<Future<RequestVoteReplyProto>> submitted = submitRequests(
+          phase, electionTerm, lastEntry, others, server.getLeaderElectionExecutor());
+      r = waitForResults(phase, electionTerm, submitted, conf);
     }
 
     return r;
@@ -348,14 +339,13 @@ class LeaderElection implements Runnable {
     }
   }
 
-  private int submitRequests(Phase phase, long electionTerm, TermIndex lastEntry,
+  private List<Future<RequestVoteReplyProto>> submitRequests(Phase phase, long electionTerm, TermIndex lastEntry,
       Collection<RaftPeer> others, Executor voteExecutor) {
-    int submitted = 0;
+    final List<Future<RequestVoteReplyProto>> submitted = new ArrayList<>(others.size());
     for (final RaftPeer peer : others) {
       final RequestVoteRequestProto r = ServerProtoUtils.toRequestVoteRequestProto(
           server.getMemberId(), peer.getId(), electionTerm, lastEntry, phase == Phase.PRE_VOTE);
-      voteExecutor.submit(() -> server.getServerRpc().requestVote(r));
-      submitted++;
+      submitted.add(voteExecutor.submit(() -> server.getServerRpc().requestVote(r)));
     }
     return submitted;
   }
@@ -369,18 +359,17 @@ class LeaderElection implements Runnable {
         .collect(Collectors.toSet());
   }
 
-  private ResultAndTerm waitForResults(Phase phase, long electionTerm, int submitted,
-      RaftConfigurationImpl conf, Executor voteExecutor) throws InterruptedException {
+  private ResultAndTerm waitForResults(Phase phase, long electionTerm, List<Future<RequestVoteReplyProto>> submitted,
+      RaftConfigurationImpl conf) throws InterruptedException {
     final Timestamp timeout = Timestamp.currentTime().addTime(server.getRandomElectionTimeout());
     final Map<RaftPeerId, RequestVoteReplyProto> responses = new HashMap<>();
     final List<Exception> exceptions = new ArrayList<>();
-    int waitForNum = submitted;
     Collection<RaftPeerId> votedPeers = new ArrayList<>();
     Collection<RaftPeerId> rejectedPeers = new ArrayList<>();
     Set<RaftPeerId> higherPriorityPeers = getHigherPriorityPeers(conf);
     final boolean singleMode = conf.isSingleMode(server.getId());
 
-    while (waitForNum > 0 && shouldRun(electionTerm)) {
+    for(Iterator<Future<RequestVoteReplyProto>> i = submitted.iterator(); i.hasNext() && shouldRun(electionTerm); ) {
       final TimeDuration waitTime = timeout.elapsedTime().apply(n -> -n);
       if (waitTime.isNonPositive()) {
         if (conf.hasMajority(votedPeers, server.getId())) {
@@ -396,12 +385,9 @@ class LeaderElection implements Runnable {
       }
 
       try {
-        final Future<RequestVoteReplyProto> future = voteExecutor.poll(waitTime);
-        if (future == null) {
-          continue; // poll timeout, continue to return Result.TIMEOUT
-        }
+        final Future<RequestVoteReplyProto> future = i.next();
+        final RequestVoteReplyProto r = future.get(waitTime.getDuration(), waitTime.getUnit());
 
-        final RequestVoteReplyProto r = future.get();
         final RaftPeerId replierId = RaftPeerId.valueOf(r.getServerReply().getReplyId());
         final RequestVoteReplyProto previous = responses.putIfAbsent(replierId, r);
         if (previous != null) {
@@ -444,8 +430,9 @@ class LeaderElection implements Runnable {
       } catch(ExecutionException e) {
         LogUtils.infoOrTrace(LOG, () -> this + " got exception when requesting votes", e);
         exceptions.add(e);
+      } catch (TimeoutException e) {
+        // get timeout, continue to return Result.TIMEOUT
       }
-      waitForNum--;
     }
     // received all the responses
     if (conf.hasMajority(votedPeers, server.getId())) {
