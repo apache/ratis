@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -271,14 +272,24 @@ public abstract class LogAppenderBase implements LogAppender {
       return null;
     }
 
-    final List<LogEntryProto> protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
-        (entry, time, exception) -> LOG.warn("Failed to get " + entry
-            + " in " + time.toString(TimeUnit.MILLISECONDS, 3), exception));
-    for (EntryWithData entry : buffer) {
-      // Release remaining entries.
-      offered.remove(entry.getIndex()).release();
+    final List<LogEntryProto> protos;
+    try {
+      protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
+          (entry, time, exception) -> LOG.warn("Failed to get {} in {}",
+              entry, time.toString(TimeUnit.MILLISECONDS, 3), exception));
+    } catch (RaftLogIOException e) {
+      for (ReferenceCountedObject<EntryWithData> ref : offered.values()) {
+        ref.release();
+      }
+      offered.clear();
+      throw e;
+    } finally {
+      for (EntryWithData entry : buffer) {
+        // Release remaining entries.
+        Optional.ofNullable(offered.remove(entry.getIndex())).ifPresent(ReferenceCountedObject::release);
+      }
+      buffer.clear();
     }
-    buffer.clear();
     assertProtos(protos, followerNext, previous, snapshotIndex);
     AppendEntriesRequestProto appendEntriesProto =
         leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);

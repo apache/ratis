@@ -500,13 +500,11 @@ public abstract class RaftLogBase implements RaftLog {
         if (timeout.compareTo(stateMachineDataReadTimeout) > 0) {
           getRaftLogMetrics().onStateMachineDataReadTimeout();
         }
-        discardData();
         throw t;
       } catch (Exception e) {
         if (e instanceof InterruptedException) {
           Thread.currentThread().interrupt();
         }
-        discardData();
         final String err = getName() + ": Failed readStateMachineData for " + this;
         LOG.error(err, e);
         throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
@@ -516,18 +514,9 @@ public abstract class RaftLogBase implements RaftLog {
       if (LogProtoUtils.isStateMachineDataEmpty(entryProto)) {
         final String err = getName() + ": State machine data not set for " + this;
         LOG.error(err);
-        data.release();
         throw new RaftLogIOException(err);
       }
       return entryProto;
-    }
-
-    private void discardData() {
-      future.whenComplete((r, ex) -> {
-        if (r != null) {
-          r.release();
-        }
-      });
     }
 
     @Override
