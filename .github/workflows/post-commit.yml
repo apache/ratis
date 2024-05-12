@@ -66,7 +66,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        java: [ 11 ]
+        java: [ 11, 17, 21 ]
       fail-fast: false
     steps:
       - name: Download source tarball
@@ -91,7 +91,7 @@ jobs:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
       - name: Run a full build
-        run: ./dev-support/checks/build.sh
+        run: ./dev-support/checks/build.sh -Djavac.version=${{ matrix.java }}
   rat:
     name: rat
     runs-on: ubuntu-20.04
