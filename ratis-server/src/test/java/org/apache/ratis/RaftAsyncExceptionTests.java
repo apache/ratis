@@ -104,7 +104,7 @@ public abstract class RaftAsyncExceptionTests<CLUSTER extends MiniRaftCluster>
       final RaftClientReply reply = client.io().send(new SimpleMessage("m0"));
       Assert.assertTrue(reply.isSuccess());
 
-      RaftClientConfigKeys.Rpc.setRequestTimeout(properties.get(), ONE_SECOND);
+      RaftClientConfigKeys.Rpc.setRequestTimeout(PROPERTIES.get(), ONE_SECOND);
       // Block StartTransaction
       StreamSupport.stream(cluster.getServers().spliterator(), false)
           .map(cluster::getDivision)

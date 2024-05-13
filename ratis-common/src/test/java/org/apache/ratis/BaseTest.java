@@ -124,7 +124,7 @@ public abstract class BaseTest {
     return 100;
   }
 
-  private static final Supplier<File> rootTestDir = JavaUtils.memoize(
+  private static final Supplier<File> ROOT_TEST_DIR = JavaUtils.memoize(
       () -> JavaUtils.callAsUnchecked(() -> {
         final File dir = new File(System.getProperty("test.build.data", "target/test/data"),
             Integer.toHexString(ThreadLocalRandom.current().nextInt()));
@@ -138,7 +138,7 @@ public abstract class BaseTest {
 
 
   public static File getRootTestDir() {
-    return rootTestDir.get();
+    return ROOT_TEST_DIR.get();
   }
 
   public File getClassTestDir() {
