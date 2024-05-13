@@ -61,10 +61,10 @@ public class ConfigurationManager {
     }
   }
 
-  synchronized void addConfiguration(RaftConfiguration conf) {
+  synchronized void addConfiguration(RaftConfiguration conf, long commitIndex) {
     final long logIndex = conf.getLogEntryIndex();
     final RaftConfiguration found = configurations.get(logIndex);
-    if (found != null) {
+    if (found != null && logIndex <= commitIndex) {
       Preconditions.assertTrue(found.equals(conf));
       return;
     }
