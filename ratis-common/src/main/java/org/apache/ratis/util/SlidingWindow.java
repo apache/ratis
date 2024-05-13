@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 
@@ -70,9 +69,6 @@ public interface SlidingWindow {
 
     RequestMap(Object name) {
       this.name = name;
-      if (LOG.isDebugEnabled()) {
-        JavaUtils.runRepeatedly(this::log, 5, 10, TimeUnit.SECONDS);
-      }
     }
 
     Object getName() {
