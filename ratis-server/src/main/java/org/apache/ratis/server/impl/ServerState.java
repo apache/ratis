@@ -377,7 +377,7 @@ class ServerState {
   }
 
   void setRaftConf(RaftConfiguration conf) {
-    final long lastCommittedIndex = conf.getLogEntryIndex() > 0 ?
+    final long lastCommittedIndex = server.getState().log.isInitialized() ?
         server.getRaftLog().getLastCommittedIndex() : RaftLog.INVALID_LOG_INDEX;
     configurationManager.addConfiguration(conf, lastCommittedIndex);
     server.getServerRpc().addRaftPeers(conf.getAllPeers());

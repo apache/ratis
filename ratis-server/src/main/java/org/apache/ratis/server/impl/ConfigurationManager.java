@@ -26,7 +26,6 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.StringUtils;
 
 import java.util.*;
-import java.util.function.LongSupplier;
 
 /**
  * Maintain the mappings between log index and corresponding raft configuration.
