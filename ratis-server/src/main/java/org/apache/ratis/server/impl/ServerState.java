@@ -377,7 +377,7 @@ class ServerState {
   }
 
   void setRaftConf(RaftConfiguration conf) {
-    configurationManager.addConfiguration(conf, server.getRaftLog().getLastCommittedIndex());
+    configurationManager.addConfiguration(conf, () -> server.getRaftLog().getLastCommittedIndex());
     server.getServerRpc().addRaftPeers(conf.getAllPeers());
     final Collection<RaftPeer> listeners = conf.getAllPeers(RaftPeerRole.LISTENER);
     if (!listeners.isEmpty()) {
