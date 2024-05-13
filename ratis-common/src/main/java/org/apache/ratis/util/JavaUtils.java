@@ -257,20 +257,16 @@ public interface JavaUtils {
     }, numAttempts, sleepTime, name, log);
   }
 
-  static Timer runRepeatedly(Timer timer, Runnable runnable, long delay, long period, TimeUnit unit) {
-    Timer t = timer == null ? new Timer(true) : timer;
-    t.schedule(new TimerTask() {
+  static Timer runRepeatedly(Runnable runnable, long delay, long period, TimeUnit unit) {
+    final Timer timer = new Timer(true);
+    timer.schedule(new TimerTask() {
       @Override
       public void run() {
         runnable.run();
       }
     }, unit.toMillis(delay), unit.toMillis(period));
 
-    return t;
-  }
-
-  static Timer runRepeatedly(Runnable runnable, long delay, long period, TimeUnit unit) {
-    return runRepeatedly(null, runnable, delay, period, unit);
+    return timer;
   }
 
   static void dumpAllThreads(Consumer<String> println) {
