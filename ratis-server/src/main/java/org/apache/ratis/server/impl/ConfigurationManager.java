@@ -27,7 +27,6 @@ import org.apache.ratis.util.StringUtils;
 
 import java.util.*;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 
 /**
  * Maintain the mappings between log index and corresponding raft configuration.
@@ -63,10 +62,10 @@ public class ConfigurationManager {
     }
   }
 
-  synchronized void addConfiguration(RaftConfiguration conf, LongSupplier commitIndex) {
+  synchronized void addConfiguration(RaftConfiguration conf, long commitIndex) {
     final long logIndex = conf.getLogEntryIndex();
     final RaftConfiguration found = configurations.get(logIndex);
-    if (found != null && logIndex <= commitIndex.getAsLong()) {
+    if (found != null && logIndex <= commitIndex) {
       Preconditions.assertTrue(found.equals(conf));
       return;
     }
