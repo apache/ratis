@@ -70,8 +70,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
   }
 
-  private static final DelayLocalExecutionInjection logSyncDelay = RaftServerTestUtil.getLogSyncDelay();
-  private static final DelayLocalExecutionInjection leaderPlaceHolderDelay =
+  private static final DelayLocalExecutionInjection LOG_SYNC_DELAY = RaftServerTestUtil.getLogSyncDelay();
+  private static final DelayLocalExecutionInjection LEADER_PLACE_HOLDER_DELAY =
       new DelayLocalExecutionInjection(LeaderStateImpl.APPEND_PLACEHOLDER);
 
   static final int STAGING_CATCHUP_GAP = 10;
@@ -654,7 +654,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       // delay every peer's logSync so that the setConf request is delayed
       cluster.getPeers()
-          .forEach(peer -> logSyncDelay.setDelayMs(peer.getId().toString(), 1000));
+          .forEach(peer -> LOG_SYNC_DELAY.setDelayMs(peer.getId().toString(), 1000));
 
       final CountDownLatch latch = new CountDownLatch(1);
       final RaftPeer[] peersInRequest2 = cluster.getPeers().toArray(new RaftPeer[0]);
@@ -691,7 +691,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       Assert.assertTrue(confChanged.get());
       Assert.assertTrue(caughtException.get());
     } finally {
-      logSyncDelay.clear();
+      LOG_SYNC_DELAY.clear();
     }
   }
 
@@ -792,7 +792,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     try {
       // delay 1s for each logSync call
       cluster.getServers().forEach(
-          peer -> leaderPlaceHolderDelay.setDelayMs(peer.getId().toString(), 2000));
+          peer -> LEADER_PLACE_HOLDER_DELAY.setDelayMs(peer.getId().toString(), 2000));
       cluster.start();
 
       AtomicBoolean caughtNotReady = new AtomicBoolean(false);
@@ -833,7 +833,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       Assert.assertTrue(success.get());
       Assert.assertTrue(caughtNotReady.get());
     } finally {
-      leaderPlaceHolderDelay.clear();
+      LEADER_PLACE_HOLDER_DELAY.clear();
       cluster.shutdown();
     }
   }

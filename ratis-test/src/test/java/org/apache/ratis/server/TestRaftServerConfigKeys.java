@@ -46,14 +46,14 @@ import static org.apache.ratis.server.RaftServerConfigKeys.Write.BYTE_LIMIT_KEY;
  */
 public class TestRaftServerConfigKeys {
 
-  private static final Supplier<File> rootTestDir = JavaUtils.memoize(
+  private static final Supplier<File> ROOT_TEST_DIR = JavaUtils.memoize(
       () -> new File(BaseTest.getRootTestDir(),
           JavaUtils.getClassSimpleName(TestRaftServerConfigKeys.class) +
               Integer.toHexString(ThreadLocalRandom.current().nextInt())));
 
   @AfterAll
   public static void tearDown() throws IOException {
-    FileUtils.deleteFully(rootTestDir.get());
+    FileUtils.deleteFully(ROOT_TEST_DIR.get());
   }
 
   /**
@@ -63,7 +63,7 @@ public class TestRaftServerConfigKeys {
   @Test
   public void testStorageDirProperty() {
     final File testDir = new File(
-        rootTestDir.get(), UUID.randomUUID().toString());
+        ROOT_TEST_DIR.get(), UUID.randomUUID().toString());
     final List<File> directories = new ArrayList<>();
     final  RaftProperties properties = new RaftProperties();
 
@@ -84,7 +84,7 @@ public class TestRaftServerConfigKeys {
   @Test
   public void testStorageDir() {
     final File testDir = new File(
-        rootTestDir.get(), UUID.randomUUID().toString());
+        ROOT_TEST_DIR.get(), UUID.randomUUID().toString());
     final List<File> directories = new ArrayList<>();
     IntStream.range(0, 10).mapToObj((i) -> new File(testDir,
         Integer.toString(i))).forEach(directories::add);

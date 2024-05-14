@@ -124,18 +124,18 @@ public abstract class GroupCommandIntegrationTest<CLUSTER extends MiniRaftCluste
     String info = result.substring(0, hearder.length());
     Assertions.assertEquals(hearder, info);
     long currentTerm = leader.getInfo().getCurrentTerm();
-    String LogInfoProtoFormat = "%s {" + NEW_LINE + "  term: " + currentTerm + NEW_LINE + "  index: %s";
+    String logInfoProtoFormat = "%s {" + NEW_LINE + "  term: " + currentTerm + NEW_LINE + "  index: %s";
     Assertions.assertTrue(result.contains(
-        String.format(LogInfoProtoFormat, "applied",
+        String.format(logInfoProtoFormat, "applied",
             leader.getStateMachine().getLastAppliedTermIndex().getIndex())));
     Assertions.assertTrue(result.contains(
-        String.format(LogInfoProtoFormat, "committed",
+        String.format(logInfoProtoFormat, "committed",
             leader.getRaftLog().getLastCommittedIndex())));
     Assertions.assertTrue(result.contains(
-        String.format(LogInfoProtoFormat, "lastSnapshot",
+        String.format(logInfoProtoFormat, "lastSnapshot",
             leader.getStateMachine().getLatestSnapshot().getIndex())));
     Assertions.assertTrue(result.contains(
-        String.format(LogInfoProtoFormat, "lastEntry",
+        String.format(logInfoProtoFormat, "lastEntry",
             leader.getRaftLog().getLastCommittedIndex())));
   }
 

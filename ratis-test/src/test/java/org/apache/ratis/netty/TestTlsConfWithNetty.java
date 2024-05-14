@@ -58,7 +58,7 @@ import java.util.concurrent.TimeUnit;
  * Testing {@link TlsConf} and the security related utility methods in {@link NettyUtils}.
  */
 public class TestTlsConfWithNetty {
-  private final static Logger LOG = LoggerFactory.getLogger(TestTlsConfWithNetty.class);
+  private static final Logger LOG = LoggerFactory.getLogger(TestTlsConfWithNetty.class);
 
   static String buffer2String(ByteBuf buf){
     try {

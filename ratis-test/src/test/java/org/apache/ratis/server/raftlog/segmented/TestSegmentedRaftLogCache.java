@@ -43,7 +43,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class TestSegmentedRaftLogCache {
-  private static final RaftProperties prop = new RaftProperties();
+  private static final RaftProperties PROP = new RaftProperties();
 
   private SegmentedRaftLogCache cache;
   private SegmentedRaftLogMetrics raftLogMetrics;
@@ -53,7 +53,7 @@ public class TestSegmentedRaftLogCache {
   public void setup() {
     raftLogMetrics = new SegmentedRaftLogMetrics(RaftServerTestUtil.TEST_MEMBER_ID);
     ratisMetricRegistry = (RatisMetricRegistryImpl) raftLogMetrics.getRegistry();
-    cache = new SegmentedRaftLogCache(null, null, prop, raftLogMetrics);
+    cache = new SegmentedRaftLogCache(null, null, PROP, raftLogMetrics);
   }
 
   @AfterEach
