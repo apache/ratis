@@ -94,9 +94,9 @@ public class TestSegmentedRaftLog extends BaseTest {
     return ((SegmentedRaftLog)raftLog).getRaftLogCache().getOpenSegment().getTotalFileSize();
   }
 
-  private static final RaftPeerId peerId = RaftPeerId.valueOf("s0");
-  private static final RaftGroupId groupId = RaftGroupId.randomId();
-  private static final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(peerId, groupId);
+  private static final RaftPeerId PEER_ID = RaftPeerId.valueOf("s0");
+  private static final RaftGroupId GROUP_ID = RaftGroupId.randomId();
+  private static final RaftGroupMemberId MEMBER_ID = RaftGroupMemberId.valueOf(PEER_ID, GROUP_ID);
 
   static class SegmentRange {
     final long start;
@@ -133,7 +133,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
   static SegmentedRaftLog newSegmentedRaftLog(RaftStorage storage, RaftProperties properties) {
     return SegmentedRaftLog.newBuilder()
-        .setMemberId(memberId)
+        .setMemberId(MEMBER_ID)
         .setStorage(storage)
         .setProperties(properties)
         .build();
@@ -142,7 +142,7 @@ public class TestSegmentedRaftLog extends BaseTest {
   private SegmentedRaftLog newSegmentedRaftLogWithSnapshotIndex(RaftStorage storage, RaftProperties properties,
                                                                 LongSupplier getSnapshotIndexFromStateMachine) {
     return SegmentedRaftLog.newBuilder()
-        .setMemberId(memberId)
+        .setMemberId(MEMBER_ID)
         .setStorage(storage)
         .setSnapshotIndexSupplier(getSnapshotIndexFromStateMachine)
         .setProperties(properties)
@@ -236,7 +236,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       Assertions.assertArrayEquals(entries, entriesFromLog);
       Assertions.assertEquals(entries[entries.length - 1], getLastEntry(raftLog));
 
-      final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.createRegistry(memberId);
+      final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.createRegistry(MEMBER_ID);
 
       final DefaultTimekeeperImpl load = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("segmentLoadLatency");
       assertTrue(load.getTimer().getMeanRate() > 0);
@@ -498,7 +498,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     int segmentSize = 200;
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
-    final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.createRegistry(memberId);
+    final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.createRegistry(MEMBER_ID);
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
     final DefaultTimekeeperImpl purge = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("purgeLog");
     assertTrue(purge.getTimer().getCount() > 0);
@@ -543,7 +543,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
     final RetryCache retryCache = RetryCacheTestUtil.createRetryCache();
-    try (SegmentedRaftLog raftLog = RetryCacheTestUtil.newSegmentedRaftLog(memberId, retryCache, storage, properties)) {
+    try (SegmentedRaftLog raftLog = RetryCacheTestUtil.newSegmentedRaftLog(MEMBER_ID, retryCache, storage, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       entries.forEach(entry -> RetryCacheTestUtil.createEntry(retryCache, entry));
       // append entries to the raftlog
@@ -558,7 +558,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     List<LogEntryProto> newEntries = prepareLogEntries(
         Arrays.asList(r1, r2, r3), null);
 
-    try (SegmentedRaftLog raftLog = RetryCacheTestUtil.newSegmentedRaftLog(memberId, retryCache, storage, properties)) {
+    try (SegmentedRaftLog raftLog = RetryCacheTestUtil.newSegmentedRaftLog(MEMBER_ID, retryCache, storage, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       LOG.info("newEntries[0] = {}", newEntries.get(0));
       final int last = newEntries.size() - 1;
@@ -575,7 +575,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
 
     // load the raftlog again and check
-    try (SegmentedRaftLog raftLog = RetryCacheTestUtil.newSegmentedRaftLog(memberId, retryCache, storage, properties)) {
+    try (SegmentedRaftLog raftLog = RetryCacheTestUtil.newSegmentedRaftLog(MEMBER_ID, retryCache, storage, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);
@@ -599,7 +599,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     final SimpleStateMachine4Testing sm = new SimpleStateMachine4Testing();
     try (SegmentedRaftLog raftLog = SegmentedRaftLog.newBuilder()
-        .setMemberId(memberId)
+        .setMemberId(MEMBER_ID)
         .setStateMachine(sm)
         .setStorage(storage)
         .setProperties(properties)
@@ -672,7 +672,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     ExecutionException ex;
     try (SegmentedRaftLog raftLog = SegmentedRaftLog.newBuilder()
-        .setMemberId(memberId)
+        .setMemberId(MEMBER_ID)
         .setStateMachine(sm)
         .setStorage(storage)
         .setProperties(properties)

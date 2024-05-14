@@ -63,20 +63,20 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  static final RaftProperties prop = new RaftProperties();
+  static final RaftProperties PROP = new RaftProperties();
 
   static {
     // avoid flaky behaviour in CI environment
-    RaftServerConfigKeys.Rpc.setTimeoutMin(prop, TimeDuration.valueOf(1500, TimeUnit.MILLISECONDS));
-    RaftServerConfigKeys.Rpc.setTimeoutMax(prop, TimeDuration.valueOf(2000, TimeUnit.MILLISECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMin(PROP, TimeDuration.valueOf(1500, TimeUnit.MILLISECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(PROP, TimeDuration.valueOf(2000, TimeUnit.MILLISECONDS));
     // it takes 5s+ to finish the blocking group add call
-    RaftClientConfigKeys.Rpc.setRequestTimeout(prop, TimeDuration.valueOf(12, TimeUnit.SECONDS));
+    RaftClientConfigKeys.Rpc.setRequestTimeout(PROP, TimeDuration.valueOf(12, TimeUnit.SECONDS));
   }
 
   public abstract MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory();
 
   public MiniRaftCluster getCluster(int peerNum) {
-    return getClusterFactory().newCluster(peerNum, prop);
+    return getClusterFactory().newCluster(peerNum, PROP);
   }
 
   @Test

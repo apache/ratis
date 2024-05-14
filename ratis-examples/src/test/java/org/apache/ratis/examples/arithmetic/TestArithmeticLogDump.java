@@ -47,17 +47,17 @@ public class TestArithmeticLogDump extends BaseTest {
 
   public static final int NUM_SERVERS = 1;
 
-  protected static final RaftProperties properties = new RaftProperties();
+  protected static final RaftProperties PROPERTIES = new RaftProperties();
 
   private final MiniRaftClusterWithSimulatedRpc cluster = MiniRaftClusterWithSimulatedRpc
       .FACTORY.newCluster(NUM_SERVERS, getProperties());
 
   public RaftProperties getProperties() {
     RaftServerConfigKeys.Rpc
-        .setSlownessTimeout(properties, TimeDuration.valueOf(1, TimeUnit.SECONDS));
-    properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        .setSlownessTimeout(PROPERTIES, TimeDuration.valueOf(1, TimeUnit.SECONDS));
+    PROPERTIES.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    return properties;
+    return PROPERTIES;
   }
 
   @BeforeEach

@@ -52,7 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils.MAX_OP_SIZE;
 
 public class TestCacheEviction extends BaseTest {
-  private static final CacheInvalidationPolicy policy = new CacheInvalidationPolicyDefault();
+  private static final CacheInvalidationPolicy POLICY = new CacheInvalidationPolicyDefault();
 
   static LogSegmentList prepareSegments(int numSegments, boolean[] cached, long start, long size) {
     Assertions.assertEquals(numSegments, cached.length);
@@ -76,35 +76,35 @@ public class TestCacheEviction extends BaseTest {
         new boolean[]{true, true, true, true, true}, 0, 10);
 
     // case 1, make sure we do not evict cache for segments behind local flushed index
-    List<LogSegment> evicted = policy.evict(null, 5, 15, segments, maxCached);
+    List<LogSegment> evicted = POLICY.evict(null, 5, 15, segments, maxCached);
     Assertions.assertEquals(0, evicted.size());
 
     // case 2, suppose the local flushed index is in the 3rd segment, then we
     // can evict the first two segment
-    evicted = policy.evict(null, 25, 30, segments, maxCached);
+    evicted = POLICY.evict(null, 25, 30, segments, maxCached);
     Assertions.assertEquals(2, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
     Assertions.assertSame(evicted.get(1), segments.get(1));
 
     // case 3, similar with case 2, but the local applied index is less than
     // the local flushed index.
-    evicted = policy.evict(null, 25, 15, segments, maxCached);
+    evicted = POLICY.evict(null, 25, 15, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
 
     // case 4, the local applied index is very small, then evict cache behind it
     // first and let the state machine load the segments later
-    evicted = policy.evict(null, 35, 5, segments, maxCached);
+    evicted = POLICY.evict(null, 35, 5, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(2));
 
     Mockito.when(segments.get(2).hasCache()).thenReturn(false);
-    evicted = policy.evict(null, 35, 5, segments, maxCached);
+    evicted = POLICY.evict(null, 35, 5, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(1));
 
     Mockito.when(segments.get(1).hasCache()).thenReturn(false);
-    evicted = policy.evict(null, 35, 5, segments, maxCached);
+    evicted = POLICY.evict(null, 35, 5, segments, maxCached);
     Assertions.assertEquals(0, evicted.size());
   }
 
@@ -116,38 +116,38 @@ public class TestCacheEviction extends BaseTest {
 
     // case 1, no matter where the followers are, we do not evict segments behind local
     // flushed index
-    List<LogSegment> evicted = policy.evict(new long[]{20, 40, 40}, 5, 15, segments,
+    List<LogSegment> evicted = POLICY.evict(new long[]{20, 40, 40}, 5, 15, segments,
         maxCached);
     Assertions.assertEquals(0, evicted.size());
 
     // case 2, the follower indices are behind the local flushed index
-    evicted = policy.evict(new long[]{30, 40, 45}, 25, 30, segments, maxCached);
+    evicted = POLICY.evict(new long[]{30, 40, 45}, 25, 30, segments, maxCached);
     Assertions.assertEquals(2, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
     Assertions.assertSame(evicted.get(1), segments.get(1));
 
     // case 3, similar with case 3 in basic eviction test
-    evicted = policy.evict(new long[]{30, 40, 45}, 25, 15, segments, maxCached);
+    evicted = POLICY.evict(new long[]{30, 40, 45}, 25, 15, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
 
     // case 4, the followers are slower than local flush
-    evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
+    evicted = POLICY.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
 
     Mockito.when(segments.get(0).hasCache()).thenReturn(false);
-    evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
+    evicted = POLICY.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(2));
 
     Mockito.when(segments.get(2).hasCache()).thenReturn(false);
-    evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
+    evicted = POLICY.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(3));
 
     Mockito.when(segments.get(3).hasCache()).thenReturn(false);
-    evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
+    evicted = POLICY.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
     Assertions.assertEquals(0, evicted.size());
   }
 

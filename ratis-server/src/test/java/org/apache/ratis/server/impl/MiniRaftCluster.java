@@ -92,14 +92,14 @@ public abstract class MiniRaftCluster implements Closeable {
       TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
   static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
 
-  public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
+  public abstract static class Factory<CLUSTER extends MiniRaftCluster> {
     public interface Get<CLUSTER extends MiniRaftCluster> {
-      Supplier<RaftProperties> properties = JavaUtils.memoize(RaftProperties::new);
+      Supplier<RaftProperties> PROPERTIES = JavaUtils.memoize(RaftProperties::new);
 
       Factory<CLUSTER> getFactory();
 
       default RaftProperties getProperties() {
-        return properties.get();
+        return PROPERTIES.get();
       }
 
       default RaftProperties setStateMachine(Class<? extends StateMachine> stateMachineClass) {
@@ -198,7 +198,7 @@ public abstract class MiniRaftCluster implements Closeable {
     }
   }
 
-  public static abstract class RpcBase extends MiniRaftCluster {
+  public abstract static class RpcBase extends MiniRaftCluster {
     public RpcBase(String[] ids, String[] listenerIds, RaftProperties properties, Parameters parameters) {
       super(ids, listenerIds, properties, parameters);
     }

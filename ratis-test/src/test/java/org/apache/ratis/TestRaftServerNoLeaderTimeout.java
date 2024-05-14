@@ -48,16 +48,16 @@ public class TestRaftServerNoLeaderTimeout extends BaseTest {
 
   private static final int NUM_SERVERS = 3;
 
-  private static final RaftProperties properties = new RaftProperties();
+  private static final RaftProperties PROPERTIES = new RaftProperties();
 
   private final MiniRaftClusterWithSimulatedRpc cluster = MiniRaftClusterWithSimulatedRpc
       .FACTORY.newCluster(NUM_SERVERS, getProperties());
 
   private static RaftProperties getProperties() {
-    RaftServerConfigKeys.Notification.setNoLeaderTimeout(properties, TimeDuration.valueOf(1, TimeUnit.SECONDS));
-    properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+    RaftServerConfigKeys.Notification.setNoLeaderTimeout(PROPERTIES, TimeDuration.valueOf(1, TimeUnit.SECONDS));
+    PROPERTIES.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    return properties;
+    return PROPERTIES;
   }
 
   @BeforeEach

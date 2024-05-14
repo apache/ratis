@@ -83,7 +83,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 64;
   private static final int PURGE_GAP = 8;
-  private static final AtomicReference<SnapshotInfo> leaderSnapshotInfoRef = new AtomicReference<>();
+  private static final AtomicReference<SnapshotInfo> LEADER_SNAPSHOT_INFO_REF = new AtomicReference<>();
 
   private static final AtomicInteger numSnapshotRequests = new AtomicInteger();
   private static final AtomicInteger numNotifyInstallSnapshotFinished = new AtomicInteger();
@@ -102,7 +102,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
       numSnapshotRequests.incrementAndGet();
 
-      final SingleFileSnapshotInfo leaderSnapshotInfo = (SingleFileSnapshotInfo) leaderSnapshotInfoRef.get();
+      final SingleFileSnapshotInfo leaderSnapshotInfo = (SingleFileSnapshotInfo) LEADER_SNAPSHOT_INFO_REF.get();
       LOG.info("{}: leaderSnapshotInfo = {}", getId(), leaderSnapshotInfo);
       if (leaderSnapshotInfo == null) {
         return super.notifyInstallSnapshotFromLeader(roleInfoProto, termIndex);
@@ -137,7 +137,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         return;
       }
       numNotifyInstallSnapshotFinished.incrementAndGet();
-      final SingleFileSnapshotInfo leaderSnapshotInfo = (SingleFileSnapshotInfo) leaderSnapshotInfoRef.get();
+      final SingleFileSnapshotInfo leaderSnapshotInfo = (SingleFileSnapshotInfo) LEADER_SNAPSHOT_INFO_REF.get();
       File leaderSnapshotFile = leaderSnapshotInfo.getFile().getPath().toFile();
       synchronized (this) {
         try {
@@ -184,7 +184,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
   private void testAddNewFollowers(CLUSTER cluster, int numRequests) throws Exception {
     final boolean shouldInstallSnapshot = numRequests >= SNAPSHOT_TRIGGER_THRESHOLD;
-    leaderSnapshotInfoRef.set(null);
+    LEADER_SNAPSHOT_INFO_REF.set(null);
     final List<LogSegmentPath> logs;
     int i = 0;
     try {
@@ -236,7 +236,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
-      final boolean set = leaderSnapshotInfoRef.compareAndSet(null, leaderSnapshotInfo);
+      final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
       Assert.assertTrue(set);
 
       // add two more peers
@@ -271,7 +271,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   }
 
   private void testRestartFollower(CLUSTER cluster) throws Exception {
-    leaderSnapshotInfoRef.set(null);
+    LEADER_SNAPSHOT_INFO_REF.set(null);
     int i = 0;
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
@@ -321,7 +321,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
 
   private void testInstallSnapshotNotificationCount(CLUSTER cluster) throws Exception {
-    leaderSnapshotInfoRef.set(null);
+    LEADER_SNAPSHOT_INFO_REF.set(null);
     numSnapshotRequests.set(0);
 
     int i = 0;
@@ -352,7 +352,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       Assert.assertEquals(20, snapshotIndex);
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       Assert.assertEquals(20, leaderSnapshotInfo.getIndex());
-      final boolean set = leaderSnapshotInfoRef.compareAndSet(null, leaderSnapshotInfo);
+      final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
       Assert.assertTrue(set);
 
       // Wait for the snapshot to be done.
@@ -425,7 +425,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   }
 
   private void testInstallSnapshotInstalledEvent(CLUSTER cluster) throws Exception{
-    leaderSnapshotInfoRef.set(null);
+    LEADER_SNAPSHOT_INFO_REF.set(null);
     numNotifyInstallSnapshotFinished.set(0);
     final List<LogSegmentPath> logs;
     int i = 0;
@@ -475,7 +475,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
-      final boolean set = leaderSnapshotInfoRef.compareAndSet(null, leaderSnapshotInfo);
+      final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
       Assert.assertTrue(set);
 
       // add one new peer
@@ -524,7 +524,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   }
 
   private void testInstallSnapshotDuringBootstrap(CLUSTER cluster) throws Exception {
-    leaderSnapshotInfoRef.set(null);
+    LEADER_SNAPSHOT_INFO_REF.set(null);
     numSnapshotRequests.set(0);
     int i = 0;
     try {
@@ -553,7 +553,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       RaftSnapshotBaseTest.assertLeaderContent(cluster);
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
-      final boolean set = leaderSnapshotInfoRef.compareAndSet(null, leaderSnapshotInfo);
+      final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
       Assert.assertTrue(set);
 
       // add two more peers
