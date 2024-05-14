@@ -77,7 +77,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   public static final int NUM_SERVERS = 3;
 
-  private static final DelayLocalExecutionInjection logSyncDelay = RaftServerTestUtil.getLogSyncDelay();
+  private static final DelayLocalExecutionInjection LOG_SYNC_DELAY = RaftServerTestUtil.getLogSyncDelay();
 
   {
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
@@ -430,7 +430,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       cluster.getServerAliveStream()
           .filter(impl -> !impl.getInfo().isLeader())
           .map(SimpleStateMachine4Testing::get)
-          .forEach(peer -> logSyncDelay.setDelayMs(peer.getId().toString(), 1000));
+          .forEach(peer -> LOG_SYNC_DELAY.setDelayMs(peer.getId().toString(), 1000));
 
       // trigger append entries request
       client.async().send(new SimpleMessage("abc"));
@@ -446,7 +446,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
     } finally {
       // unblock append entries request
-      logSyncDelay.clear();
+      LOG_SYNC_DELAY.clear();
     }
 
     waitForLeader(cluster);

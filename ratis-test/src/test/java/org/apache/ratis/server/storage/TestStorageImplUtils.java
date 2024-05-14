@@ -43,7 +43,7 @@ import java.util.stream.IntStream;
  */
 public class TestStorageImplUtils extends BaseTest {
 
-  private static final Supplier<File> rootTestDir = JavaUtils.memoize(
+  private static final Supplier<File> ROOT_TEST_DIR = JavaUtils.memoize(
       () -> new File(BaseTest.getRootTestDir(),
           JavaUtils.getClassSimpleName(TestStorageImplUtils.class) +
               Integer.toHexString(ThreadLocalRandom.current().nextInt())));
@@ -57,7 +57,7 @@ public class TestStorageImplUtils extends BaseTest {
 
   @AfterAll
   public static void tearDown() throws IOException {
-    FileUtils.deleteFully(rootTestDir.get());
+    FileUtils.deleteFully(ROOT_TEST_DIR.get());
   }
 
   /**
@@ -67,7 +67,7 @@ public class TestStorageImplUtils extends BaseTest {
    */
   @Test
   public void testChooseStorageDirWithOneVolume() throws IOException {
-    File testDir = new File(rootTestDir.get(), UUID.randomUUID().toString());
+    File testDir = new File(ROOT_TEST_DIR.get(), UUID.randomUUID().toString());
     List<File> directories = Collections.singletonList(testDir);
     String subDirOne = UUID.randomUUID().toString();
     String subDirTwo = UUID.randomUUID().toString();
@@ -88,7 +88,7 @@ public class TestStorageImplUtils extends BaseTest {
    */
   @Test
   public void testChooseStorageDirWithMultipleVolumes() throws IOException {
-    File testDir = new File(rootTestDir.get(), UUID.randomUUID().toString());
+    File testDir = new File(ROOT_TEST_DIR.get(), UUID.randomUUID().toString());
     List<File> directories = new ArrayList<>();
     IntStream.range(0, 10).mapToObj((i) -> new File(testDir,
         Integer.toString(i))).forEach((dir) -> {
@@ -136,7 +136,7 @@ public class TestStorageImplUtils extends BaseTest {
    */
   @Test
   public void testAutoFormatSingleDirectory() throws Exception {
-    final File testDir = new File(rootTestDir.get(), UUID.randomUUID().toString());
+    final File testDir = new File(ROOT_TEST_DIR.get(), UUID.randomUUID().toString());
     FileUtils.createDirectories(testDir);
 
     final RaftProperties properties = new RaftProperties();
@@ -153,7 +153,7 @@ public class TestStorageImplUtils extends BaseTest {
    */
   @Test
   public void testAutoFormatMultiDirectories() throws Exception {
-    final File testDir = new File(rootTestDir.get(), UUID.randomUUID().toString());
+    final File testDir = new File(ROOT_TEST_DIR.get(), UUID.randomUUID().toString());
     final List<File> directories = new ArrayList<>();
     IntStream.range(0, 3).mapToObj((i) -> new File(testDir,
         Integer.toString(i))).forEach((dir) -> {

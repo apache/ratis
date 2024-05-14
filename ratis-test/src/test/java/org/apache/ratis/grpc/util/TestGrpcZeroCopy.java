@@ -39,26 +39,26 @@ import java.util.concurrent.CompletableFuture;
  */
 public final class TestGrpcZeroCopy extends BaseTest {
   static class RandomData {
-    private static final Random random = new Random();
-    private static final byte[] array = new byte[4096];
+    private static final Random RANDOM = new Random();
+    private static final byte[] ARRAY = new byte[4096];
 
     static void fill(long seed, int size, ByteBuf buf) {
-      random.setSeed(seed);
+      RANDOM.setSeed(seed);
       for(int offset = 0; offset < size; ) {
-        final int remaining = Math.min(size - offset, array.length);
-        random.nextBytes(array);
-        buf.writeBytes(array, 0, remaining);
+        final int remaining = Math.min(size - offset, ARRAY.length);
+        RANDOM.nextBytes(ARRAY);
+        buf.writeBytes(ARRAY, 0, remaining);
         offset += remaining;
       }
     }
 
     static void verify(long seed, ByteString b) {
-      random.setSeed(seed);
+      RANDOM.setSeed(seed);
       final int size = b.size();
       for(int offset = 0; offset < size; ) {
-        final int remaining = Math.min(size - offset, array.length);
-        random.nextBytes(array);
-        final ByteString expected = UnsafeByteOperations.unsafeWrap(array, 0, remaining);
+        final int remaining = Math.min(size - offset, ARRAY.length);
+        RANDOM.nextBytes(ARRAY);
+        final ByteString expected = UnsafeByteOperations.unsafeWrap(ARRAY, 0, remaining);
         final ByteString computed = b.substring(offset, offset + remaining);
         Assertions.assertEquals(expected.size(), computed.size());
         Assertions.assertEquals(expected, computed);

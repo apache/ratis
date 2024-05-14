@@ -22,13 +22,11 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;

@@ -48,7 +48,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     }
   }
 
-  public static final DelayLocalExecutionInjection sendServerRequest
+  public static final DelayLocalExecutionInjection SEND_SERVER_REQUEST
       = new DelayLocalExecutionInjection(NettyRpcService.SEND_SERVER_REQUEST);
 
   protected MiniRaftClusterWithNetty(String[] ids, String[] listenerIds, RaftProperties properties) {
@@ -64,7 +64,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   @Override
   protected void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException {
-    RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequest,
+    RaftTestUtil.blockQueueAndSetDelay(getServers(), SEND_SERVER_REQUEST,
         leaderId, delayMs, getTimeoutMax());
   }
 }

@@ -52,7 +52,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
     }
   }
 
-  public static final DelayLocalExecutionInjection sendServerRequestInjection =
+  public static final DelayLocalExecutionInjection SEND_SERVER_REQUEST_INJECTION =
       new DelayLocalExecutionInjection(GrpcService.GRPC_SEND_SERVER_REQUEST);
 
   protected MiniRaftClusterWithGrpc(String[] ids, String[] listenerIds, RaftProperties properties, Parameters parameters) {
@@ -72,7 +72,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   @Override
   protected void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException {
-    RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequestInjection,
+    RaftTestUtil.blockQueueAndSetDelay(getServers(), SEND_SERVER_REQUEST_INJECTION,
         leaderId, delayMs, getTimeoutMax());
   }
 }

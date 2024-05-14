@@ -48,11 +48,11 @@ public abstract class ParameterizedBaseTest extends BaseTest {
   }
 
   /** For {@link ParameterizedTest} so that a cluster can be shared by multiple {@link Test} */
-  private static final AtomicReference<MiniRaftCluster> currentCluster = new AtomicReference<>();
+  private static final AtomicReference<MiniRaftCluster> CURRENT_CLUSTER = new AtomicReference<>();
 
-  /** Set {@link #currentCluster} to the given cluster and start it if {@link #currentCluster} is changed. */
+  /** Set {@link #CURRENT_CLUSTER} to the given cluster and start it if {@link #CURRENT_CLUSTER} is changed. */
   public static void setAndStart(MiniRaftCluster cluster) throws InterruptedException, IOException {
-    final MiniRaftCluster previous = currentCluster.getAndSet(cluster);
+    final MiniRaftCluster previous = CURRENT_CLUSTER.getAndSet(cluster);
     if (previous != cluster) {
       if (previous != null) {
         previous.shutdown();
@@ -65,7 +65,7 @@ public abstract class ParameterizedBaseTest extends BaseTest {
 
   @AfterAll
   public static void shutdownCurrentCluster() {
-    final MiniRaftCluster cluster = currentCluster.getAndSet(null);
+    final MiniRaftCluster cluster = CURRENT_CLUSTER.getAndSet(null);
     if (cluster != null) {
       cluster.shutdown();
     }

@@ -405,8 +405,8 @@ public interface RaftTestUtil {
   }
 
   class SimpleOperation {
-    private static final ClientId clientId = ClientId.randomId();
-    private static final AtomicLong callId = new AtomicLong();
+    private static final ClientId CLIENT_ID = ClientId.randomId();
+    private static final AtomicLong CALL_ID = new AtomicLong();
 
     private final String op;
     private final StateMachineLogEntryProto smLogEntryProto;
@@ -416,7 +416,7 @@ public interface RaftTestUtil {
     }
 
     public SimpleOperation(String op, boolean hasStateMachineData) {
-      this(clientId, callId.incrementAndGet(), op, hasStateMachineData);
+      this(CLIENT_ID, CALL_ID.incrementAndGet(), op, hasStateMachineData);
     }
 
     private SimpleOperation(ClientId clientId, long callId, String op, boolean hasStateMachineData) {

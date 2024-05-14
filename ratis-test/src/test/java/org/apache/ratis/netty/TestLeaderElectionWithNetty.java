@@ -29,7 +29,7 @@ public class TestLeaderElectionWithNetty
   public void testEnforceLeader() throws Exception {
     super.testEnforceLeader();
 
-    MiniRaftClusterWithNetty.sendServerRequest.clear();
+    MiniRaftClusterWithNetty.SEND_SERVER_REQUEST.clear();
     BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 

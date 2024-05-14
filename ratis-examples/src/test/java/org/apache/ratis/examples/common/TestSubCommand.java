@@ -21,12 +21,9 @@ package org.apache.ratis.examples.common;
 
 import java.util.Collection;
 import java.util.Collections;
-import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
 public class TestSubCommand {
 

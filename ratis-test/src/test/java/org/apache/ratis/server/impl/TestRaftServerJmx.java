@@ -42,7 +42,7 @@ public class TestRaftServerJmx extends BaseTest {
   @Test
   @Timeout(value = 30)
   public void testJmxBeans() throws Exception {
-    final int NUM_SERVERS = 3;
+    final int numServers = 3;
     final MiniRaftClusterWithSimulatedRpc cluster
         = MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(3, new RaftProperties());
     cluster.start();
@@ -50,7 +50,7 @@ public class TestRaftServerJmx extends BaseTest {
 
     MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
     Set<ObjectInstance> objectInstances = platformMBeanServer.queryMBeans(new ObjectName("Ratis:*"), null);
-    Assertions.assertEquals(NUM_SERVERS, objectInstances.size());
+    Assertions.assertEquals(numServers, objectInstances.size());
 
     for (ObjectInstance instance : objectInstances) {
       Object groupId = platformMBeanServer.getAttribute(instance.getObjectName(), "GroupId");

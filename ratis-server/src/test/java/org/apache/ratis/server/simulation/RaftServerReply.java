@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftRpcMessage;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
