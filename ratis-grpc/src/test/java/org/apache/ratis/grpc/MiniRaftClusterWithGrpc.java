@@ -62,11 +62,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   }
 
   public static final DelayLocalExecutionInjection SEND_SERVER_REQUEST_INJECTION =
-      new DelayLocalExecutionInjection(GrpcServicesImpl.GRPC_SEND_SERVER_REQUEST);
-  
-  public MiniRaftClusterWithGrpc(String[] ids, RaftProperties properties, Parameters parameters) {
-    this(ids, new String[0], properties, parameters);
-  }
+      new DelayLocalExecutionInjection(GrpcService.GRPC_SEND_SERVER_REQUEST);
 
   protected MiniRaftClusterWithGrpc(String[] ids, String[] listenerIds, RaftProperties properties,
       Parameters parameters) {

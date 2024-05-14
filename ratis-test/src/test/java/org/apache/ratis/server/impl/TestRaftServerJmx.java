@@ -40,7 +40,7 @@ import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 public class TestRaftServerJmx extends BaseTest {
   @Test
-  @Timeout(value = 30000)
+  @Timeout(value = 30)
   public void testJmxBeans() throws Exception {
     final int numServers = 3;
     final MiniRaftClusterWithSimulatedRpc cluster
@@ -50,7 +50,7 @@ public class TestRaftServerJmx extends BaseTest {
 
     MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
     Set<ObjectInstance> objectInstances = platformMBeanServer.queryMBeans(new ObjectName("Ratis:*"), null);
-    Assertions.assertEquals(NUM_SERVERS, objectInstances.size());
+    Assertions.assertEquals(numServers, objectInstances.size());
 
     for (ObjectInstance instance : objectInstances) {
       Object groupId = platformMBeanServer.getAttribute(instance.getObjectName(), "GroupId");
@@ -60,7 +60,7 @@ public class TestRaftServerJmx extends BaseTest {
   }
 
   @Test
-  @Timeout(value = 30000)
+  @Timeout(value = 30)
   public void testRegister() throws JMException {
     {
       final JmxRegister jmx = new JmxRegister();

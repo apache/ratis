@@ -38,7 +38,6 @@ import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -52,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils.MAX_OP_SIZE;
 
+@SuppressWarnings({"deprecation"})
 public class TestCacheEviction extends BaseTest {
   private static final CacheInvalidationPolicy POLICY = new CacheInvalidationPolicyDefault();
 
@@ -77,35 +77,35 @@ public class TestCacheEviction extends BaseTest {
         new boolean[]{true, true, true, true, true}, 0, 10);
 
     // case 1, make sure we do not evict cache for segments behind local flushed index
-    List<LogSegment> evicted = policy.evict(null, 5, 15, segments, maxCached);
+    List<LogSegment> evicted = POLICY.evict(null, 5, 15, segments, maxCached);
     Assertions.assertEquals(0, evicted.size());
 
     // case 2, suppose the local flushed index is in the 3rd segment, then we
     // can evict the first two segment
-    evicted = policy.evict(null, 25, 30, segments, maxCached);
+    evicted = POLICY.evict(null, 25, 30, segments, maxCached);
     Assertions.assertEquals(2, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
     Assertions.assertSame(evicted.get(1), segments.get(1));
 
     // case 3, similar with case 2, but the local applied index is less than
     // the local flushed index.
-    evicted = policy.evict(null, 25, 15, segments, maxCached);
+    evicted = POLICY.evict(null, 25, 15, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
 
     // case 4, the local applied index is very small, then evict cache behind it
     // first and let the state machine load the segments later
-    evicted = policy.evict(null, 35, 5, segments, maxCached);
+    evicted = POLICY.evict(null, 35, 5, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(2));
 
     Mockito.when(segments.get(2).hasCache()).thenReturn(false);
-    evicted = policy.evict(null, 35, 5, segments, maxCached);
+    evicted = POLICY.evict(null, 35, 5, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(1));
 
     Mockito.when(segments.get(1).hasCache()).thenReturn(false);
-    evicted = policy.evict(null, 35, 5, segments, maxCached);
+    evicted = POLICY.evict(null, 35, 5, segments, maxCached);
     Assertions.assertEquals(0, evicted.size());
   }
 
@@ -122,33 +122,33 @@ public class TestCacheEviction extends BaseTest {
     Assertions.assertEquals(0, evicted.size());
 
     // case 2, the follower indices are behind the local flushed index
-    evicted = policy.evict(new long[]{30, 40, 45}, 25, 30, segments, maxCached);
+    evicted = POLICY.evict(new long[]{30, 40, 45}, 25, 30, segments, maxCached);
     Assertions.assertEquals(2, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
     Assertions.assertSame(evicted.get(1), segments.get(1));
 
     // case 3, similar with case 3 in basic eviction test
-    evicted = policy.evict(new long[]{30, 40, 45}, 25, 15, segments, maxCached);
+    evicted = POLICY.evict(new long[]{30, 40, 45}, 25, 15, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
 
     // case 4, the followers are slower than local flush
-    evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
+    evicted = POLICY.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(0));
 
     Mockito.when(segments.get(0).hasCache()).thenReturn(false);
-    evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
+    evicted = POLICY.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(2));
 
     Mockito.when(segments.get(2).hasCache()).thenReturn(false);
-    evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
+    evicted = POLICY.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
     Assertions.assertEquals(1, evicted.size());
     Assertions.assertSame(evicted.get(0), segments.get(3));
 
     Mockito.when(segments.get(3).hasCache()).thenReturn(false);
-    evicted = policy.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
+    evicted = POLICY.evict(new long[]{15, 45, 45}, 55, 50, segments, maxCached);
     Assertions.assertEquals(0, evicted.size());
   }
 
@@ -175,7 +175,7 @@ public class TestCacheEviction extends BaseTest {
     raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
     List<SegmentRange> slist = TestSegmentedRaftLog.prepareRanges(0, maxCachedNum, 7, 0);
     List<LogEntryProto> entries = generateEntries(slist);
-    raftLog.append(ReferenceCountedObject.wrap(entries)).forEach(CompletableFuture::join);
+    raftLog.append(entries).forEach(CompletableFuture::join);
 
     // check the current cached segment number: the last segment is still open
     Assertions.assertEquals(maxCachedNum - 1,
@@ -185,7 +185,7 @@ public class TestCacheEviction extends BaseTest {
     Mockito.when(info.getFollowerNextIndices()).thenReturn(new long[]{21, 40, 40});
     slist = TestSegmentedRaftLog.prepareRanges(maxCachedNum, maxCachedNum + 2, 7, 7 * maxCachedNum);
     entries = generateEntries(slist);
-    raftLog.append(ReferenceCountedObject.wrap(entries)).forEach(CompletableFuture::join);
+    raftLog.append(entries).forEach(CompletableFuture::join);
 
     // check the cached segment number again. since the slowest follower is on
     // index 21, the eviction should happen and evict 3 segments

@@ -95,8 +95,6 @@ public abstract class MiniRaftCluster implements Closeable {
       TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
   static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
 
-  static final AtomicInteger CLIENT_ID = new AtomicInteger(0);
-
   public abstract static class Factory<CLUSTER extends MiniRaftCluster> {
     public interface Get<CLUSTER extends MiniRaftCluster> {
       Supplier<RaftProperties> PROPERTIES = JavaUtils.memoize(RaftProperties::new);

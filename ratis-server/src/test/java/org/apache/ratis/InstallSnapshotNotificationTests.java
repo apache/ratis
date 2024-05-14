@@ -238,7 +238,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assertions.assertTrue(set);
+      Assert.assertTrue(set);
 
       // Add new peer(s)
       final PeerChanges change = cluster.addNewPeers(1, true);
@@ -349,9 +349,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       long snapshotIndex = cluster.getLeader().getStateMachine().takeSnapshot();
       Assertions.assertEquals(20, snapshotIndex);
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
-      Assertions.assertEquals(20, leaderSnapshotInfo.getIndex());
+      Assert.assertEquals(20, leaderSnapshotInfo.getIndex());
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assertions.assertTrue(set);
+      Assert.assertTrue(set);
 
       // Wait for the snapshot to be done.
       final RaftServer.Division leader = cluster.getLeader();
@@ -472,7 +472,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assertions.assertTrue(set);
+      Assert.assertTrue(set);
 
       // add one new peer
       final PeerChanges change = cluster.addNewPeers(1, true);
@@ -547,7 +547,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assertions.assertTrue(set);
+      Assert.assertTrue(set);
 
       // Add new peer(s)
       final int numNewPeers = 1;

@@ -99,6 +99,19 @@ public abstract class BaseTest {
     ExitUtils.assertNotTerminated();
   }
 
+  // Retained to support junit 4 tests.
+  @Rule
+  public final org.junit.rules.Timeout globalTimeout = new org.junit.rules.Timeout(
+      getGlobalTimeoutSeconds(), TimeUnit.SECONDS );
+
+  // Retained to support junit 4 tests.
+  @Rule
+  public final TestName testName = new TestName();
+
+  public int getGlobalTimeoutSeconds() {
+    return 100;
+  }
+
   private static final Supplier<File> ROOT_TEST_DIR = JavaUtils.memoize(
       () -> JavaUtils.callAsUnchecked(() -> {
         final File dir = new File(System.getProperty("test.build.data", "target/test/data"),
