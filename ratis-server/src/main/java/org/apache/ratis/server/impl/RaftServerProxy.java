@@ -138,6 +138,7 @@ class RaftServerProxy implements RaftServer {
       } catch (Throwable t) {
         LOG.warn("{}: Failed to close the division for {}", getId(), groupId, t);
       }
+      impl.getStateMachine().event().notifyServerShutdown(impl.getRoleInfoProto(), true);
     }
 
     synchronized List<RaftGroupId> getGroupIds() {
