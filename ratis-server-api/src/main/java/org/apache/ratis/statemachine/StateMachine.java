@@ -214,9 +214,20 @@ public interface StateMachine extends Closeable {
     default void notifySnapshotInstalled(InstallSnapshotResult result, long snapshotIndex,  RaftPeer peer) {}
 
     /**
-     * Notify the {@link StateMachine} that a raft server has step down.
+     * Notify the {@link StateMachine} that the server for this division has been shut down.
+     * @Deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean)} instead
      */
-    default void notifyServerShutdown(RoleInfoProto roleInfo) {}
+    @Deprecated
+    default void notifyServerShutdown(RoleInfoProto roleInfo) {
+      notifyServerShutdown(roleInfo, false);
+    }
+
+    /**
+     * Notify the {@link StateMachine} that either the server for this division or all the servers have been shut down.
+     * @param roleInfo roleInfo this server
+     * @param allServer whether all raft servers will be shutdown at this time
+     */
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {}
   }
 
   /**
