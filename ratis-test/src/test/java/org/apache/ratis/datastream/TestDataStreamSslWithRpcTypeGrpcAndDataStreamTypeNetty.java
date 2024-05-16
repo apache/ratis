@@ -36,12 +36,12 @@ public class TestDataStreamSslWithRpcTypeGrpcAndDataStreamTypeNetty
   }
 
   Parameters newParameters() {
-    final Parameters parameters = new Parameters();
+    final Parameters parameters1 = new Parameters();
     final TlsConf serverTlsConfig = SecurityTestUtils.newServerTlsConfig(true);
-    NettyConfigKeys.DataStream.Server.setTlsConf(parameters, serverTlsConfig);
+    NettyConfigKeys.DataStream.Server.setTlsConf(parameters1, serverTlsConfig);
     final TlsConf clientTlsConfig = SecurityTestUtils.newClientTlsConfig(true);
-    NettyConfigKeys.DataStream.Client.setTlsConf(parameters, clientTlsConfig);
-    return parameters;
+    NettyConfigKeys.DataStream.Client.setTlsConf(parameters1, clientTlsConfig);
+    return parameters1;
   }
 
   private final Supplier<Parameters> parameters = JavaUtils.memoize(this::newParameters);

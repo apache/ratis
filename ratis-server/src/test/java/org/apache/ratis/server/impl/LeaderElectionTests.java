@@ -312,15 +312,15 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  static void enforceLeader(MiniRaftCluster cluster, final String newLeader, Logger LOG) throws InterruptedException {
-    LOG.info(cluster.printServers());
+  static void enforceLeader(MiniRaftCluster cluster, final String newLeader, Logger log) throws InterruptedException {
+    log.info(cluster.printServers());
     for(int i = 0; !cluster.tryEnforceLeader(newLeader) && i < 10; i++) {
       final RaftServer.Division currLeader = cluster.getLeader();
-      LOG.info("try enforcing leader to " + newLeader + " but " +
+      log.info("try enforcing leader to " + newLeader + " but " +
           (currLeader == null ? "no leader for round " + i : "new leader is " + currLeader.getId()));
       TimeDuration.ONE_SECOND.sleep();
     }
-    LOG.info(cluster.printServers());
+    log.info(cluster.printServers());
 
     final RaftServer.Division leader = cluster.getLeader();
     Assertions.assertEquals(newLeader, leader.getId().toString());
@@ -516,7 +516,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     long numLeaderElectionTimeout = ratisMetricRegistry.counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC).getCount();
     assertTrue(numLeaderElectionTimeout > 0);
 
-    final DefaultTimekeeperImpl timekeeper = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(LEADER_ELECTION_TIME_TAKEN);
+    final DefaultTimekeeperImpl timekeeper =
+        (DefaultTimekeeperImpl) ratisMetricRegistry.timer(LEADER_ELECTION_TIME_TAKEN);
     final Timer timer = timekeeper.getTimer();
     double meanTimeNs = timer.getSnapshot().getMean();
     long elapsedNs = timestamp.elapsedTime().toLong(TimeUnit.NANOSECONDS);
@@ -605,7 +606,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final TermIndex lastEntry = leader.getRaftLog().getLastEntryTermIndex();
     RaftServer.Division listener = cluster.getListeners().get(0);
     final RaftProtos.RequestVoteRequestProto r = ServerProtoUtils.toRequestVoteRequestProto(
-        leader.getMemberId(), listener.getId(),  leader.getRaftLog().getLastEntryTermIndex().getTerm() + 1, lastEntry, true);
+        leader.getMemberId(), listener.getId(),
+        leader.getRaftLog().getLastEntryTermIndex().getTerm() + 1, lastEntry, true);
     RaftProtos.RequestVoteReplyProto listenerReply = listener.getRaftServer().requestVote(r);
     Assertions.assertFalse(listenerReply.getServerReply().getSuccess());
   }

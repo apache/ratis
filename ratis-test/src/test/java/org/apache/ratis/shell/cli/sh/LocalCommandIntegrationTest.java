@@ -61,14 +61,16 @@ public class LocalCommandIntegrationTest {
     testDuplicatedPeers(duplicatedIdsList, "ID", "peer1_ID1");
   }
 
-  private void testDuplicatedPeers(String[] peersList, String expectedErrorMessagePart, String expectedDuplicatedValue) throws Exception {
+  private void testDuplicatedPeers(String[] peersList, String expectedErrorMessagePart, String expectedDuplicatedValue)
+      throws Exception {
     for (String peersStr : peersList) {
       StringPrintStream out = new StringPrintStream();
       RatisShell shell = new RatisShell(out.getPrintStream());
       int ret = shell.run("local", "raftMetaConf", "-peers", peersStr, "-path", "test");
       Assertions.assertEquals(-1, ret);
       String message = out.toString().trim();
-      Assertions.assertEquals(String.format("Found duplicated %s: %s. Please make sure the %s of peer have no duplicated value.",
+      Assertions.assertEquals(
+          String.format("Found duplicated %s: %s. Please make sure the %s of peer have no duplicated value.",
           expectedErrorMessagePart, expectedDuplicatedValue, expectedErrorMessagePart), message);
     }
   }
@@ -101,8 +103,8 @@ public class LocalCommandIntegrationTest {
 
       String addressRegex = "^[a-zA-Z0-9.-]+:\\d+$";
       Pattern pattern = Pattern.compile(addressRegex);
-      peers.forEach(p -> Assertions.assertTrue(
-          pattern.matcher(p.getAddress()).matches()));
+      peers.forEach(peerProto -> Assertions.assertTrue(
+          pattern.matcher(peerProto.getAddress()).matches()));
 
       String peersListStrFromNewMetaConf;
       if (containsPeerId(peersListStr)) {

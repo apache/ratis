@@ -103,15 +103,18 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
 
   long runMultipleStreams(CLUSTER cluster, boolean stepDownLeader) {
     final List<CompletableFuture<Long>> futures = new ArrayList<>();
-    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 5, 10, 100_000, 10, stepDownLeader), executor));
-    futures.add(CompletableFuture.supplyAsync(() -> runTestDataStream(cluster, 2, 20, 1_000, 5_000, stepDownLeader), executor));
+    futures.add(CompletableFuture.supplyAsync(() ->
+        runTestDataStream(cluster, 5, 10, 100_000, 10, stepDownLeader), executor));
+    futures.add(CompletableFuture.supplyAsync(() ->
+        runTestDataStream(cluster, 2, 20, 1_000, 5_000, stepDownLeader), executor));
     return futures.stream()
         .map(CompletableFuture::join)
         .max(Long::compareTo)
         .orElseThrow(IllegalStateException::new);
   }
 
-  void runTestDataStream(CLUSTER cluster, boolean stepDownLeader, CheckedBiFunction<CLUSTER, Boolean, Long, Exception> runMethod) throws Exception {
+  void runTestDataStream(CLUSTER cluster, boolean stepDownLeader,
+      CheckedBiFunction<CLUSTER, Boolean, Long, Exception> runMethod) throws Exception {
     RaftTestUtil.waitForLeader(cluster);
 
     final long maxIndex = runMethod.apply(cluster, stepDownLeader);

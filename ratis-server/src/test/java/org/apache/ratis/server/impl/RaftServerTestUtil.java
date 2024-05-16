@@ -58,8 +58,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class RaftServerTestUtil {
+public final class RaftServerTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerTestUtil.class);
+
+  private RaftServerTestUtil() {
+  }
 
   public static final RaftGroupMemberId TEST_MEMBER_ID = RaftGroupMemberId.valueOf(
       RaftPeerId.valueOf("test"), RaftGroupId.emptyGroupId());
@@ -248,7 +251,8 @@ public class RaftServerTestUtil {
     }
 
     // All new peers has been added. Handle the removed peers.
-    List<RaftPeer> peersToRemove = peers.stream().filter(peer -> !peersInNewConf.contains(peer)).collect(Collectors.toList());
+    List<RaftPeer> peersToRemove = peers.stream().filter(peer -> !peersInNewConf.contains(peer))
+        .collect(Collectors.toList());
     if (!peersToRemove.isEmpty()) {
       return peersInNewConf;
     }

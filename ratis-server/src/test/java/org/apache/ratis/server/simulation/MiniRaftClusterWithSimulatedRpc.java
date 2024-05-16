@@ -34,7 +34,7 @@ import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.conf.ConfUtils.requireMin;
 
-public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
+public final class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithSimulatedRpc.class);
 
   public static final Factory<MiniRaftClusterWithSimulatedRpc> FACTORY

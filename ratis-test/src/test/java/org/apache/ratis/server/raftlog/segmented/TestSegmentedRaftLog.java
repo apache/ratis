@@ -263,7 +263,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     return eList;
   }
 
-  static LogEntryProto prepareLogEntry(long term, long index, Supplier<String> stringSupplier, boolean hasStataMachineData) {
+  static LogEntryProto prepareLogEntry(long term, long index, Supplier<String> stringSupplier,
+      boolean hasStataMachineData) {
     final SimpleOperation m = stringSupplier == null?
         new SimpleOperation("m" + index, hasStataMachineData):
         new SimpleOperation(stringSupplier.get(), hasStataMachineData);
@@ -514,7 +515,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     purgeAndVerify(startTerm, endTerm, segmentSize, 1000, endIndexOfClosedSegment, expectedIndex);
   }
 
-  private void purgeAndVerify(int startTerm, int endTerm, int segmentSize, int purgeGap, long purgeIndex, long expectedIndex) throws Exception {
+  private void purgeAndVerify(int startTerm, int endTerm, int segmentSize, int purgeGap, long purgeIndex,
+      long expectedIndex) throws Exception {
     List<SegmentRange> ranges = prepareRanges(startTerm, endTerm, segmentSize, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
@@ -543,7 +545,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
     final RetryCache retryCache = RetryCacheTestUtil.createRetryCache();
-    try (SegmentedRaftLog raftLog = RetryCacheTestUtil.newSegmentedRaftLog(MEMBER_ID, retryCache, storage, properties)) {
+    try (SegmentedRaftLog raftLog =
+             RetryCacheTestUtil.newSegmentedRaftLog(MEMBER_ID, retryCache, storage, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       entries.forEach(entry -> RetryCacheTestUtil.createEntry(retryCache, entry));
       // append entries to the raftlog
@@ -558,7 +561,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     List<LogEntryProto> newEntries = prepareLogEntries(
         Arrays.asList(r1, r2, r3), null);
 
-    try (SegmentedRaftLog raftLog = RetryCacheTestUtil.newSegmentedRaftLog(MEMBER_ID, retryCache, storage, properties)) {
+    try (SegmentedRaftLog raftLog =
+             RetryCacheTestUtil.newSegmentedRaftLog(MEMBER_ID, retryCache, storage, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       LOG.info("newEntries[0] = {}", newEntries.get(0));
       final int last = newEntries.size() - 1;
@@ -575,7 +579,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
 
     // load the raftlog again and check
-    try (SegmentedRaftLog raftLog = RetryCacheTestUtil.newSegmentedRaftLog(MEMBER_ID, retryCache, storage, properties)) {
+    try (SegmentedRaftLog raftLog =
+             RetryCacheTestUtil.newSegmentedRaftLog(MEMBER_ID, retryCache, storage, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);
@@ -706,7 +711,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     Assertions.assertEquals(expectedNextIndex, raftLog.getNextIndex());
   }
 
-  void assertIndicesMultipleAttempts(RaftLog raftLog, long expectedFlushIndex, long expectedNextIndex) throws Exception {
+  void assertIndicesMultipleAttempts(RaftLog raftLog, long expectedFlushIndex, long expectedNextIndex)
+      throws Exception {
     JavaUtils.attempt(() -> assertIndices(raftLog, expectedFlushIndex, expectedNextIndex),
         10, HUNDRED_MILLIS, "assertIndices", LOG);
   }

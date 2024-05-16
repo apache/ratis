@@ -44,7 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class FileStoreWriter implements Closeable {
+final class FileStoreWriter implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(FileStoreWriter.class);
 
   final long seed = ThreadLocalRandom.current().nextLong();

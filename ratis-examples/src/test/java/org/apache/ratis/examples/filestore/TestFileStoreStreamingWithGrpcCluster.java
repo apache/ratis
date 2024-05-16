@@ -19,7 +19,8 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.datastream.MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty;
 
-public class TestFileStoreStreamingWithGrpcCluster extends FileStoreStreamingBaseTest<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty>
+public class TestFileStoreStreamingWithGrpcCluster
+    extends FileStoreStreamingBaseTest<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty>
     implements MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty.FactoryGet {
 
 }

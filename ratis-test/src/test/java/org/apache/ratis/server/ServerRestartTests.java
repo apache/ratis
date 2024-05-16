@@ -164,7 +164,8 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  static void assertTruncatedLog(RaftPeerId id, File openLogFile, long lastIndex, MiniRaftCluster cluster) throws Exception {
+  static void assertTruncatedLog(RaftPeerId id, File openLogFile, long lastIndex, MiniRaftCluster cluster)
+      throws Exception {
     // truncate log
     if (openLogFile.length() > 0) {
       FileUtils.truncateFile(openLogFile, openLogFile.length() - 1);
@@ -216,14 +217,14 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   }
 
   static void assertCorruptedLogHeader(RaftPeerId id, File openLogFile, int partialLength,
-      MiniRaftCluster cluster, Logger LOG) throws Exception {
+      MiniRaftCluster cluster, Logger log) throws Exception {
     Preconditions.assertTrue(partialLength < SegmentedRaftLogFormat.getHeaderLength());
     try(final RandomAccessFile raf = new RandomAccessFile(openLogFile, "rw")) {
       final ByteBuffer header = SegmentedRaftLogFormat.getHeaderBytebuffer();
-      LOG.info("header    = {}", StringUtils.bytes2HexString(header));
+      log.info("header    = {}", StringUtils.bytes2HexString(header));
       final byte[] corrupted = new byte[header.remaining()];
       header.get(corrupted, 0, partialLength);
-      LOG.info("corrupted = {}", StringUtils.bytes2HexString(corrupted));
+      log.info("corrupted = {}", StringUtils.bytes2HexString(corrupted));
       raf.write(corrupted);
     }
     final RaftServer.Division server = cluster.restartServer(id, false);

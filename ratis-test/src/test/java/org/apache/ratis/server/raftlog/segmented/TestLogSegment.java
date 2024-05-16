@@ -88,7 +88,8 @@ public class TestLogSegment extends BaseTest {
   File prepareLog(boolean isOpen, long startIndex, int numEntries, long term, boolean isLastEntryPartiallyWritten)
       throws IOException {
     if (!isOpen) {
-      Preconditions.assertTrue(!isLastEntryPartiallyWritten, "For closed log, the last entry cannot be partially written.");
+      Preconditions.assertTrue(!isLastEntryPartiallyWritten,
+          "For closed log, the last entry cannot be partially written.");
     }
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final File file = LogSegmentStartEnd.valueOf(startIndex, startIndex + numEntries - 1, isOpen).getFile(storage);

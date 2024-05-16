@@ -120,16 +120,18 @@ public abstract class MiniRaftCluster implements Closeable {
         runWithNewCluster(numServers, 0, true, testCase);
       }
 
-      default void runWithNewCluster(int numServers, boolean startCluster, CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
+      default void runWithNewCluster(int numServers, boolean startCluster, CheckedConsumer<CLUSTER, Exception> testCase)
+          throws Exception {
         runWithNewCluster(numServers, 0, startCluster, testCase);
       }
 
-      default void runWithNewCluster(int numServers, int numListeners, CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
+      default void runWithNewCluster(int numServers, int numListeners, CheckedConsumer<CLUSTER, Exception> testCase)
+          throws Exception {
         runWithNewCluster(numServers, numListeners, true, testCase);
       }
 
-      default void runWithNewCluster(int numServers, int numListeners, boolean startCluster, CheckedConsumer<CLUSTER, Exception> testCase)
-          throws Exception {
+      default void runWithNewCluster(int numServers, int numListeners, boolean startCluster,
+          CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
         final StackTraceElement caller = JavaUtils.getCallerStackTraceElement();
         LOG.info("Running " + caller.getMethodName());
         final CLUSTER cluster = newCluster(numServers, numListeners);
@@ -151,7 +153,8 @@ public abstract class MiniRaftCluster implements Closeable {
         runWithSameCluster(numServers, 0, testCase);
       }
 
-      default void runWithSameCluster(int numServers, int numListeners, CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
+      default void runWithSameCluster(int numServers, int numListeners, CheckedConsumer<CLUSTER, Exception> testCase)
+          throws Exception {
         final StackTraceElement caller = JavaUtils.getCallerStackTraceElement();
         LOG.info("Running " + caller.getMethodName());
         CLUSTER cluster = null;
@@ -321,15 +324,15 @@ public abstract class MiniRaftCluster implements Closeable {
     return this;
   }
 
-  public RaftServerProxy putNewServer(RaftPeerId id, RaftGroup group, boolean format) {
-    final RaftServerProxy s = newRaftServer(id, group, format);
+  public RaftServerProxy putNewServer(RaftPeerId id, RaftGroup raftGroup, boolean format) {
+    final RaftServerProxy s = newRaftServer(id, raftGroup, format);
     peers.put(s.getId(), s.getPeer());
     Preconditions.assertTrue(servers.put(id, s) == null);
     return s;
   }
 
-  private Collection<RaftServer> putNewServers(Iterable<RaftPeerId> peers, boolean format, RaftGroup raftGroup) {
-      return StreamSupport.stream(peers.spliterator(), false)
+  private Collection<RaftServer> putNewServers(Iterable<RaftPeerId> peerIds, boolean format, RaftGroup raftGroup) {
+      return StreamSupport.stream(peerIds.spliterator(), false)
           .map(id -> putNewServer(id, raftGroup, format))
           .collect(Collectors.toList());
   }
@@ -355,13 +358,14 @@ public abstract class MiniRaftCluster implements Closeable {
     return restartServer(serverId, group, format);
   }
 
-  public RaftServer.Division restartServer(RaftPeerId serverId, RaftGroup group, boolean format) throws IOException {
+  public RaftServer.Division restartServer(RaftPeerId serverId, RaftGroup raftGroup, boolean format)
+      throws IOException {
     killServer(serverId);
     servers.remove(serverId);
 
-    final RaftServer proxy = putNewServer(serverId, group, format);
+    final RaftServer proxy = putNewServer(serverId, raftGroup, format);
     proxy.start();
-    return group == null? null: proxy.getDivision(group.getGroupId());
+    return raftGroup == null? null: proxy.getDivision(raftGroup.getGroupId());
   }
 
   public void restart(boolean format) throws IOException {
@@ -377,8 +381,8 @@ public abstract class MiniRaftCluster implements Closeable {
     return RaftServerConfigKeys.Rpc.timeoutMax(properties);
   }
 
-  private RaftServerProxy newRaftServer(RaftPeerId id, RaftGroup group, boolean format) {
-    LOG.info("newRaftServer: {}, {}, format? {}", id, group, format);
+  private RaftServerProxy newRaftServer(RaftPeerId id, RaftGroup raftGroup, boolean format) {
+    LOG.info("newRaftServer: {}, {}, format? {}", id, raftGroup, format);
     try {
       final File dir = getStorageDir(id);
       if (format) {
@@ -387,27 +391,27 @@ public abstract class MiniRaftCluster implements Closeable {
       }
       final RaftProperties prop = new RaftProperties(properties);
       RaftServerConfigKeys.setStorageDir(prop, Collections.singletonList(dir));
-      return ServerImplUtils.newRaftServer(id, group,
+      return ServerImplUtils.newRaftServer(id, raftGroup,
           format? RaftStorage.StartupOption.FORMAT: RaftStorage.StartupOption.RECOVER,
-          getStateMachineRegistry(prop), null, prop, setPropertiesAndInitParameters(id, group, prop));
+          getStateMachineRegistry(prop), null, prop, setPropertiesAndInitParameters(id, raftGroup, prop));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
   protected abstract Parameters setPropertiesAndInitParameters(
-      RaftPeerId id, RaftGroup group, RaftProperties properties);
+      RaftPeerId id, RaftGroup raftGroup, RaftProperties raftProperties);
 
   public void setStateMachineRegistry(StateMachine.Registry stateMachineRegistry) {
     this.stateMachineRegistry = stateMachineRegistry;
   }
 
-  StateMachine.Registry getStateMachineRegistry(RaftProperties properties) {
+  StateMachine.Registry getStateMachineRegistry(RaftProperties raftProperties) {
     if (stateMachineRegistry != null) {
       return stateMachineRegistry;
     }
 
-    final Class<? extends StateMachine> smClass = properties.getClass(
+    final Class<? extends StateMachine> smClass = raftProperties.getClass(
         STATEMACHINE_CLASS_KEY, null, StateMachine.class);
     if (smClass == null) {
       return STATEMACHINE_REGISTRY_DEFAULT;
@@ -423,7 +427,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
       try {
         final Class<?>[] argClasses = {RaftProperties.class};
-        return ReflectionUtils.newInstance(smClass, argClasses, properties);
+        return ReflectionUtils.newInstance(smClass, argClasses, raftProperties);
       } catch(RuntimeException e) {
         exception.addSuppressed(e);
       }
@@ -495,8 +499,8 @@ public abstract class MiniRaftCluster implements Closeable {
     return new PeerChanges(p, np, RaftPeer.emptyArray());
   }
 
-  void startServers(Iterable<? extends RaftServer> servers) throws IOException {
-    for(RaftServer s : servers) {
+  void startServers(Iterable<? extends RaftServer> raftServers) throws IOException {
+    for(RaftServer s : raftServers) {
       s.start();
       peers.put(s.getId(), s.getPeer());
     }
@@ -507,12 +511,12 @@ public abstract class MiniRaftCluster implements Closeable {
    */
   public PeerChanges removePeers(int number, boolean removeLeader,
       Collection<RaftPeer> excluded) throws InterruptedException {
-    Collection<RaftPeer> peers = new ArrayList<>(group.getPeers());
+    Collection<RaftPeer> raftPeers = new ArrayList<>(group.getPeers());
     List<RaftPeer> removedPeers = new ArrayList<>(number);
     if (removeLeader) {
       final RaftPeer leader = RaftTestUtil.waitForLeader(this).getPeer();
       Preconditions.assertTrue(!excluded.contains(leader));
-      peers.remove(leader);
+      raftPeers.remove(leader);
       removedPeers.add(leader);
     }
     final List<RaftServer.Division> followers = getFollowers();
@@ -520,12 +524,12 @@ public abstract class MiniRaftCluster implements Closeable {
         removed < (removeLeader ? number - 1 : number); i++) {
       RaftPeer toRemove = followers.get(i).getPeer();
       if (!excluded.contains(toRemove)) {
-        peers.remove(toRemove);
+        raftPeers.remove(toRemove);
         removedPeers.add(toRemove);
         removed++;
       }
     }
-    final RaftPeer[] p = peers.toArray(RaftPeer.emptyArray());
+    final RaftPeer[] p = raftPeers.toArray(RaftPeer.emptyArray());
     group = RaftGroup.valueOf(group.getGroupId(), p);
     return new PeerChanges(p, RaftPeer.emptyArray(), removedPeers.toArray(RaftPeer.emptyArray()));
   }
@@ -727,13 +731,13 @@ public abstract class MiniRaftCluster implements Closeable {
     return toRaftPeers(getServers());
   }
 
-  RaftPeer getPeer(RaftPeerId id, RaftGroup group) {
+  RaftPeer getPeer(RaftPeerId id, RaftGroup raftGroup) {
     RaftPeer p = peers.get(id);
     if (p != null) {
       return p;
     }
-    if (group != null) {
-      p = group.getPeer(id);
+    if (raftGroup != null) {
+      p = raftGroup.getPeer(id);
     }
     if (p == null) {
       p = Optional.ofNullable(servers.get(id)).map(RaftServerProxy::getPeer).orElse(null);
@@ -768,21 +772,21 @@ public abstract class MiniRaftCluster implements Closeable {
     return createClient(leaderId, group, retryPolicy);
   }
 
-  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group) {
-    return createClient(leaderId, group, getDefaultRetryPolicy());
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup raftGroup) {
+    return createClient(leaderId, raftGroup, getDefaultRetryPolicy());
   }
 
   public RaftClient createClient(RaftPeer primaryServer) {
     return createClient(null, group, getDefaultRetryPolicy(), primaryServer);
   }
 
-  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group, RetryPolicy retryPolicy) {
-    return createClient(leaderId, group, retryPolicy, null);
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup raftGroup, RetryPolicy retryPolicy) {
+    return createClient(leaderId, raftGroup, retryPolicy, null);
   }
 
-  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group, RetryPolicy retryPolicy, RaftPeer primaryServer) {
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup raftGroup, RetryPolicy retryPolicy, RaftPeer primaryServer) {
     RaftClient.Builder builder = RaftClient.newBuilder()
-        .setRaftGroup(group)
+        .setRaftGroup(raftGroup)
         .setLeaderId(leaderId)
         .setProperties(properties)
         .setParameters(parameters)
@@ -810,15 +814,15 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public SetConfigurationRequest newSetConfigurationRequest(
       ClientId clientId, RaftPeerId leaderId,
-      RaftPeer... peers) {
+      RaftPeer... raftPeers) {
     return new SetConfigurationRequest(clientId, leaderId, getGroupId(), CallId.getDefault(),
-        SetConfigurationRequest.Arguments.newBuilder().setServersInNewConf(peers).build());
+        SetConfigurationRequest.Arguments.newBuilder().setServersInNewConf(raftPeers).build());
   }
 
-  public void setConfiguration(RaftPeer... peers) throws IOException {
+  public void setConfiguration(RaftPeer... raftPeers) throws IOException {
     try(RaftClient client = createClient()) {
-      LOG.info("Start changing the configuration: {}", Arrays.asList(peers));
-      final RaftClientReply reply = client.admin().setConfiguration(peers);
+      LOG.info("Start changing the configuration: {}", Arrays.asList(raftPeers));
+      final RaftClientReply reply = client.admin().setConfiguration(raftPeers);
       Preconditions.assertTrue(reply.isSuccess());
     }
   }

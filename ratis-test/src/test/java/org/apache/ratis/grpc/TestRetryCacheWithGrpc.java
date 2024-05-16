@@ -89,7 +89,8 @@ public class TestRetryCacheWithGrpc
       assertRetryCacheEntry(client, callId, exist, false);
     }
 
-    void assertRetryCacheEntry(RaftClient client, long callId, boolean exist, boolean eventually) throws InterruptedException {
+    void assertRetryCacheEntry(RaftClient client, long callId, boolean exist, boolean eventually)
+        throws InterruptedException {
       Supplier<RetryCache.Entry> lookup = () -> RetryCacheTestUtil.get(leader, client.getId(), callId);
       Consumer<RetryCache.Entry> assertion = exist ? Assertions::assertNotNull : Assertions::assertNull;
       if (eventually) {

@@ -107,7 +107,8 @@ public class TestArithmetic extends ParameterizedBaseTest {
       final Variable p0 = new Variable("p" + i_1);
       final Variable a1 = defineVariable(client, "a"+i, DIV.apply(ADD.apply(a0, b0), 2));
       final Variable b1 = defineVariable(client, "b"+i, SQRT.apply(MULT.apply(a0, b0)));
-      final Variable t1 = defineVariable(client, "t"+i, SUBTRACT.apply(t0, MULT.apply(p0, SQUARE.apply(SUBTRACT.apply(a0, a1)))));
+      final Variable t1 = defineVariable(client, "t"+i,
+          SUBTRACT.apply(t0, MULT.apply(p0, SQUARE.apply(SUBTRACT.apply(a0, a1)))));
       final Variable p1 = defineVariable(client, "p"+i, MULT.apply(2, p0));
 
       final Variable pi_i = new Variable("pi_"+i);

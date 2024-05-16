@@ -326,7 +326,8 @@ public interface RaftTestUtil {
     return entries;
   }
 
-  static Void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage[] expectedMessages, Consumer<String> print) {
+  static Void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage[] expectedMessages,
+      Consumer<String> print) {
     final List<LogEntryProto> entries = getStateMachineLogEntries(log, print);
     try {
       assertLogEntries(entries, expectedTerm, expectedMessages);

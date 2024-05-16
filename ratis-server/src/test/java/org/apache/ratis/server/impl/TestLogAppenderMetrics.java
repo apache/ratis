@@ -83,16 +83,16 @@ public class TestLogAppenderMetrics {
       return nextIndex;
     }
 
-    void updateNextIndex(long nextIndex) {
-      this.nextIndex = nextIndex;
+    void updateNextIndex(long index) {
+      this.nextIndex = index;
     }
 
     long getMatchIndex() {
       return matchIndex;
     }
 
-    void updateMatchIndex(long matchIndex) {
-      this.matchIndex = matchIndex;
+    void updateMatchIndex(long index) {
+      this.matchIndex = index;
     }
 
     Timestamp getLastRpcTime() {

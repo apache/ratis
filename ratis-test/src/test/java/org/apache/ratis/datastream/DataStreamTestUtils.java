@@ -336,7 +336,8 @@ public interface DataStreamTestUtils {
     Assertions.assertEquals(RaftClientRequest.dataStreamRequestType(), header.getType());
 
     // check stream
-    final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine) server.getDivision(header.getRaftGroupId()).getStateMachine();
+    final MultiDataStreamStateMachine stateMachine =
+        (MultiDataStreamStateMachine) server.getDivision(header.getRaftGroupId()).getStateMachine();
     final SingleDataStream stream = stateMachine.getSingleDataStream(header);
     final MyDataChannel channel = stream.getDataChannel();
     Assertions.assertEquals(dataSize, channel.getBytesWritten());
