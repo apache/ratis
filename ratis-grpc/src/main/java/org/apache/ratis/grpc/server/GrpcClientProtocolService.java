@@ -161,6 +161,7 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
     this.executor = executor;
     this.zeroCopyRequestMarshaller = new ZeroCopyMessageMarshaller<>(RaftClientRequestProto.getDefaultInstance(),
         zeroCopyMetrics::onZeroCopyMessage, zeroCopyMetrics::onNonZeroCopyMessage, zeroCopyMetrics::onReleasedMessage);
+    zeroCopyMetrics.addUnreleased("client_protocol", zeroCopyRequestMarshaller::getUnclosedCount);
   }
 
   RaftPeerId getId() {

@@ -232,6 +232,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     this.server = server;
     this.zeroCopyRequestMarshaller = new ZeroCopyMessageMarshaller<>(AppendEntriesRequestProto.getDefaultInstance(),
         zeroCopyMetrics::onZeroCopyMessage, zeroCopyMetrics::onNonZeroCopyMessage, zeroCopyMetrics::onReleasedMessage);
+    zeroCopyMetrics.addUnreleased("server_protocol", zeroCopyRequestMarshaller::getUnclosedCount);
   }
 
   RaftPeerId getId() {
