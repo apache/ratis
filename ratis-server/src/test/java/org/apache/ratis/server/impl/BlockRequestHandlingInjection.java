@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Inject code to block a server from handling incoming requests. */
-public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Code {
+public final class BlockRequestHandlingInjection implements CodeInjectionForTesting.Code {
   private static final BlockRequestHandlingInjection INSTANCE =
       new BlockRequestHandlingInjection();
 

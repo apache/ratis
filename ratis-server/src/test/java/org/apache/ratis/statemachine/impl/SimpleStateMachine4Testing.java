@@ -208,12 +208,12 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public synchronized void initialize(RaftServer server, RaftGroupId groupId,
+  public synchronized void initialize(RaftServer server, RaftGroupId raftGroupId,
       RaftStorage raftStorage) throws IOException {
     LOG.info("Initializing " + this);
-    this.groupId = groupId;
+    this.groupId = raftGroupId;
     getLifeCycle().startAndTransition(() -> {
-      super.initialize(server, groupId, raftStorage);
+      super.initialize(server, raftGroupId, raftStorage);
       storage.init(raftStorage);
       loadSnapshot(storage.getLatestSnapshot());
 

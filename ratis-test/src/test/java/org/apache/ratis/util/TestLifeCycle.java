@@ -82,7 +82,8 @@ public class TestLifeCycle {
     testInvalidTransition((from, subject, to) -> subject.transitionAndGet(any -> to), true);
   }
 
-  private static void testInvalidTransition(TriConsumer<LifeCycle.State, LifeCycle, LifeCycle.State> op, boolean shouldThrow) {
+  private static void testInvalidTransition(TriConsumer<LifeCycle.State, LifeCycle, LifeCycle.State> op,
+      boolean shouldThrow) {
     LifeCycle subject = new LifeCycle("subject");
     for (LifeCycle.State to : new LifeCycle.State[] { RUNNING, EXCEPTION, CLOSING }) {
       LifeCycle.State from = subject.getCurrentState();

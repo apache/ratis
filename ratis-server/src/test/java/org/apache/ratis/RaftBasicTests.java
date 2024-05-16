@@ -96,27 +96,27 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   }
 
   static CompletableFuture<Void> killAndRestartServer(
-      RaftPeerId id, long killSleepMs, long restartSleepMs, MiniRaftCluster cluster, Logger LOG) {
+      RaftPeerId id, long killSleepMs, long restartSleepMs, MiniRaftCluster cluster, Logger log) {
     final CompletableFuture<Void> future = new CompletableFuture<>();
     new Thread(() -> {
       try {
         Thread.sleep(killSleepMs);
         cluster.killServer(id);
         Thread.sleep(restartSleepMs);
-        LOG.info("restart server: " + id);
+        log.info("restart server: " + id);
         cluster.restartServer(id, false);
         future.complete(null);
       } catch (Exception e) {
-        ExitUtils.terminate(-1, "Failed to kill/restart server: " + id, e, LOG);
+        ExitUtils.terminate(-1, "Failed to kill/restart server: " + id, e, log);
       }
     }).start();
     return future;
   }
 
   static void runTestBasicAppendEntries(
-      boolean async, boolean killLeader, int numMessages, MiniRaftCluster cluster, Logger LOG)
+      boolean async, boolean killLeader, int numMessages, MiniRaftCluster cluster, Logger log)
       throws Exception {
-    LOG.info("runTestBasicAppendEntries: async? {}, killLeader={}, numMessages={}",
+    log.info("runTestBasicAppendEntries: async? {}, killLeader={}, numMessages={}",
         async, killLeader, numMessages);
     for (RaftServer s : cluster.getServers()) {
       cluster.restartServer(s.getId(), false);
@@ -125,16 +125,16 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final long term = leader.getInfo().getCurrentTerm();
 
     final CompletableFuture<Void> killAndRestartFollower = killAndRestartServer(
-        cluster.getFollowers().get(0).getId(), 0, 1000, cluster, LOG);
+        cluster.getFollowers().get(0).getId(), 0, 1000, cluster, log);
     final CompletableFuture<Void> killAndRestartLeader;
     if (killLeader) {
-      LOG.info("killAndRestart leader " + leader.getId());
-      killAndRestartLeader = killAndRestartServer(leader.getId(), 2000, 4000, cluster, LOG);
+      log.info("killAndRestart leader " + leader.getId());
+      killAndRestartLeader = killAndRestartServer(leader.getId(), 2000, 4000, cluster, log);
     } else {
       killAndRestartLeader = CompletableFuture.completedFuture(null);
     }
 
-    LOG.info(cluster.printServers());
+    log.info(cluster.printServers());
 
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
 
@@ -163,14 +163,14 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       }
     }
     Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
-    LOG.info(cluster.printAllLogs());
+    log.info(cluster.printAllLogs());
     killAndRestartFollower.join();
     killAndRestartLeader.join();
 
 
     final List<RaftServer.Division> divisions = cluster.getServerAliveStream().collect(Collectors.toList());
     for(RaftServer.Division impl: divisions) {
-      RaftTestUtil.assertLogEntries(impl, term, messages, 50, LOG);
+      RaftTestUtil.assertLogEntries(impl, term, messages, 50, log);
     }
   }
 
@@ -271,16 +271,16 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final AtomicReference<Throwable> exceptionInClientThread = new AtomicReference<>();
 
     final MiniRaftCluster cluster;
-    final Logger LOG;
+    final Logger log;
 
     Client4TestWithLoad(int index, int numMessages, boolean useAsync,
-        MiniRaftCluster cluster, Logger LOG) {
+        MiniRaftCluster cluster, Logger log) {
       super("client-" + index);
       this.index = index;
       this.messages = SimpleMessage.create(numMessages, index + "-");
       this.useAsync = useAsync;
       this.cluster = cluster;
-      this.LOG = LOG;
+      this.log = log;
     }
 
     boolean isRunning() {
@@ -317,10 +317,10 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         }
       } catch(Exception t) {
         if (exceptionInClientThread.compareAndSet(null, t)) {
-          LOG.error(this + " failed", t);
+          log.error(this + " failed", t);
         } else {
           exceptionInClientThread.get().addSuppressed(t);
-          LOG.error(this + " failed again!", t);
+          log.error(this + " failed again!", t);
         }
       } finally {
         isRunning.set(false);
@@ -345,15 +345,15 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   }
 
   static void testWithLoad(final int numClients, final int numMessages,
-      boolean useAsync, MiniRaftCluster cluster, Logger LOG) throws Exception {
-    LOG.info("Running testWithLoad: numClients=" + numClients
+      boolean useAsync, MiniRaftCluster cluster, Logger log) throws Exception {
+    log.info("Running testWithLoad: numClients=" + numClients
         + ", numMessages=" + numMessages + ", async=" + useAsync);
 
     waitForLeader(cluster);
 
     final List<Client4TestWithLoad> clients
         = Stream.iterate(0, i -> i+1).limit(numClients)
-        .map(i -> new Client4TestWithLoad(i, numMessages, useAsync, cluster, LOG))
+        .map(i -> new Client4TestWithLoad(i, numMessages, useAsync, cluster, log))
         .collect(Collectors.toList());
     final AtomicInteger lastStep = new AtomicInteger();
 
@@ -363,24 +363,24 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
       @Override
       public void run() {
-        LOG.info(cluster.printServers());
-        LOG.info(BlockRequestHandlingInjection.getInstance().toString());
-        LOG.info(cluster.toString());
-        clients.forEach(c -> LOG.info("  " + c));
-        JavaUtils.dumpAllThreads(s -> LOG.info(s));
+        log.info(cluster.printServers());
+        log.info(BlockRequestHandlingInjection.getInstance().toString());
+        log.info(cluster.toString());
+        clients.forEach(c -> log.info("  " + c));
+        JavaUtils.dumpAllThreads(s -> log.info(s));
 
         final int last = lastStep.get();
         if (last != previousLastStep) {
           previousLastStep = last;
         } else {
           final RaftServer.Division leader = cluster.getLeader();
-          LOG.info("NO PROGRESS at " + last + ", try to restart leader=" + leader);
+          log.info("NO PROGRESS at " + last + ", try to restart leader=" + leader);
           if (leader != null) {
             try {
               cluster.restartServer(leader.getId(), false);
-              LOG.info("Restarted leader=" + leader);
+              log.info("Restarted leader=" + leader);
             } catch (IOException e) {
-              LOG.error("Failed to restart leader=" + leader);
+              log.error("Failed to restart leader=" + leader);
             }
           }
         }
@@ -411,10 +411,10 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
           RaftTestUtil.changeLeader(cluster, leader.getId());
         }
       } catch (IllegalStateException e) {
-        LOG.error("Failed to change leader ", e);
+        log.error("Failed to change leader ", e);
       }
     }
-    LOG.info("Leader change count=" + count);
+    log.info("Leader change count=" + count);
     timer.cancel();
 
     for(Client4TestWithLoad c : clients) {
@@ -425,7 +425,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  public static void testRequestTimeout(boolean async, MiniRaftCluster cluster, Logger LOG) throws Exception {
+  public static void testRequestTimeout(boolean async, MiniRaftCluster cluster, Logger log) throws Exception {
     waitForLeader(cluster);
     final Timestamp startTime = Timestamp.currentTime();
     try (final RaftClient client = cluster.createClient()) {

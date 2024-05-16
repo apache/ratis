@@ -30,7 +30,7 @@ import org.apache.ratis.rpc.SupportedRpcType;
 /**
  * A {@link MiniRaftCluster} with {{@link SupportedRpcType#NETTY}} and {@link SupportedDataStreamType#NETTY}.
  */
-public class MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty extends MiniRaftClusterWithNetty {
+public final class MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty extends MiniRaftClusterWithNetty {
   public static final Factory<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty> FACTORY
       = new Factory<MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty>() {
     @Override
@@ -49,7 +49,8 @@ public class MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty extends MiniR
     }
   }
 
-  private MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty(String[] ids, String[] listenerIds, RaftProperties properties) {
+  private MiniRaftClusterWithRpcTypeNettyAndDataStreamTypeNetty(String[] ids, String[] listenerIds,
+      RaftProperties properties) {
     super(ids, listenerIds, properties);
   }
 

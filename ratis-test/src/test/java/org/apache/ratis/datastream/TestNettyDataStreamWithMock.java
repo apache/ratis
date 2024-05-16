@@ -114,8 +114,8 @@ public class TestNettyDataStreamWithMock extends DataStreamBaseTest {
         submitException != null ? submitException : leaderException, getStateMachineException);
   }
 
-  void runTestMockCluster(RaftGroupId groupId, List<RaftServer> raftServers, ClientId clientId, int bufferSize, int bufferNum,
-      Exception expectedException, Exception headerException) throws Exception {
+  void runTestMockCluster(RaftGroupId groupId, List<RaftServer> raftServers, ClientId clientId, int bufferSize,
+      int bufferNum, Exception expectedException, Exception headerException) throws Exception {
     try {
       final List<RaftPeer> peers = raftServers.stream()
           .map(TestNettyDataStreamWithMock::newRaftPeer)

@@ -134,7 +134,8 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     File file2;
 
     @Override
-    public synchronized void initialize(RaftServer server, RaftGroupId groupId, RaftStorage raftStorage) throws IOException {
+    public synchronized void initialize(RaftServer server, RaftGroupId groupId, RaftStorage raftStorage)
+        throws IOException {
       super.initialize(server, groupId, raftStorage);
 
             // contains two snapshot files
@@ -215,7 +216,8 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     private File tmpDir;
 
     @Override
-    public synchronized void initialize(RaftServer server, RaftGroupId groupId, RaftStorage raftStorage) throws IOException {
+    public synchronized void initialize(RaftServer server, RaftGroupId groupId, RaftStorage raftStorage)
+        throws IOException {
       super.initialize(server, groupId, raftStorage);
       this.root = new File("/tmp/ratis-tests/statemachine/" + getId().toString());
       this.snapshotDir = new File(root, "snapshot");
@@ -238,7 +240,8 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     public long takeSnapshot() {
       final TermIndex lastApplied = getLastAppliedTermIndex();
       final File snapshotTmpDir = new File(tmpDir, UUID.randomUUID().toString());
-      final File snapshotRealDir = new File(snapshotDir, String.format("%d_%d", lastApplied.getTerm(), lastApplied.getIndex()));
+      final File snapshotRealDir = new File(snapshotDir,
+          String.format("%d_%d", lastApplied.getTerm(), lastApplied.getIndex()));
 
       try {
         FileUtils.deleteFully(snapshotRealDir);

@@ -87,20 +87,33 @@ public class TestRaftServerJmx extends BaseTest {
   static void runRegister(boolean expectToSucceed, String name, JmxRegister jmx) {
     final RaftServerMXBean mBean = new RaftServerMXBean() {
       @Override
-      public String getId() { return null; }
+      public String getId() {
+        return null;
+      }
       @Override
-      public String getLeaderId() { return null; }
+      public String getLeaderId() {
+        return null;
+      }
       @Override
-      public long getCurrentTerm() { return 0; }
+      public long getCurrentTerm() {
+        return 0;
+      }
       @Override
-      public String getGroupId() { return null; }
+      public String getGroupId() {
+        return null;
+      }
       @Override
-      public String getRole() { return null; }
+      public String getRole() {
+        return null;
+      }
       @Override
-      public List<String> getFollowers() { return null; }
+      public List<String> getFollowers() {
+        return null;
+      }
       @Override
-      public List<String> getGroups() { return null; }
-
+      public List<String> getGroups() {
+        return null;
+      }
     };
     final String id = RaftPeerId.valueOf(name).toString();
     final String groupId = RaftGroupId.randomId().toString();
