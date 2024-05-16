@@ -67,7 +67,7 @@ public class TestMetricRegistriesLoader {
     Consumer<RatisMetricRegistry> reporter = v-> cntr.incrementAndGet();
     Consumer<RatisMetricRegistry> stopReporter = v-> cntr.incrementAndGet();
     r.addReporterRegistration(reporter, stopReporter);
-    
+
     // check if add and remove of metric do reporting counter increase
     MetricRegistryInfo info = new MetricRegistryInfo("t1", "t1", "t1", "t1");
     r.create(info);

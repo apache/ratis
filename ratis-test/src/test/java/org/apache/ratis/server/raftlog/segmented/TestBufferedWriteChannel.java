@@ -54,7 +54,7 @@ public class TestBufferedWriteChannel extends BaseTest {
     }
 
     @Override
-    public int read(ByteBuffer dst, long position) {
+    public int read(ByteBuffer dst, long pos) {
       throw new UnsupportedOperationException();
     }
 
@@ -64,7 +64,7 @@ public class TestBufferedWriteChannel extends BaseTest {
     }
 
     @Override
-    public int write(ByteBuffer src, long position) {
+    public int write(ByteBuffer src, long pos) {
       throw new UnsupportedOperationException();
     }
 
@@ -103,27 +103,27 @@ public class TestBufferedWriteChannel extends BaseTest {
     }
 
     @Override
-    public long transferTo(long position, long count, WritableByteChannel target) {
+    public long transferTo(long pos, long count, WritableByteChannel target) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public long transferFrom(ReadableByteChannel src, long position, long count) {
+    public long transferFrom(ReadableByteChannel src, long pos, long count) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public MappedByteBuffer map(MapMode mode, long position, long size) {
+    public MappedByteBuffer map(MapMode mode, long pos, long size) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public FileLock lock(long position, long size, boolean shared) {
+    public FileLock lock(long pos, long size, boolean shared) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public FileLock tryLock(long position, long size, boolean shared) {
+    public FileLock tryLock(long pos, long size, boolean shared) {
       throw new UnsupportedOperationException();
     }
 

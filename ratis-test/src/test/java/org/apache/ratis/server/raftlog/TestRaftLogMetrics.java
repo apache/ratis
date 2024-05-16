@@ -110,7 +110,8 @@ public class TestRaftLogMetrics extends BaseTest
     }
 
     // Wait for commits to happen on leader
-    JavaUtils.attempt(() -> assertCommitCount(cluster.getLeader(), numMsg), 10, HUNDRED_MILLIS, cluster.getLeader().getId() + "-assertCommitCount", null);
+    JavaUtils.attempt(() -> assertCommitCount(cluster.getLeader(), numMsg), 10, HUNDRED_MILLIS,
+        cluster.getLeader().getId() + "-assertCommitCount", null);
   }
 
   static void assertCommitCount(RaftServer.Division server, int expectedMsgs) {
@@ -147,7 +148,8 @@ public class TestRaftLogMetrics extends BaseTest
   }
 
   static void assertRaftLogWritePathMetrics(RaftServer.Division server) throws Exception {
-    final String syncTimeMetric = RaftStorageTestUtils.getRaftLogFullMetric(server.getMemberId().toString(), RAFT_LOG_SYNC_TIME);
+    final String syncTimeMetric = RaftStorageTestUtils.getRaftLogFullMetric(server.getMemberId().toString(),
+        RAFT_LOG_SYNC_TIME);
     final RatisMetricRegistryImpl ratisMetricRegistry = getRegistry(server.getMemberId());
 
     //Test sync count
@@ -173,13 +175,16 @@ public class TestRaftLogMetrics extends BaseTest
     Assertions.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_FLUSH_COUNT).getCount() > 0);
     Assertions.assertTrue(ratisMetricRegistry.counter(RAFT_LOG_APPEND_ENTRY_COUNT).getCount() > 0);
 
-    final DefaultTimekeeperImpl appendEntry = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_APPEND_ENTRY_LATENCY);
+    final DefaultTimekeeperImpl appendEntry =
+        (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_APPEND_ENTRY_LATENCY);
     Assertions.assertTrue(appendEntry.getTimer().getMeanRate() > 0);
 
-    final DefaultTimekeeperImpl taskQueue = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_QUEUE_TIME);
+    final DefaultTimekeeperImpl taskQueue =
+        (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_QUEUE_TIME);
     Assertions.assertTrue(taskQueue.getTimer().getMeanRate() > 0);
 
-    final DefaultTimekeeperImpl enqueueDelay = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_ENQUEUE_DELAY);
+    final DefaultTimekeeperImpl enqueueDelay =
+        (DefaultTimekeeperImpl) ratisMetricRegistry.timer(RAFT_LOG_TASK_ENQUEUE_DELAY);
     Assertions.assertTrue(enqueueDelay.getTimer().getMeanRate() > 0);
 
     final DefaultTimekeeperImpl write = (DefaultTimekeeperImpl) ratisMetricRegistry.timer(
