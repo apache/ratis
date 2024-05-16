@@ -30,7 +30,7 @@ import org.apache.ratis.rpc.SupportedRpcType;
 /**
  * A {@link MiniRaftCluster} with {{@link SupportedRpcType#GRPC}} and {@link SupportedDataStreamType#NETTY}.
  */
-public class MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty extends MiniRaftClusterWithGrpc {
+public final class MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty extends MiniRaftClusterWithGrpc {
   static class Factory extends MiniRaftCluster.Factory<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> {
     private final Parameters parameters;
 
@@ -49,15 +49,16 @@ public class MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty extends MiniRa
 
   public static final Factory FACTORY = new Factory(null);
 
-  public interface FactoryGet extends MiniRaftCluster.Factory.Get<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> {
+  public interface FactoryGet
+      extends MiniRaftCluster.Factory.Get<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> {
     @Override
     default MiniRaftCluster.Factory<MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty> getFactory() {
       return FACTORY;
     }
   }
 
-  private MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(String[] ids, String[] listenerIds, RaftProperties properties,
-      Parameters parameters) {
+  private MiniRaftClusterWithRpcTypeGrpcAndDataStreamTypeNetty(String[] ids, String[] listenerIds,
+      RaftProperties properties, Parameters parameters) {
     super(ids, listenerIds, properties, parameters);
   }
 

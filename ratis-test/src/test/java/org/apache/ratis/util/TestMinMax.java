@@ -43,7 +43,8 @@ public class TestMinMax {
 
   static void runTestMinMax(LongStream stream) {
     final List<Long> list = stream.collect(ArrayList::new, List::add, List::addAll);
-    final LongMinMax longMinMax = toLongStream(list).collect(LongMinMax::new, LongMinMax::accumulate, LongMinMax::combine);
+    final LongMinMax longMinMax = toLongStream(list)
+        .collect(LongMinMax::new, LongMinMax::accumulate, LongMinMax::combine);
     if (longMinMax.isInitialized()) {
       Assertions.assertEquals(toLongStream(list).min().getAsLong(), longMinMax.getMin());
       Assertions.assertEquals(toLongStream(list).max().getAsLong(), longMinMax.getMax());

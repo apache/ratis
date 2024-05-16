@@ -36,7 +36,11 @@ import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class RetryCacheTestUtil {
+public final class RetryCacheTestUtil {
+
+  private RetryCacheTestUtil() {
+  }
+
   public static RetryCache createRetryCache(){
     return new RetryCacheImpl(TimeDuration.valueOf(60, TimeUnit.SECONDS), null);
   }

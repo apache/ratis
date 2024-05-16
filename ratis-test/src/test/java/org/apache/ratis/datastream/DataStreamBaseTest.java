@@ -44,8 +44,8 @@ import java.util.stream.Collectors;
 
 abstract class DataStreamBaseTest extends BaseTest {
   RaftConfiguration getRaftConf() {
-      final List<RaftPeer> peers = servers.stream().map(Server::getPeer).collect(Collectors.toList());
-      return RaftServerTestUtil.newRaftConfiguration(peers);
+      final List<RaftPeer> peerList = servers.stream().map(Server::getPeer).collect(Collectors.toList());
+      return RaftServerTestUtil.newRaftConfiguration(peerList);
   }
 
   static class Server {
@@ -90,21 +90,21 @@ abstract class DataStreamBaseTest extends BaseTest {
     return servers.get(0);
   }
 
-  void setup(RaftGroupId groupId, List<RaftPeer> peers, List<RaftServer> raftServers) throws Exception {
-    raftGroup = RaftGroup.valueOf(groupId, peers);
-    this.peers = peers;
-    servers = new ArrayList<>(peers.size());
+  void setup(RaftGroupId groupId, List<RaftPeer> peerList, List<RaftServer> raftServers) throws Exception {
+    raftGroup = RaftGroup.valueOf(groupId, peerList);
+    this.peers = peerList;
+    servers = new ArrayList<>(peerList.size());
     // start stream servers on raft peers.
-    for (int i = 0; i < peers.size(); i++) {
-      final Server server = new Server(peers.get(i), raftServers.get(i));
-      server.addRaftPeers(removePeerFromList(peers.get(i), peers));
+    for (int i = 0; i < peerList.size(); i++) {
+      final Server server = new Server(peerList.get(i), raftServers.get(i));
+      server.addRaftPeers(removePeerFromList(peerList.get(i), peerList));
       server.start();
       servers.add(server);
     }
   }
 
-  private Collection<RaftPeer> removePeerFromList(RaftPeer peer, List<RaftPeer> peers) {
-    List<RaftPeer> otherPeers = new ArrayList<>(peers);
+  private Collection<RaftPeer> removePeerFromList(RaftPeer peer, List<RaftPeer> peerList) {
+    List<RaftPeer> otherPeers = new ArrayList<>(peerList);
     otherPeers.remove(peer);
     return otherPeers;
   }

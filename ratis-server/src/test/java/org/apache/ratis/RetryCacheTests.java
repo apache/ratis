@@ -89,7 +89,8 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     Assertions.assertTrue(reply.isSuccess());
   }
 
-  public void assertServer(MiniRaftCluster cluster, ClientId clientId, long callId, long oldLastApplied) throws Exception {
+  public void assertServer(MiniRaftCluster cluster, ClientId clientId, long callId, long oldLastApplied)
+      throws Exception {
     final long leaderApplied = cluster.getLeader().getInfo().getLastAppliedIndex();
     // make sure retry cache has the entry
     for (RaftServer.Division server : cluster.iterateDivisions()) {

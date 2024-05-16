@@ -302,7 +302,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       }
     }
   }
-  
+
   static ByteString randomByteString(int size) {
     final ByteString.Output out = ByteString.newOutput(size);
     final ThreadLocalRandom random = ThreadLocalRandom.current();
