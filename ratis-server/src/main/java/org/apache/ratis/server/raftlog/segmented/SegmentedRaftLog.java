@@ -456,13 +456,17 @@ public final class SegmentedRaftLog extends RaftLogBase {
       // to statemachine first and then to the cache. Not following the order
       // will leave a spurious entry in the cache.
       final Task write = fileLogWorker.writeLogEntry(entryRef, removedStateMachineData, context);
-      if (stateMachineCachingEnabled && (removedStateMachineData != entry)) {
+      if (stateMachineCachingEnabled) {
         // The stateMachineData will be cached inside the StateMachine itself.
-        cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE,
-            ReferenceCountedObject.wrap(removedStateMachineData));
+        if ((removedStateMachineData != entry)) {
+          cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE,
+              ReferenceCountedObject.wrap(removedStateMachineData));
+        } else {
+          cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE,
+              ReferenceCountedObject.wrap(LogProtoUtils.copy(entry)));
+        }
       } else {
-        cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, entryRef
-        );
+        cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, entryRef);
       }
       return write.getFuture().whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
     } catch (Exception e) {
