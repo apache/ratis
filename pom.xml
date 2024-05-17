@@ -786,6 +786,8 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>${maven-checkstyle-plugin.version}</version>
         <configuration>
+          <!-- We decide not to check style on test directory to focus more on code than format. -->
+          <!--includeTestSourceDirectory>true</includeTestSourceDirectory-->
           <configLocation>dev-support/checkstyle.xml</configLocation>
           <failOnViolation>true</failOnViolation>
           <linkXRef>false</linkXRef>
