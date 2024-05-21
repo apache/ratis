@@ -100,7 +100,7 @@ public class TransferCommand extends AbstractRatisCommand {
       }
       RaftClientReply transferLeadershipReply =
           client.admin().transferLeadership(newLeader.getId(), timeout.toLong(TimeUnit.MILLISECONDS));
-      processReply(transferLeadershipReply, this::println,"election failed");
+      processReply(transferLeadershipReply, this::println, "election failed");
     } catch (TransferLeadershipException tle) {
       if (tle.getMessage().contains("it does not has highest priority")) {
         return false;

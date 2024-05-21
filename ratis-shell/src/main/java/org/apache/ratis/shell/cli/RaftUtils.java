@@ -24,7 +24,12 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.netty.NettyConfigKeys;
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.GroupInfoReply;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.retry.ExponentialBackoffRetry;
 import org.apache.ratis.rpc.RpcType;
@@ -35,10 +40,15 @@ import org.apache.ratis.util.function.CheckedFunction;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
-import java.util.function.*;
+import java.util.function.Consumer;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 /**
  * Helper class for raft operations.
@@ -46,7 +56,6 @@ import java.util.stream.Collectors;
 public final class RaftUtils {
 
   public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.randomId();
-
 
   private RaftUtils() {
     // prevent instantiation

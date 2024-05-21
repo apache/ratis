@@ -6,19 +6,15 @@ import org.slf4j.LoggerFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
-import java.io.*;
-import java.net.URL;
+import java.io.InputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
-import java.util.Optional;
-import java.util.function.Supplier;
 
 public class SecurityUtils {
   static Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);

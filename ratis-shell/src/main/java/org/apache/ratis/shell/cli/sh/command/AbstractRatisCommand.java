@@ -18,8 +18,11 @@
 package org.apache.ratis.shell.cli.sh.command;
 
 import org.apache.commons.cli.Option;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
@@ -39,18 +42,19 @@ import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.ratis.shell.cli.RaftUtils.*;
+import static org.apache.ratis.shell.cli.RaftUtils.buildRaftGroupIdFromStr;
+import static org.apache.ratis.shell.cli.RaftUtils.buildRaftPeersFromStr;
 import static org.apache.ratis.shell.cli.RaftUtils.retrieveGroupInfoByGroupId;
+import static org.apache.ratis.shell.cli.RaftUtils.retrieveRemoteGroupId;
 
 /**
  * The base class for the ratis shell which need to connect to server.
@@ -60,8 +64,6 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
   public static final String GROUPID_OPTION_NAME = "groupid";
   public static final String TLS_ENABLED_OPTION_NAME = "t";
   private PrintStream printStream;
-
-
 
   /**
    * Execute a given function with input parameter from the members of a list.
@@ -151,17 +153,6 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
     }
     return followerInfo.getLeaderInfo().getId();
   }
-
-//  protected void processReply(RaftClientReply reply, Supplier<String> messageSupplier) throws IOException {
-//    if (reply == null || !reply.isSuccess()) {
-//      final RaftException e = Optional.ofNullable(reply)
-//          .map(RaftClientReply::getException)
-//          .orElseGet(() -> new RaftException("Reply: " + reply));
-//      final String message = messageSupplier.get();
-//      printf(printStream, "%s. Error: %s%n", message, e);
-//      throw new IOException(message, e);
-//    }
-//  }
 
   protected List<RaftPeerId> getIds(String[] optionValues, BiConsumer<RaftPeerId, InetSocketAddress> consumer) {
     if (optionValues == null) {
