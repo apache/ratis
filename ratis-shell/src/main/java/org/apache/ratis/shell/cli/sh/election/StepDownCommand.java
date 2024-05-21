@@ -27,6 +27,8 @@ import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
 
+import static org.apache.ratis.shell.cli.RaftUtils.processReply;
+
 /**
  * Command for stepping down ratis leader server.
  */
@@ -51,7 +53,7 @@ public class StepDownCommand extends AbstractRatisCommand {
     try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
       RaftPeerId leaderId = RaftPeerId.valueOf(getLeader(getGroupInfoReply().getRoleInfoProto()).getId());
       final RaftClientReply transferLeadershipReply = client.admin().transferLeadership(null, leaderId, 60_000);
-      processReply(transferLeadershipReply, () -> "Failed to step down leader");
+      processReply(transferLeadershipReply, this::println,  "Failed to step down leader");
     } catch (Throwable t) {
       printf("caught an error when executing step down leader: %s%n", t.getMessage());
       return -1;

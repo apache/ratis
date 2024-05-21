@@ -20,25 +20,37 @@ package org.apache.ratis.shell.cli.sh.command;
 import org.apache.commons.cli.Option;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.FollowerInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.shell.cli.SecurityUtils;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.function.CheckedFunction;
 
+import javax.net.ssl.TrustManager;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.ratis.shell.cli.RaftUtils.*;
+import static org.apache.ratis.shell.cli.RaftUtils.retrieveGroupInfoByGroupId;
 
 /**
  * The base class for the ratis shell which need to connect to server.
@@ -46,7 +58,10 @@ import java.util.stream.Stream;
 public abstract class AbstractRatisCommand extends AbstractCommand {
   public static final String PEER_OPTION_NAME = "peers";
   public static final String GROUPID_OPTION_NAME = "groupid";
-  public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.randomId();
+  public static final String TLS_ENABLED_OPTION_NAME = "t";
+  private PrintStream printStream;
+
+
 
   /**
    * Execute a given function with input parameter from the members of a list.
@@ -77,52 +92,22 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
 
   protected AbstractRatisCommand(Context context) {
     super(context);
+    this.printStream = getPrintStream();
   }
 
   @Override
   public int run(CommandLine cl) throws IOException {
-    List<InetSocketAddress> addresses = new ArrayList<>();
-    String peersStr = cl.getOptionValue(PEER_OPTION_NAME);
-    String[] peersArray = peersStr.split(",");
-    for (String peer : peersArray) {
-      addresses.add(parseInetSocketAddress(peer));
-    }
 
-    final RaftGroupId raftGroupIdFromConfig = cl.hasOption(GROUPID_OPTION_NAME)?
-        RaftGroupId.valueOf(UUID.fromString(cl.getOptionValue(GROUPID_OPTION_NAME)))
-        : DEFAULT_RAFT_GROUP_ID;
-
-    List<RaftPeer> peers = addresses.stream()
-        .map(addr -> RaftPeer.newBuilder()
-            .setId(RaftUtils.getPeerId(addr))
-            .setAddress(addr)
-            .build()
-        ).collect(Collectors.toList());
+    List<RaftPeer> peers = buildRaftPeersFromStr(cl.getOptionValue(PEER_OPTION_NAME));
+    RaftGroupId raftGroupIdFromConfig = buildRaftGroupIdFromStr(cl.getOptionValue(GROUPID_OPTION_NAME));
     raftGroup = RaftGroup.valueOf(raftGroupIdFromConfig, peers);
-    try (final RaftClient client = RaftUtils.createClient(raftGroup)) {
-      final RaftGroupId remoteGroupId;
-      if (raftGroupIdFromConfig != DEFAULT_RAFT_GROUP_ID) {
-        remoteGroupId = raftGroupIdFromConfig;
-      } else {
-        final List<RaftGroupId> groupIds = run(peers,
-            p -> client.getGroupManagementApi((p.getId())).list().getGroupIds());
 
-        if (groupIds == null) {
-          println("Failed to get group ID from " + peers);
-          return -1;
-        } else if (groupIds.size() == 1) {
-          remoteGroupId = groupIds.get(0);
-        } else {
-          println("There are more than one groups, you should specific one. " + groupIds);
-          return -2;
-        }
-      }
-
-      groupInfoReply = run(peers, p -> client.getGroupManagementApi((p.getId())).info(remoteGroupId));
-      processReply(groupInfoReply,
-          () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
+    try (final RaftClient client = getRaftClient(cl.hasOption(TLS_ENABLED_OPTION_NAME))) {
+      RaftGroupId remoteGroupId  = retrieveRemoteGroupId(raftGroupIdFromConfig, peers, client, printStream);;
+      groupInfoReply = retrieveGroupInfoByGroupId(remoteGroupId, peers, client, printStream);
       raftGroup = groupInfoReply.getGroup();
     }
+
     return 0;
   }
 
@@ -167,16 +152,16 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
     return followerInfo.getLeaderInfo().getId();
   }
 
-  protected void processReply(RaftClientReply reply, Supplier<String> messageSupplier) throws IOException {
-    if (reply == null || !reply.isSuccess()) {
-      final RaftException e = Optional.ofNullable(reply)
-          .map(RaftClientReply::getException)
-          .orElseGet(() -> new RaftException("Reply: " + reply));
-      final String message = messageSupplier.get();
-      printf("%s. Error: %s%n", message, e);
-      throw new IOException(message, e);
-    }
-  }
+//  protected void processReply(RaftClientReply reply, Supplier<String> messageSupplier) throws IOException {
+//    if (reply == null || !reply.isSuccess()) {
+//      final RaftException e = Optional.ofNullable(reply)
+//          .map(RaftClientReply::getException)
+//          .orElseGet(() -> new RaftException("Reply: " + reply));
+//      final String message = messageSupplier.get();
+//      printf(printStream, "%s. Error: %s%n", message, e);
+//      throw new IOException(message, e);
+//    }
+//  }
 
   protected List<RaftPeerId> getIds(String[] optionValues, BiConsumer<RaftPeerId, InetSocketAddress> consumer) {
     if (optionValues == null) {
@@ -207,4 +192,19 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
         .stream()
         .filter(targets::contains);
   }
+
+  private RaftClient getRaftClient(boolean tlsEnabled) throws
+      IOException {
+    GrpcTlsConfig tlsConfig = null;
+    if (tlsEnabled) {
+      try {
+        TrustManager trustManager = SecurityUtils.getTrustManager(SecurityUtils.getTrustStore());
+        tlsConfig =  new GrpcTlsConfig(null, trustManager, false);
+      } catch (Exception e) {
+        throw new IOException("Failed to get TrustManager: " + e.getCause());
+      }
+    }
+    return RaftUtils.createClient(raftGroup, SupportedRpcType.GRPC, tlsConfig);
+  }
+
 }

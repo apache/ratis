@@ -38,6 +38,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.ratis.shell.cli.RaftUtils.processReply;
+
 /**
  * Command for add ratis server.
  */
@@ -93,7 +95,7 @@ public class AddCommand extends AbstractRatisCommand {
       System.out.println("New peer list: " + peers);
       System.out.println("New listener list:  " + listeners);
       RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
-      processReply(reply, () -> "Failed to change raft peer");
+      processReply(reply, this::println, "Failed to change raft peer");
     }
     return 0;
   }

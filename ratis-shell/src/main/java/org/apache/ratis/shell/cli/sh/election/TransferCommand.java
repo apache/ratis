@@ -36,6 +36,8 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.apache.ratis.shell.cli.RaftUtils.processReply;
+
 /**
  * Command for transferring the ratis leader to specific server.
  */
@@ -98,7 +100,7 @@ public class TransferCommand extends AbstractRatisCommand {
       }
       RaftClientReply transferLeadershipReply =
           client.admin().transferLeadership(newLeader.getId(), timeout.toLong(TimeUnit.MILLISECONDS));
-      processReply(transferLeadershipReply, () -> "election failed");
+      processReply(transferLeadershipReply, this::println,"election failed");
     } catch (TransferLeadershipException tle) {
       if (tle.getMessage().contains("it does not has highest priority")) {
         return false;
@@ -116,7 +118,7 @@ public class TransferCommand extends AbstractRatisCommand {
         .collect(Collectors.toList());
     final List<RaftPeer> listeners = getPeerStream(RaftPeerRole.LISTENER).collect(Collectors.toList());
     RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
-    processReply(reply, () -> "Failed to set master priorities");
+    processReply(reply, this::println, "Failed to set master priorities");
   }
 
   @Override

@@ -34,6 +34,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.ratis.shell.cli.RaftUtils.processReply;
+
 /**
  * Command for remove ratis server.
  */
@@ -74,7 +76,7 @@ public class RemoveCommand extends AbstractRatisCommand {
       System.out.println("New peer list: " + peers);
       System.out.println("New listener list:  " + listeners);
       final RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
-      processReply(reply, () -> "Failed to change raft peer");
+      processReply(reply, this::println, "Failed to change raft peer");
     }
     return 0;
   }
