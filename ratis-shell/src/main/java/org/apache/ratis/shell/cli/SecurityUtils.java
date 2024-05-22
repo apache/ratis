@@ -17,9 +17,6 @@
  */
 package org.apache.ratis.shell.cli;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -33,7 +30,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 
-public class SecurityUtils {
+public final class SecurityUtils {
   private SecurityUtils() {
     // prevent instantiation
   }
