@@ -63,6 +63,7 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
   public static final String PEER_OPTION_NAME = "peers";
   public static final String GROUPID_OPTION_NAME = "groupid";
   public static final String TLS_ENABLED_OPTION_NAME = "t";
+  public static final String CERT_PATH_OPTION_NAME = "certPath";
   private PrintStream printStream;
 
   /**
@@ -103,7 +104,8 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
     RaftGroupId raftGroupIdFromConfig = buildRaftGroupIdFromStr(cl.getOptionValue(GROUPID_OPTION_NAME));
     raftGroup = RaftGroup.valueOf(raftGroupIdFromConfig, peers);
 
-    try (final RaftClient client = getRaftClient(cl.hasOption(TLS_ENABLED_OPTION_NAME))) {
+    try (final RaftClient client = getRaftClient(cl.hasOption(TLS_ENABLED_OPTION_NAME) &&
+        cl.hasOption(CERT_PATH_OPTION_NAME), cl.getOptionValue(CERT_PATH_OPTION_NAME))) {
       RaftGroupId remoteGroupId = retrieveRemoteGroupId(raftGroupIdFromConfig, peers, client, printStream);
       groupInfoReply = retrieveGroupInfoByGroupId(remoteGroupId, peers, client, printStream);
       raftGroup = groupInfoReply.getGroup();
@@ -183,12 +185,12 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
         .filter(targets::contains);
   }
 
-  private RaftClient getRaftClient(boolean tlsEnabled) throws
+  private RaftClient getRaftClient(boolean tlsEnabled, String crtPath) throws
       IOException {
     GrpcTlsConfig tlsConfig = null;
     if (tlsEnabled) {
       try {
-        TrustManager trustManager = SecurityUtils.getTrustManager(SecurityUtils.getTrustStore());
+        TrustManager trustManager = SecurityUtils.getTrustManager(SecurityUtils.getTrustStore(crtPath));
         tlsConfig =  new GrpcTlsConfig(null, trustManager, false);
       } catch (Exception e) {
         throw new IOException("Failed to get TrustManager: " + e.getCause());
@@ -196,5 +198,6 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
     }
     return RaftUtils.createClient(raftGroup, SupportedRpcType.GRPC, tlsConfig);
   }
+
 
 }

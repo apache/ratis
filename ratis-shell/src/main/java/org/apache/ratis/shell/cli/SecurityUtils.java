@@ -35,9 +35,9 @@ public final class SecurityUtils {
     // prevent instantiation
   }
 
-  public static KeyStore getTrustStore()
+  public static KeyStore getTrustStore(String crtPath)
       throws Exception {
-    X509Certificate[] certificate = getCertificate("ssl/ca.crt");
+    X509Certificate[] certificate = getCertificate(crtPath);
 
     // build trustStore
     KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
