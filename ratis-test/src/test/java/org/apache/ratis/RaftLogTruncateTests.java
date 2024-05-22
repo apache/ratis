@@ -180,7 +180,7 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
     }
 
     // kill remaining peers
-    LOG.info("Before killServer {}: {}", oldLeader.getId(), cluster.printServers());
+    LOG.info("Before killServer {}: {}", remainingPeers, cluster.printServers());
     for (RaftPeerId p : remainingPeers) {
       cluster.killServer(p);
     }
