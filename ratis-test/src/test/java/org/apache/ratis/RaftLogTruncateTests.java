@@ -36,6 +36,7 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -178,9 +179,11 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
       LOG.info("done");
     }
 
-    // kill the old leader
-    LOG.info("Before killServer {}: {}", oldLeader.getId(), cluster.printServers());
-    cluster.killServer(oldLeader.getId());
+    // kill remaining peers
+    LOG.info("Before killServer {}: {}", remainingPeers, cluster.printServers());
+    for (RaftPeerId p : remainingPeers) {
+      cluster.killServer(p);
+    }
     LOG.info("After killServer {}: {}", remainingPeers, cluster.printServers());
 
     // restart the earlier followers
@@ -198,8 +201,10 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
         newLeaderLog.getLastEntryTermIndex());
     Assertions.assertTrue(killedPeers.contains(newLeader.getId()));
 
-    // restart the old leader
-    cluster.restartServer(oldLeader.getId(), false);
+    // restart remaining peers
+    for (RaftPeerId p : remainingPeers) {
+      cluster.restartServer(p, false);
+    }
 
     // check RaftLog truncate
     for (RaftPeerId f : remainingPeers) {
@@ -219,8 +224,11 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
     for (RaftPeer peer : cluster.getGroup().getPeers()) {
       final RaftServer.Division division = cluster.getDivision(peer.getId());
       assertLogEntries(division, oldLeaderTerm, expectedMessages);
-      assertEmptyTransactionContextMap(division);
-    }
+      final String name = "assertEmptyTransactionContextMap:" + division.getId();
+      JavaUtils.attempt(() -> assertEmptyTransactionContextMap(division),
+          10, HUNDRED_MILLIS, name, LOG);
+
+  }
 
     if (!exceptions.isEmpty()) {
       LOG.info("{} exceptions", exceptions.size());
@@ -231,9 +239,9 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
     }
   }
 
-  static void assertEmptyTransactionContextMap(RaftServer.Division division) {
-    Assertions.assertTrue(RaftServerTestUtil.getTransactionContextMap(division).isEmpty(),
-        () -> division.getId() + " TransactionContextMap is non-empty");
+  static void assertEmptyTransactionContextMap(RaftServer.Division d) {
+    final Map<TermIndex, MemoizedSupplier<TransactionContext>> map = RaftServerTestUtil.getTransactionContextMap(d);
+    Assertions.assertTrue(map.isEmpty(), () -> d.getId() + " TransactionContextMap is non-empty: " + map);
   }
 
   static void assertEntriesInTransactionContextMap(RaftServer.Division division,
