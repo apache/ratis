@@ -67,7 +67,7 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
         peerId = null;
       }
       RaftClientReply reply = raftClient.getSnapshotManagementApi(peerId).create(timeout);
-      processReply(reply, this::println, String.format("Failed to take snapshot of peerId %s", peerId.toString()));
+      processReply(reply, this::println, String.format("Failed to take snapshot of peerId %s", peerId != null ? peerId.toString() : null));
       printf(String.format("Successful take snapshot on peerId %s, the latest snapshot index is %d",
           peerId, reply.getLogIndex()));
     }

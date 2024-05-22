@@ -99,13 +99,12 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
 
   @Override
   public int run(CommandLine cl) throws IOException {
-
     List<RaftPeer> peers = buildRaftPeersFromStr(cl.getOptionValue(PEER_OPTION_NAME));
     RaftGroupId raftGroupIdFromConfig = buildRaftGroupIdFromStr(cl.getOptionValue(GROUPID_OPTION_NAME));
     raftGroup = RaftGroup.valueOf(raftGroupIdFromConfig, peers);
 
     try (final RaftClient client = getRaftClient(cl.hasOption(TLS_ENABLED_OPTION_NAME))) {
-      RaftGroupId remoteGroupId  = retrieveRemoteGroupId(raftGroupIdFromConfig, peers, client, printStream);;
+      RaftGroupId remoteGroupId = retrieveRemoteGroupId(raftGroupIdFromConfig, peers, client, printStream);
       groupInfoReply = retrieveGroupInfoByGroupId(remoteGroupId, peers, client, printStream);
       raftGroup = groupInfoReply.getGroup();
     }

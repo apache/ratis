@@ -192,9 +192,11 @@ public final class RaftUtils {
     return remoteGroupId;
   }
 
-  public static GroupInfoReply retrieveGroupInfoByGroupId(RaftGroupId remoteGroupId, List<RaftPeer> peers, RaftClient client, PrintStream printStream)
+  public static GroupInfoReply retrieveGroupInfoByGroupId(RaftGroupId remoteGroupId, List<RaftPeer> peers,
+                                                          RaftClient client, PrintStream printStream)
       throws IOException {
-    GroupInfoReply groupInfoReply = runFunction(peers, p -> client.getGroupManagementApi((p.getId())).info(remoteGroupId));
+    GroupInfoReply groupInfoReply = runFunction(peers,
+        p -> client.getGroupManagementApi((p.getId())).info(remoteGroupId));
     processReply(groupInfoReply,
         printStream::println, "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
     return groupInfoReply;
