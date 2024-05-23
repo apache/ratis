@@ -24,6 +24,8 @@ import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.AbstractMessage;
 
+import java.util.function.Supplier;
+
 public class ZeroCopyMetrics extends RatisMetrics {
   private static final String RATIS_GRPC_METRICS_APP_NAME = "ratis_grpc";
   private static final String RATIS_GRPC_METRICS_COMP_NAME = "zero_copy";
@@ -41,6 +43,10 @@ public class ZeroCopyMetrics extends RatisMetrics {
     return create(new MetricRegistryInfo("",
         RATIS_GRPC_METRICS_APP_NAME,
         RATIS_GRPC_METRICS_COMP_NAME, RATIS_GRPC_METRICS_DESC));
+  }
+
+  public void addUnreleased(String name, Supplier<Integer> unreleased) {
+    getRegistry().gauge(name +  "_num_unreleased_messages", () -> unreleased);
   }
 
 
