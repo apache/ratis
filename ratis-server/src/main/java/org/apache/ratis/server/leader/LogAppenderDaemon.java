@@ -108,8 +108,11 @@ class LogAppenderDaemon {
   };
 
   public CompletableFuture<State> tryToClose() {
-    if (lifeCycle.transition(TRY_TO_CLOSE) == CLOSING) {
+    State state = lifeCycle.transition(TRY_TO_CLOSE);
+    if (state == CLOSING) {
       daemon.interrupt();
+    } else if (state == CLOSED) {
+      closeFuture.complete(state);
     }
     return closeFuture;
   }
