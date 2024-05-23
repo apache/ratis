@@ -226,4 +226,8 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
   public InputStream popStream(T message) {
     return unclosedStreams.remove(message);
   }
+
+  public int getUnclosedCount() {
+    return unclosedStreams.size();
+  }
 }
