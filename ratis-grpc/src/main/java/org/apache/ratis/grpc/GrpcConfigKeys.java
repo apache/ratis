@@ -293,13 +293,13 @@ public interface GrpcConfigKeys {
           LOG_MESSAGE_BATCH_DURATION_KEY, logMessageBatchDuration);
     }
 
-    String ZERO_COPY_ENABLED = ".zerocopy.enabled";
+    String ZERO_COPY_ENABLED_KEY = PREFIX + ".zerocopy.enabled";
     boolean ZERO_COPY_ENABLED_DEFAULT = false;
     static boolean zeroCopyEnabled(RaftProperties properties) {
-      return getBoolean(properties::getBoolean, ZERO_COPY_ENABLED, ZERO_COPY_ENABLED_DEFAULT, getDefaultLog());
+      return getBoolean(properties::getBoolean, ZERO_COPY_ENABLED_KEY, ZERO_COPY_ENABLED_DEFAULT, getDefaultLog());
     }
     static void setZeroCopyEnabled(RaftProperties properties, boolean enabled) {
-      setBoolean(properties::setBoolean, ZERO_COPY_ENABLED, enabled);
+      setBoolean(properties::setBoolean, ZERO_COPY_ENABLED_KEY, enabled);
     }
   }
 
