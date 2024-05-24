@@ -352,6 +352,7 @@ class LeaderStateImpl implements LeaderState {
   private final MemoizedSupplier<StartupLogEntry> startupLogEntry = MemoizedSupplier.valueOf(StartupLogEntry::new);
   private final AtomicBoolean isStopped = new AtomicBoolean();
 
+  private final boolean logMetadataEnabled;
   private final int stagingCatchupGap;
   private final RaftServerMetricsImpl raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
@@ -382,6 +383,7 @@ class LeaderStateImpl implements LeaderState {
     this.pendingStepDown = new PendingStepDown(this);
     this.readIndexHeartbeats = new ReadIndexHeartbeats();
     this.lease = new LeaderLease(properties);
+    this.logMetadataEnabled = RaftServerConfigKeys.Log.logMetadataEnabled(properties);
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
     double followerGapRatioMax = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
 
@@ -946,7 +948,9 @@ class LeaderStateImpl implements LeaderState {
 
   private void updateCommit(LogEntryHeader[] entriesToCommit) {
     final long newCommitIndex = raftLog.getLastCommittedIndex();
-    logMetadata(newCommitIndex);
+    if (logMetadataEnabled) {
+      logMetadata(newCommitIndex);
+    }
     commitIndexChanged();
 
     boolean hasConfiguration = false;

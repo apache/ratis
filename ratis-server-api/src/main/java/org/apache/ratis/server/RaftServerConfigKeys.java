@@ -475,6 +475,18 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, ASYNC_FLUSH_ENABLED_KEY, asyncFlush);
     }
 
+    /** Log metadata can guarantee that a server can recover commit index and state machine
+     * even if a majority of servers are dead by consuming a little extra space. */
+    String LOG_METADATA_ENABLED_KEY = PREFIX + ".log-metadata.enabled";
+    boolean LOG_METADATA_ENABLED_DEFAULT = true;
+    static boolean logMetadataEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          LOG_METADATA_ENABLED_KEY, LOG_METADATA_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setLogMetadataEnabled(RaftProperties properties, boolean logMetadata) {
+      setBoolean(properties::setBoolean, LOG_METADATA_ENABLED_KEY, logMetadata);
+    }
+
     /** The policy to handle corrupted raft log. */
     enum CorruptionPolicy {
       /** Rethrow the exception. */
