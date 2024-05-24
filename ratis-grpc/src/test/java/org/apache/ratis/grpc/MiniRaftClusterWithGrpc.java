@@ -76,6 +76,8 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
         GrpcConfigKeys.Client.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
     Optional.ofNullable(getAddress(id, group, RaftPeer::getAdminAddress)).ifPresent(address ->
         GrpcConfigKeys.Admin.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
+    // Always run grpc integration tests with zero-copy enabled because the path of nonzero-copy is not risky.
+    GrpcConfigKeys.Server.setZeroCopyEnabled(properties, true);
     return parameters;
   }
 

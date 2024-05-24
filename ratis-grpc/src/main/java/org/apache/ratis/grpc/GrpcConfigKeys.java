@@ -264,32 +264,13 @@ public interface GrpcConfigKeys {
           LOG_MESSAGE_BATCH_DURATION_KEY, logMessageBatchDuration);
     }
 
-    String SERVICES_CUSTOMIZER_PARAMETER = PREFIX + ".services.customizer";
-    Class<GrpcServices.Customizer> SERVICES_CUSTOMIZER_CLASS = GrpcServices.Customizer.class;
-    static GrpcServices.Customizer servicesCustomizer(Parameters parameters) {
-      return parameters == null ? null
-          : parameters.get(SERVICES_CUSTOMIZER_PARAMETER, SERVICES_CUSTOMIZER_CLASS);
+    String ZERO_COPY_ENABLED_KEY = PREFIX + ".zerocopy.enabled";
+    boolean ZERO_COPY_ENABLED_DEFAULT = false;
+    static boolean zeroCopyEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, ZERO_COPY_ENABLED_KEY, ZERO_COPY_ENABLED_DEFAULT, getDefaultLog());
     }
-    static void setServicesCustomizer(Parameters parameters, GrpcServices.Customizer customizer) {
-      parameters.put(SERVICES_CUSTOMIZER_PARAMETER, customizer, SERVICES_CUSTOMIZER_CLASS);
-    }
-
-    String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
-    Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
-    static GrpcTlsConfig tlsConf(Parameters parameters) {
-      return parameters != null ? parameters.get(TLS_CONF_PARAMETER, TLS_CONF_CLASS): null;
-    }
-    static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
-      parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
-    }
-
-    String STUB_POOL_SIZE_KEY = PREFIX + ".stub.pool.size";
-    int STUB_POOL_SIZE_DEFAULT = 1;
-    static int stubPoolSize(RaftProperties properties) {
-      return get(properties::getInt, STUB_POOL_SIZE_KEY, STUB_POOL_SIZE_DEFAULT, getDefaultLog());
-    }
-    static void setStubPoolSize(RaftProperties properties, int size) {
-      setInt(properties::setInt, STUB_POOL_SIZE_KEY, size);
+    static void setZeroCopyEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, ZERO_COPY_ENABLED_KEY, enabled);
     }
   }
 
