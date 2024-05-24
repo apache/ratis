@@ -177,7 +177,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         RaftServerConfigKeys.Log.Appender.bufferByteLimit(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()),
-        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()));
+        GrpcConfigKeys.Server.heartbeatChannel(server.getProperties()),
+        GrpcConfigKeys.Server.zeroCopyEnabled(server.getProperties()));
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber") // private constructor
@@ -187,7 +188,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
       String serverHost, int serverPort, GrpcTlsConfig serverTlsConfig,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
       SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration,
-      boolean useSeparateHBChannel) {
+      boolean useSeparateHBChannel, boolean zeroCopyEnabled) {
     super(idSupplier, id -> new PeerProxyMap<>(id.toString(),
         p -> new GrpcServerProtocolClient(p, flowControlWindow.getSizeInt(),
             requestTimeoutDuration, serverTlsConfig, useSeparateHBChannel)));
@@ -203,7 +204,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         GrpcConfigKeys.Server.asyncRequestThreadPoolSize(properties),
         getId() + "-request-");
     this.zeroCopyMetrics = new ZeroCopyMetrics();
-    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor, zeroCopyMetrics);
+    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer, executor,
+        zeroCopyEnabled, zeroCopyMetrics);
 
     this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
@@ -216,7 +218,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     final NettyServerBuilder serverBuilder =
         startBuildingNettyServer(serverHost, serverPort, serverTlsConfig, grpcMessageSizeMax, flowControlWindow);
     GrpcServerProtocolService serverProtocolService = new GrpcServerProtocolService(idSupplier, raftServer,
-        zeroCopyMetrics);
+        zeroCopyEnabled, zeroCopyMetrics);
     serverBuilder.addService(ServerInterceptors.intercept(
         serverProtocolService.bindServiceWithZeroCopy(), serverInterceptor));
     if (!separateAdminServer) {
