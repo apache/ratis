@@ -245,7 +245,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   ServerServiceDefinition bindServiceWithZeroCopy() {
     ServerServiceDefinition orig = super.bindService();
     if (!zeroCopyEnabled) {
-      LOG.info("Zero copy is disabled.");
+      LOG.info("{}: Zero copy is disabled.", getId());
       return orig;
     }
     ServerServiceDefinition.Builder builder = ServerServiceDefinition.builder(orig.getServiceDescriptor().getName());
