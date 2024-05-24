@@ -225,11 +225,14 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftServer server;
+  private final boolean zeroCopyEnabled;
   private final ZeroCopyMessageMarshaller<AppendEntriesRequestProto> zeroCopyRequestMarshaller;
 
-  GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server, ZeroCopyMetrics zeroCopyMetrics) {
+  GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server, boolean zeroCopyEnabled,
+      ZeroCopyMetrics zeroCopyMetrics) {
     this.idSupplier = idSupplier;
     this.server = server;
+    this.zeroCopyEnabled = zeroCopyEnabled;
     this.zeroCopyRequestMarshaller = new ZeroCopyMessageMarshaller<>(AppendEntriesRequestProto.getDefaultInstance(),
         zeroCopyMetrics::onZeroCopyMessage, zeroCopyMetrics::onNonZeroCopyMessage, zeroCopyMetrics::onReleasedMessage);
     zeroCopyMetrics.addUnreleased("server_protocol", zeroCopyRequestMarshaller::getUnclosedCount);
@@ -241,6 +244,10 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
   ServerServiceDefinition bindServiceWithZeroCopy() {
     ServerServiceDefinition orig = super.bindService();
+    if (!zeroCopyEnabled) {
+      LOG.info("Zero copy is disabled.");
+      return orig;
+    }
     ServerServiceDefinition.Builder builder = ServerServiceDefinition.builder(orig.getServiceDescriptor().getName());
 
     // Add appendEntries with zero copy marshaller.

@@ -152,13 +152,15 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
   private final ExecutorService executor;
 
   private final OrderedStreamObservers orderedStreamObservers = new OrderedStreamObservers();
+  private final boolean zeroCopyEnabled;
   private final ZeroCopyMessageMarshaller<RaftClientRequestProto> zeroCopyRequestMarshaller;
 
   GrpcClientProtocolService(Supplier<RaftPeerId> idSupplier, RaftClientAsynchronousProtocol protocol,
-      ExecutorService executor, ZeroCopyMetrics zeroCopyMetrics) {
+      ExecutorService executor, boolean zeroCopyEnabled, ZeroCopyMetrics zeroCopyMetrics) {
     this.idSupplier = idSupplier;
     this.protocol = protocol;
     this.executor = executor;
+    this.zeroCopyEnabled = zeroCopyEnabled;
     this.zeroCopyRequestMarshaller = new ZeroCopyMessageMarshaller<>(RaftClientRequestProto.getDefaultInstance(),
         zeroCopyMetrics::onZeroCopyMessage, zeroCopyMetrics::onNonZeroCopyMessage, zeroCopyMetrics::onReleasedMessage);
     zeroCopyMetrics.addUnreleased("client_protocol", zeroCopyRequestMarshaller::getUnclosedCount);
@@ -170,6 +172,10 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
   ServerServiceDefinition bindServiceWithZeroCopy() {
     ServerServiceDefinition orig = super.bindService();
+    if (!zeroCopyEnabled) {
+      LOG.info("Zero copy is disabled.");
+      return orig;
+    }
     ServerServiceDefinition.Builder builder = ServerServiceDefinition.builder(orig.getServiceDescriptor().getName());
 
     addMethodWithCustomMarshaller(orig, builder, getOrderedMethod(), zeroCopyRequestMarshaller);
