@@ -26,7 +26,7 @@ public class NotReplicatedException extends RaftException {
   private final long callId;
   private final ReplicationLevel requiredReplication;
   private final long logIndex;
-  /** This is only populated on client-side based from the commitInfos in RaftClientReply */
+  /** This is only populated on client-side since RaftClientReply already has commitInfos */
   private Collection<CommitInfoProto> commitInfos;
 
   public NotReplicatedException(long callId, ReplicationLevel requiredReplication, long logIndex) {
