@@ -559,5 +559,6 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     Assert.assertNotNull(nre);
     Assert.assertEquals(logIndex, nre.getLogIndex());
     Assert.assertEquals(replication, nre.getRequiredReplication());
+    Assert.assertNotNull(nre.getCommitInfos());
   }
 }

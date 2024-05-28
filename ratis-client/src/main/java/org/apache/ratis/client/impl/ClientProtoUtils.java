@@ -398,7 +398,8 @@ public interface ClientProtoUtils {
       e = new NotLeaderException(serverMemberId, suggestedLeader, peers);
     } else if (replyProto.getExceptionDetailsCase() == NOTREPLICATEDEXCEPTION) {
       final NotReplicatedExceptionProto nre = replyProto.getNotReplicatedException();
-      e = new NotReplicatedException(nre.getCallId(), nre.getReplication(), nre.getLogIndex());
+      e = new NotReplicatedException(nre.getCallId(), nre.getReplication(), nre.getLogIndex(),
+          replyProto.getCommitInfosList());
     } else if (replyProto.getExceptionDetailsCase().equals(STATEMACHINEEXCEPTION)) {
       e = toStateMachineException(serverMemberId, replyProto.getStateMachineException());
     } else if (replyProto.getExceptionDetailsCase().equals(DATASTREAMEXCEPTION)) {
