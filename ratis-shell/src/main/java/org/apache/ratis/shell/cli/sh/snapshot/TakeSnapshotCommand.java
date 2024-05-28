@@ -29,8 +29,6 @@ import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
 
-import static org.apache.ratis.shell.cli.RaftUtils.processReply;
-
 /**
  * Command for make a ratis server take snapshot.
  */
@@ -67,7 +65,7 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
         peerId = null;
       }
       RaftClientReply reply = raftClient.getSnapshotManagementApi(peerId).create(timeout);
-      processReply(reply, this::println, String.format("Failed to take snapshot of peerId %s",
+      processReply(reply, () -> String.format("Failed to take snapshot of peerId %s",
           peerId != null ? peerId.toString() : null));
       printf(String.format("Successful take snapshot on peerId %s, the latest snapshot index is %d",
           peerId, reply.getLogIndex()));

@@ -31,8 +31,6 @@ import org.apache.ratis.shell.cli.sh.command.Context;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
-import static org.apache.ratis.shell.cli.RaftUtils.processReply;
-
 /**
  * Command for querying the group information of a ratis server.
  */
@@ -73,7 +71,7 @@ public class GroupListCommand extends AbstractRatisCommand {
 
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
       GroupListReply reply = raftClient.getGroupManagementApi(peerId).list();
-      processReply(reply, this::println, String.format("Failed to get group information of peerId %s (server %s)",
+      processReply(reply, () -> String.format("Failed to get group information of peerId %s (server %s)",
               peerId.toString(), address));
       printf(String.format("The peerId %s (server %s) is in %d groups, and the groupIds is: %s",
               peerId, address, reply.getGroupIds().size(), reply.getGroupIds()));

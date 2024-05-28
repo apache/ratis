@@ -30,8 +30,6 @@ import org.apache.ratis.shell.cli.sh.command.Context;
 
 import java.io.IOException;
 
-import static org.apache.ratis.shell.cli.RaftUtils.processReply;
-
 /**
  * Command for resuming leader election on specific server
  */
@@ -65,7 +63,7 @@ public class ResumeCommand extends AbstractRatisCommand {
     }
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
       RaftClientReply reply = raftClient.getLeaderElectionManagementApi(peerId).resume();
-      processReply(reply, this::println, String.format("Failed to resume leader election on peer %s", strAddr));
+      processReply(reply, () -> String.format("Failed to resume leader election on peer %s", strAddr));
       printf(String.format("Successful pause leader election on peer %s", strAddr));
     }
     return 0;

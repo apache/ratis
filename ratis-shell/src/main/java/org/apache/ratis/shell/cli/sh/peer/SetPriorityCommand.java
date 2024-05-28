@@ -34,8 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.ratis.shell.cli.RaftUtils.processReply;
-
 public class SetPriorityCommand extends AbstractRatisCommand {
 
   public static final String PEER_WITH_NEW_PRIORITY_OPTION_NAME = "addressPriority";
@@ -74,7 +72,7 @@ public class SetPriorityCommand extends AbstractRatisCommand {
       final List<RaftPeer> listeners =
           getPeerStream(RaftPeerRole.LISTENER).collect(Collectors.toList());
       RaftClientReply reply = client.admin().setConfiguration(peers, listeners);
-      processReply(reply, this::println, "Failed to set master priorities ");
+      processReply(reply, () -> "Failed to set master priorities ");
     }
     return 0;
   }
