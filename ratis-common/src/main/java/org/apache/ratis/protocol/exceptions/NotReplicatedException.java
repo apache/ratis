@@ -17,12 +17,17 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+
+import java.util.Collection;
 
 public class NotReplicatedException extends RaftException {
   private final long callId;
   private final ReplicationLevel requiredReplication;
   private final long logIndex;
+  /** This is only populated on client-side since RaftClientReply already has commitInfos */
+  private Collection<CommitInfoProto> commitInfos;
 
   public NotReplicatedException(long callId, ReplicationLevel requiredReplication, long logIndex) {
     super("Request with call Id " + callId + " and log index " + logIndex
@@ -30,6 +35,12 @@ public class NotReplicatedException extends RaftException {
     this.callId = callId;
     this.requiredReplication = requiredReplication;
     this.logIndex = logIndex;
+  }
+
+  public NotReplicatedException(long callId, ReplicationLevel requiredReplication, long logIndex,
+                                Collection<CommitInfoProto> commitInfos) {
+    this(callId, requiredReplication, logIndex);
+    this.commitInfos = commitInfos;
   }
 
   public long getCallId() {
@@ -42,5 +53,9 @@ public class NotReplicatedException extends RaftException {
 
   public long getLogIndex() {
     return logIndex;
+  }
+
+  public Collection<CommitInfoProto> getCommitInfos() {
+    return commitInfos;
   }
 }
