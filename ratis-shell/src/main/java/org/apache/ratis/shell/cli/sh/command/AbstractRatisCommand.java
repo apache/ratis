@@ -99,7 +99,7 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
     raftGroup = RaftGroup.valueOf(raftGroupIdFromConfig, peers);
     PrintStream printStream = getPrintStream();
     try (final RaftClient client = RaftUtils.createClient(raftGroup)) {
-      RaftGroupId remoteGroupId = retrieveRemoteGroupId(raftGroupIdFromConfig, peers, client, printStream);
+      final RaftGroupId remoteGroupId = retrieveRemoteGroupId(raftGroupIdFromConfig, peers, client, printStream);
       groupInfoReply = retrieveGroupInfoByGroupId(remoteGroupId, peers, client, printStream);
       raftGroup = groupInfoReply.getGroup();
     }
@@ -181,5 +181,4 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
         .stream()
         .filter(targets::contains);
   }
-
 }

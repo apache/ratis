@@ -72,7 +72,7 @@ public class GroupListCommand extends AbstractRatisCommand {
     try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
       GroupListReply reply = raftClient.getGroupManagementApi(peerId).list();
       processReply(reply, () -> String.format("Failed to get group information of peerId %s (server %s)",
-              peerId.toString(), address));
+              peerId, address));
       printf(String.format("The peerId %s (server %s) is in %d groups, and the groupIds is: %s",
               peerId, address, reply.getGroupIds().size(), reply.getGroupIds()));
     }

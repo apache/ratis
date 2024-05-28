@@ -19,11 +19,7 @@ package org.apache.ratis.shell.cli;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
-import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.grpc.GrpcTlsConfig;
-import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
@@ -32,8 +28,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.retry.ExponentialBackoffRetry;
-import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedFunction;
 
@@ -88,18 +82,6 @@ public final class RaftUtils {
    * @return return a raft client
    */
   public static RaftClient createClient(RaftGroup raftGroup) {
-    return createClient(raftGroup, null, null);
-  }
-
-
-  /**
-   * Create a raft client to communicate to ratis server.
-   * @param raftGroup the raft group
-   * @param rpcType the rpcType
-   * @param tlsConfig the tlsConfig
-   * @return return a raft client
-   */
-  public static RaftClient createClient(RaftGroup raftGroup, RpcType rpcType, GrpcTlsConfig tlsConfig) {
     RaftProperties properties = new RaftProperties();
     RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
         TimeDuration.valueOf(15, TimeUnit.SECONDS));
@@ -119,9 +101,9 @@ public final class RaftUtils {
         .setRaftGroup(raftGroup)
         .setProperties(properties)
         .setRetryPolicy(retryPolicy)
-        .setParameters(setClientTlsConf(rpcType, tlsConfig))
         .build();
   }
+
 
   /**
    * Execute a given function with input parameter from the members of a list.
@@ -227,33 +209,5 @@ public final class RaftUtils {
       throw new IllegalArgumentException("Failed to parse the server address parameter \"" + address + "\".", e);
     }
   }
-
-  public static Parameters setClientTlsConf(RpcType rpcType,
-                                            GrpcTlsConfig tlsConfig) {
-    // TODO: GRPC TLS only for now, netty/hadoop RPC TLS support later.
-    if (tlsConfig != null && rpcType == SupportedRpcType.GRPC) {
-      Parameters parameters = new Parameters();
-      setAdminTlsConf(parameters, tlsConfig);
-      setClientTlsConf(parameters, tlsConfig);
-      return parameters;
-    }
-    return null;
-  }
-
-  private static void setAdminTlsConf(Parameters parameters,
-                                      GrpcTlsConfig tlsConfig) {
-    if (tlsConfig != null) {
-      GrpcConfigKeys.Admin.setTlsConf(parameters, tlsConfig);
-    }
-  }
-
-  private static void setClientTlsConf(Parameters parameters,
-                                       GrpcTlsConfig tlsConfig) {
-    if (tlsConfig != null) {
-      GrpcConfigKeys.Client.setTlsConf(parameters, tlsConfig);
-      NettyConfigKeys.DataStream.Client.setTlsConf(parameters, tlsConfig);
-    }
-  }
-
 
 }
