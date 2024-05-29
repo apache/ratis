@@ -832,20 +832,14 @@ class RaftServerImpl implements RaftServer.Division,
       leaderState.notifySenders();
     }
 
-    final CompletableFuture<RaftClientReply> future = pending.getFuture();
-    if (request.is(TypeCase.WRITE)) {
-      // check replication
-      final ReplicationLevel replication = request.getType().getWrite().getReplication();
-      if (replication != ReplicationLevel.MAJORITY) {
-        return future.thenCompose(reply -> waitForReplication(reply, replication));
-      }
-    }
-
-    return future;
+    return pending.getFuture();
   }
 
   /** Wait until the given replication requirement is satisfied. */
   private CompletableFuture<RaftClientReply> waitForReplication(RaftClientReply reply, ReplicationLevel replication) {
+    if (!reply.isSuccess()) {
+      return CompletableFuture.completedFuture(reply);
+    }
     final RaftClientRequest.Type type = RaftClientRequest.watchRequestType(reply.getLogIndex(), replication);
     final RaftClientRequest watch = RaftClientRequest.newBuilder()
         .setServerId(reply.getServerId())
@@ -854,7 +848,24 @@ class RaftServerImpl implements RaftServer.Division,
         .setCallId(reply.getCallId())
         .setType(type)
         .build();
-    return watchAsync(watch).thenApply(r -> reply);
+    return watchAsync(watch).thenApply(watchReply -> combineReplies(reply, watchReply));
+  }
+
+  private RaftClientReply combineReplies(RaftClientReply reply, RaftClientReply watchReply) {
+    final RaftClientReply combinedReply = RaftClientReply.newBuilder()
+        .setServerId(getMemberId())
+        // from write reply
+        .setClientId(reply.getClientId())
+        .setCallId(reply.getCallId())
+        .setMessage(reply.getMessage())
+        .setLogIndex(reply.getLogIndex())
+        // from watchReply
+        .setSuccess(watchReply.isSuccess())
+        .setException(watchReply.getException())
+        .setCommitInfos(watchReply.getCommitInfos())
+        .build();
+    LOG.debug("combinedReply={}", combinedReply);
+    return combinedReply;
   }
 
   void stepDownOnJvmPause() {
@@ -930,6 +941,19 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> writeAsync(ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.get();
+    final CompletableFuture<RaftClientReply> future = writeAsyncImpl(requestRef);
+    if (request.is(TypeCase.WRITE)) {
+      // check replication
+      final ReplicationLevel replication = request.getType().getWrite().getReplication();
+      if (replication != ReplicationLevel.MAJORITY) {
+        return future.thenCompose(r -> waitForReplication(r, replication));
+      }
+    }
+    return future;
+  }
+
+  private CompletableFuture<RaftClientReply> writeAsyncImpl(ReferenceCountedObject<RaftClientRequest> requestRef) {
     final RaftClientRequest request = requestRef.get();
     final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
