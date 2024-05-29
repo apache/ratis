@@ -1853,7 +1853,7 @@ class RaftServerImpl implements RaftServer.Division,
   void notifyTruncatedLogEntry(LogEntryProto logEntry) {
     if (logEntry.hasStateMachineLogEntry()) {
       getTransactionManager().remove(TermIndex.valueOf(logEntry));
-      getState().truncate(logEntry.getIndex());
+      Optional.ofNullable(getState()).ifPresent(s -> s.truncate(logEntry.getIndex()));
 
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
       final CacheEntry cacheEntry = getRetryCache().getIfPresent(invocationId);
