@@ -133,6 +133,7 @@ class SnapshotInstallationHandler {
       if (request.hasLastRaftConfigurationLogEntryProto()) {
         // Set the configuration included in the snapshot
         final LogEntryProto proto = request.getLastRaftConfigurationLogEntryProto();
+        state.truncate(proto.getIndex());
         if (!state.getRaftConf().equals(LogProtoUtils.toRaftConfiguration(proto))) {
           LOG.info("{}: set new configuration {} from snapshot", getMemberId(), proto);
           state.setRaftConf(proto);
