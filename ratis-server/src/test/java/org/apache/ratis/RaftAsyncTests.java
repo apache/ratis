@@ -24,6 +24,7 @@ import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
@@ -354,6 +355,38 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
         }));
       }
       JavaUtils.allOf(futures).join();
+    }
+  }
+
+  @Test
+  public void testWriteAsyncCustomReplicationLevel() throws Exception {
+    // verify that send(msg, ALL_COMMITTED) would reply with all servers committed past the log index
+    runWithNewCluster(NUM_SERVERS, this::runTestWriteAsyncCustomReplicationLevel);
+  }
+
+  void runTestWriteAsyncCustomReplicationLevel(CLUSTER cluster) throws Exception {
+    final int numMessages = 20;
+    try (RaftClient client = cluster.createClient()) {
+      RaftTestUtil.waitForLeader(cluster);
+
+      // submit some messages
+      for (int i = 0; i < numMessages; i++) {
+        final String s = "" + i;
+        LOG.info("sendAsync with ALL_COMMITTED " + s);
+        client.async().send(new SimpleMessage(s), ReplicationLevel.ALL_COMMITTED).whenComplete((reply, exception) -> {
+          if (exception != null) {
+            LOG.error("Failed to send message " + s, exception);
+            // reply should be null in case of exception
+            Assert.assertNull(reply);
+            return;
+          }
+          Assert.assertTrue(reply.isSuccess());
+          Assert.assertNull(reply.getException());
+          // verify that all servers have caught up to log index when the reply is returned
+          reply.getCommitInfos().forEach(commitInfoProto ->
+              Assert.assertTrue(commitInfoProto.getCommitIndex() >= reply.getLogIndex()));
+        });
+      }
     }
   }
 
