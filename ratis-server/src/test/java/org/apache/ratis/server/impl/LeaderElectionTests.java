@@ -122,12 +122,12 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final TimeDuration maxTimeout = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
     final RaftServer.Division leader = waitForLeader(cluster);
     try {
-      isolate(cluster, leader.getId());
+      RaftTestUtil.isolate(cluster, leader.getId());
       maxTimeout.sleep();
       maxTimeout.sleep();
       RaftServerTestUtil.assertLostMajorityHeartbeatsRecently(leader);
     } finally {
-      deIsolate(cluster, leader.getId());
+      RaftTestUtil.deIsolate(cluster, leader.getId());
     }
   }
 
@@ -164,12 +164,12 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final RaftServer.Division listener = cluster.getListeners().get(0);
     final RaftPeerId listenerId = listener.getId();
     try {
-      isolate(cluster, listenerId);
+      RaftTestUtil.isolate(cluster, listenerId);
       maxTimeout.sleep();
       maxTimeout.sleep();
       Assertions.assertEquals(RaftProtos.RaftPeerRole.LISTENER, listener.getInfo().getCurrentRole());
     } finally {
-      deIsolate(cluster, listener.getId());
+      RaftTestUtil.deIsolate(cluster, listener.getId());
     }
   }
 
@@ -247,7 +247,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         RaftServer.Division newLeader = followers.get(0);
 
         // isolate new leader, so that transfer leadership will timeout
-        isolate(cluster, newLeader.getId());
+        RaftTestUtil.isolate(cluster, newLeader.getId());
 
         List<RaftPeer> peers = cluster.getPeers();
 
@@ -287,7 +287,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         Assertions.assertEquals(leader.getId().toString(), reply.getReplierId());
         Assertions.assertTrue(reply.isSuccess());
 
-        deIsolate(cluster, newLeader.getId());
+        RaftTestUtil.deIsolate(cluster, newLeader.getId());
       }
 
       cluster.shutdown();
@@ -364,30 +364,16 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       try (RaftClient client = cluster.createClient(leader.getId())) {
         client.io().send(new RaftTestUtil.SimpleMessage("message"));
         Thread.sleep(1000);
-        isolate(cluster, leader.getId());
+        RaftTestUtil.isolate(cluster, leader.getId());
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
         Assertions.assertNotEquals(reply.getReplierId(), leader.getId().toString());
         Assertions.assertTrue(reply.isSuccess());
       } finally {
-        deIsolate(cluster, leader.getId());
+        RaftTestUtil.deIsolate(cluster, leader.getId());
       }
 
       cluster.shutdown();
     }
-  }
-
-  private void isolate(MiniRaftCluster cluster, RaftPeerId id) {
-    try {
-      BlockRequestHandlingInjection.getInstance().blockReplier(id.toString());
-      cluster.setBlockRequestsFrom(id.toString(), true);
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-  }
-
-  private void deIsolate(MiniRaftCluster cluster, RaftPeerId id) {
-    BlockRequestHandlingInjection.getInstance().unblockReplier(id.toString());
-    cluster.setBlockRequestsFrom(id.toString(), false);
   }
 
   @Test
@@ -570,7 +556,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertEquals(followers.size(), 2);
 
         RaftServer.Division follower = followers.get(0);
-        isolate(cluster, follower.getId());
+        RaftTestUtil.isolate(cluster, follower.getId());
         // send message so that the isolated follower's log lag the others
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
         Assertions.assertTrue(reply.isSuccess());
@@ -578,7 +564,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         final long savedTerm = leader.getInfo().getCurrentTerm();
         LOG.info("Wait follower {} timeout and trigger pre-vote", follower.getId());
         Thread.sleep(2000);
-        deIsolate(cluster, follower.getId());
+        RaftTestUtil.deIsolate(cluster, follower.getId());
         Thread.sleep(2000);
         // with pre-vote leader will not step down
         RaftServer.Division newleader = waitForLeader(cluster);
@@ -669,14 +655,14 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       Assertions.assertTrue(leader.getInfo().isLeaderReady());
       RaftServerTestUtil.assertLeaderLease(leader, true);
 
-      isolate(cluster, leader.getId());
+      RaftTestUtil.isolate(cluster, leader.getId());
       Thread.sleep(leaseTimeoutMs);
 
       Assertions.assertTrue(leader.getInfo().isLeader());
       Assertions.assertTrue(leader.getInfo().isLeaderReady());
       RaftServerTestUtil.assertLeaderLease(leader, false);
     } finally {
-      deIsolate(cluster, leader.getId());
+      RaftTestUtil.deIsolate(cluster, leader.getId());
     }
   }
 

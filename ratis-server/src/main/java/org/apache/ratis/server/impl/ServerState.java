@@ -387,6 +387,10 @@ class ServerState {
     LOG.trace("{}: {}", getMemberId(), configurationManager);
   }
 
+  void truncate(long logIndex) {
+    configurationManager.removeConfigurations(logIndex);
+  }
+
   void updateConfiguration(List<LogEntryProto> entries) {
     if (entries != null && !entries.isEmpty()) {
       configurationManager.removeConfigurations(entries.get(0).getIndex());

@@ -512,6 +512,20 @@ public interface RaftTestUtil {
     Thread.sleep(3 * maxTimeout.toLong(TimeUnit.MILLISECONDS));
   }
 
+  static void isolate(MiniRaftCluster cluster, RaftPeerId id) {
+    try {
+      BlockRequestHandlingInjection.getInstance().blockReplier(id.toString());
+      cluster.setBlockRequestsFrom(id.toString(), true);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  static void deIsolate(MiniRaftCluster cluster, RaftPeerId id) {
+    BlockRequestHandlingInjection.getInstance().unblockReplier(id.toString());
+    cluster.setBlockRequestsFrom(id.toString(), false);
+  }
+
   static Thread sendMessageInNewThread(MiniRaftCluster cluster, RaftPeerId leaderId, SimpleMessage... messages) {
     Thread t = new Thread(() -> {
       try (final RaftClient client = cluster.createClient(leaderId)) {

@@ -1857,6 +1857,7 @@ class RaftServerImpl implements RaftServer.Division,
    * @param logEntry the log entry being truncated
    */
   void notifyTruncatedLogEntry(LogEntryProto logEntry) {
+    Optional.ofNullable(getState()).ifPresent(s -> s.truncate(logEntry.getIndex()));
     if (logEntry.hasStateMachineLogEntry()) {
       getTransactionManager().remove(TermIndex.valueOf(logEntry));
 
