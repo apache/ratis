@@ -46,4 +46,10 @@ implements MiniRaftClusterWithGrpc.FactoryGet {
         super.testSeparateSnapshotInstallPath();
     }
 
+    @ParameterizedTest
+    @MethodSource("data")
+    public void testInstallSnapshotLeaderSwitch(Boolean separateHeartbeat) throws Exception {
+        GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+        super.testInstallSnapshotLeaderSwitch();
+    }
 }

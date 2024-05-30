@@ -21,7 +21,10 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
+import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
@@ -85,6 +88,12 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     runWithNewCluster(1, this::testMultiFileInstallSnapshot);
   }
 
+  public void testInstallSnapshotLeaderSwitch() throws Exception {
+    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        StateMachineWithSeparatedSnapshotPath.class, StateMachine.class);
+    runWithNewCluster(3, this::testInstallSnapshotDuringLeaderSwitch);
+  }
+
   private void testMultiFileInstallSnapshot(CLUSTER cluster) throws Exception {
     try {
       int i = 0;
@@ -122,6 +131,67 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
           Assertions.assertEquals(3, info.getFiles().size());
         }
       }, 10, ONE_SECOND, "check snapshot", LOG);
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  private void testInstallSnapshotDuringLeaderSwitch(CLUSTER cluster) throws Exception {
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+
+      // perform operations and force all peers to take snapshot
+      try (final RaftClient client = cluster.createClient(leaderId)) {
+        for (int i = 0; i < SNAPSHOT_TRIGGER_THRESHOLD * 2; i++) {
+          final RaftClientReply
+              reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+          Assertions.assertTrue(reply.isSuccess());
+        }
+
+        for (final RaftPeer peer: cluster.getPeers()) {
+          final RaftClientReply snapshotReply = client.getSnapshotManagementApi(leaderId).create(3000);
+          Assertions.assertTrue(snapshotReply.isSuccess());
+        }
+      }
+      final SnapshotInfo snapshot = cluster.getLeader().getStateMachine().getLatestSnapshot();
+      Assertions.assertNotNull(snapshot);
+
+      // isolate two followers (majority) in old configuration
+      final List<RaftServer.Division> oldFollowers = cluster.getFollowers();
+      for (RaftServer.Division f: oldFollowers) {
+        RaftTestUtil.isolate(cluster, f.getId());
+      }
+
+      // add two more peers and install snapshot from leaders
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
+          true);
+      try (final RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
+        Assertions.assertThrows(RaftRetryFailureException.class,
+                 () -> client.admin().setConfiguration(change.allPeersInNewConf));
+      }
+
+      final SnapshotInfo snapshotInfo = cluster.getDivision(change.newPeers[0].getId())
+           .getStateMachine().getLatestSnapshot();
+      Assertions.assertNotNull(snapshotInfo);
+
+      // recover the old followers and isolate the leader to force leader switch
+      RaftTestUtil.isolate(cluster, leaderId);
+      for (RaftServer.Division f: oldFollowers) {
+        RaftTestUtil.deIsolate(cluster, f.getId());
+      }
+      RaftTestUtil.waitForLeader(cluster);
+
+      try (final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
+        // successfully setConfiguration during leader switch
+        final RaftClientReply setConf = client.admin().setConfiguration(change.allPeersInNewConf);
+        Assertions.assertTrue(setConf.isSuccess());
+
+        RaftTestUtil.deIsolate(cluster, leaderId);
+        final RaftClientReply
+              reply = client.io().send(new RaftTestUtil.SimpleMessage("final"));
+        Assertions.assertTrue(reply.isSuccess());
+      }
     } finally {
       cluster.shutdown();
     }

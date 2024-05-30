@@ -133,6 +133,7 @@ class SnapshotInstallationHandler {
       if (request.hasLastRaftConfigurationLogEntryProto()) {
         // Set the configuration included in the snapshot
         final LogEntryProto proto = request.getLastRaftConfigurationLogEntryProto();
+        state.truncate(proto.getIndex());
         if (!state.getRaftConf().equals(LogProtoUtils.toRaftConfiguration(proto))) {
           LOG.info("{}: set new configuration {} from snapshot", getMemberId(), proto);
           state.setRaftConf(proto);
@@ -175,9 +176,10 @@ class SnapshotInstallationHandler {
         // Check and append the snapshot chunk. We simply put this in lock
         // considering a follower peer requiring a snapshot installation does not
         // have a lot of requests
-        Preconditions.assertTrue(state.getLog().getLastCommittedIndex() < lastIncludedIndex,
-            "%s log's commit index is %s, last included index in snapshot is %s",
-            getMemberId(), state.getLog().getLastCommittedIndex(), lastIncludedIndex);
+        if (state.getLog().getLastCommittedIndex() >= lastIncludedIndex) {
+          return toInstallSnapshotReplyProto(leaderId, getMemberId(),
+              currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.ALREADY_INSTALLED);
+        }
 
         //TODO: We should only update State with installed snapshot once the request is done.
         state.installSnapshot(request);
