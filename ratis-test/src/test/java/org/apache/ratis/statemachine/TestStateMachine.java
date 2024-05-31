@@ -92,7 +92,7 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
       try {
         assertNotNull(trx.getLogEntryUnsafe());
-        assertNotNull(trx.getStateMachineLogEntry());
+        assertNotNull(trx.getLogEntryUnsafe().getStateMachineLogEntry());
         Object context = trx.getStateMachineContext();
         if (isLeader.get()) {
           assertNotNull(trx.getClientRequest());

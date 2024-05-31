@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * A reference-counted object can be retained for later use
@@ -150,6 +151,10 @@ public interface ReferenceCountedObject<T> {
         return delegated.release();
       }
     };
+  }
+
+  default <V> ReferenceCountedObject<V> map(Function<T, V> mapper) {
+    return delegate(mapper.apply(get()));
   }
 
   /**
