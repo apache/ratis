@@ -60,8 +60,8 @@ public interface TransactionContext {
   /**
    * Returns the data from the {@link StateMachine}
    * @return the data from the {@link StateMachine}
-   * @deprecated access StateMachineLogEntry via @{@link TransactionContext#getLogEntryRef()} or
-   * @{@link TransactionContext#getLogEntryUnsafe}
+   * @deprecated access StateMachineLogEntry via {@link TransactionContext#getLogEntryRef()} or
+   * {@link TransactionContext#getLogEntryUnsafe()}
    */
   @Deprecated
   StateMachineLogEntryProto getStateMachineLogEntry();

@@ -153,8 +153,11 @@ public interface ReferenceCountedObject<T> {
     };
   }
 
-  default <V> ReferenceCountedObject<V> map(Function<T, V> mapper) {
-    return delegate(mapper.apply(get()));
+  /**
+   * @return a {@link ReferenceCountedObject} by apply the given function to this object.
+   */
+  default <V> ReferenceCountedObject<V> apply(Function<T, V> function) {
+    return delegate(function.apply(get()));
   }
 
   /**
