@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * A reference-counted object can be retained for later use
@@ -126,6 +127,37 @@ public interface ReferenceCountedObject<T> {
         return allReleased;
       }
     };
+  }
+
+  /**
+   * @return a {@link ReferenceCountedObject} of the given value by delegating to this object.
+   */
+  default <V> ReferenceCountedObject<V> delegate(V value) {
+    final ReferenceCountedObject<T> delegated = this;
+    return new ReferenceCountedObject<V>() {
+      @Override
+      public V get() {
+        return value;
+      }
+
+      @Override
+      public V retain() {
+        delegated.retain();
+        return value;
+      }
+
+      @Override
+      public boolean release() {
+        return delegated.release();
+      }
+    };
+  }
+
+  /**
+   * @return a {@link ReferenceCountedObject} by apply the given function to this object.
+   */
+  default <V> ReferenceCountedObject<V> apply(Function<T, V> function) {
+    return delegate(function.apply(get()));
   }
 
   /**
