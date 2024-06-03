@@ -57,6 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Test StateMachine related functionality
  */
+@SuppressWarnings({"deprecation"})
 public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
   static {
     Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
@@ -91,7 +92,7 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
       try {
-        assertNotNull(trx.getLogEntryUnsafe());
+        assertNotNull(trx.getLogEntry());
         assertNotNull(trx.getStateMachineLogEntry());
         Object context = trx.getStateMachineContext();
         if (isLeader.get()) {
