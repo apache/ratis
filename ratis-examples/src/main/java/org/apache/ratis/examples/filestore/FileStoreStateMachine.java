@@ -115,11 +115,12 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public TransactionContext startTransaction(LogEntryProto entry, RaftProtos.RaftPeerRole role) {
+    ByteString copied = ByteString.copyFrom(entry.getStateMachineLogEntry().getLogData().asReadOnlyByteBuffer());
     return TransactionContext.newBuilder()
         .setStateMachine(this)
         .setLogEntry(entry)
         .setServerRole(role)
-        .setStateMachineContext(getProto(entry))
+        .setStateMachineContext(getProto(copied))
         .build();
   }
 
@@ -147,14 +148,14 @@ public class FileStoreStateMachine extends BaseStateMachine {
         return proto;
       }
     }
-    return getProto(entry);
+    return getProto(entry.getStateMachineLogEntry().getLogData());
   }
 
-  static FileStoreRequestProto getProto(LogEntryProto entry) {
+  static FileStoreRequestProto getProto(ByteString bytes) {
     try {
-      return FileStoreRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
+      return FileStoreRequestProto.parseFrom(bytes);
     } catch (InvalidProtocolBufferException e) {
-      throw new IllegalArgumentException("Failed to parse data, entry=" + entry, e);
+      throw new IllegalArgumentException("Failed to parse data", e);
     }
   }
 
