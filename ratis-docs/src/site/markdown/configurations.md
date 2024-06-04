@@ -684,17 +684,17 @@ Client configurations are located at `RaftClientConfigKeys`.
 
 ### RPC - Configurations related to Client RPC timeout.
 
-| **Property**    | `raft.client.rpc.request.timeout` |
-|:----------------|:----------------------------------|
-| **Description** | timeout for AppendEntries RPC     |
-| **Type**        | TimeDuration                      |
-| **Default**     | 3000ms                            |
+| **Property**    | `raft.client.rpc.request.timeout`         |
+|:----------------|:------------------------------------------|
+| **Description** | client side timeout for sending a request |
+| **Type**        | TimeDuration                              |
+| **Default**     | 3s                                        |
 
-| **Property**    | `raft.client.rpc.watch.request.timeout`      |
-|:----------------|:---------------------------------------------|
-| **Description** | timeout for watch request on the client side |
-| **Type**        | TimeDuration                                 |
-| **Default**     | 10000ms                                      |
+| **Property**    | `raft.client.rpc.watch.request.timeout`         |
+|:----------------|:------------------------------------------------|
+| **Description** | client side timeout for sending a watch request |
+| **Type**        | TimeDuration                                    |
+| **Default**     | 10s                                             |
 
 ### Async - Configurations related to async requests.
 
@@ -703,14 +703,6 @@ Client configurations are located at `RaftClientConfigKeys`.
 | **Description** | maximum number of outstanding async requests |
 | **Type**        | int                                          |
 | **Default**     | 100                                          |
-
-#### Experimental - Configurations related to experimental features.
-
-| **Property**    | `raft.client.async.experimental.send-dummy-request`    |
-|:----------------|:-------------------------------------------------------|
-| **Description** | send a dummy watch request to establish the connection |
-| **Type**        | boolean                                                |
-| **Default**     | true                                                   |
 
 ### DataStream - Configurations related to DataStream Api.
 
@@ -736,7 +728,7 @@ Client configurations are located at `RaftClientConfigKeys`.
 |:----------------|:------------------------------------------|
 | **Description** | timeout for data stream request           |
 | **Type**        | TimeDuration                              |
-| **Default**     | 10000ms                                   |
+| **Default**     | 10s                                       |
 
 ### MessageStream - Configurations related to MessageStream Api.
 
