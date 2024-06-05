@@ -124,15 +124,13 @@ public abstract class RaftLogBase implements RaftLog {
       final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
       if (oldCommittedIndex < newCommitIndex) {
         if (!isLeader) {
-          commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
-          return true;
+          return commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
         }
 
         // Only update last committed index for current term. See §5.4.2 in paper for details.
         final TermIndex entry = getTermIndex(newCommitIndex);
         if (entry != null && entry.getTerm() == currentTerm) {
-          commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
-          return true;
+          return commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
         }
       }
     }
