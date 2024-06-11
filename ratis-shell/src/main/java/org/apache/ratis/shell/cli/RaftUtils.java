@@ -41,6 +41,7 @@ import java.util.function.Consumer;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.UUID;
 
@@ -104,21 +105,21 @@ public final class RaftUtils {
         .build();
   }
 
-
   /**
-   * Execute a given function with input parameter from the members of a list.
+   * Apply the given function to the given parameter a list.
    *
-   * @param list the input parameters
-   * @param function the function to be executed
-   * @param <T> parameter type
-   * @param <K> return value type
-   * @param <E> the exception type thrown by the given function.
-   * @return the value returned by the given function.
+   * @param list the input parameter list
+   * @param function the function to be applied
+   * @param <PARAMETER> parameter type
+   * @param <RETURN> return value type
+   * @param <EXCEPTION> the exception type thrown by the given function.
+   * @return the first non-null value returned by the given function applied to the given list.
    */
-  public static <T, K, E extends Throwable> K runFunction(Collection<T> list, CheckedFunction<T, K, E> function) {
-    for (T t : list) {
+  private static <PARAMETER, RETURN, EXCEPTION extends Throwable> RETURN applyFunctionReturnFirstNonNull(
+      Collection<PARAMETER> list, CheckedFunction<PARAMETER, RETURN, EXCEPTION> function) {
+    for (PARAMETER parameter : list) {
       try {
-        K ret = function.apply(t);
+        RETURN ret = function.apply(parameter);
         if (ret != null) {
           return ret;
         }
@@ -128,7 +129,6 @@ public final class RaftUtils {
     }
     return null;
   }
-
 
   public static List<RaftPeer> buildRaftPeersFromStr(String peers) {
     List<InetSocketAddress> addresses = new ArrayList<>();
@@ -146,54 +146,51 @@ public final class RaftUtils {
   }
 
   public static RaftGroupId buildRaftGroupIdFromStr(String groupId) {
-    return (groupId != null && !groupId.equals("")) ? RaftGroupId.valueOf(UUID.fromString(groupId))
+    return groupId.isEmpty() ? RaftGroupId.valueOf(UUID.fromString(groupId))
         : DEFAULT_RAFT_GROUP_ID;
   }
 
   public static RaftGroupId retrieveRemoteGroupId(RaftGroupId raftGroupIdFromConfig,
                                                   List<RaftPeer> peers,
                                                   RaftClient client, PrintStream printStream) throws IOException {
-    RaftGroupId remoteGroupId;
-    if (raftGroupIdFromConfig != DEFAULT_RAFT_GROUP_ID) {
+    if (!DEFAULT_RAFT_GROUP_ID .equals(raftGroupIdFromConfig)) {
       return raftGroupIdFromConfig;
-    } else {
-      final List<RaftGroupId> groupIds = runFunction(peers,
-          p -> client.getGroupManagementApi((p.getId())).list().getGroupIds());
-
-      if (groupIds == null) {
-        printStream.println("Failed to get group ID from " + peers);
-        throw new IOException("Failed to get group ID from " + peers);
-      } else if (groupIds.size() == 1) {
-        remoteGroupId = groupIds.get(0);
-      } else {
-        printStream.println("There are more than one groups, you should specific one. " + groupIds);
-        throw new IOException("There are more than one groups, you should specific one. " + groupIds);
-      }
     }
 
+    final RaftGroupId remoteGroupId;
+    final List<RaftGroupId> groupIds = applyFunctionReturnFirstNonNull(peers,
+        p -> client.getGroupManagementApi((p.getId())).list().getGroupIds());
+
+    if (groupIds == null) {
+      printStream.println("Failed to get group ID from " + peers);
+      throw new IOException("Failed to get group ID from " + peers);
+    } else if (groupIds.size() == 1) {
+      remoteGroupId = groupIds.get(0);
+    } else {
+      String message = "Unexpected multiple group IDs " + groupIds
+          + ".  In such case, the target group ID must be specified.";
+      printStream.println(message);
+      throw new IOException(message);
+    }
     return remoteGroupId;
   }
 
   public static GroupInfoReply retrieveGroupInfoByGroupId(RaftGroupId remoteGroupId, List<RaftPeer> peers,
                                                           RaftClient client, PrintStream printStream)
       throws IOException {
-    GroupInfoReply groupInfoReply = runFunction(peers,
+    GroupInfoReply groupInfoReply = applyFunctionReturnFirstNonNull(peers,
         p -> client.getGroupManagementApi((p.getId())).info(remoteGroupId));
-    processReply(groupInfoReply,
-        printStream::println, "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
+    processReply(groupInfoReply, printStream::println,
+        () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
     return groupInfoReply;
   }
 
-  public static void processReply(RaftClientReply reply, Consumer<String> printer, String message) throws IOException {
-    processReplyInternal(reply, () -> printer.accept(message));
-  }
-
-  private static void processReplyInternal(RaftClientReply reply, Runnable printer) throws IOException {
+  public static void processReply(RaftClientReply reply, Consumer<String> printer, Supplier<String> message) throws IOException {
     if (reply == null || !reply.isSuccess()) {
       final RaftException e = Optional.ofNullable(reply)
           .map(RaftClientReply::getException)
           .orElseGet(() -> new RaftException("Reply: " + reply));
-      printer.run();
+      printer.accept(message.get());
       throw new IOException(e.getMessage(), e);
     }
   }

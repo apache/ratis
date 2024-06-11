@@ -148,8 +148,7 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
   }
 
   protected void processReply(RaftClientReply reply, Supplier<String> messageSupplier) throws IOException {
-    RaftUtils.processReply(reply,
-        getPrintStream()::println, messageSupplier.get());
+    RaftUtils.processReply(reply, getPrintStream()::println, messageSupplier);
   }
 
   protected List<RaftPeerId> getIds(String[] optionValues, BiConsumer<RaftPeerId, InetSocketAddress> consumer) {
