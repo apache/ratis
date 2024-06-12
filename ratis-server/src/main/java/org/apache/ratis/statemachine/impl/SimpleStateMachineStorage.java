@@ -217,24 +217,16 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     if (s != null) {
       return s;
     }
+    loadLatestSnapshot();
+  }
+
+  public SingleFileSnapshotInfo loadLatestSnapshot() {
     final File dir = stateMachineDir;
     if (dir == null) {
       return null;
     }
     try {
       return updateLatestSnapshot(findLatestSnapshot(dir.toPath()));
-    } catch (IOException ignored) {
-      return null;
-    }
-  }
-
-  public void loadLatestSnapshot() {
-    final File dir = stateMachineDir;
-    if (dir == null) {
-      return;
-    }
-    try {
-      updateLatestSnapshot(findLatestSnapshot(dir.toPath()));
     } catch (IOException ignored) {
     }
   }

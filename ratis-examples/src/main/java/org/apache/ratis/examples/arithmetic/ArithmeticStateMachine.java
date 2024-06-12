@@ -81,8 +81,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   @Override
   public void reinitialize() throws IOException {
     close();
-    storage.loadLatestSnapshot();
-    loadSnapshot(storage.getLatestSnapshot());
+    loadSnapshot(storage.loadLatestSnapshot());
   }
 
   @Override
