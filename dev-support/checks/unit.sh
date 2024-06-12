@@ -65,6 +65,12 @@ for i in $(seq 1 ${ITERATIONS}); do
   fi
 
   if [[ ${ITERATIONS} -gt 1 ]]; then
+    if ! grep -q "Running .*Test" "${REPORT_DIR}/output.log"; then
+      echo "No tests were run" >> "${REPORT_DIR}/summary.txt"
+      irc=1
+      FAIL_FAST=true
+    fi
+
     if [[ ${irc} == 0 ]]; then
       rm -fr "${REPORT_DIR}"
     fi
