@@ -217,7 +217,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     if (s != null) {
       return s;
     }
-    loadLatestSnapshot();
+    return loadLatestSnapshot();
   }
 
   public SingleFileSnapshotInfo loadLatestSnapshot() {
