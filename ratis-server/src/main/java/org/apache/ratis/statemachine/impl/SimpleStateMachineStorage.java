@@ -228,6 +228,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     try {
       return updateLatestSnapshot(findLatestSnapshot(dir.toPath()));
     } catch (IOException ignored) {
+      return null;
     }
   }
 
