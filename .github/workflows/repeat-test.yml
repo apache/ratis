@@ -116,7 +116,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
-          name: result-${{ env.TEST_CLASS }}-split-${{ matrix.split }}
+          name: result-${{ github.run_number }}-${{ github.run_id }}-split-${{ matrix.split }}
           path: target/unit
   count-failures:
     if: ${{ failure() }}
