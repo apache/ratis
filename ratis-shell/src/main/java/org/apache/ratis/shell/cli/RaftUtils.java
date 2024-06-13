@@ -146,7 +146,7 @@ public final class RaftUtils {
   }
 
   public static RaftGroupId buildRaftGroupIdFromStr(String groupId) {
-    return groupId.isEmpty() ? RaftGroupId.valueOf(UUID.fromString(groupId))
+    return groupId != null && groupId.isEmpty() ? RaftGroupId.valueOf(UUID.fromString(groupId))
         : DEFAULT_RAFT_GROUP_ID;
   }
 
@@ -185,7 +185,8 @@ public final class RaftUtils {
     return groupInfoReply;
   }
 
-  public static void processReply(RaftClientReply reply, Consumer<String> printer, Supplier<String> message) throws IOException {
+  public static void processReply(RaftClientReply reply, Consumer<String> printer, Supplier<String> message)
+      throws IOException {
     if (reply == null || !reply.isSuccess()) {
       final RaftException e = Optional.ofNullable(reply)
           .map(RaftClientReply::getException)

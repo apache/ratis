@@ -34,13 +34,11 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -60,31 +58,6 @@ import static org.apache.ratis.shell.cli.RaftUtils.retrieveRemoteGroupId;
 public abstract class AbstractRatisCommand extends AbstractCommand {
   public static final String PEER_OPTION_NAME = "peers";
   public static final String GROUPID_OPTION_NAME = "groupid";
-
-  /**
-   * Execute a given function with input parameter from the members of a list.
-   *
-   * @param list the input parameters
-   * @param function the function to be executed
-   * @param <T> parameter type
-   * @param <K> return value type
-   * @param <E> the exception type thrown by the given function.
-   * @return the value returned by the given function.
-   */
-  public static <T, K, E extends Throwable> K run(Collection<T> list, CheckedFunction<T, K, E> function) {
-    for (T t : list) {
-      try {
-        K ret = function.apply(t);
-        if (ret != null) {
-          return ret;
-        }
-      } catch (Throwable e) {
-        e.printStackTrace();
-      }
-    }
-    return null;
-  }
-
   private RaftGroup raftGroup;
   private GroupInfoReply groupInfoReply;
 
