@@ -217,6 +217,10 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     if (s != null) {
       return s;
     }
+    return loadLatestSnapshot();
+  }
+
+  public SingleFileSnapshotInfo loadLatestSnapshot() {
     final File dir = stateMachineDir;
     if (dir == null) {
       return null;
