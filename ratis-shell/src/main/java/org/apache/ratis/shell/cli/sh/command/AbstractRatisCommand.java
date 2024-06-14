@@ -18,8 +18,12 @@
 package org.apache.ratis.shell.cli.sh.command;
 
 import org.apache.commons.cli.Option;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.shell.cli.RaftUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
@@ -30,15 +34,23 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.ratis.shell.cli.RaftUtils.buildRaftGroupIdFromStr;
+import static org.apache.ratis.shell.cli.RaftUtils.buildRaftPeersFromStr;
+import static org.apache.ratis.shell.cli.RaftUtils.retrieveGroupInfoByGroupId;
+import static org.apache.ratis.shell.cli.RaftUtils.retrieveRemoteGroupId;
 
 /**
  * The base class for the ratis shell which need to connect to server.
@@ -46,32 +58,6 @@ import java.util.stream.Stream;
 public abstract class AbstractRatisCommand extends AbstractCommand {
   public static final String PEER_OPTION_NAME = "peers";
   public static final String GROUPID_OPTION_NAME = "groupid";
-  public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.randomId();
-
-  /**
-   * Execute a given function with input parameter from the members of a list.
-   *
-   * @param list the input parameters
-   * @param function the function to be executed
-   * @param <T> parameter type
-   * @param <K> return value type
-   * @param <E> the exception type thrown by the given function.
-   * @return the value returned by the given function.
-   */
-  public static <T, K, E extends Throwable> K run(Collection<T> list, CheckedFunction<T, K, E> function) {
-    for (T t : list) {
-      try {
-        K ret = function.apply(t);
-        if (ret != null) {
-          return ret;
-        }
-      } catch (Throwable e) {
-        e.printStackTrace();
-      }
-    }
-    return null;
-  }
-
   private RaftGroup raftGroup;
   private GroupInfoReply groupInfoReply;
 
@@ -81,46 +67,13 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
 
   @Override
   public int run(CommandLine cl) throws IOException {
-    List<InetSocketAddress> addresses = new ArrayList<>();
-    String peersStr = cl.getOptionValue(PEER_OPTION_NAME);
-    String[] peersArray = peersStr.split(",");
-    for (String peer : peersArray) {
-      addresses.add(parseInetSocketAddress(peer));
-    }
-
-    final RaftGroupId raftGroupIdFromConfig = cl.hasOption(GROUPID_OPTION_NAME)?
-        RaftGroupId.valueOf(UUID.fromString(cl.getOptionValue(GROUPID_OPTION_NAME)))
-        : DEFAULT_RAFT_GROUP_ID;
-
-    List<RaftPeer> peers = addresses.stream()
-        .map(addr -> RaftPeer.newBuilder()
-            .setId(RaftUtils.getPeerId(addr))
-            .setAddress(addr)
-            .build()
-        ).collect(Collectors.toList());
+    List<RaftPeer> peers = buildRaftPeersFromStr(cl.getOptionValue(PEER_OPTION_NAME));
+    RaftGroupId raftGroupIdFromConfig = buildRaftGroupIdFromStr(cl.getOptionValue(GROUPID_OPTION_NAME));
     raftGroup = RaftGroup.valueOf(raftGroupIdFromConfig, peers);
+    PrintStream printStream = getPrintStream();
     try (final RaftClient client = RaftUtils.createClient(raftGroup)) {
-      final RaftGroupId remoteGroupId;
-      if (raftGroupIdFromConfig != DEFAULT_RAFT_GROUP_ID) {
-        remoteGroupId = raftGroupIdFromConfig;
-      } else {
-        final List<RaftGroupId> groupIds = run(peers,
-            p -> client.getGroupManagementApi((p.getId())).list().getGroupIds());
-
-        if (groupIds == null) {
-          println("Failed to get group ID from " + peers);
-          return -1;
-        } else if (groupIds.size() == 1) {
-          remoteGroupId = groupIds.get(0);
-        } else {
-          println("There are more than one groups, you should specific one. " + groupIds);
-          return -2;
-        }
-      }
-
-      groupInfoReply = run(peers, p -> client.getGroupManagementApi((p.getId())).info(remoteGroupId));
-      processReply(groupInfoReply,
-          () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
+      final RaftGroupId remoteGroupId = retrieveRemoteGroupId(raftGroupIdFromConfig, peers, client, printStream);
+      groupInfoReply = retrieveGroupInfoByGroupId(remoteGroupId, peers, client, printStream);
       raftGroup = groupInfoReply.getGroup();
     }
     return 0;
@@ -168,14 +121,7 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
   }
 
   protected void processReply(RaftClientReply reply, Supplier<String> messageSupplier) throws IOException {
-    if (reply == null || !reply.isSuccess()) {
-      final RaftException e = Optional.ofNullable(reply)
-          .map(RaftClientReply::getException)
-          .orElseGet(() -> new RaftException("Reply: " + reply));
-      final String message = messageSupplier.get();
-      printf("%s. Error: %s%n", message, e);
-      throw new IOException(message, e);
-    }
+    RaftUtils.processReply(reply, getPrintStream()::println, messageSupplier);
   }
 
   protected List<RaftPeerId> getIds(String[] optionValues, BiConsumer<RaftPeerId, InetSocketAddress> consumer) {
