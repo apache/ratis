@@ -284,6 +284,7 @@ class SegmentedRaftLogWorker {
         LOG.error("Failed to add IO task {}", task, e);
         Optional.ofNullable(server).ifPresent(RaftServer.Division::close);
       }
+      task.discard();
     }
     task.startTimerOnEnqueue(raftLogMetrics.getEnqueuedTimer());
     return task;
@@ -489,6 +490,7 @@ class SegmentedRaftLogWorker {
     private final LogEntryProto entry;
     private final CompletableFuture<?> stateMachineFuture;
     private final CompletableFuture<Long> combined;
+    private final ReferenceCountedObject<LogEntryProto> ref;
 
     WriteLog(ReferenceCountedObject<LogEntryProto> entryRef, LogEntryProto removedStateMachineData,
         TransactionContext context) {
@@ -505,6 +507,8 @@ class SegmentedRaftLogWorker {
         } else {
           this.stateMachineFuture = null;
         }
+        entryRef.retain();
+        this.ref = entryRef;
       } else {
         try {
           // this.entry != origEntry if it has state machine data
@@ -514,6 +518,7 @@ class SegmentedRaftLogWorker {
               + ", entry=" + LogProtoUtils.toLogEntryString(origEntry, stateMachine::toStateMachineLogEntryString), e);
           throw e;
         }
+        this.ref = null;
       }
       this.combined = stateMachineFuture == null? super.getFuture()
           : super.getFuture().thenCombine(stateMachineFuture, (index, stateMachineResult) -> index);
@@ -538,6 +543,16 @@ class SegmentedRaftLogWorker {
     @Override
     void done() {
       writeTasks.offerOrCompleteFuture(this);
+      if (ref != null) {
+        ref.release();
+      }
+    }
+
+    @Override
+    void discard() {
+      if (ref != null) {
+        ref.release();
+      }
     }
 
     @Override
