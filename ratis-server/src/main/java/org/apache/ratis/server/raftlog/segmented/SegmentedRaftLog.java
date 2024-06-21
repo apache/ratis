@@ -100,6 +100,9 @@ public final class SegmentedRaftLog extends RaftLogBase {
       completeFuture();
     }
 
+    void discard() {
+    }
+
     final void completeFuture() {
       final boolean completed = future.complete(getEndIndex());
       Preconditions.assertTrue(completed,
