@@ -178,6 +178,7 @@
     <maven-pdf-plugin.version>1.6.1</maven-pdf-plugin.version>
     <maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
+    <hadoop-maven-plugins.version>3.3.6</hadoop-maven-plugins.version>
 
 
     <!-- org.codehaus.mojo -->
@@ -454,6 +455,11 @@
 
     <pluginManagement>
       <plugins>
+        <plugin>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-maven-plugins</artifactId>
+          <version>${hadoop-maven-plugins.version}</version>
+        </plugin>
         <plugin>
           <groupId>org.xolstice.maven.plugins</groupId>
           <artifactId>protobuf-maven-plugin</artifactId>
@@ -782,6 +788,24 @@
         <extensions>true</extensions>
       </plugin>
       <plugin>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-maven-plugins</artifactId>
+        <executions>
+          <execution>
+            <id>version-info</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>version-info</goal>
+            </goals>
+            <configuration>
+              <source>
+                <directory>${project.basedir}</directory>
+              </source>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>${maven-checkstyle-plugin.version}</version>
@@ -801,24 +825,6 @@
           </outputDirectory>
           <includeReports>false</includeReports>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>buildnumber-maven-plugin</artifactId>
-        <version>1.4</version>
-        <executions>
-          <execution>
-            <phase>generate-resources</phase>
-            <goals>
-              <goal>create-metadata</goal>
-            </goals>
-            <configuration>
-              <outputDirectory>target/classes</outputDirectory>
-              <outputName>ratis-version.properties</outputName>
-              <revisionOnScmFailure>Unknown</revisionOnScmFailure>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
@@ -865,6 +871,19 @@
         </executions>
       </plugin>
     </plugins>
+    <resources>
+      <resource>
+        <directory>${project.basedir}/src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/../src/main/resources</directory>
+        <includes>
+          <include>ratis-version.properties</include>
+        </includes>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
   </build>
 
   <profiles>
