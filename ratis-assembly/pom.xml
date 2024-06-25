@@ -142,7 +142,7 @@
             </configuration>
           </execution>
           <execution>
-            <id>default-cli</id>
+            <id>bin</id>
             <phase>package</phase>
             <goals>
               <goal>single</goal>
