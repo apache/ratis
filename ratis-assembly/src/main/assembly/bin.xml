@@ -63,6 +63,16 @@
       </includes>
       <fileMode>0644</fileMode>
     </fileSet>
+    <!-- aggregate BOM from root module -->
+    <fileSet>
+      <directory>${project.basedir}/../target</directory>
+      <outputDirectory>.</outputDirectory>
+      <includes>
+        <include>bom.json</include>
+        <include>bom.xml</include>
+      </includes>
+      <fileMode>0644</fileMode>
+    </fileSet>
     <fileSet>
       <directory>${project.basedir}/../ratis-docs/target/classes/docs
       </directory>
