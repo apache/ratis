@@ -86,6 +86,15 @@ import org.apache.ratis.util.UncheckedAutoCloseable;
  * we may have hole when append further log.
  */
 public final class SegmentedRaftLog extends RaftLogBase {
+
+  enum TaskType {
+    START_LOG_SEGMENT,
+    FINALIZE_LOG_SEGMENT,
+    WRITE_LOG,
+    PURGE_LOG,
+    TRUNCATE_LOG
+  }
+
   /**
    * I/O task definitions.
    */
@@ -117,6 +126,8 @@ public final class SegmentedRaftLog extends RaftLogBase {
     abstract void execute() throws IOException;
 
     abstract long getEndIndex();
+
+    abstract TaskType getType();
 
     void startTimerOnEnqueue(Timekeeper queueTimer) {
       queueTimerContext = queueTimer.time();

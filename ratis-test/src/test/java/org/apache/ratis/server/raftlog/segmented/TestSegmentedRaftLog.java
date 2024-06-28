@@ -41,6 +41,8 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.DataBlockingQueue;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.Slf4jUtils;
@@ -57,8 +59,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -74,6 +81,7 @@ import org.slf4j.event.Level;
 
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
+import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogWorker.RUN_WORKER;
 import static org.apache.ratis.server.storage.RaftStorageTestUtils.getLogUnsafe;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -393,6 +401,82 @@ public class TestSegmentedRaftLog extends BaseTest {
       // check if the raft log is correct
       checkEntries(raftLog, entries, 0, entries.size());
       Assertions.assertEquals(9, raftLog.getRaftLogCache().getNumOfSegments());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testPurgeAfterAppendEntry(Boolean useAsyncFlush, Boolean smSyncFlush) throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, useAsyncFlush);
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, smSyncFlush);
+    RaftServerConfigKeys.Log.setPurgeGap(properties, 1);
+    RaftServerConfigKeys.Log.setForceSyncNum(properties, 128);
+
+    int startTerm = 0;
+    int endTerm = 2;
+    int segmentSize = 10;
+    long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1);
+    long nextStartIndex = segmentSize * (endTerm - startTerm);
+
+    // append entries and roll logSegment for later purge operation
+    List<SegmentRange> ranges0 = prepareRanges(startTerm, endTerm, segmentSize, 0);
+    List<LogEntryProto> entries0 = prepareLogEntries(ranges0, null);
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLog()) {
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      entries0.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
+    }
+
+    // test the pattern in the task queue of SegmentedRaftLogWorker: (WriteLog, ..., PurgeLog)
+    List<SegmentRange> ranges = prepareRanges(endTerm - 1, endTerm, 1, nextStartIndex);
+    List<LogEntryProto> entries = prepareLogEntries(ranges, null);
+
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLog()) {
+      final CountDownLatch raftLogOpened = new CountDownLatch(1);
+      final CountDownLatch tasksAdded = new CountDownLatch(1);
+
+      // inject test code to make the pattern (WriteLog, PurgeLog)
+      final ConcurrentLinkedQueue<CompletableFuture<Long>> appendFutures = new ConcurrentLinkedQueue<>();
+      final AtomicReference<CompletableFuture<Long>> purgeFuture = new AtomicReference<>();
+      final AtomicInteger tasksCount = new AtomicInteger(0);
+      CodeInjectionForTesting.put(RUN_WORKER, (localId, remoteId, args) -> {
+        // wait for raftLog to be opened
+        try {
+          if(!raftLogOpened.await(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit())) {
+            throw new TimeoutException();
+          }
+        } catch (InterruptedException | TimeoutException e) {
+          LOG.error("an exception occurred", e);
+          throw new RuntimeException(e);
+        }
+
+        // add WriteLog and PurgeLog tasks
+        entries.stream().map(raftLog::appendEntry).forEach(appendFutures::add);
+        purgeFuture.set(raftLog.purge(endIndexOfClosedSegment));
+
+        tasksCount.set(((DataBlockingQueue<?>) args[0]).getNumElements());
+        tasksAdded.countDown();
+        return true;
+      });
+
+      // open raftLog
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      raftLogOpened.countDown();
+
+      // wait for all tasks to be added
+      if(!tasksAdded.await(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit())) {
+        throw new TimeoutException();
+      }
+      Assertions.assertEquals(entries.size() + 1, tasksCount.get());
+
+      // check if the purge task is executed
+      final Long purged = purgeFuture.get().get();
+      LOG.info("purgeIndex = {}, purged = {}", endIndexOfClosedSegment, purged);
+      Assertions.assertEquals(endIndexOfClosedSegment, raftLog.getRaftLogCache().getStartIndex());
+
+      // check if the appendEntry futures are done
+      JavaUtils.allOf(appendFutures).get(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit());
+    } finally {
+      CodeInjectionForTesting.put(RUN_WORKER, (localId, remoteId, args) -> false);
     }
   }
 
