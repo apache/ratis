@@ -120,8 +120,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
-          <!--Else will use ratis-assembly as final name.-->
-          <finalName>apache-ratis-${project.version}</finalName>
           <skipAssembly>false</skipAssembly>
           <appendAssemblyId>true</appendAssemblyId>
           <tarLongFileMode>gnu</tarLongFileMode>
@@ -137,8 +135,6 @@
               <descriptors>
                 <descriptor>src/main/assembly/src.xml</descriptor>
               </descriptors>
-              <finalName>apache-ratis-${project.version}-src</finalName>
-              <appendAssemblyId>false</appendAssemblyId>
             </configuration>
           </execution>
           <execution>
@@ -149,13 +145,8 @@
             </goals>
             <configuration>
               <descriptors>
-                <descriptor>src/main/assembly/examples-bin.xml</descriptor>
-                <descriptor>src/main/assembly/shell-bin.xml</descriptor>
                 <descriptor>src/main/assembly/bin.xml</descriptor>
-                <descriptor>src/main/assembly/bin-pkg.xml</descriptor>
               </descriptors>
-              <finalName>apache-ratis-${project.version}-bin</finalName>
-              <appendAssemblyId>false</appendAssemblyId>
             </configuration>
           </execution>
         </executions>
