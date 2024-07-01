@@ -204,7 +204,7 @@
     <shell-executable>bash</shell-executable>
 
     <!-- define the Java language version used by the compiler -->
-    <javac.version>1.8</javac.version>
+    <javac.version>8</javac.version>
     <java.min.version>${javac.version}</java.min.version>
     <maven.min.version>3.3.9</maven.min.version>
 
@@ -522,6 +522,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.2.1</version>
           <configuration>
             <rules>
               <requireMavenVersion>
@@ -574,8 +575,6 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <configuration>
-            <source>${javac.version}</source>
-            <target>${javac.version}</target>
             <fork>true</fork>
             <meminitial>512m</meminitial>
             <maxmem>2048m</maxmem>
@@ -874,6 +873,25 @@
   </build>
 
   <profiles>
+    <profile>
+      <id>java8</id>
+      <activation>
+        <jdk>[,8]</jdk>
+      </activation>
+      <properties>
+        <maven.compiler.source>${javac.version}</maven.compiler.source>
+        <maven.compiler.target>${javac.version}</maven.compiler.target>
+      </properties>
+    </profile>
+    <profile>
+      <id>java9-or-later</id>
+      <activation>
+        <jdk>[9,]</jdk>
+      </activation>
+      <properties>
+        <maven.compiler.release>${javac.version}</maven.compiler.release> <!-- supported since Java 9 -->
+      </properties>
+    </profile>
     <profile>
       <id>experiments-build</id>
       <activation>
