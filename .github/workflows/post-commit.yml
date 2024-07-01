@@ -50,14 +50,14 @@ jobs:
         with:
           name: ratis-bin
           path: |
-            ratis-assembly/target/apache-ratis-*.tar.gz
-            !ratis-assembly/target/apache-ratis-*-src.tar.gz
+            ratis-assembly/target/ratis-assembly-*.tar.gz
+            !ratis-assembly/target/ratis-assembly-*-src.tar.gz
           retention-days: 1
       - name: Store source tarball for compilation
         uses: actions/upload-artifact@v4
         with:
           name: ratis-src
-          path: ratis-assembly/target/apache-ratis-*-src.tar.gz
+          path: ratis-assembly/target/ratis-assembly-*-src.tar.gz
           retention-days: 1
   compile:
     needs:
@@ -75,7 +75,7 @@ jobs:
           name: ratis-src
       - name: Untar sources
         run: |
-          tar --strip-components 1 -xzvf apache-ratis-*-src.tar.gz
+          tar --strip-components 1 -xzvf ratis-assembly-*-src.tar.gz
       - name: Cache for maven dependencies
         uses: actions/cache/restore@v4
         with:
@@ -256,7 +256,7 @@ jobs:
         - name: Untar binaries
           run: |
             mkdir -p ratis-assembly/target
-            tar xzvf target/artifacts/ratis-bin/apache-ratis*.tar.gz -C ratis-assembly/target
+            tar xzvf target/artifacts/ratis-bin/ratis-assembly-*.tar.gz -C ratis-assembly/target
         - name: Calculate combined coverage
           run: ./dev-support/checks/coverage.sh
         - name: Upload coverage to Sonar

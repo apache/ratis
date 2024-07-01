@@ -22,9 +22,18 @@
    */
   -->
   <id>bin</id>
+  <baseDirectory>apache-ratis-${project.version}-bin</baseDirectory>
   <formats>
-    <format>dir</format>
+    <format>tar.gz</format>
   </formats>
+  <dependencySets>
+    <dependencySet>
+      <includes>
+        <include>org.apache.ratis:ratis-examples</include>
+      </includes>
+      <outputDirectory>examples/lib</outputDirectory>
+    </dependencySet>
+  </dependencySets>
   <moduleSets>
     <moduleSet>
       <useAllReactorProjects>true</useAllReactorProjects>
@@ -42,6 +51,7 @@
         <include>org.apache.ratis:ratis-metrics-api</include>
         <include>org.apache.ratis:ratis-metrics-default</include>
         <include>org.apache.ratis:ratis-metrics-dropwizard3</include>
+        <include>org.apache.ratis:ratis-shell</include>
         <include>org.apache.ratis:ratis-tools</include>
         <include>org.apache.ratis:ratis-resource-bundle</include>
       </includes>
@@ -79,6 +89,51 @@
       <outputDirectory>docs</outputDirectory>
       <fileMode>0644</fileMode>
       <directoryMode>0755</directoryMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-shell/src/main/bin</directory>
+      <outputDirectory>bin</outputDirectory>
+      <fileMode>0755</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-shell/src/main/libexec</directory>
+      <outputDirectory>libexec</outputDirectory>
+      <fileMode>0755</fileMode>
+      <directoryMode>0755</directoryMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-shell/src/main/conf</directory>
+      <outputDirectory>conf</outputDirectory>
+      <fileMode>644</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-shell/target/lib/</directory>
+      <outputDirectory>jars</outputDirectory>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-examples</directory>
+      <outputDirectory>examples</outputDirectory>
+      <includes>
+        <include>README.md</include>
+      </includes>
+      <fileMode>0644</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-examples/src/main/bin</directory>
+      <outputDirectory>examples/bin</outputDirectory>
+      <includes>
+        <include>*.*</include>
+      </includes>
+      <fileMode>0755</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-examples/src/main/resources</directory>
+      <outputDirectory>examples/conf</outputDirectory>
+      <includes>
+        <include>conf.properties</include>
+        <include>log4j.properties</include>
+      </includes>
+      <fileMode>644</fileMode>
     </fileSet>
   </fileSets>
 </assembly>
