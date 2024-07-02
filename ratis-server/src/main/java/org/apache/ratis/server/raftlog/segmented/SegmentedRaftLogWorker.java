@@ -30,7 +30,6 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
-import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog.TaskType;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.SegmentFileInfo;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
@@ -361,9 +360,7 @@ class SegmentedRaftLogWorker {
     } else if (pendingFlushNum >= forceSyncNum) {
       return true;
     }
-
-    final Task nextTask = queue.peek();
-    return pendingFlushNum > 0 && (nextTask == null || nextTask.getType() != TaskType.WRITE_LOG);
+    return pendingFlushNum > 0 && !(queue.peek() instanceof WriteLog);
   }
 
   private void flushIfNecessary() throws IOException {
@@ -491,11 +488,6 @@ class SegmentedRaftLogWorker {
     long getEndIndex() {
       return segments.maxEndIndex();
     }
-
-    @Override
-    TaskType getType() {
-      return TaskType.PURGE_LOG;
-    }
   }
 
   private class WriteLog extends Task {
@@ -589,11 +581,6 @@ class SegmentedRaftLogWorker {
     }
 
     @Override
-    TaskType getType() {
-      return TaskType.WRITE_LOG;
-    }
-
-    @Override
     public String toString() {
       return super.toString() + ": " + LogProtoUtils.toLogEntryString(
           entry, stateMachine == null? null: stateMachine::toStateMachineLogEntryString);
@@ -649,11 +636,6 @@ class SegmentedRaftLogWorker {
     }
 
     @Override
-    TaskType getType() {
-      return TaskType.FINALIZE_LOG_SEGMENT;
-    }
-
-    @Override
     public String toString() {
       return super.toString() + ": " + "startIndex=" + startIndex + " endIndex=" + endIndex;
     }
@@ -681,11 +663,6 @@ class SegmentedRaftLogWorker {
     @Override
     long getEndIndex() {
       return newStartIndex;
-    }
-
-    @Override
-    TaskType getType() {
-      return TaskType.START_LOG_SEGMENT;
     }
   }
 
@@ -758,11 +735,6 @@ class SegmentedRaftLogWorker {
         return segments.getToDelete()[segments.getToDelete().length - 1].getEndIndex();
       }
       return RaftLog.INVALID_LOG_INDEX;
-    }
-
-    @Override
-    TaskType getType() {
-      return TaskType.TRUNCATE_LOG;
     }
 
     @Override
