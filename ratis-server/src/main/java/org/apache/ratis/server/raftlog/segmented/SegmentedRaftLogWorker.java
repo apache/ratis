@@ -63,6 +63,9 @@ class SegmentedRaftLogWorker {
 
   static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
 
+  private static final String CLASS_NAME = JavaUtils.getClassSimpleName(SegmentedRaftLogWorker.class);
+  static final String RUN_WORKER = CLASS_NAME + ".runWorker";
+
   static class StateMachineDataPolicy {
     private final boolean sync;
     private final TimeDuration syncTimeout;
@@ -297,6 +300,7 @@ class SegmentedRaftLogWorker {
     // if and when a log task encounters an exception
     RaftLogIOException logIOException = null;
 
+    CodeInjectionForTesting.execute(RUN_WORKER, server == null ? null : server.getId(), null, queue);
     while (running) {
       try {
         Task task = queue.poll(ONE_SECOND);
@@ -355,7 +359,7 @@ class SegmentedRaftLogWorker {
     } else if (pendingFlushNum >= forceSyncNum) {
       return true;
     }
-    return pendingFlushNum > 0 && queue.isEmpty();
+    return pendingFlushNum > 0 && !(queue.peek() instanceof WriteLog);
   }
 
   private void flushIfNecessary() throws IOException {
