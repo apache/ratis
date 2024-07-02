@@ -154,6 +154,11 @@ public class DataQueue<E> implements Iterable<E> {
     return polled;
   }
 
+  /** Peek the head element from this queue. */
+  public E peek() {
+    return q.peek();
+  }
+
   /** The same as {@link java.util.Collection#remove(Object)}. */
   public boolean remove(E e) {
     final boolean removed = q.remove(e);
