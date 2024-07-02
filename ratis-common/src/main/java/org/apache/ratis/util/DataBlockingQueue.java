@@ -162,4 +162,11 @@ public class DataBlockingQueue<E> extends DataQueue<E> {
       return results;
     }
   }
+
+  @Override
+  public E peek() {
+    try(AutoCloseableLock auto = AutoCloseableLock.acquire(lock)) {
+      return super.peek();
+    }
+  }
 }
