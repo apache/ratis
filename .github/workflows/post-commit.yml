@@ -92,6 +92,8 @@ jobs:
           java-version: ${{ matrix.java }}
       - name: Run a full build
         run: ./dev-support/checks/build.sh -Djavac.version=${{ matrix.java }}
+      - name: Test reproducibility
+        run: ./dev-support/checks/repro.sh -Djavac.version=${{ matrix.java }}
   rat:
     name: rat
     runs-on: ubuntu-20.04
