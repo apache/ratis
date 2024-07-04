@@ -6,7 +6,18 @@
     <description>Recent content in Posts on Apache Ratis</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 09 Jan 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.apache.org/post/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sat, 29 Jun 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://ratis.apache.org/post/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Release 3.1.0 is available</title>
+      <link>https://ratis.apache.org/post/3.1.0.html</link>
+      <pubDate>Sat, 29 Jun 2024 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.apache.org/post/3.1.0.html</guid>
+      <description>Download
+This is a maintenance release with multiple improvements and bugfixes. See the changes between 3.0.1 and 3.1.0 releases.
+It has been tested with Apache Ozone and Apache IoTDB, where Apache Ratis is used to replicate raw data and to provide high availability.</description>
+    </item>
+    
     <item>
       <title>Release 3.0.1 is available</title>
       <link>https://ratis.apache.org/post/3.0.1.html</link>
