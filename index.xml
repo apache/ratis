@@ -14,7 +14,7 @@
       
       <guid>https://ratis.apache.org/post/3.1.0.html</guid>
       <description>Download
-This is a maintenance release with multiple improvements and bugfixes. See the changes between 3.0.1 and 3.1.0 releases.
+This is a minor release with multiple improvements and bugfixes. See the changes between 3.0.1 and 3.1.0 releases.
 It has been tested with Apache Ozone and Apache IoTDB, where Apache Ratis is used to replicate raw data and to provide high availability.</description>
     </item>
     
