@@ -977,9 +977,6 @@
                 <goals>
                   <goal>jar</goal>
                 </goals>
-                <configuration>
-                  <outputDirectory>${project.build.directory}</outputDirectory>
-                </configuration>
               </execution>
             </executions>
           </plugin>
