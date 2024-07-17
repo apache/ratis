@@ -28,8 +28,10 @@ import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
+import org.apache.ratis.util.JavaUtils;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
   public NettyClientRpc(ClientId clientId, RaftProperties properties) {
@@ -37,62 +39,93 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
   }
 
   @Override
+  public CompletableFuture<RaftClientReply> sendRequestAsync(RaftClientRequest request) {
+    final RaftPeerId serverId = request.getServerId();
+    try {
+      final NettyRpcProxy proxy = getProxies().getProxy(serverId);
+      final RaftNettyServerRequestProto serverRequestProto = buildRequestProto(request);
+      return proxy.sendAsync(serverRequestProto).thenApply(replyProto -> {
+        if (request instanceof GroupListRequest) {
+          return ClientProtoUtils.toGroupListReply(replyProto.getGroupListReply());
+        } else if (request instanceof GroupInfoRequest) {
+          return ClientProtoUtils.toGroupInfoReply(replyProto.getGroupInfoReply());
+        } else {
+          return ClientProtoUtils.toRaftClientReply(replyProto.getRaftClientReply());
+        }
+      });
+    } catch (Throwable e) {
+      return JavaUtils.completeExceptionally(e);
+    }
+  }
+
+  @Override
   public RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
     final RaftPeerId serverId = request.getServerId();
     final NettyRpcProxy proxy = getProxies().getProxy(serverId);
 
+    final RaftNettyServerRequestProto serverRequestProto = buildRequestProto(request);
+    final RaftRpcRequestProto rpcRequest = getRpcRequestProto(serverRequestProto);
+    if (request instanceof GroupListRequest) {
+      return ClientProtoUtils.toGroupListReply(
+          proxy.send(rpcRequest, serverRequestProto).getGroupListReply());
+    } else if (request instanceof GroupInfoRequest) {
+      return ClientProtoUtils.toGroupInfoReply(
+          proxy.send(rpcRequest, serverRequestProto).getGroupInfoReply());
+    } else {
+      return ClientProtoUtils.toRaftClientReply(
+          proxy.send(rpcRequest, serverRequestProto).getRaftClientReply());
+    }
+  }
+
+  private RaftNettyServerRequestProto buildRequestProto(RaftClientRequest request) {
     final RaftNettyServerRequestProto.Builder b = RaftNettyServerRequestProto.newBuilder();
-    final RaftRpcRequestProto rpcRequest;
     if (request instanceof GroupManagementRequest) {
       final GroupManagementRequestProto proto = ClientProtoUtils.toGroupManagementRequestProto(
           (GroupManagementRequest)request);
       b.setGroupManagementRequest(proto);
-      rpcRequest = proto.getRpcRequest();
     } else if (request instanceof SetConfigurationRequest) {
       final SetConfigurationRequestProto proto = ClientProtoUtils.toSetConfigurationRequestProto(
           (SetConfigurationRequest)request);
       b.setSetConfigurationRequest(proto);
-      rpcRequest = proto.getRpcRequest();
     } else if (request instanceof GroupListRequest) {
       final RaftProtos.GroupListRequestProto proto = ClientProtoUtils.toGroupListRequestProto(
           (GroupListRequest)request);
       b.setGroupListRequest(proto);
-      rpcRequest = proto.getRpcRequest();
     } else if (request instanceof GroupInfoRequest) {
       final RaftProtos.GroupInfoRequestProto proto = ClientProtoUtils.toGroupInfoRequestProto(
           (GroupInfoRequest)request);
       b.setGroupInfoRequest(proto);
-      rpcRequest = proto.getRpcRequest();
     } else if (request instanceof TransferLeadershipRequest) {
       final RaftProtos.TransferLeadershipRequestProto proto = ClientProtoUtils.toTransferLeadershipRequestProto(
           (TransferLeadershipRequest)request);
       b.setTransferLeadershipRequest(proto);
-      rpcRequest = proto.getRpcRequest();
     } else if (request instanceof SnapshotManagementRequest) {
       final RaftProtos.SnapshotManagementRequestProto proto = ClientProtoUtils.toSnapshotManagementRequestProto(
           (SnapshotManagementRequest) request);
       b.setSnapshotManagementRequest(proto);
-      rpcRequest = proto.getRpcRequest();
     } else if (request instanceof LeaderElectionManagementRequest) {
       final RaftProtos.LeaderElectionManagementRequestProto proto =
           ClientProtoUtils.toLeaderElectionManagementRequestProto(
           (LeaderElectionManagementRequest) request);
       b.setLeaderElectionManagementRequest(proto);
-      rpcRequest = proto.getRpcRequest();
     } else {
       final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
       b.setRaftClientRequest(proto);
-      rpcRequest = proto.getRpcRequest();
     }
-    if (request instanceof GroupListRequest) {
-      return ClientProtoUtils.toGroupListReply(
-          proxy.send(rpcRequest, b.build()).getGroupListReply());
-    } else if (request instanceof GroupInfoRequest) {
-      return ClientProtoUtils.toGroupInfoReply(
-          proxy.send(rpcRequest, b.build()).getGroupInfoReply());
+    return b.build();
+  }
+
+  private RaftRpcRequestProto getRpcRequestProto(RaftNettyServerRequestProto serverRequestProto) {
+    if (serverRequestProto.hasGroupManagementRequest()) {
+      return serverRequestProto.getGroupManagementRequest().getRpcRequest();
+    } else if (serverRequestProto.hasSetConfigurationRequest()) {
+      return serverRequestProto.getSetConfigurationRequest().getRpcRequest();
+    } else if (serverRequestProto.hasGroupListRequest()) {
+      return serverRequestProto.getGroupListRequest().getRpcRequest();
+    } else if (serverRequestProto.hasGroupInfoRequest()) {
+      return serverRequestProto.getGroupInfoRequest().getRpcRequest();
     } else {
-      return ClientProtoUtils.toRaftClientReply(
-          proxy.send(rpcRequest, b.build()).getRaftClientReply());
+      return serverRequestProto.getRaftClientRequest().getRpcRequest();
     }
   }
 }
