@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.thirdparty.com.google.common.net.InetAddresses;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,8 +147,12 @@ public interface NetUtils {
     if (address == null) {
       return null;
     }
-    final StringBuilder b = new StringBuilder(address.getHostName());
-    if (address.getAddress() instanceof Inet6Address) {
+    String hostName = address.getHostName();
+    final StringBuilder b = new StringBuilder(hostName);
+    // Surround with '[', ']' only if it is a IPv6 ip - not for a IPv6 host
+    if (address.getAddress() instanceof Inet6Address &&
+        InetAddresses.isInetAddress(hostName) &&
+        InetAddresses.forString(hostName).getAddress().length == 16) {
       b.insert(0, '[').append(']');
     }
     return b.append(':').append(address.getPort()).toString();
