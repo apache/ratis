@@ -19,24 +19,12 @@ package org.apache.ratis.server.protocol;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.TermIndexProto;
-import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
-import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 
 import java.util.Comparator;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
-  class Util {
-    /** An LRU Cache for {@link TermIndex} instances */
-    private static final Cache<TermIndex, TermIndex> CACHE = CacheBuilder.newBuilder()
-          .maximumSize(1 << 16)
-          .expireAfterAccess(1, TimeUnit.MINUTES)
-          .build();
-  }
-  TermIndex[] EMPTY_ARRAY = {};
 
   /** @return the term. */
   long getTerm();
@@ -71,48 +59,53 @@ public interface TermIndex extends Comparable<TermIndex> {
 
   /** @return a {@link TermIndex} object. */
   static TermIndex valueOf(long term, long index) {
-    final TermIndex key = new TermIndex() {
-      @Override
-      public long getTerm() {
-        return term;
+    return new Impl(term, index);
+  }
+
+  class Impl implements TermIndex {
+    private final long term;
+    private final long index;
+
+    public Impl(long term, long index) {
+      this.term = term;
+      this.index = index;
+    }
+
+    @Override
+    public long getTerm() {
+      return term;
+    }
+
+    @Override
+    public long getIndex() {
+      return index;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == this) {
+        return true;
+      } else if (!(obj instanceof TermIndex)) {
+        return false;
       }
 
-      @Override
-      public long getIndex() {
-        return index;
-      }
+      final TermIndex that = (TermIndex) obj;
+      return this.getTerm() == that.getTerm()
+          && this.getIndex() == that.getIndex();
+    }
 
-      @Override
-      public boolean equals(Object obj) {
-        if (obj == this) {
-          return true;
-        } else if (!(obj instanceof TermIndex)) {
-          return false;
-        }
+    @Override
+    public int hashCode() {
+      return Long.hashCode(term) ^ Long.hashCode(index);
+    }
 
-        final TermIndex that = (TermIndex) obj;
-        return this.getTerm() == that.getTerm()
-            && this.getIndex() == that.getIndex();
-      }
+    private String longToString(long n) {
+      return n >= 0L? String.valueOf(n) : "~";
+    }
 
-      @Override
-      public int hashCode() {
-        return Long.hashCode(term) ^ Long.hashCode(index);
-      }
-
-      private String longToString(long n) {
-        return n >= 0L? String.valueOf(n) : "~";
-      }
-
-      @Override
-      public String toString() {
-        return String.format("(t:%s, i:%s)", longToString(term), longToString(index));
-      }
-    };
-    try {
-      return Util.CACHE.get(key, () -> key);
-    } catch (ExecutionException e) {
-      throw new IllegalStateException("Failed to valueOf(" + term + ", " + index + "), key=" + key, e);
+    @Override
+    public String toString() {
+      return String.format("(t:%s, i:%s)", longToString(term), longToString(index));
     }
   }
 }
