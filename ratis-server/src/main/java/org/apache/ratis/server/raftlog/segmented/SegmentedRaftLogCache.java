@@ -547,9 +547,13 @@ public class SegmentedRaftLogCache {
     }
   }
 
-  LogRecord getLogRecord(long index) {
+  TermIndex getTermIndex(long index) {
     LogSegment segment = getSegment(index);
-    return segment == null ? null : segment.getLogRecord(index);
+    if (segment == null) {
+      return null;
+    }
+    final LogRecord record = segment.getLogRecord(index);
+    return record != null ? record.getTermIndex() : null;
   }
 
   /**
