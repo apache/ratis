@@ -276,7 +276,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     checkLogState();
     final LogSegment segment;
     final LogRecord record;
-    try (AutoCloseableLock readLock = readLock()) {
+    {
       segment = cache.getSegment(index);
       if (segment == null) {
         return null;
@@ -339,7 +339,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public TermIndex getTermIndex(long index) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    {
       LogRecord record = cache.getLogRecord(index);
       return record != null ? record.getTermIndex() : null;
     }
@@ -348,7 +348,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public LogEntryHeader[] getEntries(long startIndex, long endIndex) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    {
       return cache.getTermIndices(startIndex, endIndex);
     }
   }
@@ -356,7 +356,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public TermIndex getLastEntryTermIndex() {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    {
       return cache.getLastTermIndex();
     }
   }

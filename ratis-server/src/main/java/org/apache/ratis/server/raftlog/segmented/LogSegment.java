@@ -37,13 +37,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -106,6 +106,44 @@ public final class LogSegment {
 
     long getOffset() {
       return offset;
+    }
+  }
+
+  private static class Records {
+    private final ConcurrentNavigableMap<Long, LogRecord> map = new ConcurrentSkipListMap<>();
+
+    int size() {
+      return map.size();
+    }
+
+    LogRecord getFirst() {
+      final Map.Entry<Long, LogRecord> first = map.firstEntry();
+      return first != null? first.getValue() : null;
+    }
+
+    LogRecord getLast() {
+      final Map.Entry<Long, LogRecord> last = map.lastEntry();
+      return last != null? last.getValue() : null;
+    }
+
+    LogRecord get(long i) {
+      return map.get(i);
+    }
+
+    long append(LogRecord record) {
+      final long index = record.getTermIndex().getIndex();
+      final LogRecord previous = map.put(index, record);
+      Preconditions.assertNull(previous, "previous");
+      return index;
+    }
+
+    LogRecord removeLast() {
+      final Map.Entry<Long, LogRecord> last = map.pollLastEntry();
+      return Objects.requireNonNull(last, "last == null").getValue();
+    }
+
+    void clear() {
+      map.clear();
     }
   }
 
@@ -210,7 +248,7 @@ public final class LogSegment {
     final LogRecord last = getLastRecord();
     if (last != null) {
       Preconditions.assertSame(expectedLastIndex, last.getTermIndex().getIndex(), "Index at the last record");
-      Preconditions.assertSame(expectedStart, records.get(0).getTermIndex().getIndex(), "Index at the first record");
+      Preconditions.assertSame(expectedStart, records.getFirst().getTermIndex().getIndex(), "Index at the first record");
     }
     if (!corrupted) {
       Preconditions.assertSame(expectedEnd, expectedLastIndex, "End/last Index");
@@ -306,7 +344,7 @@ public final class LogSegment {
   /**
    * the list of records is more like the index of a segment
    */
-  private final List<LogRecord> records = new ArrayList<>();
+  private final Records records = new Records();
   /**
    * the entryCache caches the content of log entries.
    */
@@ -366,20 +404,18 @@ public final class LogSegment {
 
   private LogRecord appendLogRecord(Op op, LogEntryProto entry) {
     Objects.requireNonNull(entry, "entry == null");
-    if (records.isEmpty()) {
+    final LogRecord currentLast = records.getLast();
+    if (currentLast == null) {
       Preconditions.assertTrue(entry.getIndex() == startIndex,
           "gap between start index %s and first entry to append %s",
           startIndex, entry.getIndex());
-    }
-
-    final LogRecord currentLast = getLastRecord();
-    if (currentLast != null) {
+    } else {
       Preconditions.assertTrue(entry.getIndex() == currentLast.getTermIndex().getIndex() + 1,
           "gap between entries %s and %s", entry.getIndex(), currentLast.getTermIndex().getIndex());
     }
 
     final LogRecord record = new LogRecord(totalFileSize, entry);
-    records.add(record);
+    records.append(record);
     totalFileSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
     return record;
@@ -406,13 +442,13 @@ public final class LogSegment {
 
   LogRecord getLogRecord(long index) {
     if (index >= startIndex && index <= endIndex) {
-      return records.get(Math.toIntExact(index - startIndex));
+      return records.get(index);
     }
     return null;
   }
 
   private LogRecord getLastRecord() {
-    return records.isEmpty() ? null : records.get(records.size() - 1);
+    return records.getLast();
   }
 
   TermIndex getLastTermIndex() {
@@ -434,7 +470,8 @@ public final class LogSegment {
   synchronized void truncate(long fromIndex) {
     Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
     for (long index = endIndex; index >= fromIndex; index--) {
-      LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
+      final LogRecord removed = records.removeLast();
+      Preconditions.assertSame(index, removed.getTermIndex().getIndex(), "removedIndex");
       removeEntryCache(removed.getTermIndex());
       totalFileSize = removed.offset;
     }
