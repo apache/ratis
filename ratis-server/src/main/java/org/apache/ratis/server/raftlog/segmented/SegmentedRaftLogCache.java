@@ -521,6 +521,7 @@ public class SegmentedRaftLogCache {
   }
 
   LogSegment getSegment(long index) {
+    final LogSegment openSegment = this.openSegment;
     if (openSegment != null && index >= openSegment.getStartIndex()) {
       return openSegment;
     } else {

@@ -274,22 +274,18 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public LogEntryProto get(long index) throws RaftLogIOException {
     checkLogState();
-    final LogSegment segment;
-    final LogRecord record;
-    {
-      segment = cache.getSegment(index);
-      if (segment == null) {
-        return null;
-      }
-      record = segment.getLogRecord(index);
-      if (record == null) {
-        return null;
-      }
-      final LogEntryProto entry = segment.getEntryFromCache(record.getTermIndex());
-      if (entry != null) {
-        getRaftLogMetrics().onRaftLogCacheHit();
-        return entry;
-      }
+    final LogSegment segment = cache.getSegment(index);
+    if (segment == null) {
+      return null;
+    }
+    final LogRecord record = segment.getLogRecord(index);
+    if (record == null) {
+      return null;
+    }
+    final LogEntryProto entry = segment.getEntryFromCache(record.getTermIndex());
+    if (entry != null) {
+      getRaftLogMetrics().onRaftLogCacheHit();
+      return entry;
     }
 
     // the entry is not in the segment's cache. Load the cache without holding the lock.
@@ -339,26 +335,20 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public TermIndex getTermIndex(long index) {
     checkLogState();
-    {
-      LogRecord record = cache.getLogRecord(index);
-      return record != null ? record.getTermIndex() : null;
-    }
+    final LogRecord record = cache.getLogRecord(index);
+    return record != null ? record.getTermIndex() : null;
   }
 
   @Override
   public LogEntryHeader[] getEntries(long startIndex, long endIndex) {
     checkLogState();
-    {
-      return cache.getTermIndices(startIndex, endIndex);
-    }
+    return cache.getTermIndices(startIndex, endIndex);
   }
 
   @Override
   public TermIndex getLastEntryTermIndex() {
     checkLogState();
-    {
-      return cache.getLastTermIndex();
-    }
+    return cache.getLastTermIndex();
   }
 
   @Override

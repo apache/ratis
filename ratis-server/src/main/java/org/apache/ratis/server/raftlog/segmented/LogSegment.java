@@ -248,7 +248,9 @@ public final class LogSegment {
     final LogRecord last = getLastRecord();
     if (last != null) {
       Preconditions.assertSame(expectedLastIndex, last.getTermIndex().getIndex(), "Index at the last record");
-      Preconditions.assertSame(expectedStart, records.getFirst().getTermIndex().getIndex(), "Index at the first record");
+      final LogRecord first = records.getFirst();
+      Objects.requireNonNull(first, "first record");
+      Preconditions.assertSame(expectedStart, first.getTermIndex().getIndex(), "Index at the first record");
     }
     if (!corrupted) {
       Preconditions.assertSame(expectedEnd, expectedLastIndex, "End/last Index");
