@@ -128,6 +128,8 @@ public class GrpcClientProtocolClient implements Closeable {
       SizeInBytes flowControlWindow, SizeInBytes maxMessageSize) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(address);
+    // ignore any http proxy for grpc
+    channelBuilder.proxyDetector(uri -> null);
 
     if (tlsConf != null) {
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();

@@ -78,6 +78,8 @@ public class GrpcServerProtocolClient implements Closeable {
       GrpcTlsConfig tlsConfig) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(target.getAddress());
+    // ignore any http proxy for grpc
+    channelBuilder.proxyDetector(uri -> null);
 
     if (tlsConfig!= null) {
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
