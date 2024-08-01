@@ -245,7 +245,7 @@ public final class LogSegment {
     final long expectedLastIndex = expectedStart + expectedEntryCount - 1;
     Preconditions.assertSame(expectedLastIndex, getEndIndex(), "Segment end index");
 
-    final LogRecord last = getLastRecord();
+    final LogRecord last = records.getLast();
     if (last != null) {
       Preconditions.assertSame(expectedLastIndex, last.getTermIndex().getIndex(), "Index at the last record");
       final LogRecord first = records.getFirst();
@@ -449,12 +449,8 @@ public final class LogSegment {
     return null;
   }
 
-  private LogRecord getLastRecord() {
-    return records.getLast();
-  }
-
   TermIndex getLastTermIndex() {
-    LogRecord last = getLastRecord();
+    final LogRecord last = records.getLast();
     return last == null ? null : last.getTermIndex();
   }
 

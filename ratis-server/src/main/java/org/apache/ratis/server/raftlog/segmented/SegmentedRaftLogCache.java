@@ -521,17 +521,21 @@ public class SegmentedRaftLogCache {
   }
 
   LogSegment getSegment(long index) {
-    final LogSegment openSegment = this.openSegment;
-    if (openSegment != null && index >= openSegment.getStartIndex()) {
-      return openSegment;
+    final LogSegment open = this.openSegment;
+    if (open != null && index >= open.getStartIndex()) {
+      return open;
     } else {
       return closedSegments.search(index);
     }
   }
 
-  LogRecord getLogRecord(long index) {
+  TermIndex getTermIndex(long index) {
     LogSegment segment = getSegment(index);
-    return segment == null ? null : segment.getLogRecord(index);
+    if (segment == null) {
+      return null;
+    }
+    final LogRecord record = segment.getLogRecord(index);
+    return record != null ? record.getTermIndex() : null;
   }
 
   /**

@@ -335,8 +335,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public TermIndex getTermIndex(long index) {
     checkLogState();
-    final LogRecord record = cache.getLogRecord(index);
-    return record != null ? record.getTermIndex() : null;
+    return cache.getTermIndex(index);
   }
 
   @Override
