@@ -230,6 +230,9 @@ public abstract class RaftLogBase implements RaftLog {
     final long nextIndex;
     try(AutoCloseableLock writeLock = writeLock()) {
       nextIndex = getNextIndex();
+      if (nextIndex - 1 != newCommitIndex) {
+        return INVALID_LOG_INDEX;
+      }
       entry = LogProtoUtils.toLogEntryProto(newCommitIndex, term, nextIndex);
       appendEntry(entry);
     }
@@ -242,24 +245,10 @@ public abstract class RaftLogBase implements RaftLog {
       // do not log the first conf entry
       return false;
     } else if (Optional.ofNullable(lastMetadataEntry.get())
-        .filter(e -> e.getIndex() == newCommitIndex || e.getMetadataEntry().getCommitIndex() >= newCommitIndex)
+        .filter(e -> e.getMetadataEntry().getCommitIndex() >= newCommitIndex)
         .isPresent()) {
-      //log neither lastMetadataEntry, nor entries with a smaller commit index.
+      // do not log entries with a smaller commit index.
       return false;
-    }
-    ReferenceCountedObject<LogEntryProto> ref = null;
-    try {
-      ref = retainLog(newCommitIndex);
-      if (ref.get().hasMetadataEntry()) {
-        // do not log the metadata entry
-        return false;
-      }
-    } catch(RaftLogIOException e) {
-      LOG.error("Failed to get log entry for index " + newCommitIndex, e);
-    } finally {
-      if (ref != null) {
-        ref.release();
-      }
     }
     return true;
   }
