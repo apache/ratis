@@ -984,8 +984,9 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private void logMetadata(long commitIndex) {
-    raftLog.appendMetadata(currentTerm, commitIndex);
-    notifySenders();
+    if (raftLog.appendMetadata(currentTerm, commitIndex) != RaftLog.INVALID_LOG_INDEX) {
+      notifySenders();
+    }
   }
 
   private void checkAndUpdateConfiguration() {
