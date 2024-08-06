@@ -230,9 +230,6 @@ public abstract class RaftLogBase implements RaftLog {
     final long nextIndex;
     try(AutoCloseableLock writeLock = writeLock()) {
       nextIndex = getNextIndex();
-      if (nextIndex - 1 != newCommitIndex) {
-        return INVALID_LOG_INDEX;
-      }
       entry = LogProtoUtils.toLogEntryProto(newCommitIndex, term, nextIndex);
       appendEntry(entry);
     }
