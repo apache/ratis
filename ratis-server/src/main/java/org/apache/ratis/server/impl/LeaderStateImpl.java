@@ -961,7 +961,7 @@ class LeaderStateImpl implements LeaderState {
         lastCommitIndex = entry.getIndex();
       }
     }
-    if (logMetadataEnabled) {
+    if (logMetadataEnabled && lastCommitIndex != RaftLog.INVALID_LOG_INDEX) {
       logMetadata(lastCommitIndex);
     }
     commitIndexChanged();
