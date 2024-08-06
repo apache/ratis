@@ -244,10 +244,7 @@ public abstract class RaftLogBase implements RaftLog {
     }
     final LogEntryProto last = lastMetadataEntry.get();
     // do not log entries with a smaller commit index.
-    if (last == null) {
-      return false;
-    }
-    return newCommitIndex > last.getMetadataEntry().getCommitIndex();
+    return last == null || newCommitIndex > last.getMetadataEntry().getCommitIndex();
   }
 
   @Override
