@@ -244,13 +244,10 @@ public abstract class RaftLogBase implements RaftLog {
     if (newCommitIndex <= 0) {
       // do not log the first conf entry
       return false;
-    } else if (Optional.ofNullable(lastMetadataEntry.get())
-        .filter(e -> e.getMetadataEntry().getCommitIndex() >= newCommitIndex)
-        .isPresent()) {
-      // do not log entries with a smaller commit index.
-      return false;
     }
-    return true;
+    final LogEntryProto last = lastMetadataEntry.get();
+    // do not log entries with a smaller commit index.
+    return newCommitIndex > last.getMetadataEntry().getCommitIndex();
   }
 
   @Override
