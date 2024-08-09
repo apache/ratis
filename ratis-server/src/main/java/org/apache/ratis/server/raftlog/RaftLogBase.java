@@ -274,9 +274,9 @@ public abstract class RaftLogBase implements RaftLog {
         e -> commitIndex.updateToMax(e.getMetadataEntry().getCommitIndex(), infoIndexChange));
     state.open();
 
-    final long startIndex = Math.max(getStartIndex(), lastIndexInSnapshot + 1);
+    final long startIndex = getStartIndex();
     if (startIndex > LEAST_VALID_LOG_INDEX) {
-      purgeIndex.updateIncreasingly(startIndex - 1, infoIndexChange);
+      purgeIndex.updateToMax(startIndex - 1, infoIndexChange);
     }
   }
 
