@@ -276,7 +276,7 @@ public abstract class RaftLogBase implements RaftLog {
 
     final long startIndex = getStartIndex();
     if (startIndex > LEAST_VALID_LOG_INDEX) {
-      purgeIndex.updateIncreasingly(startIndex - 1, infoIndexChange);
+      purgeIndex.updateToMax(startIndex - 1, infoIndexChange);
     }
   }
 
