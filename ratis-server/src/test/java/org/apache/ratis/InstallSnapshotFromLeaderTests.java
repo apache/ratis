@@ -173,7 +173,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
 
     final SnapshotInfo snapshotInfo = cluster.getDivision(change.newPeers[0].getId())
          .getStateMachine().getLatestSnapshot();
-    Assertions.assertNull(snapshotInfo);
+    Assertions.assertNotNull(snapshotInfo);
 
     // recover the old followers and isolate the leader to force leader switch
     RaftTestUtil.isolate(cluster, leaderId);
