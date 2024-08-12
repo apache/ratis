@@ -63,8 +63,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
   class AsyncService implements RaftServerAsynchronousProtocol {
 
     @Override
-    public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request)
-        throws IOException {
+    public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request) {
       throw new UnsupportedOperationException("This method is not supported");
     }
 
@@ -97,7 +96,6 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   public static final class Builder {
     private RaftServer server;
-    private GrpcTlsConfig tlsConfig;
     private GrpcTlsConfig adminTlsConfig;
     private GrpcTlsConfig clientTlsConfig;
     private GrpcTlsConfig serverTlsConfig;
@@ -113,11 +111,6 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
       return new GrpcService(server, adminTlsConfig, clientTlsConfig, serverTlsConfig);
     }
 
-    public Builder setTlsConfig(GrpcTlsConfig tlsConfig) {
-      this.tlsConfig = tlsConfig;
-      return this;
-    }
-
     public Builder setAdminTlsConfig(GrpcTlsConfig config) {
       this.adminTlsConfig = config;
       return this;
@@ -131,10 +124,6 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     public Builder setServerTlsConfig(GrpcTlsConfig config) {
       this.serverTlsConfig = config;
       return this;
-    }
-
-    public GrpcTlsConfig getTlsConfig() {
-      return tlsConfig;
     }
   }
 
@@ -188,10 +177,14 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     super(idSupplier, id -> new PeerProxyMap<>(id.toString(),
         p -> new GrpcServerProtocolClient(p, flowControlWindow.getSizeInt(),
             requestTimeoutDuration, serverTlsConfig, useSeparateHBChannel)));
-    if (appenderBufferSize.getSize() > grpcMessageSizeMax.getSize()) {
+
+    final SizeInBytes gap = SizeInBytes.ONE_MB;
+    final long diff = grpcMessageSizeMax.getSize() - appenderBufferSize.getSize();
+    if (diff < gap.getSize()) {
       throw new IllegalArgumentException("Illegal configuration: "
-          + RaftServerConfigKeys.Log.Appender.BUFFER_BYTE_LIMIT_KEY + " = " + appenderBufferSize
-          + " > " + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + " = " + grpcMessageSizeMax);
+          + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + "(= " + grpcMessageSizeMax
+          + ") must be " + gap + " larger than "
+          + RaftServerConfigKeys.Log.Appender.BUFFER_BYTE_LIMIT_KEY + "(= " + appenderBufferSize + ").");
     }
 
     final RaftProperties properties = raftServer.getProperties();
