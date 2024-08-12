@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Arrays.asList;
@@ -137,9 +138,8 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       final long oldLastApplied = cluster.getLeader().getInfo().getLastAppliedIndex();
 
       // trigger the reconfiguration, make sure the original leader is kicked out
-      PeerChanges change = cluster.addNewPeers(2, true);
-      RaftPeer[] allPeers = cluster.removePeers(2, true,
-              asList(change.newPeers)).allPeersInNewConf;
+      final PeerChanges change = cluster.removePeers(2, true, Collections.emptyList());
+      final RaftPeer[] allPeers = change.allPeersInNewConf;
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(allPeers),
           peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
