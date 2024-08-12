@@ -24,7 +24,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.GroupInfoReply;
-import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
@@ -47,11 +47,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.ratis.shell.cli.RaftUtils.buildRaftGroupIdFromStr;
-import static org.apache.ratis.shell.cli.RaftUtils.buildRaftPeersFromStr;
-import static org.apache.ratis.shell.cli.RaftUtils.retrieveGroupInfoByGroupId;
-import static org.apache.ratis.shell.cli.RaftUtils.retrieveRemoteGroupId;
-
 /**
  * The base class for the ratis shell which need to connect to server.
  */
@@ -67,13 +62,13 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
 
   @Override
   public int run(CommandLine cl) throws IOException {
-    List<RaftPeer> peers = buildRaftPeersFromStr(cl.getOptionValue(PEER_OPTION_NAME));
-    RaftGroupId raftGroupIdFromConfig = buildRaftGroupIdFromStr(cl.getOptionValue(GROUPID_OPTION_NAME));
-    raftGroup = RaftGroup.valueOf(raftGroupIdFromConfig, peers);
+    final List<RaftPeer> peers = CliUtils.parseRaftPeers(cl.getOptionValue(PEER_OPTION_NAME));
+    final RaftGroupId groupIdSpecified = CliUtils.parseRaftGroupId(cl.getOptionValue(GROUPID_OPTION_NAME));
+    raftGroup = RaftGroup.valueOf(groupIdSpecified != null? groupIdSpecified: RaftGroupId.randomId(), peers);
     PrintStream printStream = getPrintStream();
-    try (final RaftClient client = RaftUtils.createClient(raftGroup)) {
-      final RaftGroupId remoteGroupId = retrieveRemoteGroupId(raftGroupIdFromConfig, peers, client, printStream);
-      groupInfoReply = retrieveGroupInfoByGroupId(remoteGroupId, peers, client, printStream);
+    try (final RaftClient client = CliUtils.newRaftClient(raftGroup)) {
+      final RaftGroupId remoteGroupId = CliUtils.getGroupId(client, peers, groupIdSpecified, printStream);
+      groupInfoReply = CliUtils.getGroupInfo(client, peers, remoteGroupId, printStream);
       raftGroup = groupInfoReply.getGroup();
     }
     return 0;
@@ -121,7 +116,7 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
   }
 
   protected void processReply(RaftClientReply reply, Supplier<String> messageSupplier) throws IOException {
-    RaftUtils.processReply(reply, getPrintStream()::println, messageSupplier);
+    CliUtils.checkReply(reply, messageSupplier, getPrintStream());
   }
 
   protected List<RaftPeerId> getIds(String[] optionValues, BiConsumer<RaftPeerId, InetSocketAddress> consumer) {
@@ -130,8 +125,8 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
     }
     final List<RaftPeerId> ids = new ArrayList<>();
     for (String address : optionValues) {
-      final InetSocketAddress serverAddress = parseInetSocketAddress(address);
-      final RaftPeerId peerId = RaftUtils.getPeerId(serverAddress);
+      final InetSocketAddress serverAddress = CliUtils.parseInetSocketAddress(address);
+      final RaftPeerId peerId = CliUtils.getPeerId(serverAddress);
       consumer.accept(peerId, serverAddress);
       ids.add(peerId);
     }
