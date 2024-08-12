@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -24,7 +24,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.Arrays;
 import java.util.Collection;
 
-public class TestLeaderInstallSnapshot
+public class TestLeaderInstallSnapshotWithGrpc
 extends InstallSnapshotFromLeaderTests<MiniRaftClusterWithGrpc>
 implements MiniRaftClusterWithGrpc.FactoryGet {
 

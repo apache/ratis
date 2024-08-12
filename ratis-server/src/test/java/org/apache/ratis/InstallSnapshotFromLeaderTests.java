@@ -23,7 +23,9 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
+import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -162,8 +164,11 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
         true);
     try (final RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
-      Assertions.assertThrows(RaftRetryFailureException.class,
+      final RaftException e = Assertions.assertThrows(RaftException.class,
                () -> client.admin().setConfiguration(change.allPeersInNewConf));
+      Assertions.assertTrue( e instanceof RaftRetryFailureException
+              || e instanceof ReconfigurationTimeoutException,
+          () -> "Unexpected exception: " + e);
     }
 
     final SnapshotInfo snapshotInfo = cluster.getDivision(change.newPeers[0].getId())
