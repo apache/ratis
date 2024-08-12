@@ -469,7 +469,6 @@ class LeaderStateImpl implements LeaderState {
   }
 
   long getCurrentTerm() {
-    Preconditions.assertSame(currentTerm, server.getState().getCurrentTerm(), "currentTerm");
     return currentTerm;
   }
 
