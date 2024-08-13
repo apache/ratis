@@ -469,6 +469,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   long getCurrentTerm() {
+    Preconditions.assertSame(currentTerm, server.getState().getCurrentTerm(), "currentTerm");
     return currentTerm;
   }
 
@@ -619,7 +620,7 @@ class LeaderStateImpl implements LeaderState {
       List<LogEntryProto> entries, TermIndex previous, long callId) {
     final boolean initializing = !isCaughtUp(follower);
     final RaftPeerId targetId = follower.getId();
-    return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, currentTerm, entries,
+    return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, getCurrentTerm(), entries,
         ServerImplUtils.effectiveCommitIndex(raftLog.getLastCommittedIndex(), previous, entries.size()),
         initializing, previous, server.getCommitInfos(), callId);
   }
@@ -699,7 +700,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void submitStepDownEvent(StepDownReason reason) {
-    submitStepDownEvent(getCurrentTerm(), reason);
+    submitStepDownEvent(currentTerm, reason);
   }
 
   void submitStepDownEvent(long term, StepDownReason reason) {
