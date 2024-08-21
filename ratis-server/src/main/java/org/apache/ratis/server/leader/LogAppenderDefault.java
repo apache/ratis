@@ -80,9 +80,12 @@ class LogAppenderDefault extends LogAppenderBase {
           return null;
         }
 
-        AppendEntriesReplyProto r = sendAppendEntries(request.get());
+        final AppendEntriesRequestProto proto = request.get();
+        final AppendEntriesReplyProto reply = sendAppendEntries(proto);
+        final long first = proto.getEntriesCount() > 0 ? proto.getEntries(0).getIndex() : RaftLog.INVALID_LOG_INDEX;
+        requestFirstIndex.set(first);
         request.release();
-        return r;
+        return reply;
       } catch (InterruptedIOException | RaftLogIOException e) {
         throw e;
       } catch (IOException ioe) {
