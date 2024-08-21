@@ -445,8 +445,8 @@ class SegmentedRaftLogWorker {
     addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
 
-  Task writeLogEntry(LogEntryProto entry, LogEntryProto removedStateMachineData, TransactionContext context) {
-    return addIOTask(new WriteLog(entry, removedStateMachineData, context));
+  Task writeLogEntry(LogEntryProto entry, TransactionContext context) {
+    return addIOTask(new WriteLog(entry, context));
   }
 
   Task truncate(TruncationSegments ts, long index) {
@@ -493,8 +493,8 @@ class SegmentedRaftLogWorker {
     private final CompletableFuture<?> stateMachineFuture;
     private final CompletableFuture<Long> combined;
 
-    WriteLog(LogEntryProto entry, LogEntryProto removedStateMachineData, TransactionContext context) {
-      this.entry = removedStateMachineData;
+    WriteLog(LogEntryProto entry, TransactionContext context) {
+      this.entry = LogProtoUtils.removeStateMachineData(entry);
       if (this.entry == entry) {
         final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
         if (stateMachine != null && proto != null && proto.getType() == StateMachineLogEntryProto.Type.DATASTREAM) {
