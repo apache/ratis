@@ -30,7 +30,6 @@ import org.apache.ratis.thirdparty.com.google.common.cache.CacheLoader;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +41,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -69,20 +67,17 @@ public final class LogSegment {
   }
 
   static long getEntrySize(LogEntryProto entry, Op op) {
-    switch (op) {
-      case CHECK_SEGMENT_FILE_FULL:
-      case LOAD_SEGMENT_FILE:
-      case WRITE_CACHE_WITH_STATE_MACHINE_CACHE:
-        Preconditions.assertTrue(entry == LogProtoUtils.removeStateMachineData(entry),
-            () -> "Unexpected LogEntryProto with StateMachine data: op=" + op + ", entry=" + entry);
-        break;
-      case WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE:
-      case REMOVE_CACHE:
-        break;
-      default:
-        throw new IllegalStateException("Unexpected op " + op + ", entry=" + entry);
+    LogEntryProto e = entry;
+    if (op == Op.CHECK_SEGMENT_FILE_FULL) {
+      e = LogProtoUtils.removeStateMachineData(entry);
+    } else if (op == Op.LOAD_SEGMENT_FILE || op == Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE) {
+      Preconditions.assertTrue(entry == LogProtoUtils.removeStateMachineData(entry),
+          () -> "Unexpected LogEntryProto with StateMachine data: op=" + op + ", entry=" + entry);
+    } else {
+      Preconditions.assertTrue(op == Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE || op == Op.REMOVE_CACHE,
+          () -> "Unexpected op " + op + ", entry=" + entry);
     }
-    final int serialized = entry.getSerializedSize();
+    final int serialized = e.getSerializedSize();
     return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4L;
   }
 
@@ -129,8 +124,7 @@ public final class LogSegment {
   }
 
   public static int readSegmentFile(File file, LogSegmentStartEnd startEnd, SizeInBytes maxOpSize,
-      CorruptionPolicy corruptionPolicy, SegmentedRaftLogMetrics raftLogMetrics,
-      Consumer<ReferenceCountedObject<LogEntryProto>> entryConsumer)
+      CorruptionPolicy corruptionPolicy, SegmentedRaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer)
       throws IOException {
     int count = 0;
     try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(
@@ -142,8 +136,7 @@ public final class LogSegment {
         }
 
         if (entryConsumer != null) {
-          // TODO: use reference count to support zero buffer copying for readSegmentFile
-          entryConsumer.accept(ReferenceCountedObject.wrap(next));
+          entryConsumer.accept(next);
         }
         count++;
       }
@@ -170,7 +163,10 @@ public final class LogSegment {
     final CorruptionPolicy corruptionPolicy = CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
     final boolean isOpen = startEnd.isOpen();
     final int entryCount = readSegmentFile(file, startEnd, maxOpSize, corruptionPolicy, raftLogMetrics, entry -> {
-      segment.append(Op.LOAD_SEGMENT_FILE, entry, keepEntryInCache || isOpen, logConsumer);
+      segment.append(keepEntryInCache || isOpen, entry, Op.LOAD_SEGMENT_FILE);
+      if (logConsumer != null) {
+        logConsumer.accept(entry);
+      }
     });
     LOG.info("Successfully read {} entries from segment file {}", entryCount, file);
 
@@ -238,10 +234,10 @@ public final class LogSegment {
       // the on-disk log file should be truncated but has not been done yet.
       final AtomicReference<LogEntryProto> toReturn = new AtomicReference<>();
       final LogSegmentStartEnd startEnd = LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen);
-      readSegmentFile(file, startEnd, maxOpSize, getLogCorruptionPolicy(), raftLogMetrics, entryRef -> {
-        final LogEntryProto entry = entryRef.retain();
+      readSegmentFile(file, startEnd, maxOpSize,
+          getLogCorruptionPolicy(), raftLogMetrics, entry -> {
         final TermIndex ti = TermIndex.valueOf(entry);
-        putEntryCache(ti, entryRef, Op.LOAD_SEGMENT_FILE);
+        putEntryCache(ti, entry, Op.LOAD_SEGMENT_FILE);
         if (ti.equals(key.getTermIndex())) {
           toReturn.set(entry);
         }
@@ -251,48 +247,13 @@ public final class LogSegment {
     }
   }
 
-  static class EntryCache {
-    private final Map<TermIndex, ReferenceCountedObject<LogEntryProto>> map = new ConcurrentHashMap<>();
-    private final AtomicLong size = new AtomicLong();
-
-    long size() {
-      return size.get();
-    }
-
-    LogEntryProto get(TermIndex ti) {
-      return Optional.ofNullable(map.get(ti))
-          .map(ReferenceCountedObject::get)
-          .orElse(null);
-    }
-
-    void clear() {
-      map.values().forEach(ReferenceCountedObject::release);
-      map.clear();
-      size.set(0);
-    }
-
-    void put(TermIndex key, ReferenceCountedObject<LogEntryProto> valueRef, Op op) {
-      valueRef.retain();
-      Optional.ofNullable(map.put(key, valueRef)).ifPresent(this::release);
-      size.getAndAdd(getEntrySize(valueRef.get(), op));
-    }
-
-    private void release(ReferenceCountedObject<LogEntryProto> entry) {
-      size.getAndAdd(-getEntrySize(entry.get(), Op.REMOVE_CACHE));
-      entry.release();
-    }
-
-    void remove(TermIndex key) {
-      Optional.ofNullable(map.remove(key)).ifPresent(this::release);
-    }
-  }
-
   File getFile() {
     return LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen).getFile(storage);
   }
 
   private volatile boolean isOpen;
   private long totalFileSize = SegmentedRaftLogFormat.getHeaderLength();
+  private AtomicLong totalCacheSize = new AtomicLong(0);
   /** Segment start index, inclusive. */
   private final long startIndex;
   /** Segment end index, inclusive. */
@@ -310,7 +271,7 @@ public final class LogSegment {
   /**
    * the entryCache caches the content of log entries.
    */
-  private final EntryCache entryCache = new EntryCache();
+  private final Map<TermIndex, LogEntryProto> entryCache = new ConcurrentHashMap<>();
 
   private LogSegment(RaftStorage storage, boolean isOpen, long start, long end, SizeInBytes maxOpSize,
       SegmentedRaftLogMetrics raftLogMetrics) {
@@ -342,29 +303,12 @@ public final class LogSegment {
     return CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
   }
 
-  void appendToOpenSegment(Op op, ReferenceCountedObject<LogEntryProto> entryRef) {
+  void appendToOpenSegment(LogEntryProto entry, Op op) {
     Preconditions.assertTrue(isOpen(), "The log segment %s is not open for append", this);
-    append(op, entryRef, true, null);
+    append(true, entry, op);
   }
 
-  private void append(Op op, ReferenceCountedObject<LogEntryProto> entryRef,
-      boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer) {
-    final LogEntryProto entry = entryRef.retain();
-    try {
-      final LogRecord record = appendLogRecord(op, entry);
-      if (keepEntryInCache) {
-        putEntryCache(record.getTermIndex(), entryRef, op);
-      }
-      if (logConsumer != null) {
-        logConsumer.accept(entry);
-      }
-    } finally {
-      entryRef.release();
-    }
-  }
-
-
-  private LogRecord appendLogRecord(Op op, LogEntryProto entry) {
+  private void append(boolean keepEntryInCache, LogEntryProto entry, Op op) {
     Objects.requireNonNull(entry, "entry == null");
     if (records.isEmpty()) {
       Preconditions.assertTrue(entry.getIndex() == startIndex,
@@ -380,9 +324,11 @@ public final class LogSegment {
 
     final LogRecord record = new LogRecord(totalFileSize, entry);
     records.add(record);
+    if (keepEntryInCache) {
+      putEntryCache(record.getTermIndex(), entry, op);
+    }
     totalFileSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
-    return record;
   }
 
   LogEntryProto getEntryFromCache(TermIndex ti) {
@@ -425,7 +371,7 @@ public final class LogSegment {
   }
 
   long getTotalCacheSize() {
-    return entryCache.size();
+    return totalCacheSize.get();
   }
 
   /**
@@ -435,7 +381,7 @@ public final class LogSegment {
     Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
     for (long index = endIndex; index >= fromIndex; index--) {
       LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
-      removeEntryCache(removed.getTermIndex());
+      removeEntryCache(removed.getTermIndex(), Op.REMOVE_CACHE);
       totalFileSize = removed.offset;
     }
     isOpen = false;
@@ -480,18 +426,28 @@ public final class LogSegment {
 
   void evictCache() {
     entryCache.clear();
+    totalCacheSize.set(0);
   }
 
-  void putEntryCache(TermIndex key, ReferenceCountedObject<LogEntryProto> valueRef, Op op) {
-    entryCache.put(key, valueRef, op);
+  void putEntryCache(TermIndex key, LogEntryProto value, Op op) {
+    final LogEntryProto previous = entryCache.put(key, value);
+    long previousSize = 0;
+    if (previous != null) {
+      // Different threads maybe load LogSegment file into cache at the same time, so duplicate maybe happen
+      previousSize = getEntrySize(value, Op.REMOVE_CACHE);
+    }
+    totalCacheSize.getAndAdd(getEntrySize(value, op) - previousSize);
   }
 
-  void removeEntryCache(TermIndex key) {
-    entryCache.remove(key);
+  void removeEntryCache(TermIndex key, Op op) {
+    LogEntryProto value = entryCache.remove(key);
+    if (value != null) {
+      totalCacheSize.getAndAdd(-getEntrySize(value, op));
+    }
   }
 
   boolean hasCache() {
-    return isOpen || entryCache.size() > 0; // open segment always has cache.
+    return isOpen || !entryCache.isEmpty(); // open segment always has cache.
   }
 
   boolean containsIndex(long index) {

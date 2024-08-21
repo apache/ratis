@@ -26,7 +26,6 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -72,9 +71,6 @@ public class TransactionContextImpl implements TransactionContext {
   /** Committed LogEntry. */
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile LogEntryProto logEntry;
-  /** For wrapping {@link #logEntry} in order to release the underlying buffer. */
-  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
-  private volatile ReferenceCountedObject<?> delegatedRef;
 
   private final CompletableFuture<Long> logIndexFuture = new CompletableFuture<>();
 
@@ -128,20 +124,6 @@ public class TransactionContextImpl implements TransactionContext {
   @Override
   public RaftClientRequest getClientRequest() {
     return clientRequest;
-  }
-
-  public void setDelegatedRef(ReferenceCountedObject<?> ref) {
-    this.delegatedRef = ref;
-  }
-
-  @Override
-  public ReferenceCountedObject<LogEntryProto> wrap(LogEntryProto entry) {
-    if (delegatedRef == null) {
-      return TransactionContext.super.wrap(entry);
-    }
-    Preconditions.assertSame(getLogEntry().getTerm(), entry.getTerm(), "entry.term");
-    Preconditions.assertSame(getLogEntry().getIndex(), entry.getIndex(), "entry.index");
-    return delegatedRef.delegate(entry);
   }
 
   @Override

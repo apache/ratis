@@ -41,7 +41,6 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AwaitToRun;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.StringUtils;
 
 import java.io.File;
@@ -54,7 +53,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 import org.apache.ratis.util.UncheckedAutoCloseable;
@@ -395,7 +393,6 @@ public final class SegmentedRaftLog extends RaftLogBase {
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", getName(), LogProtoUtils.toLogEntryString(entry));
     }
-    final LogEntryProto removedStateMachineData = LogProtoUtils.removeStateMachineData(entry);
     try(AutoCloseableLock writeLock = writeLock()) {
       final Timekeeper.Context appendEntryTimerContext = getRaftLogMetrics().startAppendEntryTimer();
       validateLogEntry(entry);
@@ -404,7 +401,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       if (currentOpenSegment == null) {
         cache.addOpenSegment(entry.getIndex());
         fileLogWorker.startLogSegment(entry.getIndex());
-      } else if (isSegmentFull(currentOpenSegment, removedStateMachineData)) {
+      } else if (isSegmentFull(currentOpenSegment, entry)) {
         rollOpenSegment = true;
       } else {
         final TermIndex last = currentOpenSegment.getLastTermIndex();
@@ -426,17 +423,17 @@ public final class SegmentedRaftLog extends RaftLogBase {
       // If the entry has state machine data, then the entry should be inserted
       // to statemachine first and then to the cache. Not following the order
       // will leave a spurious entry in the cache.
-      final Task write = fileLogWorker.writeLogEntry(entry, removedStateMachineData, context);
-      final Function<LogEntryProto, ReferenceCountedObject<LogEntryProto>> wrap = context != null ?
-          context::wrap : ReferenceCountedObject::wrap;
+      CompletableFuture<Long> writeFuture =
+          fileLogWorker.writeLogEntry(entry, context).getFuture();
       if (stateMachineCachingEnabled) {
         // The stateMachineData will be cached inside the StateMachine itself.
-        cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE, wrap.apply(removedStateMachineData));
+        cache.appendEntry(LogProtoUtils.removeStateMachineData(entry),
+            LogSegment.Op.WRITE_CACHE_WITH_STATE_MACHINE_CACHE);
       } else {
-        cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, wrap.apply(entry)
-        );
+        cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       }
-      return write.getFuture().whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
+      writeFuture.whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
+      return writeFuture;
     } catch (Exception e) {
       LOG.error("{}: Failed to append {}", getName(), toLogEntryString(entry), e);
       throw e;
