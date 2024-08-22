@@ -25,7 +25,7 @@ import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -89,7 +89,7 @@ public class RaftMetaConfCommand extends AbstractCommand {
         printf(message, idWithAddress, peersStr);
         return -1;
       }
-      InetSocketAddress inetSocketAddress = parseInetSocketAddress(
+      InetSocketAddress inetSocketAddress = CliUtils.parseInetSocketAddress(
           peerIdWithAddressArray[peerIdWithAddressArray.length - 1]);
       String addressString = inetSocketAddress.getHostString() + ":" + inetSocketAddress.getPort();
       if (addresses.contains(addressString)) {
@@ -111,7 +111,7 @@ public class RaftMetaConfCommand extends AbstractCommand {
         ids.add(peerId);
       } else {
         // If peer ID is not provided, use host address as peerId value
-        peerId = RaftUtils.getPeerId(inetSocketAddress).toString();
+        peerId = CliUtils.getPeerId(inetSocketAddress).toString();
       }
 
       raftPeerProtos.add(RaftPeerProto.newBuilder()

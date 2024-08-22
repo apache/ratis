@@ -24,7 +24,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
@@ -61,7 +61,7 @@ public class ResumeCommand extends AbstractRatisCommand {
       printf("Can't find a sever with the address:%s", strAddr);
       return -1;
     }
-    try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
+    try(final RaftClient raftClient = CliUtils.newRaftClient(getRaftGroup())) {
       RaftClientReply reply = raftClient.getLeaderElectionManagementApi(peerId).resume();
       processReply(reply, () -> String.format("Failed to resume leader election on peer %s", strAddr));
       printf(String.format("Successful pause leader election on peer %s", strAddr));

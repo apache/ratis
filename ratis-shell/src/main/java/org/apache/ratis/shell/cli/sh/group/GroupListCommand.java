@@ -24,7 +24,7 @@ import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.GroupListReply;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
@@ -61,15 +61,15 @@ public class GroupListCommand extends AbstractRatisCommand {
       address = getRaftGroup().getPeer(peerId).getAddress();
     } else if (cl.hasOption(SERVER_ADDRESS_OPTION_NAME)) {
       address = cl.getOptionValue(SERVER_ADDRESS_OPTION_NAME);
-      final InetSocketAddress serverAddress = parseInetSocketAddress(address);
-      peerId = RaftUtils.getPeerId(serverAddress);
+      final InetSocketAddress serverAddress = CliUtils.parseInetSocketAddress(address);
+      peerId = CliUtils.getPeerId(serverAddress);
     } else {
       throw new IllegalArgumentException(
               "Both " + PEER_ID_OPTION_NAME + " and " + SERVER_ADDRESS_OPTION_NAME
               + " options are missing.");
     }
 
-    try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
+    try(final RaftClient raftClient = CliUtils.newRaftClient(getRaftGroup())) {
       GroupListReply reply = raftClient.getGroupManagementApi(peerId).list();
       processReply(reply, () -> String.format("Failed to get group information of peerId %s (server %s)",
               peerId, address));

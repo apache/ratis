@@ -37,7 +37,6 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -46,43 +45,31 @@ import java.util.stream.Collectors;
 import java.util.UUID;
 
 /**
- * Helper class for raft operations.
+ * Utilities for command line interface.
  */
-public final class RaftUtils {
+public final class CliUtils {
+  private static final ExponentialBackoffRetry RETRY_POLICY = ExponentialBackoffRetry.newBuilder()
+      .setBaseSleepTime(TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS))
+      .setMaxAttempts(10)
+      .setMaxSleepTime(TimeDuration.valueOf(100_000, TimeUnit.MILLISECONDS))
+      .build();
 
-  public static final RaftGroupId DEFAULT_RAFT_GROUP_ID = RaftGroupId.randomId();
-
-  private RaftUtils() {
+  private CliUtils() {
     // prevent instantiation
   }
 
-  /**
-   * Gets the raft peer id.
-   *
-   * @param address the address of the server
-   * @return the raft peer id
-   */
+  /** @return {@link RaftPeerId} from the given address. */
   public static RaftPeerId getPeerId(InetSocketAddress address) {
     return getPeerId(address.getHostString(), address.getPort());
   }
 
-  /**
-   * Gets the raft peer id.
-   *
-   * @param host the hostname of the server
-   * @param port the port of the server
-   * @return the raft peer id
-   */
+  /** @return {@link RaftPeerId} from the given host and port. */
   public static RaftPeerId getPeerId(String host, int port) {
     return RaftPeerId.getRaftPeerId(host + "_" + port);
   }
 
-  /**
-   * Create a raft client to communicate to ratis server.
-   * @param raftGroup the raft group
-   * @return return a raft client
-   */
-  public static RaftClient createClient(RaftGroup raftGroup) {
+  /** Create a new {@link RaftClient} from the given group. */
+  public static RaftClient newRaftClient(RaftGroup group) {
     RaftProperties properties = new RaftProperties();
     RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
         TimeDuration.valueOf(15, TimeUnit.SECONDS));
@@ -92,16 +79,10 @@ public final class RaftUtils {
     final Properties sys = System.getProperties();
     sys.stringPropertyNames().forEach(key -> properties.set(key, sys.getProperty(key)));
 
-    ExponentialBackoffRetry retryPolicy = ExponentialBackoffRetry.newBuilder()
-        .setBaseSleepTime(TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS))
-        .setMaxAttempts(10)
-        .setMaxSleepTime(
-            TimeDuration.valueOf(100_000, TimeUnit.MILLISECONDS))
-        .build();
     return RaftClient.newBuilder()
-        .setRaftGroup(raftGroup)
+        .setRaftGroup(group)
         .setProperties(properties)
-        .setRetryPolicy(retryPolicy)
+        .setRetryPolicy(RETRY_POLICY)
         .build();
   }
 
@@ -116,7 +97,7 @@ public final class RaftUtils {
    * @return the first non-null value returned by the given function applied to the given list.
    */
   private static <PARAMETER, RETURN, EXCEPTION extends Throwable> RETURN applyFunctionReturnFirstNonNull(
-      Collection<PARAMETER> list, CheckedFunction<PARAMETER, RETURN, EXCEPTION> function) {
+      Collection<PARAMETER> list, CheckedFunction<PARAMETER, RETURN, EXCEPTION> function, PrintStream out) {
     for (PARAMETER parameter : list) {
       try {
         RETURN ret = function.apply(parameter);
@@ -124,13 +105,14 @@ public final class RaftUtils {
           return ret;
         }
       } catch (Throwable e) {
-        e.printStackTrace();
+        e.printStackTrace(out);
       }
     }
     return null;
   }
 
-  public static List<RaftPeer> buildRaftPeersFromStr(String peers) {
+  /** Parse the given string as a list of {@link RaftPeer}. */
+  public static List<RaftPeer> parseRaftPeers(String peers) {
     List<InetSocketAddress> addresses = new ArrayList<>();
     String[] peersArray = peers.split(",");
     for (String peer : peersArray) {
@@ -138,64 +120,79 @@ public final class RaftUtils {
     }
 
     return addresses.stream()
-        .map(addr -> RaftPeer.newBuilder()
-            .setId(RaftUtils.getPeerId(addr))
-            .setAddress(addr)
-            .build()
-        ).collect(Collectors.toList());
+        .map(addr -> RaftPeer.newBuilder().setId(getPeerId(addr)).setAddress(addr).build())
+        .collect(Collectors.toList());
   }
 
-  public static RaftGroupId buildRaftGroupIdFromStr(String groupId) {
-    return groupId != null && groupId.isEmpty() ? RaftGroupId.valueOf(UUID.fromString(groupId))
-        : DEFAULT_RAFT_GROUP_ID;
+  /** Parse the given string as a {@link RaftGroupId}. */
+  public static RaftGroupId parseRaftGroupId(String groupId) {
+    return groupId != null && groupId.isEmpty() ? RaftGroupId.valueOf(UUID.fromString(groupId)) : null;
   }
 
-  public static RaftGroupId retrieveRemoteGroupId(RaftGroupId raftGroupIdFromConfig,
-                                                  List<RaftPeer> peers,
-                                                  RaftClient client, PrintStream printStream) throws IOException {
-    if (!DEFAULT_RAFT_GROUP_ID .equals(raftGroupIdFromConfig)) {
-      return raftGroupIdFromConfig;
+  /**
+   * Get the group id from the given peers if the given group id is null.
+   *
+   * @param client for communicating to the peers.
+   * @param peers the peers of the group.
+   * @param groupId the given group id, if there is any.
+   * @param err for printing error messages.
+   * @return the group id from the given peers if the given group id is null;
+   *         otherwise, return the given group id.
+   */
+  public static RaftGroupId getGroupId(RaftClient client, List<RaftPeer> peers, RaftGroupId groupId,
+      PrintStream err) throws IOException {
+    if (groupId != null) {
+      return groupId;
     }
 
-    final RaftGroupId remoteGroupId;
     final List<RaftGroupId> groupIds = applyFunctionReturnFirstNonNull(peers,
-        p -> client.getGroupManagementApi((p.getId())).list().getGroupIds());
+        p -> client.getGroupManagementApi(p.getId()).list().getGroupIds(), err);
 
     if (groupIds == null) {
-      printStream.println("Failed to get group ID from " + peers);
-      throw new IOException("Failed to get group ID from " + peers);
+      final String message = "Failed to get group ID from " + peers;
+      err.println("Failed to get group ID from " + peers);
+      throw new IOException(message);
     } else if (groupIds.size() == 1) {
-      remoteGroupId = groupIds.get(0);
+      return groupIds.get(0);
     } else {
       String message = "Unexpected multiple group IDs " + groupIds
           + ".  In such case, the target group ID must be specified.";
-      printStream.println(message);
+      err.println(message);
       throw new IOException(message);
     }
-    return remoteGroupId;
   }
 
-  public static GroupInfoReply retrieveGroupInfoByGroupId(RaftGroupId remoteGroupId, List<RaftPeer> peers,
-                                                          RaftClient client, PrintStream printStream)
-      throws IOException {
+  /**
+   * Get the group info from the given peers.
+   *
+   * @param client for communicating to the peers.
+   * @param peers the peers of the group.
+   * @param groupId the target group
+   * @param err for printing error messages.
+   * @return the group info
+   */
+  public static GroupInfoReply getGroupInfo(RaftClient client, List<RaftPeer> peers, RaftGroupId groupId,
+      PrintStream err) throws IOException {
     GroupInfoReply groupInfoReply = applyFunctionReturnFirstNonNull(peers,
-        p -> client.getGroupManagementApi((p.getId())).info(remoteGroupId));
-    processReply(groupInfoReply, printStream::println,
-        () -> "Failed to get group info for group id " + remoteGroupId.getUuid() + " from " + peers);
+        p -> client.getGroupManagementApi((p.getId())).info(groupId), err);
+    checkReply(groupInfoReply, () -> "Failed to get group info for " + groupId.getUuid()
+            + " from " + peers, err);
     return groupInfoReply;
   }
 
-  public static void processReply(RaftClientReply reply, Consumer<String> printer, Supplier<String> message)
+  /** Check if the given reply is success. */
+  public static void checkReply(RaftClientReply reply, Supplier<String> message, PrintStream printStream)
       throws IOException {
     if (reply == null || !reply.isSuccess()) {
       final RaftException e = Optional.ofNullable(reply)
           .map(RaftClientReply::getException)
           .orElseGet(() -> new RaftException("Reply: " + reply));
-      printer.accept(message.get());
-      throw new IOException(e.getMessage(), e);
+      printStream.println(message.get());
+      throw new IOException(message.get(), e);
     }
   }
 
+  /** Parse the given string as a {@link InetSocketAddress}. */
   public static InetSocketAddress parseInetSocketAddress(String address) {
     try {
       final String[] hostPortPair = address.split(":");

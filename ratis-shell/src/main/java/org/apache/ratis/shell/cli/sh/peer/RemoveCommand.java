@@ -25,7 +25,7 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
@@ -66,7 +66,7 @@ public class RemoveCommand extends AbstractRatisCommand {
       throw new IllegalArgumentException(
           "Both " + PEER_ID_OPTION_NAME + " and " + ADDRESS_OPTION_NAME + " options are missing.");
     }
-    try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
+    try (RaftClient client = CliUtils.newRaftClient(getRaftGroup())) {
       final List<RaftPeer> peers = getPeerStream(RaftPeerRole.FOLLOWER)
           .filter(raftPeer -> !ids.contains(raftPeer.getId())).collect(Collectors.toList());
       final List<RaftPeer> listeners = getPeerStream(RaftPeerRole.LISTENER)

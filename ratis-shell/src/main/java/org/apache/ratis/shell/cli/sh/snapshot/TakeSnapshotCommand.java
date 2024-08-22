@@ -23,7 +23,7 @@ import org.apache.commons.cli.Options;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
@@ -58,7 +58,7 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
     } else {
       timeout = 3000;
     }
-    try(final RaftClient raftClient = RaftUtils.createClient(getRaftGroup())) {
+    try(final RaftClient raftClient = CliUtils.newRaftClient(getRaftGroup())) {
       if (cl.hasOption(PEER_ID_OPTION_NAME)) {
         peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
       } else {

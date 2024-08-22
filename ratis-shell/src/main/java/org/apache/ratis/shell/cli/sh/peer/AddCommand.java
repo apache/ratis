@@ -25,9 +25,10 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.RaftUtils;
+import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
+import org.apache.ratis.util.Preconditions;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -66,10 +67,10 @@ public class AddCommand extends AbstractRatisCommand {
     if (cl.hasOption(ADDRESS_OPTION_NAME) && cl.hasOption(PEER_ID_OPTION_NAME)) {
       ids = Arrays.stream(cl.getOptionValue(PEER_ID_OPTION_NAME).split(","))
           .map(RaftPeerId::getRaftPeerId).collect(Collectors.toList());
-      List<InetSocketAddress> addresses =
-          Arrays.stream(cl.getOptionValue(ADDRESS_OPTION_NAME).split(","))
-              .map(s -> parseInetSocketAddress(s)).collect(Collectors.toList());
-      assert ids.size() == addresses.size();
+      final List<InetSocketAddress> addresses = Arrays.stream(cl.getOptionValue(ADDRESS_OPTION_NAME).split(","))
+          .map(CliUtils::parseInetSocketAddress)
+          .collect(Collectors.toList());
+      Preconditions.assertSame(ids.size(), addresses.size(), "size");
       for (int i = 0; i < ids.size(); i++) {
         peersInfo.put(ids.get(i), addresses.get(i));
       }
@@ -80,7 +81,7 @@ public class AddCommand extends AbstractRatisCommand {
           "Both " + PEER_ID_OPTION_NAME + " and " + ADDRESS_OPTION_NAME + " options are missing.");
     }
 
-    try (RaftClient client = RaftUtils.createClient(getRaftGroup())) {
+    try (RaftClient client = CliUtils.newRaftClient(getRaftGroup())) {
       final Stream<RaftPeer> remaining = getPeerStream(RaftPeerRole.FOLLOWER);
       final Stream<RaftPeer> adding = ids.stream().map(raftPeerId -> RaftPeer.newBuilder()
           .setId(raftPeerId)
