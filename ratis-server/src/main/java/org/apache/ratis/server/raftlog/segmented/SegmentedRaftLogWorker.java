@@ -246,8 +246,8 @@ class SegmentedRaftLogWorker {
     Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
     ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND.multiply(3),
         workerThreadExecutor, timeout -> LOG.warn("{}: shutdown timeout in " + timeout, name));
-    PlatformDependent.freeDirectBuffer(writeBuffer);
     IOUtils.cleanup(LOG, out);
+    PlatformDependent.freeDirectBuffer(writeBuffer);
     LOG.info("{} close()", name);
   }
 
