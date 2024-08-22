@@ -779,7 +779,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     while (isRunning() && !responseHandler.isDone()) {
       try {
-        getEventAwaitForSignal().await();
+        getEventAwaitForSignal().await(getWaitTimeMs(), TimeUnit.MILLISECONDS);
       } catch (InterruptedException ignored) {
         Thread.currentThread().interrupt();
       }
@@ -824,7 +824,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     while (isRunning() && !responseHandler.isDone()) {
       try {
-        getEventAwaitForSignal().await();
+        getEventAwaitForSignal().await(getWaitTimeMs(), TimeUnit.MILLISECONDS);
       } catch (InterruptedException ignored) {
         Thread.currentThread().interrupt();
       }
