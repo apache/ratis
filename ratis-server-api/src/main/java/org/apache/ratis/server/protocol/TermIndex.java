@@ -19,21 +19,13 @@ package org.apache.ratis.server.protocol;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.TermIndexProto;
-import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
-import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 
 import java.util.Comparator;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
-  /** An LRU Cache for {@link TermIndex} instances */
-  Cache<TermIndex, TermIndex> PRIVATE_CACHE = CacheBuilder.newBuilder()
-      .maximumSize(1 << 16)
-      .expireAfterAccess(1, TimeUnit.MINUTES)
-      .build();
+  TermIndex[] EMPTY_ARRAY = {};
 
   /** @return the term. */
   long getTerm();
@@ -68,7 +60,7 @@ public interface TermIndex extends Comparable<TermIndex> {
 
   /** @return a {@link TermIndex} object. */
   static TermIndex valueOf(long term, long index) {
-    final TermIndex key = new TermIndex() {
+    return new TermIndex() {
       @Override
       public long getTerm() {
         return term;
@@ -106,10 +98,5 @@ public interface TermIndex extends Comparable<TermIndex> {
         return String.format("(t:%s, i:%s)", longToString(term), longToString(index));
       }
     };
-    try {
-      return PRIVATE_CACHE.get(key, () -> key);
-    } catch (ExecutionException e) {
-      throw new IllegalStateException("Failed to valueOf(" + term + ", " + index + "), key=" + key, e);
-    }
   }
 }
