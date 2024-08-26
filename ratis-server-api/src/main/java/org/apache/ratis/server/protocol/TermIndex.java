@@ -29,14 +29,11 @@ import java.util.concurrent.TimeUnit;
 
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
-  class Util {
-    /** An LRU Cache for {@link TermIndex} instances */
-    private static final Cache<TermIndex, TermIndex> CACHE = CacheBuilder.newBuilder()
-          .maximumSize(1 << 16)
-          .expireAfterAccess(1, TimeUnit.MINUTES)
-          .build();
-  }
-  TermIndex[] EMPTY_ARRAY = {};
+  /** An LRU Cache for {@link TermIndex} instances */
+  Cache<TermIndex, TermIndex> PRIVATE_CACHE = CacheBuilder.newBuilder()
+      .maximumSize(1 << 16)
+      .expireAfterAccess(1, TimeUnit.MINUTES)
+      .build();
 
   /** @return the term. */
   long getTerm();
@@ -110,7 +107,7 @@ public interface TermIndex extends Comparable<TermIndex> {
       }
     };
     try {
-      return Util.CACHE.get(key, () -> key);
+      return PRIVATE_CACHE.get(key, () -> key);
     } catch (ExecutionException e) {
       throw new IllegalStateException("Failed to valueOf(" + term + ", " + index + "), key=" + key, e);
     }
