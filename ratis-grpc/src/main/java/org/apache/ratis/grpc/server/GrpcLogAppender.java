@@ -435,7 +435,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   private void timeoutAppendRequest(long cid, boolean heartbeat) {
-    final AppendEntriesRequest pending = pendingRequests.handleTimeout(cid, heartbeat);
+    final AppendEntriesRequest pending = pendingRequests.remove(cid, heartbeat);
     if (pending != null) {
       final int errorCount = replyState.process(Event.TIMEOUT);
       LOG.warn("{}: Timed out {}appendEntries, errorCount={}, request={}",
@@ -954,10 +954,6 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     AppendEntriesRequest remove(long cid, boolean isHeartbeat) {
       return isHeartbeat ? heartbeats.remove(cid): logRequests.remove(cid);
-    }
-
-    public AppendEntriesRequest handleTimeout(long callId, boolean heartbeat) {
-      return heartbeat ? heartbeats.remove(callId) : logRequests.get(callId);
     }
   }
 }
