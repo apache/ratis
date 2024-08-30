@@ -302,23 +302,19 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public ReferenceCountedObject<LogEntryProto> retainLog(long index) throws RaftLogIOException {
     checkLogState();
-    final LogSegment segment;
-    final LogRecord record;
-    try (AutoCloseableLock readLock = readLock()) {
-      segment = cache.getSegment(index);
-      if (segment == null) {
-        return null;
-      }
-      record = segment.getLogRecord(index);
-      if (record == null) {
-        return null;
-      }
-      final ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(record.getTermIndex());
-      if (entry != null) {
-        getRaftLogMetrics().onRaftLogCacheHit();
-        entry.retain();
-        return entry;
-      }
+    final LogSegment segment = cache.getSegment(index);
+    if (segment == null) {
+      return null;
+    }
+    final LogRecord record = segment.getLogRecord(index);
+    if (record == null) {
+      return null;
+    }
+    final ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(record.getTermIndex());
+    if (entry != null) {
+      getRaftLogMetrics().onRaftLogCacheHit();
+      entry.retain();
+      return entry;
     }
 
     // the entry is not in the segment's cache. Load the cache without holding the lock.
@@ -375,25 +371,19 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public TermIndex getTermIndex(long index) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
-      return cache.getTermIndex(index);
-    }
+    return cache.getTermIndex(index);
   }
 
   @Override
   public LogEntryHeader[] getEntries(long startIndex, long endIndex) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
-      return cache.getTermIndices(startIndex, endIndex);
-    }
+    return cache.getTermIndices(startIndex, endIndex);
   }
 
   @Override
   public TermIndex getLastEntryTermIndex() {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
-      return cache.getLastTermIndex();
-    }
+    return cache.getLastTermIndex();
   }
 
   @Override

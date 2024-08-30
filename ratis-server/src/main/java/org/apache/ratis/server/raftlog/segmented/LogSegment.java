@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
@@ -396,19 +395,18 @@ public final class LogSegment {
   public static final String APPEND_RECORD = LogSegment.class.getSimpleName() + ".append";
   private void append(boolean keepEntryInCache, LogEntryProto entry, Op op, boolean verifyEntryIndex) {
     Objects.requireNonNull(entry, "entry == null");
-    if (verifyEntryIndex) {
-      verifyEntryIndex(entry.getIndex());
+    final LogRecord currentLast = records.getLast();
+    if (currentLast == null) {
+      Preconditions.assertTrue(entry.getIndex() == startIndex,
+          "gap between start index %s and first entry to append %s",
+          startIndex, entry.getIndex());
+    } else {
+      Preconditions.assertTrue(entry.getIndex() == currentLast.getTermIndex().getIndex() + 1,
+          "gap between entries %s and %s", entry.getIndex(), currentLast.getTermIndex().getIndex());
     }
-    final LogRecord record = new LogRecord(totalFileSize, entry);
-    if (keepEntryInCache) {
-      // It is important to put the entry into the cache before appending the
-      // record to the record list. Otherwise, a reader thread may get the
-      // record from the list but not the entry from the cache.
-      putEntryCache(record.getTermIndex(), entry, op);
-      CodeInjectionForTesting.execute(APPEND_RECORD, this, record.getTermIndex());
-    }
-    records.append(record);
 
+    final LogRecord record = new LogRecord(totalFileSize, entry);
+    records.append(record);
     totalFileSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
   }
@@ -447,7 +445,7 @@ public final class LogSegment {
   }
 
   LogRecord getLogRecord(long index) {
-    if (index >= startIndex && index <= getEndIndex()) {
+    if (index >= startIndex && index <= endIndex) {
       return records.get(index);
     }
     return null;
@@ -474,7 +472,7 @@ public final class LogSegment {
     for (long index = endIndex; index >= fromIndex; index--) {
       final LogRecord removed = records.removeLast();
       Preconditions.assertSame(index, removed.getTermIndex().getIndex(), "removedIndex");
-      removeEntryCache(removed.getTermIndex(), Op.REMOVE_CACHE);
+      removeEntryCache(removed.getTermIndex());
       totalFileSize = removed.offset;
     }
     isOpen = false;
