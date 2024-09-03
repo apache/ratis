@@ -234,11 +234,16 @@ class LeaderElection implements Runnable {
 
   @Override
   public void run() {
+    if (server.initializing()) {
+        LOG.info("{}: skip running since the server is initializing", this);
+        return;
+    }
     if (!lifeCycle.compareAndTransition(STARTING, RUNNING)) {
       final LifeCycle.State state = lifeCycle.getCurrentState();
       LOG.info("{}: skip running since this is already {}", this, state);
       return;
     }
+
 
     try (AutoCloseable ignored = Timekeeper.start(server.getLeaderElectionMetrics().getLeaderElectionTimer())) {
       for (int round = 0; shouldRun(); round++) {

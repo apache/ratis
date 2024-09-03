@@ -1513,6 +1513,10 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
+  public boolean initializing() {
+    return !startComplete.get();
+  }
+
   @Override
   public CompletableFuture<ReadIndexReplyProto> readIndexAsync(ReadIndexRequestProto request) throws IOException {
     assertLifeCycleState(LifeCycle.States.RUNNING);
