@@ -24,7 +24,7 @@
 
   <artifactId>ratis</artifactId>
   <groupId>org.apache.ratis</groupId>
-  <version>3.1.1-SNAPSHOT</version>
+  <version>3.1.1</version>
   <name>Apache Ratis</name>
   <packaging>pom</packaging>
   <description>
@@ -162,7 +162,7 @@
 
 
   <properties>
-    <project.build.outputTimestamp>2024-08-22T17:50:05Z</project.build.outputTimestamp>
+    <project.build.outputTimestamp>2024-09-03T08:59:47Z</project.build.outputTimestamp>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
      <!-- where to find the generated LICENSE files -->
