@@ -43,6 +43,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -63,7 +64,7 @@ public class SnapshotManager {
   private final Supplier<File> snapshotDir;
   private final Supplier<File> snapshotTmpDir;
   private final Function<FileChunkProto, String> getRelativePath;
-  private final Supplier<MessageDigest> digester = JavaUtils.memoize(MD5Hash::getDigester);
+  // private final Supplier<MessageDigest> digester = JavaUtils.memoize(MD5Hash::getDigester);
 
   SnapshotManager(RaftPeerId selfId, Supplier<RaftStorageDirectory> dir, StateMachineStorage smStorage) {
     this.selfId = selfId;
@@ -88,7 +89,7 @@ public class SnapshotManager {
       }
       // create the temp snapshot file and put padding inside
       out = FileUtils.newFileChannel(tmpSnapshotFile, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
-      digester.get().reset();
+      // digester.get().reset();
     } else {
       if (!exists) {
         throw new FileNotFoundException("Chunk offset is non-zero but file is not found: " + tmpSnapshotFile
@@ -114,7 +115,8 @@ public class SnapshotManager {
 
     // TODO: Make sure that subsequent requests for the same installSnapshot are coming in order,
     // and are not lost when whole request cycle is done. Check requestId and requestIndex here
-
+    MessageDigest digester = newMd5Digest();
+    digester.reset();
     for (FileChunkProto chunk : snapshotChunkRequest.getFileChunksList()) {
       SnapshotInfo pi = stateMachine.getLatestSnapshot();
       if (pi != null && pi.getTermIndex().getIndex() >= lastIncludedIndex) {
@@ -128,7 +130,7 @@ public class SnapshotManager {
 
       try (FileChannel out = open(chunk, tmpSnapshotFile)) {
         final ByteBuffer data = chunk.getData().asReadOnlyByteBuffer();
-        digester.get().update(data.duplicate());
+        digester.update(data.duplicate());
 
         int written = 0;
         for(; data.remaining() > 0; ) {
@@ -144,7 +146,7 @@ public class SnapshotManager {
             new MD5Hash(chunk.getFileDigest().toByteArray());
         // calculate the checksum of the snapshot file and compare it with the
         // file digest in the request
-        final MD5Hash digest = new MD5Hash(digester.get().digest());
+        final MD5Hash digest = new MD5Hash(digester.digest());
         if (!digest.equals(expectedDigest)) {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
@@ -170,6 +172,15 @@ public class SnapshotManager {
     if (snapshotChunkRequest.getDone()) {
       rename(tmpDir, snapshotDir.get());
     }
+  }
+
+  private MessageDigest newMd5Digest() {
+      try {
+          return MessageDigest.getInstance("MD5");
+      } catch (NoSuchAlgorithmException e) {
+        LOG.warn("could not find MD5 digest algorithm", e);
+      }
+      return MD5Hash.getDigester();
   }
 
   private static void rename(File tmpDir, File stateMachineDir) throws IOException {
