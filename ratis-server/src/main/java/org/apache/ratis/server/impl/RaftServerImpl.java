@@ -1513,10 +1513,6 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  public boolean initializing() {
-    return !startComplete.get();
-  }
-
   @Override
   public CompletableFuture<ReadIndexReplyProto> readIndexAsync(ReadIndexRequestProto request) throws IOException {
     assertLifeCycleState(LifeCycle.States.RUNNING);
@@ -1914,5 +1910,9 @@ class RaftServerImpl implements RaftServer.Division,
 
   void onGroupLeaderElected() {
     transferLeadership.complete(TransferLeadership.Result.SUCCESS);
+  }
+
+  boolean isRunning() {
+    return startComplete.get() && lifeCycle.getCurrentState() == State.RUNNING;
   }
 }
