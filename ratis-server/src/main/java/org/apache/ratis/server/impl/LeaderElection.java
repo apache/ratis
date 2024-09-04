@@ -234,10 +234,6 @@ class LeaderElection implements Runnable {
 
   @Override
   public void run() {
-    if (!server.isRunning()) {
-      LOG.info("{}: skip since the server is not running", this);
-      return;
-    }
     if (!lifeCycle.compareAndTransition(STARTING, RUNNING)) {
       final LifeCycle.State state = lifeCycle.getCurrentState();
       LOG.info("{}: skip running since this is already {}", this, state);
@@ -245,6 +241,10 @@ class LeaderElection implements Runnable {
     }
 
     try (AutoCloseable ignored = Timekeeper.start(server.getLeaderElectionMetrics().getLeaderElectionTimer())) {
+      if (!server.isRunning()) {
+        LOG.info("{}: skip since the server is not running", this);
+        return;
+      }
       for (int round = 0; shouldRun(); round++) {
         if (skipPreVote || askForVotes(Phase.PRE_VOTE, round)) {
           if (askForVotes(Phase.ELECTION, round)) {
