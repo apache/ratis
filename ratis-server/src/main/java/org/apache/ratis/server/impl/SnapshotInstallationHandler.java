@@ -182,11 +182,11 @@ class SnapshotInstallationHandler {
         }
 
         //TODO: We should only update State with installed snapshot once the request is done.
-        state.installSnapshot(request);
+        boolean failed = state.installSnapshot(request);
 
         // update the committed index
         // re-load the state machine if this is the last chunk
-        if (snapshotChunkRequest.getDone()) {
+        if (!failed && snapshotChunkRequest.getDone()) {
           state.reloadStateMachine(lastIncluded);
         }
       } finally {

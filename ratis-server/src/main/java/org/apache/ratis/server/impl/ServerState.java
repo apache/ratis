@@ -453,11 +453,11 @@ class ServerState {
     return raftStorage.getUnchecked();
   }
 
-  void installSnapshot(InstallSnapshotRequestProto request) throws IOException {
+  boolean installSnapshot(InstallSnapshotRequestProto request) throws IOException {
     // TODO: verify that we need to install the snapshot
     StateMachine sm = server.getStateMachine();
     sm.pause(); // pause the SM to prepare for install snapshot
-    snapshotManager.installSnapshot(request, sm);
+    return snapshotManager.installSnapshot(request, sm);
   }
 
   private SnapshotInfo getLatestSnapshot() {
