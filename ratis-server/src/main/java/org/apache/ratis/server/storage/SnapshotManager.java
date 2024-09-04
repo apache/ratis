@@ -44,7 +44,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -65,7 +64,6 @@ public class SnapshotManager {
   private final Supplier<File> snapshotTmpDir;
   private final Function<FileChunkProto, String> getRelativePath;
   private final Supplier<MessageDigest> digester = JavaUtils.memoize(MD5Hash::getDigester);
-  private final ConcurrentHashMap<String,Boolean> requestChecker = new ConcurrentHashMap<>();
 
   SnapshotManager(RaftPeerId selfId, Supplier<RaftStorageDirectory> dir, StateMachineStorage smStorage) {
     this.selfId = selfId;
@@ -102,26 +100,9 @@ public class SnapshotManager {
     return out;
   }
 
-  private boolean hasFailedRequest(InstallSnapshotRequestProto.SnapshotChunkProto request) {
-    String requestId = request.getRequestId();
-    Boolean failed = null;
-    if (request.getDone()) {
-      // accept whole snapshot request, we can clear state
-      failed = requestChecker.get(requestId);
-      requestChecker.remove(requestId);
-      return failed;
-    }
-    failed = requestChecker.putIfAbsent(requestId, false);
-    return failed != null && failed;
-  }
-
-  public boolean installSnapshot(InstallSnapshotRequestProto request, StateMachine stateMachine) throws IOException {
+  public void installSnapshot(InstallSnapshotRequestProto request, StateMachine stateMachine) throws IOException {
     final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
     final long lastIncludedIndex = snapshotChunkRequest.getTermIndex().getIndex();
-
-    if (hasFailedRequest(snapshotChunkRequest)) {
-      return true;
-    }
     // If any of the snapshot chunk request has failed, no longer handle the request
     // create a unique temporary directory
     final File tmpDir =  new File(this.snapshotTmpDir.get(), "snapshot-" + snapshotChunkRequest.getRequestId());
@@ -178,7 +159,6 @@ public class SnapshotManager {
             LOG.warn(renameMessage, e);
             renameMessage += ": " + e;
           }
-          requestChecker.put(snapshotChunkRequest.getRequestId(), true);
           throw new CorruptedFileException(tmpSnapshotFile,
               "MD5 mismatch for snapshot-" + lastIncludedIndex + " installation.  " + renameMessage);
         } else {
@@ -190,7 +170,6 @@ public class SnapshotManager {
     if (snapshotChunkRequest.getDone()) {
       rename(tmpDir, snapshotDir.get());
     }
-    return true;
   }
 
   private static void rename(File tmpDir, File stateMachineDir) throws IOException {

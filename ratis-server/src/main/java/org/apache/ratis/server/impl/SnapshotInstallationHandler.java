@@ -68,6 +68,7 @@ class SnapshotInstallationHandler {
     new AtomicReference<>(INVALID_TERM_INDEX);
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
   private final AtomicLong installedIndex = new AtomicLong(INVALID_LOG_INDEX);
+  private AtomicBoolean isSnapshotInstallSuccess = new AtomicBoolean(false);
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
@@ -172,6 +173,14 @@ class SnapshotInstallationHandler {
       state.setLeader(leaderId, "installSnapshot");
 
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
+      if (!isSnapshotInstallSuccess.get()) {
+        if (request.getSnapshotChunk().getDone()) {
+          // receive last chunk of snapshot, but previous chunks failed
+          // clear state
+          isSnapshotInstallSuccess.set(true);
+        }
+        throw new IOException("Previous snapshot chunk failed to install");
+      }
       try {
         // Check and append the snapshot chunk. We simply put this in lock
         // considering a follower peer requiring a snapshot installation does not
@@ -182,11 +191,15 @@ class SnapshotInstallationHandler {
         }
 
         //TODO: We should only update State with installed snapshot once the request is done.
-        boolean failed = state.installSnapshot(request);
-
+        try {
+          state.installSnapshot(request);
+        } catch (IOException e) {
+          isSnapshotInstallSuccess.set(snapshotChunkRequest.getDone());
+          throw e;
+        }
         // update the committed index
         // re-load the state machine if this is the last chunk
-        if (!failed && snapshotChunkRequest.getDone()) {
+        if (isSnapshotInstallSuccess.get() && snapshotChunkRequest.getDone()) {
           state.reloadStateMachine(lastIncluded);
         }
       } finally {
