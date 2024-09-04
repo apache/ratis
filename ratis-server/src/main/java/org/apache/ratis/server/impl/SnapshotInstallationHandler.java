@@ -68,7 +68,7 @@ class SnapshotInstallationHandler {
     new AtomicReference<>(INVALID_TERM_INDEX);
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
   private final AtomicLong installedIndex = new AtomicLong(INVALID_LOG_INDEX);
-  private AtomicBoolean isSnapshotInstallSuccess = new AtomicBoolean(false);
+  private final AtomicBoolean isSnapshotInstallSuccess = new AtomicBoolean(true);
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
@@ -176,7 +176,7 @@ class SnapshotInstallationHandler {
       if (!isSnapshotInstallSuccess.get()) {
         if (request.getSnapshotChunk().getDone()) {
           // receive last chunk of snapshot, but previous chunks failed
-          // clear state
+          // reset this flag
           isSnapshotInstallSuccess.set(true);
         }
         throw new IOException("Previous snapshot chunk failed to install");
