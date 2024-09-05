@@ -175,7 +175,7 @@ class SnapshotInstallationHandler {
 
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
       if (snapshotChunkRequest.getRequestIndex() == 0) {
-        chunkRequestIndex.set(-1);
+        chunkRequestIndex.set(0);
       } else if (chunkRequestIndex.get() != snapshotChunkRequest.getRequestIndex()) {
         throw new IOException("Snapshot request already failed at chunk index " + (chunkRequestIndex.get() + 1)
                 + "; ignoring request with chunk index " + snapshotChunkRequest.getRequestIndex());
@@ -192,7 +192,7 @@ class SnapshotInstallationHandler {
         //TODO: We should only update State with installed snapshot once the request is done.
         state.installSnapshot(request);
 
-        int idx = chunkRequestIndex.incrementAndGet();
+        int idx = chunkRequestIndex.getAndIncrement();
         Preconditions.assertEquals(snapshotChunkRequest.getRequestIndex(), idx, "chunkRequestIndex");
         // update the committed index
         // re-load the state machine if this is the last chunk
