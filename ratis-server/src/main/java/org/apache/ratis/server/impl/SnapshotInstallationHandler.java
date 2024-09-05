@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -68,7 +69,7 @@ class SnapshotInstallationHandler {
     new AtomicReference<>(INVALID_TERM_INDEX);
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
   private final AtomicLong installedIndex = new AtomicLong(INVALID_LOG_INDEX);
-  private final AtomicBoolean isSnapshotInstallSuccess = new AtomicBoolean(true);
+  private final AtomicInteger chunkRequestIndex = new AtomicInteger(-1);
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
@@ -173,13 +174,11 @@ class SnapshotInstallationHandler {
       state.setLeader(leaderId, "installSnapshot");
 
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
-      if (!isSnapshotInstallSuccess.get()) {
-        if (request.getSnapshotChunk().getDone()) {
-          // receive last chunk of snapshot, but previous chunks failed
-          // reset this flag
-          isSnapshotInstallSuccess.set(true);
-        }
-        throw new IOException("Previous snapshot chunk failed to install");
+      if (snapshotChunkRequest.getRequestIndex() == 0) {
+        chunkRequestIndex.set(-1);
+      } else if (chunkRequestIndex.get() != snapshotChunkRequest.getRequestIndex()) {
+        throw new IOException("Snapshot request already failed at chunk index " + (chunkRequestIndex.get() + 1)
+                + "; ignoring request with chunk index " + snapshotChunkRequest.getRequestIndex());
       }
       try {
         // Check and append the snapshot chunk. We simply put this in lock
@@ -191,15 +190,13 @@ class SnapshotInstallationHandler {
         }
 
         //TODO: We should only update State with installed snapshot once the request is done.
-        try {
-          state.installSnapshot(request);
-        } catch (IOException e) {
-          isSnapshotInstallSuccess.set(snapshotChunkRequest.getDone());
-          throw e;
-        }
+        state.installSnapshot(request);
+
+        int idx = chunkRequestIndex.incrementAndGet();
+        Preconditions.assertEquals(snapshotChunkRequest.getRequestIndex(), idx, "chunkRequestIndex");
         // update the committed index
         // re-load the state machine if this is the last chunk
-        if (isSnapshotInstallSuccess.get() && snapshotChunkRequest.getDone()) {
+        if (snapshotChunkRequest.getDone()) {
           state.reloadStateMachine(lastIncluded);
         }
       } finally {
