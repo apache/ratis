@@ -177,7 +177,7 @@ class SnapshotInstallationHandler {
       if (snapshotChunkRequest.getRequestIndex() == 0) {
         chunkRequestIndex.set(0);
       } else if (chunkRequestIndex.get() != snapshotChunkRequest.getRequestIndex()) {
-        throw new IOException("Snapshot request already failed at chunk index " + (chunkRequestIndex.get() + 1)
+        throw new IOException("Snapshot request already failed at chunk index " + chunkRequestIndex.get()
                 + "; ignoring request with chunk index " + snapshotChunkRequest.getRequestIndex());
       }
       try {
