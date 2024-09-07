@@ -1859,4 +1859,8 @@ class RaftServerImpl implements RaftServer.Division,
   void onGroupLeaderElected() {
     transferLeadership.complete(TransferLeadership.Result.SUCCESS);
   }
+
+  boolean isRunning() {
+    return startComplete.get() && lifeCycle.getCurrentState() == State.RUNNING;
+  }
 }
