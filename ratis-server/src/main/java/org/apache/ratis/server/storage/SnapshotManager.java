@@ -64,7 +64,7 @@ public class SnapshotManager {
   private final Supplier<File> snapshotDir;
   private final Supplier<File> snapshotTmpDir;
   private final Function<FileChunkProto, String> getRelativePath;
-  // private final Supplier<MessageDigest> digester = JavaUtils.memoize(MD5Hash::getDigester);
+  private MessageDigest digester;
 
   SnapshotManager(RaftPeerId selfId, Supplier<RaftStorageDirectory> dir, StateMachineStorage smStorage) {
     this.selfId = selfId;
@@ -89,7 +89,8 @@ public class SnapshotManager {
       }
       // create the temp snapshot file and put padding inside
       out = FileUtils.newFileChannel(tmpSnapshotFile, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
-      // digester.get().reset();
+      digester = newMd5Digest();
+      digester.reset();
     } else {
       if (!exists) {
         throw new FileNotFoundException("Chunk offset is non-zero but file is not found: " + tmpSnapshotFile
@@ -115,8 +116,6 @@ public class SnapshotManager {
 
     // TODO: Make sure that subsequent requests for the same installSnapshot are coming in order,
     // and are not lost when whole request cycle is done. Check requestId and requestIndex here
-    MessageDigest digester = newMd5Digest();
-    digester.reset();
     for (FileChunkProto chunk : snapshotChunkRequest.getFileChunksList()) {
       SnapshotInfo pi = stateMachine.getLatestSnapshot();
       if (pi != null && pi.getTermIndex().getIndex() >= lastIncludedIndex) {
@@ -176,7 +175,7 @@ public class SnapshotManager {
 
   private MessageDigest newMd5Digest() {
       try {
-          return MessageDigest.getInstance("MD5");
+        return MessageDigest.getInstance("MD5");
       } catch (NoSuchAlgorithmException e) {
         LOG.warn("could not find MD5 digest algorithm", e);
       }
