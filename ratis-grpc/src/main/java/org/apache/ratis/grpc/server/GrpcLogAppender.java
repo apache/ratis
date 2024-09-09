@@ -55,7 +55,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -576,7 +575,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   private class InstallSnapshotResponseHandler implements StreamObserver<InstallSnapshotReplyProto> {
     private final String name = getFollower().getName() + "-" + JavaUtils.getClassSimpleName(getClass());
     private final Queue<Integer> pending;
-    private final AtomicBoolean done = new AtomicBoolean(false);
+    private boolean done = false;
     private final boolean isNotificationOnly;
 
     InstallSnapshotResponseHandler() {
@@ -638,12 +637,11 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
 
     boolean isDone() {
-      return done.get();
+      return done;
     }
 
     void close() {
-      done.set(true);
-      notifyLogAppender();
+      getEventAwaitForSignal().signal(() -> done = true);
     }
 
     boolean hasAllResponse() {
@@ -777,9 +775,10 @@ public class GrpcLogAppender extends LogAppenderBase {
       return;
     }
 
-    while (isRunning() && !responseHandler.isDone()) {
+    boolean isDone = false;
+    while (isRunning() && !isDone) {
       try {
-        getEventAwaitForSignal().await(getWaitTimeMs(), TimeUnit.MILLISECONDS);
+        isDone = getEventAwaitForSignal().await(responseHandler::isDone);
       } catch (InterruptedException ignored) {
         Thread.currentThread().interrupt();
       }
@@ -822,9 +821,10 @@ public class GrpcLogAppender extends LogAppenderBase {
       return;
     }
 
-    while (isRunning() && !responseHandler.isDone()) {
+    boolean isDone = false;
+    while (isRunning()&& !isDone) {
       try {
-        getEventAwaitForSignal().await(getWaitTimeMs(), TimeUnit.MILLISECONDS);
+        isDone = getEventAwaitForSignal().await(responseHandler::isDone);
       } catch (InterruptedException ignored) {
         Thread.currentThread().interrupt();
       }
