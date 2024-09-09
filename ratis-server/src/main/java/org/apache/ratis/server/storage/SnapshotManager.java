@@ -173,13 +173,13 @@ public class SnapshotManager {
     }
   }
 
-  private MessageDigest newMd5Digest() {
-      try {
-        return MessageDigest.getInstance("MD5");
-      } catch (NoSuchAlgorithmException e) {
-        LOG.warn("could not find MD5 digest algorithm", e);
-      }
-      return MD5Hash.getDigester();
+  private MessageDigest newMd5Digest() throws IOException {
+    try {
+      return MessageDigest.getInstance("MD5");
+    } catch (NoSuchAlgorithmException e) {
+      LOG.warn("could not find MD5 digest algorithm", e);
+      throw new IOException("could not find MD5 digest algorithm");
+    }
   }
 
   private static void rename(File tmpDir, File stateMachineDir) throws IOException {
