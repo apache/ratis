@@ -103,6 +103,7 @@
         <include>README.md</include>
         <include>mvnw.cmd</include>
         <include>pom.xml</include>
+        <include>src/**</include>
         <include>start-build-env.sh</include>
       </includes>
       <fileMode>0644</fileMode>
