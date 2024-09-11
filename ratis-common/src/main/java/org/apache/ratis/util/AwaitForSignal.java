@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.thirdparty.com.google.common.base.Supplier;
-
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -74,33 +72,6 @@ public class AwaitForSignal {
   public void signal() {
     lock.lock();
     try {
-      signaled.getAndSet(new AtomicBoolean()).set(true);
-      condition.signalAll();
-    } finally {
-      lock.unlock();
-    }
-  }
-
-  public <T extends Boolean> boolean await(Supplier<T> supplier)
-      throws InterruptedException {
-    lock.lock();
-    try {
-      if (supplier.get().booleanValue()) {
-        return true;
-      }
-      for (final AtomicBoolean s = signaled.get(); !s.get(); ) {
-        condition.await();
-      }
-      return supplier.get().booleanValue();
-    } finally {
-      lock.unlock();
-    }
-  }
-
-  public void signal(Runnable runnable) {
-    lock.lock();
-    try {
-      runnable.run();
       signaled.getAndSet(new AtomicBoolean()).set(true);
       condition.signalAll();
     } finally {

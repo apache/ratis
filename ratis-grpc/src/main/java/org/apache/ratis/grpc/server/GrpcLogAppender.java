@@ -54,6 +54,7 @@ import java.io.InterruptedIOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -575,7 +576,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   private class InstallSnapshotResponseHandler implements StreamObserver<InstallSnapshotReplyProto> {
     private final String name = getFollower().getName() + "-" + JavaUtils.getClassSimpleName(getClass());
     private final Queue<Integer> pending;
-    private boolean done = false;
+    private final CompletableFuture<Void> done = new CompletableFuture<>();
     private final boolean isNotificationOnly;
 
     InstallSnapshotResponseHandler() {
@@ -636,12 +637,19 @@ public class GrpcLogAppender extends LogAppenderBase {
       getServer().getStateMachine().event().notifySnapshotInstalled(result, snapshotIndex, getFollower().getPeer());
     }
 
-    boolean isDone() {
-      return done;
+    void waitForResponse() {
+      try {
+        done.get();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      } catch (ExecutionException e) {
+        throw new IllegalStateException("Failed to complete " + name, e);
+      }
     }
 
     void close() {
-      getEventAwaitForSignal().signal(() -> done = true);
+      done.complete(null);
+      notifyLogAppender();
     }
 
     boolean hasAllResponse() {
@@ -774,15 +782,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       }
       return;
     }
-
-    boolean isDone = false;
-    while (isRunning() && !isDone) {
-      try {
-        isDone = getEventAwaitForSignal().await(responseHandler::isDone);
-      } catch (InterruptedException ignored) {
-        Thread.currentThread().interrupt();
-      }
-    }
+    responseHandler.waitForResponse();
 
     if (responseHandler.hasAllResponse()) {
       getFollower().setSnapshotIndex(snapshot.getTermIndex().getIndex());
@@ -820,15 +820,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       }
       return;
     }
-
-    boolean isDone = false;
-    while (isRunning()&& !isDone) {
-      try {
-        isDone = getEventAwaitForSignal().await(responseHandler::isDone);
-      } catch (InterruptedException ignored) {
-        Thread.currentThread().interrupt();
-      }
-    }
+    responseHandler.waitForResponse();
   }
 
   /**
