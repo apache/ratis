@@ -175,7 +175,6 @@ public class SnapshotManager {
   private void renewMd5Digest() throws IOException {
     try {
       digester =  MessageDigest.getInstance("MD5");
-      digester.reset();
     } catch (NoSuchAlgorithmException e) {
       throw new IOException("could not find MD5 digest algorithm");
     }
