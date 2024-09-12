@@ -571,11 +571,10 @@ class RaftServerImpl implements RaftServer.Division,
       boolean allowListener,
       Object reason) {
     final RaftPeerRole old = role.getCurrentRole();
-    final boolean metadataUpdated = state.updateCurrentTerm(newTerm);
     if (old == RaftPeerRole.LISTENER && !allowListener) {
       throw new IllegalStateException("Unexpected role " + old);
     }
-
+    boolean metadataUpdated;
     if ((old != RaftPeerRole.FOLLOWER || force) && old != RaftPeerRole.LISTENER) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
@@ -596,8 +595,11 @@ class RaftServerImpl implements RaftServer.Division,
       } else if (old == RaftPeerRole.FOLLOWER) {
         role.shutdownFollowerState();
       }
+      metadataUpdated = state.updateCurrentTerm(newTerm);
       role.startFollowerState(this, reason);
       setFirstElection(reason);
+    } else {
+      metadataUpdated = state.updateCurrentTerm(newTerm);
     }
     return metadataUpdated;
   }
