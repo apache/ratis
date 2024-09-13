@@ -147,7 +147,7 @@ publish-svn() {
 
 publish-mvn(){
   cd "$projectdir"
-  mvnFun -X clean deploy assembly:single -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
+  mvnFun -X clean deploy -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
 }
 
 if [ "$#" -ne 1 ]; then
