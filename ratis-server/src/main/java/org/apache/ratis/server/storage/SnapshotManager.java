@@ -89,7 +89,7 @@ public class SnapshotManager {
       }
       // create the temp snapshot file and put padding inside
       out = FileUtils.newFileChannel(tmpSnapshotFile, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
-      renewMd5Digest();
+      digester = MD5Hash.newDigester();
     } else {
       if (!exists) {
         throw new FileNotFoundException("Chunk offset is non-zero but file is not found: " + tmpSnapshotFile
@@ -169,14 +169,6 @@ public class SnapshotManager {
 
     if (snapshotChunkRequest.getDone()) {
       rename(tmpDir, snapshotDir.get());
-    }
-  }
-
-  private void renewMd5Digest() throws IOException {
-    try {
-      digester =  MessageDigest.getInstance("MD5");
-    } catch (NoSuchAlgorithmException e) {
-      throw new IOException("could not find MD5 digest algorithm");
     }
   }
 

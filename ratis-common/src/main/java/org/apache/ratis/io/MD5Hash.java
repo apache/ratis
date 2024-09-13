@@ -30,13 +30,15 @@ public class MD5Hash {
   public static final int MD5_LEN = 16;
 
   private static final ThreadLocal<MessageDigest> DIGESTER_FACTORY =
-      ThreadLocal.withInitial(() -> {
+      ThreadLocal.withInitial(MD5Hash::newDigester);
+
+  public static MessageDigest newDigester() {
     try {
       return MessageDigest.getInstance("MD5");
     } catch (NoSuchAlgorithmException e) {
-      throw new RuntimeException(e);
+      throw new IllegalStateException("Failed to create MessageDigest for MD5", e);
     }
-  });
+  }
 
   private byte[] digest;
 
