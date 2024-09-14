@@ -21,7 +21,6 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 

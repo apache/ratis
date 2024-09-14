@@ -98,19 +98,19 @@ public final class Context implements Closeable {
 
   /** Create a new {@link RaftClient} from the given group. */
   public RaftClient newRaftClient(RaftGroup group) {
-    final RaftProperties properties = getProperties();
+    final RaftProperties p = getProperties();
     if (isCli()) {
-      RaftClientConfigKeys.Rpc.setRequestTimeout(properties, DEFAULT_REQUEST_TIMEOUT);
+      RaftClientConfigKeys.Rpc.setRequestTimeout(p, DEFAULT_REQUEST_TIMEOUT);
 
       // Since ratis-shell support GENERIC_COMMAND_OPTIONS, here we should
-      // merge these options to raft properties to make it work.
+      // merge these options to raft p to make it work.
       final Properties sys = System.getProperties();
-      sys.stringPropertyNames().forEach(key -> properties.set(key, sys.getProperty(key)));
+      sys.stringPropertyNames().forEach(key -> p.set(key, sys.getProperty(key)));
     }
 
     return RaftClient.newBuilder()
         .setRaftGroup(group)
-        .setProperties(properties)
+        .setProperties(p)
         .setParameters(getParameters())
         .setRetryPolicy(getRetryPolicy())
         .build();

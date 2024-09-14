@@ -18,8 +18,6 @@
 package org.apache.ratis.shell.cli.sh.command;
 
 import org.apache.commons.cli.Option;
-import org.apache.ratis.client.RaftClientConfigKeys;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -36,7 +34,6 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.TimeDuration;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -44,9 +41,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
