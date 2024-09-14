@@ -61,7 +61,7 @@ public class ResumeCommand extends AbstractRatisCommand {
       printf("Can't find a sever with the address:%s", strAddr);
       return -1;
     }
-    try(final RaftClient raftClient = CliUtils.newRaftClient(getRaftGroup())) {
+    try(final RaftClient raftClient = newRaftClient()) {
       RaftClientReply reply = raftClient.getLeaderElectionManagementApi(peerId).resume();
       processReply(reply, () -> String.format("Failed to resume leader election on peer %s", strAddr));
       printf(String.format("Successful pause leader election on peer %s", strAddr));

@@ -74,7 +74,7 @@ public class TransferCommand extends AbstractRatisCommand {
       printf("Peer with address %s not found.", strAddr);
       return -2;
     }
-    try (RaftClient client = CliUtils.newRaftClient(getRaftGroup())) {
+    try (RaftClient client = newRaftClient()) {
       // transfer leadership
       if (!tryTransfer(client, newLeader, highestPriority, timeout.orElse(timeoutDefault))) {
         // legacy mode, transfer leadership by setting priority.

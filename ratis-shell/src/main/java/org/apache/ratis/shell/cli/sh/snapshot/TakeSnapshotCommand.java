@@ -58,7 +58,7 @@ public class TakeSnapshotCommand extends AbstractRatisCommand {
     } else {
       timeout = 3000;
     }
-    try(final RaftClient raftClient = CliUtils.newRaftClient(getRaftGroup())) {
+    try(final RaftClient raftClient = newRaftClient()) {
       if (cl.hasOption(PEER_ID_OPTION_NAME)) {
         peerId = RaftPeerId.getRaftPeerId(cl.getOptionValue(PEER_ID_OPTION_NAME));
       } else {

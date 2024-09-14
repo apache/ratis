@@ -48,7 +48,7 @@ public class StepDownCommand extends AbstractRatisCommand {
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
 
-    try (RaftClient client = CliUtils.newRaftClient(getRaftGroup())) {
+    try (RaftClient client = newRaftClient()) {
       RaftPeerId leaderId = RaftPeerId.valueOf(getLeader(getGroupInfoReply().getRoleInfoProto()).getId());
       final RaftClientReply transferLeadershipReply = client.admin().transferLeadership(null, leaderId, 60_000);
       processReply(transferLeadershipReply, () -> "Failed to step down leader");

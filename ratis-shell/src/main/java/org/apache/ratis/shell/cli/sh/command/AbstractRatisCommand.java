@@ -18,6 +18,8 @@
 package org.apache.ratis.shell.cli.sh.command;
 
 import org.apache.commons.cli.Option;
+import org.apache.ratis.client.RaftClientConfigKeys;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -34,6 +36,7 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.TimeDuration;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -41,7 +44,9 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -66,12 +71,16 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
     final RaftGroupId groupIdSpecified = CliUtils.parseRaftGroupId(cl.getOptionValue(GROUPID_OPTION_NAME));
     raftGroup = RaftGroup.valueOf(groupIdSpecified != null? groupIdSpecified: RaftGroupId.randomId(), peers);
     PrintStream printStream = getPrintStream();
-    try (final RaftClient client = CliUtils.newRaftClient(raftGroup)) {
+    try (final RaftClient client = newRaftClient()) {
       final RaftGroupId remoteGroupId = CliUtils.getGroupId(client, peers, groupIdSpecified, printStream);
       groupInfoReply = CliUtils.getGroupInfo(client, peers, remoteGroupId, printStream);
       raftGroup = groupInfoReply.getGroup();
     }
     return 0;
+  }
+
+  protected RaftClient newRaftClient() {
+    return getContext().newRaftClient(getRaftGroup());
   }
 
   @Override

@@ -63,7 +63,7 @@ public class SetPriorityCommand extends AbstractRatisCommand {
       addressPriorityMap.put(str[0], Integer.parseInt(str[1]));
     }
 
-    try (RaftClient client = CliUtils.newRaftClient(getRaftGroup())) {
+    try (RaftClient client = newRaftClient()) {
       final List<RaftPeer> peers = getPeerStream(RaftPeerRole.FOLLOWER).map(peer -> {
         final Integer newPriority = addressPriorityMap.get(peer.getAddress());
         final int priority = newPriority != null ? newPriority : peer.getPriority();

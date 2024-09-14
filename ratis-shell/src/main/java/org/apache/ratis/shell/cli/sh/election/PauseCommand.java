@@ -61,7 +61,7 @@ public class PauseCommand extends AbstractRatisCommand {
       printf("Peer not found: %s", strAddr);
       return -1;
     }
-    try(final RaftClient raftClient = CliUtils.newRaftClient(getRaftGroup())) {
+    try(final RaftClient raftClient = newRaftClient()) {
       RaftClientReply reply = raftClient.getLeaderElectionManagementApi(peerId).pause();
       processReply(reply, () -> String.format("Failed to pause leader election on peer %s", strAddr));
       printf(String.format("Successful pause leader election on peer %s", strAddr));

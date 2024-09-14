@@ -54,6 +54,23 @@ public interface SecurityTestUtils {
 
   ClassLoader CLASS_LOADER = SecurityTestUtils.class.getClassLoader();
 
+  TrustManager EMPTY_TRUST_MANAGER = new X509TrustManager() {
+    @Override
+    public X509Certificate[] getAcceptedIssuers() {
+      return null;
+    }
+
+    @Override
+    public void checkClientTrusted(X509Certificate[] certs, String authType) { }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] certs, String authType) { }
+  };
+
+  static TrustManager emptyTrustManager() {
+    return EMPTY_TRUST_MANAGER;
+  }
+
   static File getResource(String name) {
     final File file = Optional.ofNullable(CLASS_LOADER.getResource(name))
         .map(URL::getFile)
