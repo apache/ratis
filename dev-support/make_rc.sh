@@ -96,7 +96,7 @@ prepare-src() {
   git reset --hard
   git clean -fdx
   mvnFun versions:set -DnewVersion="$RATISVERSION"
-  git commit -a -m "Change version for the version $RATISVERSION $RC"
+  git commit --allow-empty -a -m "Change version for the version $RATISVERSION $RC"
 
   git config user.signingkey "${CODESIGNINGKEY}"
   git tag -s -m "Release $RATISVERSION $RC" ratis-"${RATISVERSION}${RC}"
@@ -147,7 +147,7 @@ publish-svn() {
 
 publish-mvn(){
   cd "$projectdir"
-  mvnFun -X clean deploy -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
+  mvnFun clean deploy -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
 }
 
 if [ "$#" -ne 1 ]; then
