@@ -27,7 +27,6 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
@@ -63,7 +62,7 @@ public class SnapshotManager {
   private final Supplier<File> snapshotDir;
   private final Supplier<File> snapshotTmpDir;
   private final Function<FileChunkProto, String> getRelativePath;
-  private final Supplier<MessageDigest> digester = JavaUtils.memoize(MD5Hash::getDigester);
+  private MessageDigest digester;
 
   SnapshotManager(RaftPeerId selfId, Supplier<RaftStorageDirectory> dir, StateMachineStorage smStorage) {
     this.selfId = selfId;
@@ -88,7 +87,7 @@ public class SnapshotManager {
       }
       // create the temp snapshot file and put padding inside
       out = FileUtils.newFileChannel(tmpSnapshotFile, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
-      digester.get().reset();
+      digester = MD5Hash.newDigester();
     } else {
       if (!exists) {
         throw new FileNotFoundException("Chunk offset is non-zero but file is not found: " + tmpSnapshotFile
@@ -114,7 +113,6 @@ public class SnapshotManager {
 
     // TODO: Make sure that subsequent requests for the same installSnapshot are coming in order,
     // and are not lost when whole request cycle is done. Check requestId and requestIndex here
-
     for (FileChunkProto chunk : snapshotChunkRequest.getFileChunksList()) {
       SnapshotInfo pi = stateMachine.getLatestSnapshot();
       if (pi != null && pi.getTermIndex().getIndex() >= lastIncludedIndex) {
@@ -128,7 +126,7 @@ public class SnapshotManager {
 
       try (FileChannel out = open(chunk, tmpSnapshotFile)) {
         final ByteBuffer data = chunk.getData().asReadOnlyByteBuffer();
-        digester.get().update(data.duplicate());
+        digester.update(data.duplicate());
 
         int written = 0;
         for(; data.remaining() > 0; ) {
@@ -144,7 +142,7 @@ public class SnapshotManager {
             new MD5Hash(chunk.getFileDigest().toByteArray());
         // calculate the checksum of the snapshot file and compare it with the
         // file digest in the request
-        final MD5Hash digest = new MD5Hash(digester.get().digest());
+        final MD5Hash digest = new MD5Hash(digester.digest());
         if (!digest.equals(expectedDigest)) {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
