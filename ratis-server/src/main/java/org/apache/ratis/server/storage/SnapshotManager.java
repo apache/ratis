@@ -63,7 +63,7 @@ public class SnapshotManager {
   private final Supplier<File> snapshotDir;
   private final Supplier<File> snapshotTmpDir;
   private final Function<FileChunkProto, String> getRelativePath;
-  private final AtomicReference<MessageDigest> digester;
+  private volatile AtomicReference<MessageDigest> digester;
 
   SnapshotManager(RaftPeerId selfId, Supplier<RaftStorageDirectory> dir, StateMachineStorage smStorage) {
     this.selfId = selfId;
