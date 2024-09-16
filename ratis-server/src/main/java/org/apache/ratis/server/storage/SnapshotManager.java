@@ -89,7 +89,8 @@ public class SnapshotManager {
       }
       // create the temp snapshot file and put padding inside
       out = FileUtils.newFileChannel(tmpSnapshotFile, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
-      digester.set(MD5Hash.getDigester());
+      digester.set(MD5Hash.newDigester());
+      digester.get().reset();
     } else {
       if (!exists) {
         throw new FileNotFoundException("Chunk offset is non-zero but file is not found: " + tmpSnapshotFile

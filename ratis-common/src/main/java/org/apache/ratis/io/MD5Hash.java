@@ -32,7 +32,7 @@ public class MD5Hash {
   private static final ThreadLocal<MessageDigest> DIGESTER_FACTORY =
       ThreadLocal.withInitial(MD5Hash::newDigester);
 
-  private static MessageDigest newDigester() {
+  public static MessageDigest newDigester() {
     try {
       return MessageDigest.getInstance("MD5");
     } catch (NoSuchAlgorithmException e) {
