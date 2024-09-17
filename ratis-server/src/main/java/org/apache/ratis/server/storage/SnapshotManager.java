@@ -43,7 +43,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -63,7 +62,7 @@ public class SnapshotManager {
   private final Supplier<File> snapshotDir;
   private final Supplier<File> snapshotTmpDir;
   private final Function<FileChunkProto, String> getRelativePath;
-  private volatile AtomicReference<MessageDigest> digester;
+  private volatile MessageDigest digester;
 
   SnapshotManager(RaftPeerId selfId, Supplier<RaftStorageDirectory> dir, StateMachineStorage smStorage) {
     this.selfId = selfId;
@@ -75,7 +74,6 @@ public class SnapshotManager {
     final Supplier<Path> smDir = MemoizedSupplier.valueOf(() -> dir.get().getStateMachineDir().toPath());
     this.getRelativePath = c -> smDir.get().relativize(
         new File(dir.get().getRoot(), c.getFilename()).toPath()).toString();
-    digester = new AtomicReference<>();
   }
 
   @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
@@ -89,8 +87,8 @@ public class SnapshotManager {
       }
       // create the temp snapshot file and put padding inside
       out = FileUtils.newFileChannel(tmpSnapshotFile, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
-      digester.set(MD5Hash.newDigester());
-      digester.get().reset();
+      digester = MD5Hash.newDigester();
+      digester.reset();
     } else {
       if (!exists) {
         throw new FileNotFoundException("Chunk offset is non-zero but file is not found: " + tmpSnapshotFile
@@ -129,7 +127,7 @@ public class SnapshotManager {
 
       try (FileChannel out = open(chunk, tmpSnapshotFile)) {
         final ByteBuffer data = chunk.getData().asReadOnlyByteBuffer();
-        digester.get().update(data.duplicate());
+        digester.update(data.duplicate());
 
         int written = 0;
         for(; data.remaining() > 0; ) {
@@ -145,7 +143,7 @@ public class SnapshotManager {
             new MD5Hash(chunk.getFileDigest().toByteArray());
         // calculate the checksum of the snapshot file and compare it with the
         // file digest in the request
-        final MD5Hash digest = new MD5Hash(digester.get().digest());
+        final MD5Hash digest = new MD5Hash(digester.digest());
         if (!digest.equals(expectedDigest)) {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
