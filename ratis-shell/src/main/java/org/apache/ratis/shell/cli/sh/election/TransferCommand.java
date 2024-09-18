@@ -25,7 +25,6 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
-import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.util.TimeDuration;
@@ -74,7 +73,7 @@ public class TransferCommand extends AbstractRatisCommand {
       printf("Peer with address %s not found.", strAddr);
       return -2;
     }
-    try (RaftClient client = CliUtils.newRaftClient(getRaftGroup())) {
+    try (RaftClient client = newRaftClient()) {
       // transfer leadership
       if (!tryTransfer(client, newLeader, highestPriority, timeout.orElse(timeoutDefault))) {
         // legacy mode, transfer leadership by setting priority.

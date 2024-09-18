@@ -24,7 +24,6 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
@@ -61,7 +60,7 @@ public class PauseCommand extends AbstractRatisCommand {
       printf("Peer not found: %s", strAddr);
       return -1;
     }
-    try(final RaftClient raftClient = CliUtils.newRaftClient(getRaftGroup())) {
+    try(final RaftClient raftClient = newRaftClient()) {
       RaftClientReply reply = raftClient.getLeaderElectionManagementApi(peerId).pause();
       processReply(reply, () -> String.format("Failed to pause leader election on peer %s", strAddr));
       printf(String.format("Successful pause leader election on peer %s", strAddr));

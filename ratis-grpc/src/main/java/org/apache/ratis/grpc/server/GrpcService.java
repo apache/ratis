@@ -198,6 +198,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
           .flowControlWindow(flowControlWindow.getSizeInt());
 
       if (tlsConfig != null) {
+        LOG.info("Setting TLS for {}", address);
         SslContextBuilder sslContextBuilder = GrpcUtil.initSslContextBuilderForServer(tlsConfig.getKeyManager());
         if (tlsConfig.getMtlsEnabled()) {
           sslContextBuilder.clientAuth(ClientAuth.REQUIRE);

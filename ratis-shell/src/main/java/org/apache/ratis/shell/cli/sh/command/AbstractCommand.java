@@ -26,21 +26,25 @@ import java.io.PrintStream;
  */
 public abstract class AbstractCommand implements Command {
 
-  private final PrintStream printStream;
+  private final Context context;
 
   protected AbstractCommand(Context context) {
-    printStream = context.getPrintStream();
+    this.context = context;
+  }
+
+  protected Context getContext() {
+    return context;
   }
 
   protected PrintStream getPrintStream() {
-    return printStream;
+    return getContext().getPrintStream();
   }
 
   protected void printf(String format, Object... args) {
-    printStream.printf(format, args);
+    getPrintStream().printf(format, args);
   }
 
   protected void println(Object message) {
-    printStream.println(message);
+    getPrintStream().println(message);
   }
 }

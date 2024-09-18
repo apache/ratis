@@ -17,6 +17,9 @@
  */
 package org.apache.ratis.shell.cli.sh;
 
+import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.shell.cli.AbstractShell;
 import org.apache.ratis.shell.cli.Command;
 import org.apache.ratis.shell.cli.sh.command.AbstractParentCommand;
@@ -60,7 +63,11 @@ public class RatisShell extends AbstractShell {
   }
 
   public RatisShell(PrintStream out) {
-    super(new Context(out));
+    this(new Context(out));
+  }
+
+  private RatisShell(Context context) {
+    super(context);
   }
 
   @Override
@@ -72,5 +79,40 @@ public class RatisShell extends AbstractShell {
   protected Map<String, Command> loadCommands(Context context) {
     return allParentCommands(context).stream()
         .collect(Collectors.toMap(Command::getCommandName, Function.identity()));
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  public static class Builder {
+    private PrintStream printStream = System.out;
+    private RetryPolicy retryPolicy;
+    private RaftProperties properties;
+    private Parameters parameters;
+
+    public Builder setPrintStream(PrintStream printStream) {
+      this.printStream = printStream;
+      return this;
+    }
+
+    public Builder setRetryPolicy(RetryPolicy retryPolicy) {
+      this.retryPolicy = retryPolicy;
+      return this;
+    }
+
+    public Builder setProperties(RaftProperties properties) {
+      this.properties = properties;
+      return this;
+    }
+
+    public Builder setParameters(Parameters parameters) {
+      this.parameters = parameters;
+      return this;
+    }
+
+    public RatisShell build() {
+      return new RatisShell(new Context(printStream, false, retryPolicy, properties, parameters));
+    }
   }
 }
