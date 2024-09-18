@@ -81,7 +81,7 @@ public class AddCommand extends AbstractRatisCommand {
           "Both " + PEER_ID_OPTION_NAME + " and " + ADDRESS_OPTION_NAME + " options are missing.");
     }
 
-    try (RaftClient client = CliUtils.newRaftClient(getRaftGroup())) {
+    try (RaftClient client = newRaftClient()) {
       final Stream<RaftPeer> remaining = getPeerStream(RaftPeerRole.FOLLOWER);
       final Stream<RaftPeer> adding = ids.stream().map(raftPeerId -> RaftPeer.newBuilder()
           .setId(raftPeerId)

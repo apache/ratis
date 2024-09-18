@@ -24,7 +24,6 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
@@ -63,7 +62,7 @@ public class SetPriorityCommand extends AbstractRatisCommand {
       addressPriorityMap.put(str[0], Integer.parseInt(str[1]));
     }
 
-    try (RaftClient client = CliUtils.newRaftClient(getRaftGroup())) {
+    try (RaftClient client = newRaftClient()) {
       final List<RaftPeer> peers = getPeerStream(RaftPeerRole.FOLLOWER).map(peer -> {
         final Integer newPriority = addressPriorityMap.get(peer.getAddress());
         final int priority = newPriority != null ? newPriority : peer.getPriority();

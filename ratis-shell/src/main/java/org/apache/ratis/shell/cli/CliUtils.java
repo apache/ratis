@@ -18,17 +18,12 @@
 package org.apache.ratis.shell.cli;
 
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientConfigKeys;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.retry.ExponentialBackoffRetry;
-import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
@@ -36,24 +31,16 @@ import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.UUID;
 
 /**
  * Utilities for command line interface.
  */
 public final class CliUtils {
-  private static final ExponentialBackoffRetry RETRY_POLICY = ExponentialBackoffRetry.newBuilder()
-      .setBaseSleepTime(TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS))
-      .setMaxAttempts(10)
-      .setMaxSleepTime(TimeDuration.valueOf(100_000, TimeUnit.MILLISECONDS))
-      .build();
-
   private CliUtils() {
     // prevent instantiation
   }
@@ -66,24 +53,6 @@ public final class CliUtils {
   /** @return {@link RaftPeerId} from the given host and port. */
   public static RaftPeerId getPeerId(String host, int port) {
     return RaftPeerId.getRaftPeerId(host + "_" + port);
-  }
-
-  /** Create a new {@link RaftClient} from the given group. */
-  public static RaftClient newRaftClient(RaftGroup group) {
-    RaftProperties properties = new RaftProperties();
-    RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
-        TimeDuration.valueOf(15, TimeUnit.SECONDS));
-
-    // Since ratis-shell support GENERIC_COMMAND_OPTIONS, here we should
-    // merge these options to raft properties to make it work.
-    final Properties sys = System.getProperties();
-    sys.stringPropertyNames().forEach(key -> properties.set(key, sys.getProperty(key)));
-
-    return RaftClient.newBuilder()
-        .setRaftGroup(group)
-        .setProperties(properties)
-        .setRetryPolicy(RETRY_POLICY)
-        .build();
   }
 
   /**

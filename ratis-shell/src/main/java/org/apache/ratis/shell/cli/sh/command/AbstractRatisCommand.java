@@ -66,12 +66,16 @@ public abstract class AbstractRatisCommand extends AbstractCommand {
     final RaftGroupId groupIdSpecified = CliUtils.parseRaftGroupId(cl.getOptionValue(GROUPID_OPTION_NAME));
     raftGroup = RaftGroup.valueOf(groupIdSpecified != null? groupIdSpecified: RaftGroupId.randomId(), peers);
     PrintStream printStream = getPrintStream();
-    try (final RaftClient client = CliUtils.newRaftClient(raftGroup)) {
+    try (final RaftClient client = newRaftClient()) {
       final RaftGroupId remoteGroupId = CliUtils.getGroupId(client, peers, groupIdSpecified, printStream);
       groupInfoReply = CliUtils.getGroupInfo(client, peers, remoteGroupId, printStream);
       raftGroup = groupInfoReply.getGroup();
     }
     return 0;
+  }
+
+  protected RaftClient newRaftClient() {
+    return getContext().newRaftClient(getRaftGroup());
   }
 
   @Override

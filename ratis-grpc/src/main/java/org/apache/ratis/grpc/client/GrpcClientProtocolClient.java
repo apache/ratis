@@ -132,6 +132,7 @@ public class GrpcClientProtocolClient implements Closeable {
     channelBuilder.proxyDetector(uri -> null);
 
     if (tlsConf != null) {
+      LOG.debug("Setting TLS for {}", address);
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
       GrpcUtil.setTrustManager(sslContextBuilder, tlsConf.getTrustManager());
       if (tlsConf.getMtlsEnabled()) {
