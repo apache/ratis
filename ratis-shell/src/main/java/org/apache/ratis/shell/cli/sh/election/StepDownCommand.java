@@ -21,7 +21,6 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 
@@ -48,7 +47,7 @@ public class StepDownCommand extends AbstractRatisCommand {
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
 
-    try (RaftClient client = CliUtils.newRaftClient(getRaftGroup())) {
+    try (RaftClient client = newRaftClient()) {
       RaftPeerId leaderId = RaftPeerId.valueOf(getLeader(getGroupInfoReply().getRoleInfoProto()).getId());
       final RaftClientReply transferLeadershipReply = client.admin().transferLeadership(null, leaderId, 60_000);
       processReply(transferLeadershipReply, () -> "Failed to step down leader");
