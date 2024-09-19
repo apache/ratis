@@ -34,9 +34,7 @@ public class MD5Hash {
 
   public static MessageDigest newDigester() {
     try {
-      MessageDigest digester = MessageDigest.getInstance("MD5");
-      digester.reset();
-      return digester;
+      return MessageDigest.getInstance("MD5");
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException("Failed to create MessageDigest for MD5", e);
     }
