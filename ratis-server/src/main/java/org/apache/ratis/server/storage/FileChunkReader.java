@@ -56,7 +56,7 @@ public class FileChunkReader implements Closeable {
     this.relativePath = relativePath;
     final File f = info.getPath().toFile();
     if (info.getFileDigest() == null) {
-      digester = MD5Hash.getDigester();
+      digester = MD5Hash.newDigester();
       this.in = new DigestInputStream(FileUtils.newInputStream(f), digester);
     } else {
       digester = null;
