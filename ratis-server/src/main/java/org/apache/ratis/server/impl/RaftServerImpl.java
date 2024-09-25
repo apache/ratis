@@ -133,7 +133,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -200,7 +199,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     @Override
     public long[] getFollowerNextIndices() {
-      return role.get().getLeaderState()
+      return role.getLeaderState()
           .filter(leader -> isLeader())
           .map(LeaderStateImpl::getFollowerNextIndices)
           .orElse(null);
@@ -218,7 +217,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
-  private final AtomicReference<RoleInfo> role = new AtomicReference<>();
+  private final RoleInfo role;
 
   private final DataStreamMap dataStreamMap;
   private final RaftServerConfigKeys.Read.Option readOption;
@@ -256,7 +255,7 @@ class RaftServerImpl implements RaftServer.Division,
     LOG.info("{}: new RaftServerImpl for {} with {}", id, group, stateMachine);
     this.lifeCycle = new LifeCycle(id);
     this.stateMachine = stateMachine;
-    this.role.set(new RoleInfo(id));
+    this.role = new RoleInfo(id);
 
     final RaftProperties properties = proxy.getProperties();
     this.divisionProperties = new DivisionPropertiesImpl(properties);
@@ -378,7 +377,7 @@ class RaftServerImpl implements RaftServer.Division,
   private void setRole(RaftPeerRole newRole, Object reason) {
     LOG.info("{}: changes role from {} to {} at term {} for {}",
         getMemberId(), this.role, newRole, state.getCurrentTerm(), reason);
-    this.role.get().transitionRole(newRole);
+    this.role.transitionRole(newRole);
   }
 
   boolean start() throws IOException {
@@ -419,7 +418,7 @@ class RaftServerImpl implements RaftServer.Division,
     } else {
       throw new IllegalArgumentException("Unexpected role " + newRole);
     }
-    role.get().startFollowerState(this, reason);
+    role.startFollowerState(this, reason);
 
     lifeCycle.transition(State.RUNNING);
   }
@@ -445,7 +444,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   RoleInfo getRole() {
-    return role.get();
+    return role;
   }
 
   @Override
@@ -515,17 +514,17 @@ class RaftServerImpl implements RaftServer.Division,
         LOG.warn("{}: Failed to un-register RaftServer JMX bean", getMemberId(), e);
       }
       try {
-        role.get().shutdownFollowerState();
+        role.shutdownFollowerState();
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown FollowerState", getMemberId(), e);
       }
       try{
-        role.get().shutdownLeaderElection();
+        role.shutdownLeaderElection();
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown LeaderElection", getMemberId(), e);
       }
       try{
-        role.get().shutdownLeaderState(true).join();
+        role.shutdownLeaderState(true).join();
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown LeaderState monitor", getMemberId(), e);
       }
@@ -572,7 +571,7 @@ class RaftServerImpl implements RaftServer.Division,
       boolean force,
       boolean allowListener,
       Object reason) {
-    final RaftPeerRole old = role.get().getCurrentRole();
+    final RaftPeerRole old = role.getCurrentRole();
     if (old == RaftPeerRole.LISTENER && !allowListener) {
       throw new IllegalStateException("Unexpected role " + old);
     }
@@ -580,7 +579,7 @@ class RaftServerImpl implements RaftServer.Division,
     if ((old != RaftPeerRole.FOLLOWER || force) && old != RaftPeerRole.LISTENER) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
-        role.get().shutdownLeaderState(false)
+        role.shutdownLeaderState(false)
             .exceptionally(e -> {
               if (e != null) {
                 if (!getInfo().isAlive()) {
@@ -593,12 +592,12 @@ class RaftServerImpl implements RaftServer.Division,
             .join();
         state.setLeader(null, reason);
       } else if (old == RaftPeerRole.CANDIDATE) {
-        role.get().shutdownLeaderElection();
+        role.shutdownLeaderElection();
       } else if (old == RaftPeerRole.FOLLOWER) {
-        role.get().shutdownFollowerState();
+        role.shutdownFollowerState();
       }
       metadataUpdated = state.updateCurrentTerm(newTerm);
-      role.get().startFollowerState(this, reason);
+      role.startFollowerState(this, reason);
       setFirstElection(reason);
     } else {
       metadataUpdated = state.updateCurrentTerm(newTerm);
@@ -617,9 +616,9 @@ class RaftServerImpl implements RaftServer.Division,
 
   synchronized void changeToLeader() {
     Preconditions.assertTrue(getInfo().isCandidate());
-    role.get().shutdownLeaderElection();
+    role.shutdownLeaderElection();
     setRole(RaftPeerRole.LEADER, "changeToLeader");
-    final LeaderStateImpl leader = role.get().updateLeaderState(this);
+    final LeaderStateImpl leader = role.updateLeaderState(this);
     state.becomeLeader();
 
     // start sending AppendEntries RPC to followers
@@ -635,7 +634,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     // add the commit infos of other servers
     if (getInfo().isLeader()) {
-      role.get().getLeaderState().ifPresent(
+      role.getLeaderState().ifPresent(
           leader -> leader.updateFollowerCommitInfos(commitInfoCache, infos));
     } else {
       RaftConfigurationImpl raftConf = getRaftConf();
@@ -674,23 +673,23 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   RoleInfoProto getRoleInfoProto() {
-    return role.get().buildRoleInfoProto(this);
+    return role.buildRoleInfoProto(this);
   }
 
   synchronized void changeToCandidate(boolean forceStartLeaderElection) {
     Preconditions.assertTrue(getInfo().isFollower());
-    role.get().shutdownFollowerState();
+    role.shutdownFollowerState();
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
     if (state.shouldNotifyExtendedNoLeader()) {
       stateMachine.followerEvent().notifyExtendedNoLeader(getRoleInfoProto());
     }
     // start election
-    role.get().startLeaderElection(this, forceStartLeaderElection);
+    role.startLeaderElection(this, forceStartLeaderElection);
   }
 
   @Override
   public String toString() {
-    return role.get() + " " + state + " " + lifeCycle.getCurrentState();
+    return role + " " + state + " " + lifeCycle.getCurrentState();
   }
 
   RaftClientReply.Builder newReplyBuilder(RaftClientRequest request) {
@@ -808,7 +807,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       // append the message to its local log
-      final LeaderStateImpl leaderState = role.get().getLeaderStateNonNull();
+      final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
       writeIndexCache.add(request.getClientId(), context.getLogIndexFuture());
 
       final PendingRequests.Permit permit = leaderState.tryAcquirePendingRequest(request.getMessage());
@@ -882,7 +881,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   void stepDownOnJvmPause() {
-    role.get().getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
+    role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
   }
 
   /** If the given request is {@link TypeCase#FORWARD}, convert it. */
@@ -1013,7 +1012,7 @@ class RaftServerImpl implements RaftServer.Division,
       return reply;
     }
 
-    return role.get().getLeaderState()
+    return role.getLeaderState()
         .map(ls -> ls.addWatchRequest(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
             newExceptionReply(request, generateNotLeaderException())));
@@ -1068,7 +1067,7 @@ class RaftServerImpl implements RaftServer.Division,
         2. Then waits for statemachine to advance at least as far as readIndex.
         3. Finally, query the statemachine and return the result.
        */
-      final LeaderStateImpl leader = role.get().getLeaderState().orElse(null);
+      final LeaderStateImpl leader = role.getLeaderState().orElse(null);
 
       final CompletableFuture<Long> replyFuture;
       if (leader != null) {
@@ -1128,7 +1127,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
     }
 
-    return role.get().getLeaderState()
+    return role.getLeaderState()
         .map(ls -> ls.streamAsync(requestRef))
         .orElseGet(() -> CompletableFuture.completedFuture(
             newExceptionReply(request, generateNotLeaderException())));
@@ -1136,7 +1135,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private CompletableFuture<ReferenceCountedObject<RaftClientRequest>> streamEndOfRequestAsync(
       ReferenceCountedObject<RaftClientRequest> request) {
-    return role.get().getLeaderState()
+    return role.getLeaderState()
         .map(ls -> ls.streamEndOfRequestAsync(request))
         .orElse(null);
   }
@@ -1231,7 +1230,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       final RaftConfigurationImpl conf = getRaftConf();
-      final LeaderStateImpl leaderState = role.get().getLeaderStateNonNull();
+      final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
 
       // make sure there is no raft reconfiguration in progress
       if (!conf.isStable() || leaderState.inStagingState() || !state.isConfCommitted()) {
@@ -1313,7 +1312,7 @@ class RaftServerImpl implements RaftServer.Division,
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(getMemberId(), request);
 
-    return role.get().getLeaderState().map(leader -> leader.submitStepDownRequestAsync(request))
+    return role.getLeaderState().map(leader -> leader.submitStepDownRequestAsync(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
             newExceptionReply(request, generateNotLeaderException())));
   }
@@ -1344,7 +1343,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       final RaftConfigurationImpl current = getRaftConf();
-      final LeaderStateImpl leaderState = role.get().getLeaderStateNonNull();
+      final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
       // make sure there is no other raft reconfiguration in progress
       if (!current.isStable() || leaderState.inStagingState() || !state.isConfCommitted()) {
         throw new ReconfigurationInProgressException(
@@ -1419,7 +1418,7 @@ class RaftServerImpl implements RaftServer.Division,
         && getState().isConfCommitted()
         && !getRaftConf().containsInConf(candidateId)
         && candidateLastEntry.getIndex() < getRaftConf().getLogEntryIndex()
-        && role.get().getLeaderState().map(ls -> !ls.isBootStrappingPeer(candidateId)).orElse(false);
+        && role.getLeaderState().map(ls -> !ls.isBootStrappingPeer(candidateId)).orElse(false);
   }
 
   @Override
@@ -1463,7 +1462,7 @@ class RaftServerImpl implements RaftServer.Division,
         }
       }
       if (voteGranted) {
-        role.get().getFollowerState().ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.REQUEST_VOTE));
+        role.getFollowerState().ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.REQUEST_VOTE));
       } else if(shouldSendShutdown(candidateId, candidateLastEntry)) {
         shouldShutdown = true;
       }
@@ -1501,7 +1500,7 @@ class RaftServerImpl implements RaftServer.Division,
 
       assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
       if (!startComplete.get()) {
-        throw new ServerNotReadyException(getMemberId() + ": The server role.get() is not yet initialized.");
+        throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
       }
       assertGroup(getMemberId(), leaderId, leaderGroupId);
       assertEntries(r, previous, state);
@@ -1522,7 +1521,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final RaftPeerId peerId = RaftPeerId.valueOf(request.getServerRequest().getRequestorId());
 
-    final LeaderStateImpl leader = role.get().getLeaderState().orElse(null);
+    final LeaderStateImpl leader = role.getLeaderState().orElse(null);
     if (leader == null) {
       return CompletableFuture.completedFuture(toReadIndexReplyProto(peerId, getMemberId()));
     }
@@ -1545,7 +1544,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   Optional<FollowerState> updateLastRpcTime(FollowerState.UpdateType updateType) {
-    final Optional<FollowerState> fs = role.get().getFollowerState();
+    final Optional<FollowerState> fs = role.getFollowerState();
     if (fs.isPresent() && lifeCycle.getCurrentState().isRunning()) {
       fs.get().updateLastRpcTime(updateType);
       return fs;
@@ -1593,7 +1592,7 @@ class RaftServerImpl implements RaftServer.Division,
       state.setLeader(leaderId, "appendEntries");
 
       if (!proto.getInitializing() && lifeCycle.compareAndTransition(State.STARTING, State.RUNNING)) {
-        role.get().startFollowerState(this, Op.APPEND_ENTRIES);
+        role.startFollowerState(this, Op.APPEND_ENTRIES);
       }
       followerState = updateLastRpcTime(FollowerState.UpdateType.APPEND_START);
 
@@ -1752,8 +1751,8 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       if (!getInfo().isFollower()) {
-        LOG.warn("{} refused StartLeaderElectionRequest from {}, because role.get() is:{}",
-            getMemberId(), leaderId, role.get().getCurrentRole());
+        LOG.warn("{} refused StartLeaderElectionRequest from {}, because role is:{}",
+            getMemberId(), leaderId, role.getCurrentRole());
         return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
       }
 
@@ -1769,7 +1768,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   void submitUpdateCommitEvent() {
-    role.get().getLeaderState().ifPresent(LeaderStateImpl::submitUpdateCommitEvent);
+    role.getLeaderState().ifPresent(LeaderStateImpl::submitUpdateCommitEvent);
   }
 
   /**
@@ -1804,7 +1803,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       // update pending request
-      role.get().getLeaderState().ifPresent(leader -> leader.replyPendingRequest(termIndex, r));
+      role.getLeaderState().ifPresent(leader -> leader.replyPendingRequest(termIndex, r));
       cacheEntry.updateResult(r);
     });
   }
@@ -1852,7 +1851,7 @@ class RaftServerImpl implements RaftServer.Division,
       state.writeRaftConfiguration(next);
       stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(),
           next.getConfigurationEntry());
-      role.get().getLeaderState().ifPresent(leader -> leader.checkReady(next));
+      role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
       break;
     case STATEMACHINELOGENTRY:
       TransactionContext trx = getTransactionContext(next, true);
