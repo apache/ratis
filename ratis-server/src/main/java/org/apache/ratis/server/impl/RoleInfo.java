@@ -47,7 +47,7 @@ class RoleInfo {
   public static final Logger LOG = LoggerFactory.getLogger(RoleInfo.class);
 
   private final RaftPeerId id;
-  private volatile RaftPeerRole role;
+  private final AtomicReference<RaftPeerRole> role = new AtomicReference<>();
   /** Used when the peer is leader */
   private final AtomicReference<LeaderStateImpl> leaderState = new AtomicReference<>();
   /** Used when the peer is follower, to monitor election timeout */
@@ -64,7 +64,7 @@ class RoleInfo {
   }
 
   void transitionRole(RaftPeerRole newRole) {
-    this.role = newRole;
+    this.role.set(newRole);
     this.transitionTime.set(Timestamp.currentTime());
   }
 
@@ -73,7 +73,7 @@ class RoleInfo {
   }
 
   RaftPeerRole getCurrentRole() {
-    return role;
+    return role.get();
   }
 
   boolean isLeaderReady() {
