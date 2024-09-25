@@ -206,7 +206,7 @@ class LeaderStateImpl implements LeaderState {
       return senders.iterator();
     }
 
-    void addAll(Collection<LogAppender> newSenders) {
+    synchronized void addAll(Collection<LogAppender> newSenders) {
       if (newSenders.isEmpty()) {
         return;
       }
@@ -219,11 +219,11 @@ class LeaderStateImpl implements LeaderState {
       Preconditions.assertTrue(changed);
     }
 
-    boolean removeAll(Collection<LogAppender> c) {
+    synchronized boolean removeAll(Collection<LogAppender> c) {
       return senders.removeAll(c);
     }
 
-    CompletableFuture<Void> stopAll() {
+    synchronized CompletableFuture<Void> stopAll() {
       final CompletableFuture<?>[] futures = new CompletableFuture<?>[senders.size()];
       for(int i = 0; i < futures.length; i++) {
         futures[i] = senders.get(i).stopAsync();
