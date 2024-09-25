@@ -58,7 +58,7 @@ import static org.apache.ratis.server.RaftServer.Division.LOG;
  * Common states of a raft peer. Protected by RaftServer's lock.
  */
 class ServerState {
-  private final RaftGroupMemberId memberId;
+  private final AtomicReference<RaftGroupMemberId> memberId = new AtomicReference<>();
   private final RaftServerImpl server;
   /** Raft log */
   private final MemoizedSupplier<RaftLog> log;
@@ -99,7 +99,7 @@ class ServerState {
 
   ServerState(RaftPeerId id, RaftGroup group, StateMachine stateMachine, RaftServerImpl server,
       RaftStorage.StartupOption option, RaftProperties prop) {
-    this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId());
+    this.memberId.set(RaftGroupMemberId.valueOf(id, group.getGroupId()));
     this.server = server;
     Collection<RaftPeer> followerPeers = group.getPeers().stream()
         .filter(peer -> peer.getStartupRole() == RaftPeerRole.FOLLOWER)
@@ -151,7 +151,7 @@ class ServerState {
   }
 
   RaftGroupMemberId getMemberId() {
-    return memberId;
+    return memberId.get();
   }
 
   void writeRaftConfiguration(LogEntryProto conf) {

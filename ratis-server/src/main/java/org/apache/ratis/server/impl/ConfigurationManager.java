@@ -78,7 +78,7 @@ public class ConfigurationManager {
     }
   }
 
-  RaftConfigurationImpl getCurrent() {
+  synchronized RaftConfigurationImpl getCurrent() {
     return currentConf;
   }
 
