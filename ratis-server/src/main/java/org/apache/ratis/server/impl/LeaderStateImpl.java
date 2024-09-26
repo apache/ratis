@@ -206,7 +206,7 @@ class LeaderStateImpl implements LeaderState {
       return senders.iterator();
     }
 
-    synchronized void addAll(Collection<LogAppender> newSenders) {
+    void addAll(Collection<LogAppender> newSenders) {
       if (newSenders.isEmpty()) {
         return;
       }
@@ -219,7 +219,7 @@ class LeaderStateImpl implements LeaderState {
       Preconditions.assertTrue(changed);
     }
 
-    synchronized boolean removeAll(Collection<LogAppender> c) {
+    boolean removeAll(Collection<LogAppender> c) {
       return senders.removeAll(c);
     }
 
