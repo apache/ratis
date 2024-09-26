@@ -41,10 +41,8 @@ public class ConfigurationManager {
    * The current raft configuration. If configurations is not empty, should be
    * the last entry of the map. Otherwise is initialConf.
    */
-  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private RaftConfigurationImpl currentConf;
   /** Cache the peer corresponding to {@link #id}. */
-  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private RaftPeer currentPeer;
 
   ConfigurationManager(RaftPeerId id, RaftConfigurationImpl initialConf) {
