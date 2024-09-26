@@ -227,6 +227,7 @@ class LeaderElection implements Runnable {
 
   CompletableFuture<Void> shutdown() {
     lifeCycle.checkStateAndClose();
+    stopped.complete(null);
     return stopped;
   }
 
