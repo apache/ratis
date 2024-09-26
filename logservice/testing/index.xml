@@ -4,39 +4,22 @@
     <title>Apache Ratis</title>
     <link>https://ratis.apache.org/logservice/testing.html</link>
     <description>Recent content on Apache Ratis</description>
-    <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language><atom:link href="https://ratis.apache.org/logservice/testing/index.xml" rel="self" type="application/rss+xml" />
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <atom:link href="https://ratis.apache.org/logservice/testing/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Docker Testing</title>
       <link>https://ratis.apache.org/logservice/testing/docker.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
       <guid>https://ratis.apache.org/logservice/testing/docker.html</guid>
-      <description>The Docker orchestration is comprised of the following:
- A Docker image which has the necessary software to run the LogService A docker-compose.yml file which can launch the necessary containers for a full-fledged LogService &amp;ldquo;cluster&amp;rdquo; Scripts to build the Docker image and launch a client environment to interact with a running cluster via Compose.  Building the Docker image $ mvn clean package assembly:single -DskipTests $ cd ratis-logservice &amp;amp;&amp;amp; ./build-docker.sh The above will create a Docker image tagged as ratis-logservice:latest.</description>
+      <description>&lt;!-- raw HTML omitted --&gt;&#xA;&lt;!-- raw HTML omitted --&gt;&#xA;&lt;p&gt;The Docker orchestration is comprised of the following:&lt;/p&gt;&#xA;&lt;ol&gt;&#xA;&lt;li&gt;A Docker image which has the necessary software to run the LogService&lt;/li&gt;&#xA;&lt;li&gt;A docker-compose.yml file which can launch the necessary containers for a full-fledged LogService &amp;ldquo;cluster&amp;rdquo;&lt;/li&gt;&#xA;&lt;li&gt;Scripts to build the Docker image and launch a client environment to interact&#xA;with a running cluster via Compose.&lt;/li&gt;&#xA;&lt;/ol&gt;&#xA;&lt;h2 id=&#34;building-the-docker-image&#34;&gt;Building the Docker image&lt;/h2&gt;&#xA;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ mvn clean package assembly:single -DskipTests&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$ cd ratis-logservice &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&amp;amp;&lt;/span&gt; ./build-docker.sh&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;The above will create a Docker image tagged as &lt;code&gt;ratis-logservice:latest&lt;/code&gt;.&lt;/p&gt;</description>
     </item>
-    
-    <item>
-      <title>LogService Testing</title>
-      <link>https://ratis.apache.org/logservice/testing/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
-      <guid>https://ratis.apache.org/logservice/testing/</guid>
-      <description>The LogService presently has two means for testing itself: Docker with Compose orchestration and VirtualBox with Vagrant orchestration.
-Docker is suitable for a quick and lightweight orchestration of a full LogService installation. Vagrant, while heavier-weight that the Docker automation, has the added benefit of being able to leverage Namazu for failure scenarios. Please find more on each using the below references.
- Docker Vagrant  </description>
-    </item>
-    
     <item>
       <title>Vagrant Testing</title>
       <link>https://ratis.apache.org/logservice/testing/vagrant.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
       <guid>https://ratis.apache.org/logservice/testing/vagrant.html</guid>
-      <description>Please refer to the documentation for instructions to use the Vagrant automation.
-Starting from the directory dev-support/vagrant/:
- To build all Vagrant boxes, invoke ./run_all_tests.sh build To remove any generated data, invoke ./run_all_tests.sh clean To run the tests, invoke vagrant resume ratis-servers &amp;amp;&amp;amp; vagrant ssh ratis-servers  </description>
+      <description>&lt;!-- raw HTML omitted --&gt;&#xA;&lt;!-- raw HTML omitted --&gt;&#xA;&lt;p&gt;Please refer to the &lt;a href=&#34;https://github.com/apache/ratis/blob/master/dev-support/vagrant/README.md&#34;&gt;documentation&lt;/a&gt; for instructions to use the Vagrant automation.&lt;/p&gt;&#xA;&lt;p&gt;Starting from the directory &lt;code&gt;dev-support/vagrant/&lt;/code&gt;:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;To build all Vagrant boxes, invoke &lt;code&gt;./run_all_tests.sh build&lt;/code&gt;&lt;/li&gt;&#xA;&lt;li&gt;To remove any generated data, invoke &lt;code&gt;./run_all_tests.sh clean&lt;/code&gt;&lt;/li&gt;&#xA;&lt;li&gt;To run the tests, invoke &lt;code&gt;vagrant resume ratis-servers &amp;amp;&amp;amp; vagrant ssh ratis-servers&lt;/code&gt;&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
     </item>
-    
   </channel>
 </rss>

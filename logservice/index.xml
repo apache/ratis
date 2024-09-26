@@ -4,39 +4,22 @@
     <title>Apache Ratis</title>
     <link>https://ratis.apache.org/logservice.html</link>
     <description>Recent content on Apache Ratis</description>
-    <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language><atom:link href="https://ratis.apache.org/logservice/index.xml" rel="self" type="application/rss+xml" />
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <atom:link href="https://ratis.apache.org/logservice/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Lifecycle</title>
       <link>https://ratis.apache.org/logservice/lifecycle.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
       <guid>https://ratis.apache.org/logservice/lifecycle.html</guid>
-      <description>The LogService is a system which manages a collection of logs. Each of these logs has a defined state which allows certain operations on that log or corresponds to actions that the system is taking on that log.
-OPEN This is the first state for a Log which is created in the LogService. A Log which is OPEN can be read from or written to. This Log has a corresponding Raft Group (a quorum of servers) who are participating in the hosting of this Log.</description>
+      <description>&lt;!-- raw HTML omitted --&gt;&#xA;&lt;!-- raw HTML omitted --&gt;&#xA;&lt;p&gt;The LogService is a system which manages a collection of logs. Each&#xA;of these logs has a defined state which allows certain operations on that&#xA;log or corresponds to actions that the system is taking on that log.&lt;/p&gt;&#xA;&lt;h3 id=&#34;open&#34;&gt;OPEN&lt;/h3&gt;&#xA;&lt;p&gt;This is the first state for a Log which is created in the LogService. A&#xA;Log which is OPEN can be read from or written to. This Log has a corresponding&#xA;Raft Group (a quorum of servers) who are participating in the hosting of this&#xA;Log.&lt;/p&gt;</description>
     </item>
-    
-    <item>
-      <title>LogService</title>
-      <link>https://ratis.apache.org/logservice/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
-      <guid>https://ratis.apache.org/logservice/</guid>
-      <description>The Ratis LogService is an distributed, log implementation built on top of Apache Ratis. The LogService is a &amp;ldquo;recipe&amp;rdquo; on top of Apache Ratis, providing a higher-level API as compared to Ratis itself. The LogService provides the ability to create named, durable, append-only data structures with the ability to perform linear reads.
-Like Ratis, the LogService is designed to be embedded into another application as a library, as opposed to a standalone daemon.</description>
-    </item>
-    
     <item>
       <title>LogService Security</title>
       <link>https://ratis.apache.org/logservice/security.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
       <guid>https://ratis.apache.org/logservice/security.html</guid>
-      <description>This document aims to describe what the intended security deployment model of the Ratis LogService.
-We will use integration into Apache HBase as an exemplar.
-Background TLS is technology capable of giving us &amp;ldquo;strong authentication&amp;rdquo; over network communication. One-way TLS can provide encrypted communication while two-way or &amp;ldquo;mutual&amp;rdquo; TLS can provide encrypted communication and authentication.
-One feature of Ratis is that it is decoupled from the RPC transport in use. gRPC is the foremost transport, and can be configured to use one-way or two-way/mutual TLS.</description>
+      <description>&lt;!-- raw HTML omitted --&gt;&#xA;&lt;!-- raw HTML omitted --&gt;&#xA;&lt;p&gt;This document aims to describe what the intended security deployment model of the Ratis LogService.&lt;/p&gt;&#xA;&lt;p&gt;We will use integration into Apache HBase as an exemplar.&lt;/p&gt;&#xA;&lt;h2 id=&#34;background&#34;&gt;Background&lt;/h2&gt;&#xA;&lt;p&gt;TLS is technology capable of giving us &amp;ldquo;strong authentication&amp;rdquo; over network communication. One-way TLS can provide&#xA;encrypted communication while two-way or &amp;ldquo;mutual&amp;rdquo; TLS can provide encrypted communication and authentication.&lt;/p&gt;&#xA;&lt;p&gt;One feature of Ratis is that it is decoupled from the RPC transport in use. gRPC is the foremost transport, and&#xA;can be configured to use one-way or two-way/mutual TLS. gRPC is the only transport for Ratis which&#xA;supports TLS today.&lt;/p&gt;</description>
     </item>
-    
   </channel>
 </rss>

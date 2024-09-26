@@ -108,7 +108,9 @@
             <h1><a href="/logservice/testing.html"></a></h1>
             <p><small>0001 Jan 1 </small></p>
 
-            
+            <!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+
 
             
             <h1><a href="/logservice/lifecycle.html">Lifecycle</a></h1>
@@ -182,26 +184,6 @@ an archival of a log is an export of the entire log to a specific location.</p>
 
 
             
-            <h1><a href="/logservice/">LogService</a></h1>
-            <p><small>0001 Jan 1 </small></p>
-
-            <!-- raw HTML omitted -->
-<!-- raw HTML omitted -->
-<p>The Ratis LogService is an distributed, log implementation built on top of Apache
-Ratis. The LogService is a &ldquo;recipe&rdquo; on top of Apache Ratis, providing a higher-level
-API as compared to Ratis itself. The LogService provides the ability to create named,
-durable, append-only data structures with the ability to perform linear reads.</p>
-<p>Like Ratis, the LogService is designed to be embedded into another application as
-a library, as opposed to a standalone daemon. On a confusing note, there are Java
-daemons provided for the LogService, but these are solely to be used for testing.</p>
-<ul>
-<li><a href="https://ratis.apache.org/logservice/testing/">Testing</a></li>
-<li><a href="https://ratis.apache.org/logservice/lifecycle.html">Log Lifecycle</a></li>
-<li><a href="https://ratis.apache.org/logservice/security.html">Security</a></li>
-</ul>
-
-
-            
             <h1><a href="/logservice/security.html">LogService Security</a></h1>
             <p><small>0001 Jan 1 </small></p>
 
@@ -242,34 +224,34 @@ but the private key is sensitive and should be protected like a password.</p>
 <p>Every component in HBase using the Ratis LogService would need to ensure that each LogService StateMachine is
 configured to use the server keystore and truststore. The LogService state machines would need to constructed
 with the appropriate configuration options to specify this TLS material:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">RaftProperties properties <span style="color:#f92672">=</span> <span style="color:#f92672">...;</span>
-
-GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">tlsEnabled</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>
-GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">mutualAuthnEnabled</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>
-properties<span style="color:#f92672">.</span><span style="color:#a6e22e">set</span><span style="color:#f92672">(</span>GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">PRIVATE_KEY_FILE_KEY</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;/path/to/server-private-key.pem&#34;</span><span style="color:#f92672">);</span>
-properties<span style="color:#f92672">.</span><span style="color:#a6e22e">set</span><span style="color:#f92672">(</span>GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">TRUST_STORE_KEY</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;/path/to/ca.crt&#34;</span><span style="color:#f92672">);</span>
-properties<span style="color:#f92672">.</span><span style="color:#a6e22e">set</span><span style="color:#f92672">(</span>GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">CERT_CHAIN_FILE_KEY</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;/path/to/server.crt&#34;</span><span style="color:#f92672">);</span>
-
-RaftServer<span style="color:#f92672">.</span><span style="color:#a6e22e">Builder</span> builder <span style="color:#f92672">=</span> RaftServer<span style="color:#f92672">.</span><span style="color:#a6e22e">newBuilder</span><span style="color:#f92672">();</span>
-<span style="color:#f92672">...</span>
-builder<span style="color:#f92672">.</span><span style="color:#a6e22e">setProperties</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>
-
-RaftServer server <span style="color:#f92672">=</span> builder<span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
-</code></pre></div><p>Clients to the StateMachine would construct a similar configuration:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">RaftProperties properties <span style="color:#f92672">=</span> <span style="color:#f92672">...;</span>
-
-GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">tlsEnabled</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>
-GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">mutualAuthnEnabled</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>
-properties<span style="color:#f92672">.</span><span style="color:#a6e22e">set</span><span style="color:#f92672">(</span>GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">PRIVATE_KEY_FILE_KEY</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;/path/to/client-private-key.pem&#34;</span><span style="color:#f92672">);</span>
-properties<span style="color:#f92672">.</span><span style="color:#a6e22e">set</span><span style="color:#f92672">(</span>GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">TRUST_STORE_KEY</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;/path/to/ca.crt&#34;</span><span style="color:#f92672">);</span>
-properties<span style="color:#f92672">.</span><span style="color:#a6e22e">set</span><span style="color:#f92672">(</span>GrpcConfigKeys<span style="color:#f92672">.</span><span style="color:#a6e22e">TLS</span><span style="color:#f92672">.</span><span style="color:#a6e22e">CERT_CHAIN_FILE_KEY</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;/path/to/client.crt&#34;</span><span style="color:#f92672">);</span>
-
-RaftClient<span style="color:#f92672">.</span><span style="color:#a6e22e">Builder</span> builder <span style="color:#f92672">=</span> RaftClient<span style="color:#f92672">.</span><span style="color:#a6e22e">newBuilder</span><span style="color:#f92672">();</span>
-<span style="color:#f92672">...</span>
-builder<span style="color:#f92672">.</span><span style="color:#a6e22e">setProperties</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">);</span>
-
-RaftClient client <span style="color:#f92672">=</span> builder<span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
-</code></pre></div><p>With Mutual TLS, there is no notion of a &ldquo;client&rdquo; or &ldquo;server&rdquo; only certificate. In the above example code,
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>RaftProperties properties <span style="color:#f92672">=</span> ...;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">tlsEnabled</span>(properties);
+</span></span><span style="display:flex;"><span>GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">mutualAuthnEnabled</span>(properties);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">PRIVATE_KEY_FILE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/server-private-key.pem&#34;</span>);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">TRUST_STORE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/ca.crt&#34;</span>);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">CERT_CHAIN_FILE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/server.crt&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RaftServer.<span style="color:#a6e22e">Builder</span> builder <span style="color:#f92672">=</span> RaftServer.<span style="color:#a6e22e">newBuilder</span>();
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>builder.<span style="color:#a6e22e">setProperties</span>(properties);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RaftServer server <span style="color:#f92672">=</span> builder.<span style="color:#a6e22e">build</span>();
+</span></span></code></pre></div><p>Clients to the StateMachine would construct a similar configuration:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>RaftProperties properties <span style="color:#f92672">=</span> ...;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">tlsEnabled</span>(properties);
+</span></span><span style="display:flex;"><span>GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">mutualAuthnEnabled</span>(properties);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">PRIVATE_KEY_FILE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/client-private-key.pem&#34;</span>);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">TRUST_STORE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/ca.crt&#34;</span>);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">CERT_CHAIN_FILE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/client.crt&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RaftClient.<span style="color:#a6e22e">Builder</span> builder <span style="color:#f92672">=</span> RaftClient.<span style="color:#a6e22e">newBuilder</span>();
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>builder.<span style="color:#a6e22e">setProperties</span>(properties);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RaftClient client <span style="color:#f92672">=</span> builder.<span style="color:#a6e22e">build</span>();
+</span></span></code></pre></div><p>With Mutual TLS, there is no notion of a &ldquo;client&rdquo; or &ldquo;server&rdquo; only certificate. In the above example code,
 as long as the certificate and private key are generated using the same certificate authority, any
 should function.</p>
 <p>For the LogService, this client setup would be hidden behind the facade of the LogService client API.</p>
