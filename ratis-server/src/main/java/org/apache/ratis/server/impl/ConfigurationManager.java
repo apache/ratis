@@ -42,10 +42,10 @@ public class ConfigurationManager {
    * the last entry of the map. Otherwise is initialConf.
    */
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
-  private volatile RaftConfigurationImpl currentConf;
+  private RaftConfigurationImpl currentConf;
   /** Cache the peer corresponding to {@link #id}. */
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
-  private volatile RaftPeer currentPeer;
+  private RaftPeer currentPeer;
 
   ConfigurationManager(RaftPeerId id, RaftConfigurationImpl initialConf) {
     this.id = id;
@@ -82,7 +82,7 @@ public class ConfigurationManager {
     return currentConf;
   }
 
-  RaftPeer getCurrentPeer() {
+  synchronized RaftPeer getCurrentPeer() {
     return currentPeer;
   }
 

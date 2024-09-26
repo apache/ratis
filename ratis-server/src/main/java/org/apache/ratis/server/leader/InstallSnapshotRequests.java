@@ -143,9 +143,11 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
     }
 
     private InstallSnapshotRequestProto newInstallSnapshotRequest(FileChunkProto chunk, boolean done) {
-      final SnapshotChunkProto.Builder b = LeaderProtoUtils.toSnapshotChunkProtoBuilder(
-          requestId, requestIndex++, snapshot.getTermIndex(), chunk, totalSize, done);
-      return LeaderProtoUtils.toInstallSnapshotRequestProto(server, followerId, b);
+      synchronized (server) {
+        final SnapshotChunkProto.Builder b = LeaderProtoUtils.toSnapshotChunkProtoBuilder(
+                requestId, requestIndex++, snapshot.getTermIndex(), chunk, totalSize, done);
+        return LeaderProtoUtils.toInstallSnapshotRequestProto(server, followerId, b);
+      }
     }
   }
 

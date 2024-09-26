@@ -133,6 +133,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -566,20 +567,23 @@ class RaftServerImpl implements RaftServer.Division,
    * @param force Force to start a new {@link FollowerState} even if this server is already a follower.
    * @return if the term/votedFor should be updated to the new term
    */
-  private synchronized boolean changeToFollower(
-      long newTerm,
-      boolean force,
-      boolean allowListener,
-      Object reason) {
+  private boolean changeToFollower(long newTerm, boolean force, boolean allowListener, Object reason) {
+    final AtomicReference<Boolean> metadataUpdated = new AtomicReference<>();
+    changeToFollowerAsync(newTerm, force, allowListener, reason, metadataUpdated).join();
+    return metadataUpdated.get();
+  }
+
+  private synchronized CompletableFuture<Void> changeToFollowerAsync(
+      long newTerm, boolean force, boolean allowListener, Object reason, AtomicReference<Boolean> metadataUpdated) {
     final RaftPeerRole old = role.getCurrentRole();
     if (old == RaftPeerRole.LISTENER && !allowListener) {
       throw new IllegalStateException("Unexpected role " + old);
     }
-    boolean metadataUpdated;
+    CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
     if ((old != RaftPeerRole.FOLLOWER || force) && old != RaftPeerRole.LISTENER) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
-        role.shutdownLeaderState(false)
+        future = role.shutdownLeaderState(false)
             .exceptionally(e -> {
               if (e != null) {
                 if (!getInfo().isAlive()) {
@@ -588,21 +592,21 @@ class RaftServerImpl implements RaftServer.Division,
                 }
               }
               throw new CompletionException("Failed to shutdownLeaderState: " + this, e);
-            })
-            .join();
+            });
         state.setLeader(null, reason);
       } else if (old == RaftPeerRole.CANDIDATE) {
-        role.shutdownLeaderElection();
+        future = role.shutdownLeaderElection();
       } else if (old == RaftPeerRole.FOLLOWER) {
-        role.shutdownFollowerState();
+        future = role.shutdownFollowerState();
       }
-      metadataUpdated = state.updateCurrentTerm(newTerm);
+
+      metadataUpdated.set(state.updateCurrentTerm(newTerm));
       role.startFollowerState(this, reason);
       setFirstElection(reason);
     } else {
-      metadataUpdated = state.updateCurrentTerm(newTerm);
+      metadataUpdated.set(state.updateCurrentTerm(newTerm));
     }
-    return metadataUpdated;
+    return future;
   }
 
   synchronized void changeToFollowerAndPersistMetadata(
