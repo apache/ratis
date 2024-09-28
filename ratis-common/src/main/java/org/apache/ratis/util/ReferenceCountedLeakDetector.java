@@ -187,14 +187,21 @@ public final class ReferenceCountedLeakDetector {
     }
 
     @Override
-    void logLeakMessage(Class<?> clazz) {
+    synchronized void logLeakMessage(Class<?> clazz) {
+      final String prefix = "  ";
       LOG.warn("LEAK: A {} is not released properly.\n"
               + "  Creation trace: {}\n"
               + "  Retain traces({}): {}\n"
               + "  Release traces({}): {}",
-          clazz.getName(), formatStackTrace(createStrace, 3),
-          retainsTraces.size(), formatStackTraces(retainsTraces, 2),
-          releaseTraces.size(), formatStackTraces(releaseTraces, 2));
+          clazz.getName(), formatStackTrace(createStrace),
+          retainsTraces.size(), formatStackTraces("retain", retainsTraces),
+          releaseTraces.size(), formatStackTraces("release", releaseTraces));
+    }
+
+    @Override
+    public synchronized T retain() {
+      retainsTraces.add(Thread.currentThread().getStackTrace());
+      return super.retain();
     }
 
     @Override
@@ -204,24 +211,23 @@ public final class ReferenceCountedLeakDetector {
     }
   }
 
-  private static String formatStackTrace(StackTraceElement[] stackTrace, int startIdx) {
-    final StringBuilder sb = new StringBuilder();
-    for (int line = startIdx; line < stackTrace.length; line++) {
-      sb.append(stackTrace[line]).append("\n");
-    }
-    return sb.toString();
+  private static String formatStackTrace(StackTraceElement[] stackTrace) {
+    return formatStackTrace(stackTrace, 0, new StringBuilder()).toString();
   }
 
-  private static String formatStackTraces(List<StackTraceElement[]> stackTraces, int startIdx) {
+  private static StringBuilder formatStackTrace(StackTraceElement[] stackTrace, int startIdx, StringBuilder sb) {
+    for (int line = startIdx; line < stackTrace.length; line++) {
+      sb.append("    ").append(stackTrace[line]).append("\n");
+    }
+    return sb;
+  }
+
+  private static String formatStackTraces(String name, List<StackTraceElement[]> stackTraces) {
     final StringBuilder sb = new StringBuilder();
-    stackTraces.forEach(stackTrace -> {
-      if (sb.length() > 0) {
-        sb.append("\n");
-      }
-      for (int line = startIdx; line < stackTrace.length; line++) {
-        sb.append(stackTrace[line]).append("\n");
-      }
-    });
+    for (int i = 0; i < stackTraces.size(); i++) {
+      sb.append("\n").append(name).append(" ").append(i).append(":\n");
+      formatStackTrace(stackTraces.get(i), 0, sb);
+    }
     return sb.toString();
   }
 }

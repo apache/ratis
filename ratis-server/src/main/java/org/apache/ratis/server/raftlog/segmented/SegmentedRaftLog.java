@@ -306,9 +306,13 @@ public final class SegmentedRaftLog extends RaftLogBase {
     }
     final ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(record.getTermIndex());
     if (entry != null) {
-      getRaftLogMetrics().onRaftLogCacheHit();
-      entry.retain();
-      return entry;
+      try {
+        entry.retain();
+        getRaftLogMetrics().onRaftLogCacheHit();
+        return entry;
+      } catch (IllegalStateException ignore) {
+        // the entry could be removed from the cache and released.
+      }
     }
 
     // the entry is not in the segment's cache. Load the cache without holding the lock.
