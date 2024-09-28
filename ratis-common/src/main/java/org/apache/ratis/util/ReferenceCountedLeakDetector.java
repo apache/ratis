@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -143,30 +142,38 @@ public final class ReferenceCountedLeakDetector {
   }
 
   private static class SimpleTracing<T> extends Impl<T> {
-    final LeakDetector leakDetector;
-    final Class<?> clazz;
+    private final LeakDetector leakDetector;
+    private final Class<?> valueClass;
 
-    Predicate<ReferenceCountedObject<?>> releaseAndCheckLeak = null;
+    private Runnable removeMethod = null;
 
     SimpleTracing(T value, Runnable retainMethod, Consumer<Boolean> releaseMethod, LeakDetector leakDetector) {
       super(value, retainMethod, releaseMethod);
-      this.clazz = value.getClass();
+      this.valueClass = value.getClass();
       this.leakDetector = leakDetector;
+    }
+
+    void logLeakMessage(Class<?> clazz) {
+      LOG.warn("LEAK: A {} is not released properly", clazz.getName());
     }
 
     @Override
     public synchronized T retain() {
       if (getCount() == 0) {
-        this.releaseAndCheckLeak = leakDetector.track(this,
-            () -> LOG.warn("LEAK: A {} is not released properly", clazz.getName()));
+        this.removeMethod = leakDetector.track(this, () -> logLeakMessage(valueClass));
       }
       return super.retain();
     }
 
     @Override
     public synchronized boolean release() {
-      Preconditions.assertNotNull(releaseAndCheckLeak != null, () -> "Not yet retained: " + clazz);
-      return releaseAndCheckLeak.test(this);
+      Preconditions.assertNotNull(removeMethod != null, () -> "Not yet retained: " + valueClass);
+      if (super.release()) {
+        removeMethod.run();
+        return true;
+      } else {
+        return false;
+      }
     }
   }
 
@@ -180,18 +187,14 @@ public final class ReferenceCountedLeakDetector {
     }
 
     @Override
-    public synchronized T retain() {
-      if (getCount() == 0) {
-        this.releaseAndCheckLeak = leakDetector.track(this, () ->
-            LOG.warn("LEAK: A {} is not released properly.\n"
-                    + "  Creation trace: {}\n"
-                    + "  Retain traces({}): {}\n"
-                    + "  Release traces({}): {}",
-                clazz.getName(), formatStackTrace(createStrace, 3),
-                retainsTraces.size(), formatStackTraces(retainsTraces, 2),
-                releaseTraces.size(), formatStackTraces(releaseTraces, 2)));
-      }
-      return super.retain();
+    void logLeakMessage(Class<?> clazz) {
+      LOG.warn("LEAK: A {} is not released properly.\n"
+              + "  Creation trace: {}\n"
+              + "  Retain traces({}): {}\n"
+              + "  Release traces({}): {}",
+          clazz.getName(), formatStackTrace(createStrace, 3),
+          retainsTraces.size(), formatStackTraces(retainsTraces, 2),
+          releaseTraces.size(), formatStackTraces(releaseTraces, 2));
     }
 
     @Override

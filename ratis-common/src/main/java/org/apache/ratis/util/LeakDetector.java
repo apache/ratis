@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 /**
  * Simple general resource leak detector using {@link ReferenceQueue} and {@link java.lang.ref.WeakReference} to
@@ -96,7 +95,7 @@ public class LeakDetector {
   private final LeakTrackerSet allLeaks = new LeakTrackerSet();
   private final String name;
 
-  public LeakDetector(String name) {
+  LeakDetector(String name) {
     this.name = name + COUNTER.getAndIncrement();
   }
 
@@ -128,12 +127,12 @@ public class LeakDetector {
     LOG.warn("Exiting leak detector {}.", name);
   }
 
-  public Predicate<ReferenceCountedObject<?>> track(Object leakable, Runnable reportLeak) {
+  Runnable track(Object leakable, Runnable reportLeak) {
     // A rate filter can be put here to only track a subset of all objects, e.g. 5%, 10%,
     // if we have proofs that leak tracking impacts performance, or a single LeakDetector
     // thread can't keep up with the pace of object allocation.
     // For now, it looks effective enough and let keep it simple.
-    return allLeaks.add(leakable, queue, reportLeak)::releaseAndCheckRemove;
+    return allLeaks.add(leakable, queue, reportLeak)::remove;
   }
 
   public void assertNoLeaks() {
@@ -154,13 +153,8 @@ public class LeakDetector {
     /**
      * Called by the tracked resource when releasing the object.
      */
-    boolean releaseAndCheckRemove(ReferenceCountedObject<?> referenceCountedObject) {
-      if (referenceCountedObject.release()) {
-        removeMethod.accept(this);
-        return true;
-      } else {
-        return false;
-      }
+    void remove() {
+      removeMethod.accept(this);
     }
 
     void reportLeak() {
