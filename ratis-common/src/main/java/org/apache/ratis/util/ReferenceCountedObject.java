@@ -184,11 +184,11 @@ public interface ReferenceCountedObject<T> {
   }
 
   static void enableLeakDetection() {
-    ReferenceCountedLeakDetector.enable(false);
+    enableLeakDetection(false);
   }
 
-  static void enableAdvancedLeakDetection() {
-    ReferenceCountedLeakDetector.enable(true);
+  static void enableLeakDetection(boolean advanced) {
+    ReferenceCountedLeakDetector.enable(advanced);
   }
 
 }
