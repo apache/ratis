@@ -167,13 +167,12 @@ public final class ReferenceCountedLeakDetector {
 
     @Override
     public synchronized boolean release() {
-      Preconditions.assertNotNull(removeMethod != null, () -> "Not yet retained: " + valueClass);
-      if (super.release()) {
+      boolean released = super.release();
+      if (released) {
+        Preconditions.assertNotNull(removeMethod, () -> "Not yet retained (removeMethod == null): " + valueClass);
         removeMethod.run();
-        return true;
-      } else {
-        return false;
       }
+      return released;
     }
   }
 
@@ -188,7 +187,6 @@ public final class ReferenceCountedLeakDetector {
 
     @Override
     synchronized void logLeakMessage(Class<?> clazz) {
-      final String prefix = "  ";
       LOG.warn("LEAK: A {} is not released properly.\n"
               + "  Creation trace: {}\n"
               + "  Retain traces({}): {}\n"
@@ -212,11 +210,11 @@ public final class ReferenceCountedLeakDetector {
   }
 
   private static String formatStackTrace(StackTraceElement[] stackTrace) {
-    return formatStackTrace(stackTrace, 0, new StringBuilder()).toString();
+    return formatStackTrace(stackTrace, new StringBuilder()).toString();
   }
 
-  private static StringBuilder formatStackTrace(StackTraceElement[] stackTrace, int startIdx, StringBuilder sb) {
-    for (int line = startIdx; line < stackTrace.length; line++) {
+  private static StringBuilder formatStackTrace(StackTraceElement[] stackTrace, StringBuilder sb) {
+    for (int line = 2; line < stackTrace.length; line++) {
       sb.append("    ").append(stackTrace[line]).append("\n");
     }
     return sb;
@@ -226,7 +224,7 @@ public final class ReferenceCountedLeakDetector {
     final StringBuilder sb = new StringBuilder();
     for (int i = 0; i < stackTraces.size(); i++) {
       sb.append("\n").append(name).append(" ").append(i).append(":\n");
-      formatStackTrace(stackTraces.get(i), 0, sb);
+      formatStackTrace(stackTraces.get(i), sb);
     }
     return sb.toString();
   }
