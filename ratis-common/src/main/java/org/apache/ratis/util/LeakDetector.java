@@ -26,6 +26,8 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Simple general resource leak detector using {@link ReferenceQueue} and {@link java.lang.ref.WeakReference} to
@@ -55,10 +57,43 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class LeakDetector {
   private static final Logger LOG = LoggerFactory.getLogger(LeakDetector.class);
+
+  private static class LeakTrackerSet {
+    private final Set<LeakTracker> set = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+    synchronized boolean remove(LeakTracker tracker) {
+      return set.remove(tracker);
+    }
+
+    synchronized void removeExisting(LeakTracker tracker) {
+      final boolean removed = set.remove(tracker);
+      Preconditions.assertTrue(removed, () -> "Failed to remove existing " + tracker);
+    }
+
+    synchronized LeakTracker add(Object referent, ReferenceQueue<Object> queue, Runnable leakReporter) {
+      final LeakTracker tracker = new LeakTracker(referent, queue, this::removeExisting, leakReporter);
+      final boolean added = set.add(tracker);
+      Preconditions.assertTrue(added, () -> "Failed to add " + tracker + " for " + referent);
+      return tracker;
+    }
+
+    synchronized void assertNoLeaks() {
+      Preconditions.assertTrue(set.isEmpty(), this::allLeaksString);
+    }
+
+    private String allLeaksString() {
+      if (set.isEmpty()) {
+        return "allLeaks = <empty>";
+      }
+      set.forEach(LeakTracker::reportLeak);
+      return "allLeaks.size = " + set.size();
+    }
+  }
+
   private static final AtomicLong COUNTER = new AtomicLong();
 
   private final ReferenceQueue<Object> queue = new ReferenceQueue<>();
-  private final Set<LeakTracker> allLeaks = Collections.newSetFromMap(new ConcurrentHashMap<>());
+  private final LeakTrackerSet allLeaks = new LeakTrackerSet();
   private final String name;
 
   public LeakDetector(String name) {
@@ -93,44 +128,39 @@ public class LeakDetector {
     LOG.warn("Exiting leak detector {}.", name);
   }
 
-  public UncheckedAutoCloseable track(Object leakable, Runnable reportLeak) {
+  public Predicate<ReferenceCountedObject<?>> track(Object leakable, Runnable reportLeak) {
     // A rate filter can be put here to only track a subset of all objects, e.g. 5%, 10%,
     // if we have proofs that leak tracking impacts performance, or a single LeakDetector
     // thread can't keep up with the pace of object allocation.
     // For now, it looks effective enough and let keep it simple.
-    LeakTracker tracker = new LeakTracker(leakable, queue, allLeaks, reportLeak);
-    allLeaks.add(tracker);
-    return tracker;
+    return allLeaks.add(leakable, queue, reportLeak)::releaseAndCheckRemove;
   }
 
   public void assertNoLeaks() {
-    Preconditions.assertTrue(allLeaks.isEmpty(), this::allLeaksString);
+    allLeaks.assertNoLeaks();
   }
 
-  String allLeaksString() {
-    if (allLeaks.isEmpty()) {
-      return "allLeaks = <empty>";
-    }
-    allLeaks.forEach(LeakTracker::reportLeak);
-    return "allLeaks.size = " + allLeaks.size();
-  }
-
-  private static final class LeakTracker extends WeakReference<Object> implements UncheckedAutoCloseable {
-    private final Set<LeakTracker> allLeaks;
+  private static final class LeakTracker extends WeakReference<Object> {
+    private final Consumer<LeakTracker> removeMethod;
     private final Runnable leakReporter;
+
     LeakTracker(Object referent, ReferenceQueue<Object> referenceQueue,
-        Set<LeakTracker> allLeaks, Runnable leakReporter) {
+        Consumer<LeakTracker> removeMethod, Runnable leakReporter) {
       super(referent, referenceQueue);
-      this.allLeaks = allLeaks;
+      this.removeMethod = removeMethod;
       this.leakReporter = leakReporter;
     }
 
     /**
-     * Called by the tracked resource when closing.
+     * Called by the tracked resource when releasing the object.
      */
-    @Override
-    public void close() {
-      allLeaks.remove(this);
+    boolean releaseAndCheckRemove(ReferenceCountedObject<?> referenceCountedObject) {
+      if (referenceCountedObject.release()) {
+        removeMethod.accept(this);
+        return true;
+      } else {
+        return false;
+      }
     }
 
     void reportLeak() {

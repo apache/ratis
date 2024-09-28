@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -108,6 +109,10 @@ public final class ReferenceCountedLeakDetector {
       return value;
     }
 
+    final int getCount() {
+      return count.get();
+    }
+
     @Override
     public V retain() {
       // n <  0: exception
@@ -138,64 +143,61 @@ public final class ReferenceCountedLeakDetector {
   }
 
   private static class SimpleTracing<T> extends Impl<T> {
-    private final UncheckedAutoCloseable leakTracker;
+    final LeakDetector leakDetector;
+    final Class<?> clazz;
+
+    Predicate<ReferenceCountedObject<?>> releaseAndCheckLeak = null;
 
     SimpleTracing(T value, Runnable retainMethod, Consumer<Boolean> releaseMethod, LeakDetector leakDetector) {
       super(value, retainMethod, releaseMethod);
-      final Class<?> clazz = value.getClass();
-      this.leakTracker = leakDetector.track(this,
-          () -> LOG.warn("LEAK: A {} is not released properly", clazz.getName()));
+      this.clazz = value.getClass();
+      this.leakDetector = leakDetector;
     }
 
     @Override
-    public boolean release() {
-      boolean released = super.release();
-      if (released) {
-        leakTracker.close();
+    public synchronized T retain() {
+      if (getCount() == 0) {
+        this.releaseAndCheckLeak = leakDetector.track(this,
+            () -> LOG.warn("LEAK: A {} is not released properly", clazz.getName()));
       }
-      return released;
+      return super.retain();
+    }
+
+    @Override
+    public synchronized boolean release() {
+      Preconditions.assertNotNull(releaseAndCheckLeak != null, () -> "Not yet retained: " + clazz);
+      return releaseAndCheckLeak.test(this);
     }
   }
 
-  private static class AdvancedTracing<T> extends Impl<T> {
-    private final UncheckedAutoCloseable leakTracker;
-    private final List<StackTraceElement[]> retainsTraces;
-    private final List<StackTraceElement[]> releaseTraces;
+  private static class AdvancedTracing<T> extends SimpleTracing<T> {
+    private final StackTraceElement[] createStrace = Thread.currentThread().getStackTrace();
+    private final List<StackTraceElement[]> retainsTraces = new LinkedList<>();
+    private final List<StackTraceElement[]> releaseTraces = new LinkedList<>();
 
     AdvancedTracing(T value, Runnable retainMethod, Consumer<Boolean> releaseMethod, LeakDetector leakDetector) {
-      super(value, retainMethod, releaseMethod);
-
-      StackTraceElement[] createStrace = Thread.currentThread().getStackTrace();
-      final Class<?> clazz = value.getClass();
-      final List<StackTraceElement[]> localRetainsTraces = new LinkedList<>();
-      final List<StackTraceElement[]> localReleaseTraces = new LinkedList<>();
-
-      this.leakTracker = leakDetector.track(this, () ->
-          LOG.warn("LEAK: A {} is not released properly.\nCreation trace:\n{}\n" +
-              "Retain traces({}):\n{}\nRelease traces({}):\n{}",
-              clazz.getName(), formatStackTrace(createStrace, 3),
-              localRetainsTraces.size(), formatStackTraces(localRetainsTraces, 2),
-              localReleaseTraces.size(), formatStackTraces(localReleaseTraces, 2)));
-
-      this.retainsTraces = localRetainsTraces;
-      this.releaseTraces = localReleaseTraces;
+      super(value, retainMethod, releaseMethod, leakDetector);
     }
 
     @Override
-    public T retain() {
-      T retain = super.retain();
-      retainsTraces.add(Thread.currentThread().getStackTrace());
-      return retain;
+    public synchronized T retain() {
+      if (getCount() == 0) {
+        this.releaseAndCheckLeak = leakDetector.track(this, () ->
+            LOG.warn("LEAK: A {} is not released properly.\n"
+                    + "  Creation trace: {}\n"
+                    + "  Retain traces({}): {}\n"
+                    + "  Release traces({}): {}",
+                clazz.getName(), formatStackTrace(createStrace, 3),
+                retainsTraces.size(), formatStackTraces(retainsTraces, 2),
+                releaseTraces.size(), formatStackTraces(releaseTraces, 2)));
+      }
+      return super.retain();
     }
 
     @Override
     public boolean release() {
-      boolean released = super.release();
-      if (released) {
-        leakTracker.close();
-      }
       releaseTraces.add(Thread.currentThread().getStackTrace());
-      return released;
+      return super.release();
     }
   }
 
