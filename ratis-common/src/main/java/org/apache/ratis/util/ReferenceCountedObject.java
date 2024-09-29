@@ -182,12 +182,4 @@ public interface ReferenceCountedObject<T> {
   static <V> ReferenceCountedObject<V> wrap(V value, Runnable retainMethod, Runnable releaseMethod) {
     return wrap(value, retainMethod, ignored -> releaseMethod.run());
   }
-
-  static void enableLeakDetection() {
-    enableLeakDetection(false);
-  }
-
-  static void enableLeakDetection(boolean advanced) {
-    ReferenceCountedLeakDetector.enable(advanced);
-  }
 }

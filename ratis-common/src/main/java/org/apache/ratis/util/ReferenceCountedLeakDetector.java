@@ -49,7 +49,7 @@ public final class ReferenceCountedLeakDetector {
   private ReferenceCountedLeakDetector() {
   }
 
-  static synchronized void enable(boolean advanced) {
+  public static synchronized void enable(boolean advanced) {
     FACTORY.set(advanced ? Mode.ADVANCED : Mode.SIMPLE);
   }
 
@@ -153,8 +153,8 @@ public final class ReferenceCountedLeakDetector {
       this.leakDetector = leakDetector;
     }
 
-    String getLeakMessage(int count) {
-      return "LEAK: A " + valueClass.getName() + " (count=" + count + ") is not released properly";
+    String getInfo(int count) {
+      return "(" + valueClass + ", count=" + count + ")";
     }
 
     /** @return the leak message if there is a leak; return null if there is no leak. */
@@ -163,7 +163,7 @@ public final class ReferenceCountedLeakDetector {
       if (count == 0) {
         return null;
       }
-      final String message = getLeakMessage(count);
+      final String message = "LEAK: " + getInfo(count);
       LOG.warn(message);
       return message;
     }
@@ -173,12 +173,22 @@ public final class ReferenceCountedLeakDetector {
       if (getCount() == 0) {
         this.removeMethod = leakDetector.track(this, this::logLeakMessage);
       }
-      return super.retain();
+      try {
+        return super.retain();
+      } catch (Exception e) {
+        throw new IllegalStateException("Failed to retain: " + getInfo(getCount()), e);
+      }
     }
 
     @Override
     public synchronized boolean release() {
-      boolean released = super.release();
+      final boolean released;
+      try {
+        released = super.release();
+      } catch (Exception e) {
+        throw new IllegalStateException("Failed to release: " + getInfo(getCount()), e);
+      }
+
       if (released) {
         Preconditions.assertNotNull(removeMethod, () -> "Not yet retained (removeMethod == null): " + valueClass);
         removeMethod.run();
@@ -197,11 +207,11 @@ public final class ReferenceCountedLeakDetector {
     }
 
     @Override
-    synchronized String getLeakMessage(int count) {
-      return super.getLeakMessage(count)
+    synchronized String getInfo(int count) {
+      return super.getInfo(count)
           + "\n  Creation trace: " + formatStackTrace(createStrace)
-          + "\n  Retain traces: {}" + formatStackTraces("retain", retainsTraces)
-          + "\n  Release traces: {}" + formatStackTraces("release", releaseTraces);
+          + "\n  Retain traces: " + formatStackTraces("retain", retainsTraces)
+          + "\n  Release traces: " + formatStackTraces("release", releaseTraces);
     }
 
     @Override
@@ -229,7 +239,7 @@ public final class ReferenceCountedLeakDetector {
   }
 
   private static String formatStackTraces(String name, List<StackTraceElement[]> stackTraces) {
-    final StringBuilder sb = new StringBuilder();
+    final StringBuilder sb = new StringBuilder(stackTraces.size()).append(" trace(s)");
     for (int i = 0; i < stackTraces.size(); i++) {
       sb.append("\n").append(name).append(" ").append(i).append(":\n");
       formatStackTrace(stackTraces.get(i), sb);

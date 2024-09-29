@@ -32,6 +32,7 @@ import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.ReferenceCountedLeakDetector;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.junit.Assert;
 
@@ -51,7 +52,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   };
 
   static {
-    ReferenceCountedObject.enableLeakDetection(true);
+    ReferenceCountedLeakDetector.enable(false);
   }
 
   public interface FactoryGet extends Factory.Get<MiniRaftClusterWithGrpc> {
