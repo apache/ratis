@@ -35,6 +35,12 @@ import java.util.Collections;
  */
 public class TestMetricRegistriesLoader {
   @Test
+  public void testLoadEmptyInstance() {
+    MetricRegistries instance = MetricRegistriesLoader.load(Collections.emptyList());
+    assertEquals(MetricRegistriesLoader.DEFAULT_CLASS, instance.getClass().getName());
+  }
+
+  @Test
   public void testLoadSingleInstance() {
     MetricRegistries loader = mock(MetricRegistries.class);
     MetricRegistries instance = MetricRegistriesLoader.load(Collections.singletonList(loader));
