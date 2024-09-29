@@ -153,14 +153,25 @@ public final class ReferenceCountedLeakDetector {
       this.leakDetector = leakDetector;
     }
 
-    void logLeakMessage(Class<?> clazz) {
-      LOG.warn("LEAK: A {} is not released properly", clazz.getName());
+    String getLeakMessage(int count) {
+      return "LEAK: A " + valueClass.getName() + " (count=" + count + ") is not released properly";
+    }
+
+    /** @return the leak message if there is a leak; return null if there is no leak. */
+    String logLeakMessage() {
+      final int count = getCount();
+      if (count == 0) {
+        return null;
+      }
+      final String message = getLeakMessage(count);
+      LOG.warn(message);
+      return message;
     }
 
     @Override
     public synchronized T retain() {
       if (getCount() == 0) {
-        this.removeMethod = leakDetector.track(this, () -> logLeakMessage(valueClass));
+        this.removeMethod = leakDetector.track(this, this::logLeakMessage);
       }
       return super.retain();
     }
@@ -186,14 +197,11 @@ public final class ReferenceCountedLeakDetector {
     }
 
     @Override
-    synchronized void logLeakMessage(Class<?> clazz) {
-      LOG.warn("LEAK: A {} is not released properly.\n"
-              + "  Creation trace: {}\n"
-              + "  Retain traces({}): {}\n"
-              + "  Release traces({}): {}",
-          clazz.getName(), formatStackTrace(createStrace),
-          retainsTraces.size(), formatStackTraces("retain", retainsTraces),
-          releaseTraces.size(), formatStackTraces("release", releaseTraces));
+    synchronized String getLeakMessage(int count) {
+      return super.getLeakMessage(count)
+          + "\n  Creation trace: " + formatStackTrace(createStrace)
+          + "\n  Retain traces: {}" + formatStackTraces("retain", retainsTraces)
+          + "\n  Release traces: {}" + formatStackTraces("release", releaseTraces);
     }
 
     @Override

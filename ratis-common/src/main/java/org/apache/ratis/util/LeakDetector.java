@@ -22,11 +22,14 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Simple general resource leak detector using {@link ReferenceQueue} and {@link java.lang.ref.WeakReference} to
@@ -69,7 +72,7 @@ public class LeakDetector {
       Preconditions.assertTrue(removed, () -> "Failed to remove existing " + tracker);
     }
 
-    synchronized LeakTracker add(Object referent, ReferenceQueue<Object> queue, Runnable leakReporter) {
+    synchronized LeakTracker add(Object referent, ReferenceQueue<Object> queue, Supplier<String> leakReporter) {
       final LeakTracker tracker = new LeakTracker(referent, queue, this::removeExisting, leakReporter);
       final boolean added = set.add(tracker);
       Preconditions.assertTrue(added, () -> "Failed to add " + tracker + " for " + referent);
@@ -77,15 +80,18 @@ public class LeakDetector {
     }
 
     synchronized void assertNoLeaks() {
-      Preconditions.assertTrue(set.isEmpty(), this::allLeaksString);
-    }
-
-    private String allLeaksString() {
       if (set.isEmpty()) {
-        return "allLeaks = <empty>";
+        return;
       }
-      set.forEach(LeakTracker::reportLeak);
-      return "allLeaks.size = " + set.size();
+
+      int n = 0;
+      for(LeakTracker tracker : set) {
+        if (tracker.reportLeak() != null) {
+          n++;
+        }
+      }
+      final int leaks = n;
+      Preconditions.assertTrue(n == 0, () -> "#leaks = " + leaks + ", set.size = " + set.size());
     }
   }
 
@@ -93,6 +99,7 @@ public class LeakDetector {
 
   private final ReferenceQueue<Object> queue = new ReferenceQueue<>();
   private final LeakTrackerSet allLeaks = new LeakTrackerSet();
+  private final List<String> leakMessages = Collections.synchronizedList(new ArrayList<>());
   private final String name;
 
   LeakDetector(String name) {
@@ -115,7 +122,10 @@ public class LeakDetector {
         // Original resource already been GCed, if tracker is not closed yet,
         // report a leak.
         if (allLeaks.remove(tracker)) {
-          tracker.reportLeak();
+          final String leak = tracker.reportLeak();
+          if (leak != null) {
+            leakMessages.add(leak);
+          }
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -127,7 +137,7 @@ public class LeakDetector {
     LOG.warn("Exiting leak detector {}.", name);
   }
 
-  Runnable track(Object leakable, Runnable reportLeak) {
+  Runnable track(Object leakable, Supplier<String> reportLeak) {
     // A rate filter can be put here to only track a subset of all objects, e.g. 5%, 10%,
     // if we have proofs that leak tracking impacts performance, or a single LeakDetector
     // thread can't keep up with the pace of object allocation.
@@ -136,15 +146,19 @@ public class LeakDetector {
   }
 
   public void assertNoLeaks() {
+    synchronized (leakMessages) {
+      Preconditions.assertTrue(leakMessages.isEmpty(),
+          () -> "#leaks = " + leakMessages.size() + "\n" + leakMessages);
+    }
     allLeaks.assertNoLeaks();
   }
 
   private static final class LeakTracker extends WeakReference<Object> {
     private final Consumer<LeakTracker> removeMethod;
-    private final Runnable leakReporter;
+    private final Supplier<String> leakReporter;
 
     LeakTracker(Object referent, ReferenceQueue<Object> referenceQueue,
-        Consumer<LeakTracker> removeMethod, Runnable leakReporter) {
+        Consumer<LeakTracker> removeMethod, Supplier<String> leakReporter) {
       super(referent, referenceQueue);
       this.removeMethod = removeMethod;
       this.leakReporter = leakReporter;
@@ -157,8 +171,9 @@ public class LeakDetector {
       removeMethod.accept(this);
     }
 
-    void reportLeak() {
-      leakReporter.run();
+    /** @return the leak message if there is a leak; return null if there is no leak. */
+    String reportLeak() {
+      return leakReporter.get();
     }
   }
 }
