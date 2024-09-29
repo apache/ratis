@@ -22,6 +22,7 @@ package org.apache.ratis.metrics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.stream.Collectors;
 
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.ReflectionUtils;
@@ -30,10 +31,9 @@ import org.slf4j.LoggerFactory;
 
 
 public final class MetricRegistriesLoader {
-  private static final Logger LOG = LoggerFactory.getLogger(MetricRegistries.class);
+  private static final Logger LOG = LoggerFactory.getLogger(MetricRegistriesLoader.class);
 
-  private static final String DEFAULT_CLASS
-      = "org.apache.ratis.metrics.impl.MetricRegistriesImpl";
+  static final String DEFAULT_CLASS = "org.apache.ratis.metrics.impl.MetricRegistriesImpl";
 
   private MetricRegistriesLoader() {
   }
@@ -56,32 +56,25 @@ public final class MetricRegistriesLoader {
    * @return A {@link MetricRegistries} implementation.
    */
   @VisibleForTesting
-  static MetricRegistries load(List<MetricRegistries> availableImplementations) {
-
-    if (availableImplementations.size() == 1) {
-      // One and only one instance -- what we want/expect
-      MetricRegistries impl = availableImplementations.get(0);
-      LOG.info("Loaded MetricRegistries " + impl.getClass());
-      return impl;
-    } else if (availableImplementations.isEmpty()) {
+  static MetricRegistries load(List<MetricRegistries> registries) {
+    if (registries.isEmpty()) {
       try {
         return ReflectionUtils.newInstance(Class.forName(DEFAULT_CLASS).asSubclass(MetricRegistries.class));
       } catch (ClassNotFoundException e) {
-        throw new RuntimeException(e);
+        throw new IllegalStateException("Failed to load default MetricRegistries " + DEFAULT_CLASS, e);
       }
+    }
+
+    final MetricRegistries first = registries.get(0);
+    if (registries.size() == 1) {
+      // One and only one instance -- what we want/expect
+      LOG.debug("Loaded {}", first.getClass());
     } else {
       // Tell the user they're doing something wrong, and choose the first impl.
-      StringBuilder sb = new StringBuilder();
-      for (MetricRegistries factory : availableImplementations) {
-        if (sb.length() > 0) {
-          sb.append(", ");
-        }
-        sb.append(factory.getClass());
-      }
-      LOG.warn("Found multiple MetricRegistries implementations: " + sb
-          + ". Using first found implementation: " + availableImplementations.get(0));
-      return availableImplementations.get(0);
+      final List<? extends Class<?>> classes = registries.stream().map(Object::getClass).collect(Collectors.toList());
+      LOG.warn("Found multiple MetricRegistries: {}. Using the first: {}", classes, first.getClass());
     }
+    return first;
   }
 
   private static List<MetricRegistries> getDefinedImplementations() {
