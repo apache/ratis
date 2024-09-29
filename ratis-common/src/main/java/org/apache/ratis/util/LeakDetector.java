@@ -85,13 +85,19 @@ public class LeakDetector {
       }
 
       int n = 0;
-      for(LeakTracker tracker : set) {
+      for (LeakTracker tracker : set) {
         if (tracker.reportLeak() != null) {
           n++;
         }
       }
-      final int leaks = n;
-      Preconditions.assertTrue(n == 0, () -> "#leaks = " + leaks + ", set.size = " + set.size());
+      assertNoLeaks(n);
+    }
+
+    synchronized void assertNoLeaks(int leaks) {
+      Preconditions.assertTrue(leaks == 0, () -> {
+        final int size = set.size();
+        return "#leaks = " + leaks + (leaks == size? "==" : "!=") + " set.size = " + size;
+      });
     }
   }
 
