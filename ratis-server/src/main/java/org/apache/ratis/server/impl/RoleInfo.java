@@ -47,7 +47,7 @@ class RoleInfo {
   public static final Logger LOG = LoggerFactory.getLogger(RoleInfo.class);
 
   private final RaftPeerId id;
-  private volatile RaftPeerRole role;
+  private final AtomicReference<RaftPeerRole> role = new AtomicReference<>();
   /** Used when the peer is leader */
   private final AtomicReference<LeaderStateImpl> leaderState = new AtomicReference<>();
   /** Used when the peer is follower, to monitor election timeout */
@@ -64,7 +64,7 @@ class RoleInfo {
   }
 
   void transitionRole(RaftPeerRole newRole) {
-    this.role = newRole;
+    this.role.set(newRole);
     this.transitionTime.set(Timestamp.currentTime());
   }
 
@@ -73,7 +73,7 @@ class RoleInfo {
   }
 
   RaftPeerRole getCurrentRole() {
-    return role;
+    return role.get();
   }
 
   boolean isLeaderReady() {
@@ -113,13 +113,13 @@ class RoleInfo {
     updateAndGet(followerState, new FollowerState(server, reason)).start();
   }
 
-  void shutdownFollowerState() {
+  CompletableFuture<Void> shutdownFollowerState() {
     final FollowerState follower = followerState.getAndSet(null);
-    if (follower != null) {
-      LOG.info("{}: shutdown {}", id, follower);
-      follower.stopRunning();
-      follower.interrupt();
+    if (follower == null) {
+      return CompletableFuture.completedFuture(null);
     }
+    LOG.info("{}: shutdown {}", id, follower);
+    return follower.stopRunning();
   }
 
   void startLeaderElection(RaftServerImpl server, boolean force) {
@@ -133,13 +133,13 @@ class RoleInfo {
     pauseLeaderElection.set(pause);
   }
 
-  void shutdownLeaderElection() {
+  CompletableFuture<Void> shutdownLeaderElection() {
     final LeaderElection election = leaderElection.getAndSet(null);
-    if (election != null) {
-      LOG.info("{}: shutdown {}", id, election);
-      election.shutdown();
-      // no need to interrupt the election thread
+    if (election == null) {
+      return CompletableFuture.completedFuture(null);
     }
+    LOG.info("{}: shutdown {}", id, election);
+    return election.shutdown();
   }
 
   private <T> T updateAndGet(AtomicReference<T> ref, T current) {
