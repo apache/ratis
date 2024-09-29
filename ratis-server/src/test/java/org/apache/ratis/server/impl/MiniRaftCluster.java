@@ -136,6 +136,7 @@ public abstract class MiniRaftCluster implements Closeable {
         final StackTraceElement caller = JavaUtils.getCallerStackTraceElement();
         LOG.info("Running " + caller.getMethodName());
         final CLUSTER cluster = newCluster(numServers, numListeners);
+        Exception failed = null;
         try {
           if (startCluster) {
             cluster.start();
@@ -144,9 +145,18 @@ public abstract class MiniRaftCluster implements Closeable {
         } catch(Exception t) {
           LOG.info(cluster.printServers());
           LOG.error("Failed " + caller, t);
+          failed = t;
           throw t;
         } finally {
-          cluster.shutdown();
+          try {
+            cluster.shutdown();
+          } catch (Exception e) {
+            if (failed == null) {
+              throw e;
+            } else {
+              failed.addSuppressed(e);
+            }
+          }
         }
       }
 

@@ -348,7 +348,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     for (Map.Entry<String, Server> server : servers.entrySet()) {
       final String name = getId() + ": shutdown server " + server.getKey();
       LOG.info("{} now", name);
-      final Server s = server.getValue().shutdown();
+      final Server s = server.getValue().shutdownNow();
       super.closeImpl();
       try {
         s.awaitTermination();
