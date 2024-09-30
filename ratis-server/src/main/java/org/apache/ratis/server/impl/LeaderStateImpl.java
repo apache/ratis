@@ -223,11 +223,8 @@ class LeaderStateImpl implements LeaderState {
     }
 
     CompletableFuture<Void> stopAll() {
-      final CompletableFuture<?>[] futures = new CompletableFuture<?>[senders.size()];
-      for(int i = 0; i < futures.length; i++) {
-        futures[i] = senders.get(i).stopAsync();
-      }
-      return CompletableFuture.allOf(futures);
+      return CompletableFuture.allOf(senders.stream().
+              map(LogAppender::stopAsync).toArray(CompletableFuture[]::new));
     }
   }
 
