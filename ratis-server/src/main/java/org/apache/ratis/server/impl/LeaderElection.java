@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
@@ -183,6 +184,7 @@ class LeaderElection implements Runnable {
   private final String name;
   private final LifeCycle lifeCycle;
   private final Daemon daemon;
+  private final CompletableFuture<Void> stopped = new CompletableFuture<>();
 
   private final RaftServerImpl server;
   private final boolean skipPreVote;
@@ -223,8 +225,10 @@ class LeaderElection implements Runnable {
     }
   }
 
-  void shutdown() {
+  CompletableFuture<Void> shutdown() {
     lifeCycle.checkStateAndClose();
+    stopped.complete(null);
+    return stopped;
   }
 
   @VisibleForTesting
@@ -234,6 +238,14 @@ class LeaderElection implements Runnable {
 
   @Override
   public void run() {
+    try {
+      runImpl();
+    } finally {
+      stopped.complete(null);
+    }
+  }
+
+  private void runImpl() {
     if (!lifeCycle.compareAndTransition(STARTING, RUNNING)) {
       final LifeCycle.State state = lifeCycle.getCurrentState();
       LOG.info("{}: skip running since this is already {}", this, state);

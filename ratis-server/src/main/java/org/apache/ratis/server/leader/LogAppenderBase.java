@@ -124,7 +124,7 @@ public abstract class LogAppenderBase implements LogAppender {
 
   @Override
   public boolean isRunning() {
-    return daemon.isWorking();
+    return daemon.isWorking() && server.getInfo().isLeader();
   }
 
   @Override
