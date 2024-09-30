@@ -185,6 +185,7 @@ class SnapshotInstallationHandler {
         // considering a follower peer requiring a snapshot installation does not
         // have a lot of requests
         if (state.getLog().getLastCommittedIndex() >= lastIncludedIndex) {
+          nextChunkIndex.set(snapshotChunkRequest.getRequestIndex() + 1);
           return toInstallSnapshotReplyProto(leaderId, getMemberId(),
               currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.ALREADY_INSTALLED);
         }
