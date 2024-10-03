@@ -96,7 +96,7 @@ public class LeakDetector {
     synchronized void assertNoLeaks(int leaks) {
       Preconditions.assertTrue(leaks == 0, () -> {
         final int size = set.size();
-        return "#leaks = " + leaks + (leaks == size? "==" : "!=") + " set.size = " + size;
+        return "#leaks = " + leaks + " > 0, #leaks " + (leaks == size? "==" : "!=") + " set.size = " + size;
       });
     }
   }
