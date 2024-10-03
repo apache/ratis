@@ -58,6 +58,8 @@ public interface TermIndex extends Comparable<TermIndex> {
     return Optional.ofNullable(proto).map(p -> valueOf(p.getTerm(), p.getIndex())).orElse(null);
   }
 
+  static final TermIndex DEFAULT_TERMINDEX = valueOf(0, -1);
+
   /** @return a {@link TermIndex} object. */
   static TermIndex valueOf(long term, long index) {
     return new TermIndex() {

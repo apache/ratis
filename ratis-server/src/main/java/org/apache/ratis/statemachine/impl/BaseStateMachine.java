@@ -59,7 +59,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
   private final SortedMap<Long, CompletableFuture<Void>> transactionFutures = new TreeMap<>();
 
   public BaseStateMachine() {
-    setLastAppliedTermIndex(TermIndex.valueOf(0, -1));
+    setLastAppliedTermIndex(TermIndex.DEFAULT_TERMINDEX);
   }
 
   public RaftPeerId getId() {
