@@ -24,9 +24,9 @@ import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -61,7 +61,7 @@ public class LeakDetector {
   private static final Logger LOG = LoggerFactory.getLogger(LeakDetector.class);
 
   private static class LeakTrackerSet {
-    private final Set<LeakTracker> set = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<LeakTracker> set = Collections.newSetFromMap(new HashMap<>());
 
     synchronized boolean remove(LeakTracker tracker) {
       return set.remove(tracker);

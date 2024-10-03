@@ -310,8 +310,9 @@ public final class SegmentedRaftLog extends RaftLogBase {
         entry.retain();
         getRaftLogMetrics().onRaftLogCacheHit();
         return entry;
-      } catch (IllegalStateException ignore) {
-        // the entry could be removed from the cache and released.
+      } catch (IllegalStateException ignored) {
+        // The entry could be removed from the cache and released.
+        // The exception can be safely ignored since it is the same as cache miss.
       }
     }
 
