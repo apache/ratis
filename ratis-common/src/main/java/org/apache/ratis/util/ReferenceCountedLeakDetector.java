@@ -158,7 +158,7 @@ public final class ReferenceCountedLeakDetector {
       this.leakDetector = leakDetector;
     }
 
-    String getTraceString(int count) {
+    private String getTraceString(int count) {
       return "(" + valueClass + ", count=" + count + ", value=" + valueString + ")";
     }
 
@@ -176,7 +176,7 @@ public final class ReferenceCountedLeakDetector {
     }
 
     @Override
-    public T get() {
+    public synchronized T get() {
       try {
         return super.get();
       } catch (Exception e) {
