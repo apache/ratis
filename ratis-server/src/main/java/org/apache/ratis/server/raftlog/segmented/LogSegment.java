@@ -283,10 +283,10 @@ public final class LogSegment {
         final TermIndex ti = TermIndex.valueOf(entry);
         putEntryCache(ti, entryRef, Op.LOAD_SEGMENT_FILE);
         if (ti.equals(key.getTermIndex())) {
-          entryRef.retain();
           toReturn.set(entryRef);
+        } else {
+          entryRef.release();
         }
-        entryRef.release();
       });
       loadingTimes.incrementAndGet();
       return Objects.requireNonNull(toReturn.get());
@@ -433,7 +433,13 @@ public final class LogSegment {
   synchronized ReferenceCountedObject<LogEntryProto> loadCache(LogRecord record) throws RaftLogIOException {
     ReferenceCountedObject<LogEntryProto> entry = entryCache.get(record.getTermIndex());
     if (entry != null) {
-      return entry;
+      try {
+        entry.retain();
+        return entry;
+      } catch (IllegalStateException ignored) {
+        // The entry could be removed from the cache and released.
+        // The exception can be safely ignored since it is the same as cache miss.
+      }
     }
     try {
       return cacheLoader.load(record);

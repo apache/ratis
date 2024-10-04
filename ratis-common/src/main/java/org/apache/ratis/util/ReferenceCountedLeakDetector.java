@@ -176,6 +176,15 @@ public final class ReferenceCountedLeakDetector {
     }
 
     @Override
+    public T get() {
+      try {
+        return super.get();
+      } catch (Exception e) {
+        throw new IllegalStateException("Failed to get: " + getTraceString(getCount()), e);
+      }
+    }
+
+    @Override
     public synchronized T retain() {
       if (getCount() == 0) {
         this.removeMethod = leakDetector.track(this, this::logLeakMessage);
@@ -250,7 +259,8 @@ public final class ReferenceCountedLeakDetector {
       private final int previousRefCount;
       private final Counts counts;
 
-      private final StackTraceElement[] stackTraces = Thread.currentThread().getStackTrace();
+      private final String threadName;
+      private final StackTraceElement[] stackTraces;
       private final int newTraceElementIndex;
 
       TraceInfo(int id, Op op, TraceInfo previous, int previousRefCount) {
@@ -258,6 +268,10 @@ public final class ReferenceCountedLeakDetector {
         this.op = op;
         this.previousRefCount = previousRefCount;
         this.counts = previous == null? new Counts(): new Counts(op, previous.counts);
+
+        final Thread thread = Thread.currentThread();
+        this.threadName = thread.getName();
+        this.stackTraces = thread.getStackTrace();
         this.newTraceElementIndex = previous == null? stackTraces.length - 1
             : findFirstUnequalFromTail(this.stackTraces, previous.stackTraces);
       }
@@ -275,7 +289,8 @@ public final class ReferenceCountedLeakDetector {
       private StringBuilder appendTo(StringBuilder b) {
         b.append(id).append(": ").append(op)
             .append(", previousRefCount=").append(previousRefCount)
-            .append(", ").append(counts).append("\n");
+            .append(", ").append(counts)
+            .append(", ").append(threadName).append("\n");
         final int n = newTraceElementIndex + 1;
         int line = 3;
         for (; line <= n && line < stackTraces.length; line++) {
@@ -299,28 +314,31 @@ public final class ReferenceCountedLeakDetector {
 
     AdvancedTracing(T value, Runnable retainMethod, Consumer<Boolean> releaseMethod, LeakDetector leakDetector) {
       super(value, retainMethod, releaseMethod, leakDetector);
-      addTraceInfo(Op.CREATION);
+      addTraceInfo(Op.CREATION, -1);
     }
 
-    private synchronized TraceInfo addTraceInfo(Op op) {
-      final TraceInfo current = new TraceInfo(traceCount++, op, previous, getCount());
+    private synchronized TraceInfo addTraceInfo(Op op, int previousRefCount) {
+      final TraceInfo current = new TraceInfo(traceCount++, op, previous, previousRefCount);
       traceInfos.add(current);
       previous = current;
       return current;
     }
 
+
     @Override
     public synchronized T retain() {
+      final int previousRefCount = getCount();
       final T retained = super.retain();
-      final TraceInfo info = addTraceInfo(Op.RETAIN);
+      final TraceInfo info = addTraceInfo(Op.RETAIN, previousRefCount);
       Preconditions.assertSame(getCount(), info.counts.refCount, "refCount");
       return retained;
     }
 
     @Override
     public synchronized boolean release() {
+      final int previousRefCount = getCount();
       final boolean released = super.release();
-      final TraceInfo info = addTraceInfo(Op.RELEASE);
+      final TraceInfo info = addTraceInfo(Op.RELEASE, previousRefCount);
       final int count = getCount();
       final int expected = count == -1? 0 : count;
       Preconditions.assertSame(expected, info.counts.refCount, "refCount");
