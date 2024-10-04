@@ -58,18 +58,14 @@ public final class ReferenceCountedLeakDetector {
   }
 
   private enum Mode implements Factory {
-    /**
-     * Leak detector is not enable in production to avoid performance impacts.
-     */
+    /** Leak detector is not enable in production to avoid performance impacts. */
     NONE {
       @Override
       public <V> ReferenceCountedObject<V> create(V value, Runnable retainMethod, Consumer<Boolean> releaseMethod) {
         return new Impl<>(value, retainMethod, releaseMethod);
       }
     },
-    /**
-     * Leak detector is enabled to detect leaks. This is intended to use in every tests.
-     */
+    /** Leak detector is enabled to detect leaks. This is intended to use in every tests. */
     SIMPLE {
       @Override
       public <V> ReferenceCountedObject<V> create(V value, Runnable retainMethod, Consumer<Boolean> releaseMethod) {
@@ -158,7 +154,7 @@ public final class ReferenceCountedLeakDetector {
       this.leakDetector = leakDetector;
     }
 
-    private String getTraceString(int count) {
+    String getTraceString(int count) {
       return "(" + valueClass + ", count=" + count + ", value=" + valueString + ")";
     }
 
