@@ -19,12 +19,25 @@ package org.apache.ratis.server.protocol;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.TermIndexProto;
+import org.apache.ratis.server.raftlog.RaftLog;
 
 import java.util.Comparator;
 import java.util.Optional;
 
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
+  /**
+   * The initial value.
+   * When a new Raft group starts,
+   * all the servers has term 0 and index -1 (= {@link RaftLog#INVALID_LOG_INDEX}).
+   * Note that term is incremented during leader election
+   * and index is incremented when writing to the {@link RaftLog}.
+   * The least term and index possibly written to the {@link RaftLog}
+   * are respectively 1 and 0 (= {@link RaftLog#LEAST_VALID_LOG_INDEX}).
+   */
+  TermIndex INITIAL_VALUE = valueOf(0, RaftLog.INVALID_LOG_INDEX);
+
+  /** An empty {@link TermIndex} array. */
   TermIndex[] EMPTY_ARRAY = {};
 
   /** @return the term. */
