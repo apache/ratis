@@ -351,6 +351,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     } catch (Exception e) {
       final String err = getName() + ": Failed readStateMachineData for " + toLogEntryString(entry);
       LOG.error(err, e);
+      entryRef.release();
       throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
     }
   }

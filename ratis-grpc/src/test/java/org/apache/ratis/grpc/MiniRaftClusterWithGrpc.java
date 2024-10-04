@@ -52,7 +52,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   };
 
   static {
-    ReferenceCountedLeakDetector.enable(false);
+    ReferenceCountedLeakDetector.enable(true);
   }
 
   public interface FactoryGet extends Factory.Get<MiniRaftClusterWithGrpc> {

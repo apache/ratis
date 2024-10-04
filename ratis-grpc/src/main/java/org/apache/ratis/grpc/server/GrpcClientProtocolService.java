@@ -323,18 +323,19 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
 
     @Override
     void processClientRequest(ReferenceCountedObject<RaftClientRequest> requestRef) {
-      final RaftClientRequest request = requestRef.retain();
-      final long callId = request.getCallId();
-      final SlidingWindowEntry slidingWindowEntry = request.getSlidingWindowEntry();
-      final CompletableFuture<Void> f = processClientRequest(requestRef, reply -> {
-        if (!reply.isSuccess()) {
-          LOG.info("Failed request cid={}, {}, reply={}", callId, slidingWindowEntry, reply);
-        }
-        final RaftClientReplyProto proto = ClientProtoUtils.toRaftClientReplyProto(reply);
-        responseNext(proto);
-      });
-
-      requestRef.release();
+      final long callId = requestRef.retain().getCallId();
+      final CompletableFuture<Void> f;
+      try {
+        f = processClientRequest(requestRef, reply -> {
+          if (!reply.isSuccess()) {
+            LOG.info("Failed request cid={}, reply={}", callId, reply);
+          }
+          final RaftClientReplyProto proto = ClientProtoUtils.toRaftClientReplyProto(reply);
+          responseNext(proto);
+        });
+      } finally {
+        requestRef.release();
+      }
 
       put(callId, f);
       f.thenAccept(dummy -> remove(callId));

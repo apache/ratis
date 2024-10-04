@@ -20,7 +20,7 @@ package org.apache.ratis.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -58,14 +58,18 @@ public final class ReferenceCountedLeakDetector {
   }
 
   private enum Mode implements Factory {
-    /** Leak detector is not enable in production to avoid performance impacts. */
+    /**
+     * Leak detector is not enable in production to avoid performance impacts.
+     */
     NONE {
       @Override
       public <V> ReferenceCountedObject<V> create(V value, Runnable retainMethod, Consumer<Boolean> releaseMethod) {
         return new Impl<>(value, retainMethod, releaseMethod);
       }
     },
-    /** Leak detector is enabled to detect leaks. This is intended to use in every tests. */
+    /**
+     * Leak detector is enabled to detect leaks. This is intended to use in every tests.
+     */
     SIMPLE {
       @Override
       public <V> ReferenceCountedObject<V> create(V value, Runnable retainMethod, Consumer<Boolean> releaseMethod) {
@@ -129,7 +133,7 @@ public final class ReferenceCountedLeakDetector {
       // n <= 0: exception
       // n >  1: n--
       // n == 1: n = -1
-      final int previous = count.getAndUpdate(n -> n <= 1? -1: n - 1);
+      final int previous = count.getAndUpdate(n -> n <= 1 ? -1 : n - 1);
       if (previous < 0) {
         throw new IllegalStateException("Failed to release: object has already been completely released.");
       } else if (previous == 0) {
@@ -146,6 +150,7 @@ public final class ReferenceCountedLeakDetector {
     private final Class<?> valueClass;
 
     private Runnable removeMethod = null;
+    private String valueString = null;
 
     SimpleTracing(T value, Runnable retainMethod, Consumer<Boolean> releaseMethod, LeakDetector leakDetector) {
       super(value, retainMethod, releaseMethod);
@@ -153,17 +158,19 @@ public final class ReferenceCountedLeakDetector {
       this.leakDetector = leakDetector;
     }
 
-    String getInfo(int count) {
-      return "(" + valueClass + ", count=" + count + ")";
+    String getTraceString(int count) {
+      return "(" + valueClass + ", count=" + count + ", value=" + valueString + ")";
     }
 
-    /** @return the leak message if there is a leak; return null if there is no leak. */
+    /**
+     * @return the leak message if there is a leak; return null if there is no leak.
+     */
     String logLeakMessage() {
       final int count = getCount();
       if (count == 0) {
         return null;
       }
-      final String message = "LEAK: " + getInfo(count);
+      final String message = "LEAK: " + getTraceString(count);
       LOG.warn(message);
       return message;
     }
@@ -174,9 +181,13 @@ public final class ReferenceCountedLeakDetector {
         this.removeMethod = leakDetector.track(this, this::logLeakMessage);
       }
       try {
-        return super.retain();
+        final T value = super.retain();
+        if (getCount() == 0) {
+          this.valueString = value.toString();
+        }
+        return value;
       } catch (Exception e) {
-        throw new IllegalStateException("Failed to retain: " + getInfo(getCount()), e);
+        throw new IllegalStateException("Failed to retain: " + getTraceString(getCount()), e);
       }
     }
 
@@ -186,7 +197,7 @@ public final class ReferenceCountedLeakDetector {
       try {
         released = super.release();
       } catch (Exception e) {
-        throw new IllegalStateException("Failed to release: " + getInfo(getCount()), e);
+        throw new IllegalStateException("Failed to release: " + getTraceString(getCount()), e);
       }
 
       if (released) {
@@ -198,52 +209,133 @@ public final class ReferenceCountedLeakDetector {
   }
 
   private static class AdvancedTracing<T> extends SimpleTracing<T> {
-    private final StackTraceElement[] createStrace = Thread.currentThread().getStackTrace();
-    private final List<StackTraceElement[]> retainsTraces = new LinkedList<>();
-    private final List<StackTraceElement[]> releaseTraces = new LinkedList<>();
+    enum Op {CREATION, RETAIN, RELEASE}
+
+    static class Counts {
+      private final int refCount;
+      private final int retainCount;
+      private final int releaseCount;
+
+      Counts() {
+        this.refCount = 0;
+        this.retainCount = 0;
+        this.releaseCount = 0;
+      }
+
+      Counts(Op op, Counts previous) {
+        if (op == Op.RETAIN) {
+          this.refCount = previous.refCount + 1;
+          this.retainCount = previous.retainCount + 1;
+          this.releaseCount = previous.releaseCount;
+        } else if (op == Op.RELEASE) {
+          this.refCount = previous.refCount - 1;
+          this.retainCount = previous.retainCount;
+          this.releaseCount = previous.releaseCount + 1;
+        } else {
+          throw new IllegalStateException("Unexpected op: " + op);
+        }
+      }
+
+      @Override
+      public String toString() {
+        return "refCount=" + refCount
+            + ", retainCount=" + retainCount
+            + ", releaseCount=" + releaseCount;
+      }
+    }
+
+    static class TraceInfo {
+      private final int id;
+      private final Op op;
+      private final int previousRefCount;
+      private final Counts counts;
+
+      private final StackTraceElement[] stackTraces = Thread.currentThread().getStackTrace();
+      private final int newTraceElementIndex;
+
+      TraceInfo(int id, Op op, TraceInfo previous, int previousRefCount) {
+        this.id = id;
+        this.op = op;
+        this.previousRefCount = previousRefCount;
+        this.counts = previous == null? new Counts(): new Counts(op, previous.counts);
+        this.newTraceElementIndex = previous == null? stackTraces.length - 1
+            : findFirstUnequalFromTail(this.stackTraces, previous.stackTraces);
+      }
+
+      static <T> int findFirstUnequalFromTail(T[] current, T[] previous) {
+        int c = current.length - 1;
+        for(int p = previous.length - 1; p >= 0; p--, c--) {
+          if (!previous[p].equals(current[c])) {
+            return c;
+          }
+        }
+        return -1;
+      }
+
+      private StringBuilder appendTo(StringBuilder b) {
+        b.append(id).append(": ").append(op)
+            .append(", previousRefCount=").append(previousRefCount)
+            .append(", ").append(counts).append("\n");
+        final int n = newTraceElementIndex + 1;
+        int line = 3;
+        for (; line <= n && line < stackTraces.length; line++) {
+          b.append("    ").append(stackTraces[line]).append("\n");
+        }
+        if (line < stackTraces.length) {
+          b.append("    ...\n");
+        }
+        return b;
+      }
+
+      @Override
+      public String toString() {
+        return appendTo(new StringBuilder()).toString();
+      }
+    }
+
+    private final List<TraceInfo> traceInfos = new ArrayList<>();
+    private int traceCount = 0;
+    private TraceInfo previous;
 
     AdvancedTracing(T value, Runnable retainMethod, Consumer<Boolean> releaseMethod, LeakDetector leakDetector) {
       super(value, retainMethod, releaseMethod, leakDetector);
+      addTraceInfo(Op.CREATION);
     }
 
-    @Override
-    synchronized String getInfo(int count) {
-      return super.getInfo(count)
-          + "\n  Creation trace: " + formatStackTrace(createStrace)
-          + "\n  Retain traces: " + formatStackTraces("retain", retainsTraces)
-          + "\n  Release traces: " + formatStackTraces("release", releaseTraces);
+    private synchronized TraceInfo addTraceInfo(Op op) {
+      final TraceInfo current = new TraceInfo(traceCount++, op, previous, getCount());
+      traceInfos.add(current);
+      previous = current;
+      return current;
     }
 
     @Override
     public synchronized T retain() {
-      retainsTraces.add(Thread.currentThread().getStackTrace());
-      return super.retain();
+      final T retained = super.retain();
+      final TraceInfo info = addTraceInfo(Op.RETAIN);
+      Preconditions.assertSame(getCount(), info.counts.refCount, "refCount");
+      return retained;
     }
 
     @Override
-    public boolean release() {
-      releaseTraces.add(Thread.currentThread().getStackTrace());
-      return super.release();
+    public synchronized boolean release() {
+      final boolean released = super.release();
+      final TraceInfo info = addTraceInfo(Op.RELEASE);
+      final int count = getCount();
+      final int expected = count == -1? 0 : count;
+      Preconditions.assertSame(expected, info.counts.refCount, "refCount");
+      return released;
     }
-  }
 
-  private static String formatStackTrace(StackTraceElement[] stackTrace) {
-    return formatStackTrace(stackTrace, new StringBuilder()).toString();
-  }
-
-  private static StringBuilder formatStackTrace(StackTraceElement[] stackTrace, StringBuilder sb) {
-    for (int line = 2; line < stackTrace.length; line++) {
-      sb.append("    ").append(stackTrace[line]).append("\n");
+    @Override
+    synchronized String getTraceString(int count) {
+      return super.getTraceString(count) + formatTraceInfos(traceInfos);
     }
-    return sb;
-  }
 
-  private static String formatStackTraces(String name, List<StackTraceElement[]> stackTraces) {
-    final StringBuilder sb = new StringBuilder(stackTraces.size()).append(" trace(s)");
-    for (int i = 0; i < stackTraces.size(); i++) {
-      sb.append("\n").append(name).append(" ").append(i).append(":\n");
-      formatStackTrace(stackTraces.get(i), sb);
+    private static String formatTraceInfos(List<TraceInfo> infos) {
+      final StringBuilder b = new StringBuilder().append(infos.size()).append(" TraceInfo(s):\n");
+      infos.forEach(info -> info.appendTo(b.append("\n")));
+      return b.toString();
     }
-    return sb.toString();
   }
 }
