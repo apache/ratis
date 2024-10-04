@@ -86,6 +86,10 @@ import java.util.stream.StreamSupport;
 public abstract class MiniRaftCluster implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
 
+  static {
+    ReferenceCountedLeakDetector.enable(true);
+  }
+
   public static final String CLASS_NAME = JavaUtils.getClassSimpleName(MiniRaftCluster.class);
   public static final String STATEMACHINE_CLASS_KEY = CLASS_NAME + ".statemachine.class";
   private static final StateMachine.Registry STATEMACHINE_REGISTRY_DEFAULT = gid -> new BaseStateMachine();
