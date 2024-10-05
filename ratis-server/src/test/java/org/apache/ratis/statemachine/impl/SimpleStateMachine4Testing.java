@@ -84,7 +84,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   private final SortedMap<Long, ReferenceCountedObject<LogEntryProto>> indexMap = Collections.synchronizedSortedMap(new TreeMap<>());
-  private final SortedMap<String, LogEntryProto> dataMap = Collections.synchronizedSortedMap(new TreeMap<>());
+  private final SortedMap<String, ByteString> dataMap = Collections.synchronizedSortedMap(new TreeMap<>());
   private final Daemon checkpointer;
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
   private final RaftProperties properties = new RaftProperties();
@@ -199,14 +199,18 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   private void put(ReferenceCountedObject<LogEntryProto> entryRef) {
-    LogEntryProto entry = entryRef.retain();
-    final ReferenceCountedObject<LogEntryProto> previous = indexMap.put(entry.getIndex(), entryRef);
-    Preconditions.assertNull(previous, "previous");
-    final String s = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
-    dataMap.put(s, entry);
-    LOG.info("{}: put {}, {} -> {}", getId(), entry.getIndex(),
-        s.length() <= 10? s: s.substring(0, 10) + "...",
-        LogProtoUtils.toLogEntryString(entry));
+    try {
+      final LogEntryProto entry = entryRef.retain();
+      final ReferenceCountedObject<LogEntryProto> previous = indexMap.put(entry.getIndex(), entryRef);
+      Preconditions.assertNull(previous, "previous");
+      final String s = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
+      dataMap.put(s, entry.toByteString());
+      LOG.info("{}: put {}, {} -> {}", getId(), entry.getIndex(),
+          s.length() <= 10 ? s : s.substring(0, 10) + "...",
+          LogProtoUtils.toLogEntryString(entry));
+    } finally {
+      entryRef.release();
+    }
   }
 
   @Override
@@ -333,9 +337,9 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     Exception exception;
     try {
       LOG.info("query {}, all available: {}", string, dataMap.keySet());
-      final LogEntryProto entry = dataMap.get(string);
+      final ByteString entry = dataMap.get(string);
       if (entry != null) {
-        return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
+        return CompletableFuture.completedFuture(Message.valueOf(entry));
       }
       exception = new IndexOutOfBoundsException(getId() + ": LogEntry not found for query " + string);
     } catch (Exception e) {

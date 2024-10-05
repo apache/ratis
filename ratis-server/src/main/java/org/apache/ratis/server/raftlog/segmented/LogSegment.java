@@ -294,7 +294,8 @@ public final class LogSegment {
   }
 
   static class EntryCache {
-    private final Map<TermIndex, AtomicReference<ReferenceCountedObject<LogEntryProto>>> map = new ConcurrentHashMap<>();
+    private final Map<TermIndex, AtomicReference<ReferenceCountedObject<LogEntryProto>>> map
+        = new ConcurrentHashMap<>();
     private final AtomicLong size = new AtomicLong();
 
     long size() {
