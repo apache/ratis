@@ -38,9 +38,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -294,7 +294,7 @@ public final class LogSegment {
   }
 
   static class EntryCache {
-    private final Map<TermIndex, ReferenceCountedObject<LogEntryProto>> map = new ConcurrentHashMap<>();
+    private final Map<TermIndex, AtomicReference<ReferenceCountedObject<LogEntryProto>>> map = new ConcurrentHashMap<>();
     private final AtomicLong size = new AtomicLong();
 
     long size() {
@@ -302,28 +302,38 @@ public final class LogSegment {
     }
 
     ReferenceCountedObject<LogEntryProto> get(TermIndex ti) {
-      return map.get(ti);
+      final AtomicReference<ReferenceCountedObject<LogEntryProto>> ref = map.get(ti);
+      return ref == null? null: ref.get();
     }
 
     void clear() {
-      map.values().forEach(ReferenceCountedObject::release);
-      map.clear();
-      size.set(0);
+      for (Iterator<Map.Entry<TermIndex, AtomicReference<ReferenceCountedObject<LogEntryProto>>>>
+           i = map.entrySet().iterator(); i.hasNext(); ) {
+        release(i.next().getValue());
+        i.remove();
+      }
     }
 
     void put(TermIndex key, ReferenceCountedObject<LogEntryProto> valueRef, Op op) {
       valueRef.retain();
-      Optional.ofNullable(map.put(key, valueRef)).ifPresent(this::release);
+      release(map.put(key,  new AtomicReference<>(valueRef)));
       size.getAndAdd(getEntrySize(valueRef.get(), op));
     }
 
-    private void release(ReferenceCountedObject<LogEntryProto> entry) {
+    private void release(AtomicReference<ReferenceCountedObject<LogEntryProto>> ref) {
+      if (ref == null) {
+        return;
+      }
+      final ReferenceCountedObject<LogEntryProto> entry = ref.getAndSet(null);
+      if (entry == null) {
+        return;
+      }
       size.getAndAdd(-getEntrySize(entry.get(), Op.REMOVE_CACHE));
       entry.release();
     }
 
     void remove(TermIndex key) {
-      Optional.ofNullable(map.remove(key)).ifPresent(this::release);
+      release(map.remove(key));
     }
   }
 

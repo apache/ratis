@@ -370,7 +370,7 @@ public abstract class RaftLogBase implements RaftLog {
   @Override
   public String toString() {
     return getName() + ":" + state + ":c" + getLastCommittedIndex()
-        + (isOpened()? ":last" + getLastEntryTermIndex(): "");
+        + (isOpened()? ":open:last" + getLastEntryTermIndex(): ":closed");
   }
 
   public AutoCloseableLock readLock() {
