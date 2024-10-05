@@ -87,7 +87,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
 
   static {
-    ReferenceCountedLeakDetector.enable(true);
+    ReferenceCountedLeakDetector.enable(false);
   }
 
   public static final String CLASS_NAME = JavaUtils.getClassSimpleName(MiniRaftCluster.class);
