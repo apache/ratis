@@ -29,6 +29,7 @@ import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesti
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheLoader;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
@@ -38,10 +39,10 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -293,47 +294,92 @@ public final class LogSegment {
     }
   }
 
-  static class EntryCache {
-    private final Map<TermIndex, AtomicReference<ReferenceCountedObject<LogEntryProto>>> map
-        = new ConcurrentHashMap<>();
+  private static class Item {
+    private final AtomicReference<ReferenceCountedObject<LogEntryProto>> ref;
+    private final long serializedSize;
+
+    Item(ReferenceCountedObject<LogEntryProto> obj, long serializedSize) {
+      this.ref = new AtomicReference<>(obj);
+      this.serializedSize = serializedSize;
+    }
+
+    ReferenceCountedObject<LogEntryProto> get() {
+      return ref.get();
+    }
+
+    long release() {
+      final ReferenceCountedObject<LogEntryProto> entry = ref.getAndSet(null);
+      if (entry == null) {
+        return 0;
+      }
+      entry.release();
+      return serializedSize;
+    }
+  }
+
+  class EntryCache {
+    private Map<TermIndex, Item> map = new HashMap<>();
     private final AtomicLong size = new AtomicLong();
+
+    @Override
+    public String toString() {
+      return JavaUtils.getClassSimpleName(getClass()) + "-" + LogSegment.this;
+    }
 
     long size() {
       return size.get();
     }
 
-    ReferenceCountedObject<LogEntryProto> get(TermIndex ti) {
-      final AtomicReference<ReferenceCountedObject<LogEntryProto>> ref = map.get(ti);
+    synchronized ReferenceCountedObject<LogEntryProto> get(TermIndex ti) {
+      if (map == null) {
+        return null;
+      }
+      final Item ref = map.get(ti);
       return ref == null? null: ref.get();
     }
 
-    void clear() {
-      for (Iterator<Map.Entry<TermIndex, AtomicReference<ReferenceCountedObject<LogEntryProto>>>>
-           i = map.entrySet().iterator(); i.hasNext(); ) {
+    /** After close(), the cache CANNOT be used again. */
+    synchronized void close() {
+      if (map == null) {
+        return;
+      }
+      evict();
+      map = null;
+      LOG.info("Successfully closed {}", this);
+    }
+
+    /** After evict(), the cache can be used again. */
+    synchronized void evict() {
+      if (map == null) {
+        return;
+      }
+      for (Iterator<Map.Entry<TermIndex, Item>> i = map.entrySet().iterator(); i.hasNext(); i.remove()) {
         release(i.next().getValue());
-        i.remove();
       }
     }
 
-    void put(TermIndex key, ReferenceCountedObject<LogEntryProto> valueRef, Op op) {
+    synchronized void put(TermIndex key, ReferenceCountedObject<LogEntryProto> valueRef, Op op) {
+      if (map == null) {
+        return;
+      }
       valueRef.retain();
-      release(map.put(key,  new AtomicReference<>(valueRef)));
-      size.getAndAdd(getEntrySize(valueRef.get(), op));
+      final long serializedSize = getEntrySize(valueRef.get(), op);
+      release(map.put(key,  new Item(valueRef, serializedSize)));
+      size.getAndAdd(serializedSize);
     }
 
-    private void release(AtomicReference<ReferenceCountedObject<LogEntryProto>> ref) {
+    private void release(Item ref) {
       if (ref == null) {
         return;
       }
-      final ReferenceCountedObject<LogEntryProto> entry = ref.getAndSet(null);
-      if (entry == null) {
-        return;
-      }
-      size.getAndAdd(-getEntrySize(entry.get(), Op.REMOVE_CACHE));
-      entry.release();
+      final long serializedSize = ref.release();
+      size.getAndAdd(-serializedSize);
     }
 
-    void remove(TermIndex key) {
+    synchronized void remove(TermIndex key) {
+      if (map == null) {
+        return;
+      }
       release(map.remove(key));
     }
   }
@@ -522,7 +568,7 @@ public final class LogSegment {
 
   synchronized void clear() {
     records.clear();
-    evictCache();
+    entryCache.close();
     endIndex = startIndex - 1;
   }
 
@@ -531,7 +577,7 @@ public final class LogSegment {
   }
 
   void evictCache() {
-    entryCache.clear();
+    entryCache.evict();
   }
 
   void putEntryCache(TermIndex key, ReferenceCountedObject<LogEntryProto> valueRef, Op op) {

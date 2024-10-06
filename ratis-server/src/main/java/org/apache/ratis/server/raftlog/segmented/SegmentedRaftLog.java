@@ -564,6 +564,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public void close() throws IOException {
     try(AutoCloseableLock writeLock = writeLock()) {
+      LOG.info("Start closing {}", this);
       super.close();
       cacheEviction.close();
       cache.close();
@@ -571,6 +572,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     fileLogWorker.close();
     storage.close();
     getRaftLogMetrics().unregister();
+    LOG.info("Successfully closed {}", this);
   }
 
   SegmentedRaftLogCache getRaftLogCache() {

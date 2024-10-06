@@ -182,18 +182,17 @@ public final class ReferenceCountedLeakDetector {
 
     @Override
     public synchronized T retain() {
-      if (getCount() == 0) {
-        this.removeMethod = leakDetector.track(this, this::logLeakMessage);
-      }
+      final T value;
       try {
-        final T value = super.retain();
-        if (getCount() == 0) {
-          this.valueString = value.toString();
-        }
-        return value;
+        value = super.retain();
       } catch (Exception e) {
         throw new IllegalStateException("Failed to retain: " + getTraceString(getCount()), e);
       }
+      if (getCount() == 1) { // this is the first retain
+        this.removeMethod = leakDetector.track(this, this::logLeakMessage);
+        this.valueString = value.toString();
+      }
+      return value;
     }
 
     @Override
