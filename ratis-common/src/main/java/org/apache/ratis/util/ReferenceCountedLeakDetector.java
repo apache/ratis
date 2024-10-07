@@ -347,13 +347,13 @@ public final class ReferenceCountedLeakDetector {
     private String formatTraceInfos() {
       final int n = traceInfos.size();
       final StringBuilder b = new StringBuilder(n << 10).append(" #TraceInfos=").append(n);
-      TraceInfo previous = null;
+      TraceInfo last = null;
       for (TraceInfo info : traceInfos) {
         info.appendTo(b.append("\n"));
-        previous = info;
+        last = info;
       }
-      final TraceInfo last = new TraceInfo(n, Op.LEAK, previous, getCount());
-      last.appendTo(b.append("\n"));
+      final TraceInfo current = new TraceInfo(n, Op.LEAK, last, getCount());
+      current.appendTo(b.append("\n"));
 
       return b.toString();
     }
