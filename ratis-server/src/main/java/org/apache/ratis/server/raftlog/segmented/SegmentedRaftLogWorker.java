@@ -556,9 +556,9 @@ class SegmentedRaftLogWorker {
 
     @Override
     void discard() {
-      final ReferenceCountedObject<LogEntryProto> entry = ref.getAndSet(null);
-      if (entry != null) {
-        entry.release();
+      final ReferenceCountedObject<LogEntryProto> entryRef = ref.getAndSet(null);
+      if (entryRef != null) {
+        entryRef.release();
       }
     }
 
