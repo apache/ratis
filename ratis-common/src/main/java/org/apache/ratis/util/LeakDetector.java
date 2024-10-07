@@ -79,9 +79,9 @@ public class LeakDetector {
       return tracker;
     }
 
-    synchronized void assertNoLeaks() {
+    synchronized int getNumLeaks(boolean throwException) {
       if (set.isEmpty()) {
-        return;
+        return 0;
       }
 
       int n = 0;
@@ -90,7 +90,10 @@ public class LeakDetector {
           n++;
         }
       }
-      assertNoLeaks(n);
+      if (throwException) {
+        assertNoLeaks(n);
+      }
+      return n;
     }
 
     synchronized void assertNoLeaks(int leaks) {
@@ -151,12 +154,21 @@ public class LeakDetector {
     return allLeaks.add(leakable, queue, reportLeak)::remove;
   }
 
-  public void assertNoLeaks() {
+  public void assertNoLeaks(int maxRetries) throws InterruptedException {
     synchronized (leakMessages) {
       Preconditions.assertTrue(leakMessages.isEmpty(),
           () -> "#leaks = " + leakMessages.size() + "\n" + leakMessages);
     }
-    allLeaks.assertNoLeaks();
+
+    for(int i = 0; i < maxRetries; i++) {
+      final int numLeaks = allLeaks.getNumLeaks(false);
+      if (numLeaks == 0) {
+        return;
+      }
+      LOG.warn("{}/{}) numLeaks == {} > 0, will wait and retry ...", i, maxRetries, numLeaks);
+      TimeDuration.ONE_SECOND.sleep();
+    }
+    allLeaks.getNumLeaks(true);
   }
 
   private static final class LeakTracker extends WeakReference<Object> {
