@@ -262,7 +262,9 @@ public final class ReferenceCountedLeakDetector {
         this.id = id;
         this.op = op;
         this.previousRefCount = previousRefCount;
-        this.counts = previous == null? new Counts(): new Counts(op, previous.counts);
+        this.counts = previous == null? new Counts()
+            : op == Op.LEAK? previous.counts
+            : new Counts(op, previous.counts);
 
         final Thread thread = Thread.currentThread();
         this.threadName = thread.getName();
