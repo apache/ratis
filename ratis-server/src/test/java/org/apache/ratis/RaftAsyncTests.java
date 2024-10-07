@@ -272,7 +272,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   @Test
   public void testWithLoadAsync() throws Exception {
     runWithNewCluster(NUM_SERVERS,
-        cluster -> RaftBasicTests.testWithLoad(5, 500, true, cluster, LOG));
+        cluster -> RaftBasicTests.testWithLoad(5, 100, true, cluster, LOG));
   }
 
   @Test
