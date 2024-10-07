@@ -220,8 +220,8 @@
     <testsThreadCount>4</testsThreadCount>
 
     <slf4j.version>2.0.7</slf4j.version>
-    <junit.jupiter.version>5.10.1</junit.jupiter.version>
-    <jacoco.version>0.8.11</jacoco.version>
+    <junit-bom.version>5.11.2</junit-bom.version>
+    <jacoco.version>0.8.12</jacoco.version>
   </properties>
 
   <dependencyManagement>
@@ -424,7 +424,7 @@
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
-        <version>${junit.jupiter.version}</version>
+        <version>${junit-bom.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -640,7 +640,7 @@
             <enableProcessChecker>all</enableProcessChecker>
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
             <!-- @argLine is filled by jacoco maven plugin. @{} means late evaluation -->
-            <argLine>-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError @{argLine}</argLine>
+            <argLine>-Xmx2g -XX:+HeapDumpOnOutOfMemoryError @{argLine}</argLine>
             <systemPropertyVariables>
               <ratis.log.dir>${project.build.directory}/log</ratis.log.dir>
               <ratis.tmp.dir>${project.build.directory}/tmp</ratis.tmp.dir>
