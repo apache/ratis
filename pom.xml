@@ -176,7 +176,7 @@
     <maven-checkstyle-plugin.version>3.3.0</maven-checkstyle-plugin.version>
     <maven-clover2-plugin.version>4.0.6</maven-clover2-plugin.version>
     <maven-pdf-plugin.version>1.6.1</maven-pdf-plugin.version>
-    <maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
+    <maven-surefire-plugin.version>3.5.1</maven-surefire-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
     <hadoop-maven-plugins.version>3.4.0</hadoop-maven-plugins.version>
 
@@ -223,8 +223,8 @@
     <testsThreadCount>4</testsThreadCount>
 
     <slf4j.version>2.0.7</slf4j.version>
-    <junit.jupiter.version>5.10.1</junit.jupiter.version>
-    <jacoco.version>0.8.11</jacoco.version>
+    <junit-bom.version>5.11.2</junit-bom.version>
+    <jacoco.version>0.8.12</jacoco.version>
   </properties>
 
   <dependencyManagement>
@@ -427,7 +427,7 @@
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
-        <version>${junit.jupiter.version}</version>
+        <version>${junit-bom.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
