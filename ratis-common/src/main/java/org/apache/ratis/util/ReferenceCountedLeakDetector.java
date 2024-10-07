@@ -213,7 +213,7 @@ public final class ReferenceCountedLeakDetector {
   }
 
   private static class AdvancedTracing<T> extends SimpleTracing<T> {
-    enum Op {CREATION, RETAIN, RELEASE}
+    enum Op {CREATION, RETAIN, RELEASE, LEAK}
 
     static class Counts {
       private final int refCount;
@@ -304,7 +304,6 @@ public final class ReferenceCountedLeakDetector {
     }
 
     private final List<TraceInfo> traceInfos = new ArrayList<>();
-    private int traceCount = 0;
     private TraceInfo previous;
 
     AdvancedTracing(T value, Runnable retainMethod, Consumer<Boolean> releaseMethod, LeakDetector leakDetector) {
@@ -313,7 +312,7 @@ public final class ReferenceCountedLeakDetector {
     }
 
     private synchronized TraceInfo addTraceInfo(Op op, int previousRefCount) {
-      final TraceInfo current = new TraceInfo(traceCount++, op, previous, previousRefCount);
+      final TraceInfo current = new TraceInfo(traceInfos.size(), op, previous, previousRefCount);
       traceInfos.add(current);
       previous = current;
       return current;
@@ -342,13 +341,20 @@ public final class ReferenceCountedLeakDetector {
 
     @Override
     synchronized String getTraceString(int count) {
-      return super.getTraceString(count) + formatTraceInfos(traceInfos);
+      return super.getTraceString(count) + formatTraceInfos();
     }
 
-    private static String formatTraceInfos(List<TraceInfo> infos) {
-      final int n = infos.size();
+    private String formatTraceInfos() {
+      final int n = traceInfos.size();
       final StringBuilder b = new StringBuilder(n << 10).append(" #TraceInfos=").append(n);
-      infos.forEach(info -> info.appendTo(b.append("\n")));
+      TraceInfo previous = null;
+      for (TraceInfo info : traceInfos) {
+        info.appendTo(b.append("\n"));
+        previous = info;
+      }
+      final TraceInfo last = new TraceInfo(n, Op.LEAK, previous, getCount());
+      last.appendTo(b.append("\n"));
+
       return b.toString();
     }
   }
