@@ -75,6 +75,7 @@ public class DataBlockingQueue<E> extends DataQueue<E> {
     }
   }
 
+  /** Apply the given handler to each element and then {@link #clear()}. */
   public void clear(Consumer<E> handler) {
     try(AutoCloseableLock auto = AutoCloseableLock.acquire(lock)) {
       for(E e : this) {
@@ -84,8 +85,13 @@ public class DataBlockingQueue<E> extends DataQueue<E> {
     }
   }
 
+  /**
+   * Close this queue to stop accepting new elements, i.e. the offer(…) methods always return false.
+   * Note that closing the queue will not clear the existing elements.
+   * The existing elements can be peeked, polled or cleared after close.
+   */
   public void close() {
-    try(AutoCloseableLock auto = AutoCloseableLock.acquire(lock)) {
+    try(AutoCloseableLock ignored = AutoCloseableLock.acquire(lock)) {
       closed = true;
     }
   }
