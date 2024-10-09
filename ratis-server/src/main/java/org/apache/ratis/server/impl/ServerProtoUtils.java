@@ -114,7 +114,7 @@ final class ServerProtoUtils {
       RaftClientRequest clientRequest, RaftGroupMemberId requestorId, RaftPeerId replyId) {
     return ReadIndexRequestProto.newBuilder()
         .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId))
-        .setClientRequest(ClientProtoUtils.toRaftClientRequestProto(clientRequest))
+        .setClientRequest(ClientProtoUtils.toRaftClientRequestProto(clientRequest, false))
         .build();
   }
 
