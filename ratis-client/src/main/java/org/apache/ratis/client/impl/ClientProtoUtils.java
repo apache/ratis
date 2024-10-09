@@ -204,9 +204,13 @@ public interface ClientProtoUtils {
   }
 
   static RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) {
+    return toRaftClientRequestProto(request, true);
+  }
+
+  static RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request, boolean withMsg) {
     final RaftClientRequestProto.Builder b = RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
-    if (request.getMessage() != null) {
+    if (withMsg && request.getMessage() != null) {
       b.setMessage(toClientMessageEntryProtoBuilder(request.getMessage()));
     }
 
