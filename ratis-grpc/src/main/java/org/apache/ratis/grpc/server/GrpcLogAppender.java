@@ -170,7 +170,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   public GrpcLogAppender(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     super(server, leaderState, f);
 
-    Preconditions.assertNotNull(getServerRpc(), "getServerRpc()");
+    Preconditions.assertNotNull(getServerRpc(), "RaftServerProxy#serverRpc");
 
     final RaftProperties properties = server.getRaftServer().getProperties();
     this.maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(properties);
