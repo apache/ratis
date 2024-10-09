@@ -185,6 +185,7 @@ class SnapshotInstallationHandler {
         // considering a follower peer requiring a snapshot installation does not
         // have a lot of requests
         if (state.getLog().getLastCommittedIndex() >= lastIncludedIndex) {
+          nextChunkIndex.set(snapshotChunkRequest.getRequestIndex() + 1);
           return toInstallSnapshotReplyProto(leaderId, getMemberId(),
               currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.ALREADY_INSTALLED);
         }
@@ -192,8 +193,11 @@ class SnapshotInstallationHandler {
         //TODO: We should only update State with installed snapshot once the request is done.
         state.installSnapshot(request);
 
-        int idx = nextChunkIndex.getAndIncrement();
-        Preconditions.assertEquals(snapshotChunkRequest.getRequestIndex(), idx, "nextChunkIndex");
+        final int expectedChunkIndex = nextChunkIndex.getAndIncrement();
+        if (expectedChunkIndex != snapshotChunkRequest.getRequestIndex()) {
+          throw new IOException("Unexpected request chunk index: " + snapshotChunkRequest.getRequestIndex()
+              + " (the expected index is " + expectedChunkIndex + ")");
+        }
         // update the committed index
         // re-load the state machine if this is the last chunk
         if (snapshotChunkRequest.getDone()) {
