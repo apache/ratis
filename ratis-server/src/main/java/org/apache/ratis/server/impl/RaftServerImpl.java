@@ -250,6 +250,8 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
   private final ThreadGroup threadGroup;
 
+  private Runnable testOnlyInject = () -> {};
+
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -401,8 +403,14 @@ class RaftServerImpl implements RaftServer.Division,
 
     jmxAdapter.registerMBean();
     state.start();
+    testOnlyInject.run();;
     startComplete.compareAndSet(false, true);
     return true;
+  }
+
+  @VisibleForTesting
+  public void setTestOnlyInject(Runnable testOnlyInject) {
+    this.testOnlyInject = testOnlyInject;
   }
 
   /**

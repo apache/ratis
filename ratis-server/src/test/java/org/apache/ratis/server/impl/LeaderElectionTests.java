@@ -98,6 +98,21 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testWaitServerReady() throws Exception {
+    LOG.info("Running testWaitServerReady");
+
+    final MiniRaftCluster cluster = newCluster(1);
+    cluster.start(() -> {
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+    });
+    Assertions.assertTrue(RaftTestUtil.waitForLeader(cluster).getId() != null);
+    cluster.shutdown();
+  }
+  @Test
   public void testChangeLeader() throws Exception {
     SegmentedRaftLogTestUtils.setRaftLogWorkerLogLevel(Level.TRACE);
     LOG.info("Running testChangeLeader");
