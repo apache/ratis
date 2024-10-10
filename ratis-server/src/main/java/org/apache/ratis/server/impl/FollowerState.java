@@ -133,6 +133,14 @@ class FollowerState extends Daemon {
     }
   }
 
+  private boolean roleChangeChecking(TimeDuration electionTimeout) {
+    return outstandingOp.get() == 0
+            && isRunning && server.getInfo().isFollower()
+            && lastRpcTime.elapsedTime().compareTo(electionTimeout) >= 0
+            && !lostMajorityHeartbeatsRecently()
+            && server.isRunning();
+  }
+
   private void runImpl() {
     final TimeDuration sleepDeviationThreshold = server.getSleepDeviationThreshold();
     while (shouldRun()) {
@@ -149,10 +157,7 @@ class FollowerState extends Daemon {
           break;
         }
         synchronized (server) {
-          if (outstandingOp.get() == 0
-              && isRunning && server.getInfo().isFollower()
-              && lastRpcTime.elapsedTime().compareTo(electionTimeout) >= 0
-              && !lostMajorityHeartbeatsRecently()) {
+          if (roleChangeChecking(electionTimeout)) {
             LOG.info("{}: change to CANDIDATE, lastRpcElapsedTime:{}, electionTimeout:{}",
                 this, lastRpcTime.elapsedTime(), electionTimeout);
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.
