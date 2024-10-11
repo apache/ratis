@@ -83,7 +83,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return (SimpleStateMachine4Testing)s.getStateMachine();
   }
 
-  private final SortedMap<Long, ReferenceCountedObject<LogEntryProto>> indexMap = Collections.synchronizedSortedMap(new TreeMap<>());
+  private final SortedMap<Long, LogEntryProto> indexMap = Collections.synchronizedSortedMap(new TreeMap<>());
   private final SortedMap<String, LogEntryProto> dataMap = Collections.synchronizedSortedMap(new TreeMap<>());
   private final Daemon checkpointer;
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
@@ -198,9 +198,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return leaderElectionTimeoutInfo;
   }
 
-  private void put(ReferenceCountedObject<LogEntryProto> entryRef) {
-    LogEntryProto entry = entryRef.retain();
-    final ReferenceCountedObject<LogEntryProto> previous = indexMap.put(entry.getIndex(), entryRef);
+  private void put(LogEntryProto entry) {
+    final LogEntryProto previous = indexMap.put(entry.getIndex(), entry);
     Preconditions.assertNull(previous, "previous");
     final String s = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
     dataMap.put(s, entry);
@@ -250,7 +249,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LogEntryProto entry = entryRef.get();
     LOG.info("applyTransaction for log index {}", entry.getIndex());
 
-    put(entryRef);
+    put(LogProtoUtils.copy(entry));
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
 
     final SimpleMessage m = new SimpleMessage(entry.getIndex() + " OK");
@@ -270,8 +269,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LOG.debug("Taking a snapshot with {}, file:{}", termIndex, snapshotFile);
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(snapshotFile, false,
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
-      for (final ReferenceCountedObject<LogEntryProto> entryRef : indexMap.values()) {
-        LogEntryProto entry = entryRef.get();
+      for (final LogEntryProto entry : indexMap.values()) {
         if (entry.getIndex() > endIndex) {
           break;
         } else {
@@ -306,7 +304,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
-          put(ReferenceCountedObject.wrap(entry));
+          put(entry);
           updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
         }
       }
@@ -335,7 +333,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       LOG.info("query {}, all available: {}", string, dataMap.keySet());
       final LogEntryProto entry = dataMap.get(string);
       if (entry != null) {
-        return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
+        return CompletableFuture.completedFuture(Message.valueOf(entry));
       }
       exception = new IndexOutOfBoundsException(getId() + ": LogEntry not found for query " + string);
     } catch (Exception e) {
@@ -381,11 +379,12 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       running = false;
       checkpointer.interrupt();
     });
-    indexMap.values().forEach(ReferenceCountedObject::release);
+    indexMap.clear();
+    dataMap.clear();
   }
 
   public LogEntryProto[] getContent() {
-    return indexMap.values().stream().map(ReferenceCountedObject::get).toArray(LogEntryProto[]::new);
+    return indexMap.values().toArray(new LogEntryProto[0]);
   }
 
   public void blockStartTransaction() {

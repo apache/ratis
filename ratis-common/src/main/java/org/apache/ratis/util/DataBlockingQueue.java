@@ -29,6 +29,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.function.ToLongFunction;
 
 /**
@@ -45,6 +46,8 @@ public class DataBlockingQueue<E> extends DataQueue<E> {
   private final Lock lock = new ReentrantLock();
   private final Condition notFull  = lock.newCondition();
   private final Condition notEmpty = lock.newCondition();
+
+  private boolean closed = false;
 
   public DataBlockingQueue(Object name, SizeInBytes byteLimit, int elementLimit, ToLongFunction<E> getNumBytes) {
     super(name, byteLimit, elementLimit, getNumBytes);
@@ -72,10 +75,34 @@ public class DataBlockingQueue<E> extends DataQueue<E> {
     }
   }
 
+  /** Apply the given handler to each element and then {@link #clear()}. */
+  public void clear(Consumer<E> handler) {
+    try(AutoCloseableLock auto = AutoCloseableLock.acquire(lock)) {
+      for(E e : this) {
+        handler.accept(e);
+      }
+      super.clear();
+    }
+  }
+
+  /**
+   * Close this queue to stop accepting new elements, i.e. the offer(…) methods always return false.
+   * Note that closing the queue will not clear the existing elements.
+   * The existing elements can be peeked, polled or cleared after close.
+   */
+  public void close() {
+    try(AutoCloseableLock ignored = AutoCloseableLock.acquire(lock)) {
+      closed = true;
+    }
+  }
+
   @Override
   public boolean offer(E element) {
     Objects.requireNonNull(element, "element == null");
     try(AutoCloseableLock auto = AutoCloseableLock.acquire(lock)) {
+      if (closed) {
+        return false;
+      }
       if (super.offer(element)) {
         notEmpty.signal();
         return true;
@@ -95,6 +122,9 @@ public class DataBlockingQueue<E> extends DataQueue<E> {
     long nanos = timeout.toLong(TimeUnit.NANOSECONDS);
     try(AutoCloseableLock auto = AutoCloseableLock.acquire(lock)) {
       for(;;) {
+        if (closed) {
+          return false;
+        }
         if (super.offer(element)) {
           notEmpty.signal();
           return true;
