@@ -312,9 +312,14 @@ public final class SegmentedRaftLog extends RaftLogBase {
     }
     final ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(record.getTermIndex());
     if (entry != null) {
-      getRaftLogMetrics().onRaftLogCacheHit();
-      entry.retain();
-      return entry;
+      try {
+        entry.retain();
+        getRaftLogMetrics().onRaftLogCacheHit();
+        return entry;
+      } catch (IllegalStateException ignored) {
+        // The entry could be removed from the cache and released.
+        // The exception can be safely ignored since it is the same as cache miss.
+      }
     }
 
     // the entry is not in the segment's cache. Load the cache without holding the lock.
@@ -352,6 +357,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     } catch (Exception e) {
       final String err = getName() + ": Failed readStateMachineData for " + toLogEntryString(entry);
       LOG.error(err, e);
+      entryRef.release();
       throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
     }
   }
@@ -565,6 +571,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public void close() throws IOException {
     try(AutoCloseableLock writeLock = writeLock()) {
+      LOG.info("Start closing {}", this);
       super.close();
       cacheEviction.close();
       cache.close();
@@ -572,6 +579,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     fileLogWorker.close();
     storage.close();
     getRaftLogMetrics().unregister();
+    LOG.info("Successfully closed {}", this);
   }
 
   SegmentedRaftLogCache getRaftLogCache() {
