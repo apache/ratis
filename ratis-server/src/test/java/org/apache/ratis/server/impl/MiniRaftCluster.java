@@ -86,6 +86,10 @@ import java.util.stream.StreamSupport;
 public abstract class MiniRaftCluster implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
 
+  static {
+    ReferenceCountedLeakDetector.enable(false);
+  }
+
   public static final String CLASS_NAME = JavaUtils.getClassSimpleName(MiniRaftCluster.class);
   public static final String STATEMACHINE_CLASS_KEY = CLASS_NAME + ".statemachine.class";
   private static final StateMachine.Registry STATEMACHINE_REGISTRY_DEFAULT = gid -> new BaseStateMachine();
@@ -136,17 +140,27 @@ public abstract class MiniRaftCluster implements Closeable {
         final StackTraceElement caller = JavaUtils.getCallerStackTraceElement();
         LOG.info("Running " + caller.getMethodName());
         final CLUSTER cluster = newCluster(numServers, numListeners);
+        Throwable failed = null;
         try {
           if (startCluster) {
             cluster.start();
           }
           testCase.accept(cluster);
-        } catch(Exception t) {
+        } catch(Throwable t) {
           LOG.info(cluster.printServers());
           LOG.error("Failed " + caller, t);
+          failed = t;
           throw t;
         } finally {
-          cluster.shutdown();
+          try {
+            cluster.shutdown();
+          } catch (Exception e) {
+            if (failed == null) {
+              throw e;
+            } else {
+              failed.addSuppressed(e);
+            }
+          }
         }
       }
 
@@ -840,6 +854,7 @@ public abstract class MiniRaftCluster implements Closeable {
     LOG.info("*** ");
     LOG.info("************************************************************** ");
     LOG.info(printServers());
+    final int maxRetries = 30;
 
     // TODO: classes like RaftLog may throw uncaught exception during shutdown (e.g. write after close)
     ExitUtils.setTerminateOnUncaughtException(false);
@@ -850,7 +865,19 @@ public abstract class MiniRaftCluster implements Closeable {
     try {
       executor.shutdown();
       // just wait for a few seconds
-      executor.awaitTermination(5, TimeUnit.SECONDS);
+      boolean terminated = false;
+
+      for(int i = 0; i < maxRetries && !terminated; ) {
+        terminated = executor.awaitTermination(1, TimeUnit.SECONDS);
+        if (!terminated) {
+          i++;
+          if (i < maxRetries) {
+            LOG.warn("Not yet able to shutdown executor {}/{}, will wait again ...", i, maxRetries);
+          } else {
+            LOG.error("Failed to shutdown executor, some servers may be still running:\n{}", printServers());
+          }
+        }
+      }
     } catch (InterruptedException e) {
       LOG.warn("shutdown interrupted", e);
       Thread.currentThread().interrupt();
@@ -864,9 +891,13 @@ public abstract class MiniRaftCluster implements Closeable {
     try {
       RaftTestUtil.gc();
     } catch (InterruptedException e) {
-      LOG.info("gc interrupted.");
+      LOG.warn("gc interrupted.", e);
     }
-    ReferenceCountedLeakDetector.getLeakDetector().assertNoLeaks();
+    try {
+      ReferenceCountedLeakDetector.getLeakDetector().assertNoLeaks(maxRetries);
+    } catch (InterruptedException e) {
+      LOG.warn("LeakDetector interrupted.", e);
+    }
   }
 
   /**
