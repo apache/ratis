@@ -145,8 +145,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message_" + i));
         Assertions.assertTrue(reply.isSuccess());
       }
-      // add 3 new servers
-      CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(1000));
+      // add 3 new servers and wait longer time
+      CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(2000));
       MiniRaftCluster.PeerChanges peerChanges = cluster.addNewPeers(2, true, false);
       LOG.info("add new 3 servers");
       LOG.info(cluster.printServers());
