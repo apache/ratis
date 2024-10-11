@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.server.DivisionInfo;
@@ -44,6 +45,8 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedBiConsumer;
+import org.apache.ratis.util.CodeInjectionForTesting;
+import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -97,22 +100,70 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     cluster.shutdown();
   }
 
-  @Test
-  public void testWaitServerReady() throws Exception {
-    LOG.info("Running testWaitServerReady");
-    final MiniRaftCluster cluster = newCluster(1);
-    cluster.start(() -> {
-      // For all RaftServerImpl, let the state be not ready
+  static class SleepCode implements CodeInjectionForTesting.Code {
+    private final long sleepMs;
+
+    SleepCode(long sleepMs) {
+      this.sleepMs = sleepMs;
+    }
+
+    @Override
+    public boolean execute(Object localId, Object remoteId, Object... args) {
       try {
-        Thread.sleep(1000);
+        LOG.info("{}: Simulate RaftServer startup blocking", localId);
+        Thread.sleep(sleepMs);
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
-    });
-    // Leader will be elected if the server is ready
-    Assertions.assertTrue(RaftTestUtil.waitForLeader(cluster).getId() != null);
-    cluster.shutdown();
+      return true;
+    }
   }
+
+  @Test
+  public void testWaitServerReady() throws Exception {
+    LOG.info("Running testWaitServerReady");
+    int []arr = {1, 2, 3, 4, 5};
+    for (int i : arr) {
+      final MiniRaftCluster cluster = newCluster(1);
+      CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(1000));
+      cluster.start();
+      // Leader will be elected if the server is ready
+      Assertions.assertTrue(RaftTestUtil.waitForLeader(cluster).getId() != null);
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testAddServerForWaitReady() throws IOException, InterruptedException {
+    LOG.info("Running testAddServerForWaitReady");
+    // normal startup cluster with 3 server
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
+    RaftTestUtil.waitForLeader(cluster);
+    try (RaftClient client = cluster.createClient()) {
+      for (int i = 0; i < 10; ++i) {
+        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message_" + i));
+        Assertions.assertTrue(reply.isSuccess());
+      }
+      // add 3 new servers
+      CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(1000));
+      MiniRaftCluster.PeerChanges peerChanges = cluster.addNewPeers(2, true, false);
+      LOG.info("add new 3 servers");
+      LOG.info(cluster.printServers());
+      RaftClientReply reply = client.admin().setConfiguration(SetConfigurationRequest.Arguments.newBuilder()
+              .setServersInNewConf(peerChanges.newPeers)
+              .setMode(SetConfigurationRequest.Mode.ADD).build());
+      Assert.assertTrue(reply.isSuccess());
+      for (RaftServer server : cluster.getServers()) {
+        RaftServerProxy proxy = (RaftServerProxy) server;
+        proxy.getImpls().forEach(s -> {
+          Assertions.assertTrue(s.isRunning());
+        });
+      }
+    }
+    cluster.shutdown();;
+  }
+
   @Test
   public void testChangeLeader() throws Exception {
     SegmentedRaftLogTestUtils.setRaftLogWorkerLogLevel(Level.TRACE);

@@ -161,6 +161,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String APPEND_TRANSACTION = CLASS_NAME + ".appendTransaction";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
+  static final String START_COMPLETE = CLASS_NAME + ".startComplete";
 
   class Info implements DivisionInfo {
     @Override
@@ -249,8 +250,6 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
   private final ThreadGroup threadGroup;
-
-  private Runnable testOnlyInject = () -> {};
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
@@ -403,14 +402,9 @@ class RaftServerImpl implements RaftServer.Division,
 
     jmxAdapter.registerMBean();
     state.start();
-    testOnlyInject.run();;
+    CodeInjectionForTesting.execute(START_COMPLETE, getId(), null, role);
     startComplete.compareAndSet(false, true);
     return true;
-  }
-
-  @VisibleForTesting
-  public void setTestOnlyInject(Runnable testOnlyInject) {
-    this.testOnlyInject = testOnlyInject;
   }
 
   /**
@@ -1928,5 +1922,10 @@ class RaftServerImpl implements RaftServer.Division,
 
   boolean isRunning() {
     return startComplete.get() && lifeCycle.getCurrentState() == State.RUNNING;
+  }
+
+  @VisibleForTesting
+  private boolean getCompleteState() {
+    return startComplete.get();
   }
 }

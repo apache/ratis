@@ -347,41 +347,8 @@ public abstract class MiniRaftCluster implements Closeable {
 
     initServers();
     startServers(servers.values());
-    servers.forEach((id, s) -> {
-        try {
-            s.getImpls().forEach(impl -> impl.setTestOnlyInject(() -> {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    });
     this.timer.updateAndGet(t -> t != null? t
         : JavaUtils.runRepeatedly(() -> LOG.info("TIMED-PRINT: " + printServers()), 10, 10, TimeUnit.SECONDS));
-  }
-
-  public void start(Runnable testOnly) throws IOException {
-    LOG.info(".............................................................. ");
-    LOG.info("... ");
-    LOG.info("...     Starting " + JavaUtils.getClassSimpleName(getClass()));
-    LOG.info("... ");
-    LOG.info(".............................................................. ");
-
-    initServers();
-    servers.forEach((id, s) -> {
-      try {
-        s.getImpls().forEach(impl -> impl.setTestOnlyInject(testOnly));
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    });
-    startServers(servers.values());
-    this.timer.updateAndGet(t -> t != null? t
-            : JavaUtils.runRepeatedly(() -> LOG.info("TIMED-PRINT: " + printServers()), 10, 10, TimeUnit.SECONDS));
   }
 
   /**
