@@ -49,7 +49,7 @@ public final class ReferenceCountedLeakDetector {
   private ReferenceCountedLeakDetector() {
   }
 
-  static synchronized void enable(boolean advanced) {
+  public static synchronized void enable(boolean advanced) {
     FACTORY.set(advanced ? Mode.ADVANCED : Mode.SIMPLE);
   }
 
