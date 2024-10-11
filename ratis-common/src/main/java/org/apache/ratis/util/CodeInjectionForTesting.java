@@ -68,4 +68,9 @@ public final class CodeInjectionForTesting {
     }
     return code.execute(localId, remoteId, args);
   }
+
+  /** Remove an injection point. */
+  public static void remove(String injectionPoint) {
+    INJECTION_POINTS.remove(injectionPoint);
+  }
 }
