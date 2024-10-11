@@ -1924,8 +1924,4 @@ class RaftServerImpl implements RaftServer.Division,
     return startComplete.get() && lifeCycle.getCurrentState() == State.RUNNING;
   }
 
-  @VisibleForTesting
-  private boolean getCompleteState() {
-    return startComplete.get();
-  }
 }
