@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.server.DivisionInfo;
@@ -44,6 +45,8 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedBiConsumer;
+import org.apache.ratis.util.CodeInjectionForTesting;
+import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -95,6 +98,80 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         () -> RaftTestUtil.waitForLeader(cluster, null, false),
         IllegalStateException.class);
     cluster.shutdown();
+  }
+
+  static class SleepCode implements CodeInjectionForTesting.Code {
+    private final long sleepMs;
+
+    SleepCode(long sleepMs) {
+      this.sleepMs = sleepMs;
+    }
+
+    @Override
+    public boolean execute(Object localId, Object remoteId, Object... args) {
+      try {
+        LOG.info("{}: Simulate RaftServer startup blocking", localId);
+        Thread.sleep(sleepMs);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+      return true;
+    }
+  }
+
+  @Test
+  public void testWaitServerReady() throws Exception {
+    final int sleepMs = 1000 + ThreadLocalRandom.current().nextInt(1000);
+    LOG.info("Running testWaitServerReady, sleep = {}ms", sleepMs);
+    CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(sleepMs));
+    final MiniRaftCluster cluster = newCluster(1);
+    final Timestamp startTime = Timestamp.currentTime();
+    cluster.start();
+    LOG.info("Cluster started at {}ms", startTime.elapsedTimeMs());
+    final RaftGroupId groupId = cluster.getGroupId();
+    final RaftServerImpl server = (RaftServerImpl) cluster.getServers().iterator().next().getDivision(groupId);
+    final boolean isRunning = server.isRunning();
+    LOG.info("{} isRunning at {}ms? {}", server.getId(), startTime.elapsedTimeMs(), isRunning);
+
+    // Leader will be elected if the server is ready
+    Assertions.assertNotNull(waitForLeader(cluster), "No leader is elected.");
+    final long elapsedMs = startTime.elapsedTimeMs();
+    // allow a small difference to tolerate system timer inaccuracy
+    Assertions.assertTrue(elapsedMs > sleepMs - 10, () -> "elapseMs = " + elapsedMs + " but sleepMs = " + sleepMs);
+    cluster.shutdown();
+    CodeInjectionForTesting.remove(RaftServerImpl.START_COMPLETE);
+  }
+
+  @Test
+  public void testAddServerForWaitReady() throws IOException, InterruptedException {
+    LOG.info("Running testAddServerForWaitReady");
+    // normal startup cluster with 3 server
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
+    RaftTestUtil.waitForLeader(cluster);
+    try (RaftClient client = cluster.createClient()) {
+      for (int i = 0; i < 10; ++i) {
+        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message_" + i));
+        Assertions.assertTrue(reply.isSuccess());
+      }
+      // add 3 new servers and wait longer time
+      CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(2000));
+      MiniRaftCluster.PeerChanges peerChanges = cluster.addNewPeers(2, true, false);
+      LOG.info("add new 3 servers");
+      LOG.info(cluster.printServers());
+      RaftClientReply reply = client.admin().setConfiguration(SetConfigurationRequest.Arguments.newBuilder()
+              .setServersInNewConf(peerChanges.newPeers)
+              .setMode(SetConfigurationRequest.Mode.ADD).build());
+      Assert.assertTrue(reply.isSuccess());
+      for (RaftServer server : cluster.getServers()) {
+        RaftServerProxy proxy = (RaftServerProxy) server;
+        proxy.getImpls().forEach(s -> {
+          Assertions.assertTrue(s.isRunning());
+        });
+      }
+    }
+    cluster.shutdown();;
+    CodeInjectionForTesting.remove(RaftServerImpl.START_COMPLETE);
   }
 
   @Test
