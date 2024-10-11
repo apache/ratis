@@ -344,7 +344,6 @@ public abstract class MiniRaftCluster implements Closeable {
     LOG.info("...     Starting " + JavaUtils.getClassSimpleName(getClass()));
     LOG.info("... ");
     LOG.info(".............................................................. ");
-
     initServers();
     startServers(servers.values());
     this.timer.updateAndGet(t -> t != null? t

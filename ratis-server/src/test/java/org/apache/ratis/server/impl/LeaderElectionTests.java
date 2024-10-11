@@ -171,6 +171,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       }
     }
     cluster.shutdown();;
+    CodeInjectionForTesting.remove(RaftServerImpl.START_COMPLETE);
   }
 
   @Test
