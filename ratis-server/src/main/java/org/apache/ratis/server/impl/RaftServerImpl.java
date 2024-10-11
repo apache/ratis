@@ -160,6 +160,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String APPEND_TRANSACTION = CLASS_NAME + ".appendTransaction";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
+  static final String START_COMPLETE = CLASS_NAME + ".startComplete";
 
   class Info implements DivisionInfo {
     @Override
@@ -400,7 +401,10 @@ class RaftServerImpl implements RaftServer.Division,
 
     jmxAdapter.registerMBean();
     state.start();
-    startComplete.compareAndSet(false, true);
+    CodeInjectionForTesting.execute(START_COMPLETE, getId(), null, role);
+    if (startComplete.compareAndSet(false, true)) {
+      LOG.info("{}: Successfully started.", getMemberId());
+    }
     return true;
   }
 
