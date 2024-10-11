@@ -121,16 +121,25 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testWaitServerReady() throws Exception {
-    LOG.info("Running testWaitServerReady");
-    int []arr = {1, 2, 3, 4, 5};
-    for (int i : arr) {
-      final MiniRaftCluster cluster = newCluster(1);
-      CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(1000));
-      cluster.start();
-      // Leader will be elected if the server is ready
-      Assertions.assertTrue(RaftTestUtil.waitForLeader(cluster).getId() != null);
-      cluster.shutdown();
-    }
+    final int sleepMs = 1000 + ThreadLocalRandom.current().nextInt(1000);
+    LOG.info("Running testWaitServerReady, sleep = {}ms", sleepMs);
+    CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(sleepMs));
+    final MiniRaftCluster cluster = newCluster(1);
+    final Timestamp startTime = Timestamp.currentTime();
+    cluster.start();
+    LOG.info("Cluster started at {}ms", startTime.elapsedTimeMs());
+    final RaftGroupId groupId = cluster.getGroupId();
+    final RaftServerImpl server = (RaftServerImpl) cluster.getServers().iterator().next().getDivision(groupId);
+    final boolean isRunning = server.isRunning();
+    LOG.info("{} isRunning at {}ms? {}", server.getId(), startTime.elapsedTimeMs(), isRunning);
+
+    // Leader will be elected if the server is ready
+    Assertions.assertNotNull(waitForLeader(cluster), "No leader is elected.");
+    final long elapsedMs = startTime.elapsedTimeMs();
+    // allow a small difference to tolerate system timer inaccuracy
+    Assertions.assertTrue(elapsedMs > sleepMs - 10, () -> "elapseMs = " + elapsedMs + " but sleepMs = " + sleepMs);
+    cluster.shutdown();
+    CodeInjectionForTesting.remove(RaftServerImpl.START_COMPLETE);
   }
 
   @Test

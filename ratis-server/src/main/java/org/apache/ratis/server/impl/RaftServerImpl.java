@@ -403,7 +403,9 @@ class RaftServerImpl implements RaftServer.Division,
     jmxAdapter.registerMBean();
     state.start();
     CodeInjectionForTesting.execute(START_COMPLETE, getId(), null, role);
-    startComplete.compareAndSet(false, true);
+    if (startComplete.compareAndSet(false, true)) {
+      LOG.info("{}: Successfully started.", getMemberId());
+    }
     return true;
   }
 
@@ -1923,5 +1925,4 @@ class RaftServerImpl implements RaftServer.Division,
   boolean isRunning() {
     return startComplete.get() && lifeCycle.getCurrentState() == State.RUNNING;
   }
-
 }
