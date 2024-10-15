@@ -26,6 +26,7 @@ import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -98,6 +99,7 @@ class FollowerState extends Daemon {
   CompletableFuture<Void> stopRunning() {
     this.isRunning = false;
     interrupt();
+    stopped.complete(null);
     return stopped;
   }
 
@@ -143,6 +145,7 @@ class FollowerState extends Daemon {
 
   private void runImpl() {
     final TimeDuration sleepDeviationThreshold = server.getSleepDeviationThreshold();
+    Optional<CompletableFuture<Void>> future = Optional.empty();
     while (shouldRun()) {
       final TimeDuration electionTimeout = server.getRandomElectionTimeout();
       try {
@@ -162,7 +165,7 @@ class FollowerState extends Daemon {
                 this, lastRpcTime.elapsedTime(), electionTimeout);
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.
             // election timeout, should become a candidate
-            server.changeToCandidate(false);
+            future = Optional.ofNullable(server.changeToCandidate(false));
             break;
           }
         }
@@ -173,6 +176,8 @@ class FollowerState extends Daemon {
         return;
       } catch (Exception e) {
         LOG.warn("{} caught an exception", this, e);
+      } finally {
+        future.ifPresent(CompletableFuture::join);
       }
     }
   }

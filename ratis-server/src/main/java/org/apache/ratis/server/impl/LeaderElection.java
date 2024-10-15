@@ -256,7 +256,7 @@ class LeaderElection implements Runnable {
       for (int round = 0; shouldRun(); round++) {
         if (skipPreVote || askForVotes(Phase.PRE_VOTE, round)) {
           if (askForVotes(Phase.ELECTION, round)) {
-            server.changeToLeader();
+            server.changeToLeader().join();
           }
         }
       }
@@ -334,28 +334,34 @@ class LeaderElection implements Runnable {
     final ResultAndTerm r = submitRequestAndWaitResult(phase, conf, electionTerm);
     LOG.info("{} {} round {}: result {}", this, phase, round, r);
 
+    RaftServerImpl.Pair<Boolean, CompletableFuture<Void>> pair = askForVotesImpl(electionTerm, r);
+    pair.second.join();
+    return pair.first;
+  }
+
+  private RaftServerImpl.Pair<Boolean, CompletableFuture<Void>> askForVotesImpl(long electionTerm, ResultAndTerm r) throws IOException {
     synchronized (server) {
       if (!shouldRun(electionTerm)) {
-        return false; // term already passed or this should not run anymore.
+        return RaftServerImpl.Pair.makePair(false, CompletableFuture.completedFuture(null)); // term already passed or this should not run anymore.
       }
 
       switch (r.getResult()) {
         case PASSED:
         case SINGLE_MODE_PASSED:
-          return true;
+          return RaftServerImpl.Pair.makePair(true, CompletableFuture.completedFuture(null));
         case NOT_IN_CONF:
         case SHUTDOWN:
           server.close();
           server.getStateMachine().event().notifyServerShutdown(server.getRoleInfoProto(), false);
-          return false;
+          return RaftServerImpl.Pair.makePair(false, CompletableFuture.completedFuture(null));
         case TIMEOUT:
-          return false; // should retry
+          return RaftServerImpl.Pair.makePair(false, CompletableFuture.completedFuture(null)); // should retry
         case REJECTED:
         case DISCOVERED_A_NEW_TERM:
           final long term = r.maxTerm(server.getState().getCurrentTerm());
-          server.changeToFollowerAndPersistMetadata(term, false, r);
-          return false;
-        default: throw new IllegalArgumentException("Unable to process result " + r.result);
+          return RaftServerImpl.Pair.makePair(false, server.changeToFollowerAndPersistMetadata(term, false, r));
+        default:
+          throw new IllegalArgumentException("Unable to process result " + r.result);
       }
     }
   }
