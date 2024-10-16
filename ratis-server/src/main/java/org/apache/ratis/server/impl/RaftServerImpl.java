@@ -566,8 +566,8 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   static class Pair<U, V> {
-    public final U first;
-    public final V second;
+    private final U first;
+    private final V second;
 
     Pair(U metadataUpdated, V future) {
       this.first = metadataUpdated;
@@ -577,6 +577,16 @@ class RaftServerImpl implements RaftServer.Division,
     public static <U, V> Pair<U, V> makePair(U first, V second) {
       return new Pair<>(first, second);
     }
+
+    U first() {
+      return first;
+    }
+
+    V second() {
+      return second;
+    }
+
+
   }
 
   /**

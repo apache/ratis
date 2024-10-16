@@ -229,8 +229,8 @@ class SnapshotInstallationHandler {
     RaftServerImpl.Pair<InstallSnapshotReplyProto, CompletableFuture<Void>> pair =
         notifyStateMachineToInstallSnapshotImpl(request, leaderId,
             leaderTerm, firstAvailableLogTermIndex, firstAvailableLogIndex);
-    pair.second.join();
-    return pair.first;
+    pair.second().join();
+    return pair.first();
   }
 
   synchronized private RaftServerImpl.Pair<InstallSnapshotReplyProto, CompletableFuture<Void>>

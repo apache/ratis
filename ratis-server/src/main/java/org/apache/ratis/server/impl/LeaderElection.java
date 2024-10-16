@@ -335,14 +335,16 @@ class LeaderElection implements Runnable {
     LOG.info("{} {} round {}: result {}", this, phase, round, r);
 
     RaftServerImpl.Pair<Boolean, CompletableFuture<Void>> pair = askForVotesImpl(electionTerm, r);
-    pair.second.join();
-    return pair.first;
+    pair.second().join();
+    return pair.first();
   }
 
-  private RaftServerImpl.Pair<Boolean, CompletableFuture<Void>> askForVotesImpl(long electionTerm, ResultAndTerm r) throws IOException {
+  private RaftServerImpl.Pair<Boolean, CompletableFuture<Void>>
+      askForVotesImpl(long electionTerm, ResultAndTerm r) throws IOException {
     synchronized (server) {
       if (!shouldRun(electionTerm)) {
-        return RaftServerImpl.Pair.makePair(false, CompletableFuture.completedFuture(null)); // term already passed or this should not run anymore.
+        return RaftServerImpl.Pair.makePair(false,
+            CompletableFuture.completedFuture(null)); // term already passed or this should not run anymore.
       }
 
       switch (r.getResult()) {
