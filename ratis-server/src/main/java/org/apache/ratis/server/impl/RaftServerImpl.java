@@ -586,7 +586,6 @@ class RaftServerImpl implements RaftServer.Division,
       return second;
     }
 
-
   }
 
   /**
@@ -1486,7 +1485,7 @@ class RaftServerImpl implements RaftServer.Division,
     return replyAndFuture.first;
   }
 
-  synchronized Pair<RequestVoteReplyProto, CompletableFuture<Void>> requestVoteImpl(Phase phase,
+  private synchronized Pair<RequestVoteReplyProto, CompletableFuture<Void>> requestVoteImpl(Phase phase,
       RaftPeerId candidateId, RaftGroupId candidateGroupId,
       long candidateTerm, TermIndex candidateLastEntry) throws IOException {
     // Check life cycle state again to avoid the PAUSING/PAUSED state.

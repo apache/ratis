@@ -99,7 +99,6 @@ class FollowerState extends Daemon {
   CompletableFuture<Void> stopRunning() {
     this.isRunning = false;
     interrupt();
-    stopped.complete(null);
     return stopped;
   }
 
