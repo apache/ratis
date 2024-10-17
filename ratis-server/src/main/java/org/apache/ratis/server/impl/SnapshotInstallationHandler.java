@@ -128,7 +128,7 @@ class SnapshotInstallationHandler {
     } else {
       // Leader has only sent a notification to install snapshot. Inform State Machine to install snapshot.
       if (request.hasNotification()) {
-        reply = notifyStateMachineToInstallSnapshot(request, leaderId);
+        reply = notifyStateMachineToInstallSnapshot(request, leaderId).join();
       }
     }
 
