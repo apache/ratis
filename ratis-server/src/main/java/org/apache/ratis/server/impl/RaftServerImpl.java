@@ -648,7 +648,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
       return pair.second;
     } catch (IOException e) {
-      pair.second.join();
+      CompletableFuture.runAsync(pair.second::join);
       throw e;
     }
   }
