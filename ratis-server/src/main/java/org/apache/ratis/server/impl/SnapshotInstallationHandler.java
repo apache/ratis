@@ -364,26 +364,26 @@ class SnapshotInstallationHandler {
       // Otherwise, Snapshot installation is in progress.
       if (LOG.isDebugEnabled()) {
         LOG.debug("{}: InstallSnapshot notification result: {}", getMemberId(),
-              InstallSnapshotResult.IN_PROGRESS);
+            InstallSnapshotResult.IN_PROGRESS);
       }
       return RaftServerImpl.Pair.makePair(toInstallSnapshotReplyProto(leaderId, getMemberId(),
           currentTerm, InstallSnapshotResult.IN_PROGRESS), future);
     }
   }
 
-    private RoleInfoProto getRoleInfoProto (RaftPeer leader){
-      final RoleInfo role = server.getRole();
-      final Optional<FollowerState> fs = role.getFollowerState();
-      final ServerRpcProto leaderInfo = toServerRpcProto(leader,
-          fs.map(FollowerState::getLastRpcTime).map(Timestamp::elapsedTimeMs).orElse(0L));
-      final FollowerInfoProto.Builder followerInfo = FollowerInfoProto.newBuilder()
-          .setLeaderInfo(leaderInfo)
-          .setOutstandingOp(fs.map(FollowerState::getOutstandingOp).orElse(0));
-      return RoleInfoProto.newBuilder()
-          .setSelf(server.getPeer().getRaftPeerProto())
-          .setRole(role.getCurrentRole())
-          .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs())
-          .setFollowerInfo(followerInfo)
-          .build();
-    }
+  private RoleInfoProto getRoleInfoProto (RaftPeer leader){
+    final RoleInfo role = server.getRole();
+    final Optional<FollowerState> fs = role.getFollowerState();
+    final ServerRpcProto leaderInfo = toServerRpcProto(leader,
+        fs.map(FollowerState::getLastRpcTime).map(Timestamp::elapsedTimeMs).orElse(0L));
+    final FollowerInfoProto.Builder followerInfo = FollowerInfoProto.newBuilder()
+        .setLeaderInfo(leaderInfo)
+        .setOutstandingOp(fs.map(FollowerState::getOutstandingOp).orElse(0));
+    return RoleInfoProto.newBuilder()
+        .setSelf(server.getPeer().getRaftPeerProto())
+        .setRole(role.getCurrentRole())
+        .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs())
+        .setFollowerInfo(followerInfo)
+        .build();
+  }
 }
