@@ -333,39 +333,33 @@ class LeaderElection implements Runnable {
     LOG.info("{} {} round {}: submit vote requests at term {} for {}", this, phase, round, electionTerm, conf);
     final ResultAndTerm r = submitRequestAndWaitResult(phase, conf, electionTerm);
     LOG.info("{} {} round {}: result {}", this, phase, round, r);
-
-    RaftServerImpl.Pair<Boolean, CompletableFuture<Void>> pair = askForVotesImpl(electionTerm, r);
-    pair.second().join();
-    return pair.first();
-  }
-
-  private RaftServerImpl.Pair<Boolean, CompletableFuture<Void>>
-      askForVotesImpl(long electionTerm, ResultAndTerm r) throws IOException {
+    CompletableFuture<Void> future = null;
     synchronized (server) {
       if (!shouldRun(electionTerm)) {
-        return RaftServerImpl.Pair.makePair(false,
-            CompletableFuture.completedFuture(null)); // term already passed or this should not run anymore.
+        return false; // term already passed or this should not run anymore.
       }
 
       switch (r.getResult()) {
         case PASSED:
         case SINGLE_MODE_PASSED:
-          return RaftServerImpl.Pair.makePair(true, CompletableFuture.completedFuture(null));
+          return true;
         case NOT_IN_CONF:
         case SHUTDOWN:
           server.close();
           server.getStateMachine().event().notifyServerShutdown(server.getRoleInfoProto(), false);
-          return RaftServerImpl.Pair.makePair(false, CompletableFuture.completedFuture(null));
+          return false;
         case TIMEOUT:
-          return RaftServerImpl.Pair.makePair(false, CompletableFuture.completedFuture(null)); // should retry
+          return false; // should retry
         case REJECTED:
         case DISCOVERED_A_NEW_TERM:
           final long term = r.maxTerm(server.getState().getCurrentTerm());
-          return RaftServerImpl.Pair.makePair(false, server.changeToFollowerAndPersistMetadata(term, false, r));
-        default:
-          throw new IllegalArgumentException("Unable to process result " + r.result);
+          future = server.changeToFollowerAndPersistMetadata(term, false, r);
+          break;
+        default: throw new IllegalArgumentException("Unable to process result " + r.result);
       }
     }
+    future.join();
+    return false;
   }
 
   private int submitRequests(Phase phase, long electionTerm, TermIndex lastEntry,

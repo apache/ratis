@@ -144,7 +144,6 @@ class FollowerState extends Daemon {
 
   private void runImpl() {
     final TimeDuration sleepDeviationThreshold = server.getSleepDeviationThreshold();
-    Optional<CompletableFuture<Void>> future = Optional.empty();
     while (shouldRun()) {
       final TimeDuration electionTimeout = server.getRandomElectionTimeout();
       try {
@@ -158,15 +157,18 @@ class FollowerState extends Daemon {
         if (!shouldRun()) {
           break;
         }
+        CompletableFuture<Void> future = null;
         synchronized (server) {
           if (roleChangeChecking(electionTimeout)) {
             LOG.info("{}: change to CANDIDATE, lastRpcElapsedTime:{}, electionTimeout:{}",
                 this, lastRpcTime.elapsedTime(), electionTimeout);
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.
             // election timeout, should become a candidate
-            future = Optional.ofNullable(server.changeToCandidate(false));
-            break;
+            future = server.changeToCandidate(false);
           }
+        }
+        if (future != null) {
+          future.join();
         }
       } catch (InterruptedException e) {
         LOG.info("{} was interrupted", this);
@@ -175,8 +177,6 @@ class FollowerState extends Daemon {
         return;
       } catch (Exception e) {
         LOG.warn("{} caught an exception", this, e);
-      } finally {
-        future.ifPresent(CompletableFuture::join);
       }
     }
   }
