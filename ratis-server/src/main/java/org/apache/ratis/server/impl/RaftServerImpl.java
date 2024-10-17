@@ -594,7 +594,8 @@ class RaftServerImpl implements RaftServer.Division,
    * @param force Force to start a new {@link FollowerState} even if this server is already a follower.
    * @return if the term/votedFor should be updated to the new term
    */
-  private Pair<Boolean, CompletableFuture<Void>> changeToFollower(long newTerm, boolean force, boolean allowListener, Object reason) {
+  private Pair<Boolean, CompletableFuture<Void>> changeToFollower(
+      long newTerm, boolean force, boolean allowListener, Object reason) {
     final AtomicReference<Boolean> metadataUpdated = new AtomicReference<>();
     CompletableFuture<Void> future = changeToFollowerAsync(newTerm, force, allowListener, reason, metadataUpdated);
     return new Pair<>(metadataUpdated.get(), future);
@@ -1480,7 +1481,8 @@ class RaftServerImpl implements RaftServer.Division,
         getMemberId(), phase, candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(getMemberId(), candidateId, candidateGroupId);
-    Pair<RequestVoteReplyProto, CompletableFuture<Void>> replyAndFuture = requestVoteImpl(phase, candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
+    Pair<RequestVoteReplyProto, CompletableFuture<Void>> replyAndFuture =
+        requestVoteImpl(phase, candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
     replyAndFuture.second.join();
     return replyAndFuture.first;
   }
