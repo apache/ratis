@@ -19,7 +19,6 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
-import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;

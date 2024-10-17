@@ -69,8 +69,12 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
     return value;
   }
 
-  static final BiFunction<GrpcTlsConfig, SslContext, SslContext> BUILD_SSL_CONTEXT_FOR_SERVER
-      = (tlsConf, defaultContext) -> tlsConf == null ? defaultContext : GrpcUtil.buildSslContextForServer(tlsConf);
+  private final GrpcServices.Customizer servicesCustomizer;
+
+  private final GrpcTlsConfig tlsConfig;
+  private final GrpcTlsConfig adminTlsConfig;
+  private final GrpcTlsConfig clientTlsConfig;
+  private final GrpcTlsConfig serverTlsConfig;
 
   static final BiFunction<GrpcTlsConfig, SslContext, SslContext> BUILD_SSL_CONTEXT_FOR_CLIENT
       = (tlsConf, defaultContext) -> tlsConf == null ? defaultContext : GrpcUtil.buildSslContextForClient(tlsConf);
@@ -104,10 +108,20 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
     );
   }
 
+  public GrpcFactory(GrpcTlsConfig tlsConfig) {
+    this(null, tlsConfig, null, null, null);
+  }
+
   private GrpcFactory(GrpcServices.Customizer servicesCustomizer,
       GrpcTlsConfig tlsConfig, GrpcTlsConfig adminTlsConfig,
       GrpcTlsConfig clientTlsConfig, GrpcTlsConfig serverTlsConfig) {
     this.servicesCustomizer = servicesCustomizer;
+
+    this.tlsConfig = tlsConfig;
+    this.adminTlsConfig = adminTlsConfig;
+    this.clientTlsConfig = clientTlsConfig;
+    this.serverTlsConfig = serverTlsConfig;
+  }
 
     this.forServerSupplier = MemoizedSupplier.valueOf(() -> new SslContexts(
         tlsConfig, adminTlsConfig, clientTlsConfig, serverTlsConfig, BUILD_SSL_CONTEXT_FOR_SERVER));
@@ -128,16 +142,12 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   @Override
   public GrpcServices newRaftServerRpc(RaftServer server) {
     checkPooledByteBufAllocatorUseCacheForAllThreads(LOG::info);
-
-    final SslContexts forServer = forServerSupplier.get();
-    final SslContexts forClient = forClientSupplier.get();
     return GrpcServicesImpl.newBuilder()
         .setServer(server)
         .setCustomizer(servicesCustomizer)
-        .setAdminSslContext(forServer.adminSslContext)
-        .setServerSslContextForServer(forServer.serverSslContext)
-        .setServerSslContextForClient(forClient.serverSslContext)
-        .setClientSslContext(forServer.clientSslContext)
+        .setAdminTlsConfig(getAdminTlsConfig())
+        .setServerTlsConfig(getServerTlsConfig())
+        .setClientTlsConfig(getClientTlsConfig())
         .build();
   }
 
