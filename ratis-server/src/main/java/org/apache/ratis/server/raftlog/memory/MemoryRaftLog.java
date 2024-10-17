@@ -45,15 +45,10 @@ import java.util.function.LongSupplier;
  */
 public class MemoryRaftLog extends RaftLogBase {
   static class EntryList {
-    private final List<ReferenceCountedObject<LogEntryProto>> entries = new ArrayList<>();
-
-    ReferenceCountedObject<LogEntryProto> getRef(int i) {
-      return i >= 0 && i < entries.size() ? entries.get(i) : null;
-    }
+    private final List<LogEntryProto> entries = new ArrayList<>();
 
     LogEntryProto get(int i) {
-      final ReferenceCountedObject<LogEntryProto> ref = getRef(i);
-      return ref != null ? ref.get() : null;
+      return i >= 0 && i < entries.size() ? entries.get(i) : null;
     }
 
     TermIndex getTermIndex(int i) {
@@ -81,13 +76,10 @@ public class MemoryRaftLog extends RaftLogBase {
     }
 
     void clear(int from, int to) {
-      List<ReferenceCountedObject<LogEntryProto>> subList = entries.subList(from, to);
-      subList.forEach(ReferenceCountedObject::release);
-      subList.clear();
+      entries.subList(from, to).clear();
     }
 
-    void add(ReferenceCountedObject<LogEntryProto> entryRef) {
-      entryRef.retain();
+    void add(LogEntryProto entryRef) {
       entries.add(entryRef);
     }
   }
@@ -128,7 +120,8 @@ public class MemoryRaftLog extends RaftLogBase {
   public ReferenceCountedObject<LogEntryProto> retainLog(long index) {
     checkLogState();
     try (AutoCloseableLock readLock = readLock()) {
-      ReferenceCountedObject<LogEntryProto> ref = entries.getRef(Math.toIntExact(index));
+      final LogEntryProto entry = entries.get(Math.toIntExact(index));
+      final ReferenceCountedObject<LogEntryProto> ref = ReferenceCountedObject.wrap(entry);
       ref.retain();
       return ref;
     }
@@ -205,7 +198,7 @@ public class MemoryRaftLog extends RaftLogBase {
     LogEntryProto entry = entryRef.retain();
     try (AutoCloseableLock writeLock = writeLock()) {
       validateLogEntry(entry);
-      entries.add(entryRef);
+      entries.add(entry);
     } finally {
       entryRef.release();
     }
@@ -253,7 +246,7 @@ public class MemoryRaftLog extends RaftLogBase {
       }
       for (int i = index; i < logEntryProtos.size(); i++) {
         LogEntryProto logEntryProto = logEntryProtos.get(i);
-        entries.add(entriesRef.delegate(logEntryProto));
+        entries.add(LogProtoUtils.copy(logEntryProto));
         futures.add(CompletableFuture.completedFuture(logEntryProto.getIndex()));
       }
       return futures;

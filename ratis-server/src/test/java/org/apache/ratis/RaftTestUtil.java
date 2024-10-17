@@ -187,8 +187,11 @@ public interface RaftTestUtil {
             log.get(termIndices[idxEntries].getIndex()).getStateMachineLogEntry().getLogData().toByteArray())) {
           ++idxExpected;
         }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+      } catch (Exception e) {
+        throw new IllegalStateException("Failed logEntriesContains: startIndex=" + startIndex
+            + ", endIndex=" + endIndex
+            + ", #expectedMessages=" + expectedMessages.length
+            + ", log=" + log, e);
       }
       ++idxEntries;
     }

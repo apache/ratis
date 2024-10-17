@@ -33,13 +33,11 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.metrics.ServerMetricsTestUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.junit.jupiter.api.Assertions;
@@ -47,7 +45,6 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
-import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.util.List;
@@ -75,9 +72,6 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
-    RaftServerTestUtil.setStateMachineUpdaterLogLevel(Level.DEBUG);
-
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), TimeDuration.valueOf(5, TimeUnit.SECONDS));
   }
 
