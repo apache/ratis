@@ -19,6 +19,7 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.server.GrpcServices;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -230,15 +231,6 @@ public interface GrpcConfigKeys {
       setInt(properties::setInt, ASYNC_REQUEST_THREAD_POOL_SIZE_KEY, port);
     }
 
-    String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
-    Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
-    static GrpcTlsConfig tlsConf(Parameters parameters) {
-      return parameters != null ? parameters.get(TLS_CONF_PARAMETER, TLS_CONF_CLASS): null;
-    }
-    static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
-      parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
-    }
-
     String LEADER_OUTSTANDING_APPENDS_MAX_KEY = PREFIX + ".leader.outstanding.appends.max";
     int LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT = 8;
     static int leaderOutstandingAppendsMax(RaftProperties properties) {
@@ -300,6 +292,25 @@ public interface GrpcConfigKeys {
     }
     static void setZeroCopyEnabled(RaftProperties properties, boolean enabled) {
       setBoolean(properties::setBoolean, ZERO_COPY_ENABLED_KEY, enabled);
+    }
+
+    String SERVICES_CUSTOMIZER_PARAMETER = PREFIX + ".services.customizer";
+    Class<GrpcServices.Customizer> SERVICES_CUSTOMIZER_CLASS = GrpcServices.Customizer.class;
+    static GrpcServices.Customizer servicesCustomizer(Parameters parameters) {
+      return parameters == null ? null
+          : parameters.get(SERVICES_CUSTOMIZER_PARAMETER, SERVICES_CUSTOMIZER_CLASS);
+    }
+    static void setServicesCustomizer(Parameters parameters, GrpcServices.Customizer customizer) {
+      parameters.put(SERVICES_CUSTOMIZER_PARAMETER, customizer, SERVICES_CUSTOMIZER_CLASS);
+    }
+
+    String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
+    Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
+    static GrpcTlsConfig tlsConf(Parameters parameters) {
+      return parameters != null ? parameters.get(TLS_CONF_PARAMETER, TLS_CONF_CLASS): null;
+    }
+    static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
+      parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
     }
   }
 
