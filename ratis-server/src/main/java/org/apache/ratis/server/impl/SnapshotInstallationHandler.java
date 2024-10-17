@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -127,7 +128,7 @@ class SnapshotInstallationHandler {
     } else {
       // Leader has only sent a notification to install snapshot. Inform State Machine to install snapshot.
       if (request.hasNotification()) {
-        reply = notifyStateMachineToInstallSnapshot(request, leaderId);
+        reply = notifyStateMachineToInstallSnapshot(request, leaderId).join();
       }
     }
 
@@ -163,6 +164,7 @@ class SnapshotInstallationHandler {
     final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
     final TermIndex lastIncluded = TermIndex.valueOf(snapshotChunkRequest.getTermIndex());
     final long lastIncludedIndex = lastIncluded.getIndex();
+    CompletableFuture<Void> future;
     synchronized (server) {
       final boolean recognized = state.recognizeLeader(RaftServerProtocol.Op.INSTALL_SNAPSHOT, leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
@@ -170,13 +172,14 @@ class SnapshotInstallationHandler {
         return toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.NOT_LEADER);
       }
-      server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
+      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
       state.setLeader(leaderId, "installSnapshot");
 
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
       if (snapshotChunkRequest.getRequestIndex() == 0) {
         nextChunkIndex.set(0);
       } else if (nextChunkIndex.get() != snapshotChunkRequest.getRequestIndex()) {
+        CompletableFuture.runAsync(future::join);
         throw new IOException("Snapshot request already failed at chunk index " + nextChunkIndex.get()
                 + "; ignoring request with chunk index " + snapshotChunkRequest.getRequestIndex());
       }
@@ -186,6 +189,7 @@ class SnapshotInstallationHandler {
         // have a lot of requests
         if (state.getLog().getLastCommittedIndex() >= lastIncludedIndex) {
           nextChunkIndex.set(snapshotChunkRequest.getRequestIndex() + 1);
+          CompletableFuture.runAsync(future::join);
           return toInstallSnapshotReplyProto(leaderId, getMemberId(),
               currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.ALREADY_INSTALLED);
         }
@@ -195,6 +199,7 @@ class SnapshotInstallationHandler {
 
         final int expectedChunkIndex = nextChunkIndex.getAndIncrement();
         if (expectedChunkIndex != snapshotChunkRequest.getRequestIndex()) {
+          CompletableFuture.runAsync(future::join);
           throw new IOException("Unexpected request chunk index: " + snapshotChunkRequest.getRequestIndex()
               + " (the expected index is " + expectedChunkIndex + ")");
         }
@@ -207,6 +212,7 @@ class SnapshotInstallationHandler {
         server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_COMPLETE);
       }
     }
+    future.join();
     if (snapshotChunkRequest.getDone()) {
       LOG.info("{}: successfully install the entire snapshot-{}", getMemberId(), lastIncludedIndex);
     }
@@ -214,21 +220,23 @@ class SnapshotInstallationHandler {
         currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.SUCCESS);
   }
 
-  private InstallSnapshotReplyProto notifyStateMachineToInstallSnapshot(
+  private CompletableFuture<InstallSnapshotReplyProto> notifyStateMachineToInstallSnapshot(
       InstallSnapshotRequestProto request, RaftPeerId leaderId) throws IOException {
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();
     final TermIndex firstAvailableLogTermIndex = TermIndex.valueOf(
         request.getNotification().getFirstAvailableTermIndex());
     final long firstAvailableLogIndex = firstAvailableLogTermIndex.getIndex();
+    final CompletableFuture<Void> future;
+    InstallSnapshotReplyProto rep;
     synchronized (server) {
       final boolean recognized = state.recognizeLeader("notifyInstallSnapshot", leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
-        return toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, InstallSnapshotResult.NOT_LEADER);
+        return CompletableFuture.completedFuture(toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, InstallSnapshotResult.NOT_LEADER));
       }
-      server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
+      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
       state.setLeader(leaderId, "installSnapshot");
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
 
@@ -245,8 +253,9 @@ class SnapshotInstallationHandler {
           inProgressInstallSnapshotIndex.compareAndSet(firstAvailableLogIndex, INVALID_LOG_INDEX);
           LOG.info("{}: InstallSnapshot notification result: {}, current snapshot index: {}", getMemberId(),
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
-          return toInstallSnapshotReplyProto(leaderId, getMemberId(), currentTerm,
-              InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
+          CompletableFuture.runAsync(future::join);
+          return CompletableFuture.completedFuture(toInstallSnapshotReplyProto(leaderId, getMemberId(), currentTerm,
+              InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex));
         }
 
         final RaftPeerProto leaderProto;
@@ -286,6 +295,7 @@ class SnapshotInstallationHandler {
                 LOG.error("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
                     getMemberId(), exception.getMessage());
                 inProgressInstallSnapshotIndex.compareAndSet(firstAvailableLogIndex, INVALID_LOG_INDEX);
+                CompletableFuture.runAsync(future::join);
                 return;
               }
 
@@ -323,8 +333,9 @@ class SnapshotInstallationHandler {
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
         server.getStateMachine().event().notifySnapshotInstalled(
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, INVALID_LOG_INDEX, server.getPeer());
-        return toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
+        CompletableFuture.runAsync(future::join);
+        return CompletableFuture.completedFuture(toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE));
       }
 
       // If a snapshot has been installed, return SNAPSHOT_INSTALLED with the installed snapshot index and reset
@@ -341,8 +352,9 @@ class SnapshotInstallationHandler {
         server.getStateMachine().event().notifySnapshotInstalled(
             InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledIndex, server.getPeer());
         installedIndex.set(latestInstalledIndex);
-        return toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex.getIndex());
+        CompletableFuture.runAsync(future::join);
+        return CompletableFuture.completedFuture(toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex.getIndex()));
       }
 
       // Otherwise, Snapshot installation is in progress.
@@ -350,12 +362,13 @@ class SnapshotInstallationHandler {
         LOG.debug("{}: InstallSnapshot notification result: {}", getMemberId(),
             InstallSnapshotResult.IN_PROGRESS);
       }
-      return toInstallSnapshotReplyProto(leaderId, getMemberId(),
+      rep = toInstallSnapshotReplyProto(leaderId, getMemberId(),
           currentTerm, InstallSnapshotResult.IN_PROGRESS);
     }
+    return future.thenApply(dummy -> rep);
   }
 
-  private RoleInfoProto getRoleInfoProto(RaftPeer leader) {
+  private RoleInfoProto getRoleInfoProto (RaftPeer leader){
     final RoleInfo role = server.getRole();
     final Optional<FollowerState> fs = role.getFollowerState();
     final ServerRpcProto leaderInfo = toServerRpcProto(leader,
