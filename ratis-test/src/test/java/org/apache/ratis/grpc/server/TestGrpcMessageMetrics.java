@@ -15,13 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc;
+package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.metrics.impl.JvmMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -66,8 +66,8 @@ public class TestGrpcMessageMetrics extends BaseTest
 
   static void assertMessageCount(RaftServer.Division server) {
     String serverId = server.getId().toString();
-    GrpcService service = (GrpcService) RaftServerTestUtil.getServerRpc(server);
-    RatisMetricRegistry registry = service.getServerInterceptor().getMetrics().getRegistry();
+    final GrpcServicesImpl services = (GrpcServicesImpl) RaftServerTestUtil.getServerRpc(server);
+    final RatisMetricRegistry registry = services.getMessageMetrics().getRegistry();
     String counter_prefix = serverId + "_" + "ratis.grpc.RaftServerProtocolService";
     Assertions.assertTrue(
         registry.counter(counter_prefix + "_" + "requestVote" + "_OK_completed_total").getCount() > 0);
