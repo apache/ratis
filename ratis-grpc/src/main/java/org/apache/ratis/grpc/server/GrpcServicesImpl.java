@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -48,6 +49,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -57,11 +59,12 @@ import java.util.function.Supplier;
 import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
 
 /** A grpc implementation of {@link org.apache.ratis.server.RaftServerRpc}. */
-public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient,
-    PeerProxyMap<GrpcServerProtocolClient>> {
-  static final Logger LOG = LoggerFactory.getLogger(GrpcService.class);
+public final class GrpcServicesImpl
+    extends RaftServerRpcWithProxy<GrpcServerProtocolClient, PeerProxyMap<GrpcServerProtocolClient>>
+    implements GrpcServices {
+  static final Logger LOG = LoggerFactory.getLogger(GrpcServicesImpl.class);
   public static final String GRPC_SEND_SERVER_REQUEST =
-      JavaUtils.getClassSimpleName(GrpcService.class) + ".sendRequest";
+      JavaUtils.getClassSimpleName(GrpcServicesImpl.class) + ".sendRequest";
 
   class AsyncService implements RaftServerAsynchronousProtocol {
 
@@ -99,6 +102,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   public static final class Builder {
     private RaftServer server;
+    private Customizer customizer;
 
     private String adminHost;
     private int adminPort;
@@ -145,6 +149,11 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
       return this;
     }
 
+    public Builder setCustomizer(Customizer customizer) {
+      this.customizer = customizer != null? customizer : Customizer.getDefaultInstance();
+      return this;
+    }
+
     private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target) {
       return new GrpcServerProtocolClient(target, flowControlWindow.getSizeInt(),
           requestTimeoutDuration, serverTlsConfig, separateHeartbeatChannel);
@@ -170,6 +179,10 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     private MetricServerInterceptor newMetricServerInterceptor() {
       return new MetricServerInterceptor(server::getId,
           JavaUtils.getClassSimpleName(getClass()) + "_" + serverPort);
+    }
+
+    Server buildServer(NettyServerBuilder builder, EnumSet<GrpcServices.Type> types) {
+      return customizer.customize(builder, types).build();
     }
 
     private NettyServerBuilder newNettyServerBuilderForServer() {
@@ -218,21 +231,24 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     }
 
     Server newServer(GrpcClientProtocolService client, ServerInterceptor interceptor) {
+      final EnumSet<GrpcServices.Type> types = EnumSet.of(GrpcServices.Type.SERVER);
       final NettyServerBuilder serverBuilder = newNettyServerBuilderForServer();
       final GrpcServerProtocolService service = newGrpcServerProtocolService();
       serverBuilder.addService(ServerInterceptors.intercept(service, interceptor));
 
       if (!separateAdminServer()) {
+        types.add(GrpcServices.Type.ADMIN);
         addAdminService(serverBuilder, server, interceptor);
       }
       if (!separateClientServer()) {
+        types.add(GrpcServices.Type.CLIENT);
         addClientService(serverBuilder, client, interceptor);
       }
-      return serverBuilder.build();
+      return buildServer(serverBuilder, types);
     }
 
-    public GrpcService build() {
-      return new GrpcService(this);
+    public GrpcServicesImpl build() {
+      return new GrpcServicesImpl(this);
     }
 
     public Builder setAdminTlsConfig(GrpcTlsConfig config) {
@@ -267,11 +283,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   private final MetricServerInterceptor serverInterceptor;
 
-  public MetricServerInterceptor getServerInterceptor() {
-    return serverInterceptor;
-  }
-
-  private GrpcService(Builder b) {
+  private GrpcServicesImpl(Builder b) {
     super(b.server::getId, id -> new PeerProxyMap<>(id.toString(), b::newGrpcServerProtocolClient));
 
     this.executor = b.newExecutor();
@@ -285,7 +297,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     if (b.separateAdminServer()) {
       final NettyServerBuilder builder = b.newNettyServerBuilderForAdmin();
       addAdminService(builder, b.server, serverInterceptor);
-      final Server adminServer = builder.build();
+      final Server adminServer = b.buildServer(builder, EnumSet.of(GrpcServices.Type.ADMIN));
       servers.put(GrpcAdminProtocolService.class.getName(), adminServer);
       adminServerAddressSupplier = newAddressSupplier(b.adminPort, adminServer);
     } else {
@@ -295,7 +307,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     if (b.separateClientServer()) {
       final NettyServerBuilder builder = b.newNettyServerBuilderForClient();
       addClientService(builder, clientProtocolService, serverInterceptor);
-      final Server clientServer = builder.build();
+      final Server clientServer = b.buildServer(builder, EnumSet.of(GrpcServices.Type.CLIENT));
       servers.put(GrpcClientProtocolService.class.getName(), clientServer);
       clientServerAddressSupplier = newAddressSupplier(b.clientPort, clientServer);
     } else {
@@ -411,4 +423,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     return getProxies().getProxy(target).startLeaderElection(request);
   }
 
+  MessageMetrics getMessageMetrics() {
+    return serverInterceptor.getMetrics();
+  }
 }

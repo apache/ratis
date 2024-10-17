@@ -192,8 +192,8 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   @Override
-  public GrpcService getServerRpc() {
-    return (GrpcService)super.getServerRpc();
+  public GrpcServicesImpl getServerRpc() {
+    return (GrpcServicesImpl)super.getServerRpc();
   }
 
   private GrpcServerProtocolClient getClient() throws IOException {
@@ -419,7 +419,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private void sendRequest(AppendEntriesRequest request,
       AppendEntriesRequestProto proto) throws InterruptedIOException {
-    CodeInjectionForTesting.execute(GrpcService.GRPC_SEND_SERVER_REQUEST,
+    CodeInjectionForTesting.execute(GrpcServicesImpl.GRPC_SEND_SERVER_REQUEST,
         getServer().getId(), null, proto);
     resetHeartbeatTrigger();
 

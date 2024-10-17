@@ -21,7 +21,7 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.server.GrpcService;
+import org.apache.ratis.grpc.server.GrpcServicesImpl;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -53,7 +53,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   }
 
   public static final DelayLocalExecutionInjection SEND_SERVER_REQUEST_INJECTION =
-      new DelayLocalExecutionInjection(GrpcService.GRPC_SEND_SERVER_REQUEST);
+      new DelayLocalExecutionInjection(GrpcServicesImpl.GRPC_SEND_SERVER_REQUEST);
   
   public MiniRaftClusterWithGrpc(String[] ids, RaftProperties properties, Parameters parameters) {
     this(ids, new String[0], properties, parameters);

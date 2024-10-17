@@ -22,7 +22,8 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.GrpcClientRpc;
 import org.apache.ratis.grpc.server.GrpcLogAppender;
-import org.apache.ratis.grpc.server.GrpcService;
+import org.apache.ratis.grpc.server.GrpcServices;
+import org.apache.ratis.grpc.server.GrpcServicesImpl;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
@@ -64,6 +65,8 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
     return value;
   }
 
+  private final GrpcServices.Customizer servicesCustomizer;
+
   private final GrpcTlsConfig tlsConfig;
   private final GrpcTlsConfig adminTlsConfig;
   private final GrpcTlsConfig clientTlsConfig;
@@ -76,7 +79,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   public GrpcFactory(Parameters parameters) {
-    this(
+    this(GrpcConfigKeys.Server.servicesCustomizer(parameters),
         GrpcConfigKeys.TLS.conf(parameters),
         GrpcConfigKeys.Admin.tlsConf(parameters),
         GrpcConfigKeys.Client.tlsConf(parameters),
@@ -85,11 +88,14 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   public GrpcFactory(GrpcTlsConfig tlsConfig) {
-    this(tlsConfig, null, null, null);
+    this(null, tlsConfig, null, null, null);
   }
 
-  private GrpcFactory(GrpcTlsConfig tlsConfig, GrpcTlsConfig adminTlsConfig,
+  private GrpcFactory(GrpcServices.Customizer servicesCustomizer,
+      GrpcTlsConfig tlsConfig, GrpcTlsConfig adminTlsConfig,
       GrpcTlsConfig clientTlsConfig, GrpcTlsConfig serverTlsConfig) {
+    this.servicesCustomizer = servicesCustomizer;
+
     this.tlsConfig = tlsConfig;
     this.adminTlsConfig = adminTlsConfig;
     this.clientTlsConfig = clientTlsConfig;
@@ -123,10 +129,11 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   @Override
-  public GrpcService newRaftServerRpc(RaftServer server) {
+  public GrpcServices newRaftServerRpc(RaftServer server) {
     checkPooledByteBufAllocatorUseCacheForAllThreads(LOG::info);
-    return GrpcService.newBuilder()
+    return GrpcServicesImpl.newBuilder()
         .setServer(server)
+        .setCustomizer(servicesCustomizer)
         .setAdminTlsConfig(getAdminTlsConfig())
         .setServerTlsConfig(getServerTlsConfig())
         .setClientTlsConfig(getClientTlsConfig())
