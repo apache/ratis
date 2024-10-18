@@ -180,8 +180,6 @@ class SnapshotInstallationHandler {
       if (snapshotChunkRequest.getRequestIndex() == 0) {
         nextChunkIndex.set(0);
       } else if (nextChunkIndex.get() != snapshotChunkRequest.getRequestIndex()) {
-        // throw a exception, we need join future in another thread or ignore future
-        CompletableFuture.runAsync(future::join);
         throw new IOException("Snapshot request already failed at chunk index " + nextChunkIndex.get()
                 + "; ignoring request with chunk index " + snapshotChunkRequest.getRequestIndex());
       }
@@ -201,7 +199,6 @@ class SnapshotInstallationHandler {
 
         final int expectedChunkIndex = nextChunkIndex.getAndIncrement();
         if (expectedChunkIndex != snapshotChunkRequest.getRequestIndex()) {
-          CompletableFuture.runAsync(future::join);
           throw new IOException("Unexpected request chunk index: " + snapshotChunkRequest.getRequestIndex()
               + " (the expected index is " + expectedChunkIndex + ")");
         }
