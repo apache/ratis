@@ -612,13 +612,8 @@ class RaftServerImpl implements RaftServer.Division,
       Object reason) throws IOException {
     final AtomicBoolean metadataUpdated = new AtomicBoolean();
     final CompletableFuture<Void> future = changeToFollower(newTerm, false, allowListener, reason, metadataUpdated);
-    try {
-      if (metadataUpdated.get()) {
-        state.persistMetadata();
-      }
-    } catch (IOException e) {
-      CompletableFuture.runAsync(future::join);
-      throw e;
+    if (metadataUpdated.get()) {
+      state.persistMetadata();
     }
     return future;
   }
