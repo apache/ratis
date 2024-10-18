@@ -156,15 +156,19 @@ class FollowerState extends Daemon {
         if (!shouldRun()) {
           break;
         }
+        CompletableFuture<Void> future = null;
         synchronized (server) {
           if (roleChangeChecking(electionTimeout)) {
             LOG.info("{}: change to CANDIDATE, lastRpcElapsedTime:{}, electionTimeout:{}",
                 this, lastRpcTime.elapsedTime(), electionTimeout);
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.
             // election timeout, should become a candidate
-            server.changeToCandidate(false);
-            break;
+            future = server.changeToCandidate(false);
           }
+        }
+        if (future != null) {
+          future.join();
+          break;
         }
       } catch (InterruptedException e) {
         LOG.info("{} was interrupted", this);
