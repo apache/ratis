@@ -213,8 +213,9 @@ class SnapshotInstallationHandler {
     if (snapshotChunkRequest.getDone()) {
       LOG.info("{}: successfully install the entire snapshot-{}", getMemberId(), lastIncludedIndex);
     }
-    return future.thenApply(dummy -> toInstallSnapshotReplyProto(leaderId, getMemberId(),
-        currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.SUCCESS));
+    final InstallSnapshotReplyProto reply = toInstallSnapshotReplyProto(leaderId, getMemberId(),
+        currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.SUCCESS);
+    return future.thenApply(dummy -> reply);
   }
 
   private CompletableFuture<InstallSnapshotReplyProto> notifyStateMachineToInstallSnapshot(
