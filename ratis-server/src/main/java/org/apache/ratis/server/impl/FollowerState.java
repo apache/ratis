@@ -168,8 +168,8 @@ class FollowerState extends Daemon {
         }
         if (future != null) {
           future.join();
+          break;
         }
-        break;
       } catch (InterruptedException e) {
         LOG.info("{} was interrupted", this);
         LOG.trace("TRACE", e);
