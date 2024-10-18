@@ -364,7 +364,7 @@ class SnapshotInstallationHandler {
     }
   }
 
-  private RoleInfoProto getRoleInfoProto (RaftPeer leader) {
+  private RoleInfoProto getRoleInfoProto(RaftPeer leader) {
     final RoleInfo role = server.getRole();
     final Optional<FollowerState> fs = role.getFollowerState();
     final ServerRpcProto leaderInfo = toServerRpcProto(leader,
