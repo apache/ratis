@@ -1621,8 +1621,7 @@ class RaftServerImpl implements RaftServer.Division,
             AppendResult.INCONSISTENCY, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat);
         LOG.info("{}: appendEntries* reply {}", getMemberId(), toAppendEntriesReplyString(reply));
         followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
-        CompletableFuture.runAsync(future::join);
-        return CompletableFuture.completedFuture(reply);
+        return future.thenApply(dummy -> reply);
       }
 
       state.updateConfiguration(entries);
