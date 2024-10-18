@@ -1752,6 +1752,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(getMemberId(), leaderId, leaderGroupId);
+
     CompletableFuture<Void> future;
     StartLeaderElectionReplyProto reply;
     synchronized (this) {

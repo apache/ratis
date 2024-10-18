@@ -332,6 +332,7 @@ class LeaderElection implements Runnable {
     LOG.info("{} {} round {}: submit vote requests at term {} for {}", this, phase, round, electionTerm, conf);
     final ResultAndTerm r = submitRequestAndWaitResult(phase, conf, electionTerm);
     LOG.info("{} {} round {}: result {}", this, phase, round, r);
+
     final CompletableFuture<Void> future;
     synchronized (server) {
       if (!shouldRun(electionTerm)) {
