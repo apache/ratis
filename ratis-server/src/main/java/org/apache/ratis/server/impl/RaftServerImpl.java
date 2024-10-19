@@ -518,17 +518,17 @@ class RaftServerImpl implements RaftServer.Division,
         LOG.warn("{}: Failed to un-register RaftServer JMX bean", getMemberId(), e);
       }
       try {
-        role.shutdownFollowerState().join();
+        role.shutdownFollowerState();
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown FollowerState", getMemberId(), e);
       }
       try{
-        role.shutdownLeaderElection().join();
+        role.shutdownLeaderElection();
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown LeaderElection", getMemberId(), e);
       }
       try{
-        role.shutdownLeaderState(true).join();
+        role.shutdownLeaderState(true);
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown LeaderState monitor", getMemberId(), e);
       }

@@ -255,7 +255,7 @@ class LeaderElection implements Runnable {
       for (int round = 0; shouldRun(); round++) {
         if (skipPreVote || askForVotes(Phase.PRE_VOTE, round)) {
           if (askForVotes(Phase.ELECTION, round)) {
-            server.changeToLeader().join();
+            server.changeToLeader();
           }
         }
       }
@@ -353,12 +353,11 @@ class LeaderElection implements Runnable {
         case REJECTED:
         case DISCOVERED_A_NEW_TERM:
           final long term = r.maxTerm(server.getState().getCurrentTerm());
-          future = server.changeToFollowerAndPersistMetadata(term, false, r);
+          server.changeToFollowerAndPersistMetadata(term, false, r);
           break;
         default: throw new IllegalArgumentException("Unable to process result " + r.result);
       }
     }
-    future.join();
     return false;
   }
 
