@@ -163,6 +163,7 @@ class FollowerState extends Daemon {
             server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.
             // election timeout, should become a candidate
             server.changeToCandidate(false);
+            break;
           }
         }
       } catch (InterruptedException e) {
