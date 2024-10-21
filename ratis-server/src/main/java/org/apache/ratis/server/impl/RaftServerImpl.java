@@ -528,7 +528,7 @@ class RaftServerImpl implements RaftServer.Division,
         LOG.warn("{}: Failed to shutdown LeaderElection", getMemberId(), e);
       }
       try{
-        role.shutdownLeaderState(true);
+        role.shutdownLeaderState(true).join();
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown LeaderState monitor", getMemberId(), e);
       }
@@ -620,7 +620,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   synchronized void changeToLeader() {
     Preconditions.assertTrue(getInfo().isCandidate());
-    CompletableFuture<Void> future = role.shutdownLeaderElection();
+    role.shutdownLeaderElection();
     setRole(RaftPeerRole.LEADER, "changeToLeader");
     final LeaderStateImpl leader = role.updateLeaderState(this);
     state.becomeLeader();

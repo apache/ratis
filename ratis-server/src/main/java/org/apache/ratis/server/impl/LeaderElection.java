@@ -282,10 +282,8 @@ class LeaderElection implements Runnable {
   }
 
   private boolean shouldRun() {
-    synchronized (server) {
-      final DivisionInfo info = server.getInfo();
-      return lifeCycle.getCurrentState().isRunning() && info.isCandidate() && info.isAlive();
-    }
+    final DivisionInfo info = server.getInfo();
+    return lifeCycle.getCurrentState().isRunning() && info.isCandidate() && info.isAlive();
   }
 
   private boolean shouldRun(long electionTerm) {
