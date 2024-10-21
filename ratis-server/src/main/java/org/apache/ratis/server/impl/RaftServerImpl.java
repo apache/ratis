@@ -610,14 +610,6 @@ class RaftServerImpl implements RaftServer.Division,
     return future;
   }
 
-    private boolean shouldSetFollower(RaftPeerRole old, boolean force) {
-      if (old == RaftPeerRole.LISTENER) {
-        final RaftConfigurationImpl conf = state.getRaftConf();
-        return conf.isStable() && conf.containsInConf(getId());
-      }
-      return old != RaftPeerRole.FOLLOWER || force;
-    }
-
   synchronized CompletableFuture<Void> changeToFollowerAndPersistMetadata(
       long newTerm,
       boolean allowListener,
@@ -1619,7 +1611,7 @@ class RaftServerImpl implements RaftServer.Division,
             AppendResult.NOT_LEADER, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat));
       }
       try {
-        future = changeToFollowerAndPersistMetadata(leaderTerm, true, Op.APPEND_ENTRIES);
+        future = changeToFollowerAndPersistMetadata(leaderTerm, true, "appendEntries");
       } catch (IOException e) {
         return JavaUtils.completeExceptionally(e);
       }
@@ -1644,16 +1636,12 @@ class RaftServerImpl implements RaftServer.Division,
             AppendResult.INCONSISTENCY, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat);
         LOG.info("{}: appendEntries* reply {}", getMemberId(), toAppendEntriesReplyString(reply));
         followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
-        return CompletableFuture.completedFuture(reply);
+        return future.thenApply(dummy -> reply);
       }
 
       state.updateConfiguration(entries);
     }
     future.join();
-    final CompletableFuture<Void> appendFuture = entries.isEmpty()? CompletableFuture.completedFuture(null)
-        : appendLogTermIndices != null ? appendLogTermIndices.append(entries, this::appendLog)
-        : JavaUtils.allOf(state.getLog().append(entries));
-
 
     final List<CompletableFuture<Long>> futures = entries.isEmpty() ? Collections.emptyList()
         : state.getLog().append(requestRef.delegate(entries));

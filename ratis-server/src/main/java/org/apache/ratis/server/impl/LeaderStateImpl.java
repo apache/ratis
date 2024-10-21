@@ -737,8 +737,7 @@ class LeaderStateImpl implements LeaderState {
   private void stepDown(long term, StepDownReason reason) {
     try {
       lease.getAndSetEnabled(false);
-      server.changeToFollowerAndPersistMetadata(term, false, reason)
-          .get(5, TimeUnit.SECONDS);
+      server.changeToFollowerAndPersistMetadata(term, false, reason).join();
       pendingStepDown.complete(server::newSuccessReply);
     } catch(Exception e) {
       pendingStepDown.completeExceptionally(e);

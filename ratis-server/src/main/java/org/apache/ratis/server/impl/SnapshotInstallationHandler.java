@@ -175,11 +175,11 @@ class SnapshotInstallationHandler {
       final boolean recognized = state.recognizeLeader(RaftServerProtocol.Op.INSTALL_SNAPSHOT, leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
-        return toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.NOT_LEADER);
+        return CompletableFuture.completedFuture(toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.NOT_LEADER));
       }
-      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, Op.INSTALL_SNAPSHOT);
-      state.setLeader(leaderId, Op.INSTALL_SNAPSHOT);
+      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
+      state.setLeader(leaderId, "installSnapshot");
 
       server.updateLastRpcTime(UpdateType.INSTALL_SNAPSHOT_START);
       long callId = chunk0CallId.get();
@@ -234,7 +234,7 @@ class SnapshotInstallationHandler {
     if (snapshotChunkRequest.getDone()) {
       LOG.info("{}: successfully install the entire snapshot-{}", getMemberId(), lastIncludedIndex);
     }
-    return toInstallSnapshotReplyProto(leaderId, getMemberId(),
+    final InstallSnapshotReplyProto reply = toInstallSnapshotReplyProto(leaderId, getMemberId(),
         currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.SUCCESS);
     return future.thenApply(dummy -> reply);
   }
@@ -251,12 +251,12 @@ class SnapshotInstallationHandler {
       final boolean recognized = state.recognizeLeader("notifyInstallSnapshot", leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
-        return toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, InstallSnapshotResult.NOT_LEADER);
+        return CompletableFuture.completedFuture(toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, InstallSnapshotResult.NOT_LEADER));
       }
-      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
-      state.setLeader(leaderId, UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
-      server.updateLastRpcTime(UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
+      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
+      state.setLeader(leaderId, "installSnapshot");
+      server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
 
       if (inProgressInstallSnapshotIndex.compareAndSet(INVALID_LOG_INDEX, firstAvailableLogIndex)) {
         LOG.info("{}: Received notification to install snapshot at index {}", getMemberId(), firstAvailableLogIndex);
@@ -271,7 +271,7 @@ class SnapshotInstallationHandler {
           inProgressInstallSnapshotIndex.compareAndSet(firstAvailableLogIndex, INVALID_LOG_INDEX);
           LOG.info("{}: InstallSnapshot notification result: {}, current snapshot index: {}", getMemberId(),
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
-          return toInstallSnapshotReplyProto(leaderId, getMemberId(), currentTerm,
+          final InstallSnapshotReplyProto reply = toInstallSnapshotReplyProto(leaderId, getMemberId(), currentTerm,
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
           return future.thenApply(dummy -> reply);
         }
@@ -350,7 +350,7 @@ class SnapshotInstallationHandler {
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
         server.getStateMachine().event().notifySnapshotInstalled(
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, INVALID_LOG_INDEX, server.getPeer());
-        return toInstallSnapshotReplyProto(leaderId, getMemberId(),
+        final InstallSnapshotReplyProto reply =  toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
         return future.thenApply(dummy -> reply);
       }
@@ -369,7 +369,7 @@ class SnapshotInstallationHandler {
         server.getStateMachine().event().notifySnapshotInstalled(
             InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledIndex, server.getPeer());
         installedIndex.set(latestInstalledIndex);
-        return toInstallSnapshotReplyProto(leaderId, getMemberId(),
+        final InstallSnapshotReplyProto reply = toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex.getIndex());
         return future.thenApply(dummy -> reply);
       }
@@ -379,7 +379,7 @@ class SnapshotInstallationHandler {
         LOG.debug("{}: InstallSnapshot notification result: {}", getMemberId(),
             InstallSnapshotResult.IN_PROGRESS);
       }
-      return toInstallSnapshotReplyProto(leaderId, getMemberId(),
+      final InstallSnapshotReplyProto reply = toInstallSnapshotReplyProto(leaderId, getMemberId(),
           currentTerm, InstallSnapshotResult.IN_PROGRESS);
       return future.thenApply(dummy -> reply);
     }
