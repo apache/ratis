@@ -1751,8 +1751,6 @@ class RaftServerImpl implements RaftServer.Division,
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(getMemberId(), leaderId, leaderGroupId);
 
-    CompletableFuture<Void> future;
-    StartLeaderElectionReplyProto reply;
     synchronized (this) {
       // Check life cycle state again to avoid the PAUSING/PAUSED state.
       assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
@@ -1774,9 +1772,8 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       changeToCandidate(true);
-      reply = toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
+      return toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
     }
-    return reply;
   }
 
   void submitUpdateCommitEvent() {
