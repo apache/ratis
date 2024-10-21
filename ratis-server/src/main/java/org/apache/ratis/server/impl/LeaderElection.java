@@ -355,11 +355,10 @@ class LeaderElection implements Runnable {
         case DISCOVERED_A_NEW_TERM:
           final long term = r.maxTerm(server.getState().getCurrentTerm());
           server.changeToFollowerAndPersistMetadata(term, false, r);
-          break;
+          return false;
         default: throw new IllegalArgumentException("Unable to process result " + r.result);
       }
     }
-    return false;
   }
 
   private int submitRequests(Phase phase, long electionTerm, TermIndex lastEntry,
