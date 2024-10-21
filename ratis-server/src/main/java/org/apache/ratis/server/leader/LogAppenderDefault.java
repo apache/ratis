@@ -59,23 +59,15 @@ class LogAppenderDefault extends LogAppenderBase {
   /** Send an appendEntries RPC; retry indefinitely. */
   private AppendEntriesReplyProto sendAppendEntriesWithRetries(AtomicLong requestFirstIndex)
       throws InterruptedException, InterruptedIOException, RaftLogIOException {
-    int retry = 0;
-
-    ReferenceCountedObject<AppendEntriesRequestProto> request = nextAppendEntriesRequest(
-        CallId.getAndIncrement(), false);
-    while (isRunning()) { // keep retrying for IOException
+    for(int retry = 0; isRunning(); retry++) {
+      final ReferenceCountedObject<AppendEntriesRequestProto> request = nextAppendEntriesRequest(
+          CallId.getAndIncrement(), false);
+      if (request == null) {
+        LOG.trace("{} no entries to send now, wait ...", this);
+        return null;
+      }
       try {
-        if (request == null || request.get().getEntriesCount() == 0) {
-          if (request != null) {
-            request.release();
-          }
-          request = nextAppendEntriesRequest(CallId.getAndIncrement(), false);
-        }
-
-        if (request == null) {
-          LOG.trace("{} no entries to send now, wait ...", this);
-          return null;
-        } else if (!isRunning()) {
+        if (!isRunning()) {
           LOG.info("{} is stopped. Skip appendEntries.", this);
           return null;
         }
@@ -84,17 +76,19 @@ class LogAppenderDefault extends LogAppenderBase {
         final AppendEntriesReplyProto reply = sendAppendEntries(proto);
         final long first = proto.getEntriesCount() > 0 ? proto.getEntries(0).getIndex() : RaftLog.INVALID_LOG_INDEX;
         requestFirstIndex.set(first);
-        request.release();
         return reply;
       } catch (InterruptedIOException | RaftLogIOException e) {
         throw e;
       } catch (IOException ioe) {
         // TODO should have more detailed retry policy here.
-        if (retry++ % 10 == 0) { // to reduce the number of messages
+        if (retry % 10 == 0) { // to reduce the number of messages
           LOG.warn("{}: Failed to appendEntries (retry={})", this, retry, ioe);
         }
         handleException(ioe);
+      } finally {
+        request.release();
       }
+
       if (isRunning()) {
         getServer().properties().rpcSleepTime().sleep();
       }
