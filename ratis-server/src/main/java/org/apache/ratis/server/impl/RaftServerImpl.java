@@ -618,7 +618,7 @@ class RaftServerImpl implements RaftServer.Division,
     return future;
   }
 
-  synchronized CompletableFuture<Void> changeToLeader() {
+  synchronized void changeToLeader() {
     Preconditions.assertTrue(getInfo().isCandidate());
     CompletableFuture<Void> future = role.shutdownLeaderElection();
     setRole(RaftPeerRole.LEADER, "changeToLeader");
@@ -627,7 +627,6 @@ class RaftServerImpl implements RaftServer.Division,
 
     // start sending AppendEntries RPC to followers
     leader.start();
-    return future;
   }
 
   @Override
@@ -681,16 +680,15 @@ class RaftServerImpl implements RaftServer.Division,
     return role.buildRoleInfoProto(this);
   }
 
-  synchronized CompletableFuture<Void> changeToCandidate(boolean forceStartLeaderElection) {
+  synchronized void changeToCandidate(boolean forceStartLeaderElection) {
     Preconditions.assertTrue(getInfo().isFollower());
-    CompletableFuture<Void> future = role.shutdownFollowerState();
+    role.shutdownFollowerState();
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
     if (state.shouldNotifyExtendedNoLeader()) {
       stateMachine.followerEvent().notifyExtendedNoLeader(getRoleInfoProto());
     }
     // start election
     role.startLeaderElection(this, forceStartLeaderElection);
-    return future;
   }
 
   @Override
@@ -1775,10 +1773,9 @@ class RaftServerImpl implements RaftServer.Division,
         return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
       }
 
-      future = changeToCandidate(true);
-      reply =  toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
+      changeToCandidate(true);
+      reply = toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
     }
-    future.join();
     return reply;
   }
 

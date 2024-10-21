@@ -282,8 +282,10 @@ class LeaderElection implements Runnable {
   }
 
   private boolean shouldRun() {
-    final DivisionInfo info = server.getInfo();
-    return lifeCycle.getCurrentState().isRunning() && info.isCandidate() && info.isAlive();
+    synchronized (server) {
+      final DivisionInfo info = server.getInfo();
+      return lifeCycle.getCurrentState().isRunning() && info.isCandidate() && info.isAlive();
+    }
   }
 
   private boolean shouldRun(long electionTerm) {
@@ -333,7 +335,6 @@ class LeaderElection implements Runnable {
     final ResultAndTerm r = submitRequestAndWaitResult(phase, conf, electionTerm);
     LOG.info("{} {} round {}: result {}", this, phase, round, r);
 
-    final CompletableFuture<Void> future;
     synchronized (server) {
       if (!shouldRun(electionTerm)) {
         return false; // term already passed or this should not run anymore.
