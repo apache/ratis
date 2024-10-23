@@ -25,6 +25,10 @@ import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+import java.util.Properties;
+import java.util.TreeMap;
+
 public class TestConfUtils  extends BaseTest {
   @Test
   public void testRaftConfigKeys() {
@@ -49,5 +53,28 @@ public class TestConfUtils  extends BaseTest {
   @Test
   public void testNettyConfigKeys() {
     ConfUtils.printAll(NettyConfigKeys.class);
+  }
+
+  @Test
+  public void test() {
+    final Properties property = System.getProperties();
+
+    final Map<String, String> sorted = new TreeMap<>();
+    int longest = 0;
+    for(Map.Entry<Object, Object> e : property.entrySet()) {
+      final String key = e.getKey().toString();
+      final String value = e.getValue().toString();
+      sorted.put(key, value);
+
+      final int n = key.length();
+      if (n > longest) {
+        longest = n;
+      }
+    }
+
+    final String format = "%-" + (longest + 1) + "s = %s%n";
+    for(Map.Entry<String, String> e : sorted.entrySet()) {
+      System.out.printf(format, e.getKey(), e.getValue());
+    }
   }
 }
