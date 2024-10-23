@@ -28,14 +28,11 @@ public interface SegmentedRaftLogTestUtils {
 
   static SegmentedRaftLogInputStream newSegmentedRaftLogInputStream(File log,
       long startIndex, long endIndex, boolean isOpen) {
-    return new SegmentedRaftLogInputStream(log, startIndex, endIndex, isOpen, MAX_OP_SIZE, null);
+    final LogSegmentStartEnd startEnd = LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen);
+    return new SegmentedRaftLogInputStream(log, startEnd, MAX_OP_SIZE, null);
   }
 
   static void setRaftLogWorkerLogLevel(Level level) {
     Slf4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, level);
-  }
-
-  static String getLogFlushTimeMetric(String memberId) {
-    return SegmentedRaftLogWorker.class.getName() + "." + memberId + ".flush-time";
   }
 }
