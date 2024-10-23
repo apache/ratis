@@ -22,7 +22,6 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.Preconditions;
 
 import java.io.File;
-import java.util.Comparator;
 import java.util.Objects;
 import java.util.regex.Pattern;
 

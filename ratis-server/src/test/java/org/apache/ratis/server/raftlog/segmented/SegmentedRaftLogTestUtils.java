@@ -17,11 +17,15 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.Slf4jUtils;
 import org.slf4j.event.Level;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public interface SegmentedRaftLogTestUtils {
   SizeInBytes MAX_OP_SIZE = SizeInBytes.valueOf("32MB");
@@ -34,5 +38,12 @@ public interface SegmentedRaftLogTestUtils {
 
   static void setRaftLogWorkerLogLevel(Level level) {
     Slf4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, level);
+  }
+
+  static List<Path> getOpenLogFiles(RaftServer.Division server) throws Exception {
+    return LogSegmentPath.getLogSegmentPaths(server.getRaftStorage()).stream()
+        .filter(p -> p.getStartEnd().isOpen())
+        .map(LogSegmentPath::getPath)
+        .collect(Collectors.toList());
   }
 }
