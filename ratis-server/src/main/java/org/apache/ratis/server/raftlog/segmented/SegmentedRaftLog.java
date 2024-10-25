@@ -411,7 +411,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
         return task.getFuture();
       }
     }
-    LOG.info("{}: purge({}) found nothing to purge.", getName(), index);
+    LOG.debug("{}: purge({}) found nothing to purge.", getName(), index);
     return CompletableFuture.completedFuture(index);
   }
 

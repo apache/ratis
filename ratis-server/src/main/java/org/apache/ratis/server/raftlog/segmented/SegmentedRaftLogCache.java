@@ -160,8 +160,8 @@ public class SegmentedRaftLogCache {
     @Override
     public String toString() {
       return reason
-          + "\ntoTruncate: " + toTruncate
-          + "\n  toDelete: " + Arrays.toString(toDelete);
+          + "\n  toTruncate: " + toTruncate
+          + "\n    toDelete: " + Arrays.toString(toDelete);
     }
   }
 
