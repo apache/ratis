@@ -35,8 +35,8 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogFormat;
 import org.apache.ratis.server.RaftServerConfigKeys.Log;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog;
-import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.FileUtils;
@@ -63,7 +63,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * Test restarting raft peers.
@@ -176,15 +175,8 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     server.getRaftServer().close();
   }
 
-  static List<Path> getOpenLogFiles(RaftServer.Division server) throws Exception {
-    return LogSegmentPath.getLogSegmentPaths(server.getRaftStorage()).stream()
-        .filter(p -> p.getStartEnd().isOpen())
-        .map(LogSegmentPath::getPath)
-        .collect(Collectors.toList());
-  }
-
   static File getOpenLogFile(RaftServer.Division server) throws Exception {
-    final List<Path> openLogs = getOpenLogFiles(server);
+    final List<Path> openLogs = SegmentedRaftLogTestUtils.getOpenLogFiles(server);
     Assertions.assertEquals(1, openLogs.size());
     return openLogs.get(0).toFile();
   }
@@ -211,7 +203,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
           10, HUNDRED_MILLIS, impl.getId() + "-getOpenLogFile", LOG);
       for(int i = 0; i < SegmentedRaftLogFormat.getHeaderLength(); i++) {
         assertCorruptedLogHeader(impl.getId(), openLogFile, i, cluster, LOG);
-        Assertions.assertTrue(getOpenLogFiles(impl).isEmpty());
+        Assertions.assertTrue(SegmentedRaftLogTestUtils.getOpenLogFiles(impl).isEmpty());
       }
     }
   }

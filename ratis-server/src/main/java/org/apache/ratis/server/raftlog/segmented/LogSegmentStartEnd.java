@@ -22,14 +22,12 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.Preconditions;
 
 import java.io.File;
-import java.util.Comparator;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
  * The start index and an end index of a log segment.
- *
+ * <p>
  * This is a value-based class.
  */
 public final class LogSegmentStartEnd implements Comparable<LogSegmentStartEnd> {
@@ -76,21 +74,24 @@ public final class LogSegmentStartEnd implements Comparable<LogSegmentStartEnd> 
   private final Long endIndex;
 
   private LogSegmentStartEnd(long startIndex, Long endIndex) {
-    Preconditions.assertTrue(startIndex >= RaftLog.LEAST_VALID_LOG_INDEX);
-    Preconditions.assertTrue(endIndex == null || endIndex >= startIndex);
     this.startIndex = startIndex;
     this.endIndex = endIndex;
+
+    Preconditions.assertTrue(startIndex >= RaftLog.LEAST_VALID_LOG_INDEX, this);
+    if (endIndex != null) {
+      Preconditions.assertTrue(endIndex >= startIndex, this);
+    }
   }
 
-  public long getStartIndex() {
+  long getStartIndex() {
     return startIndex;
   }
 
-  public long getEndIndex() {
-    return Optional.ofNullable(endIndex).orElse(RaftLog.INVALID_LOG_INDEX);
+  long getEndIndex() {
+    return Objects.requireNonNull(endIndex, "endIndex");
   }
 
-  public boolean isOpen() {
+  boolean isOpen() {
     return endIndex == null;
   }
 
@@ -108,9 +109,21 @@ public final class LogSegmentStartEnd implements Comparable<LogSegmentStartEnd> 
 
   @Override
   public int compareTo(LogSegmentStartEnd that) {
-    return Comparator.comparingLong(LogSegmentStartEnd::getStartIndex)
-        .thenComparingLong(LogSegmentStartEnd::getEndIndex)
-        .compare(this, that);
+    if (this == that) {
+      return 0;
+    }
+    // startIndex always non-null
+    final int diff = Long.compare(this.getStartIndex(), that.getStartIndex());
+    if (diff != 0) {
+      return diff;
+    }
+
+    // same startIndex, compare endIndex
+    if (this.isOpen()) {
+      return that.isOpen()? 0 : -1; //open first
+    } else {
+      return that.isOpen() ? 1 : Long.compare(this.endIndex, that.endIndex);
+    }
   }
 
   @Override
@@ -131,6 +144,6 @@ public final class LogSegmentStartEnd implements Comparable<LogSegmentStartEnd> 
 
   @Override
   public String toString() {
-    return startIndex + "-" + Optional.ofNullable(endIndex).map(Object::toString).orElse("");
+    return startIndex + "-" + (endIndex != null? endIndex : "");
   }
 }

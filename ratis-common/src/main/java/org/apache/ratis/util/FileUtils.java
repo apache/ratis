@@ -201,8 +201,10 @@ public interface FileUtils {
   }
 
   /** The same as passing f.toPath() to {@link #delete(Path)}. */
-  static void deleteFile(File f) throws IOException {
-    delete(f.toPath());
+  static Path deleteFile(File f) throws IOException {
+    final Path path = f.toPath();
+    delete(path);
+    return path;
   }
 
   /**

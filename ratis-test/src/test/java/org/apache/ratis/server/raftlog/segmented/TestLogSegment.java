@@ -58,6 +58,8 @@ import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtil
  * Test basic functionality of {@link LogSegment}
  */
 public class TestLogSegment extends BaseTest {
+  public static final LogSegmentStartEnd ZERO_START_NULL_END = LogSegmentStartEnd.valueOf(0);
+
   private File storageDir;
   private long segmentMaxSize;
   private long preallocatedSize;
@@ -173,7 +175,7 @@ public class TestLogSegment extends BaseTest {
     final File openSegmentFile = prepareLog(true, 0, 100, 0, isLastEntryPartiallyWritten);
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile,
-        LogSegmentStartEnd.valueOf(0), MAX_OP_SIZE, loadInitial, null, null);
+        ZERO_START_NULL_END, MAX_OP_SIZE, loadInitial, null, null);
     final int delta = isLastEntryPartiallyWritten? 1: 0;
     checkLogSegment(openSegment, 0, 99 - delta, true, openSegmentFile.length(), 0);
     storage.close();
@@ -218,7 +220,7 @@ public class TestLogSegment extends BaseTest {
     final File openSegmentFile = prepareLog(true, 0, 100, 0, true);
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile,
-        LogSegmentStartEnd.valueOf(0), MAX_OP_SIZE, true, null, raftLogMetrics);
+        ZERO_START_NULL_END, MAX_OP_SIZE, true, null, raftLogMetrics);
     checkLogSegment(openSegment, 0, 98, true, openSegmentFile.length(), 0);
     storage.close();
 
@@ -287,7 +289,7 @@ public class TestLogSegment extends BaseTest {
   @Test
   public void testPreallocateSegment() throws Exception {
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
-    final File file = LogSegmentStartEnd.valueOf(0).getFile(storage);
+    final File file = ZERO_START_NULL_END.getFile(storage);
     final int[] maxSizes = new int[]{1024, 1025, 1024 * 1024 - 1, 1024 * 1024,
         1024 * 1024 + 1, 2 * 1024 * 1024 - 1, 2 * 1024 * 1024,
         2 * 1024 * 1024 + 1, 8 * 1024 * 1024};
@@ -338,7 +340,7 @@ public class TestLogSegment extends BaseTest {
   public void testPreallocationAndAppend() throws Exception {
     final SizeInBytes max = SizeInBytes.valueOf(2, TraditionalBinaryPrefix.MEGA);
     RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
-    final File file = LogSegmentStartEnd.valueOf(0).getFile(storage);
+    final File file = ZERO_START_NULL_END.getFile(storage);
 
     final byte[] content = new byte[1024];
     Arrays.fill(content, (byte) 1);
@@ -368,7 +370,7 @@ public class TestLogSegment extends BaseTest {
   @Test
   public void testZeroSizeInProgressFile() throws Exception {
     final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
-    final File file = LogSegmentStartEnd.valueOf(0).getFile(storage);
+    final File file = ZERO_START_NULL_END.getFile(storage);
     storage.close();
 
     // create zero size in-progress file

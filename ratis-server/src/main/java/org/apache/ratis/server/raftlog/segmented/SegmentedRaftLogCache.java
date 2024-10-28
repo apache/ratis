@@ -122,8 +122,13 @@ public class SegmentedRaftLogCache {
   }
 
   static class TruncationSegments {
+    private final String reason;
     private final SegmentFileInfo toTruncate; // name of the file to be truncated
     private final SegmentFileInfo[] toDelete; // names of the files to be deleted
+
+    String getReason() {
+      return reason;
+    }
 
     public SegmentFileInfo getToTruncate() {
       return toTruncate;
@@ -133,10 +138,10 @@ public class SegmentedRaftLogCache {
       return toDelete;
     }
 
-    TruncationSegments(SegmentFileInfo toTruncate,
-                       List<SegmentFileInfo> toDelete) {
-      this.toDelete = SegmentFileInfo.toSortedArray(toDelete);
+    TruncationSegments(String reason, SegmentFileInfo toTruncate, List<SegmentFileInfo> toDelete) {
+      this.reason = reason;
       this.toTruncate = toTruncate;
+      this.toDelete = SegmentFileInfo.toSortedArray(toDelete);
     }
 
     long maxEndIndex() {
@@ -152,8 +157,9 @@ public class SegmentedRaftLogCache {
 
     @Override
     public String toString() {
-      return "toTruncate: " + toTruncate
-          + "\n  toDelete: " + Arrays.toString(toDelete);
+      return reason
+          + "\n  toTruncate: " + toTruncate
+          + "\n    toDelete: " + Arrays.toString(toDelete);
     }
   }
 
@@ -297,6 +303,7 @@ public class SegmentedRaftLogCache {
     }
 
     TruncationSegments truncate(long index, LogSegment openSegment, Runnable clearOpenSegment) {
+      final String reason = "truncate(" + index + ")";
       try(AutoCloseableLock writeLock = writeLock()) {
         final int segmentIndex = binarySearch(index);
         if (segmentIndex == -segments.size() - 1) {
@@ -305,7 +312,7 @@ public class SegmentedRaftLogCache {
             if (index == openSegment.getStartIndex()) {
               // the open segment should be deleted
               final SegmentFileInfo deleted = deleteOpenSegment(openSegment, clearOpenSegment);
-              return new TruncationSegments(null, Collections.singletonList(deleted));
+              return new TruncationSegments(reason, null, Collections.singletonList(deleted));
             } else {
               openSegment.truncate(index);
               Preconditions.assertTrue(!openSegment.isOpen(),
@@ -315,7 +322,7 @@ public class SegmentedRaftLogCache {
               segments.add(openSegment);
               sizeInBytes += openSegment.getTotalFileSize();
               clearOpenSegment.run();
-              return new TruncationSegments(info, Collections.emptyList());
+              return new TruncationSegments(reason, info, Collections.emptyList());
             }
           }
         } else if (segmentIndex >= 0) {
@@ -340,7 +347,7 @@ public class SegmentedRaftLogCache {
           }
           SegmentFileInfo t = ts.numOfEntries() == 0? null:
               new SegmentFileInfo(ts.getStartIndex(), oldEnd, false, ts.getTotalFileSize(), ts.getEndIndex());
-          return new TruncationSegments(t, list);
+          return new TruncationSegments(reason, t, list);
         }
         return null;
       }
@@ -373,7 +380,7 @@ public class SegmentedRaftLogCache {
           throw new IllegalStateException("Unexpected gap in segments: binarySearch(" + index + ") returns "
                   + segmentIndex + ", segments=" + segments);
         }
-        return list.isEmpty() ? null : new TruncationSegments(null, list);
+        return list.isEmpty() ? null : new TruncationSegments("purge(" + index + ")", null, list);
       }
     }
 

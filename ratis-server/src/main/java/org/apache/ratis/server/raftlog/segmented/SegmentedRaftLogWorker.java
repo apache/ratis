@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Optional;
@@ -476,7 +477,8 @@ class SegmentedRaftLogWorker {
       if (segments.getToDelete() != null) {
         try(UncheckedAutoCloseable ignored = raftLogMetrics.startPurgeTimer()) {
           for (SegmentFileInfo fileInfo : segments.getToDelete()) {
-            FileUtils.deleteFile(fileInfo.getFile(storage));
+            final Path deleted = FileUtils.deleteFile(fileInfo.getFile(storage));
+            LOG.info("{}: Purged RaftLog segment: info={}, path={}", name, fileInfo, deleted);
           }
         }
       }
@@ -568,8 +570,8 @@ class SegmentedRaftLogWorker {
     }
   }
 
-  File getFile(long startIndex, Long endIndex) {
-    return LogSegmentStartEnd.valueOf(startIndex, endIndex).getFile(storage);
+  private File getFile(LogSegmentStartEnd startEnd) {
+    return startEnd.getFile(storage);
   }
 
   private class FinalizeLogSegment extends Task {
@@ -586,19 +588,20 @@ class SegmentedRaftLogWorker {
     public void execute() throws IOException {
       freeSegmentedRaftLogOutputStream();
 
-      final File openFile = getFile(startIndex, null);
+      final LogSegmentStartEnd openStartEnd = LogSegmentStartEnd.valueOf(startIndex);
+      final File openFile = getFile(openStartEnd);
       Preconditions.assertTrue(openFile.exists(),
           () -> name + ": File " + openFile + " to be rolled does not exist");
       if (endIndex - startIndex + 1 > 0) {
         // finalize the current open segment
-        final File dstFile = getFile(startIndex, endIndex);
+        final File dstFile = getFile(LogSegmentStartEnd.valueOf(startIndex, endIndex));
         Preconditions.assertTrue(!dstFile.exists());
 
         FileUtils.move(openFile, dstFile);
         LOG.info("{}: Rolled log segment from {} to {}", name, openFile, dstFile);
       } else { // delete the file of the empty segment
-        FileUtils.deleteFile(openFile);
-        LOG.info("{}: Deleted empty log segment {}", name, openFile);
+        final Path deleted = FileUtils.deleteFile(openFile);
+        LOG.info("{}: Deleted empty RaftLog segment: startEnd={}, path={}", name, openStartEnd, deleted);
       }
       updateFlushedIndexIncreasingly();
       safeCacheEvictIndex.updateToMax(endIndex, traceIndexChange);
@@ -631,7 +634,7 @@ class SegmentedRaftLogWorker {
 
     @Override
     void execute() throws IOException {
-      final File openFile = getFile(newStartIndex, null);
+      final File openFile = getFile(LogSegmentStartEnd.valueOf(newStartIndex));
       Preconditions.assertTrue(!openFile.exists(), "open file %s exists for %s",
           openFile, name);
       Preconditions.assertTrue(pendingFlushNum == 0);
@@ -673,8 +676,8 @@ class SegmentedRaftLogWorker {
           final File delFile = del.getFile(storage);
           Preconditions.assertTrue(delFile.exists(),
               "File %s to be deleted does not exist", delFile);
-          FileUtils.deleteFile(delFile);
-          LOG.info("{}: Deleted log file {}", name, delFile);
+          final Path deleted = FileUtils.deleteFile(delFile);
+          LOG.info("{}: Deleted RaftLog segment for {}: path={}", name, segments.getReason(), deleted);
           minStart = Math.min(minStart, del.getStartIndex());
         }
         if (segments.getToTruncate() == null) {
