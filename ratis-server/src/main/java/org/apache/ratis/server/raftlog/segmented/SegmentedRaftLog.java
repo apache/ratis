@@ -405,12 +405,13 @@ public final class SegmentedRaftLog extends RaftLogBase {
     try (AutoCloseableLock writeLock = writeLock()) {
       SegmentedRaftLogCache.TruncationSegments ts = cache.purge(index);
       updateSnapshotIndexFromStateMachine();
-      LOG.debug("purging segments:{}", ts);
       if (ts != null) {
+        LOG.info("{}: {}", getName(), ts);
         Task task = fileLogWorker.purge(ts);
         return task.getFuture();
       }
     }
+    LOG.debug("{}: purge({}) found nothing to purge.", getName(), index);
     return CompletableFuture.completedFuture(index);
   }
 

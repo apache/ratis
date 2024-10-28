@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
+import static org.apache.ratis.server.raftlog.RaftLog.LEAST_VALID_LOG_INDEX;
 
 public class SegmentedRaftLogInputStream implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogInputStream.class);
@@ -62,27 +63,17 @@ public class SegmentedRaftLogInputStream implements Closeable {
   }
 
   private final File logFile;
-  private final long startIndex;
-  private final long endIndex;
-  private final boolean isOpen;
+  private final LogSegmentStartEnd startEnd;
   private final OpenCloseState state;
   private SegmentedRaftLogReader reader;
   private final SizeInBytes maxOpSize;
   private final SegmentedRaftLogMetrics raftLogMetrics;
 
-  SegmentedRaftLogInputStream(File log, long startIndex, long endIndex, boolean isOpen,
+  SegmentedRaftLogInputStream(File log, LogSegmentStartEnd startEnd,
       SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics) {
     this.maxOpSize = maxOpSize;
-    if (isOpen) {
-      Preconditions.assertTrue(endIndex == INVALID_LOG_INDEX);
-    } else {
-      Preconditions.assertTrue(endIndex >= startIndex);
-    }
-
     this.logFile = log;
-    this.startIndex = startIndex;
-    this.endIndex = endIndex;
-    this.isOpen = isOpen;
+    this.startEnd = startEnd;
     this.state = new OpenCloseState(getName());
     this.raftLogMetrics = raftLogMetrics;
   }
@@ -104,14 +95,6 @@ public class SegmentedRaftLogInputStream implements Closeable {
     }
   }
 
-  long getStartIndex() {
-    return startIndex;
-  }
-
-  long getEndIndex() {
-    return endIndex;
-  }
-
   String getName() {
     return logFile.getName();
   }
@@ -131,7 +114,7 @@ public class SegmentedRaftLogInputStream implements Closeable {
         final LogEntryProto entry = reader.readEntry();
         if (entry != null) {
           long index = entry.getIndex();
-          if (!isOpen() && index >= endIndex) {
+          if (!startEnd.isOpen() && index >= startEnd.getEndIndex()) {
             /*
              * The end index may be derived from the segment recovery
              * process. It is possible that we still have some uncleaned garbage
@@ -139,8 +122,8 @@ public class SegmentedRaftLogInputStream implements Closeable {
              */
             long skipAmt = logFile.length() - reader.getPos();
             if (skipAmt > 0) {
-              LOG.debug("skipping {} bytes at the end of log '{}': reached" +
-                  " entry {} out of {}", skipAmt, getName(), index, endIndex);
+              LOG.info("Skipping {} bytes at the end of log '{}': reached entry {} out of [{}]",
+                  skipAmt, getName(), index, startEnd);
               reader.skipFully(skipAmt);
             }
           }
@@ -172,10 +155,6 @@ public class SegmentedRaftLogInputStream implements Closeable {
     }
   }
 
-  boolean isOpen() {
-    return isOpen;
-  }
-
   @Override
   public String toString() {
     return getName();
@@ -188,24 +167,18 @@ public class SegmentedRaftLogInputStream implements Closeable {
    *                      ID. The file portion beyond this ID is
    *                      potentially being updated.
    * @return Result of the validation
-   * @throws IOException
    */
   static LogValidation scanEditLog(File file, long maxTxIdToScan, SizeInBytes maxOpSize)
       throws IOException {
-    SegmentedRaftLogInputStream in;
-    try {
-      in = new SegmentedRaftLogInputStream(file, INVALID_LOG_INDEX, INVALID_LOG_INDEX, false, maxOpSize, null);
-      // read the header, initialize the inputstream
-      in.init();
-    } catch (EOFException e) {
-      LOG.warn("Log file " + file + " has no valid header", e);
-      return new LogValidation(0, INVALID_LOG_INDEX, true);
-    }
-
-    try {
+    final LogSegmentStartEnd startEnd = LogSegmentStartEnd.valueOf(LEAST_VALID_LOG_INDEX);
+    try(SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, startEnd, maxOpSize, null)) {
+      try {
+        in.init();
+      } catch (EOFException e) {
+        LOG.warn("Invalid header for RaftLog segment {}", file, e);
+        return new LogValidation(0, INVALID_LOG_INDEX, true);
+      }
       return scanEditLog(in, maxTxIdToScan);
-    } finally {
-      IOUtils.cleanup(LOG, in);
     }
   }
 
