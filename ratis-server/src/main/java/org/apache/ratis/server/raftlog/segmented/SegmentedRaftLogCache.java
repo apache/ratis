@@ -390,7 +390,7 @@ public class SegmentedRaftLogCache {
         list.forEach(LogSegment::evictCache);
         List<SegmentFileInfo> toDelete = list.stream().map(SegmentFileInfo::newClosedSegmentFileInfo)
             .collect(Collectors.toList());
-        return list.isEmpty() ? null : new TruncationSegments(null, toDelete);
+        return list.isEmpty() ? null : new TruncationSegments("purge(" + index + ")", null, toDelete);
       }
     }
 
