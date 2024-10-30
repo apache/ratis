@@ -33,14 +33,14 @@ public final class SizeInBytes {
   }
 
   public static SizeInBytes valueOf(long n, TraditionalBinaryPrefix prefix) {
-    final long size = Objects.requireNonNull(prefix, "prefix = null").toLong(n);
+    final long size = Objects.requireNonNull(prefix, "prefix == null").toLong(n);
     final String input = n + " " + prefix.getSymbol();
     final String description = input + " (=" + size + ")";
     return new SizeInBytes(size, input, description);
   }
 
   public static SizeInBytes valueOf(String input) {
-    input = Objects.requireNonNull(input, "input = null").trim();
+    input = Objects.requireNonNull(input, "input == null").trim();
 
     final int last = input.length() - 1;
     final String s = "b".equalsIgnoreCase(input.substring(last))?
