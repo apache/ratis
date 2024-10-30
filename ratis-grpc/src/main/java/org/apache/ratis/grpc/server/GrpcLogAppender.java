@@ -717,6 +717,8 @@ public class GrpcLogAppender extends LogAppenderBase {
           LOG.error("Unrecognized the reply result {}: Leader is {}, follower is {}",
               reply.getResult(), getServer().getId(), getFollowerId());
           break;
+        case SNAPSHOT_EXPIRED:
+          LOG.warn("{}: Follower could not install snapshot as it is expired.", this);
         default:
           break;
       }
@@ -764,7 +766,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       snapshotRequestObserver = getClient().installSnapshot(
           getFollower().getName() + "-installSnapshot-" + requestId,
           installSnapshotStreamTimeout, maxOutstandingInstallSnapshots, responseHandler);
-      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
+      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot, TIMESTAMP.incrementAndGet())) {
         if (isRunning()) {
           snapshotRequestObserver.onNext(request);
           getFollower().updateLastRpcSendTime(false);

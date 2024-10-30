@@ -36,14 +36,15 @@ final class LeaderProtoUtils {
   private LeaderProtoUtils() {}
 
   static SnapshotChunkProto.Builder toSnapshotChunkProtoBuilder(String requestId, int requestIndex,
-      TermIndex lastTermIndex, FileChunkProto chunk, long totalSize, boolean done) {
+      TermIndex lastTermIndex, FileChunkProto chunk, long totalSize, boolean done, long timestamp) {
     return SnapshotChunkProto.newBuilder()
         .setRequestId(requestId)
         .setRequestIndex(requestIndex)
         .setTermIndex(lastTermIndex.toProto())
         .addAllFileChunks(Collections.singleton(chunk))
         .setTotalSize(totalSize)
-        .setDone(done);
+        .setDone(done)
+        .setTimestamp(timestamp);
   }
 
   static InstallSnapshotRequestProto toInstallSnapshotRequestProto(

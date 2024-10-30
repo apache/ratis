@@ -324,7 +324,8 @@ public abstract class LogAppenderBase implements LogAppender {
   }
 
   @Override
-  public Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId, SnapshotInfo snapshot) {
-    return new InstallSnapshotRequests(server, getFollowerId(), requestId, snapshot, snapshotChunkMaxSize);
+  public Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId,
+             SnapshotInfo snapshot, long timestamp) {
+    return new InstallSnapshotRequests(server, getFollowerId(), requestId, snapshot, snapshotChunkMaxSize, timestamp);
   }
 }

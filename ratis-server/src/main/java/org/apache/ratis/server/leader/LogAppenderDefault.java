@@ -112,7 +112,7 @@ class LogAppenderDefault extends LogAppenderBase {
     String requestId = UUID.randomUUID().toString();
     InstallSnapshotReplyProto reply = null;
     try {
-      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
+      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot, TIMESTAMP.incrementAndGet())) {
         getFollower().updateLastRpcSendTime(false);
         reply = getServerRpc().installSnapshot(request);
         getFollower().updateLastRpcResponseTime();

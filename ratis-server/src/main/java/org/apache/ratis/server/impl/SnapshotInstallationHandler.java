@@ -71,6 +71,7 @@ class SnapshotInstallationHandler {
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
   private final AtomicLong installedIndex = new AtomicLong(INVALID_LOG_INDEX);
   private final AtomicInteger nextChunkIndex = new AtomicInteger(-1);
+  private final AtomicLong timestamp = new AtomicLong(-1);
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
@@ -176,8 +177,16 @@ class SnapshotInstallationHandler {
       state.setLeader(leaderId, "installSnapshot");
 
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
+      if (timestamp.get() > snapshotChunkRequest.getTimestamp()) {
+        LOG.warn("{}: Ignoring stale snapshot request {}", getMemberId(),
+            ServerStringUtils.toInstallSnapshotRequestString(request));
+        InstallSnapshotReplyProto reply =  toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.SNAPSHOT_EXPIRED);
+        return future.thenApply(dummy -> reply);
+      }
       if (snapshotChunkRequest.getRequestIndex() == 0) {
         nextChunkIndex.set(0);
+        timestamp.set(snapshotChunkRequest.getTimestamp());
       } else if (nextChunkIndex.get() != snapshotChunkRequest.getRequestIndex()) {
         throw new IOException("Snapshot request already failed at chunk index " + nextChunkIndex.get()
                 + "; ignoring request with chunk index " + snapshotChunkRequest.getRequestIndex());
@@ -205,6 +214,7 @@ class SnapshotInstallationHandler {
         // re-load the state machine if this is the last chunk
         if (snapshotChunkRequest.getDone()) {
           state.reloadStateMachine(lastIncluded);
+          timestamp.set(-1);
         }
       } finally {
         server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_COMPLETE);

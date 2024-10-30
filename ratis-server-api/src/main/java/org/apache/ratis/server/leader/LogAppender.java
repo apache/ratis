@@ -35,13 +35,14 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A {@link LogAppender} is for the leader to send appendEntries to a particular follower.
  */
 public interface LogAppender {
   Logger LOG = LoggerFactory.getLogger(LogAppender.class);
-
+  AtomicLong TIMESTAMP = new AtomicLong();
   Class<? extends LogAppender> DEFAULT_CLASS = ReflectionUtils.getClass(
       LogAppender.class.getName() + "Default", LogAppender.class);
 
@@ -134,7 +135,8 @@ public interface LogAppender {
   InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex);
 
   /** @return an {@link Iterable} of {@link InstallSnapshotRequestProto} for sending the given snapshot. */
-  Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId, SnapshotInfo snapshot);
+  Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId,
+      SnapshotInfo snapshot, long timestamp);
 
   /**
    * Should this {@link LogAppender} send a snapshot to the follower?
