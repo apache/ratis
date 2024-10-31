@@ -61,10 +61,9 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
   private final long totalSize;
   /** The total number of snapshot files. */
   private final int numFiles;
-  private final long timestamp;
 
   InstallSnapshotRequests(RaftServer.Division server, RaftPeerId followerId,
-      String requestId, SnapshotInfo snapshot, int snapshotChunkMaxSize, long timestamp) {
+      String requestId, SnapshotInfo snapshot, int snapshotChunkMaxSize) {
     this.server = server;
     this.followerId = followerId;
     this.requestId = requestId;
@@ -74,7 +73,6 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
     this.totalSize = files.stream().mapToLong(FileInfo::getFileSize).reduce(Long::sum).orElseThrow(
             () -> new IllegalStateException("Failed to compute total size for snapshot " + snapshot));
     this.numFiles = files.size();
-    this.timestamp = timestamp;
 
     final File snapshotDir = server.getStateMachine().getStateMachineStorage().getSnapshotDir();
     final Function<Path, Path> relativize;
@@ -146,7 +144,7 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
     private InstallSnapshotRequestProto newInstallSnapshotRequest(FileChunkProto chunk, boolean done) {
       synchronized (server) {
         final SnapshotChunkProto.Builder b = LeaderProtoUtils.toSnapshotChunkProtoBuilder(
-            requestId, requestIndex++, snapshot.getTermIndex(), chunk, totalSize, done, timestamp);
+            requestId, requestIndex++, snapshot.getTermIndex(), chunk, totalSize, done);
         return LeaderProtoUtils.toInstallSnapshotRequestProto(server, followerId, b);
       }
     }

@@ -766,7 +766,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       snapshotRequestObserver = getClient().installSnapshot(
           getFollower().getName() + "-installSnapshot-" + requestId,
           installSnapshotStreamTimeout, maxOutstandingInstallSnapshots, responseHandler);
-      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot, TIMESTAMP.incrementAndGet())) {
+      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
         if (isRunning()) {
           snapshotRequestObserver.onNext(request);
           getFollower().updateLastRpcSendTime(false);

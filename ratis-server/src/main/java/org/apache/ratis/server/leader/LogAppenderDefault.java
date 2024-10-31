@@ -112,7 +112,7 @@ class LogAppenderDefault extends LogAppenderBase {
     String requestId = UUID.randomUUID().toString();
     InstallSnapshotReplyProto reply = null;
     try {
-      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot, TIMESTAMP.incrementAndGet())) {
+      for (InstallSnapshotRequestProto request : newInstallSnapshotRequests(requestId, snapshot)) {
         getFollower().updateLastRpcSendTime(false);
         reply = getServerRpc().installSnapshot(request);
         getFollower().updateLastRpcResponseTime();
@@ -155,6 +155,7 @@ class LogAppenderDefault extends LogAppenderBase {
               case SUCCESS:
               case SNAPSHOT_UNAVAILABLE:
               case ALREADY_INSTALLED:
+              case SNAPSHOT_EXPIRED:
                 getFollower().setAttemptedToInstallSnapshot();
                 break;
               default:

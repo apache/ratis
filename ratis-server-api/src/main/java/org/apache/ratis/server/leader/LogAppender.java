@@ -42,7 +42,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public interface LogAppender {
   Logger LOG = LoggerFactory.getLogger(LogAppender.class);
-  AtomicLong TIMESTAMP = new AtomicLong();
   Class<? extends LogAppender> DEFAULT_CLASS = ReflectionUtils.getClass(
       LogAppender.class.getName() + "Default", LogAppender.class);
 
@@ -135,8 +134,7 @@ public interface LogAppender {
   InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex);
 
   /** @return an {@link Iterable} of {@link InstallSnapshotRequestProto} for sending the given snapshot. */
-  Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId,
-      SnapshotInfo snapshot, long timestamp);
+  Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId, SnapshotInfo snapshot);
 
   /**
    * Should this {@link LogAppender} send a snapshot to the follower?

@@ -213,7 +213,6 @@ message InstallSnapshotRequestProto {
     repeated FileChunkProto fileChunks = 5;
     uint64 totalSize = 6;
     bool done = 7; // whether this is the final chunk for the same req.
-    uint64 timestamp = 8;
   }
 
   message NotificationProto {
