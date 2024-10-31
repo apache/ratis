@@ -194,7 +194,7 @@ public interface TransactionContext {
         return newTransactionContext(stateMachine, clientRequest,
             stateMachineLogEntry, logData, stateMachineData, stateMachineContext);
       } else {
-        Objects.requireNonNull(logEntry, "logEntry MUST NOT be null since clientRequest == null");
+        Objects.requireNonNull(logEntry, "logEntry must not be null since clientRequest == null");
         Preconditions.assertTrue(logEntry.hasStateMachineLogEntry(),
             () -> "Unexpected logEntry: stateMachineLogEntry not found, logEntry=" + logEntry);
         return newTransactionContext(serverRole, stateMachine, logEntry);
