@@ -144,7 +144,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
    * @return a {@link TimeDuration} in the target unit.
    */
   public static TimeDuration valueOf(String timeString, TimeUnit defaultUnit) {
-    Objects.requireNonNull(timeString, "timeString = null");
+    Objects.requireNonNull(timeString, "timeString == null");
     final String lower = timeString.trim().replace("_", "").toLowerCase();
     for(Abbreviation a : Abbreviation.values()) {
       for(String s : a.getSymbols()) {
@@ -172,7 +172,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
 
   private TimeDuration(long duration, TimeUnit unit) {
     this.duration = duration;
-    this.unit = Objects.requireNonNull(unit, "unit = null");
+    this.unit = Objects.requireNonNull(unit, "unit == null");
   }
 
   /** @return the duration value. */
