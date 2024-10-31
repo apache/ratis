@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A {@link LogAppender} is for the leader to send appendEntries to a particular follower.
