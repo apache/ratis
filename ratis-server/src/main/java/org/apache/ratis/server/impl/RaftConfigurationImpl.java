@@ -58,7 +58,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     private Builder() {}
 
     Builder setConf(PeerConfiguration conf) {
-      Objects.requireNonNull(conf);
+      Objects.requireNonNull(conf, "PeerConfiguration == null");
       Preconditions.assertTrue(this.conf == null, "conf is already set.");
       this.conf = conf;
       return this;
@@ -73,7 +73,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     }
 
     Builder setConf(RaftConfigurationImpl transitionalConf) {
-      Objects.requireNonNull(transitionalConf);
+      Objects.requireNonNull(transitionalConf, "transitionalConf == null");
       Preconditions.assertTrue(transitionalConf.isTransitional());
 
       Preconditions.assertTrue(!forceTransitional);
@@ -83,7 +83,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
 
 
     Builder setOldConf(PeerConfiguration oldConf) {
-      Objects.requireNonNull(oldConf);
+      Objects.requireNonNull(oldConf, "oldConf == null");
       Preconditions.assertTrue(this.oldConf == null, "oldConf is already set.");
       this.oldConf = oldConf;
       return this;
@@ -94,7 +94,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     }
 
     Builder setOldConf(RaftConfigurationImpl stableConf) {
-      Objects.requireNonNull(stableConf);
+      Objects.requireNonNull(stableConf, "stableConf == null");
       Preconditions.assertTrue(stableConf.isStable());
 
       Preconditions.assertTrue(!forceStable);
@@ -133,7 +133,7 @@ final class RaftConfigurationImpl implements RaftConfiguration {
 
   private RaftConfigurationImpl(PeerConfiguration conf, PeerConfiguration oldConf,
       long logEntryIndex) {
-    this.conf = Objects.requireNonNull(conf);
+    this.conf = Objects.requireNonNull(conf, "PeerConfiguration == null");
     this.oldConf = oldConf;
     this.logEntryIndex = logEntryIndex;
   }

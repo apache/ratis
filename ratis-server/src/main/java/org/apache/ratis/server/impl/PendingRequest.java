@@ -64,7 +64,7 @@ class PendingRequest {
   }
 
   TermIndex getTermIndex() {
-    return Objects.requireNonNull(termIndex, "termIndex");
+    return Objects.requireNonNull(termIndex, "termIndex == null");
   }
 
   RaftClientRequest getRequest() {
