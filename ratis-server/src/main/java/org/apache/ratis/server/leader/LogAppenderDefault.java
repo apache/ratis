@@ -150,6 +150,7 @@ class LogAppenderDefault extends LogAppenderBase {
               case SUCCESS:
               case SNAPSHOT_UNAVAILABLE:
               case ALREADY_INSTALLED:
+              case SNAPSHOT_EXPIRED:
                 getFollower().setAttemptedToInstallSnapshot();
                 break;
               default:
