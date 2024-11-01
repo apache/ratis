@@ -179,7 +179,7 @@ class SnapshotInstallationHandler {
 
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
       long chunk0 = chunk0CallId.get();
-      if (chunk0 > request.getServerRequest().getCallId()) {
+      if (chunk0 > request.getServerRequest().getCallId() && currentTerm == leaderTerm) {
         LOG.warn("{}: Snapshot Request Staled: chunk 0 callId is {} but {}", getMemberId(), chunk0,
             ServerStringUtils.toInstallSnapshotRequestString(request));
         InstallSnapshotReplyProto reply =  toInstallSnapshotReplyProto(leaderId, getMemberId(),
