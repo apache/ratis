@@ -178,9 +178,14 @@ class SnapshotInstallationHandler {
       state.setLeader(leaderId, "installSnapshot");
 
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
-      long chunk0 = chunk0CallId.get();
-      if (chunk0 > request.getServerRequest().getCallId() && currentTerm == leaderTerm) {
-        LOG.warn("{}: Snapshot Request Staled: chunk 0 callId is {} but {}", getMemberId(), chunk0,
+      long callId = chunk0CallId.get();
+      // 1. leaderTerm < currentTerm will never come here
+      // 2. leaderTerm == currentTerm && callId == request.getCallId()
+      //    means the snapshotRequest is staled with the same leader
+      // 3. leaderTerm > currentTerm means this is a new snapshot request from a new leader,
+      //    chunk0CallId will be reset when a snapshot request with requestIndex == 0 is received .
+      if (callId > request.getServerRequest().getCallId() && currentTerm == leaderTerm) {
+        LOG.warn("{}: Snapshot Request Staled: chunk 0 callId is {} but {}", getMemberId(), callId,
             ServerStringUtils.toInstallSnapshotRequestString(request));
         InstallSnapshotReplyProto reply =  toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.SNAPSHOT_EXPIRED);

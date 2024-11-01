@@ -62,6 +62,7 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
   /** The total number of snapshot files. */
   private final int numFiles;
 
+
   InstallSnapshotRequests(RaftServer.Division server, RaftPeerId followerId,
       String requestId, SnapshotInfo snapshot, int snapshotChunkMaxSize) {
     this.server = server;
