@@ -41,6 +41,7 @@ import java.util.concurrent.CompletionException;
  */
 public interface LogAppender {
   Logger LOG = LoggerFactory.getLogger(LogAppender.class);
+
   Class<? extends LogAppender> DEFAULT_CLASS = ReflectionUtils.getClass(
       LogAppender.class.getName() + "Default", LogAppender.class);
 
