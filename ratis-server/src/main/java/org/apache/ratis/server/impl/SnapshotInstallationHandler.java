@@ -71,6 +71,8 @@ class SnapshotInstallationHandler {
   private final AtomicBoolean isSnapshotNull = new AtomicBoolean();
   private final AtomicLong installedIndex = new AtomicLong(INVALID_LOG_INDEX);
   private final AtomicInteger nextChunkIndex = new AtomicInteger(-1);
+  /** The callId of the chunk with index 0. */
+  private final AtomicLong chunk0CallId = new AtomicLong(-1);
 
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
@@ -176,8 +178,22 @@ class SnapshotInstallationHandler {
       state.setLeader(leaderId, "installSnapshot");
 
       server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
+      long callId = chunk0CallId.get();
+      // 1. leaderTerm < currentTerm will never come here
+      // 2. leaderTerm == currentTerm && callId == request.getCallId()
+      //    means the snapshotRequest is staled with the same leader
+      // 3. leaderTerm > currentTerm means this is a new snapshot request from a new leader,
+      //    chunk0CallId will be reset when a snapshot request with requestIndex == 0 is received .
+      if (callId > request.getServerRequest().getCallId() && currentTerm == leaderTerm) {
+        LOG.warn("{}: Snapshot Request Staled: chunk 0 callId is {} but {}", getMemberId(), callId,
+            ServerStringUtils.toInstallSnapshotRequestString(request));
+        InstallSnapshotReplyProto reply =  toInstallSnapshotReplyProto(leaderId, getMemberId(),
+            currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.SNAPSHOT_EXPIRED);
+        return future.thenApply(dummy -> reply);
+      }
       if (snapshotChunkRequest.getRequestIndex() == 0) {
         nextChunkIndex.set(0);
+        chunk0CallId.set(request.getServerRequest().getCallId());
       } else if (nextChunkIndex.get() != snapshotChunkRequest.getRequestIndex()) {
         throw new IOException("Snapshot request already failed at chunk index " + nextChunkIndex.get()
                 + "; ignoring request with chunk index " + snapshotChunkRequest.getRequestIndex());
@@ -205,6 +221,7 @@ class SnapshotInstallationHandler {
         // re-load the state machine if this is the last chunk
         if (snapshotChunkRequest.getDone()) {
           state.reloadStateMachine(lastIncluded);
+          chunk0CallId.set(-1);
         }
       } finally {
         server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_COMPLETE);

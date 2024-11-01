@@ -155,6 +155,7 @@ enum InstallSnapshotResult {
   CONF_MISMATCH = 4;
   SNAPSHOT_INSTALLED = 5;
   SNAPSHOT_UNAVAILABLE = 6;
+  SNAPSHOT_EXPIRED = 7;
 }
 
 message RequestVoteRequestProto {
