@@ -17,7 +17,7 @@
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>3.1.1</version>
+    <version>3.1.2</version>
   </parent>
 
   <artifactId>ratis-experiments</artifactId>
