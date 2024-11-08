@@ -151,8 +151,8 @@ public class SegmentedRaftLogCache {
       if (toTruncate != null) {
         max = toTruncate.endIndex;
       }
-      for(SegmentFileInfo d : toDelete) {
-        max = Math.max(max, d.endIndex);
+      if (toDelete != null && toDelete.length > 0) {
+        max = Math.max(max, toDelete[0].endIndex);
       }
       return max;
     }
@@ -359,7 +359,7 @@ public class SegmentedRaftLogCache {
       try (AutoCloseableLock writeLock = writeLock()) {
         int segmentIndex = binarySearch(index);
         List<LogSegment> list = new LinkedList<>();
-
+        LOG.info("purgeLog are: {}", segments);
         if (segmentIndex == -segments.size() - 1) {
           list.addAll(segments);
           segments.clear();
@@ -383,6 +383,7 @@ public class SegmentedRaftLogCache {
         list.forEach(LogSegment::evictCache);
         List<SegmentFileInfo> toDelete = list.stream().map(SegmentFileInfo::newClosedSegmentFileInfo)
             .collect(Collectors.toList());
+        LOG.info("final toDelete: {}", toDelete);
         return list.isEmpty() ? null : new TruncationSegments("purge(" + index + ")", null, toDelete);
       }
     }
