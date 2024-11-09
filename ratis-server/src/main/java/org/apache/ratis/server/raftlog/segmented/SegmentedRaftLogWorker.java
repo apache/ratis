@@ -694,9 +694,7 @@ class SegmentedRaftLogWorker {
 
       if (segments.getToDelete() != null && segments.getToDelete().length > 0) {
         long minStart = segments.getToDelete()[0].getStartIndex();
-        SegmentFileInfo[] toDelete = segments.getToDelete();
-        for (int i = toDelete.length - 1; i >= 0; i--) {
-          final SegmentFileInfo del = toDelete[i];
+        for (SegmentFileInfo del : segments.getToDelete()) {
           final File delFile = del.getFile(storage);
           Preconditions.assertTrue(delFile.exists(),
               "File %s to be deleted does not exist", delFile);
