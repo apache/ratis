@@ -326,6 +326,13 @@ public abstract class RaftLogBase implements RaftLog {
     if (suggestedIndex - lastPurge < purgeGap) {
       return CompletableFuture.completedFuture(lastPurge);
     }
+    long startIndex = getStartIndex();
+    if (suggestedIndex < startIndex) {
+      LOG.info("{}: purge is skipped since the suggested index {} is lower than " +
+              "log start index {}",
+          getName(), suggestedIndex, startIndex);
+      return CompletableFuture.completedFuture(lastPurge);
+    }
     LOG.info("{}: purge {}", getName(), suggestedIndex);
     final long finalSuggestedIndex = suggestedIndex;
     return purgeImpl(suggestedIndex).whenComplete((purged, e) -> {
