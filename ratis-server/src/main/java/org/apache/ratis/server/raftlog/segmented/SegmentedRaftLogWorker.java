@@ -476,9 +476,10 @@ class SegmentedRaftLogWorker {
     void execute() throws IOException {
       if (segments.getToDelete() != null) {
         try(UncheckedAutoCloseable ignored = raftLogMetrics.startPurgeTimer()) {
-          for (SegmentFileInfo fileInfo : segments.getToDelete()) {
-            final Path deleted = FileUtils.deleteFile(fileInfo.getFile(storage));
-            LOG.info("{}: Purged RaftLog segment: info={}, path={}", name, fileInfo, deleted);
+          SegmentFileInfo[] toDeletes = segments.getToDelete();
+          for (int i = toDeletes.length - 1; i >= 0; i--) {
+            final Path deleted = FileUtils.deleteFile(toDeletes[i].getFile(storage));
+            LOG.info("{}: Purged RaftLog segment: info={}, path={}", name, toDeletes[i], deleted);
           }
         }
       }
