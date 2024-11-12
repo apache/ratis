@@ -150,7 +150,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         .build();
   }
 
-  SegmentedRaftLog newSegmentedRaftLogWithSnapshotIndex(RaftStorage storage, RaftProperties properties,
+  private SegmentedRaftLog newSegmentedRaftLogWithSnapshotIndex(RaftStorage storage, RaftProperties properties,
                                                                 LongSupplier getSnapshotIndexFromStateMachine) {
     return SegmentedRaftLog.newBuilder()
         .setMemberId(MEMBER_ID)
