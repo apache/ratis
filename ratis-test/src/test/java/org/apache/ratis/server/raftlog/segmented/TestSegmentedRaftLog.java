@@ -563,6 +563,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     int segmentSize = 200;
     long beginIndexOfOpenSegment = segmentSize * (endTerm - startTerm - 1);
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
+    long purgePreservation = 0L;
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, beginIndexOfOpenSegment, expectedIndex);
   }
 
@@ -599,15 +600,36 @@ public class TestSegmentedRaftLog extends BaseTest {
     purgeAndVerify(startTerm, endTerm, segmentSize, 1000, endIndexOfClosedSegment, expectedIndex);
   }
 
+  @Test
+  public void testPurgeWithLargePurgePreservationAndSmallPurgeGap() throws Exception {
+    int startTerm = 0;
+    int endTerm = 5;
+    int segmentSize = 200;
+    long endIndex = segmentSize * (endTerm - startTerm) - 1;
+    // start index is set so that the suggested index will not be negative, which will not trigger any purge
+    long startIndex = 200;
+    // purge preservation is larger than the total size of the log entries
+    // which causes suggested index to be lower than the start index
+    long purgePreservation = (segmentSize * (endTerm - startTerm )) + 100;
+    // if the suggested index is lower than the start index due to the purge preservation, we should not purge anything
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndex, startIndex, startIndex, purgePreservation);
+  }
+
   private void purgeAndVerify(int startTerm, int endTerm, int segmentSize, int purgeGap, long purgeIndex,
-      long expectedIndex) throws Exception {
-    List<SegmentRange> ranges = prepareRanges(startTerm, endTerm, segmentSize, 0);
+                              long expectedIndex) throws Exception {
+    purgeAndVerify(startTerm, endTerm, segmentSize, purgeGap, purgeIndex, expectedIndex, 0, 0);
+  }
+
+  private void purgeAndVerify(int startTerm, int endTerm, int segmentSize, int purgeGap, long purgeIndex,
+      long expectedIndex, long startIndex, long purgePreservation) throws Exception {
+    List<SegmentRange> ranges = prepareRanges(startTerm, endTerm, segmentSize, startIndex);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
     final RaftProperties p = new RaftProperties();
     RaftServerConfigKeys.Log.setPurgeGap(p, purgeGap);
-    try (SegmentedRaftLog raftLog = newSegmentedRaftLog(storage, p)) {
-      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+    RaftServerConfigKeys.Log.setPurgePreservationLogNum(p, purgePreservation);
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLogWithSnapshotIndex(storage, p, () -> startIndex - 1)) {
+      raftLog.open(startIndex - 1, null);
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
       final CompletableFuture<Long> f = raftLog.purge(purgeIndex);
       final Long purged = f.get();
