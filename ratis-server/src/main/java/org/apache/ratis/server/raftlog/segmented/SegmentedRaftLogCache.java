@@ -358,15 +358,16 @@ public class SegmentedRaftLogCache {
     TruncationSegments purge(long index) {
       try (AutoCloseableLock writeLock = writeLock()) {
         int segmentIndex = binarySearch(index);
+        if (segmentIndex == -1) {
+          // nothing to purge
+          return null;
+        }
         List<LogSegment> list = new LinkedList<>();
 
         if (segmentIndex == -segments.size() - 1) {
           list.addAll(segments);
           segments.clear();
           sizeInBytes = 0;
-        } else if (segmentIndex == -1) {
-          // nothing to purge
-          return null;
         } else if (segmentIndex >= 0) {
           // we start to purge the closedSegments which do not overlap with index.
           LogSegment overlappedSegment = segments.get(segmentIndex);
