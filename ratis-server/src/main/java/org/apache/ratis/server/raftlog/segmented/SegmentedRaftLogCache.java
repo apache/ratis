@@ -364,6 +364,9 @@ public class SegmentedRaftLogCache {
           list.addAll(segments);
           segments.clear();
           sizeInBytes = 0;
+        } else if (segmentIndex == -1) {
+          // nothing to purge
+          return null;
         } else if (segmentIndex >= 0) {
           // we start to purge the closedSegments which do not overlap with index.
           LogSegment overlappedSegment = segments.get(segmentIndex);

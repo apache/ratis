@@ -567,7 +567,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     long beginIndexOfOpenSegment = segmentSize * (endTerm - startTerm - 1);
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
     long purgePreservation = 0L;
-    purgeAndVerify(startTerm, endTerm, segmentSize, 1, beginIndexOfOpenSegment, expectedIndex, 0, 0);
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1, beginIndexOfOpenSegment, expectedIndex);
   }
 
   @Test
@@ -577,7 +577,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     int segmentSize = 200;
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
-    purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex, 0, 0);
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
   }
 
   @Test
@@ -588,7 +588,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
     final RatisMetricRegistry metricRegistryForLogWorker = RaftLogMetricsBase.createRegistry(MEMBER_ID);
-    purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex, 0, 0);
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
     final DefaultTimekeeperImpl purge = (DefaultTimekeeperImpl) metricRegistryForLogWorker.timer("purgeLog");
     assertTrue(purge.getTimer().getCount() > 0);
   }
@@ -600,7 +600,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     int segmentSize = 200;
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = RaftLog.LEAST_VALID_LOG_INDEX;
-    purgeAndVerify(startTerm, endTerm, segmentSize, 1000, endIndexOfClosedSegment, expectedIndex, 0, 0);
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1000, endIndexOfClosedSegment, expectedIndex);
   }
 
   @Test
@@ -616,6 +616,11 @@ public class TestSegmentedRaftLog extends BaseTest {
     long purgePreservation = (segmentSize * (endTerm - startTerm )) + 100;
     // if the suggested index is lower than the start index due to the purge preservation, we should not purge anything
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndex, startIndex, startIndex, purgePreservation);
+  }
+
+  private void purgeAndVerify(int startTerm, int endTerm, int segmentSize, int purgeGap, long purgeIndex,
+                              long expectedIndex) throws Exception {
+    purgeAndVerify(startTerm, endTerm, segmentSize, purgeGap, purgeIndex, expectedIndex, 0, 0);
   }
 
   private void purgeAndVerify(int startTerm, int endTerm, int segmentSize, int purgeGap, long purgeIndex,
