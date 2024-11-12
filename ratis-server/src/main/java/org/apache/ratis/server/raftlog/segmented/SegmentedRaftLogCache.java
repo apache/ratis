@@ -357,6 +357,10 @@ public class SegmentedRaftLogCache {
       try (AutoCloseableLock writeLock = writeLock()) {
         int segmentIndex = binarySearch(index);
         List<SegmentFileInfo> list = new ArrayList<>();
+        if (segmentIndex == -1) {
+          // nothing to purge
+          return null;
+        }
 
         if (segmentIndex == -segments.size() - 1) {
           for (LogSegment ls : segments) {
@@ -527,8 +531,9 @@ public class SegmentedRaftLogCache {
   }
 
   LogSegment getSegment(long index) {
-    if (openSegment != null && index >= openSegment.getStartIndex()) {
-      return openSegment;
+    final LogSegment open = this.openSegment;
+    if (open != null && index >= open.getStartIndex()) {
+      return open;
     } else {
       return closedSegments.search(index);
     }

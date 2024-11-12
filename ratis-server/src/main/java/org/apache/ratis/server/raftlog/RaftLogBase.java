@@ -314,20 +314,28 @@ public abstract class RaftLogBase implements RaftLog {
 
   @Override
   public final CompletableFuture<Long> purge(long suggestedIndex) {
+    final long adjustedIndex;
     if (purgePreservation > 0) {
       final long currentIndex = getNextIndex() - 1;
-      suggestedIndex = Math.min(suggestedIndex, currentIndex - purgePreservation);
+      adjustedIndex = Math.min(suggestedIndex, currentIndex - purgePreservation);
+    } else {
+      adjustedIndex = suggestedIndex;
     }
     final long lastPurge = purgeIndex.get();
-    if (suggestedIndex - lastPurge < purgeGap) {
+    if (adjustedIndex - lastPurge < purgeGap) {
       return CompletableFuture.completedFuture(lastPurge);
     }
-    LOG.info("{}: purge {}", getName(), suggestedIndex);
-    final long finalSuggestedIndex = suggestedIndex;
-    return purgeImpl(suggestedIndex).whenComplete((purged, e) -> {
+    final long startIndex = getStartIndex();
+    if (adjustedIndex < startIndex) {
+      LOG.info("{}: purge({}) is skipped: adjustedIndex = {} < startIndex = {}, purgePreservation = {}",
+          getName(), suggestedIndex, adjustedIndex, startIndex, purgePreservation);
+      return CompletableFuture.completedFuture(lastPurge);
+    }
+    LOG.info("{}: purge {}", getName(), adjustedIndex );
+    return purgeImpl(adjustedIndex).whenComplete((purged, e) -> {
       updatePurgeIndex(purged);
       if (e != null) {
-        LOG.warn(getName() + ": Failed to purge " + finalSuggestedIndex, e);
+        LOG.warn(getName() + ": Failed to purge " + adjustedIndex, e);
       }
     });
   }
