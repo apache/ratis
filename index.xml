@@ -6,8 +6,15 @@
     <description>Recent content on Apache Ratis</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 26 Sep 2024 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 13 Nov 2024 00:00:00 +0000</lastBuildDate>
     <atom:link href="https://ratis.apache.org/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Release 3.1.2 is available</title>
+      <link>https://ratis.apache.org/post/3.1.2.html</link>
+      <pubDate>Wed, 13 Nov 2024 00:00:00 +0000</pubDate>
+      <guid>https://ratis.apache.org/post/3.1.2.html</guid>
+      <description>&lt;!-- raw HTML omitted --&gt;&#xA;&lt;!-- raw HTML omitted --&gt;&#xA;&lt;p&gt;&lt;a href=&#34;https://ratis.apache.org/downloads.html&#34;&gt;Download&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;This is a maintenance release with multiple improvements and bugfixes.&#xA;See the &lt;a href=&#34;https://github.com/apache/ratis/compare/ratis-3.1.1...ratis-3.1.2&#34;&gt;changes between 3.1.1 and 3.1.2&lt;/a&gt; releases.&lt;/p&gt;&#xA;&lt;p&gt;It has been tested with &lt;a href=&#34;https://ozone.apache.org&#34;&gt;Apache Ozone&lt;/a&gt;, &lt;a href=&#34;https://iotdb.apache.org&#34;&gt;Apache IoTDB&lt;/a&gt;.&lt;/p&gt;</description>
+    </item>
     <item>
       <title>Release 3.1.1 is available</title>
       <link>https://ratis.apache.org/post/3.1.1.html</link>

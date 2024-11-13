@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 
 <html>
@@ -88,111 +87,27 @@
 </div>
 
 
-<div class="container">
 
-  <h1>Download</h1>
-
-  <p>Apache Ratis is a Java library that can be used directly from your applications.
-
-It is released as source code tarballs. The downloads are distributed via mirror sites and should be checked for tampering using GPG or SHA-256
-
-The source tarball contains detailed instruction about how can it be built.
-
-The binaries are also uploaded to the maven central for convenience. (See the getting started guide for more details)
-
-1.0.0 is GA release for Apache Ratis</p>
-
-<p>
-  <table class="table table-striped">
-    <thead>
-    <tr>
-      <th>Version</th>
-      <th>Release date</th>
-      <th>Source download</th>
-      <th>Binary download</th>
-      <th>Release notes</th>
-    </tr>
-  </thead>
-
-    
-    
-     <tr>
-       <td>3.1.2</td>
-       <td>2024 Nov 13</td>
-       <td>
-         <a href="https://www.apache.org/dyn/closer.cgi/ratis/3.1.2/apache-ratis-3.1.2-src.tar.gz">source</a>
-         (<a href="https://downloads.apache.org/ratis/3.1.2/apache-ratis-3.1.2-src.tar.gz.mds">checksum</a>
-         <a href="https://downloads.apache.org/ratis/3.1.2/apache-ratis-3.1.2-src.tar.gz.asc">signature</a>)
-        </td>
-        <td>
-          <a href="https://www.apache.org/dyn/closer.cgi/ratis/3.1.2/apache-ratis-3.1.2-bin.tar.gz">binary</a>
-          (<a href="https://downloads.apache.org/ratis/3.1.2/apache-ratis-3.1.2-bin.tar.gz.mds">checksum</a>
-          <a href="https://downloads.apache.org/ratis/3.1.2/apache-ratis-3.1.2-bin.tar.gz.asc">signature</a>)
-         </td>
-         <td>
-           <a href="post/3.1.2.html">Announcement</a>
-         </td>
-     </tr>
-    
-    
-    
-    
-    
-    
-    
-     <tr>
-       <td>3.0.1</td>
-       <td>2024 Jan 9</td>
-       <td>
-         <a href="https://www.apache.org/dyn/closer.cgi/ratis/3.0.1/apache-ratis-3.0.1-src.tar.gz">source</a>
-         (<a href="https://downloads.apache.org/ratis/3.0.1/apache-ratis-3.0.1-src.tar.gz.mds">checksum</a>
-         <a href="https://downloads.apache.org/ratis/3.0.1/apache-ratis-3.0.1-src.tar.gz.asc">signature</a>)
-        </td>
-        <td>
-          <a href="https://www.apache.org/dyn/closer.cgi/ratis/3.0.1/apache-ratis-3.0.1-bin.tar.gz">binary</a>
-          (<a href="https://downloads.apache.org/ratis/3.0.1/apache-ratis-3.0.1-bin.tar.gz.mds">checksum</a>
-          <a href="https://downloads.apache.org/ratis/3.0.1/apache-ratis-3.0.1-bin.tar.gz.asc">signature</a>)
-         </td>
-         <td>
-           <a href="post/3.0.1.html">Announcement</a>
-         </td>
-     </tr>
-    
-    
-    
-    
-  </table>
-</p>
-
-  
-
-<h2 id="to-verify-ratis-releases-using-gpg">To verify Ratis releases using GPG:</h2>
-<ol>
-<li>Download the release apache-ratis-X.Y.Z-src.tar.gz from a <a href="https://www.apache.org/dyn/closer.cgi/ratis">mirror
-site</a>.</li>
-<li>Download the signature file apache-ratis-X.Y.Z-src.tar.gz.asc from
-<a href="https://downloads.apache.org/ratis/">Apache</a>.</li>
-<li>Download the <a href="https://downloads.apache.org/ratis/KEYS">Ratis KEYS</a> file.</li>
-<li>gpg --import KEYS</li>
-<li>gpg --verify apache-ratis-X.Y.Z-src.tar.gz.asc apache-ratis-X.Y.Z-src.tar.gz</li>
-</ol>
-<h2 id="to-perform-a-quick-check-using-sha-256">To perform a quick check using SHA-256:</h2>
-<ol>
-<li>Download the release apache-ratis-X.Y.Z-src.tar.gz from a <a href="https://www.apache.org/dyn/closer.cgi/ratis">mirror
-site</a>.</li>
-<li>Download the checksum apache-ratis-X.Y.Z-src.tar.gz.mds from
-<a href="https://downloads.apache.org/ratis/">Apache</a>.</li>
-<li>shasum -a 256 apache-ratis-X.Y.Z-src.tar.gz</li>
-</ol>
-<p>All previous releases of Ratis are available from the <a href="https://archive.apache.org/dist/ratis/">Apache release
-archive</a> site.</p>
-<p>Ratis is also <a href="https://search.maven.org/search?q=ratis">available</a> from the Maven central repository.</p>
-<h2 id="license">License</h2>
-<p><em>The software licensed under <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License 2.0</a></em></p>
-
+<div class="topnav" style="background:#F0F0F0">
+        <div class="container">
+            <div class="jumbotron">
+                <h1 style="color:#000">
+                    Open source Java implementation for Raft consensus protocol.
+                </h1>
+            </div>
+        </div>
 </div>
 
+<div class="container">
+<h1>Release 3.1.2 is available</h1>
+<!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+<p><a href="https://ratis.apache.org/downloads.html">Download</a></p>
+<p>This is a maintenance release with multiple improvements and bugfixes.
+See the <a href="https://github.com/apache/ratis/compare/ratis-3.1.1...ratis-3.1.2">changes between 3.1.1 and 3.1.2</a> releases.</p>
+<p>It has been tested with <a href="https://ozone.apache.org">Apache Ozone</a>, <a href="https://iotdb.apache.org">Apache IoTDB</a>.</p>
 
+</div>
 
 <footer>
     <div class="container">
