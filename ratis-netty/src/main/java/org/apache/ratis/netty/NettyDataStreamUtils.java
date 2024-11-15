@@ -103,11 +103,11 @@ public interface NettyDataStreamUtils {
       ByteBufAllocator allocator) {
     final ByteBuffer headerBuf = getDataStreamRequestHeaderProtoByteBuffer(request);
 
-    final ByteBuf headerBodyLenBuf = allocator.directBuffer(DataStreamPacketHeader.getSizeOfHeaderBodyLen());
+    final ByteBuf headerBodyLenBuf = allocator.ioBuffer(DataStreamPacketHeader.getSizeOfHeaderBodyLen());
     headerBodyLenBuf.writeLong(headerBuf.remaining() + request.getDataLength());
     out.accept(headerBodyLenBuf);
 
-    final ByteBuf headerLenBuf = allocator.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
+    final ByteBuf headerLenBuf = allocator.ioBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
     headerLenBuf.writeInt(headerBuf.remaining());
     out.accept(headerLenBuf);
 
@@ -152,7 +152,7 @@ public interface NettyDataStreamUtils {
   static void encodeDataStreamReplyByteBuffer(DataStreamReplyByteBuffer reply, Consumer<ByteBuf> out,
       ByteBufAllocator allocator) {
     ByteBuffer headerBuf = getDataStreamReplyHeaderProtoByteBuf(reply);
-    final ByteBuf headerLenBuf = allocator.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
+    final ByteBuf headerLenBuf = allocator.ioBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
     headerLenBuf.writeInt(headerBuf.remaining());
     out.accept(headerLenBuf);
     out.accept(Unpooled.wrappedBuffer(headerBuf));
