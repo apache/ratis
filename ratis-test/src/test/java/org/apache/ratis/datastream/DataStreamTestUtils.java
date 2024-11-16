@@ -423,8 +423,7 @@ public interface DataStreamTestUtils {
   }
 
   ResourceLeakDetector.LeakListener LEAK_LISTENER = (resourceType, records) -> {
-    throw new IllegalStateException("Leak detected for resource type: " + resourceType +
-        ", records: " + records);
+    throw new IllegalStateException("Leak detected for resource type: " + resourceType + records);
   };
 
   static void enableResourceLeakDetector() {
