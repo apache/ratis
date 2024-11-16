@@ -27,9 +27,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.thirdparty.io.netty.buffer.ByteBufUtil;
-import org.apache.ratis.thirdparty.io.netty.util.ResourceLeakDetector;
-import org.apache.ratis.thirdparty.io.netty.util.ResourceLeakDetector.Level;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.function.CheckedSupplier;
@@ -59,8 +56,7 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
         FileStoreStateMachine.class, StateMachine.class);
     ConfUtils.setFile(p::setFile, FileStoreCommon.STATEMACHINE_DIR_KEY,
         new File(getClassTestDir(), "filestore"));
-    ResourceLeakDetector.setLevel(Level.PARANOID);
-    ByteBufUtil.setLeakListener(DataStreamTestUtils.LEAK_LISTENER);
+    DataStreamTestUtils.enableResourceLeakDetector();
   }
 
   static final int NUM_PEERS = 3;

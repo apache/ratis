@@ -32,9 +32,6 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.thirdparty.io.netty.buffer.ByteBufUtil;
-import org.apache.ratis.thirdparty.io.netty.util.ResourceLeakDetector;
-import org.apache.ratis.thirdparty.io.netty.util.ResourceLeakDetector.Level;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Timestamp;
@@ -55,8 +52,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
     setStateMachine(MultiDataStreamStateMachine.class);
-    ResourceLeakDetector.setLevel(Level.PARANOID);
-    ByteBufUtil.setLeakListener(DataStreamTestUtils.LEAK_LISTENER);
+    DataStreamTestUtils.enableResourceLeakDetector();
   }
 
   public static final int NUM_SERVERS = 3;
