@@ -390,8 +390,13 @@ public class DataStreamManagement {
   void cleanUp(Set<ClientInvocationId> ids) {
     for (ClientInvocationId clientInvocationId : ids) {
       Optional.ofNullable(streams.remove(clientInvocationId))
-          .map(StreamInfo::getLocal)
-          .ifPresent(LocalStream::cleanUp);
+          .ifPresent(streamInfo -> {
+            streamInfo.getDivision()
+                .getDataStreamMap()
+                .remove(clientInvocationId);
+            streamInfo.getLocal().cleanUp();
+            streamInfo.applyToRemotes(out -> out.out.closeAsync());
+          });
     }
   }
 
@@ -423,6 +428,7 @@ public class DataStreamManagement {
     if (info != null) {
       info.getDivision().getDataStreamMap().remove(invocationId);
       info.getLocal().cleanUp();
+      info.applyToRemotes(out -> out.out.closeAsync());
     }
   }
 
