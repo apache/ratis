@@ -52,6 +52,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
     setStateMachine(MultiDataStreamStateMachine.class);
+    DataStreamTestUtils.enableResourceLeakDetector();
   }
 
   public static final int NUM_SERVERS = 3;
