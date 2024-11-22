@@ -46,6 +46,9 @@ import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBufUtil;
+import org.apache.ratis.thirdparty.io.netty.util.ResourceLeakDetector;
+import org.apache.ratis.thirdparty.io.netty.util.ResourceLeakDetector.Level;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -417,5 +420,14 @@ public interface DataStreamTestUtils {
 
     final LogEntryProto entryFromLog = searchLogEntry(ClientInvocationId.valueOf(request), division.getRaftLog());
     Assertions.assertEquals(entryFromStream, entryFromLog);
+  }
+
+  ResourceLeakDetector.LeakListener LEAK_LISTENER = (resourceType, records) -> {
+    throw new IllegalStateException("Leak detected for resource type: " + resourceType + records);
+  };
+
+  static void enableResourceLeakDetector() {
+    ResourceLeakDetector.setLevel(Level.PARANOID);
+    ByteBufUtil.setLeakListener(DataStreamTestUtils.LEAK_LISTENER);
   }
 }
