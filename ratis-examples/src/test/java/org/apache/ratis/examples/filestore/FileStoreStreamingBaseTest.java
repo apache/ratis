@@ -56,6 +56,7 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
         FileStoreStateMachine.class, StateMachine.class);
     ConfUtils.setFile(p::setFile, FileStoreCommon.STATEMACHINE_DIR_KEY,
         new File(getClassTestDir(), "filestore"));
+    DataStreamTestUtils.enableResourceLeakDetector();
   }
 
   static final int NUM_PEERS = 3;
