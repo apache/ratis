@@ -211,6 +211,12 @@ public class DataStreamManagement {
 
       return Collections.emptySet();
     }
+
+    void cleanUp(ClientInvocationId invocationId) {
+      getDivision().getDataStreamMap().remove(invocationId);
+      getLocal().cleanUp();
+      applyToRemotes(remote -> remote.out.closeAsync());
+    }
   }
 
   private final RaftServer server;
@@ -390,13 +396,7 @@ public class DataStreamManagement {
   void cleanUp(Set<ClientInvocationId> ids) {
     for (ClientInvocationId clientInvocationId : ids) {
       Optional.ofNullable(streams.remove(clientInvocationId))
-          .ifPresent(streamInfo -> {
-            streamInfo.getDivision()
-                .getDataStreamMap()
-                .remove(clientInvocationId);
-            streamInfo.getLocal().cleanUp();
-            streamInfo.applyToRemotes(out -> out.out.closeAsync());
-          });
+          .ifPresent(streamInfo -> streamInfo.cleanUp(clientInvocationId));
     }
   }
 
@@ -416,20 +416,16 @@ public class DataStreamManagement {
       readImpl(request, ctx, getStreams);
     } catch (Throwable t) {
       replyDataStreamException(t, request, ctx);
-      removeDataStream(ClientInvocationId.valueOf(request.getClientId(), request.getStreamId()), null);
+      removeDataStream(ClientInvocationId.valueOf(request.getClientId(), request.getStreamId()));
     }
   }
 
-  private void removeDataStream(ClientInvocationId invocationId, StreamInfo info) {
+  private StreamInfo removeDataStream(ClientInvocationId invocationId) {
     final StreamInfo removed = streams.remove(invocationId);
-    if (info == null) {
-      info = removed;
+    if (removed != null) {
+      removed.cleanUp(invocationId);
     }
-    if (info != null) {
-      info.getDivision().getDataStreamMap().remove(invocationId);
-      info.getLocal().cleanUp();
-      info.applyToRemotes(out -> out.out.closeAsync());
-    }
+    return removed;
   }
 
   private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
@@ -465,7 +461,12 @@ public class DataStreamManagement {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
-      localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
+      if (close && request.getDataLength() == 0) {
+        info.getLocal().cleanUp();
+        localWrite = CompletableFuture.completedFuture(0L);
+      } else {
+        localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
+      }
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
@@ -485,7 +486,10 @@ public class DataStreamManagement {
       try {
         if (exception != null) {
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
-          removeDataStream(key, info);
+          final StreamInfo removed = removeDataStream(key);
+          if (removed != null) {
+            Preconditions.assertSame(info, removed, "removed");
+          }
         }
       } finally {
         request.release();
