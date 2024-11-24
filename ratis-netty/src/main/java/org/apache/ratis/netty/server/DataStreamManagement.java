@@ -462,7 +462,6 @@ public class DataStreamManagement {
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
       if (close && request.getDataLength() == 0) {
-        info.getLocal().cleanUp();
         localWrite = CompletableFuture.completedFuture(0L);
       } else {
         localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
@@ -486,6 +485,8 @@ public class DataStreamManagement {
       try {
         if (exception != null) {
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
+        }
+        if (close || exception != null) {
           final StreamInfo removed = removeDataStream(key);
           if (removed != null) {
             Preconditions.assertSame(info, removed, "removed");
