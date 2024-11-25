@@ -476,13 +476,17 @@ public class DataStreamManagement {
           }
           return null;
         }, requestExecutor)).whenComplete((v, exception) -> {
+      boolean released = false;
       try {
         if (exception != null) {
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
           removeDataStream(key, info);
+          released = true;
         }
       } finally {
-        request.release();
+        if (!released) {
+          request.release();
+        }
         channels.remove(channelId, key);
       }
     });
