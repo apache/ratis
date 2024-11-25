@@ -307,6 +307,9 @@ public class DataStreamManagement {
     final DataChannel channel = stream.getDataChannel();
     long byteWritten = 0;
     for (ByteBuffer buffer : buf.nioBuffers()) {
+      if (buffer.remaining() == 0) {
+        continue;
+      }
       final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.wrap(
           buffer, buf::retain, ignored -> buf.release());
       try(UncheckedAutoCloseable ignore = wrapped.retainAndReleaseOnClose()) {
@@ -395,8 +398,7 @@ public class DataStreamManagement {
 
   void cleanUp(Set<ClientInvocationId> ids) {
     for (ClientInvocationId clientInvocationId : ids) {
-      Optional.ofNullable(streams.remove(clientInvocationId))
-          .ifPresent(streamInfo -> streamInfo.cleanUp(clientInvocationId));
+      removeDataStream(clientInvocationId);
     }
   }
 
@@ -461,11 +463,7 @@ public class DataStreamManagement {
       localWrite = CompletableFuture.completedFuture(0L);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
-      if (close && request.getDataLength() == 0) {
-        localWrite = CompletableFuture.completedFuture(0L);
-      } else {
-        localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
-      }
+      localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
@@ -485,12 +483,14 @@ public class DataStreamManagement {
       try {
         if (exception != null) {
           replyDataStreamException(server, exception, info.getRequest(), request, ctx);
-        }
-        if (close || exception != null) {
           final StreamInfo removed = removeDataStream(key);
           if (removed != null) {
             Preconditions.assertSame(info, removed, "removed");
+          } else {
+            info.cleanUp(key);
           }
+        } else if (close) {
+          info.applyToRemotes(remote -> remote.out.closeAsync());
         }
       } finally {
         request.release();
