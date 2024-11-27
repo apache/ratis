@@ -190,7 +190,7 @@ public interface GrpcUtil {
   }
 
   static void warn(Logger log, Supplier<String> message, Throwable t) {
-    LogUtils.warn(log, message, unwrapThrowable(t), StatusRuntimeException.class, ServerNotReadyException.class);
+    LogUtils.warn(log, message, unwrapThrowable(t), ServerNotReadyException.class);
   }
 
   class StatusRuntimeExceptionMetadataBuilder {
