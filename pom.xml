@@ -583,7 +583,7 @@
           <configuration>
             <fork>true</fork>
             <meminitial>512m</meminitial>
-            <maxmem>2048m</maxmem>
+            <maxmem>4096m</maxmem>
             <showDeprecation>false</showDeprecation>
             <useIncrementalCompilation>false</useIncrementalCompilation>
             <compilerArgs>
@@ -643,7 +643,7 @@
             <enableProcessChecker>all</enableProcessChecker>
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
             <!-- @argLine is filled by jacoco maven plugin. @{} means late evaluation -->
-            <argLine>-Xmx2g -XX:+HeapDumpOnOutOfMemoryError @{argLine}</argLine>
+            <argLine>-Xmx8g -XX:+HeapDumpOnOutOfMemoryError @{argLine}</argLine>
             <systemPropertyVariables>
               <ratis.log.dir>${project.build.directory}/log</ratis.log.dir>
               <ratis.tmp.dir>${project.build.directory}/tmp</ratis.tmp.dir>
