@@ -164,13 +164,6 @@ public interface GrpcUtil {
   }
 
   static <REPLY, REPLY_PROTO> void asyncCall(
-      StreamObserver<REPLY_PROTO> responseObserver,
-      CheckedSupplier<CompletableFuture<REPLY>, IOException> supplier,
-      Function<REPLY, REPLY_PROTO> toProto) {
-    asyncCall(responseObserver, supplier, toProto, throwable -> {});
-  }
-
-  static <REPLY, REPLY_PROTO> void asyncCall(
           StreamObserver<REPLY_PROTO> responseObserver,
           CheckedSupplier<CompletableFuture<REPLY>, IOException> supplier,
           Function<REPLY, REPLY_PROTO> toProto,

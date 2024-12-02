@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -32,8 +32,12 @@ import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceImplBase;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
+  static final Logger LOG = LoggerFactory.getLogger(GrpcAdminProtocolService.class);
+
   private final AdminAsynchronousProtocol protocol;
 
   public GrpcAdminProtocolService(AdminAsynchronousProtocol protocol) {
@@ -45,7 +49,8 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
         StreamObserver<RaftClientReplyProto> responseObserver) {
     final GroupManagementRequest request = ClientProtoUtils.toGroupManagementRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.groupManagementAsync(request),
-        ClientProtoUtils::toRaftClientReplyProto);
+        ClientProtoUtils::toRaftClientReplyProto,
+        t -> LOG.warn("Failed groupManagement: {}, {}", proto.getOpCase(), request, t));
   }
 
   @Override
@@ -53,14 +58,16 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
         StreamObserver<GroupListReplyProto> responseObserver) {
     final GroupListRequest request = ClientProtoUtils.toGroupListRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.getGroupListAsync(request),
-        ClientProtoUtils::toGroupListReplyProto);
+        ClientProtoUtils::toGroupListReplyProto,
+        t -> LOG.warn("Failed to groupList: {}", request, t));
   }
 
   @Override
   public void groupInfo(GroupInfoRequestProto proto, StreamObserver<GroupInfoReplyProto> responseObserver) {
     final GroupInfoRequest request = ClientProtoUtils.toGroupInfoRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.getGroupInfoAsync(request),
-        ClientProtoUtils::toGroupInfoReplyProto);
+        ClientProtoUtils::toGroupInfoReplyProto,
+        t -> LOG.warn("Failed to groupInfo: {}", request, t));
   }
 
   @Override
@@ -68,7 +75,8 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
       StreamObserver<RaftClientReplyProto> responseObserver) {
     final SetConfigurationRequest request = ClientProtoUtils.toSetConfigurationRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.setConfigurationAsync(request),
-        ClientProtoUtils::toRaftClientReplyProto);
+        ClientProtoUtils::toRaftClientReplyProto,
+        t -> LOG.warn("Failed to setConfiguration: {}", request, t));
   }
 
   @Override
@@ -76,7 +84,8 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
       StreamObserver<RaftClientReplyProto> responseObserver) {
     final TransferLeadershipRequest request = ClientProtoUtils.toTransferLeadershipRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.transferLeadershipAsync(request),
-        ClientProtoUtils::toRaftClientReplyProto);
+        ClientProtoUtils::toRaftClientReplyProto,
+        t -> LOG.warn("Failed to transferLeadership: {}", request, t));
   }
 
   @Override
@@ -84,7 +93,8 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
       StreamObserver<RaftClientReplyProto> responseObserver) {
     final SnapshotManagementRequest request = ClientProtoUtils.toSnapshotManagementRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.snapshotManagementAsync(request),
-        ClientProtoUtils::toRaftClientReplyProto);
+        ClientProtoUtils::toRaftClientReplyProto,
+    t -> LOG.warn("Failed snapshotManagement: {}, {}", proto.getOpCase(), request, t));
   }
 
   @Override
@@ -92,6 +102,7 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
       StreamObserver<RaftClientReplyProto> responseObserver) {
     final LeaderElectionManagementRequest request = ClientProtoUtils.toLeaderElectionManagementRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.leaderElectionManagementAsync(request),
-        ClientProtoUtils::toRaftClientReplyProto);
+        ClientProtoUtils::toRaftClientReplyProto,
+        t -> LOG.warn("Failed leaderElectionManagement: {}, {}", proto.getOpCase(), request, t));
   }
 }

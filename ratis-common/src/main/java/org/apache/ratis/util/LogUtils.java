@@ -118,7 +118,13 @@ public interface LogUtils {
     if (log.isWarnEnabled()) {
       if (ReflectionUtils.isInstance(t, exceptionClasses)) {
         // do not print stack trace for known exceptions.
-        log.warn(message.get() + ": " + t);
+        final StringBuilder b = new StringBuilder()
+            .append(message.get())
+            .append(": ").append(t);
+        for(Throwable cause = t.getCause(); cause != null; cause = cause.getCause()) {
+          b.append("\n  Caused by: ").append(cause);
+        }
+        log.warn(b.toString());
       } else {
         log.warn(message.get(), t);
       }
