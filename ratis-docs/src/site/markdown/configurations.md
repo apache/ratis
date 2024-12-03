@@ -458,11 +458,11 @@ the leader won't send snapshots to follower.
 It will just send a notification to that follower instead.
 The follower's statemachine is responsible for fetching and installing snapshot by some other means.
 
-| **Property**    | `raft.server.log.appender.wait-time.min`       |
-|:----------------|:-----------------------------------------------|
-| **Description** | wait time between two subsequent AppendEntries |
-| **Type**        | TimeDuration                                   |
-| **Default**     | 10ms                                           |
+| **Property**    | `raft.server.log.appender.wait-time.min`                                   |
+|:----------------|:---------------------------------------------------------------------------|
+| **Description** | wait time between two subsequent AppendEntries. Must be a positive number. |
+| **Type**        | TimeDuration                                                               |
+| **Default**     | 1ms                                                                        |
 
 
 | **Property**    | `raft.server.log.appender.retry.policy` |
