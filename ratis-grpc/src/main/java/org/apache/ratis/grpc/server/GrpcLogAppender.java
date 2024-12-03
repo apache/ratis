@@ -57,6 +57,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * A new log appender implementation using grpc bi-directional stream API.
@@ -353,7 +354,8 @@ public class GrpcLogAppender extends LogAppenderBase {
       }
       // stall for stream to be ready.
       while (!stream.isReady() && running) {
-        sleep(waitForReady, isHeartBeat);
+        //sleep(waitForReady, isHeartBeat);
+        LockSupport.parkNanos(waitForReady.toLong(TimeUnit.NANOSECONDS));
       }
       stream.onNext(proto);
     }
