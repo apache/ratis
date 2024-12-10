@@ -51,6 +51,9 @@
       <id>${distMgmtSnapshotsId}</id>
       <name>${distMgmtSnapshotsName}</name>
       <url>${distMgmtSnapshotsUrl}</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
     </repository>
     <repository>
       <id>repository.jboss.org</id>
@@ -90,13 +93,6 @@
     <module>ratis-shell</module>
     <module>ratis-assembly</module>
   </modules>
-
-  <pluginRepositories>
-    <pluginRepository>
-      <id>apache.snapshots</id>
-      <url>https://repository.apache.org/snapshots/</url>
-    </pluginRepository>
-  </pluginRepositories>
 
   <scm>
     <connection>scm:git:git://git.apache.org/ratis.git</connection>
