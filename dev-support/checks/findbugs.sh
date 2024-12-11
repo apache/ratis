@@ -20,7 +20,7 @@ source "${DIR}/../find_maven.sh"
 
 : ${WITH_COVERAGE:="false"}
 
-MAVEN_OPTIONS='-B -fae --no-transfer-progress'
+MAVEN_OPTIONS='-B -fae'
 
 if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
   #shellcheck disable=SC2086
