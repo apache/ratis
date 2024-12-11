@@ -29,7 +29,7 @@ mkdir -p "$REPORT_DIR"
 JACOCO_VERSION=$(${MVN} help:evaluate -Dexpression=jacoco.version -q -DforceStdout)
 
 #Install jacoco cli
-${MVN} --non-recursive --no-transfer-progress \
+${MVN} --non-recursive \
   org.apache.maven.plugins:maven-dependency-plugin:3.6.1:copy \
   -Dartifact=org.jacoco:org.jacoco.cli:${JACOCO_VERSION}:jar:nodeps
 

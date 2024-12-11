@@ -34,7 +34,7 @@ REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/unit"}
 mkdir -p "$REPORT_DIR"
 
 export MAVEN_OPTS="-Xmx4096m"
-MAVEN_OPTIONS='-V -B --no-transfer-progress'
+MAVEN_OPTIONS='-V -B'
 
 if [[ "${FAIL_FAST}" == "true" ]]; then
   MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-fast -Dsurefire.skipAfterFailureCount=1"
