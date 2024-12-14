@@ -118,7 +118,7 @@ prepare-bin() {
   mv "apache-ratis-${RATISVERSION}-src" "apache-ratis-${RATISVERSION}"
   cd "apache-ratis-${RATISVERSION}"
 
-  mvnFun clean install -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
+  mvnFun clean verify -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
 }
 
 assembly() {
@@ -126,7 +126,7 @@ assembly() {
   RCDIR="$SVNDISTDIR/${RATISVERSION}/${RC#-}"
   mkdir -p "$RCDIR"
   cd "$RCDIR"
-  cp "$WORKINGDIR/apache-ratis-${RATISVERSION}/ratis-assembly/target/ratis-assembly-${RATISVERSION}-bin.tar.gz" "apache-ratis-${RATISVERSION}-bin.tar.gz"
+  cp "$projectdir/ratis-assembly/target/ratis-assembly-${RATISVERSION}-bin.tar.gz" "apache-ratis-${RATISVERSION}-bin.tar.gz"
   cp "$projectdir/ratis-assembly/target/ratis-assembly-${RATISVERSION}-src.tar.gz" "apache-ratis-${RATISVERSION}-src.tar.gz"
   for i in *.tar.gz; do gpg  -u "${CODESIGNINGKEY}" --armor --output "${i}.asc" --detach-sig "${i}"; done
   for i in *.tar.gz; do gpg --print-md SHA512 "${i}" > "${i}.sha512"; done
@@ -147,7 +147,7 @@ publish-svn() {
 
 publish-mvn(){
   cd "$projectdir"
-  mvnFun clean deploy -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
+  mvnFun deploy:deploy
 }
 
 if [ "$#" -ne 1 ]; then
