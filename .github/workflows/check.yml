@@ -1,0 +1,206 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This reusable workflow executes a single check from `dev-support/checks/`.
+# Before and after the check, it performs various steps based on workflow inputs.
+
+name: ci-check
+
+on:
+  workflow_call:
+    inputs:
+      # REQUIRED
+      script:
+        type: string
+        description: "Test script to run from dev-support/checks, without .sh extension"
+        required: true
+
+      # OPTIONAL (ordered alphabetically)
+      java-version:
+        type: string
+        description: "Java version to set up (default: 8)"
+        default: '8'
+        required: false
+
+      needs-binary-tarball:
+        type: boolean
+        description: "Whether to download Ratis binary tarball created by build (default: no)"
+        default: false
+        required: false
+
+      needs-maven-repo:
+        type: boolean
+        description: "Whether to download Ratis jars created by build (default: no)"
+        default: false
+        required: false
+
+      needs-source-tarball:
+        type: boolean
+        description: "Whether to download Ratis source tarball created by build (default: no)"
+        default: false
+        required: false
+
+      runner:
+        type: string
+        description: "GitHub Actions runner to use"
+        default: 'ubuntu-20.04'
+        required: false
+
+      script-args:
+        type: string
+        description: "Arguments for the test script"
+        default: ''
+        required: false
+
+      split:
+        type: string
+        description: "Name of split for matrix jobs, only used in display name"
+        default: ''
+        required: false
+
+      timeout-minutes:
+        type: number
+        description: "Job timeout in minutes (default: 30)"
+        default: 30
+        required: false
+
+env:
+  MAVEN_ARGS: --batch-mode --show-version
+  MAVEN_OPTS: -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.class=standard -Dmaven.wagon.http.retryHandler.count=3
+  WITH_COVERAGE: true
+
+jobs:
+  check:
+    name: ${{ (inputs.split && format('{0} ({1})', inputs.script, inputs.split)) || inputs.script }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - name: Checkout project
+        if: ${{ !inputs.needs-source-tarball }}
+        uses: actions/checkout@v4
+
+      - name: Download source tarball
+        if: ${{ inputs.needs-source-tarball }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ratis-src
+
+      - name: Extract source tarball
+        if: ${{ inputs.needs-source-tarball }}
+        run: |
+          tar --strip-components 1 -xzvf ratis*-src.tar.gz
+
+      - name: Create cache for Maven dependencies
+        if: ${{ inputs.script == 'build' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository/*/*/*
+            !~/.m2/repository/org/apache/ratis
+          key: maven-repo-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-repo-
+
+      - name: Restore cache for Maven dependencies
+        if: ${{ inputs.script != 'build' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.m2/repository/*/*/*
+            !~/.m2/repository/org/apache/ratis
+          key: maven-repo-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-repo-
+
+      - name: Download Maven repo
+        id: download-maven-repo
+        if: ${{ inputs.needs-maven-repo }}
+        uses: actions/download-artifact@v4
+        with:
+          name: maven-repo
+          path: |
+            ~/.m2/repository/org/apache/ratis
+
+      - name: Download binary tarball
+        if: ${{ inputs.needs-binary-tarball }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ratis-bin
+
+      - name: Extract binary tarball
+        if: ${{ inputs.needs-binary-tarball }}
+        run: |
+          mkdir -p ratis-assembly/target
+          tar xzvf ratis-*-bin.tar.gz -C ratis-assembly/target
+
+      - name: Setup java ${{ inputs.java-version }}
+        if: ${{ inputs.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ inputs.java-version }}
+
+      - name: Execute tests
+        run: |
+          dev-support/checks/${{ inputs.script }}.sh ${{ inputs.script-args }}
+        env:
+          WITH_COVERAGE: ${{ inputs.with-coverage }}
+
+      - name: Summary of failures
+        if: ${{ failure() }}
+        run: |
+          if [[ -s "target/${{ inputs.script }}/summary.md" ]]; then
+            cat target/${{ inputs.script }}/summary.md >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ -s "target/${{ inputs.script }}/summary.txt" ]]; then
+            cat target/${{ inputs.script }}/summary.txt
+          fi
+
+      - name: Archive build results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ (inputs.split && format('{0}-{1}', inputs.script, inputs.split)) || inputs.script }}
+          path: target/${{ inputs.script }}
+        continue-on-error: true
+
+      # The following steps are hard-coded to be run only for 'build' check,
+      # to avoid the need for 3 more inputs.
+      - name: Store binaries for tests
+        if: ${{ inputs.script == 'build' && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratis-bin
+          path: |
+            ratis-assembly/target/ratis-assembly-*-bin.tar.gz
+          retention-days: 1
+
+      - name: Store source tarball for compilation
+        if: ${{ inputs.script == 'build' && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratis-src
+          path: |
+            ratis-assembly/target/ratis-assembly-*-src.tar.gz
+          retention-days: 1
+
+      - name: Store Maven repo for tests
+        if: ${{ inputs.script == 'build' && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-repo
+          path: |
+            ~/.m2/repository/org/apache/ratis
+          retention-days: 1

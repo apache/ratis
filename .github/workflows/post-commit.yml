@@ -20,123 +20,59 @@ on:
     tags:
       - '**'
   pull_request:
-env:
-  WITH_COVERAGE: true
 jobs:
   build:
-    runs-on: ubuntu-20.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout project
-        uses: actions/checkout@v4
-      - name: Cache for maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.m2/repository
-            !~/.m2/repository/org/apache/ratis
-          key: maven-repo-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            maven-repo-
-      - name: Setup java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: 8
-      - name: Run a full build
-        run: ./dev-support/checks/build.sh -Prelease
-      - name: Store binaries for tests
-        uses: actions/upload-artifact@v4
-        with:
-          name: ratis-bin
-          path: |
-            ratis-assembly/target/ratis-assembly-*.tar.gz
-            !ratis-assembly/target/ratis-assembly-*-src.tar.gz
-          retention-days: 1
-      - name: Store source tarball for compilation
-        uses: actions/upload-artifact@v4
-        with:
-          name: ratis-src
-          path: ratis-assembly/target/ratis-assembly-*-src.tar.gz
-          retention-days: 1
+    uses: ./.github/workflows/check.yml
+    with:
+      script: build
+      script-args: -Prelease
+      timeout-minutes: 30
+    secrets: inherit
+
   compile:
     needs:
       - build
-    runs-on: ubuntu-20.04
-    timeout-minutes: 30
     strategy:
       matrix:
         java: [ 11, 17, 21 ]
       fail-fast: false
-    steps:
-      - name: Download source tarball
-        uses: actions/download-artifact@v4
-        with:
-          name: ratis-src
-      - name: Untar sources
-        run: |
-          tar --strip-components 1 -xzvf ratis-assembly-*-src.tar.gz
-      - name: Cache for maven dependencies
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.m2/repository
-            !~/.m2/repository/org/apache/ratis
-          key: maven-repo-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            maven-repo-
-      - name: Setup java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: ${{ matrix.java }}
-      - name: Run a full build
-        run: ./dev-support/checks/build.sh -Djavac.version=${{ matrix.java }}
-      - name: Test reproducibility
-        run: ./dev-support/checks/repro.sh -Djavac.version=${{ matrix.java }}
-  rat:
-    name: rat
-    runs-on: ubuntu-20.04
-    timeout-minutes: 15
-    steps:
-        - name: Checkout project
-          uses: actions/checkout@v4
-        - name: Cache for maven dependencies
-          uses: actions/cache/restore@v4
-          with:
-            path: |
-              ~/.m2/repository
-              !~/.m2/repository/org/apache/ratis
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}
-            restore-keys: |
-              maven-repo-
-        - name: Run tests
-          run: ./dev-support/checks/rat.sh
-        - name: Upload results
-          uses: actions/upload-artifact@v4
-          if: always()
-          with:
-            name: rat
-            path: target/rat
-  author:
-    name: author
-    runs-on: ubuntu-20.04
-    timeout-minutes: 15
-    steps:
-        - name: Checkout project
-          uses: actions/checkout@v4
-        - name: Run tests
-          run: ./dev-support/checks/author.sh
-        - name: Upload results
-          uses: actions/upload-artifact@v4
-          if: always()
-          with:
-            name: author
-            path: target/author
+    uses: ./.github/workflows/check.yml
+    with:
+      java-version: ${{ matrix.java }}
+      needs-source-tarball: true
+      script: compile
+      script-args: -Djavac.version=${{ matrix.java }}
+      split: ${{ matrix.java }}
+      timeout-minutes: 30
+    secrets: inherit
+
+  repro:
+    needs:
+      - build
+    uses: ./.github/workflows/check.yml
+    with:
+      needs-maven-repo: true
+      script: repro
+      script-args: -Prelease
+      timeout-minutes: 30
+    secrets: inherit
+
+  basic:
+    strategy:
+      matrix:
+        check:
+          - author
+          - checkstyle
+          - findbugs
+          - rat
+      fail-fast: false
+    uses: ./.github/workflows/check.yml
+    with:
+      script: ${{ matrix.check }}
+      timeout-minutes: 30
+    secrets: inherit
+
   unit:
-    name: unit
-    runs-on: ubuntu-20.04
-    timeout-minutes: 60
     strategy:
       matrix:
         profile:
@@ -144,87 +80,14 @@ jobs:
           - server
           - misc
       fail-fast: false
-    steps:
-        - name: Checkout project
-          uses: actions/checkout@v4
-        - name: Cache for maven dependencies
-          uses: actions/cache/restore@v4
-          with:
-            path: |
-              ~/.m2/repository
-              !~/.m2/repository/org/apache/ratis
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}
-            restore-keys: |
-              maven-repo-
-        - name: Setup java
-          uses: actions/setup-java@v4
-          with:
-            distribution: 'temurin'
-            java-version: 8
-        - name: Run tests
-          run: ./dev-support/checks/unit.sh -P${{ matrix.profile }}-tests
-        - name: Summary of failures
-          run: cat target/${{ github.job }}/summary.txt
-          if: ${{ !cancelled() }}
-        - name: Upload results
-          uses: actions/upload-artifact@v4
-          if: ${{ !cancelled() }}
-          with:
-            name: unit-${{ matrix.profile }}
-            path: target/unit
-  checkstyle:
-    name: checkstyle
-    runs-on: ubuntu-20.04
-    timeout-minutes: 15
-    steps:
-        - name: Checkout project
-          uses: actions/checkout@v4
-        - name: Cache for maven dependencies
-          uses: actions/cache/restore@v4
-          with:
-            path: |
-              ~/.m2/repository
-              !~/.m2/repository/org/apache/ratis
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}
-            restore-keys: |
-              maven-repo-
-        - name: Run tests
-          run: ./dev-support/checks/checkstyle.sh
-        - name: Upload results
-          uses: actions/upload-artifact@v4
-          if: always()
-          with:
-            name: checkstyle
-            path: target/checkstyle
-  findbugs:
-    name: findbugs
-    runs-on: ubuntu-20.04
-    timeout-minutes: 30
-    steps:
-        - name: Setup java
-          uses: actions/setup-java@v4
-          with:
-            distribution: 'temurin'
-            java-version: 8
-        - name: Checkout project
-          uses: actions/checkout@v4
-        - name: Cache for maven dependencies
-          uses: actions/cache/restore@v4
-          with:
-            path: |
-              ~/.m2/repository
-              !~/.m2/repository/org/apache/ratis
-            key: maven-repo-${{ hashFiles('**/pom.xml') }}
-            restore-keys: |
-              maven-repo-
-        - name: Run tests
-          run: ./dev-support/checks/findbugs.sh
-        - name: Upload results
-          uses: actions/upload-artifact@v4
-          if: always()
-          with:
-            name: findbugs
-            path: target/findbugs
+    uses: ./.github/workflows/check.yml
+    with:
+      script: unit
+      script-args: -P${{ matrix.profile }}-tests
+      split: ${{ matrix.profile }}
+      timeout-minutes: 60
+    secrets: inherit
+
   coverage:
     needs:
       - build
