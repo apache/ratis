@@ -121,6 +121,11 @@ mvnFun() {
   mvnFun clean verify -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
 }
 
+3-publish-mvn() {
+  cd "$projectdir"
+  mvnFun verify artifact:compare deploy:deploy -DdeployAtEnd=true -DskipTests=true -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}" "$@"
+}
+
 4-assembly() {
   cd "$SVNDISTDIR"
   RCDIR="$SVNDISTDIR/${RATISVERSION}/${RC#-}"
@@ -143,11 +148,6 @@ mvnFun() {
 6-publish-svn() {
    cd "${SVNDISTDIR}"
   svn commit -m "Publish proposed version of the next Ratis release ${RATISVERSION}${RC}"
-}
-
-3-publish-mvn(){
-  cd "$projectdir"
-  mvnFun verify artifact:compare deploy:deploy -DdeployAtEnd=true -DskipTests=true -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}" "$@"
 }
 
 if [ "$#" -lt 1 ]; then
