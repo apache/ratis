@@ -91,7 +91,7 @@ mvnFun() {
   MAVEN_OPTS="${mvnopts}" ${MVN} -Dmaven.repo.local="${repodir}" "$@"
 }
 
-prepare-src() {
+1-prepare-src() {
   cd "$projectdir"
   git reset --hard
   git clean -fdx
@@ -109,7 +109,7 @@ prepare-src() {
   mvnFun clean install -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
 }
 
-prepare-bin() {
+2-verify-bin() {
   echo "Cleaning up workingdir $WORKINGDIR"
   rm -rf "$WORKINGDIR"
   mkdir -p "$WORKINGDIR"
@@ -121,7 +121,12 @@ prepare-bin() {
   mvnFun clean verify -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
 }
 
-assembly() {
+3-publish-mvn() {
+  cd "$projectdir"
+  mvnFun verify artifact:compare deploy:deploy -DdeployAtEnd=true -DskipTests=true -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}" "$@"
+}
+
+4-assembly() {
   cd "$SVNDISTDIR"
   RCDIR="$SVNDISTDIR/${RATISVERSION}/${RC#-}"
   mkdir -p "$RCDIR"
@@ -135,40 +140,35 @@ assembly() {
   svn add "${RATISVERSION}" || svn add "${RATISVERSION}/${RC#-}"
 }
 
-publish-git(){
+5-publish-git(){
   cd "$projectdir"
   git push apache "ratis-${RATISVERSION}${RC}"
 }
 
-publish-svn() {
+6-publish-svn() {
    cd "${SVNDISTDIR}"
   svn commit -m "Publish proposed version of the next Ratis release ${RATISVERSION}${RC}"
 }
 
-publish-mvn(){
-  cd "$projectdir"
-  mvnFun deploy:deploy
-}
-
-if [ "$#" -ne 1 ]; then
+if [ "$#" -lt 1 ]; then
   cat << EOF
 
-Please choose from available phases (eg. make_rc.sh prepare-src):
+Please choose from available phases (eg. make_rc.sh 1-prepare-src):
 
-   1. prepare-src: This is the first step. It modifies the mvn version, creates the git tag and
+   1-prepare-src:  This is the first step. It modifies the mvn version, creates the git tag and
                    builds the project to create the source artifacts.
                    IT INCLUDES A GIT RESET + CLEAN. ALL THE LOCAL CHANGES WILL BE LOST!
 
-   2. prepare-bin: The source artifact is copied to the $WORKINGDIR and the binary artifact is created from the source.
+   2-verify-bin:   The source artifact is copied to the $WORKINGDIR and the binary artifact is created from the source.
                    This is an additional check as the the released source artifact should be enough to build the whole project.
 
-   3. assembly :   This step copies all the required artifacts to the svn directory and ($SVNDISTDIR) creates the signatures/checksum files.
+   3-publish-mvn:  Performs the final build, and uploads the artifacts to the maven staging repository
 
-   4. publish-git: The first remote step, only do it if everything is fine. It pushes the rc tag to the repository.
+   4-assembly:     This step copies all the required artifacts to the svn directory and ($SVNDISTDIR) creates the signatures/checksum files.
 
-   5. publish-svn: Uploads the artifacts to the apache dev staging area to start the vote.
+   5-publish-git:  Only do it if everything is fine. It pushes the rc tag to the repository.
 
-   6. publish-mvn: Uploads the artifacts to the maven staging repository
+   6-publish-svn:  Uploads the artifacts to the apache dev staging area to start the vote.
 
 The next steps of the release process are not scripted:
 
@@ -189,5 +189,7 @@ The next steps of the release process are not scripted:
 EOF
 else
   set -x
-  eval "$1"
+  func="$1"
+  shift
+  eval "$func" "$@"
 fi
