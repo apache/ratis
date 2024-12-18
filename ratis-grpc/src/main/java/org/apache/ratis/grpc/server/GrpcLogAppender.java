@@ -302,8 +302,21 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   @Override
   public CompletableFuture<LifeCycle.State> stopAsync() {
-    grpcServerMetrics.unregister();
-    return super.stopAsync();
+    try (AutoCloseableLock ignored = lock.writeLock(caller, LOG::trace)) {
+      if (appendLogRequestObserver != null) {
+        appendLogRequestObserver.stop();
+        appendLogRequestObserver = null;
+      }
+      grpcServerMetrics.unregister();
+      return super.stopAsync();
+    }
+    /*grpcServerMetrics.unregister();
+    CompletableFuture<LifeCycle.State> future = super.stopAsync();
+    if (appendLogRequestObserver != null) {
+      appendLogRequestObserver.stop();
+      appendLogRequestObserver = null;
+    }
+    return future;*/
   }
 
   @Override
@@ -382,6 +395,9 @@ public class GrpcLogAppender extends LogAppenderBase {
     final ReferenceCountedObject<AppendEntriesRequestProto> pending;
     final AppendEntriesRequest request;
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+      if (!isRunning()) {
+        return;
+      }
       // Prepare and send the append request.
       // Note changes on follower's nextIndex and ops on pendingRequests should always be done under the write-lock
       pending = nextAppendEntriesRequest(callId.getAndIncrement(), heartbeat);
