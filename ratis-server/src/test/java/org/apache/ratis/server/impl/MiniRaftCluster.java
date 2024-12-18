@@ -859,12 +859,11 @@ public abstract class MiniRaftCluster implements Closeable {
     getServers().forEach(proxy -> executor.submit(() -> JavaUtils.runAsUnchecked(proxy::close)));
     final int maxRetries = 30;
     final TimeDuration retrySleep = TimeDuration.ONE_SECOND;
-    try {
-      executor.shutdown();
-      // just wait for a few seconds
-      boolean terminated = false;
+    executor.shutdown();
+    boolean terminated = false;
 
-      for(int i = 0; i < maxRetries && !terminated; ) {
+    for(int i = 0; i < maxRetries && !terminated; ) {
+      try {
         terminated = executor.awaitTermination(retrySleep.getDuration(), retrySleep.getUnit());
         if (!terminated) {
           i++;
@@ -874,10 +873,9 @@ public abstract class MiniRaftCluster implements Closeable {
             LOG.error("Failed to shutdown executor, some servers may be still running:\n{}", printServers());
           }
         }
-      }
-    } catch (InterruptedException e) {
+      } catch (InterruptedException e) {
       LOG.warn("shutdown interrupted", e);
-      Thread.currentThread().interrupt();
+      }
     }
 
     Optional.ofNullable(timer.get()).ifPresent(Timer::cancel);

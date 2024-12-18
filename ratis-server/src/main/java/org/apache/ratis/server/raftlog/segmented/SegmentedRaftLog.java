@@ -282,14 +282,17 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   public LogEntryProto get(long index) throws RaftLogIOException {
-    final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
-    if (ref == null) {
-      return null;
-    }
+    ReferenceCountedObject<LogEntryProto> ref = null;
     try {
+      ref = retainLog(index);
+      if (ref == null) {
+        return null;
+      }
       return LogProtoUtils.copy(ref.get());
     } finally {
-      ref.release();
+      if (ref != null) {
+        ref.release();
+      }
     }
   }
 

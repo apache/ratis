@@ -33,7 +33,6 @@ import java.util.function.Supplier;
 public final class ReferenceCountedLeakDetector {
   private static final Logger LOG = LoggerFactory.getLogger(ReferenceCountedLeakDetector.class);
   // Leak detection is turned off by default.
-
   private static final AtomicReference<Mode> FACTORY = new AtomicReference<>(Mode.NONE);
   private static final Supplier<LeakDetector> SUPPLIER
       = MemoizedSupplier.valueOf(() -> new LeakDetector(FACTORY.get().name()).start());
