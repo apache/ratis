@@ -281,8 +281,8 @@ public final class LogSegment {
       final AtomicReference<ReferenceCountedObject<LogEntryProto>> toReturn = new AtomicReference<>();
       final LogSegmentStartEnd startEnd = LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen);
       readSegmentFile(file, startEnd, maxOpSize, getLogCorruptionPolicy(), raftLogMetrics, entryRef -> {
+        final LogEntryProto entry = entryRef.retain();
         try {
-          final LogEntryProto entry = entryRef.retain();
           final TermIndex ti = TermIndex.valueOf(entry);
           putEntryCache(ti, entryRef, Op.LOAD_SEGMENT_FILE);
           if (ti.equals(key.getTermIndex())) {

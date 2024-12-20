@@ -310,13 +310,6 @@ public class GrpcLogAppender extends LogAppenderBase {
       grpcServerMetrics.unregister();
       return super.stopAsync();
     }
-    /*grpcServerMetrics.unregister();
-    CompletableFuture<LifeCycle.State> future = super.stopAsync();
-    if (appendLogRequestObserver != null) {
-      appendLogRequestObserver.stop();
-      appendLogRequestObserver = null;
-    }
-    return future;*/
   }
 
   @Override
