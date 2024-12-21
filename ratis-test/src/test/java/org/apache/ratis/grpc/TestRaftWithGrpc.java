@@ -31,6 +31,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -52,6 +53,12 @@ public class TestRaftWithGrpc
 
   public static Collection<Boolean[]> data() {
     return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+  }
+
+  @Disabled
+  @Override
+  public void testWithLoad() {
+    // skip testWithLoad() from parent, called from parameterized testWithLoad(boolean)
   }
 
   @ParameterizedTest
