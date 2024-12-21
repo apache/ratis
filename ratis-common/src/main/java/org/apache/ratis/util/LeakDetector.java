@@ -156,6 +156,10 @@ public class LeakDetector {
     return trackers.add(leakable, queue, reportLeak)::remove;
   }
 
+  public int getLeakCount() {
+    return trackers.getNumLeaks(false);
+  }
+
   public void assertNoLeaks(int maxRetries, TimeDuration retrySleep) throws InterruptedException {
     synchronized (leakMessages) {
       // leakMessages are all the leaks discovered so far.
