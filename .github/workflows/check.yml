@@ -161,9 +161,6 @@ jobs:
       - name: Summary of failures
         if: ${{ failure() }}
         run: |
-          if [[ -s "target/${{ inputs.script }}/summary.md" ]]; then
-            cat target/${{ inputs.script }}/summary.md >> $GITHUB_STEP_SUMMARY
-          fi
           if [[ -s "target/${{ inputs.script }}/summary.txt" ]]; then
             cat target/${{ inputs.script }}/summary.txt
           fi
