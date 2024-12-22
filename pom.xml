@@ -186,7 +186,6 @@
     <license-maven-plugin.version>2.2.0</license-maven-plugin.version>
 
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
-    <copy-rename-maven-plugin.version>1.0</copy-rename-maven-plugin.version>
     <cyclonedx.version>2.8.0</cyclonedx.version>
 
     <spotbugs.version>4.2.1</spotbugs.version>
@@ -472,11 +471,6 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>license-maven-plugin</artifactId>
           <version>${license-maven-plugin.version}</version>
-        </plugin>
-        <plugin>
-          <groupId>com.coderplus.maven.plugins</groupId>
-          <artifactId>copy-rename-maven-plugin</artifactId>
-          <version>${copy-rename-maven-plugin.version}</version>
         </plugin>
 
         <plugin>

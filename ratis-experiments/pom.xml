@@ -121,7 +121,7 @@
             </goals>
             <configuration>
               <createDependencyReducedPom>false</createDependencyReducedPom>
-              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedArtifactAttached>false</shadedArtifactAttached>
               <filters>
                 <filter>
                   <artifact>*:*</artifact>
@@ -136,23 +136,6 @@
                   </excludes>
                 </filter>
               </filters>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>com.coderplus.maven.plugins</groupId>
-        <artifactId>copy-rename-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>copy-file</id>
-            <phase>package</phase>
-            <goals>
-              <goal>copy</goal>
-            </goals>
-            <configuration>
-              <sourceFile>target/${project.artifactId}-${project.version}-shaded.jar</sourceFile>
-              <destinationFile>target/${project.artifactId}-${project.version}.jar</destinationFile>
             </configuration>
           </execution>
         </executions>
