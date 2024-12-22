@@ -281,18 +281,18 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   }
 
   void runTestStaleReadAsync(CLUSTER cluster) throws Exception {
-    final int numMesssages = 10;
+    final int numMessages = 10;
     try (RaftClient client = cluster.createClient()) {
       RaftTestUtil.waitForLeader(cluster);
 
       // submit some messages
       final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
-      for (int i = 0; i < numMesssages; i++) {
+      for (int i = 0; i < numMessages; i++) {
         final String s = "" + i;
         LOG.info("sendAsync " + s);
         futures.add(client.async().send(new SimpleMessage(s)));
       }
-      Assert.assertEquals(numMesssages, futures.size());
+      Assert.assertEquals(numMessages, futures.size());
       final List<RaftClientReply> replies = new ArrayList<>();
       for (CompletableFuture<RaftClientReply> f : futures) {
         final RaftClientReply r = f.join();
@@ -322,7 +322,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
           StateMachineException.class, IndexOutOfBoundsException.class);
 
       // test sendStaleReadAsync
-      for (int i = 0; i < numMesssages; i++) {
+      for (int i = 0; i < numMessages; i++) {
         final RaftClientReply reply = replies.get(i);
         final String query = "" + i;
         LOG.info("query=" + query + ", reply=" + reply);
