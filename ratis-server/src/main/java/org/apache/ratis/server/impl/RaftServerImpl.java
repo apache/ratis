@@ -635,6 +635,15 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public Collection<CommitInfoProto> getCommitInfos() {
+    try {
+      return getCommitInfosImpl();
+    } catch (Throwable t) {
+      LOG.warn("{} Failed to getCommitInfos", getMemberId(), t);
+      return Collections.emptyList();
+    }
+  }
+
+  private Collection<CommitInfoProto> getCommitInfosImpl() {
     final List<CommitInfoProto> infos = new ArrayList<>();
     // add the commit info of this server
     final long commitIndex = updateCommitInfoCache();
@@ -925,26 +934,12 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
-      RaftClientRequest request) throws IOException {
-    return TraceServer.traceAsyncMethod(
-        () -> submitClientRequestAsyncInternal(request),
-        request, getMemberId().toString(), "raft.server.submitClientRequestAsync");
-  }
-
-  private CompletableFuture<RaftClientReply> submitClientRequestAsyncInternal(
-      RaftClientRequest request) throws IOException {
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    LOG.debug("{}: receive client request({})", getMemberId(), request);
-
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.retain();
     try {
+      LOG.debug("{}: receive client request({})", getMemberId(), request);
       assertLifeCycleState(LifeCycle.States.RUNNING);
-    } catch (ServerNotReadyException e) {
-      final RaftClientReply reply = newExceptionReply(request, e);
-      requestRef.release();
-      return CompletableFuture.completedFuture(reply);
-    }
 
-    try {
       RaftClientRequest.Type type = request.getType();
       final Timekeeper timer = raftServerMetrics.getClientRequestTimer(type);
       final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
@@ -954,6 +949,11 @@ class RaftServerImpl implements RaftServer.Division,
           raftServerMetrics.incFailedRequestCount(type);
         }
       });
+    } catch (RaftException e) {
+      return CompletableFuture.completedFuture(newExceptionReply(request, e));
+    } catch (Throwable t) {
+      LOG.error("{} Failed to submitClientRequestAsync for {}", getMemberId(), request, t);
+      return CompletableFuture.completedFuture(newExceptionReply(request, new RaftException(t)));
     } finally {
       requestRef.release();
     }
