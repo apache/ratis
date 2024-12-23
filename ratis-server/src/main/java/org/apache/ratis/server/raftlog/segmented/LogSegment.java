@@ -281,13 +281,17 @@ public final class LogSegment {
       // the on-disk log file should be truncated but has not been done yet.
       final AtomicReference<ReferenceCountedObject<LogEntryProto>> toReturn = new AtomicReference<>();
       final LogSegmentStartEnd startEnd = LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen);
-      readSegmentFile(file, startEnd, maxOpSize,
-          getLogCorruptionPolicy(), raftLogMetrics, entry -> {
-        final TermIndex ti = TermIndex.valueOf(entry);
-        putEntryCache(ti, entry, Op.LOAD_SEGMENT_FILE);
-        if (ti.equals(key.getTermIndex())) {
-          toReturn.set(entryRef);
-        } else {
+      readSegmentFile(file, startEnd, maxOpSize, getLogCorruptionPolicy(), raftLogMetrics, entryRef -> {
+        final LogEntryProto entry = entryRef.retain();
+        try {
+          final TermIndex ti = TermIndex.valueOf(entry);
+          putEntryCache(ti, entryRef, Op.LOAD_SEGMENT_FILE);
+          if (ti.equals(key.getTermIndex())) {
+            toReturn.set(entryRef);
+          } else {
+            entryRef.release();
+          }
+        } catch (Exception e) {
           entryRef.release();
         }
       });
