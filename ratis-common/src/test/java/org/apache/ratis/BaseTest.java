@@ -21,6 +21,7 @@ import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.ReferenceCountedLeakDetector;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -73,20 +74,12 @@ public abstract class BaseTest {
 
   @BeforeEach
   public void setup(TestInfo testInfo) {
-    checkAssumptions();
+    testCaseName = testInfo.getTestMethod()
+        .orElseThrow(() -> new RuntimeException("Exception while getting test name."))
+        .getName();
 
-    final Method method = testInfo.getTestMethod().orElse(null);
-    testCaseName = testInfo.getTestClass().orElse(getClass()).getSimpleName()
-        + "." + (method == null? null : method.getName());
-  }
-
-  @BeforeEach
-  public void checkAssumptions() {
-    final Throwable first = firstException.get();
-    Assumptions.assumeTrue(first == null, () -> "Already failed with " + first);
-
-    final Throwable exited = ExitUtils.getFirstExitException();
-    Assumptions.assumeTrue(exited == null, () -> "Already exited with " + exited);
+    final int leaks = ReferenceCountedLeakDetector.getLeakDetector().getLeakCount();
+    Assumptions.assumeFalse(0 < leaks, () -> "numLeaks " + leaks + " > 0");
   }
 
   @AfterEach
