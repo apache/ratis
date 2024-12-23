@@ -39,7 +39,6 @@ import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.ReadIndexHeartbeats.AppendEntriesListener;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
@@ -1243,22 +1242,8 @@ class LeaderStateImpl implements LeaderState {
         && (server.getRaftConf().isSingleton() || lease.isValid());
   }
 
-  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply, RetryCacheImpl.CacheEntry cacheEntry) {
-    final PendingRequest pending = pendingRequests.remove(termIndex);
-
-    final LongSupplier replyMethod = () -> {
-      cacheEntry.updateResult(reply);
-      if (pending != null) {
-        pending.setReply(reply);
-      }
-      return termIndex.getIndex();
-    };
-
-    if (readIndexType == Type.REPLIED_INDEX) {
-      replyFlusher.hold(replyMethod);
-    } else {
-      replyMethod.getAsLong();
-    }
+  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply) {
+    pendingRequests.replyPendingRequest(termIndex, reply);
   }
 
   TransactionContext getTransactionContext(TermIndex termIndex) {
@@ -1353,6 +1338,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   @Override
+  @SuppressWarnings("deprecation")
   public void checkHealth(FollowerInfo follower) {
     final TimeDuration elapsedTime = follower.getLastRpcResponseTime().elapsedTime();
     if (elapsedTime.compareTo(server.properties().rpcSlownessTimeout()) > 0) {

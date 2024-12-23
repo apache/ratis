@@ -24,7 +24,6 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.Preconditions;
@@ -45,6 +44,17 @@ final class ServerProtoUtils {
 
   static RequestVoteReplyProto toRequestVoteReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success, long term, boolean shouldShutdown,
+      TermIndex lastEntry) {
+    return RequestVoteReplyProto.newBuilder()
+        .setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success))
+        .setTerm(term)
+        .setShouldShutdown(shouldShutdown)
+        .setLastEntry((lastEntry != null? lastEntry : TermIndex.INITIAL_VALUE).toProto())
+        .build();
+  }
+
+  static RequestVoteReplyProto toRequestVoteReplyProto(
+      RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success, long term, boolean shouldShutdown,
       TermIndex lastEntry, long callId) {
     return RequestVoteReplyProto.newBuilder()
         .setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success).setCallId(callId))
@@ -57,8 +67,7 @@ final class ServerProtoUtils {
   static RequestVoteRequestProto toRequestVoteRequestProto(
       RaftGroupMemberId requestorId, RaftPeerId replyId, long term, TermIndex lastEntry, boolean preVote) {
     final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
-        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId)
-            .setCallId(CallId.getAndIncrement()))
+        .setServerRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId))
         .setCandidateTerm(term)
         .setPreVote(preVote);
     Optional.ofNullable(lastEntry).map(TermIndex::toProto).ifPresent(b::setCandidateLastEntry);
@@ -180,12 +189,8 @@ final class ServerProtoUtils {
       // if no peer information return empty
       return ServerRpcProto.getDefaultInstance();
     }
-    return  toServerRpcProto(peer.getRaftPeerProto(), delay);
-  }
-
-  static ServerRpcProto toServerRpcProto(RaftPeerProto peer, long delay) {
     return ServerRpcProto.newBuilder()
-        .setId(peer)
+        .setId(peer.getRaftPeerProto())
         .setLastRpcElapsedTimeMs(delay)
         .build();
   }

@@ -38,6 +38,7 @@ import org.apache.ratis.util.SlidingWindow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -259,9 +260,14 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
     CompletableFuture<Void> processClientRequest(ReferenceCountedObject<RaftClientRequest> requestRef,
         Consumer<RaftClientReply> replyHandler) {
       final String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + requestRef.get() : "";
-      return protocol.submitClientRequestAsync(requestRef
-      ).thenAcceptAsync(replyHandler, executor
-      ).exceptionally(exception -> {
+      CompletableFuture<RaftClientReply> replyFuture;
+      try {
+        replyFuture = protocol.submitClientRequestAsync(requestRef);
+      } catch (IOException e) {
+        replyFuture = new CompletableFuture<>();
+        replyFuture.completeExceptionally(e);
+      }
+      return replyFuture.thenAcceptAsync(replyHandler, executor).exceptionally(exception -> {
         // TODO: the exception may be from either raft or state machine.
         // Currently we skip all the following responses when getting an
         // exception from the state machine.

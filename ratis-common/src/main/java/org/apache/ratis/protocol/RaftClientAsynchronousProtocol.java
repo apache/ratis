@@ -17,13 +17,21 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.util.ReferenceCountedObject;
+
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /** Asynchronous version of {@link RaftClientProtocol}. */
 public interface RaftClientAsynchronousProtocol {
-  CompletableFuture<RaftClientReply> submitClientRequestAsync(
-      RaftClientRequest request) throws IOException;
+  /**
+   * A plain request is submitted from a client for processing.
+   *
+   * This default keeps older call sites compatible with implementations that operate on reference-counted requests.
+   */
+  default CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) throws IOException {
+    return submitClientRequestAsync(ReferenceCountedObject.wrap(request));
+  }
 
   /**
    * A referenced counted request is submitted from a client for processing.
@@ -33,15 +41,6 @@ public interface RaftClientAsynchronousProtocol {
    * @return a future of the reply
    * @see ReferenceCountedObject
    */
-  default CompletableFuture<RaftClientReply> submitClientRequestAsync(
-      ReferenceCountedObject<RaftClientRequest> requestRef) {
-    try {
-      // for backward compatibility
-      return submitClientRequestAsync(requestRef.retain());
-    } catch (Exception e) {
-      return JavaUtils.completeExceptionally(e);
-    } finally {
-      requestRef.release();
-    }
-  }
+  CompletableFuture<RaftClientReply> submitClientRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) throws IOException;
 }

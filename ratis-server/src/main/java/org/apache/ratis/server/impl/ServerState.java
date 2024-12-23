@@ -24,7 +24,6 @@ import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
-import org.apache.ratis.server.protocol.RaftServerProtocol.Op;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -124,8 +123,13 @@ class ServerState {
     // On start the leader is null, start the clock now
     this.lastNoLeaderTime = new AtomicReference<>(Timestamp.currentTime());
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
-    this.log = JavaUtils.memoize(() -> initRaftLog(() -> getSnapshotIndexFromStateMachine(stateMachine), prop));
-    this.readRequests = new ReadRequests(stateMachine.getLastAppliedTermIndex().getIndex(), prop);
+
+    final LongSupplier getSnapshotIndexFromStateMachine = () -> Optional.ofNullable(stateMachine.getLatestSnapshot())
+        .map(SnapshotInfo::getIndex)
+        .filter(i -> i >= 0)
+        .orElse(RaftLog.INVALID_LOG_INDEX);
+    this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
+    this.readRequests = new ReadRequests(prop, stateMachine);
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
         stateMachine, server, this, getLog().getSnapshotIndex(), prop,
         this.readRequests.getAppliedIndexConsumer()));
@@ -148,16 +152,6 @@ class ServerState {
 
   RaftGroupMemberId getMemberId() {
     return memberId;
-  }
-
-  private long getSnapshotIndexFromStateMachine(StateMachine stateMachine) {
-    final SnapshotInfo latest = stateMachine.getLatestSnapshot();
-    LOG.info("{}: getLatestSnapshot({}) returns {}", getMemberId(), stateMachine, latest);
-    if (latest == null) {
-      return RaftLog.INVALID_LOG_INDEX;
-    }
-    final long index = latest.getIndex();
-    return index >= 0 ? index : RaftLog.INVALID_LOG_INDEX;
   }
 
   void writeRaftConfiguration(LogEntryProto conf) {
@@ -258,7 +252,7 @@ class ServerState {
    */
   void grantVote(RaftPeerId candidateId) {
     votedFor = candidateId;
-    setLeader(null, Op.REQUEST_VOTE);
+    setLeader(null, "grantVote");
   }
 
   void setLeader(RaftPeerId newLeaderId, Object op) {
@@ -271,7 +265,7 @@ class ServerState {
         suffix = "";
       } else {
         final Timestamp previous = lastNoLeaderTime.getAndSet(null);
-        suffix = ", leader elected after " + (previous != null ? previous.elapsedTimeMs() : 0) + "ms";
+        suffix = ", leader elected after " + previous.elapsedTimeMs() + "ms";
         server.setFirstElection(op);
         server.getStateMachine().event().notifyLeaderChanged(getMemberId(), newLeaderId);
       }
@@ -376,12 +370,10 @@ class ServerState {
     return getLog().getLastCommittedIndex() >= getRaftConf().getLogEntryIndex();
   }
 
-  private boolean setRaftConf(LogEntryProto entry) {
+  void setRaftConf(LogEntryProto entry) {
     if (entry.hasConfigurationEntry()) {
       setRaftConf(LogProtoUtils.toRaftConfiguration(entry));
-      return true;
     }
-    return false;
   }
 
   void setRaftConf(RaftConfiguration conf) {
@@ -399,19 +391,10 @@ class ServerState {
     configurationManager.removeConfigurations(logIndex);
   }
 
-  void updateConfiguration(List<LogEntryProto> entries) throws IOException {
-    if (entries == null || entries.isEmpty()) {
-      return;
-    }
-    configurationManager.removeConfigurations(entries.get(0).getIndex());
-
-    boolean changed = false;
-    for(LogEntryProto entry : entries) {
-      changed |= setRaftConf(entry);
-    }
-
-    if (changed && server.getRole().getCurrentRole() == RaftPeerRole.LISTENER) {
-      server.changeToFollowerAndPersistMetadata(getCurrentTerm(), true, "setRaftConf").join();
+  void updateConfiguration(List<LogEntryProto> entries) {
+    if (entries != null && !entries.isEmpty()) {
+      configurationManager.removeConfigurations(entries.get(0).getIndex());
+      entries.forEach(this::setRaftConf);
     }
   }
 
@@ -443,7 +426,7 @@ class ServerState {
       if (e instanceof InterruptedException) {
           Thread.currentThread().interrupt();
       }
-      LOG.warn("{}: Failed to join {}", getMemberId(), getStateMachineUpdater(), e);
+      LOG.warn(getMemberId() + ": Failed to join " + getStateMachineUpdater(), e);
     }
 
     try {
@@ -451,7 +434,7 @@ class ServerState {
         getLog().close();
       }
     } catch (Throwable e) {
-      LOG.warn("{}: Failed to close raft log {}", getMemberId(), getLog(), e);
+      LOG.warn(getMemberId() + ": Failed to close raft log " + getLog(), e);
     }
 
     try {
@@ -459,7 +442,7 @@ class ServerState {
         getStorage().close();
       }
     } catch (Throwable e) {
-      LOG.warn("{}: Failed to close raft storage {}", getMemberId(), getStorage(), e);
+      LOG.warn(getMemberId() + ": Failed to close raft storage " + getStorage(), e);
     }
   }
 

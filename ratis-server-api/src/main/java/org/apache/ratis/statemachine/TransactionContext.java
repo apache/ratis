@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReflectionUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.util.Objects;

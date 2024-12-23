@@ -27,6 +27,7 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -74,9 +75,11 @@ public class TransactionContextImpl implements TransactionContext {
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile LogEntryProto logEntry;
   /** Committed LogEntry copy. */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile Supplier<LogEntryProto> logEntryCopy;
 
   /** For wrapping {@link #logEntry} in order to release the underlying buffer. */
+  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile ReferenceCountedObject<?> delegatedRef;
 
   private final CompletableFuture<Long> logIndexFuture = new CompletableFuture<>();
@@ -150,6 +153,7 @@ public class TransactionContextImpl implements TransactionContext {
   }
 
   @Override
+  @SuppressWarnings("deprecation")
   public StateMachineLogEntryProto getStateMachineLogEntry() {
     return stateMachineLogEntry;
   }
@@ -192,6 +196,7 @@ public class TransactionContextImpl implements TransactionContext {
 
 
   @Override
+  @SuppressWarnings("deprecation")
   public LogEntryProto getLogEntry() {
     return logEntryCopy == null ? null : logEntryCopy.get();
   }
@@ -227,6 +232,8 @@ public class TransactionContextImpl implements TransactionContext {
 
   @Override
   public TransactionContext cancelTransaction() throws IOException {
+    // TODO: This is not called from Raft server / log yet. When an IOException happens, we should
+    // call this to let the SM know that Transaction cannot be synced
     return stateMachine.cancelTransaction(this);
   }
 
