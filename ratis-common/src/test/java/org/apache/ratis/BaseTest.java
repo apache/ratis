@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.ReferenceCountedLeakDetector;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -30,6 +31,7 @@ import org.junit.After;
 import org.junit.Rule;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -97,6 +99,9 @@ public abstract class BaseTest {
     testCaseName = testInfo.getTestMethod()
         .orElseThrow(() -> new RuntimeException("Exception while getting test name."))
         .getName();
+
+    final int leaks = ReferenceCountedLeakDetector.getLeakDetector().getLeakCount();
+    Assumptions.assumeFalse(0 < leaks, () -> "numLeaks " + leaks + " > 0");
   }
 
   // @After annotation is retained to support junit 4 tests.
