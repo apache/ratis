@@ -31,11 +31,10 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -50,28 +49,30 @@ public class TestRaftWithGrpc
         SimpleStateMachine4Testing.class, StateMachine.class);
   }
 
-  public static Collection<Boolean[]> data() {
-    return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
+  @Disabled
+  @Override
+  public void testWithLoad() {
+    // skip testWithLoad() from parent, called from parameterized testWithLoad(boolean)
   }
 
   @ParameterizedTest
-  @MethodSource("data")
-  public void testWithLoad(Boolean separateHeartbeat) throws Exception {
+  @ValueSource(booleans = {true, false})
+  public void testWithLoad(boolean separateHeartbeat) throws Exception {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     super.testWithLoad();
     BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 
   @ParameterizedTest
-  @MethodSource("data")
-  public void testRequestTimeout(Boolean separateHeartbeat) throws Exception {
+  @ValueSource(booleans = {true, false})
+  public void testRequestTimeout(boolean separateHeartbeat) throws Exception {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(NUM_SERVERS, cluster -> testRequestTimeout(false, cluster, LOG));
   }
 
   @ParameterizedTest
-  @MethodSource("data")
-  public void testUpdateViaHeartbeat(Boolean separateHeartbeat) throws Exception {
+  @ValueSource(booleans = {true, false})
+  public void testUpdateViaHeartbeat(boolean separateHeartbeat) throws Exception {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(NUM_SERVERS, this::runTestUpdateViaHeartbeat);
   }
