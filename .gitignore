@@ -11,6 +11,7 @@
 .hugo_build.lock
 .idea
 .classpath
+.mvn/.develocity/
 .project
 .settings
 target
