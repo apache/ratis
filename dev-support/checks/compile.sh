@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -12,22 +13,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+cd "$DIR/../.." || exit 1
 
-name: build-branch
+source "${DIR}/../find_maven.sh"
 
-on:
-  push:
-    branches-ignore:
-      - 'dependabot/**'
-    tags:
-      - '**'
-  pull_request:
+: ${WITH_COVERAGE:="false"}
 
-concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+MAVEN_OPTIONS='-V -B -Dmaven.javadoc.skip=true -DskipTests'
 
-jobs:
-  CI:
-    uses: ./.github/workflows/ci.yml
-    secrets: inherit
+if [[ "${WITH_COVERAGE}" != "true" ]]; then
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} -Djacoco.skip"
+fi
+
+export MAVEN_OPTS="-Xmx4096m"
+${MVN} ${MAVEN_OPTIONS} clean verify "$@"
+exit $?
