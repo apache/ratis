@@ -271,7 +271,7 @@ public final class ReferenceCountedLeakDetector {
       }
 
       static <T> int findFirstUnequalFromTail(T[] current, T[] previous) {
-        int c = current.length - 1;
+        int c = current.length == 0 ? 0 : current.length - 1;
         for(int p = previous.length - 1; p >= 0; p--, c--) {
           if (!previous[p].equals(current[c])) {
             return c;
