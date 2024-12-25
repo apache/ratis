@@ -139,6 +139,7 @@ public class TestLogSegment extends BaseTest {
     long offset = SegmentedRaftLogFormat.getHeaderLength();
     for (long i = start; i <= end; i++) {
       LogSegment.LogRecord record = segment.getLogRecord(i);
+      Assertions.assertNotNull(record);
       final TermIndex ti = record.getTermIndex();
       Assertions.assertEquals(i, ti.getIndex());
       Assertions.assertEquals(term, ti.getTerm());
@@ -146,7 +147,7 @@ public class TestLogSegment extends BaseTest {
 
       ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(ti);
       if (entry == null) {
-        entry = segment.loadCache(record);
+        entry = segment.loadCache(ti);
       }
       offset += getEntrySize(entry.get(), Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
     }

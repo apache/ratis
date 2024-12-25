@@ -42,9 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongUnaryOperator;
 
@@ -52,12 +50,74 @@ import java.util.function.LongUnaryOperator;
  * An abstract implementation of {@link LogAppender}.
  */
 public abstract class LogAppenderBase implements LogAppender {
+  /** For storing log entries to create an {@link AppendEntriesRequestProto}. */
+  private class EntryBuffer {
+    /** A queue for limiting the byte size and element size. */
+    private final DataQueue<EntryWithData> queue;
+    /** A map for releasing {@link ReferenceCountedObject}s. */
+    private final Map<Long, ReferenceCountedObject<EntryWithData>> map = new HashMap<>();
+
+    EntryBuffer() {
+      final RaftProperties properties = server.getRaftServer().getProperties();
+      final SizeInBytes bufferByteLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
+      final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
+      this.queue = new DataQueue<>(name, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
+    }
+
+    void retain() {
+      for (ReferenceCountedObject<EntryWithData> ref : map.values()) {
+        ref.retain();
+      }
+    }
+
+    void release() {
+      for (ReferenceCountedObject<EntryWithData> ref : map.values()) {
+        ref.release();
+      }
+    }
+
+    int size() {
+      return map.size();
+    }
+
+    boolean putNew(long index, ReferenceCountedObject<EntryWithData> ref) {
+      if (!queue.offer(ref.get())) {
+        ref.release();
+        return false;
+      }
+      final ReferenceCountedObject<EntryWithData> previous = map.put(index, ref);
+      Preconditions.assertNull(previous, () -> "previous with index " + index);
+      return true;
+    }
+
+    void releaseAndClear() {
+      release();
+      map.clear();
+    }
+
+    List<LogEntryProto> pollList(long heartbeatWaitTimeMs) throws RaftLogIOException {
+      try {
+        return queue.pollList(heartbeatWaitTimeMs, EntryWithData::getEntry, null);
+      } catch (RaftLogIOException e) {
+        releaseAndClear();
+        throw e;
+      } finally {
+        for (EntryWithData entry : queue) {
+          // Release remaining entries.
+          final ReferenceCountedObject<EntryWithData> removed = map.remove(entry.getIndex());
+          Objects.requireNonNull(removed, "removed == null");
+          removed.release();
+        }
+        queue.clear();
+      }
+    }
+  }
+
   private final String name;
   private final RaftServer.Division server;
   private final LeaderState leaderState;
   private final FollowerInfo follower;
 
-  private final DataQueue<EntryWithData> buffer;
   private final int snapshotChunkMaxSize;
 
   private final LogAppenderDaemon daemon;
@@ -75,9 +135,6 @@ public abstract class LogAppenderBase implements LogAppender {
     final RaftProperties properties = server.getRaftServer().getProperties();
     this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties).getSizeInt();
 
-    final SizeInBytes bufferByteLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
-    final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
-    this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
     this.daemon = new LogAppenderDaemon(this);
     this.eventAwaitForSignal = new AwaitForSignal(name);
 
@@ -210,13 +267,13 @@ public abstract class LogAppenderBase implements LogAppender {
       final long n = oldNextIndex <= 0L ? oldNextIndex : Math.min(oldNextIndex - 1, newNextIndex);
       if (m > n) {
         if (m > newNextIndex) {
-          LOG.info("Set nextIndex to matchIndex + 1 (= " + m + ")");
+          LOG.info("{}: Set nextIndex to matchIndex + 1 (= {})", name, m);
         }
         return m;
       } else if (oldNextIndex <= 0L) {
         return oldNextIndex; // no change.
       } else {
-        LOG.info("Decrease nextIndex to " + n);
+        LOG.info("{}: Decrease nextIndex to {}", name, n);
         return n;
       }
     };
@@ -227,18 +284,18 @@ public abstract class LogAppenderBase implements LogAppender {
     throw new UnsupportedOperationException("Use nextAppendEntriesRequest(" + callId + ", " + heartbeat +") instead.");
   }
 
-/**
- * Create a {@link AppendEntriesRequestProto} object using the {@link FollowerInfo} of this {@link LogAppender}.
- * The {@link AppendEntriesRequestProto} object may contain zero or more log entries.
- * When there is zero log entries, the {@link AppendEntriesRequestProto} object is a heartbeat.
- *
- * @param callId The call id of the returned request.
- * @param heartbeat the returned request must be a heartbeat.
- *
- * @return a retained reference of {@link AppendEntriesRequestProto} object.
- *         Since the returned reference is retained, the caller must call {@link ReferenceCountedObject#release()}}
- *         after use.
- */
+  /**
+   * Create a {@link AppendEntriesRequestProto} object using the {@link FollowerInfo} of this {@link LogAppender}.
+   * The {@link AppendEntriesRequestProto} object may contain zero or more log entries.
+   * When there is zero log entries, the {@link AppendEntriesRequestProto} object is a heartbeat.
+   *
+   * @param callId The call id of the returned request.
+   * @param heartbeat the returned request must be a heartbeat.
+   *
+   * @return a retained reference of {@link AppendEntriesRequestProto} object.
+   *         Since the returned reference is retained, the caller must call {@link ReferenceCountedObject#release()}}
+   *         after use.
+   */
   protected ReferenceCountedObject<AppendEntriesRequestProto> nextAppendEntriesRequest(long callId, boolean heartbeat)
       throws RaftLogIOException {
     final long heartbeatWaitTimeMs = getHeartbeatWaitTimeMs();
@@ -253,56 +310,24 @@ public abstract class LogAppenderBase implements LogAppender {
       return ref;
     }
 
-    Preconditions.assertTrue(buffer.isEmpty(), () -> "buffer has " + buffer.getNumElements() + " elements.");
-
     final long snapshotIndex = follower.getSnapshotIndex();
-    final long leaderNext = getRaftLog().getNextIndex();
     final long followerNext = follower.getNextIndex();
-    final long halfMs = heartbeatWaitTimeMs/2;
-    final Map<Long, ReferenceCountedObject<EntryWithData>> offered = new HashMap<>();
-    for (long next = followerNext; leaderNext > next && getHeartbeatWaitTimeMs() - halfMs > 0; next++) {
-      final ReferenceCountedObject<EntryWithData> entryWithData;
-      try {
-        entryWithData = getRaftLog().retainEntryWithData(next);
-        if (!buffer.offer(entryWithData.get())) {
-          entryWithData.release();
-          break;
-        }
-        offered.put(next, entryWithData);
-      } catch (Exception e){
-        for (ReferenceCountedObject<EntryWithData> ref : offered.values()) {
-          ref.release();
-        }
-        offered.clear();
-        throw e;
-      }
-    }
-    if (buffer.isEmpty()) {
+    final EntryBuffer entryBuffer = readLogEntries(followerNext, heartbeatWaitTimeMs);
+    if (entryBuffer == null) {
       return null;
     }
 
-    final List<LogEntryProto> protos;
-    try {
-      protos = buffer.pollList(getHeartbeatWaitTimeMs(), EntryWithData::getEntry,
-          (entry, time, exception) -> LOG.warn("Failed to get {} in {}",
-              entry, time.toString(TimeUnit.MILLISECONDS, 3), exception));
-    } catch (RaftLogIOException e) {
-      for (ReferenceCountedObject<EntryWithData> ref : offered.values()) {
-        ref.release();
-      }
-      offered.clear();
-      throw e;
-    } finally {
-      for (EntryWithData entry : buffer) {
-        // Release remaining entries.
-        Optional.ofNullable(offered.remove(entry.getIndex())).ifPresent(ReferenceCountedObject::release);
-      }
-      buffer.clear();
-    }
+    final List<LogEntryProto> protos = entryBuffer.pollList(heartbeatWaitTimeMs);
+    Preconditions.assertSame(entryBuffer.size(), protos.size(), "#protos");
     assertProtos(protos, followerNext, previous, snapshotIndex);
     AppendEntriesRequestProto appendEntriesProto =
         leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
-    return ReferenceCountedObject.delegateFrom(offered.values(), appendEntriesProto);
+
+    final ReferenceCountedObject<AppendEntriesRequestProto> ref = ReferenceCountedObject.wrap(
+        appendEntriesProto, entryBuffer::retain, entryBuffer::release);
+    ref.retain();
+    entryBuffer.release();
+    return ref;
   }
 
   private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous, long snapshotIndex) {
@@ -322,6 +347,31 @@ public abstract class LogAppenderBase implements LogAppender {
             () -> follower.getName() + ": Previous = " + previous + " but firstIndex = " + firstIndex);
       }
     }
+  }
+
+  private EntryBuffer readLogEntries(long followerNext, long heartbeatWaitTimeMs) throws RaftLogIOException {
+    final RaftLog raftLog = getRaftLog();
+    final long leaderNext = raftLog.getNextIndex();
+    final long halfMs = heartbeatWaitTimeMs/2;
+    EntryBuffer entryBuffer = null;
+    for (long next = followerNext; leaderNext > next && getHeartbeatWaitTimeMs() - halfMs > 0; next++) {
+      final ReferenceCountedObject<EntryWithData> ref;
+      try {
+        ref = raftLog.retainEntryWithData(next);
+        if (entryBuffer == null) {
+          entryBuffer = new EntryBuffer();
+        }
+        if (!entryBuffer.putNew(next, ref)) {
+          break;
+        }
+      } catch (Exception e){
+        if (entryBuffer != null) {
+          entryBuffer.releaseAndClear();
+        }
+        throw e;
+      }
+    }
+    return entryBuffer;
   }
 
   @Override
