@@ -259,7 +259,7 @@ public abstract class LogAppenderBase implements LogAppender {
     final long halfMs = heartbeatWaitTimeMs/2;
     final Map<Long, ReferenceCountedObject<EntryWithData>> offered = new HashMap<>();
     for (long next = followerNext; leaderNext > next && getHeartbeatWaitTimeMs() - halfMs > 0; next++) {
-      ReferenceCountedObject<EntryWithData> entryWithData = null;
+      final ReferenceCountedObject<EntryWithData> entryWithData;
       try {
         entryWithData = getRaftLog().retainEntryWithData(next);
         if (!buffer.offer(entryWithData.get())) {
@@ -268,9 +268,11 @@ public abstract class LogAppenderBase implements LogAppender {
         }
         offered.put(next, entryWithData);
       } catch (Exception e){
-        if (entryWithData != null) {
-          entryWithData.release();
+        for (ReferenceCountedObject<EntryWithData> ref : offered.values()) {
+          ref.release();
         }
+        offered.clear();
+        throw e;
       }
     }
     if (buffer.isEmpty()) {
