@@ -42,6 +42,7 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AwaitToRun;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.StringUtils;
 
 import java.io.File;
@@ -212,7 +213,6 @@ public final class SegmentedRaftLog extends RaftLogBase {
   private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
   private final SegmentedRaftLogMetrics metrics;
-  private final boolean readLockEnabled;
 
   @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   private SegmentedRaftLog(Builder b) {
@@ -228,12 +228,6 @@ public final class SegmentedRaftLog extends RaftLogBase {
     this.fileLogWorker = new SegmentedRaftLogWorker(b.memberId, stateMachine,
         b.submitUpdateCommitEvent, b.server, storage, b.properties, getRaftLogMetrics());
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(b.properties);
-    this.readLockEnabled = RaftServerConfigKeys.Log.readLockEnabled(b.properties);
-  }
-
-  @Override
-  public AutoCloseableLock readLock() {
-    return readLockEnabled ? super.readLock() : null;
   }
 
   @Override
@@ -287,6 +281,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
+  @SuppressWarnings("deprecation")
   public LogEntryProto get(long index) throws RaftLogIOException {
     final ReferenceCountedObject<LogEntryProto> ref = retainLog(index);
     if (ref == null) {
@@ -302,38 +297,35 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public ReferenceCountedObject<LogEntryProto> retainLog(long index) throws RaftLogIOException {
     checkLogState();
-    final LogSegment segment;
-    final LogRecord record;
-    try (AutoCloseableLock readLock = readLock()) {
-      segment = cache.getSegment(index);
-      if (segment == null) {
-        return null;
-      }
-      record = segment.getLogRecord(index);
-      if (record == null) {
-        return null;
-      }
-      final ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(record.getTermIndex());
-      if (entry != null) {
-        try {
-          entry.retain();
-          getRaftLogMetrics().onRaftLogCacheHit();
-          return entry;
-        } catch (IllegalStateException ignored) {
-          // The entry could be removed from the cache and released.
-          // The exception can be safely ignored since it is the same as cache miss.
-        }
+    final LogSegment segment = cache.getSegment(index);
+    if (segment == null) {
+      return null;
+    }
+    final LogRecord record = segment.getLogRecord(index);
+    if (record == null) {
+      return null;
+    }
+    final TermIndex ti = record.getTermIndex();
+    final ReferenceCountedObject<LogEntryProto> entry = segment.getEntryFromCache(ti);
+    if (entry != null) {
+      try {
+        entry.retain();
+        getRaftLogMetrics().onRaftLogCacheHit();
+        return entry;
+      } catch (IllegalStateException ignored) {
+        // The entry could be removed from the cache and released.
+        // The exception can be safely ignored since it is the same as cache miss.
       }
     }
 
     // the entry is not in the segment's cache. Load the cache without holding the lock.
     getRaftLogMetrics().onRaftLogCacheMiss();
     cacheEviction.signal();
-    return segment.loadCache(record);
+    return segment.loadCache(ti);
   }
 
-
   @Override
+  @SuppressWarnings("deprecation")
   public EntryWithData getEntryWithData(long index) throws RaftLogIOException {
     throw new UnsupportedOperationException("Use retainEntryWithData(" + index + ") instead.");
   }
@@ -382,25 +374,19 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public TermIndex getTermIndex(long index) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
-      return cache.getTermIndex(index);
-    }
+    return cache.getTermIndex(index);
   }
 
   @Override
   public LogEntryHeader[] getEntries(long startIndex, long endIndex) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
-      return cache.getTermIndices(startIndex, endIndex);
-    }
+    return cache.getTermIndices(startIndex, endIndex);
   }
 
   @Override
   public TermIndex getLastEntryTermIndex() {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
-      return cache.getLastTermIndex();
-    }
+    return cache.getLastTermIndex();
   }
 
   @Override
@@ -440,6 +426,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", getName(), LogProtoUtils.toLogEntryString(entry));
     }
+    final LogEntryProto removedStateMachineData = LogProtoUtils.removeStateMachineData(entry);
     try(AutoCloseableLock writeLock = writeLock()) {
       final Timekeeper.Context appendEntryTimerContext = getRaftLogMetrics().startAppendEntryTimer();
       validateLogEntry(entry);
@@ -448,7 +435,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       if (currentOpenSegment == null) {
         cache.addOpenSegment(entry.getIndex());
         fileLogWorker.startLogSegment(entry.getIndex());
-      } else if (isSegmentFull(currentOpenSegment, entry)) {
+      } else if (isSegmentFull(currentOpenSegment, removedStateMachineData)) {
         rollOpenSegment = true;
       } else {
         final TermIndex last = currentOpenSegment.getLastTermIndex();
@@ -483,8 +470,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
       } else {
         cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, entryRef);
       }
-      writeFuture.whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
-      return writeFuture;
+      return write.getFuture().whenComplete((clientReply, exception) -> appendEntryTimerContext.stop());
     } catch (Exception e) {
       LOG.error("{}: Failed to append {}", getName(), toLogEntryString(entry), e);
       throw e;
