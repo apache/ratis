@@ -27,6 +27,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -58,6 +59,7 @@ public interface SlidingWindow {
 
   interface ClientSideRequest<REPLY> extends Request<REPLY> {
     void setFirstRequest();
+    long getCallId();
   }
 
   interface ServerSideRequest<REPLY> extends Request<REPLY> {
@@ -239,13 +241,14 @@ public interface SlidingWindow {
     private final RequestMap<REQUEST, REPLY> requests;
     /** Delayed requests. */
     private final DelayedRequests delayedRequests = new DelayedRequests();
+    private final ConcurrentHashMap<Long, Long> map = new ConcurrentHashMap<>();
 
     /** The seqNum for the next new request. */
     private long nextSeqNum = 1;
     /** The seqNum of the first request. */
-    private long firstSeqNum = -1;
+    private volatile long firstSeqNum = -1;
     /** Is the first request replied? */
-    private boolean firstReplied;
+    private volatile boolean firstReplied;
     /** The exception, if there is any. */
     private Throwable exception;
 
@@ -311,6 +314,7 @@ public interface SlidingWindow {
 
       if (firstReplied) {
         // already received the reply for the first request, submit any request.
+        map.put(request.getCallId(), getFirstSeqNum());
         sendMethod.accept(request);
         return true;
       }
@@ -320,6 +324,7 @@ public interface SlidingWindow {
         LOG.debug("{}: detect firstSubmitted {} in {}", requests.getName(), request, this);
         firstSeqNum = seqNum;
         request.setFirstRequest();
+        map.put(request.getCallId(), getFirstSeqNum());
         sendMethod.accept(request);
         return true;
       }
@@ -344,7 +349,9 @@ public interface SlidingWindow {
     private void removeRepliedFromHead() {
       for (final Iterator<REQUEST> i = requests.iterator(); i.hasNext(); i.remove()) {
         final REQUEST r = i.next();
-        if (!r.hasReply()) {
+        if (r.hasReply()) {
+          map.remove(r.getCallId());
+        } else {
           return;
         }
       }
@@ -385,10 +392,12 @@ public interface SlidingWindow {
     }
 
     /** Reset the {@link #firstSeqNum} The stream has an error. */
-    public synchronized void resetFirstSeqNum() {
-      firstSeqNum = -1;
-      firstReplied = false;
-      LOG.debug("After resetFirstSeqNum: {}", this);
+    public synchronized void resetFirstSeqNum(long callId) {
+      if (callId == -1 || getFirstSeqNum() == map.get(callId)) {
+        firstSeqNum = -1;
+        firstReplied = false;
+        LOG.debug("After resetFirstSeqNum: {}", this);
+      }
     }
 
     /** Fail all requests starting from the given seqNum. */
@@ -419,6 +428,10 @@ public interface SlidingWindow {
 
     public synchronized boolean isFirst(long seqNum) {
       return seqNum == (firstSeqNum != -1 ? firstSeqNum : requests.firstSeqNum());
+    }
+
+    public long getFirstSeqNum() {
+      return firstSeqNum != -1 ? firstSeqNum : requests.firstSeqNum();
     }
   }
 
