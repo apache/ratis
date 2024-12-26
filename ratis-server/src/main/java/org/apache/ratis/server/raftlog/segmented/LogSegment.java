@@ -490,7 +490,7 @@ public final class LogSegment {
    * Acquire LogSegment's monitor so that there is no concurrent loading.
    */
   synchronized ReferenceCountedObject<LogEntryProto> loadCache(TermIndex ti) throws RaftLogIOException {
-    ReferenceCountedObject<LogEntryProto> entry = entryCache.get(ti);
+    final ReferenceCountedObject<LogEntryProto> entry = entryCache.get(ti);
     if (entry != null) {
       try {
         entry.retain();
