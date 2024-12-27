@@ -339,7 +339,11 @@ public abstract class LogAppenderBase implements LogAppender {
     assertProtos(protos, followerNext, previous, snapshotIndex);
     AppendEntriesRequestProto appendEntriesProto =
         leaderState.newAppendEntriesRequestProto(follower, protos, previous, callId);
-    return ReferenceCountedObject.wrap(appendEntriesProto, entryList::retain, entryList::release);
+    final ReferenceCountedObject<AppendEntriesRequestProto> ref = ReferenceCountedObject.wrap(
+        appendEntriesProto, entryList::retain, entryList::release);
+    ref.retain();
+    entryList.release();
+    return ref;
   }
 
   private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous, long snapshotIndex) {
