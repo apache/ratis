@@ -116,6 +116,21 @@ public interface RaftServerConfigKeys {
     setInt(properties::setInt, STAGING_CATCHUP_GAP_KEY, stagingCatchupGap);
   }
 
+  String BOOTSTRAP_TIMEOUT_KEY = PREFIX + ".boostrap.timeout";
+
+  TimeDuration BOOTSTRAP_TIMEOUT_DEFAULT = null;
+
+  static TimeDuration bootstrapTimeout(RaftProperties properties) {
+    final TimeDuration fallbackFirstElectionTimeoutMax = Rpc.timeoutMax(properties, null).multiply(3);
+    return getTimeDuration(properties.getTimeDuration(fallbackFirstElectionTimeoutMax.getUnit()),
+        BOOTSTRAP_TIMEOUT_KEY, BOOTSTRAP_TIMEOUT_DEFAULT,
+        Rpc.TIMEOUT_MAX_KEY, fallbackFirstElectionTimeoutMax, getDefaultLog());
+  }
+  static void setBootstrapTimeout(RaftProperties properties, TimeDuration bootstrapTimeout) {
+    setTimeDuration(properties::setTimeDuration, BOOTSTRAP_TIMEOUT_KEY, bootstrapTimeout);
+  }
+
+
   interface ThreadPool {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".threadpool";
 
