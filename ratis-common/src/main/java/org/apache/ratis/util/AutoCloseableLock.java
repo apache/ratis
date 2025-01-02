@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 
@@ -43,6 +44,13 @@ public final class AutoCloseableLock implements AutoCloseable {
   public static AutoCloseableLock acquire(final Lock lock, Runnable preUnlock) {
     lock.lock();
     return new AutoCloseableLock(lock, preUnlock);
+  }
+
+  public static AutoCloseableLock tryAcquire(final Lock lock, Runnable preUnlock, TimeDuration timeout)
+      throws InterruptedException {
+    Objects.requireNonNull(timeout, "timeout == null");
+    final boolean locked = lock.tryLock(timeout.getDuration(), timeout.getUnit());
+    return locked? new AutoCloseableLock(lock, preUnlock): null;
   }
 
   private final Lock underlying;

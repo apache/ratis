@@ -119,7 +119,7 @@ public abstract class RaftLogBase implements RaftLog {
 
   @Override
   public boolean updateCommitIndex(long majorityIndex, long currentTerm, boolean isLeader) {
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = tryWriteLock(TimeDuration.ONE_SECOND)) {
       final long oldCommittedIndex = getLastCommittedIndex();
       final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
       if (oldCommittedIndex < newCommitIndex) {
@@ -133,6 +133,9 @@ public abstract class RaftLogBase implements RaftLog {
           return commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
         }
       }
+    } catch (InterruptedException e) {
+      LOG.warn("{}: Interrupted to updateCommitIndex: majorityIndex={}, currentTerm={}, isLeader={}",
+          getName(), majorityIndex, currentTerm, isLeader, e);
     }
     return false;
   }
@@ -373,6 +376,10 @@ public abstract class RaftLogBase implements RaftLog {
 
   public AutoCloseableLock writeLock() {
     return AutoCloseableLock.acquire(lock.writeLock());
+  }
+
+  public AutoCloseableLock tryWriteLock(TimeDuration timeout) throws InterruptedException {
+    return AutoCloseableLock.tryAcquire(lock.writeLock(), null, timeout);
   }
 
   public boolean hasWriteLock() {
