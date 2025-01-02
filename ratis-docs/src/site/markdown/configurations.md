@@ -105,7 +105,7 @@ peer and the leader's latest committed index is less than this gap, we
 treat the peer as caught-up. Increase this number when write throughput is high.
 
 ---------------------------------------------------------------------------------
-| **Property**    | `raft.server.boostrap.timeout`      |
+| **Property**    | `raft.server.bootstrap.timeout`     |
 |:----------------|:------------------------------------|
 | **Description** | timeout of bootstrapping a new peer |
 | **Type**        | TimeDuration                        |

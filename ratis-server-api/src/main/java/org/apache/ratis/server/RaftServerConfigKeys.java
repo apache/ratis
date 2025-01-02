@@ -116,7 +116,7 @@ public interface RaftServerConfigKeys {
     setInt(properties::setInt, STAGING_CATCHUP_GAP_KEY, stagingCatchupGap);
   }
 
-  String BOOTSTRAP_TIMEOUT_KEY = PREFIX + ".boostrap.timeout";
+  String BOOTSTRAP_TIMEOUT_KEY = PREFIX + ".bootstrap.timeout";
 
   TimeDuration BOOTSTRAP_TIMEOUT_DEFAULT = null;
 
