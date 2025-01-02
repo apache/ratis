@@ -71,12 +71,6 @@ class TransactionManager {
 
   @Override
   public String toString() {
-    if (contexts.isEmpty()) {
-      return name + " <empty>";
-    }
-
-    final StringBuilder b = new StringBuilder(name);
-    contexts.forEach((k, v) -> b.append("\n  ").append(k).append(": initialized? ").append(v.isInitialized()));
-    return b.toString();
+    return name + ":size=" + contexts.size();
   }
 }
