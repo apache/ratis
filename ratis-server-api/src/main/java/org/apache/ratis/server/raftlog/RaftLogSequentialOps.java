@@ -77,8 +77,10 @@ interface RaftLogSequentialOps {
         // The current thread is already the runner.
         return operation.get();
       } else {
+        final Throwable cause = new Throwable("The thread already running: " + previous);
+        cause.setStackTrace(previous.getStackTrace());
         throw new IllegalStateException(
-            name + ": Already running a method by " + previous + ", current=" + current);
+            name + ": Already running a method by " + previous + ", current=" + current, cause);
       }
     }
   }
