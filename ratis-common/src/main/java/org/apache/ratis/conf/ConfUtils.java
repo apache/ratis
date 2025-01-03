@@ -33,6 +33,8 @@ import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -41,8 +43,22 @@ import java.util.function.Function;
 public interface ConfUtils {
   Logger LOG = LoggerFactory.getLogger(ConfUtils.class);
 
+  class Utils {
+    private static final ConcurrentMap<String, Object> CACHE = new ConcurrentHashMap<>();
+
+    private static <T> boolean isNew(String key, T value) {
+      if (value == null) {
+        final Object previous = CACHE.remove(key);
+        return previous != null;
+      } else {
+        final Object previous = CACHE.put(key, value);
+        return !value.equals(previous);
+      }
+    }
+  }
+
   static <T> void logGet(String key, T value, T defaultValue, Consumer<String> logger) {
-    if (logger != null) {
+    if (logger != null && Utils.isNew(key, value)) {
       logger.accept(String.format("%s = %s (%s)", key, value,
           Objects.equal(value, defaultValue)? "default": "custom"));
     }

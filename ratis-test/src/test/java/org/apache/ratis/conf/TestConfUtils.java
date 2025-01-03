@@ -22,10 +22,42 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.netty.NettyConfigKeys;
+import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.simulation.SimulatedRpc;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+
 public class TestConfUtils  extends BaseTest {
+  @Test
+  public void testLogging() {
+    final AtomicInteger count = new AtomicInteger();
+    final Consumer<String> logger = s -> {
+      System.out.println("log: " + s);
+      count.incrementAndGet();
+    };
+
+    final RaftProperties properties = new RaftProperties();
+    final RpcType simulated = SimulatedRpc.get();
+
+    // get a value the first time
+    final RpcType defaultType = RaftConfigKeys.Rpc.type(properties, logger);
+    Assertions.assertEquals(1, count.get());
+    Assertions.assertNotEquals(defaultType, simulated);
+
+    // get the same value the second time
+    RaftConfigKeys.Rpc.type(properties, logger);
+    Assertions.assertEquals(1, count.get());
+
+    // get a different value
+    RaftConfigKeys.Rpc.setType(properties, SimulatedRpc.get());
+    RaftConfigKeys.Rpc.type(properties, logger);
+    Assertions.assertEquals(2, count.get());
+  }
+
   @Test
   public void testRaftConfigKeys() {
     ConfUtils.printAll(RaftConfigKeys.class);
