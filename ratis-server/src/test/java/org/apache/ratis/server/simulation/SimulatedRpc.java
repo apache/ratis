@@ -28,8 +28,12 @@ import org.apache.ratis.util.JavaUtils;
 
 import java.util.Objects;
 
-class SimulatedRpc implements RpcType {
+public class SimulatedRpc implements RpcType {
   static final SimulatedRpc INSTANCE = new SimulatedRpc();
+
+  public static SimulatedRpc get() {
+    return INSTANCE;
+  }
 
   @Override
   public String name() {
