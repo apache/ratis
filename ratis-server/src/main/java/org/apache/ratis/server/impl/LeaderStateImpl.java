@@ -350,6 +350,7 @@ class LeaderStateImpl implements LeaderState {
 
   private final boolean logMetadataEnabled;
   private final int stagingCatchupGap;
+  private final TimeDuration stagingTimeout;
   private final RaftServerMetricsImpl raftServerMetrics;
   private final LogAppenderMetrics logAppenderMetrics;
   private final long followerMaxGapThreshold;
@@ -364,6 +365,7 @@ class LeaderStateImpl implements LeaderState {
 
     final RaftProperties properties = server.getRaftServer().getProperties();
     stagingCatchupGap = RaftServerConfigKeys.stagingCatchupGap(properties);
+    stagingTimeout = RaftServerConfigKeys.stagingTimeout(properties);
 
     final ServerState state = server.getState();
     this.raftLog = state.getLog();
@@ -789,7 +791,7 @@ class LeaderStateImpl implements LeaderState {
   private BootStrapProgress checkProgress(FollowerInfo follower, long committed) {
     Preconditions.assertTrue(!isCaughtUp(follower));
     final Timestamp progressTime = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
-    final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-3L * server.getMaxTimeoutMs());
+    final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-stagingTimeout.toLong(TimeUnit.MILLISECONDS));
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
       LOG.debug("{} detects a follower {} timeout ({}ms) for bootstrapping", this, follower,
           follower.getLastRpcResponseTime().elapsedTimeMs());
