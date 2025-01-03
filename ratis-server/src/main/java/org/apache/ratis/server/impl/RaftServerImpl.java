@@ -1645,11 +1645,9 @@ class RaftServerImpl implements RaftServer.Division,
       state.updateConfiguration(entries);
     }
     future.join();
-    final CompletableFuture<Void> appendLog = appendLogFuture.updateAndGet(f -> f.thenCompose(ignored -> {
-      final List<CompletableFuture<Long>> futures = entries.isEmpty() ? Collections.emptyList()
-        : state.getLog().append(requestRef.delegate(entries));
-      return JavaUtils.allOf(futures);
-    }));
+    final CompletableFuture<Void> appendLog = entries.isEmpty()? appendLogFuture.get()
+        : appendLog(requestRef.delegate(entries));
+
     proto.getCommitInfosList().forEach(commitInfoCache::update);
 
     CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);
@@ -1679,6 +1677,12 @@ class RaftServerImpl implements RaftServer.Division,
           + ": appendEntries* reply " + toAppendEntriesReplyString(reply));
       return reply;
     });
+  }
+  private CompletableFuture<Void> appendLog(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
+    entriesRef.retain();
+    return appendLogFuture.updateAndGet(f -> f.thenCompose(
+            ignored -> JavaUtils.allOf(state.getLog().append(entriesRef))))
+        .whenComplete((v, e) -> entriesRef.release());
   }
 
   private long checkInconsistentAppendEntries(TermIndex previous, List<LogEntryProto> entries) {
