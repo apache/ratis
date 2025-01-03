@@ -116,18 +116,18 @@ public interface RaftServerConfigKeys {
     setInt(properties::setInt, STAGING_CATCHUP_GAP_KEY, stagingCatchupGap);
   }
 
-  String BOOTSTRAP_TIMEOUT_KEY = PREFIX + ".bootstrap.timeout";
+  String STAGING_TIMEOUT_KEY = PREFIX + ".staging.timeout";
 
-  TimeDuration BOOTSTRAP_TIMEOUT_DEFAULT = null;
+  TimeDuration STAGING_TIMEOUT_DEFAULT = null;
 
-  static TimeDuration bootstrapTimeout(RaftProperties properties) {
-    final TimeDuration fallbackFirstElectionTimeoutMax = Rpc.timeoutMax(properties, null).multiply(3);
-    return getTimeDuration(properties.getTimeDuration(fallbackFirstElectionTimeoutMax.getUnit()),
-        BOOTSTRAP_TIMEOUT_KEY, BOOTSTRAP_TIMEOUT_DEFAULT,
-        Rpc.TIMEOUT_MAX_KEY, fallbackFirstElectionTimeoutMax, getDefaultLog());
+  static TimeDuration stagingTimeout(RaftProperties properties) {
+    final TimeDuration fallbackStagingTimeout = Rpc.timeoutMax(properties, null).multiply(3);
+    return getTimeDuration(properties.getTimeDuration(fallbackStagingTimeout.getUnit()),
+        STAGING_TIMEOUT_KEY, STAGING_TIMEOUT_DEFAULT,
+        Rpc.TIMEOUT_MAX_KEY, fallbackStagingTimeout, getDefaultLog());
   }
-  static void setBootstrapTimeout(RaftProperties properties, TimeDuration bootstrapTimeout) {
-    setTimeDuration(properties::setTimeDuration, BOOTSTRAP_TIMEOUT_KEY, bootstrapTimeout);
+  static void setStagingTimeout(RaftProperties properties, TimeDuration stagingTimeout) {
+    setTimeDuration(properties::setTimeDuration, STAGING_TIMEOUT_KEY, stagingTimeout);
   }
 
 

@@ -105,11 +105,11 @@ peer and the leader's latest committed index is less than this gap, we
 treat the peer as caught-up. Increase this number when write throughput is high.
 
 ---------------------------------------------------------------------------------
-| **Property**    | `raft.server.bootstrap.timeout`     |
-|:----------------|:------------------------------------|
-| **Description** | timeout of bootstrapping a new peer |
-| **Type**        | TimeDuration                        |
-| **Default**     | 3 times of timeoutMax               |
+| **Property**    | `raft.server.staging.timeout`            |
+|:----------------|:-----------------------------------------|
+| **Description** | timeout of bootstrapping a new peer      |
+| **Type**        | TimeDuration                             |
+| **Default**     | 3 times of `raft.server.rpc.timeout.max` |
 
 During the initialization of a new peer, the leader will classify the bootstrap process as "NO PROGRESS" 
 if it fails to receive any RPC responses from this peer within this specified timeout period.
