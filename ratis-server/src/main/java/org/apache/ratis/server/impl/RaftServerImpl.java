@@ -1645,7 +1645,7 @@ class RaftServerImpl implements RaftServer.Division,
       state.updateConfiguration(entries);
     }
     future.join();
-    final CompletableFuture<Void> appendLog = entries.isEmpty()? appendLogFuture.get()
+    final CompletableFuture<Void> appendLog = entries.isEmpty()? CompletableFuture.completedFuture(null)
         : appendLog(requestRef.delegate(entries));
 
     proto.getCommitInfosList().forEach(commitInfoCache::update);
