@@ -172,6 +172,7 @@
     <maven-checkstyle-plugin.version>3.3.0</maven-checkstyle-plugin.version>
     <maven-clover2-plugin.version>4.0.6</maven-clover2-plugin.version>
     <maven-pdf-plugin.version>1.6.1</maven-pdf-plugin.version>
+    <maven-remote-resources-plugin.version>3.3.0</maven-remote-resources-plugin.version>
     <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
     <maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
@@ -698,6 +699,11 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-antrun-plugin</artifactId>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-remote-resources-plugin</artifactId>
+          <version>${maven-remote-resources-plugin.version}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
