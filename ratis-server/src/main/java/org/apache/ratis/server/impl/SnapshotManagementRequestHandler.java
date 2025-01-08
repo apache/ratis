@@ -113,10 +113,6 @@ class SnapshotManagementRequestHandler {
     return pending.get().map(PendingRequest::shouldTriggerTakingSnapshot).orElse(false);
   }
 
-  PendingRequestReference getPending() {
-    return pending;
-  }
-
   void completeTakingSnapshot(long index) {
     pending.getAndSetNull().ifPresent(p -> p.complete(index));
   }

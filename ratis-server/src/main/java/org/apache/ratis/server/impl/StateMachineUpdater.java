@@ -216,7 +216,7 @@ class StateMachineUpdater implements Runnable {
     // Thus it is possible to have applied > committed initially.
     final long applied = getLastAppliedIndex();
     for(; applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop(); ) {
-      if (server.getSnapshotRequestHandler().getPending().get().isPresent()) {
+      if (server.getSnapshotRequestHandler().shouldTriggerTakingSnapshot()) {
         takeSnapshot();
       }
       if (awaitForSignal.await(100, TimeUnit.MILLISECONDS)) {
