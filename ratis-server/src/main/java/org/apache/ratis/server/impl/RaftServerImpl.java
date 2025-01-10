@@ -206,6 +206,14 @@ class RaftServerImpl implements RaftServer.Division,
           .map(LeaderStateImpl::getFollowerNextIndices)
           .orElse(null);
     }
+
+    @Override
+    public long[] getFollowerMatchIndices() {
+      return role.getLeaderState()
+          .filter(leader -> isLeader())
+          .map(LeaderStateImpl::getFollowerMatchIndices)
+          .orElse(null);
+    }
   }
 
   private final RaftServerProxy proxy;
