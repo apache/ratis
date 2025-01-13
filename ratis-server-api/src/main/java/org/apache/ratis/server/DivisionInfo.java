@@ -80,4 +80,10 @@ public interface DivisionInfo {
    *         otherwise, return null.
    */
   long[] getFollowerNextIndices();
+
+  /**
+   * @return an array of match indices of the followers if this server division is the leader;
+   *         otherwise, return null.
+   */
+  long[] getFollowerMatchIndices();
 }

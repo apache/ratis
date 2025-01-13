@@ -1214,6 +1214,10 @@ class LeaderStateImpl implements LeaderState {
     return getLogAppenders().mapToLong(s -> s.getFollower().getNextIndex()).toArray();
   }
 
+  long[] getFollowerMatchIndices() {
+    return getLogAppenders().mapToLong(s -> s.getFollower().getMatchIndex()).toArray();
+  }
+
   static Map<RaftPeerId, RaftPeer> newMap(Collection<RaftPeer> peers, String str) {
     Objects.requireNonNull(peers, () -> str + " == null");
     final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
