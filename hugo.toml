@@ -17,6 +17,11 @@ enableEmoji = true
 footnotereturnlinkcontents = "<sup>^</sup>"
 uglyurls = true
 
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+
 
 [[menu.main]]
   name = "Download"
