@@ -22,16 +22,25 @@
 <develocity
         xmlns="https://www.gradle.com/develocity-maven" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="https://www.gradle.com/develocity-maven https://www.gradle.com/schema/develocity-maven.xsd">
+  <projectId>ratis</projectId>
+  <server>
+    <url>https://develocity.apache.org</url>
+    <allowUntrusted>false</allowUntrusted>
+  </server>
   <buildScan>
     <capture>
-      <fileFingerprints>false</fileFingerprints>
-      <buildLogging>false</buildLogging>
-      <testLogging>false</testLogging>
+      <fileFingerprints>true</fileFingerprints>
+      <buildLogging>true</buildLogging>
+      <testLogging>true</testLogging>
       <resourceUsage>false</resourceUsage>
     </capture>
+    <backgroundBuildScanUpload>#{isFalse(env['GITHUB_ACTIONS'])}</backgroundBuildScanUpload>
     <publishing>
-      <onlyIf>false</onlyIf>
+      <onlyIf><![CDATA[authenticated]]></onlyIf>
     </publishing>
+    <obfuscation>
+      <ipAddresses>#{{'0.0.0.0'}}</ipAddresses>
+    </obfuscation>
   </buildScan>
   <buildCache>
     <local>
