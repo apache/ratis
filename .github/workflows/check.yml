@@ -156,6 +156,7 @@ jobs:
         run: |
           dev-support/checks/${{ inputs.script }}.sh ${{ inputs.script-args }}
         env:
+          DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
           WITH_COVERAGE: ${{ inputs.with-coverage }}
 
       - name: Summary of failures
