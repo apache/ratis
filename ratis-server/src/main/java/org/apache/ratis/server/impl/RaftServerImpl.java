@@ -1717,7 +1717,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     // Check if "previous" is contained in current state.
-    if (previous != null && !state.containsTermIndex(previous)) {
+    if (previous != null && !state.containsTermIndex(previous) && appendLogFuture.get().isDone()) {
       final long replyNextIndex = Math.min(state.getNextIndex(), previous.getIndex());
       LOG.info("{}: Failed appendEntries as previous log entry ({}) is not found", getMemberId(), previous);
       return replyNextIndex;
