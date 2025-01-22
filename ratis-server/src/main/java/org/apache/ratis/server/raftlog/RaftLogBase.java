@@ -141,10 +141,8 @@ public abstract class RaftLogBase implements RaftLog {
   }
 
   protected void updatePurgeIndex(Long purged) {
-    try (AutoCloseableLock writeLock = writeLock()) {
-      if (purged != null) {
-        purgeIndex.updateToMax(purged, infoIndexChange);
-      }
+    if (purged != null) {
+      purgeIndex.updateToMax(purged, infoIndexChange);
     }
   }
 
