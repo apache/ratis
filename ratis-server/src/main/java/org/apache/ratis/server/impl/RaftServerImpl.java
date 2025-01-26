@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import java.util.concurrent.CountDownLatch;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
@@ -25,11 +24,11 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.proto.RaftProtos.LogInfoProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.LogInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
@@ -82,6 +81,8 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
+import org.apache.ratis.server.impl.ServerImplUtils.ConsecutiveIndices;
+import org.apache.ratis.server.impl.ServerImplUtils.NavigableIndices;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
@@ -128,6 +129,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -260,6 +262,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final ThreadGroup threadGroup;
 
   private final AtomicReference<CompletableFuture<Void>> appendLogFuture;
+  private final NavigableIndices appendLogTermIndices = new NavigableIndices();
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
@@ -1687,10 +1690,16 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
   private CompletableFuture<Void> appendLog(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
-    entriesRef.retain();
+    final List<LogEntryProto> entries = entriesRef.retain();
+    final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
+    appendLogTermIndices.append(entriesTermIndices);
+
     return appendLogFuture.updateAndGet(f -> f.thenCompose(
             ignored -> JavaUtils.allOf(state.getLog().append(entriesRef))))
-        .whenComplete((v, e) -> entriesRef.release());
+        .whenComplete((v, e) -> {
+          entriesRef.release();
+          appendLogTermIndices.removeExisting(entriesTermIndices);
+        });
   }
 
   private long checkInconsistentAppendEntries(TermIndex previous, List<LogEntryProto> entries) {
@@ -1717,7 +1726,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     // Check if "previous" is contained in current state.
-    if (previous != null && !state.containsTermIndex(previous)) {
+    if (previous != null && !(appendLogTermIndices.contains(previous) || state.containsTermIndex(previous))) {
       final long replyNextIndex = Math.min(state.getNextIndex(), previous.getIndex());
       LOG.info("{}: Failed appendEntries as previous log entry ({}) is not found", getMemberId(), previous);
       return replyNextIndex;
