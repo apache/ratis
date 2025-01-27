@@ -93,8 +93,8 @@ class SnapshotInstallationHandler {
   }
 
   InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {
-    if (LOG.isInfoEnabled()) {
-      LOG.info("{}: receive installSnapshot: {}", getMemberId(),
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("{}: receive installSnapshot: {}", getMemberId(),
           ServerStringUtils.toInstallSnapshotRequestString(request));
     }
     final InstallSnapshotReplyProto reply;
@@ -104,8 +104,8 @@ class SnapshotInstallationHandler {
       LOG.error("{}: installSnapshot failed", getMemberId(), e);
       throw e;
     }
-    if (LOG.isInfoEnabled()) {
-      LOG.info("{}: reply installSnapshot: {}", getMemberId(),
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("{}: reply installSnapshot: {}", getMemberId(),
           ServerStringUtils.toInstallSnapshotReplyString(reply));
     }
     return reply;

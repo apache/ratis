@@ -534,7 +534,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           break;
         case INCONSISTENCY:
           grpcServerMetrics.onRequestInconsistency(getFollowerId().toString());
-          LOG.warn("{}: received {} reply with nextIndex {}, errorCount={}, request={}",
+          LOG.debug("{}: received {} reply with nextIndex {}, errorCount={}, request={}",
               this, reply.getResult(), reply.getNextIndex(), errorCount, request);
           final long requestFirstIndex = request != null? request.getFirstIndex(): RaftLog.INVALID_LOG_INDEX;
           updateNextIndex(getNextIndexForInconsistency(requestFirstIndex, reply.getNextIndex()));

@@ -197,9 +197,9 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     @Override
     public void onCompleted() {
       if (isClosed.compareAndSet(false, true)) {
-        LOG.info("{}: Completed {}, lastRequest: {}", getId(), op, getPreviousRequestString());
+        LOG.debug("{}: Completed {}, lastRequest: {}", getId(), op, getPreviousRequestString());
         requestFuture.get().thenAccept(reply -> {
-          LOG.info("{}: Completed {}, lastReply: {}", getId(), op, reply);
+          LOG.debug("{}: Completed {}, lastReply: {}", getId(), op, reply);
           responseObserver.onCompleted();
         });
         releaseLast();
