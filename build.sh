@@ -83,9 +83,9 @@ if [ ! -d "$DIR/build/apache-rat-${rat_version}" ]; then
   tar zxf build/${filename} -C build/
 fi
 
-echo "Running RAT license check"
+echo "Running RAT license check on $DIR"
 output=$(java -jar $DIR/build/apache-rat-${rat_version}/apache-rat-${rat_version}.jar -d $DIR -E rat-excludes.txt)
-if [[ ! $(echo "$output" | grep '0 Unknown Licenses') ]]; then
+if [[ ! $(echo "$output" | grep '^0 Unknown Licenses') ]]; then
   echo 'RAT check appears to have failed, inspect its output:'
   echo "$output"
   exit 1
@@ -101,7 +101,7 @@ if [ "$?" -ne 0 ]; then
   exit 1
 fi
 
-HUGO_VERSION='hugo v0.141.0'
+HUGO_VERSION='hugo v0.142.0'
 output=$(hugo version)
 if [[ ! $(echo "$output" | grep "${HUGO_VERSION}") ]]; then
   echo "Hugo version mismatched: ${output}"
