@@ -25,18 +25,18 @@ aforementioned Hugo documentation for installation steps.
 
 ## Building
 
-To render the final website, use the provided `build.sh` script. This script will generate the website in the directory
-`public/` and also perform a license check on the source files (prior to commit).
-
+To render the final website, use the provided `build.sh` script. 
 ```
-hugo
+./build.sh <website_output>
 ```
+It will perform a license check on the source files
+and then generate the website in the given output directory
 
 To iteratively develop the website, you can use the `serve` command to start a local webserver with your content changes
 rendered in realtime:
 
 ```
-hugo serve
+hugo server -c <website_output>
 ```
 
 ## Publishing website changes

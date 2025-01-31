@@ -54,7 +54,7 @@ fi
 set -e
 
 # RAT check
-rat_version="0.13"
+rat_version="0.16.1"
 filename="apache-rat-${rat_version}-bin.tar.gz"
 artifact="creadur/apache-rat-${rat_version}/${filename}"
 if [ ! -f "$DIR/build/${filename}" ]; then
@@ -66,7 +66,11 @@ fi
 if [ ! -d "$DIR/build/apache-rat-${rat_version}" ]; then
   echo "Unpacked RAT installation missing, validating download RAT release using checksum"
   pushd ${DIR}/build >/dev/null
-  gpg --print-md SHA512 ${filename} | diff ${filename}.sha512 -
+
+  # Verify SHA512.  Unfortunely, the command depends on how was the SHA512 generated.
+  # gpg --print-md SHA512 ${filename} | diff ${filename}.sha512 -
+  shasum -a 512 ${filename} | cut -d " " -f 1 | tr -d '\n' | diff ${filename}.sha512 -
+
   if [[ $? -ne 0 ]]; then
     echo "Failed to validate checksum of ${filename}"
     # Cleanup before exiting to avoid this stuff hanging around that is untrusted
@@ -79,9 +83,9 @@ if [ ! -d "$DIR/build/apache-rat-${rat_version}" ]; then
   tar zxf build/${filename} -C build/
 fi
 
-echo "Running RAT license check"
+echo "Running RAT license check on $DIR"
 output=$(java -jar $DIR/build/apache-rat-${rat_version}/apache-rat-${rat_version}.jar -d $DIR -E rat-excludes.txt)
-if [[ ! $(echo "$output" | grep '0 Unknown Licenses') ]]; then
+if [[ ! $(echo "$output" | grep '^0 Unknown Licenses') ]]; then
   echo 'RAT check appears to have failed, inspect its output:'
   echo "$output"
   exit 1
@@ -96,5 +100,15 @@ if [ "$?" -ne 0 ]; then
   echo "Please install hugo and put it to the path"
   exit 1
 fi
-echo -e "\nBuilding website to ${BUILD_OUTPUT_DIR}"
+
+HUGO_VERSION='hugo v0.142.0'
+output=$(hugo version)
+if [[ ! $(echo "$output" | grep "${HUGO_VERSION}") ]]; then
+  echo "Hugo version mismatched: ${output}"
+  echo "Expected hugo version  : ${HUGO_VERSION}"
+  exit 1
+fi
+
+echo
+echo "Building website to ${BUILD_OUTPUT_DIR}"
 "$HUGO_EXEC" -d "${BUILD_OUTPUT_DIR}"
