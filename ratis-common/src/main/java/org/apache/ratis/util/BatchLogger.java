@@ -45,7 +45,7 @@ public final class BatchLogger {
 
   private static final class UniqueId {
     private final Key key;
-    private final String name;
+    private final Object name;
 
     private UniqueId(Key key, String name) {
       this.key = Objects.requireNonNull(key, "key == null");
@@ -99,15 +99,15 @@ public final class BatchLogger {
   private static final TimeoutExecutor SCHEDULER = TimeoutExecutor.getInstance();
   private static final ConcurrentMap<UniqueId, BatchedLogEntry> LOG_CACHE = new ConcurrentHashMap<>();
 
-  public static void warn(Key key, String name, Consumer<String> op) {
-    warn(key, name, op, key.getBatchDuration(), true);
+  public static void print(Key key, Object name, Consumer<String> op) {
+    print(key, name, op, key.getBatchDuration(), true);
   }
 
-  public static void warn(Key key, String name, Consumer<String> op, TimeDuration batchDuration) {
-    warn(key, name, op, batchDuration, true);
+  public static void print(Key key, Object name, Consumer<String> op, TimeDuration batchDuration) {
+    print(key, name, op, batchDuration, true);
   }
 
-  public static void warn(Key key, String name, Consumer<String> op, TimeDuration batchDuration, boolean shouldBatch) {
+  public static void print(Key key, Object name, Consumer<String> op, TimeDuration batchDuration, boolean shouldBatch) {
     if (!shouldBatch || batchDuration.isNonPositive()) {
       op.accept("");
       return;

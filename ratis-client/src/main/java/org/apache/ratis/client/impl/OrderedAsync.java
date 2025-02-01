@@ -213,7 +213,7 @@ public final class OrderedAsync {
       final Throwable exception = e;
       final String key = client.getId() + "-" + request.getCallId() + "-" + exception;
       final Consumer<String> op = suffix -> LOG.error("{} {}: Failed* {}", suffix, client.getId(), request, exception);
-      BatchLogger.warn(BatchLogKey.SEND_REQUEST_EXCEPTION, key, op);
+      BatchLogger.print(BatchLogKey.SEND_REQUEST_EXCEPTION, key, op);
       handleException(pending, request, e);
       return null;
     });
