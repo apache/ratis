@@ -47,7 +47,7 @@ public final class BatchLogger {
     private final Key key;
     private final Object name;
 
-    private UniqueId(Key key, String name) {
+    private UniqueId(Key key, Object name) {
       this.key = Objects.requireNonNull(key, "key == null");
       this.name = name;
     }
