@@ -216,8 +216,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
                 getId(), op, getPreviousRequestString(), suffix));
         requestFuture.get().thenAccept(reply -> {
           BatchLogger.print(BatchLogKey.COMPLETED_REPLY, getName(),
-              suffix -> LOG.info("{}: Completed {}, lastReply: {} {}",
-                  getId(), op, ProtoUtils.shortDebugString(reply), suffix));
+              suffix -> LOG.info("{}: Completed {}, lastReply: {} {}", getId(), op, reply, suffix));
           responseObserver.onCompleted();
         });
         releaseLast();

@@ -74,11 +74,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   private enum BatchLogKey implements BatchLogger.Key {
     RESET_CLIENT,
     INCONSISTENCY_REPLY,
-    APPEND_LOG_RESPONSE_HANDLER_ON_ERROR,
-    INSTALL_SNAPSHOT_NOTIFY,
-    INSTALL_SNAPSHOT_REPLY,
-    INSTALL_SNAPSHOT_IN_PROGRESS,
-    SNAPSHOT_UNAVAILABLE
+    APPEND_LOG_RESPONSE_HANDLER_ON_ERROR
   }
 
   public static final int INSTALL_SNAPSHOT_NOTIFICATION_INDEX = 0;
