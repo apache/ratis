@@ -36,6 +36,7 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.util.BatchLogger;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
@@ -58,6 +59,11 @@ import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
 
 class SnapshotInstallationHandler {
   static final Logger LOG = LoggerFactory.getLogger(SnapshotInstallationHandler.class);
+
+  private enum BatchLogKey implements BatchLogger.Key {
+    INSTALL_SNAPSHOT_REQUEST,
+    INSTALL_SNAPSHOT_REPLY
+  }
 
   static final TermIndex INVALID_TERM_INDEX = TermIndex.valueOf(0, INVALID_LOG_INDEX);
 
@@ -93,10 +99,9 @@ class SnapshotInstallationHandler {
   }
 
   InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {
-    if (LOG.isInfoEnabled()) {
-      LOG.info("{}: receive installSnapshot: {}", getMemberId(),
-          ServerStringUtils.toInstallSnapshotRequestString(request));
-    }
+    BatchLogger.print(BatchLogKey.INSTALL_SNAPSHOT_REQUEST, getMemberId(),
+        suffix -> LOG.info("{}: receive installSnapshot: {} {}",
+            getMemberId(), ServerStringUtils.toInstallSnapshotRequestString(request), suffix));
     final InstallSnapshotReplyProto reply;
     try {
       reply = installSnapshotImpl(request);
@@ -104,10 +109,9 @@ class SnapshotInstallationHandler {
       LOG.error("{}: installSnapshot failed", getMemberId(), e);
       throw e;
     }
-    if (LOG.isInfoEnabled()) {
-      LOG.info("{}: reply installSnapshot: {}", getMemberId(),
-          ServerStringUtils.toInstallSnapshotReplyString(reply));
-    }
+    BatchLogger.print(BatchLogKey.INSTALL_SNAPSHOT_REPLY, getMemberId(),
+        suffix -> LOG.info("{}: reply installSnapshot: {} {}",
+          getMemberId(), ServerStringUtils.toInstallSnapshotReplyString(reply), suffix));
     return reply;
   }
 
