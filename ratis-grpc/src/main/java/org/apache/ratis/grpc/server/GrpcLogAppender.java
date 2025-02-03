@@ -66,6 +66,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   private enum BatchLogKey implements BatchLogger.Key {
     RESET_CLIENT,
+    INCONSISTENCY_REPLY,
     APPEND_LOG_RESPONSE_HANDLER_ON_ERROR
   }
 
@@ -217,7 +218,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           .orElseGet(f::getMatchIndex);
       if (event.isError() && request == null) {
         final long followerNextIndex = f.getNextIndex();
-        BatchLogger.warn(BatchLogKey.RESET_CLIENT, f.getId() + "-" + followerNextIndex, suffix ->
+        BatchLogger.print(BatchLogKey.RESET_CLIENT, f.getId() + "-" + followerNextIndex, suffix ->
             LOG.warn("{}: Follower failed (request=null, errorCount={}); keep nextIndex ({}) unchanged and retry.{}",
                 this, errorCount, followerNextIndex, suffix), logMessageBatchDuration);
         return;
@@ -516,8 +517,9 @@ public class GrpcLogAppender extends LogAppenderBase {
           break;
         case INCONSISTENCY:
           grpcServerMetrics.onRequestInconsistency(getFollowerId().toString());
-          LOG.warn("{}: received {} reply with nextIndex {}, errorCount={}, request={}",
-              this, reply.getResult(), reply.getNextIndex(), errorCount, request);
+          BatchLogger.print(BatchLogKey.INCONSISTENCY_REPLY, getFollower().getName() + "_" + reply.getNextIndex(),
+              suffix -> LOG.warn("{}: received {} reply with nextIndex {}, errorCount={}, request={} {}",
+              this, reply.getResult(), reply.getNextIndex(), errorCount, request, suffix));
           final long requestFirstIndex = request != null? request.getFirstIndex(): RaftLog.INVALID_LOG_INDEX;
           updateNextIndex(getNextIndexForInconsistency(requestFirstIndex, reply.getNextIndex()));
           break;
@@ -537,7 +539,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         LOG.info("{} is already stopped", GrpcLogAppender.this);
         return;
       }
-      BatchLogger.warn(BatchLogKey.APPEND_LOG_RESPONSE_HANDLER_ON_ERROR, AppendLogResponseHandler.this.name,
+      BatchLogger.print(BatchLogKey.APPEND_LOG_RESPONSE_HANDLER_ON_ERROR, AppendLogResponseHandler.this.name,
           suffix -> GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries" + suffix, t),
           logMessageBatchDuration, t instanceof StatusRuntimeException);
       grpcServerMetrics.onRequestRetry(); // Update try counter
