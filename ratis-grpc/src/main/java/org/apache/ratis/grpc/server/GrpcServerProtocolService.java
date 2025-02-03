@@ -31,6 +31,8 @@ import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
+import org.apache.ratis.util.BatchLogger;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.slf4j.Logger;
@@ -48,6 +50,11 @@ import static org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.getAppen
 
 class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
+
+  private enum BatchLogKey implements BatchLogger.Key {
+    COMPLETED_REQUEST,
+    COMPLETED_REPLY
+  }
 
   static class PendingServerRequest<REQUEST> {
     private final AtomicReference<ReferenceCountedObject<REQUEST>> requestRef;
@@ -76,6 +83,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
   abstract class ServerRequestStreamObserver<REQUEST, REPLY> implements StreamObserver<REQUEST> {
     private final RaftServer.Op op;
+    private final Supplier<String> nameSupplier;
     private final StreamObserver<REPLY> responseObserver;
     /** For ordered {@link #onNext(Object)} requests. */
     private final AtomicReference<PendingServerRequest<REQUEST>> previousOnNext = new AtomicReference<>();
@@ -86,7 +94,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
     ServerRequestStreamObserver(RaftServer.Op op, StreamObserver<REPLY> responseObserver) {
       this.op = op;
+      this.nameSupplier = MemoizedSupplier.valueOf(() -> getId() + "_" + op);
       this.responseObserver = responseObserver;
+    }
+
+    String getName() {
+      return nameSupplier.get();
     }
 
     private String getPreviousRequestString() {
@@ -197,9 +210,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     @Override
     public void onCompleted() {
       if (isClosed.compareAndSet(false, true)) {
-        LOG.info("{}: Completed {}, lastRequest: {}", getId(), op, getPreviousRequestString());
+        BatchLogger.print(BatchLogKey.COMPLETED_REQUEST, getName(),
+            suffix -> LOG.info("{}: Completed {}, lastRequest: {} {}",
+                getId(), op, getPreviousRequestString(), suffix));
         requestFuture.get().thenAccept(reply -> {
-          LOG.info("{}: Completed {}, lastReply: {}", getId(), op, reply);
+          BatchLogger.print(BatchLogKey.COMPLETED_REPLY, getName(),
+              suffix -> LOG.info("{}: Completed {}, lastReply: {} {}", getId(), op, reply, suffix));
           responseObserver.onCompleted();
         });
         releaseLast();
