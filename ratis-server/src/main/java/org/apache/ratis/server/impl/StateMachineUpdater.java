@@ -37,8 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -182,6 +180,7 @@ class StateMachineUpdater implements Runnable {
 
   @Override
   public void run() {
+    CompletableFuture<Void> applyLogFutures = CompletableFuture.completedFuture(null);
     for(; state != State.STOP; ) {
       try {
         waitForCommit();
@@ -190,11 +189,11 @@ class StateMachineUpdater implements Runnable {
           reload();
         }
 
-        final MemoizedSupplier<List<CompletableFuture<Message>>> futures = applyLog();
-        checkAndTakeSnapshot(futures);
+        applyLogFutures = applyLog(applyLogFutures);
+        checkAndTakeSnapshot(applyLogFutures);
 
         if (shouldStop()) {
-          checkAndTakeSnapshot(futures);
+          checkAndTakeSnapshot(applyLogFutures);
           stop();
         }
       } catch (Throwable t) {
@@ -239,8 +238,7 @@ class StateMachineUpdater implements Runnable {
     state = State.RUNNING;
   }
 
-  private MemoizedSupplier<List<CompletableFuture<Message>>> applyLog() throws RaftLogIOException {
-    final MemoizedSupplier<List<CompletableFuture<Message>>> futures = MemoizedSupplier.valueOf(ArrayList::new);
+  private CompletableFuture<Void> applyLog(CompletableFuture<Void> applyLogFutures) throws RaftLogIOException {
     final long committed = raftLog.getLastCommittedIndex();
     for(long applied; (applied = getLastAppliedIndex()) < committed && state == State.RUNNING && !shouldStop(); ) {
       final long nextIndex = applied + 1;
@@ -263,7 +261,7 @@ class StateMachineUpdater implements Runnable {
         final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
         Preconditions.assertTrue(incremented == nextIndex);
         if (f != null) {
-          futures.get().add(f);
+          applyLogFutures = applyLogFutures.thenCombine(f, (previous, current) -> previous);
           f.thenAccept(m -> notifyAppliedIndex(incremented));
         } else {
           notifyAppliedIndex(incremented);
@@ -272,17 +270,14 @@ class StateMachineUpdater implements Runnable {
         next.release();
       }
     }
-    return futures;
+    return applyLogFutures;
   }
 
-  private void checkAndTakeSnapshot(MemoizedSupplier<List<CompletableFuture<Message>>> futures)
+  private void checkAndTakeSnapshot(CompletableFuture<?> futures)
       throws ExecutionException, InterruptedException {
     // check if need to trigger a snapshot
     if (shouldTakeSnapshot()) {
-      if (futures.isInitialized()) {
-        JavaUtils.allOf(futures.get()).get();
-      }
-
+      futures.get();
       takeSnapshot();
     }
   }
