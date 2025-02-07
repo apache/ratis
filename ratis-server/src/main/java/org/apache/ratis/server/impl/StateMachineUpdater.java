@@ -193,7 +193,6 @@ class StateMachineUpdater implements Runnable {
         checkAndTakeSnapshot(applyLogFutures);
 
         if (shouldStop()) {
-          checkAndTakeSnapshot(applyLogFutures);
           stop();
         }
       } catch (Throwable t) {
