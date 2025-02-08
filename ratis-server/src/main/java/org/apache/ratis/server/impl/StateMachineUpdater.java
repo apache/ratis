@@ -193,6 +193,7 @@ class StateMachineUpdater implements Runnable {
         checkAndTakeSnapshot(applyLogFutures);
 
         if (shouldStop()) {
+          applyLogFutures.get();
           stop();
         }
       } catch (Throwable t) {
@@ -260,7 +261,7 @@ class StateMachineUpdater implements Runnable {
         final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
         Preconditions.assertTrue(incremented == nextIndex);
         if (f != null) {
-          applyLogFutures = applyLogFutures.thenCombine(f, (previous, current) -> previous);
+          applyLogFutures = applyLogFutures.thenCombine(f, (v, message) -> null);
           f.thenAccept(m -> notifyAppliedIndex(incremented));
         } else {
           notifyAppliedIndex(incremented);
