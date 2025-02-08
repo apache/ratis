@@ -183,7 +183,7 @@ class StateMachineUpdater implements Runnable {
     CompletableFuture<Void> applyLogFutures = CompletableFuture.completedFuture(null);
     for(; state != State.STOP; ) {
       try {
-        waitForCommit();
+        waitForCommit(applyLogFutures);
 
         if (state == State.RELOAD) {
           reload();
@@ -209,14 +209,14 @@ class StateMachineUpdater implements Runnable {
     }
   }
 
-  private void waitForCommit() throws InterruptedException {
+  private void waitForCommit(CompletableFuture<Void> applyLogFutures) throws InterruptedException, ExecutionException {
     // When a peer starts, the committed is initialized to 0.
     // It will be updated only after the leader contacts other peers.
     // Thus it is possible to have applied > committed initially.
     final long applied = getLastAppliedIndex();
     for(; applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop(); ) {
       if (server.getSnapshotRequestHandler().shouldTriggerTakingSnapshot()) {
-        takeSnapshot();
+        takeSnapshot(applyLogFutures);
       }
       if (awaitForSignal.await(100, TimeUnit.MILLISECONDS)) {
         return;
@@ -277,13 +277,13 @@ class StateMachineUpdater implements Runnable {
       throws ExecutionException, InterruptedException {
     // check if need to trigger a snapshot
     if (shouldTakeSnapshot()) {
-      futures.get();
-      takeSnapshot();
+      takeSnapshot(futures);
     }
   }
 
-  private void takeSnapshot() {
+  private void takeSnapshot(CompletableFuture<?> applyLogFutures) throws ExecutionException, InterruptedException {
     final long i;
+    applyLogFutures.get();
     try {
       try(UncheckedAutoCloseable ignored = Timekeeper.start(stateMachineMetrics.get().getTakeSnapshotTimer())) {
         i = stateMachine.takeSnapshot();
