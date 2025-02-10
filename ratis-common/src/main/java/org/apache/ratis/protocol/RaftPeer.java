@@ -254,7 +254,9 @@ public final class RaftPeer {
 
   @Override
   public boolean equals(Object o) {
-    return (o instanceof RaftPeer) && id.equals(((RaftPeer) o).getId());
+    return (o instanceof RaftPeer) && id.equals(((RaftPeer) o).getId()) &&
+        address != null && ((RaftPeer) o).getAddress() != null &&
+        address.equals(((RaftPeer) o).getAddress());
   }
 
   @Override
