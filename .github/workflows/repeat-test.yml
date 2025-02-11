@@ -50,7 +50,7 @@ env:
 run-name: ${{ github.event_name == 'workflow_dispatch' && format('{0}#{1}[{2}]-{3}x{4}', inputs.test-class, inputs.test-method, inputs.ref, inputs.splits, inputs.iterations) || '' }}
 jobs:
   prepare:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.generate.outputs.matrix }}
       test-spec: ${{ steps.test-spec.outputs.test-spec }}
@@ -79,7 +79,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - prepare
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     env:
       TEST_SPEC: ${{ needs.prepare.outputs.test-spec }}
     strategy:
@@ -121,7 +121,7 @@ jobs:
   count-failures:
     if: ${{ failure() }}
     needs: test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Download build results
         uses: actions/download-artifact@v4
