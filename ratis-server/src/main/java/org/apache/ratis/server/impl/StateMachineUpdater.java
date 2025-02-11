@@ -197,10 +197,12 @@ class StateMachineUpdater implements Runnable {
           stop();
         }
       } catch (Throwable t) {
-        try {
-          applyLogFutures.get();
-        } catch (InterruptedException | ExecutionException e) {
-          LOG.info("{}: interrupted while waiting for apply transactions", this, t);
+        if (!(t instanceof InterruptedException) && !(t instanceof ExecutionException)) {
+          try {
+            applyLogFutures.get();
+          } catch (InterruptedException | ExecutionException e) {
+            LOG.info("Exception thrown : {} while waiting for apply transactions", e, t);
+          }
         }
         if (t instanceof InterruptedException && state == State.STOP) {
           Thread.currentThread().interrupt();
@@ -266,7 +268,11 @@ class StateMachineUpdater implements Runnable {
         final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
         Preconditions.assertTrue(incremented == nextIndex);
         if (f != null) {
-          applyLogFutures = applyLogFutures.thenCombine(f, (v, message) -> null);
+          applyLogFutures = applyLogFutures.thenCombine(f.exceptionally(ex -> {
+            LOG.error("Exception while {}: applying txn index={}, nextLog={}", this, nextIndex,
+                    LogProtoUtils.toLogEntryString(entry));
+            return null;
+          }), (v, message) -> null);
           f.thenAccept(m -> notifyAppliedIndex(incremented));
         } else {
           notifyAppliedIndex(incremented);
