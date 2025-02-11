@@ -197,6 +197,11 @@ class StateMachineUpdater implements Runnable {
           stop();
         }
       } catch (Throwable t) {
+        try {
+          applyLogFutures.get();
+        } catch (InterruptedException | ExecutionException e) {
+          LOG.info("{}: interrupted while waiting for apply transactions", this, t);
+        }
         if (t instanceof InterruptedException && state == State.STOP) {
           Thread.currentThread().interrupt();
           LOG.info("{} was interrupted.  Exiting ...", this);
@@ -209,7 +214,7 @@ class StateMachineUpdater implements Runnable {
     }
   }
 
-  private void waitForCommit(CompletableFuture<Void> applyLogFutures) throws InterruptedException, ExecutionException {
+  private void waitForCommit(CompletableFuture<?> applyLogFutures) throws InterruptedException, ExecutionException {
     // When a peer starts, the committed is initialized to 0.
     // It will be updated only after the leader contacts other peers.
     // Thus it is possible to have applied > committed initially.
