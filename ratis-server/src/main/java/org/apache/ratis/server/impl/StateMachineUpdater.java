@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -84,6 +85,7 @@ class StateMachineUpdater implements Runnable {
   private final RaftLogIndex snapshotIndex;
   private final AtomicReference<Long> stopIndex = new AtomicReference<>();
   private volatile State state = State.RUNNING;
+  private Throwable error;
 
   private final SnapshotRetentionPolicy snapshotRetentionPolicy;
 
@@ -197,18 +199,12 @@ class StateMachineUpdater implements Runnable {
           stop();
         }
       } catch (Throwable t) {
-        if (!(t instanceof InterruptedException) && !(t instanceof ExecutionException)) {
-          try {
-            applyLogFutures.get();
-          } catch (InterruptedException | ExecutionException e) {
-            LOG.info("Exception thrown : {} while waiting for apply transactions", e, t);
-          }
-        }
         if (t instanceof InterruptedException && state == State.STOP) {
           Thread.currentThread().interrupt();
           LOG.info("{} was interrupted.  Exiting ...", this);
         } else {
           state = State.EXCEPTION;
+          error = t;
           LOG.error(this + " caught a Throwable.", t);
           server.close();
         }
@@ -381,5 +377,9 @@ class StateMachineUpdater implements Runnable {
     return Optional.ofNullable(stateMachine.getLastAppliedTermIndex())
         .map(TermIndex::getIndex)
         .orElse(RaftLog.INVALID_LOG_INDEX);
+  }
+
+  public Throwable getError() {
+    return error;
   }
 }
