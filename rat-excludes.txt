@@ -14,4 +14,7 @@
 .gitignore
 .hugo_build.lock
 build
+bootstrap.min.css
+bootstrap.min.js
+jquery.min.js
 ./*.patch
