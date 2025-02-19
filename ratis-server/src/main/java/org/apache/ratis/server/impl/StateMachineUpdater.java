@@ -37,8 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -182,19 +180,20 @@ class StateMachineUpdater implements Runnable {
 
   @Override
   public void run() {
+    CompletableFuture<Void> applyLogFutures = CompletableFuture.completedFuture(null);
     for(; state != State.STOP; ) {
       try {
-        waitForCommit();
+        waitForCommit(applyLogFutures);
 
         if (state == State.RELOAD) {
           reload();
         }
 
-        final MemoizedSupplier<List<CompletableFuture<Message>>> futures = applyLog();
-        checkAndTakeSnapshot(futures);
+        applyLogFutures = applyLog(applyLogFutures);
+        checkAndTakeSnapshot(applyLogFutures);
 
         if (shouldStop()) {
-          checkAndTakeSnapshot(futures);
+          applyLogFutures.get();
           stop();
         }
       } catch (Throwable t) {
@@ -210,14 +209,14 @@ class StateMachineUpdater implements Runnable {
     }
   }
 
-  private void waitForCommit() throws InterruptedException {
+  private void waitForCommit(CompletableFuture<?> applyLogFutures) throws InterruptedException, ExecutionException {
     // When a peer starts, the committed is initialized to 0.
     // It will be updated only after the leader contacts other peers.
     // Thus it is possible to have applied > committed initially.
     final long applied = getLastAppliedIndex();
     for(; applied >= raftLog.getLastCommittedIndex() && state == State.RUNNING && !shouldStop(); ) {
       if (server.getSnapshotRequestHandler().shouldTriggerTakingSnapshot()) {
-        takeSnapshot();
+        takeSnapshot(applyLogFutures);
       }
       if (awaitForSignal.await(100, TimeUnit.MILLISECONDS)) {
         return;
@@ -239,8 +238,7 @@ class StateMachineUpdater implements Runnable {
     state = State.RUNNING;
   }
 
-  private MemoizedSupplier<List<CompletableFuture<Message>>> applyLog() throws RaftLogIOException {
-    final MemoizedSupplier<List<CompletableFuture<Message>>> futures = MemoizedSupplier.valueOf(ArrayList::new);
+  private CompletableFuture<Void> applyLog(CompletableFuture<Void> applyLogFutures) throws RaftLogIOException {
     final long committed = raftLog.getLastCommittedIndex();
     for(long applied; (applied = getLastAppliedIndex()) < committed && state == State.RUNNING && !shouldStop(); ) {
       final long nextIndex = applied + 1;
@@ -256,7 +254,12 @@ class StateMachineUpdater implements Runnable {
         final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
         Preconditions.assertTrue(incremented == nextIndex);
         if (f != null) {
-          futures.get().add(f);
+          CompletableFuture<Message> exceptionHandledFuture = f.exceptionally(ex -> {
+            LOG.error("Exception while {}: applying txn index={}, nextLog={}", this, nextIndex,
+                    LogProtoUtils.toLogEntryString(next), ex);
+            return null;
+          });
+          applyLogFutures = applyLogFutures.thenCombine(exceptionHandledFuture, (v, message) -> null);
           f.thenAccept(m -> notifyAppliedIndex(incremented));
         } else {
           notifyAppliedIndex(incremented);
@@ -267,23 +270,20 @@ class StateMachineUpdater implements Runnable {
         break;
       }
     }
-    return futures;
+    return applyLogFutures;
   }
 
-  private void checkAndTakeSnapshot(MemoizedSupplier<List<CompletableFuture<Message>>> futures)
+  private void checkAndTakeSnapshot(CompletableFuture<?> futures)
       throws ExecutionException, InterruptedException {
     // check if need to trigger a snapshot
     if (shouldTakeSnapshot()) {
-      if (futures.isInitialized()) {
-        JavaUtils.allOf(futures.get()).get();
-      }
-
-      takeSnapshot();
+      takeSnapshot(futures);
     }
   }
 
-  private void takeSnapshot() {
+  private void takeSnapshot(CompletableFuture<?> applyLogFutures) throws ExecutionException, InterruptedException {
     final long i;
+    applyLogFutures.get();
     try {
       try(UncheckedAutoCloseable ignored = Timekeeper.start(stateMachineMetrics.get().getTakeSnapshotTimer())) {
         i = stateMachine.takeSnapshot();
