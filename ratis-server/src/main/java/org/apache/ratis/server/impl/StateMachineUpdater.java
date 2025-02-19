@@ -263,7 +263,7 @@ class StateMachineUpdater implements Runnable {
         if (f != null) {
           CompletableFuture<Message> exceptionHandledFuture = f.exceptionally(ex -> {
             LOG.error("Exception while {}: applying txn index={}, nextLog={}", this, nextIndex,
-                    LogProtoUtils.toLogEntryString(entry));
+                    LogProtoUtils.toLogEntryString(entry), ex);
             return null;
           });
           applyLogFutures = applyLogFutures.thenCombine(exceptionHandledFuture, (v, message) -> null);
