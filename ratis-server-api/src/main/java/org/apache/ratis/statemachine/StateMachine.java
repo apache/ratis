@@ -245,14 +245,6 @@ public interface StateMachine extends Closeable {
     default void notifyGroupRemove() {}
 
     /**
-     * Notify the {@link StateMachine} a group removal event.
-     * @param applyTransactionFailure true if there was a failure in applying transaction.
-     */
-    default void notifyGroupRemove(boolean applyTransactionFailure) {
-      notifyGroupRemove();
-    }
-
-    /**
      * Notify the {@link StateMachine} that a log operation failed.
      *
      * @param cause The cause of the failure.

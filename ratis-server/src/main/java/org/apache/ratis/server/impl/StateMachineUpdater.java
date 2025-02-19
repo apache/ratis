@@ -84,7 +84,6 @@ class StateMachineUpdater implements Runnable {
   private final RaftLogIndex snapshotIndex;
   private final AtomicReference<Long> stopIndex = new AtomicReference<>();
   private volatile State state = State.RUNNING;
-  private Throwable error;
 
   private final SnapshotRetentionPolicy snapshotRetentionPolicy;
 
@@ -203,7 +202,6 @@ class StateMachineUpdater implements Runnable {
           LOG.info("{} was interrupted.  Exiting ...", this);
         } else {
           state = State.EXCEPTION;
-          error = t;
           LOG.error(this + " caught a Throwable.", t);
           server.close();
         }
@@ -263,11 +261,12 @@ class StateMachineUpdater implements Runnable {
         final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
         Preconditions.assertTrue(incremented == nextIndex);
         if (f != null) {
-          applyLogFutures = applyLogFutures.thenCombine(f.exceptionally(ex -> {
+          CompletableFuture<Message> exceptionHandledFuture = f.exceptionally(ex -> {
             LOG.error("Exception while {}: applying txn index={}, nextLog={}", this, nextIndex,
                     LogProtoUtils.toLogEntryString(entry));
             return null;
-          }), (v, message) -> null);
+          });
+          applyLogFutures = applyLogFutures.thenCombine(exceptionHandledFuture, (v, message) -> null);
           f.thenAccept(m -> notifyAppliedIndex(incremented));
         } else {
           notifyAppliedIndex(incremented);
@@ -376,9 +375,5 @@ class StateMachineUpdater implements Runnable {
     return Optional.ofNullable(stateMachine.getLastAppliedTermIndex())
         .map(TermIndex::getIndex)
         .orElse(RaftLog.INVALID_LOG_INDEX);
-  }
-
-  public Throwable getError() {
-    return error;
   }
 }

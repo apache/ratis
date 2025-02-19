@@ -481,12 +481,6 @@ class RaftServerImpl implements RaftServer.Division,
     /* Shutdown is triggered here inorder to avoid any locked files. */
     state.getStateMachineUpdater().setRemoving();
     close();
-    if (state.getStateMachineUpdater().getError() != null) {
-      LOG.error("{}: groupRemove failed: {}. Falling back to directory rename.",
-              getGroup().getGroupId(), getMemberId(), state.getStateMachineUpdater().getError());
-      deleteDirectory = false;
-      renameDirectory = true;
-    }
     try {
       closeFinishedLatch.await();
     } catch (InterruptedException e) {
@@ -494,7 +488,7 @@ class RaftServerImpl implements RaftServer.Division,
       LOG.warn("{}: Waiting closing interrupted, will not continue to remove group locally", getMemberId());
       return;
     }
-    getStateMachine().event().notifyGroupRemove(state.getStateMachineUpdater().getError() != null);
+    getStateMachine().event().notifyGroupRemove();
     if (deleteDirectory) {
       for (int i = 0; i < FileUtils.NUM_ATTEMPTS; i ++) {
         try {
