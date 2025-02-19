@@ -28,45 +28,104 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.*;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.CompletableFuture;
-
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
-
+  public static Logger LOG = LoggerFactory.getLogger(StateMachineUpdater.class);
+  private static MockedStatic<CompletableFuture> mocked;
   protected static class StateMachineWithConditionalWait extends
       SimpleStateMachine4Testing {
+    boolean unblockAllTxns = false;
+    final Set<Long> blockTxns = ConcurrentHashMap.newKeySet();
+    private final ExecutorService executor = Executors.newFixedThreadPool(10);
+    public static Map<Long, Set<CompletableFuture<Message>>> futures = new ConcurrentHashMap<>();
+    public static Map<RaftPeerId, AtomicLong> numTxns = new ConcurrentHashMap<>();
+    private final Map<Long, Long> appliedTxns = new ConcurrentHashMap<>();
 
-    private final Long objectToWait = 0L;
-    volatile boolean blockOnApply = true;
+    private synchronized void updateTxns() {
+      long appliedIndex = this.getLastAppliedTermIndex().getIndex() + 1;
+      Long appliedTerm = null;
+      while (appliedTxns.containsKey(appliedIndex)) {
+        appliedTerm = appliedTxns.remove(appliedIndex);
+        appliedIndex += 1;
+      }
+      if (appliedTerm != null) {
+        updateLastAppliedTermIndex(appliedTerm, appliedIndex - 1);
+      }
+    }
+
+    @Override
+    public void notifyTermIndexUpdated(long term, long index) {
+      appliedTxns.put(index, term);
+      updateTxns();
+    }
 
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-      if (blockOnApply) {
-        synchronized (objectToWait) {
-          try {
-            objectToWait.wait();
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException();
+      final RaftProtos.LogEntryProto entry = trx.getLogEntryUnsafe();
+
+      CompletableFuture<Message> future = new CompletableFuture<>();
+      futures.computeIfAbsent(Thread.currentThread().getId(), k -> new HashSet<>()).add(future);
+      executor.submit(() -> {
+        synchronized (blockTxns) {
+          if (!unblockAllTxns) {
+            blockTxns.add(entry.getIndex());
+          }
+          while (!unblockAllTxns && blockTxns.contains(entry.getIndex())) {
+            try {
+              blockTxns.wait(10000);
+            } catch (InterruptedException e) {
+              throw new RuntimeException(e);
+            }
           }
         }
-      }
-      final RaftProtos.LogEntryProto entry = trx.getLogEntryUnsafe();
-      updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
-      return CompletableFuture.completedFuture(new RaftTestUtil.SimpleMessage("done"));
+        numTxns.computeIfAbsent(getId(), (k) -> new AtomicLong()).incrementAndGet();
+        appliedTxns.put(entry.getIndex(), entry.getTerm());
+        updateTxns();
+        future.complete(new RaftTestUtil.SimpleMessage("done"));
+      });
+      return future;
     }
 
-    public void unBlockApplyTxn() {
-      blockOnApply = false;
-      synchronized (objectToWait) {
-        objectToWait.notifyAll();
+    public void unBlockApplyTxn(long txnId) {
+      synchronized (blockTxns) {
+        blockTxns.remove(txnId);
+        blockTxns.notifyAll();
       }
     }
+
+    public void unblockAllTxns() {
+      unblockAllTxns = true;
+      synchronized (blockTxns) {
+        for (Long txnId : blockTxns) {
+          blockTxns.remove(txnId);
+        }
+        blockTxns.notifyAll();
+      }
+    }
+  }
+
+  @Before
+  public void setup() {
+    mocked = Mockito.mockStatic(CompletableFuture.class, Mockito.CALLS_REAL_METHODS);
+  }
+
+  @After
+  public void tearDownClass() {
+    if (mocked != null) {
+      mocked.close();
+    }
+
   }
 
   @Test
@@ -82,10 +141,9 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
 
     //Unblock leader and one follower
     ((StateMachineWithConditionalWait)leader.getStateMachine())
-        .unBlockApplyTxn();
+            .unblockAllTxns();
     ((StateMachineWithConditionalWait)cluster.
-        getFollowers().get(0).getStateMachine()).unBlockApplyTxn();
-
+            getFollowers().get(0).getStateMachine()).unblockAllTxns();
     cluster.getLeaderAndSendFirstMessage(true);
 
     try (final RaftClient client = cluster.createClient(leaderId)) {
@@ -107,16 +165,30 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
       final Thread t = new Thread(secondFollower::close);
       t.start();
 
-      // The second follower should still be blocked in apply transaction
-      Assert.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);
+
 
       // Now unblock the second follower
-      ((StateMachineWithConditionalWait) secondFollower.getStateMachine())
-              .unBlockApplyTxn();
+      long minIndex = ((StateMachineWithConditionalWait) secondFollower.getStateMachine()).blockTxns.stream()
+              .min(Comparator.naturalOrder()).get();
+      Assert.assertEquals(2, StateMachineWithConditionalWait.numTxns.values().stream()
+                      .filter(val -> val.get() == 3).count());
+      // The second follower should still be blocked in apply transaction
+      Assert.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < minIndex);
+      for (long index : ((StateMachineWithConditionalWait) secondFollower.getStateMachine()).blockTxns) {
+        if (minIndex != index) {
+          ((StateMachineWithConditionalWait) secondFollower.getStateMachine()).unBlockApplyTxn(index);
+        }
+      }
+      Assert.assertEquals(2, StateMachineWithConditionalWait.numTxns.values().stream()
+              .filter(val -> val.get() == 3).count());
+      Assert.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < minIndex);
+      ((StateMachineWithConditionalWait) secondFollower.getStateMachine()).unBlockApplyTxn(minIndex);
 
       // Now wait for the thread
       t.join(5000);
       Assert.assertEquals(logIndex, secondFollower.getInfo().getLastAppliedIndex());
+      Assert.assertEquals(3, StateMachineWithConditionalWait.numTxns.values().stream()
+              .filter(val -> val.get() == 3).count());
 
       cluster.shutdown();
     }
