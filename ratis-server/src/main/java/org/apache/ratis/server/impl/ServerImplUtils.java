@@ -43,6 +43,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -117,8 +120,6 @@ public final class ServerImplUtils {
   /** A data structure to support the {@link #contains(TermIndex)} method. */
   static class NavigableIndices {
     private final NavigableMap<Long, ConsecutiveIndices> map = new TreeMap<>();
-    private final AtomicReference<CompletableFuture<Void>> future
-        = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     boolean contains(TermIndex ti) {
       final Long term = getTerm(ti.getIndex());
@@ -137,28 +138,15 @@ public final class ServerImplUtils {
       return floorEntry.getValue().getTerm(index);
     }
 
-    CompletableFuture<Void> append(List<LogEntryProto> entries,
-        Function<List<LogEntryProto>, CompletableFuture<Void>> appendLog) {
-      final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
-      return alreadyExists(entriesTermIndices) ? future.get()
-          : future.updateAndGet(f -> f.thenComposeAsync(ignored -> appendLog.apply(entries)))
-              .whenComplete((v, e) -> removeExisting(entriesTermIndices));
-    }
-
-    private synchronized boolean alreadyExists(List<ConsecutiveIndices> entriesTermIndices) {
-      for(int i = 0; i < entriesTermIndices.size(); i++) {
-        final ConsecutiveIndices indices = entriesTermIndices.get(i);
-        final ConsecutiveIndices previous = map.put(indices.startIndex, indices);
-        if (previous != null) {
-          // index already exists, revert this append
-          map.put(previous.startIndex, previous);
-          for(int j = 0; j < i; j++) {
-            map.remove(entriesTermIndices.get(j).startIndex);
-          }
-          return true;
+    synchronized void append(List<ConsecutiveIndices> entriesTermIndices) {
+      for(ConsecutiveIndices indices : entriesTermIndices) {
+        // validate startIndex
+        final Map.Entry<Long, ConsecutiveIndices> lastEntry = map.lastEntry();
+        if (lastEntry != null) {
+          Preconditions.assertSame(lastEntry.getValue().getNextIndex(), indices.startIndex, "startIndex");
         }
+        map.put(indices.startIndex, indices);
       }
-      return false;
     }
 
     synchronized void removeExisting(List<ConsecutiveIndices> entriesTermIndices) {
