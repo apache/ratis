@@ -114,6 +114,7 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedSupplier;
+import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
 
 import java.io.File;
 import java.io.IOException;
@@ -1690,10 +1691,13 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
   private CompletableFuture<Void> appendLog(ReferenceCountedObject<List<LogEntryProto>> entriesRef) {
-    final List<LogEntryProto> entries = entriesRef.retain();
-    final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
-    appendLogTermIndices.append(entriesTermIndices);
+    final List<ConsecutiveIndices> entriesTermIndices;
+    try(UncheckedAutoCloseableSupplier<List<LogEntryProto>> entries =  entriesRef.retainAndReleaseOnClose()) {
+      entriesTermIndices = ConsecutiveIndices.convert(entries.get());
+      appendLogTermIndices.append(entriesTermIndices);
+    }
 
+    entriesRef.retain();
     return appendLogFuture.updateAndGet(f -> f.thenCompose(
             ignored -> JavaUtils.allOf(state.getLog().append(entriesRef))))
         .whenComplete((v, e) -> {

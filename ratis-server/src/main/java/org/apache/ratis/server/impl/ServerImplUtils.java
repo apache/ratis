@@ -138,13 +138,12 @@ public final class ServerImplUtils {
 
     synchronized void append(List<ConsecutiveIndices> entriesTermIndices) {
       for(ConsecutiveIndices indices : entriesTermIndices) {
-        // validate index0
-        final long index0 = indices.startIndex;
+        // validate startIndex
         final Map.Entry<Long, ConsecutiveIndices> lastEntry = map.lastEntry();
         if (lastEntry != null) {
-          Preconditions.assertSame(lastEntry.getValue().getNextIndex(), index0, "index0");
+          Preconditions.assertSame(lastEntry.getValue().getNextIndex(), indices.startIndex, "startIndex");
         }
-        map.put(index0, indices);
+        map.put(indices.startIndex, indices);
       }
     }
 
