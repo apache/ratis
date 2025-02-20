@@ -14,7 +14,7 @@
 .gitignore
 .hugo_build.lock
 build
-bootstrap.min.css
-bootstrap.min.js
+bootstrap.min.*
+glyphicons-halflings-regular.*
 jquery.min.js
 ./*.patch
