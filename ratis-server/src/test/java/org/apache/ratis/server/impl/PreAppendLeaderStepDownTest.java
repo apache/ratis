@@ -34,8 +34,8 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -105,9 +105,9 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
           RaftTestUtil.waitForLeader(cluster).getRaftLog().getLastEntryTermIndex().getTerm();
 
       if (leaderShouldStepDown) {
-        Assert.assertTrue(newTerm > oldTerm);
+        Assertions.assertTrue(newTerm > oldTerm);
       } else {
-        Assert.assertEquals(newTerm, oldTerm);
+        Assertions.assertEquals(newTerm, oldTerm);
       }
 
       cluster.shutdown();
@@ -124,11 +124,11 @@ public abstract class PreAppendLeaderStepDownTest<CLUSTER extends MiniRaftCluste
     RaftPeerId leaderId = leader.getId();
     RaftServerImpl l = (RaftServerImpl) leader;
     try (RaftClient client = cluster.createClient(leader.getId())) {
-      JavaUtils.attempt(() -> Assert.assertEquals(leaderId, leader.getId()),
+      JavaUtils.attempt(() -> Assertions.assertEquals(leaderId, leader.getId()),
           20, ONE_SECOND, "check leader id", LOG);
       RaftClientReply reply = client.admin().transferLeadership(null, 3000);
-      Assert.assertTrue(reply.isSuccess());
-      Assert.assertEquals(2, ((RaftServerImpl) leader).getRole().getCurrentRole().getNumber());
+      Assertions.assertTrue(reply.isSuccess());
+      Assertions.assertEquals(2, ((RaftServerImpl) leader).getRole().getCurrentRole().getNumber());
     }
   }
 }

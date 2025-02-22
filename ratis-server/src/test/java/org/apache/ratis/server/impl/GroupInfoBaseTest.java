@@ -24,8 +24,8 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.Collection;
@@ -92,7 +92,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
       final RaftClientReply reply = sendMessages(numMessages, cluster);
       for(CommitInfoProto i : reply.getCommitInfos()) {
         if (!RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
-          Assert.assertTrue(i.getCommitIndex() > maxCommit);
+          Assertions.assertTrue(i.getCommitIndex() > maxCommit);
         }
       }
     }
@@ -104,12 +104,12 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
       }
       try(final RaftClient client = cluster.createClient(peer.getId())) {
         final GroupListReply info = client.getGroupManagementApi(peer.getId()).list();
-        Assert.assertEquals(1, info.getGroupIds().stream().filter(id -> group.getGroupId().equals(id)).count());
+        Assertions.assertEquals(1, info.getGroupIds().stream().filter(id -> group.getGroupId().equals(id)).count());
         for(CommitInfoProto i : info.getCommitInfos()) {
           if (RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
-            Assert.assertTrue(i.getCommitIndex() <= maxCommit);
+            Assertions.assertTrue(i.getCommitIndex() <= maxCommit);
           } else {
-            Assert.assertTrue(i.getCommitIndex() > maxCommit);
+            Assertions.assertTrue(i.getCommitIndex() > maxCommit);
           }
         }
       }

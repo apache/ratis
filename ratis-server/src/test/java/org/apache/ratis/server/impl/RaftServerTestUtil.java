@@ -40,7 +40,7 @@ import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedConsumer;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,7 +99,7 @@ public final class RaftServerTestUtil {
   private static void waitAndCheckNewConf(MiniRaftCluster cluster,
       Collection<RaftPeer> peers, Collection<RaftPeerId> deadPeers) {
     LOG.info("waitAndCheckNewConf: peers={}, deadPeers={}, {}", peers, deadPeers, cluster.printServers());
-    Assert.assertNotNull(cluster.getLeader());
+    Assertions.assertNotNull(cluster.getLeader());
 
     int numIncluded = 0;
     int deadIncluded = 0;
@@ -117,16 +117,16 @@ public final class RaftServerTestUtil {
       final RaftConfigurationImpl conf = server.getState().getRaftConf();
       if (current.containsInConf(server.getId())) {
         numIncluded++;
-        Assert.assertTrue(conf.isStable());
-        Assert.assertTrue(conf.hasNoChange(peers, Collections.emptyList()));
+        Assertions.assertTrue(conf.isStable());
+        Assertions.assertTrue(conf.hasNoChange(peers, Collections.emptyList()));
       } else if (server.getInfo().isAlive()) {
         // The server is successfully removed from the conf
         // It may not be shutdown since it may not be able to talk to the new leader (who is not in its conf).
-        Assert.assertTrue(conf.isStable());
-        Assert.assertFalse(conf.containsInConf(server.getId()));
+        Assertions.assertTrue(conf.isStable());
+        Assertions.assertFalse(conf.containsInConf(server.getId()));
       }
     }
-    Assert.assertEquals(peers.size(), numIncluded + deadIncluded);
+    Assertions.assertEquals(peers.size(), numIncluded + deadIncluded);
   }
 
   public static long getNextIndex(RaftServer.Division server) {
@@ -176,8 +176,8 @@ public final class RaftServerTestUtil {
 
   public static void assertLeaderLease(RaftServer.Division leader, boolean hasLease) {
     final LeaderStateImpl l = getLeaderState(leader).orElse(null);
-    Assert.assertNotNull(l);
-    Assert.assertEquals(l.hasLease(), hasLease);
+    Assertions.assertNotNull(l);
+    Assertions.assertEquals(l.hasLease(), hasLease);
   }
 
   public static void restartLogAppenders(RaftServer.Division server) {
@@ -200,8 +200,8 @@ public final class RaftServerTestUtil {
 
   public static void assertLostMajorityHeartbeatsRecently(RaftServer.Division leader) {
     final FollowerState f = ((RaftServerImpl)leader).getRole().getFollowerState().orElse(null);
-    Assert.assertNotNull(f);
-    Assert.assertTrue(f.lostMajorityHeartbeatsRecently());
+    Assertions.assertNotNull(f);
+    Assertions.assertTrue(f.lostMajorityHeartbeatsRecently());
   }
 
   public static SegmentedRaftLog newSegmentedRaftLog(RaftGroupMemberId memberId, DivisionInfo info,
