@@ -174,7 +174,7 @@
     <maven-pdf-plugin.version>1.6.1</maven-pdf-plugin.version>
     <maven-remote-resources-plugin.version>3.3.0</maven-remote-resources-plugin.version>
     <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
-    <maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
+    <maven-surefire-plugin.version>3.0.0-M9</maven-surefire-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
     <hadoop-maven-plugins.version>3.4.0</hadoop-maven-plugins.version>
 
@@ -641,7 +641,7 @@
             <enableProcessChecker>all</enableProcessChecker>
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
             <!-- @argLine is filled by jacoco maven plugin. @{} means late evaluation -->
-            <argLine>-Xmx2g -XX:+HeapDumpOnOutOfMemoryError @{argLine}</argLine>
+            <argLine>-Xmx4g -XX:+HeapDumpOnOutOfMemoryError @{argLine}</argLine>
             <systemPropertyVariables>
               <ratis.log.dir>${project.build.directory}/log</ratis.log.dir>
               <ratis.tmp.dir>${project.build.directory}/tmp</ratis.tmp.dir>
