@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
@@ -32,8 +32,8 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 /** Tests on Ratis server metrics. */
@@ -66,7 +66,7 @@ public abstract class TestRatisServerMetricsBase<CLUSTER extends MiniRaftCluster
         .setType(RaftClientRequest.staleReadRequestType(Long.MAX_VALUE))
         .build();
     final CompletableFuture<RaftClientReply> f = leaderImpl.getRaftServer().submitClientRequestAsync(r);
-    Assert.assertFalse(f.get().isSuccess());
+    Assertions.assertFalse(f.get().isSuccess());
     assertEquals(1L, ((RaftServerMetricsImpl)leaderImpl.getRaftServerMetrics())
         .getNumFailedClientStaleRead().getCount());
   }
