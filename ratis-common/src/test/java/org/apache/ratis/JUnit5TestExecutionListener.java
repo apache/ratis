@@ -35,7 +35,7 @@ public class JUnit5TestExecutionListener implements TestExecutionListener {
   public void executionFinished(TestIdentifier id, TestExecutionResult result) {
     final Throwable timeoutException = getTimeoutException(result);
     if (timeoutException != null) {
-      out.format("%n%s %s.%s failed%n", JavaUtils.date(), id.getClass().getSimpleName(), id.getDisplayName());
+      out.format("%n%s %s failed%n", JavaUtils.date(), id.getDisplayName());
       timeoutException.printStackTrace(out);
       JavaUtils.dumpAllThreads(out::println);
     }
