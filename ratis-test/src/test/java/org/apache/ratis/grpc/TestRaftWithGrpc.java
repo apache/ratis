@@ -53,6 +53,7 @@ public class TestRaftWithGrpc
     return Arrays.asList((new Boolean[][] {{Boolean.FALSE}, {Boolean.TRUE}}));
   }
 
+  @Flaky("RATIS-2253")
   @ParameterizedTest
   @MethodSource("data")
   public void testWithLoad(Boolean separateHeartbeat) throws Exception {

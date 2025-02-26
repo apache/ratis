@@ -190,10 +190,9 @@
     <!-- number of threads/forks to use when running tests in parallel, see parallel-tests profile -->
     <testsThreadCount>4</testsThreadCount>
 
-    <slf4j.version>2.0.17</slf4j.version>
-    <junit-bom.version>5.14.3</junit-bom.version>
-    <mockito.version>4.11.0</mockito.version>
-    <jacoco.version>0.8.14</jacoco.version>
+    <slf4j.version>2.0.7</slf4j.version>
+    <junit-bom.version>5.11.2</junit-bom.version>
+    <jacoco.version>0.8.12</jacoco.version>
     <flaky-test-groups>flaky | org.apache.ratis.test.tag.FlakyTest</flaky-test-groups>
   </properties>
 
