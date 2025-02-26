@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -465,6 +466,15 @@ public interface RaftTestUtil {
     if (t > 0) {
       Thread.sleep(t);
     }
+  }
+
+  static List<RaftPeer> getPeersWithPriority(List<RaftPeer> peers, RaftPeer suggestedLeader) {
+    List<RaftPeer> peersWithPriority = new ArrayList<>();
+    for (RaftPeer peer : peers) {
+      final int priority = peer.equals(suggestedLeader) ? 2 : 1;
+      peersWithPriority.add(RaftPeer.newBuilder(peer).setPriority(priority).build());
+    }
+    return peersWithPriority;
   }
 
   static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
