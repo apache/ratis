@@ -42,6 +42,7 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.event.Level;
 
 import java.util.ArrayList;
@@ -54,6 +55,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
+@Timeout(value = 200)
 public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   public static final int NUM_SERVERS = 5;
@@ -82,11 +84,6 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
     RaftServerConfigKeys.Rpc.setTimeoutMax(p, MIN_TIMEOUT.multiply(2));
     RaftServerConfigKeys.Rpc.setFirstElectionTimeoutMin(p, TimeDuration.ONE_SECOND);
     RaftServerConfigKeys.Rpc.setFirstElectionTimeoutMax(p, TimeDuration.ONE_SECOND.multiply(2));
-  }
-
-  @Override
-  public int getGlobalTimeoutSeconds() {
-    return 200;
   }
 
   @Test
