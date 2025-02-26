@@ -42,9 +42,9 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedConsumer;
 import org.apache.ratis.util.function.CheckedSupplier;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
@@ -57,7 +57,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -70,7 +70,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
   static final int NUM_SERVERS = 3;
   static final int GET_TIMEOUT_SECOND = 10;
 
-  @Before
+  @BeforeEach
   public void setup() {
     final RaftProperties p = getProperties();
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
@@ -128,7 +128,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
         CompletableFuture<RaftClientReply> reply =
             watchClient.async().send(new RaftTestUtil.SimpleMessage("message"));
         long writeIndex = reply.get().getLogIndex();
-        Assert.assertTrue(writeIndex > 0);
+        Assertions.assertTrue(writeIndex > 0);
         watchClient.async().watch(writeIndex, ReplicationLevel.MAJORITY_COMMITTED);
         return watchClient.async().watch(logIndex, ReplicationLevel.MAJORITY);
       }
@@ -212,8 +212,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       }
       log.info("{}-Watch({}) returns {}", name, logIndex, reply);
 
-      Assert.assertTrue(reply.isSuccess());
-      Assert.assertTrue(reply.getLogIndex() >= logIndex);
+      Assertions.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.getLogIndex() >= logIndex);
       return reply;
     }
   }
@@ -240,8 +240,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
 
     p.sendRequests(replies, watches);
 
-    Assert.assertEquals(numMessages, replies.size());
-    Assert.assertEquals(numMessages, watches.size());
+    Assertions.assertEquals(numMessages, replies.size());
+    Assertions.assertEquals(numMessages, watches.size());
 
     // since leader is blocked, nothing can be done.
     TimeUnit.SECONDS.sleep(1);
@@ -254,7 +254,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
 
     checkMajority(replies, watches, log);
 
-    Assert.assertEquals(numMessages, watches.size());
+    Assertions.assertEquals(numMessages, watches.size());
 
     // but not replicated/committed to all.
     TimeUnit.SECONDS.sleep(1);
@@ -273,26 +273,26 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       final RaftClientReply reply = replies.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
       log.info("checkMajority {}: receive {}", i, reply);
       final long logIndex = reply.getLogIndex();
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
 
       final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      Assert.assertEquals(logIndex, watchReplies.logIndex);
+      Assertions.assertEquals(logIndex, watchReplies.logIndex);
       final RaftClientReply watchMajorityReply = watchReplies.getMajority();
 
       final RaftClientReply watchMajorityCommittedReply = watchReplies.getMajorityCommitted();
       { // check commit infos
         final Collection<CommitInfoProto> commitInfos = watchMajorityCommittedReply.getCommitInfos();
         final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
-        Assert.assertEquals(NUM_SERVERS, commitInfos.size());
+        Assertions.assertEquals(NUM_SERVERS, commitInfos.size());
 
         // One follower has not committed, so min must be less than logIndex
         final long min = commitInfos.stream().map(CommitInfoProto::getCommitIndex).min(Long::compare).get();
-        Assert.assertTrue(message, logIndex > min);
+        Assertions.assertTrue(logIndex > min, message);
 
         // All other followers have committed
         commitInfos.stream()
             .map(CommitInfoProto::getCommitIndex).sorted(Long::compare)
-            .skip(1).forEach(ci -> Assert.assertTrue(message, logIndex <= ci));
+            .skip(1).forEach(ci -> Assertions.assertTrue(logIndex <= ci, message));
       }
     }
   }
@@ -308,8 +308,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       { // check commit infos
         final Collection<CommitInfoProto> commitInfos = watchAllCommittedReply.getCommitInfos();
         final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
-        Assert.assertEquals(NUM_SERVERS, commitInfos.size());
-        commitInfos.forEach(info -> Assert.assertTrue(message, logIndex <= info.getCommitIndex()));
+        Assertions.assertEquals(NUM_SERVERS, commitInfos.size());
+        commitInfos.forEach(info -> Assertions.assertTrue(logIndex <= info.getCommitIndex(), message));
       }
     }
   }
@@ -352,8 +352,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
 
     p.sendRequests(replies, watches);
 
-    Assert.assertEquals(numMessages, replies.size());
-    Assert.assertEquals(numMessages, watches.size());
+    Assertions.assertEquals(numMessages, replies.size());
+    Assertions.assertEquals(numMessages, watches.size());
 
     // since only one follower is blocked commit, requests can be committed MAJORITY and ALL but not ALL_COMMITTED.
     checkMajority(replies, watches, log);
@@ -410,8 +410,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
 
     p.sendRequests(replies, watches);
 
-    Assert.assertEquals(numMessages, replies.size());
-    Assert.assertEquals(numMessages, watches.size());
+    Assertions.assertEquals(numMessages, replies.size());
+    Assertions.assertEquals(numMessages, watches.size());
 
     watchTimeout.sleep();
     watchTimeoutDenomination.sleep(); // for roundup error
@@ -461,11 +461,11 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       fail("runTestWatchRequestClientTimeout failed");
     } catch (Exception ex) {
       log.error("error occurred", ex);
-      Assert.assertTrue(ex.getCause().getClass() == AlreadyClosedException.class ||
+      Assertions.assertTrue(ex.getCause().getClass() == AlreadyClosedException.class ||
           ex.getCause().getClass() == RaftRetryFailureException.class);
       if (ex.getCause() != null) {
         if (ex.getCause().getCause() != null) {
-          Assert.assertEquals(TimeoutIOException.class,
+          Assertions.assertEquals(TimeoutIOException.class,
               ex.getCause().getCause().getClass());
         }
       }
@@ -531,10 +531,10 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       final RaftClientReply reply = replies.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
       log.info("checkTimeout {}: receive {}", i, reply);
       final long logIndex = reply.getLogIndex();
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
 
       final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      Assert.assertEquals(logIndex, watchReplies.logIndex);
+      Assertions.assertEquals(logIndex, watchReplies.logIndex);
 
       assertNotReplicatedException(logIndex, ReplicationLevel.ALL, watchReplies::getAll);
 
@@ -554,11 +554,11 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
   }
 
   static void assertNotReplicatedException(long logIndex, ReplicationLevel replication, Throwable t) {
-    Assert.assertSame(NotReplicatedException.class, t.getClass());
+    Assertions.assertSame(NotReplicatedException.class, t.getClass());
     final NotReplicatedException nre = (NotReplicatedException) t;
-    Assert.assertNotNull(nre);
-    Assert.assertEquals(logIndex, nre.getLogIndex());
-    Assert.assertEquals(replication, nre.getRequiredReplication());
-    Assert.assertNotNull(nre.getCommitInfos());
+    Assertions.assertNotNull(nre);
+    Assertions.assertEquals(logIndex, nre.getLogIndex());
+    Assertions.assertEquals(replication, nre.getRequiredReplication());
+    Assertions.assertNotNull(nre.getCommitInfos());
   }
 }
