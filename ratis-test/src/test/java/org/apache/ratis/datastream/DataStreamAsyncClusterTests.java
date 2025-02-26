@@ -36,6 +36,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.event.Level;
 
 import java.io.IOException;

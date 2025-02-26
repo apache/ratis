@@ -480,6 +480,11 @@ public interface RaftTestUtil {
 
   static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
       throws Exception {
+    return changeLeader(cluster, oldLeader, AssumptionViolatedException::new);
+  }
+
+  static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
+      throws Exception {
     return changeLeader(cluster, oldLeader, Assumptions::abort);
   }
 

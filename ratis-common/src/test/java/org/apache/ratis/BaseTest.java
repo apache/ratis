@@ -26,6 +26,9 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -70,16 +73,30 @@ public abstract class BaseTest {
     }
   }
 
+  // TODO: Junit 4 reference should be removed once all the unit tests are migrated to Junit 5.
+
   private String testCaseName;
 
   @BeforeEach
   public void setup(TestInfo testInfo) {
-    testCaseName = testInfo.getTestMethod()
-        .orElseThrow(() -> new RuntimeException("Exception while getting test name."))
-        .getName();
+    checkAssumptions();
 
+    final Method method = testInfo.getTestMethod().orElse(null);
+    testCaseName = testInfo.getTestClass().orElse(getClass()).getSimpleName()
+        + "." + (method == null? null : method.getName());
+  }
+
+  // @Before annotation is retained to support junit 4 tests.
+  @Before
+  public void checkAssumptions() {
     final int leaks = ReferenceCountedLeakDetector.getLeakDetector().getLeakCount();
     Assumptions.assumeFalse(0 < leaks, () -> "numLeaks " + leaks + " > 0");
+
+    final Throwable first = firstException.get();
+    Assumptions.assumeTrue(first == null, () -> "Already failed with " + first);
+
+    final Throwable exited = ExitUtils.getFirstExitException();
+    Assumptions.assumeTrue(exited == null, () -> "Already exited with " + exited);
   }
 
   @AfterEach
@@ -94,16 +111,7 @@ public abstract class BaseTest {
 
   // Retained to support junit 4 tests.
   @Rule
-  public final org.junit.rules.Timeout globalTimeout = new org.junit.rules.Timeout(
-      getGlobalTimeoutSeconds(), TimeUnit.SECONDS );
-
-  // Retained to support junit 4 tests.
-  @Rule
   public final TestName testName = new TestName();
-
-  public int getGlobalTimeoutSeconds() {
-    return 100;
-  }
 
   private static final Supplier<File> ROOT_TEST_DIR = JavaUtils.memoize(
       () -> JavaUtils.callAsUnchecked(() -> {
