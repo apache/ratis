@@ -83,6 +83,7 @@ jobs:
           - grpc
           - server
           - misc
+          - flaky
       fail-fast: false
     uses: ./.github/workflows/check.yaml
     with:

@@ -39,13 +39,15 @@ import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.util.ExitUtils;
+import org.apache.ratis.test.tag.Flaky;
+import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
+import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedBiConsumer;
-import org.apache.ratis.util.CodeInjectionForTesting;
 import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -75,7 +77,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.slf4j.event.Level;
 
 public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
@@ -743,6 +744,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
+  @Flaky("RATIS-2108")
   @Test
   public void testLeaderLeaseDuringReconfiguration() throws Exception {
     // use a strict lease

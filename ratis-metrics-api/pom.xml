@@ -24,6 +24,11 @@
   <artifactId>ratis-metrics-api</artifactId>
   <name>Apache Ratis Metrics API</name>
 
+  <properties>
+    <!-- no tests in this module so far -->
+    <skipTests>true</skipTests>
+  </properties>
+
   <dependencies>
     <dependency>
       <artifactId>ratis-common</artifactId>

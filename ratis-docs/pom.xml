@@ -26,4 +26,10 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <artifactId>ratis-docs</artifactId>
   <name>Apache Ratis Documentation</name>
   <packaging>jar</packaging>
+
+  <properties>
+    <!-- no testable code in this module -->
+    <skipTests>true</skipTests>
+  </properties>
+
 </project>
