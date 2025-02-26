@@ -654,12 +654,6 @@
               <exclude>**/Test*$*.java</exclude>
               <exclude>${test.exclude.pattern}</exclude>
             </excludes>
-            <properties>
-              <property>
-                <name>listener</name>
-                <value>org.apache.ratis.JUnitRunListener</value>
-              </property>
-            </properties>
           </configuration>
         </plugin>
         <plugin>
