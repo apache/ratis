@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,16 +21,13 @@ package org.apache.ratis.examples.arithmetic.expression;
 import org.apache.ratis.BaseTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
+@Timeout(value = 1)
 public class TestExpression extends BaseTest {
-  @Override
-  public int getGlobalTimeoutSeconds() {
-    return 1;
-  }
-
   @Test
   public void testArithmeticUtils() throws Exception {
     final Random ran = ThreadLocalRandom.current();
