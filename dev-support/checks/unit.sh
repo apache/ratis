@@ -36,6 +36,10 @@ mkdir -p "$REPORT_DIR"
 export MAVEN_OPTS="-Xmx4096m"
 MAVEN_OPTIONS='-V -B'
 
+if [[ "$@" =~ "-Pflaky-tests" ]]; then
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} -Dsurefire.rerunFailingTestsCount=5 -Dsurefire.timeout=1200"
+fi
+
 if [[ "${FAIL_FAST}" == "true" ]]; then
   MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-fast -Dsurefire.skipAfterFailureCount=1"
 else
