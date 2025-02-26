@@ -54,6 +54,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import static org.apache.ratis.RaftTestUtil.getPeersWithPriority;
+
 public abstract class GroupManagementBaseTest extends BaseTest {
   static final Logger LOG = LoggerFactory.getLogger(GroupManagementBaseTest.class);
 

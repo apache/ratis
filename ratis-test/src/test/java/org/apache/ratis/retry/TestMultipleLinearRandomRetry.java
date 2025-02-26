@@ -21,13 +21,10 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
+@Timeout(value = 1)
 public class TestMultipleLinearRandomRetry extends BaseTest {
-  @Override
-  public int getGlobalTimeoutSeconds() {
-    return 1;
-  }
-
   @Test
   public void testParseCommaSeparated() {
     assertIllegalInput("");
