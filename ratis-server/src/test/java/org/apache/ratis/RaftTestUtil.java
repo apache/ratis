@@ -36,11 +36,11 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
-import org.apache.ratis.thirdparty.com.google.common.base.Preconditions;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
@@ -150,8 +150,9 @@ public interface RaftTestUtil {
 
   static void waitFor(Supplier<Boolean> check, int checkEveryMillis,
       int waitForMillis) throws TimeoutException, InterruptedException {
-    Preconditions.checkNotNull(check);
-    Preconditions.checkArgument(waitForMillis >= checkEveryMillis);
+    Preconditions.assertNotNull(check, "check");
+    Preconditions.assertTrue(waitForMillis >= checkEveryMillis,
+        () -> "waitFor: " + waitForMillis + " < checkEvery: " + checkEveryMillis);
 
     long st = System.currentTimeMillis();
     boolean result = check.get();
