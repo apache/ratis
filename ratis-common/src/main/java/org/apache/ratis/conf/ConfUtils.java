@@ -18,7 +18,6 @@
 package org.apache.ratis.conf;
 
 import org.apache.ratis.security.TlsConf;
-import org.apache.ratis.thirdparty.com.google.common.base.Objects;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -33,6 +32,7 @@ import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
@@ -60,7 +60,7 @@ public interface ConfUtils {
   static <T> void logGet(String key, T value, T defaultValue, Consumer<String> logger) {
     if (logger != null && Utils.isNew(key, value)) {
       logger.accept(String.format("%s = %s (%s)", key, value,
-          Objects.equal(value, defaultValue)? "default": "custom"));
+          Objects.equals(value, defaultValue)? "default": "custom"));
     }
   }
 
