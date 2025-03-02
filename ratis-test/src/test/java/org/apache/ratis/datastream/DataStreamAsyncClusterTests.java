@@ -36,6 +36,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -47,14 +48,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+@Timeout(value = 300)
 public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluster>
     extends DataStreamClusterTests<CLUSTER> {
   final Executor executor = Executors.newFixedThreadPool(16);
-
-  @Override
-  public int getGlobalTimeoutSeconds() {
-    return 300;
-  }
 
   @Test
   public void testSingleStreamsMultipleServers() throws Exception {

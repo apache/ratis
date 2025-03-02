@@ -28,10 +28,12 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.test.tag.Flaky;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -55,6 +57,8 @@ public class TestRaftWithGrpc
     // skip testWithLoad() from parent, called from parameterized testWithLoad(boolean)
   }
 
+  @Flaky("RATIS-2253")
+  @Timeout(300)
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   public void testWithLoad(boolean separateHeartbeat) throws Exception {

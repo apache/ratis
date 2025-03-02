@@ -36,6 +36,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,12 +46,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /** Test {@link RetryPolicy}. */
+@Timeout(value = 1)
 public class TestRetryPolicy extends BaseTest {
-  @Override
-  public int getGlobalTimeoutSeconds() {
-    return 1;
-  }
-
   @Test
   public void testRetryMultipleTimesWithFixedSleep() {
     final int n = 4;

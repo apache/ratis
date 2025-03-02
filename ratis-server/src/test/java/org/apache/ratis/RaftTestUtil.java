@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -36,11 +37,11 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
-import org.apache.ratis.thirdparty.com.google.common.base.Preconditions;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.AssumptionViolatedException;
@@ -150,8 +151,9 @@ public interface RaftTestUtil {
 
   static void waitFor(Supplier<Boolean> check, int checkEveryMillis,
       int waitForMillis) throws TimeoutException, InterruptedException {
-    Preconditions.checkNotNull(check);
-    Preconditions.checkArgument(waitForMillis >= checkEveryMillis);
+    Preconditions.assertNotNull(check, "check");
+    Preconditions.assertTrue(waitForMillis >= checkEveryMillis,
+        () -> "waitFor: " + waitForMillis + " < checkEvery: " + checkEveryMillis);
 
     long st = System.currentTimeMillis();
     boolean result = check.get();
@@ -464,6 +466,15 @@ public interface RaftTestUtil {
     if (t > 0) {
       Thread.sleep(t);
     }
+  }
+
+  static List<RaftPeer> getPeersWithPriority(List<RaftPeer> peers, RaftPeer suggestedLeader) {
+    List<RaftPeer> peersWithPriority = new ArrayList<>();
+    for (RaftPeer peer : peers) {
+      final int priority = peer.equals(suggestedLeader) ? 2 : 1;
+      peersWithPriority.add(RaftPeer.newBuilder(peer).setPriority(priority).build());
+    }
+    return peersWithPriority;
   }
 
   static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)

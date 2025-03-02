@@ -23,6 +23,11 @@
   <artifactId>ratis-replicated-map</artifactId>
   <name>Apache Ratis Replicated Map</name>
 
+  <properties>
+    <!-- no tests in this module so far -->
+    <skipTests>true</skipTests>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.ratis</groupId>

@@ -22,10 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 
-import org.apache.ratis.thirdparty.com.google.common.collect.Lists;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -128,7 +128,7 @@ public class TestRefCountingMap {
     Set<String> keys = map.keySet();
     assertEquals(3, keys.size());
 
-    Lists.newArrayList("foo", "bar", "baz").forEach(v -> assertTrue(keys.contains(v)));
+    Arrays.asList("foo", "bar", "baz").forEach(v -> assertTrue(keys.contains(v)));
   }
 
   @Test
@@ -141,7 +141,7 @@ public class TestRefCountingMap {
     Collection<String> values = map.values();
     assertEquals(3, values.size());
 
-    Lists.newArrayList("foovalue", "foovalue3", "foovalue4")
+    Arrays.asList("foovalue", "foovalue3", "foovalue4")
             .forEach(v -> assertTrue(values.contains(v)));
   }
 }

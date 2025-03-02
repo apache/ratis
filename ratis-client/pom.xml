@@ -23,6 +23,11 @@
   <artifactId>ratis-client</artifactId>
   <name>Apache Ratis Client</name>
 
+  <properties>
+    <!-- no tests in this module so far -->
+    <skipTests>true</skipTests>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.ratis</groupId>
