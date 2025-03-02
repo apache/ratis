@@ -50,10 +50,10 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -124,7 +124,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
   public abstract MiniRaftCluster.Factory<?> getFactory();
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException {
     final RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
@@ -136,7 +136,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     cluster.start();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     if (cluster != null) {
       cluster.shutdown();
