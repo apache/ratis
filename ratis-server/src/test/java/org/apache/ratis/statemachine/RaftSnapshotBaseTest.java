@@ -50,10 +50,10 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,16 +97,16 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     final RaftLog log = server.getRaftLog();
     final long lastIndex = log.getLastEntryTermIndex().getIndex();
     final LogEntryProto e = getLogUnsafe(log, lastIndex);
-    Assert.assertTrue(e.hasMetadataEntry());
+    Assertions.assertTrue(e.hasMetadataEntry());
 
     JavaUtils.attemptRepeatedly(() -> {
-      Assert.assertEquals(log.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
+      Assertions.assertEquals(log.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
       return null;
     }, 50, BaseTest.HUNDRED_MILLIS, "CheckMetadataEntry", LOG);
 
     SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(server);
     if (isLeader) {
-      Assert.assertTrue("Not notified as a leader", simpleStateMachine.isNotifiedAsLeader());
+      Assertions.assertTrue(simpleStateMachine.isNotifiedAsLeader(), "Not notified as a leader");
     }
     final LogEntryProto[] entries = simpleStateMachine.getContent();
     long message = 0;
@@ -114,7 +114,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       LOG.info("{}) {} {}", i, message, entries[i].toString().replace("\n", ", "));
       if (entries[i].hasStateMachineLogEntry()) {
         final SimpleMessage m = new SimpleMessage("m" + message++);
-        Assert.assertArrayEquals(m.getContent().toByteArray(),
+        Assertions.assertArrayEquals(m.getContent().toByteArray(),
             entries[i].getStateMachineLogEntry().getLogData().toByteArray());
       }
     }
@@ -156,7 +156,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     try(final RaftClient client = cluster.createClient(leaderId)) {
       for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
         RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
     }
 
@@ -165,7 +165,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     // wait for the snapshot to be done
     final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
     JavaUtils.attemptRepeatedly(() -> {
-      Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+      Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
       return null;
     }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
 
@@ -203,7 +203,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       try(final RaftClient client = cluster.createClient(leaderId)) {
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
           RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
       }
 
@@ -212,7 +212,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
       verifyTakeSnapshotMetric(cluster.getLeader());
@@ -234,7 +234,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
       // generate some more traffic
       try(final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
-        Assert.assertTrue(client.io().send(new SimpleMessage("m" + i)).isSuccess());
+        Assertions.assertTrue(client.io().send(new SimpleMessage("m" + i)).isSuccess());
       }
 
       // add two more peers
@@ -248,7 +248,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       for (String newPeer : newPeers) {
         final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));
         SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
-        Assert.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
+        Assertions.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
       }
 
       // Verify installSnapshot counter on leader before restart.
@@ -263,7 +263,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       assertLeaderContent(cluster);
 
       // verify that snapshot was taken when stopping the server
-      Assert.assertTrue(count < timer.getCount());
+      Assertions.assertTrue(count < timer.getCount());
     } finally {
       cluster.shutdown();
     }
@@ -284,7 +284,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       try(final RaftClient client = cluster.createClient(leaderId)) {
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
           RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
       }
 
@@ -293,7 +293,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
       verifyTakeSnapshotMetric(cluster.getLeader());
@@ -311,7 +311,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       for (String newPeer : newPeers) {
         final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));
         SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
-        Assert.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
+        Assertions.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
       }
 
       // Verify installSnapshot counter on leader
@@ -325,13 +325,13 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   protected void verifyInstallSnapshotMetric(RaftServer.Division leader) {
     final LongCounter installSnapshotCounter = ((RaftServerMetricsImpl)leader.getRaftServerMetrics())
         .getNumInstallSnapshot();
-    Assert.assertNotNull(installSnapshotCounter);
-    Assert.assertTrue(installSnapshotCounter.getCount() >= 1);
+    Assertions.assertNotNull(installSnapshotCounter);
+    Assertions.assertTrue(installSnapshotCounter.getCount() >= 1);
   }
 
   private static void verifyTakeSnapshotMetric(RaftServer.Division leader) {
     Timer timer = getTakeSnapshotTimer(leader);
-    Assert.assertTrue(timer.getCount() > 0);
+    Assertions.assertTrue(timer.getCount() > 0);
   }
 
   private static Timer getTakeSnapshotTimer(RaftServer.Division leader) {
@@ -339,9 +339,9 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
         RATIS_APPLICATION_NAME_METRICS,
         RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC);
     Optional<RatisMetricRegistry> opt = MetricRegistries.global().get(info);
-    Assert.assertTrue(opt.isPresent());
+    Assertions.assertTrue(opt.isPresent());
     RatisMetricRegistry metricRegistry = opt.get();
-    Assert.assertNotNull(metricRegistry);
+    Assertions.assertNotNull(metricRegistry);
     return ((DefaultTimekeeperImpl)metricRegistry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER)).getTimer();
   }
 }
