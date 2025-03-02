@@ -29,8 +29,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public abstract class LogMetadataTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -72,7 +72,7 @@ public abstract class LogMetadataTests<CLUSTER extends MiniRaftCluster>
       long commitIndex = cluster.getServer(leaderId).getDivision(cluster.getGroupId()).getRaftLog()
           .getLastCommittedIndex();
 
-      Assert.assertTrue(checker.test(commitIndex));
+      Assertions.assertTrue(checker.test(commitIndex));
     } finally {
       cluster.shutdown();
     }
