@@ -26,13 +26,14 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -84,6 +85,8 @@ public abstract class BaseTest {
         + "." + (method == null? null : method.getName());
   }
 
+  // @Before annotation is retained to support junit 4 tests.
+  @Before
   @BeforeEach
   public void checkAssumptions() {
     final int leaks = ReferenceCountedLeakDetector.getLeakDetector().getLeakCount();
@@ -96,6 +99,8 @@ public abstract class BaseTest {
     Assumptions.assumeTrue(exited == null, () -> "Already exited with " + exited);
   }
 
+  // @After annotation is retained to support junit 4 tests.
+  @After
   @AfterEach
   public void assertNoFailures() {
     final Throwable e = firstException.get();
@@ -105,9 +110,6 @@ public abstract class BaseTest {
 
     ExitUtils.assertNotTerminated();
   }
-
-  @RegisterExtension
-  public final TestName testName = new TestName();
 
   private static final Supplier<File> ROOT_TEST_DIR = JavaUtils.memoize(
       () -> JavaUtils.callAsUnchecked(() -> {
@@ -132,8 +134,7 @@ public abstract class BaseTest {
 
   public File getTestDir() {
     // This will work for both junit 4 and 5.
-    final String name = testCaseName != null ? testCaseName : testName.getMethodName();
-    return new File(getClassTestDir(), name);
+    return new File(getClassTestDir(), testCaseName);
   }
 
   @SafeVarargs
