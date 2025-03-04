@@ -27,14 +27,12 @@ import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
-import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -88,6 +86,7 @@ public abstract class BaseTest {
 
   // @Before annotation is retained to support junit 4 tests.
   @Before
+  @BeforeEach
   public void checkAssumptions() {
     final Throwable first = firstException.get();
     Assumptions.assumeTrue(first == null, () -> "Already failed with " + first);
@@ -107,10 +106,6 @@ public abstract class BaseTest {
 
     ExitUtils.assertNotTerminated();
   }
-
-  // Retained to support junit 4 tests.
-  @Rule
-  public final TestName testName = new TestName();
 
   private static final Supplier<File> ROOT_TEST_DIR = JavaUtils.memoize(
       () -> JavaUtils.callAsUnchecked(() -> {
@@ -135,8 +130,7 @@ public abstract class BaseTest {
 
   public File getTestDir() {
     // This will work for both junit 4 and 5.
-    final String name = testCaseName != null ? testCaseName : testName.getMethodName();
-    return new File(getClassTestDir(), name);
+    return new File(getClassTestDir(), testCaseName);
   }
 
   @SafeVarargs
