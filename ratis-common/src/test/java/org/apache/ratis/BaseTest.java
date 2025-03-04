@@ -28,7 +28,6 @@ import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -88,6 +87,7 @@ public abstract class BaseTest {
 
   // @Before annotation is retained to support junit 4 tests.
   @Before
+  @BeforeEach
   public void checkAssumptions() {
     final int leaks = ReferenceCountedLeakDetector.getLeakDetector().getLeakCount();
     Assumptions.assumeFalse(0 < leaks, () -> "numLeaks " + leaks + " > 0");
@@ -108,10 +108,6 @@ public abstract class BaseTest {
 
     ExitUtils.assertNotTerminated();
   }
-
-  // Retained to support junit 4 tests.
-  @Rule
-  public final TestName testName = new TestName();
 
   private static final Supplier<File> ROOT_TEST_DIR = JavaUtils.memoize(
       () -> JavaUtils.callAsUnchecked(() -> {
@@ -135,6 +131,7 @@ public abstract class BaseTest {
   }
 
   public File getTestDir() {
+    // This will work for both junit 4 and 5.
     return new File(getClassTestDir(), testCaseName);
   }
 
