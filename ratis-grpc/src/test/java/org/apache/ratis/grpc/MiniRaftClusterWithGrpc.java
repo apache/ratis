@@ -33,7 +33,7 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.ReferenceCountedLeakDetector;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 
 import java.util.Optional;
 
@@ -104,9 +104,9 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
       RaftServer.Division division = RaftServerTestUtil.getDivision(server, id);
       final GrpcServicesImpl service = (GrpcServicesImpl) RaftServerTestUtil.getServerRpc(division);
       ZeroCopyMetrics zeroCopyMetrics = service.getZeroCopyMetrics();
-      Assert.assertEquals(0, zeroCopyMetrics.nonZeroCopyMessages());
-      Assert.assertEquals("Zero copy messages are not released, please check logs to find leaks. ",
-          zeroCopyMetrics.zeroCopyMessages(), zeroCopyMetrics.releasedMessages());
+      Assertions.assertEquals(0, zeroCopyMetrics.nonZeroCopyMessages());
+      Assertions.assertEquals(zeroCopyMetrics.zeroCopyMessages(), zeroCopyMetrics.releasedMessages(),
+          "Unreleased zero copy messages: please check logs to find the leaks. ");
     }));
   }
 }
