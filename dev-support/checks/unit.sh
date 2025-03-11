@@ -58,10 +58,10 @@ for i in $(seq 1 ${ITERATIONS}); do
     mkdir -p "${REPORT_DIR}"
   fi
 
-  set -x
+  echo
+  echo ${MVN} ${MAVEN_OPTIONS} test "$@"
   ${MVN} ${MAVEN_OPTIONS} test "$@" \
     | tee "${REPORT_DIR}/output.log"
-  set +x
   irc=$?
 
   # shellcheck source=dev-support/checks/_mvn_unit_report.sh
