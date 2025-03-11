@@ -178,6 +178,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
   @Test
   public void testAddNewFollowersNoSnapshot() throws Exception {
+    LOG.info("trigger testAddNewFollowersNoSnapshot.");
     final int numRequests = SNAPSHOT_TRIGGER_THRESHOLD/8;  // do not trigger a snapshot;
     runWithNewCluster(1, c -> testAddNewFollowers(c, numRequests));
   }

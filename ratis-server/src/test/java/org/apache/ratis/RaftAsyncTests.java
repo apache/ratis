@@ -119,6 +119,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testRequestAsyncWithRetryFailureAfterInitialMessages() throws Exception {
+    LOG.info("trigger testRequestAsyncWithRetryFailureAfterInitialMessages.");
     runTestRequestAsyncWithRetryFailure(true);
   }
 
@@ -201,6 +202,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testAsyncRequestSemaphore() throws Exception {
+    LOG.info("trigger testAsyncRequestSemaphore.");
     runWithNewCluster(NUM_SERVERS, this::runTestAsyncRequestSemaphore);
   }
 
@@ -271,6 +273,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testWithLoadAsync() throws Exception {
+    LOG.info("trigger testWithLoadAsync.");
     runWithNewCluster(NUM_SERVERS,
         cluster -> RaftBasicTests.testWithLoad(5, 500, true, cluster, LOG));
   }
@@ -392,6 +395,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testRequestTimeout() throws Exception {
+    LOG.info("trigger testRequestTimeout");
     final TimeDuration oldExpiryTime = RaftServerConfigKeys.RetryCache.expiryTime(getProperties());
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), FIVE_SECONDS);
     RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(getProperties(), false);
@@ -493,6 +497,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testNoRetryWaitOnNotLeaderException() throws Exception {
+    LOG.info("trigger testNoRetryWaitOnNotLeaderException.");
     RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(getProperties(), false);
     runWithNewCluster(3, this::runTestNoRetryWaitOnNotLeaderException);
     RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(getProperties(), true);
