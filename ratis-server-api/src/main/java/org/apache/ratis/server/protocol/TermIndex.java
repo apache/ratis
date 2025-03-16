@@ -73,43 +73,6 @@ public interface TermIndex extends Comparable<TermIndex> {
 
   /** @return a {@link TermIndex} object. */
   static TermIndex valueOf(long term, long index) {
-    return new TermIndex() {
-      @Override
-      public long getTerm() {
-        return term;
-      }
-
-      @Override
-      public long getIndex() {
-        return index;
-      }
-
-      @Override
-      public boolean equals(Object obj) {
-        if (obj == this) {
-          return true;
-        } else if (!(obj instanceof TermIndex)) {
-          return false;
-        }
-
-        final TermIndex that = (TermIndex) obj;
-        return this.getTerm() == that.getTerm()
-            && this.getIndex() == that.getIndex();
-      }
-
-      @Override
-      public int hashCode() {
-        return Long.hashCode(term) ^ Long.hashCode(index);
-      }
-
-      private String longToString(long n) {
-        return n >= 0L? String.valueOf(n) : "~";
-      }
-
-      @Override
-      public String toString() {
-        return String.format("(t:%s, i:%s)", longToString(term), longToString(index));
-      }
-    };
+    return TermIndexImpl.valueOf(term, index);
   }
 }
