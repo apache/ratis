@@ -24,6 +24,6 @@ if [ ! "$SONAR_TOKEN" ]; then
 fi
 
 ${MVN} -B verify -DskipShade -DskipTests \
-  org.sonarsource.scanner.maven:sonar-maven-plugin:3.6.0.1398:sonar \
+  sonar:sonar \
   -Dsonar.coverage.jacoco.xmlReportPaths="$(pwd)/target/coverage/all.xml" \
   -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=apache -Dsonar.projectKey=apache-ratis
