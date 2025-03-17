@@ -17,6 +17,10 @@
  */
 package org.apache.ratis.util;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static java.nio.file.StandardOpenOption.WRITE;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +28,6 @@ import java.io.File;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -60,7 +63,7 @@ public class AtomicFileOutputStream extends FilterOutputStream {
   }
 
   public AtomicFileOutputStream(File outFile, File tmpFile) throws IOException {
-    super(FileUtils.newOutputStreamForceAtClose(tmpFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE));
+    super(FileUtils.newOutputStreamForceAtClose(tmpFile, CREATE, TRUNCATE_EXISTING, WRITE));
     this.outFile = outFile.getAbsoluteFile();
     this.tmpFile = tmpFile.getAbsoluteFile();
   }
