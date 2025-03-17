@@ -60,7 +60,7 @@ public class AtomicFileOutputStream extends FilterOutputStream {
   }
 
   public AtomicFileOutputStream(File outFile, File tmpFile) throws IOException {
-    super(FileUtils.newOutputStreamForceAtClose(tmpFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE));
+    super(FileUtils.newOutputStreamForceAtClose(tmpFile, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE));
     this.outFile = outFile.getAbsoluteFile();
     this.tmpFile = tmpFile.getAbsoluteFile();
   }
