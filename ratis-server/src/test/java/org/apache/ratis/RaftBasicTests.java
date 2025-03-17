@@ -17,6 +17,7 @@
  */
 package org.apache.ratis;
 
+import org.apache.ratis.test.tag.Flaky;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
@@ -454,6 +455,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
+  @Flaky("RATIS-2262")
   @Test
   public void testStateMachineMetrics() throws Exception {
     runWithNewCluster(NUM_SERVERS, cluster -> runTestStateMachineMetrics(false, cluster));
