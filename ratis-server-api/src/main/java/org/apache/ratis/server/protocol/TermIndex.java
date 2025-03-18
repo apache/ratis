@@ -81,7 +81,9 @@ public interface TermIndex extends Comparable<TermIndex> {
    * An implementation for private use.
    * Note that this is not a public API, although this is public class.
    */
-  class Impl {
+  final class Impl {
+    private Impl() { }
+
     private static final BiWeakValueCache<Long, Long, TermIndex> CACHE
         = new BiWeakValueCache<>("term", "index", Impl::newTermIndex);
 
