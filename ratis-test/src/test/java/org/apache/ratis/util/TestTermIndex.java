@@ -15,19 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.protocol;
+package org.apache.ratis.util;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.server.protocol.ProtocolTestUtils;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Testing {@link TermIndexImpl}. */
-public class TestTermIndexImpl extends BaseTest {
+/** Testing {@link BiWeakValueCache}. */
+public class TestTermIndex extends BaseTest {
+  static BiWeakValueCache<Long, Long, TermIndex> CACHE = ProtocolTestUtils.getTermIndexCache();
+
   static void dumpCache(Integer expectedEmptyCount) {
-    final int computed = TermIndexImpl.Cache.dump(System.out::print);
+    final int computed = CACHE.dump(System.out::print);
     if (expectedEmptyCount != null) {
       assertEquals(expectedEmptyCount, computed);
     }
@@ -35,7 +38,7 @@ public class TestTermIndexImpl extends BaseTest {
   }
 
   static void assertCacheSize(int expectedSize, long term) {
-    final int computed = TermIndexImpl.Cache.indexCount(term);
+    final int computed = CACHE.count(term);
     if (computed != expectedSize) {
       dumpCache(null);
     }
@@ -91,7 +94,7 @@ public class TestTermIndexImpl extends BaseTest {
     assertCacheSizeWithGC(0, terms[1]);
     dumpCache(1);
 
-    TermIndexImpl.Cache.cleanupEmptyInnerMaps();
+    CACHE.cleanupEmptyInnerMaps();
     dumpCache(0);
   }
 }
