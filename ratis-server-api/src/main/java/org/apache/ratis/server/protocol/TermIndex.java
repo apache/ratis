@@ -20,6 +20,7 @@ package org.apache.ratis.server.protocol;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.TermIndexProto;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.util.BiWeakValueCache;
 
 import java.util.Comparator;
 import java.util.Optional;
@@ -73,43 +74,62 @@ public interface TermIndex extends Comparable<TermIndex> {
 
   /** @return a {@link TermIndex} object. */
   static TermIndex valueOf(long term, long index) {
-    return new TermIndex() {
-      @Override
-      public long getTerm() {
-        return term;
-      }
+    return Impl.getCache().getOrCreate(term, index);
+  }
 
-      @Override
-      public long getIndex() {
-        return index;
-      }
+  /**
+   * An implementation for private use.
+   * Note that this is not a public API, although this is public class.
+   */
+  final class Impl {
+    private Impl() { }
 
-      @Override
-      public boolean equals(Object obj) {
-        if (obj == this) {
-          return true;
-        } else if (!(obj instanceof TermIndex)) {
-          return false;
+    private static final BiWeakValueCache<Long, Long, TermIndex> CACHE
+        = new BiWeakValueCache<>("term", "index", Impl::newTermIndex);
+
+    static BiWeakValueCache<Long, Long, TermIndex> getCache() {
+      return CACHE;
+    }
+
+    private static TermIndex newTermIndex(long term, long index) {
+      return new TermIndex() {
+        @Override
+        public long getTerm() {
+          return term;
         }
 
-        final TermIndex that = (TermIndex) obj;
-        return this.getTerm() == that.getTerm()
-            && this.getIndex() == that.getIndex();
-      }
+        @Override
+        public long getIndex() {
+          return index;
+        }
 
-      @Override
-      public int hashCode() {
-        return Long.hashCode(term) ^ Long.hashCode(index);
-      }
+        @Override
+        public boolean equals(Object obj) {
+          if (obj == this) {
+            return true;
+          } else if (!(obj instanceof TermIndex)) {
+            return false;
+          }
 
-      private String longToString(long n) {
-        return n >= 0L? String.valueOf(n) : "~";
-      }
+          final TermIndex that = (TermIndex) obj;
+          return this.getTerm() == that.getTerm()
+              && this.getIndex() == that.getIndex();
+        }
 
-      @Override
-      public String toString() {
-        return String.format("(t:%s, i:%s)", longToString(term), longToString(index));
-      }
-    };
+        @Override
+        public int hashCode() {
+          return Long.hashCode(term) ^ Long.hashCode(index);
+        }
+
+        private String longToString(long n) {
+          return n >= 0L ? String.valueOf(n) : "~";
+        }
+
+        @Override
+        public String toString() {
+          return String.format("(t:%s, i:%s)", longToString(term), longToString(index));
+        }
+      };
+    }
   }
 }
