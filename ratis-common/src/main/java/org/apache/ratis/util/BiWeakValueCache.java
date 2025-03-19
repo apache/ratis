@@ -33,15 +33,13 @@ import java.util.function.Consumer;
  * Note that the cached values are weakly referenced.
  * A cached value could be garage-collected (i.e. evicted from the cache)
  * when there are no external (strong) references.
- * <p>
- * For key types with a component, use {@link WeakValueCache}.
  *
  * @param <OUTER> the type of the outer keys.
  * @param <INNER> the type of the inner keys.
  * @param <T> the type to be cached.
  */
 public final class BiWeakValueCache<OUTER, INNER, T> {
-  static <K, V> ConcurrentMap<K, V> newMap() {
+  private static <K, V> ConcurrentMap<K, V> newMap() {
     return new MapMaker().weakValues().makeMap();
   }
 
@@ -63,8 +61,8 @@ public final class BiWeakValueCache<OUTER, INNER, T> {
   /**
    * Create a cache for mapping ({@link OUTER}, {@link INNER}) keys to {@link T} values.
    *
-   * @param outerName the name of the outer keys.
-   * @param innerName the name of the inner keys.
+   * @param outerName the name of the outer long.
+   * @param innerName the name of the inner long.
    * @param constructor for constructing {@link T} values.
    */
   public BiWeakValueCache(String outerName, String innerName, BiFunction<OUTER, INNER, T> constructor) {

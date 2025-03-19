@@ -21,7 +21,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.TermIndexProto;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.BiWeakValueCache;
-import org.apache.ratis.util.MemoizedSupplier;
 
 import java.util.Comparator;
 import java.util.Optional;
@@ -96,8 +95,6 @@ public interface TermIndex extends Comparable<TermIndex> {
 
     private static TermIndex newTermIndex(long term, long index) {
       return new TermIndex() {
-        private final Supplier<TermIndexProto> protoSupplier = MemoizedSupplier.valueOf(TermIndex.super::toProto);
-
         @Override
         public long getTerm() {
           return term;
@@ -126,22 +123,12 @@ public interface TermIndex extends Comparable<TermIndex> {
           return Long.hashCode(term) ^ Long.hashCode(index);
         }
 
-        @Override
-        public TermIndexProto toProto() {
-          return protoSupplier.get();
-        }
-
         private String longToString(long n) {
           return n >= 0L ? String.valueOf(n) : "~";
         }
 
         @Override
         public String toString() {
-          if (this.equals(INITIAL_VALUE)) {
-            return "<INITIAL_VALUE>";
-          } else if (this.equals(PROTO_DEFAULT)) {
-            return "<PROTO_DEFAULT>";
-          }
           return String.format("(t:%s, i:%s)", longToString(term), longToString(index));
         }
       };
