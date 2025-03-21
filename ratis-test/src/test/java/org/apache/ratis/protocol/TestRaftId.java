@@ -19,6 +19,7 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.WeakValueCache;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -27,6 +28,13 @@ import java.util.UUID;
 
 @Timeout(value = 1)
 public class TestRaftId extends BaseTest {
+  public static WeakValueCache<UUID, ClientId> getClientIdCache() {
+    return ClientId.getCache();
+  }
+
+  public static WeakValueCache<UUID, RaftGroupId> getRaftGroupIdCache() {
+    return RaftGroupId.getCache();
+  }
 
   @Test
   public void testRaftId() {

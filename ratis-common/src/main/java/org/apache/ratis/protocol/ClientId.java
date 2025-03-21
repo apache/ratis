@@ -18,6 +18,7 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.WeakValueCache;
 
 import java.util.UUID;
 
@@ -26,12 +27,16 @@ import java.util.UUID;
  * to correctly identify retry requests from the same client.
  */
 public final class ClientId extends RaftId {
-  private static final Factory<ClientId> FACTORY = new Factory<ClientId>() {
+  private static final Factory<ClientId> FACTORY = new Factory<ClientId>(ClientId.class) {
     @Override
     ClientId newInstance(UUID uuid) {
       return new ClientId(uuid);
     }
   };
+
+  static WeakValueCache<UUID, ClientId> getCache() {
+    return FACTORY.getCache();
+  }
 
   public static ClientId emptyClientId() {
     return FACTORY.emptyId();
