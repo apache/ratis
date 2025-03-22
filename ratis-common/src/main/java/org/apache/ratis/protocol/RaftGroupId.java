@@ -18,6 +18,7 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.WeakValueCache;
 
 import java.util.UUID;
 
@@ -27,12 +28,16 @@ import java.util.UUID;
  * This is a value-based class.
  */
 public final class RaftGroupId extends RaftId {
-  private static final Factory<RaftGroupId> FACTORY = new Factory<RaftGroupId>() {
+  private static final Factory<RaftGroupId> FACTORY = new Factory<RaftGroupId>(RaftGroupId.class) {
     @Override
     RaftGroupId newInstance(UUID uuid) {
       return new RaftGroupId(uuid);
     }
   };
+
+  static WeakValueCache<UUID, RaftGroupId> getCache() {
+    return FACTORY.getCache();
+  }
 
   public static RaftGroupId emptyGroupId() {
     return FACTORY.emptyId();
