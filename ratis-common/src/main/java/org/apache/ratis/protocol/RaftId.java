@@ -17,17 +17,15 @@
  */
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
-import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.WeakValueCache;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 /** Unique identifier implemented using {@link UUID}. */
@@ -53,18 +51,20 @@ public abstract class RaftId {
   }
 
   abstract static class Factory<ID extends RaftId> {
-    private final Cache<UUID, ID> cache = CacheBuilder.newBuilder()
-        .weakValues()
-        .build();
+    private final WeakValueCache<UUID, ID> cache;
+
+    Factory(Class<ID> clazz) {
+      this.cache = new WeakValueCache<>(clazz.getSimpleName() + "_UUID", this::newInstance);
+    }
 
     abstract ID newInstance(UUID uuid);
 
+    WeakValueCache<UUID, ID> getCache() {
+      return cache;
+    }
+
     final ID valueOf(UUID uuid) {
-      try {
-        return cache.get(uuid, () -> newInstance(uuid));
-      } catch (ExecutionException e) {
-        throw new IllegalStateException("Failed to valueOf(" + uuid + ")", e);
-      }
+      return cache.getOrCreate(uuid);
     }
 
     final ID valueOf(ByteString bytes) {
