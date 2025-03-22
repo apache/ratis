@@ -117,6 +117,7 @@ public class OrderedStreamAsync {
       requestSemaphore.acquire();
     } catch (InterruptedException e){
       Thread.currentThread().interrupt();
+      requestSemaphore.release();
       return JavaUtils.completeExceptionally(IOUtils.toInterruptedIOException(
           "Interrupted when sending " + JavaUtils.getClassSimpleName(data.getClass()) + ", header= " + header, e));
     }
