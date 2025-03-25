@@ -21,12 +21,16 @@ import org.apache.ratis.util.function.TriConsumer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
 import static org.apache.ratis.util.LifeCycle.State.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.*;
 
 public class TestLifeCycle {
   /**
