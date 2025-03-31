@@ -118,7 +118,7 @@ mvnFun() {
   mv "apache-ratis-${RATISVERSION}-src" "apache-ratis-${RATISVERSION}"
   cd "apache-ratis-${RATISVERSION}"
 
-  mvnFun clean verify -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
+  mvnFun clean verify -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}" "$@"
 }
 
 3-publish-mvn() {
@@ -137,7 +137,10 @@ mvnFun() {
   for i in *.tar.gz; do gpg --print-md SHA512 "${i}" > "${i}.sha512"; done
   for i in *.tar.gz; do gpg --print-mds "${i}" > "${i}.mds"; done
   cd "$SVNDISTDIR"
-  svn add "${RATISVERSION}" || svn add "${RATISVERSION}/${RC#-}"
+  # skip svn add in CI
+  if [[ -z "${CI:-}" ]]; then
+    svn add "${RATISVERSION}" || svn add "${RATISVERSION}/${RC#-}"
+  fi
 }
 
 5-publish-git(){
