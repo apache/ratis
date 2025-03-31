@@ -50,6 +50,13 @@ jobs:
       timeout-minutes: 30
     secrets: inherit
 
+  release:
+    uses: ./.github/workflows/check.yaml
+    with:
+      script: release
+      timeout-minutes: 30
+    secrets: inherit
+
   repro:
     needs:
       - build
