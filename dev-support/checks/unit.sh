@@ -58,6 +58,8 @@ for i in $(seq 1 ${ITERATIONS}); do
     mkdir -p "${REPORT_DIR}"
   fi
 
+  echo
+  echo ${MVN} ${MAVEN_OPTIONS} test "$@"
   ${MVN} ${MAVEN_OPTIONS} test "$@" \
     | tee "${REPORT_DIR}/output.log"
   irc=$?
