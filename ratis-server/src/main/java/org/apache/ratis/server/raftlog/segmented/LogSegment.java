@@ -292,7 +292,7 @@ public final class LogSegment {
         }
       });
       loadingTimes.incrementAndGet();
-      return Objects.requireNonNull(toReturn.get(), () -> "toReturn == null for " + key);
+      return toReturn.get();
     }
   }
 

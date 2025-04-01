@@ -34,14 +34,8 @@ import org.apache.ratis.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
-import java.io.Closeable;
-import java.io.DataInputStream;
-import java.io.EOFException;
-import java.io.File;
-import java.io.FilterInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.channels.ClosedByInterruptException;
 import java.util.Optional;
 import java.util.zip.Checksum;
 
@@ -169,23 +163,28 @@ class SegmentedRaftLogReader implements Closeable {
    */
   boolean verifyHeader() throws IOException {
     final int headerLength = SegmentedRaftLogFormat.getHeaderLength();
-    final int readLength = in.read(temp, 0, headerLength);
-    Preconditions.assertTrue(readLength <= headerLength);
-    final int matchLength = SegmentedRaftLogFormat.matchHeader(temp, 0, readLength);
-    Preconditions.assertTrue(matchLength <= readLength);
+    try{
+      final int readLength = in.read(temp, 0, headerLength);
+      Preconditions.assertTrue(readLength <= headerLength);
+      final int matchLength = SegmentedRaftLogFormat.matchHeader(temp, 0, readLength);
+      Preconditions.assertTrue(matchLength <= readLength);
 
-    if (readLength == headerLength && matchLength == readLength) {
-      // The header is matched successfully
-      return true;
-    } else if (SegmentedRaftLogFormat.isTerminator(temp, matchLength, readLength - matchLength)) {
-      // The header is partially written
-      return false;
+      if (readLength == headerLength && matchLength == readLength) {
+        // The header is matched successfully
+        return true;
+      } else if (SegmentedRaftLogFormat.isTerminator(temp, matchLength, readLength - matchLength)) {
+        // The header is partially written
+        return false;
+      }
+      // The header is corrupted
+      throw new CorruptedFileException(file, "Log header mismatched: expected header length="
+          + SegmentedRaftLogFormat.getHeaderLength() + ", read length=" + readLength + ", match length=" + matchLength
+          + ", header in file=" + StringUtils.bytes2HexString(temp, 0, readLength)
+          + ", expected header=" + StringUtils.bytes2HexString(SegmentedRaftLogFormat.getHeaderBytebuffer()));
+    } catch (ClosedByInterruptException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException("Interrupted while reading the header of " + file, e);
     }
-    // The header is corrupted
-    throw new CorruptedFileException(file, "Log header mismatched: expected header length="
-        + SegmentedRaftLogFormat.getHeaderLength() + ", read length=" + readLength + ", match length=" + matchLength
-        + ", header in file=" + StringUtils.bytes2HexString(temp, 0, readLength)
-        + ", expected header=" + StringUtils.bytes2HexString(SegmentedRaftLogFormat.getHeaderBytebuffer()));
   }
 
   /**
