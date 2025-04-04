@@ -104,11 +104,11 @@ public class SegmentedRaftLogInputStream implements Closeable {
     if (state.isUnopened()) {
         try {
           init();
-        } catch (IOException e) {
+        } catch (Exception e) {
           if (e.getCause() instanceof ClosedByInterruptException) {
             LOG.warn("Initialization is interrupted: {}", this, e);
           } else {
-            LOG.error("caught exception initializing " + this, e);
+            LOG.error("Failed to initialize {}", this, e);
           }
           throw IOUtils.asIOException(e);
         }
