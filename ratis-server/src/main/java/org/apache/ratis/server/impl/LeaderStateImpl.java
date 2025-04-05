@@ -797,6 +797,7 @@ class LeaderStateImpl implements LeaderState {
           follower.getLastRpcResponseTime().elapsedTimeMs());
       return BootStrapProgress.NOPROGRESS;
     } else if (follower.getMatchIndex() + stagingCatchupGap > committed
+        && follower.getMatchIndex() >= server.getRaftConf().getLogEntryIndex()
         && follower.getLastRpcResponseTime().compareTo(progressTime) > 0
         && follower.hasAttemptedToInstallSnapshot()) {
       return BootStrapProgress.CAUGHTUP;
