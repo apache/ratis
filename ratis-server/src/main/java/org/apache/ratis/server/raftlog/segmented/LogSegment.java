@@ -292,7 +292,11 @@ public final class LogSegment {
         }
       });
       loadingTimes.incrementAndGet();
-      return Objects.requireNonNull(toReturn.get(), () -> "toReturn == null for " + key);
+      final ReferenceCountedObject<LogEntryProto> proto = toReturn.get();
+      if (proto == null) {
+        throw new RaftLogIOException("Failed to load log entry " + key);
+      }
+      return proto;
     }
   }
 
@@ -502,8 +506,10 @@ public final class LogSegment {
     }
     try {
       return cacheLoader.load(ti);
+    } catch (RaftLogIOException e) {
+      throw e;
     } catch (Exception e) {
-      throw new RaftLogIOException(e);
+      throw new RaftLogIOException("Failed to loadCache for log entry " + ti, e);
     }
   }
 
