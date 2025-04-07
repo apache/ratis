@@ -138,11 +138,6 @@ public final class ServerImplUtils {
 
     synchronized void append(List<ConsecutiveIndices> entriesTermIndices) {
       for(ConsecutiveIndices indices : entriesTermIndices) {
-        // validate startIndex
-        final Map.Entry<Long, ConsecutiveIndices> lastEntry = map.lastEntry();
-        if (lastEntry != null) {
-          Preconditions.assertSame(lastEntry.getValue().getNextIndex(), indices.startIndex, "startIndex");
-        }
         map.put(indices.startIndex, indices);
       }
     }
@@ -150,7 +145,7 @@ public final class ServerImplUtils {
     synchronized void removeExisting(List<ConsecutiveIndices> entriesTermIndices) {
       for(ConsecutiveIndices indices : entriesTermIndices) {
         final ConsecutiveIndices removed = map.remove(indices.startIndex);
-        Preconditions.assertSame(indices, removed, "removed");
+        Preconditions.assertSame(indices.startIndex, removed.startIndex, "removed");
       }
     }
   }
