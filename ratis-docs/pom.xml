@@ -29,7 +29,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
   <properties>
     <!-- no testable code in this module -->
-    <skipTests>true</skipTests>
+    <skip>true</skip>
   </properties>
 
 </project>
