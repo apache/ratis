@@ -141,9 +141,7 @@ public final class ServerImplUtils {
         // validate startIndex
         final Map.Entry<Long, ConsecutiveIndices> lastEntry = map.lastEntry();
         if (lastEntry != null) {
-          final long nextIndex = lastEntry.getValue().getNextIndex();
-          Preconditions.assertTrue(indices.startIndex >= nextIndex,
-                  () -> "startIndex = " + indices.startIndex + " < nextIndex = " + nextIndex);
+          Preconditions.assertSame(lastEntry.getValue().getNextIndex(), indices.startIndex, "startIndex");
         }
         map.put(indices.startIndex, indices);
       }
