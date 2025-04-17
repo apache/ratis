@@ -173,11 +173,13 @@ class FollowerInfoImpl implements FollowerInfo {
         ", lastRpcResponseTime=" + lastRpcResponseTime.get().elapsedTimeMs() + ")";
   }
 
-  void catchUp() {
+  @Override
+  public void catchUp() {
     caughtUp = true;
   }
 
-  boolean isCaughtUp() {
+  @Override
+  public boolean isCaughtUp() {
     return caughtUp;
   }
 

@@ -112,4 +112,10 @@ public interface FollowerInfo {
 
   /** Update lastRpcResponseTime and LastRespondedAppendEntriesSendTime */
   void updateLastRespondedAppendEntriesSendTime(Timestamp sendTime);
+
+  /** Set the caughtUp flag to true. */
+  void catchUp();
+
+  /** @return true if this follower is caught up. */
+  boolean isCaughtUp();
 }

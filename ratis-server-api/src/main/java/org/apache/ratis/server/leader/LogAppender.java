@@ -147,10 +147,10 @@ public interface LogAppender {
     // 2. or the follower's next index is smaller than the log start index
     // 3. or the follower is bootstrapping and has not installed any snapshot yet
     final FollowerInfo follower = getFollower();
-    final boolean isFollowerBootstrapping = getLeaderState().isFollowerBootstrapping(follower);
+    final boolean isFollowerCaughtUp = follower.isCaughtUp();
     final SnapshotInfo snapshot = getServer().getStateMachine().getLatestSnapshot();
 
-    if (isFollowerBootstrapping && !follower.hasAttemptedToInstallSnapshot()) {
+    if (!isFollowerCaughtUp && !follower.hasAttemptedToInstallSnapshot()) {
       if (snapshot == null) {
         // Leader cannot send null snapshot to follower. Hence, acknowledge InstallSnapshot attempt (even though it
         // was not attempted) so that follower can come out of staging state after appending log entries.
