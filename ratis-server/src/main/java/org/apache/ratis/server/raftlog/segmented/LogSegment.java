@@ -328,10 +328,10 @@ public final class LogSegment {
     }
 
     final LogRecord record = new LogRecord(totalFileSize, entry);
-    records.add(record);
     if (keepEntryInCache) {
       putEntryCache(record.getTermIndex(), entry, op);
     }
+    records.add(record);
     totalFileSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
   }
