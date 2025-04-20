@@ -456,35 +456,41 @@ public final class LogSegment {
     append(true, entry, op, verifyEntryIndex);
   }
 
-  public static final String APPEND_RECORD = LogSegment.class.getSimpleName() + ".append";
-  private void append(boolean keepEntryInCache, LogEntryProto entry, Op op, boolean verifyEntryIndex) {
-    Objects.requireNonNull(entry, "entry == null");
-    final LogRecord currentLast = records.getLast();
-    if (currentLast == null) {
-      Preconditions.assertTrue(entry.getIndex() == startIndex,
-          "gap between start index %s and first entry to append %s",
-          startIndex, entry.getIndex());
-    } else {
-      Preconditions.assertTrue(entry.getIndex() == currentLast.getTermIndex().getIndex() + 1,
-          "gap between entries %s and %s", entry.getIndex(), currentLast.getTermIndex().getIndex());
-    }
+  private void append(Op op, ReferenceCountedObject<LogEntryProto> entryRef,
+      boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer) {
+    final LogEntryProto entry = entryRef.retain();
+    try {
+      final LogRecord record = new LogRecord(totalFileSize, entry);
+      if (keepEntryInCache) {
+        putEntryCache(record.getTermIndex(), entryRef, op);
+      }
+      appendLogRecord(op, record);
+      totalFileSize += getEntrySize(entry, op);
 
-    final LogRecord record = new LogRecord(totalFileSize, entry);
-    records.append(record);
-    totalFileSize += getEntrySize(entry, op);
-    endIndex = entry.getIndex();
+      if (logConsumer != null) {
+        logConsumer.accept(entry);
+      }
+    } finally {
+      entryRef.release();
+    }
   }
 
-  void verifyEntryIndex(long entryIndex) {
+  private void appendLogRecord(Op op, LogRecord record) {
+    Objects.requireNonNull(record, "record == null");
     final LogRecord currentLast = records.getLast();
+
+    final long index = record.getTermIndex().getIndex();
     if (currentLast == null) {
-      Preconditions.assertTrue(entryIndex == startIndex,
-          "gap between start index %s and first entry to append %s",
-          startIndex, entryIndex);
+      Preconditions.assertTrue(index == startIndex,
+              "%s: gap between start index %s and the entry to append %s", op, startIndex, index);
     } else {
-      Preconditions.assertTrue(entryIndex == currentLast.getTermIndex().getIndex() + 1,
-          "gap between entries %s and %s", entryIndex, currentLast.getTermIndex().getIndex());
+      final long currentLastIndex = currentLast.getTermIndex().getIndex();
+      Preconditions.assertTrue(index == currentLastIndex + 1,
+              "%s: gap between last entry %s and the entry to append %s", op, currentLastIndex, index);
     }
+
+    records.append(record);
+    endIndex = index;
   }
 
   ReferenceCountedObject<LogEntryProto> getEntryFromCache(TermIndex ti) {
@@ -515,10 +521,7 @@ public final class LogSegment {
   }
 
   LogRecord getLogRecord(long index) {
-    if (index >= startIndex && index <= endIndex) {
-      return records.get(index);
-    }
-    return null;
+    return records.get(index);
   }
 
   TermIndex getLastTermIndex() {
