@@ -117,10 +117,6 @@ public final class LogSegment {
       return map.size();
     }
 
-    boolean contains(long index) {
-      return map.containsKey(index);
-    }
-
     LogRecord getFirst() {
       final Map.Entry<Long, LogRecord> first = map.firstEntry();
       return first != null? first.getValue() : null;
@@ -519,10 +515,7 @@ public final class LogSegment {
   }
 
   LogRecord getLogRecord(long index) {
-    if (records.contains(index)) {
-      return records.get(index);
-    }
-    return null;
+    return records.get(index);
   }
 
   TermIndex getLastTermIndex() {
