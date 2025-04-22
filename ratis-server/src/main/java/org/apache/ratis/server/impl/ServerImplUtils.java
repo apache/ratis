@@ -136,15 +136,20 @@ public final class ServerImplUtils {
       return floorEntry.getValue().getTerm(index);
     }
 
-    synchronized void append(List<ConsecutiveIndices> entriesTermIndices) {
-      for(ConsecutiveIndices indices : entriesTermIndices) {
-        // validate startIndex
-        final Map.Entry<Long, ConsecutiveIndices> lastEntry = map.lastEntry();
-        if (lastEntry != null) {
-          Preconditions.assertSame(lastEntry.getValue().getNextIndex(), indices.startIndex, "startIndex");
+    synchronized boolean append(List<ConsecutiveIndices> entriesTermIndices) {
+      for(int i = 0; i < entriesTermIndices.size(); i++) {
+        final ConsecutiveIndices indices = entriesTermIndices.get(i);
+        final ConsecutiveIndices previous = map.put(indices.startIndex, indices);
+        if (previous != null) {
+          // index already exists, revert this append
+          map.put(previous.startIndex, previous);
+          for(int j = 0; j < i; j++) {
+            map.remove(entriesTermIndices.get(j).startIndex);
+          }
+          return false;
         }
-        map.put(indices.startIndex, indices);
       }
+      return true;
     }
 
     synchronized void removeExisting(List<ConsecutiveIndices> entriesTermIndices) {

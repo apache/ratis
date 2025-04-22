@@ -1634,7 +1634,10 @@ class RaftServerImpl implements RaftServer.Division,
   }
   private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
     final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
-    appendLogTermIndices.append(entriesTermIndices);
+    if (!appendLogTermIndices.append(entriesTermIndices)) {
+      // index already exists, return the last future
+      return appendLogFuture.get();
+    }
 
     return appendLogFuture.updateAndGet(f -> f.thenCompose(
             ignored -> JavaUtils.allOf(state.getLog().append(entries))))
