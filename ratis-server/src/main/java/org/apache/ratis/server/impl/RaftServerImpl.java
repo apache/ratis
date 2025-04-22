@@ -1694,7 +1694,10 @@ class RaftServerImpl implements RaftServer.Division,
     final List<ConsecutiveIndices> entriesTermIndices;
     try(UncheckedAutoCloseableSupplier<List<LogEntryProto>> entries =  entriesRef.retainAndReleaseOnClose()) {
       entriesTermIndices = ConsecutiveIndices.convert(entries.get());
-      appendLogTermIndices.append(entriesTermIndices);
+      if (!appendLogTermIndices.append(entriesTermIndices)) {
+        // index already exists, return the last future
+        return appendLogFuture.get();
+      }
     }
 
     entriesRef.retain();
