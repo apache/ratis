@@ -820,7 +820,9 @@ class LeaderStateImpl implements LeaderState {
 
   @Override
   public boolean isFollowerBootstrapping(FollowerInfo follower) {
-    return isBootStrappingPeer(follower.getId());
+    // It is better to check caught up than staging state
+    // since a follower may have already caught up but still in the staging state.
+    return !isCaughtUp(follower);
   }
 
   private void checkStaging() {
@@ -852,7 +854,12 @@ class LeaderStateImpl implements LeaderState {
   }
 
   boolean isBootStrappingPeer(RaftPeerId peerId) {
-    return Optional.ofNullable(stagingState).map(s -> s.contains(peerId)).orElse(false);
+    final Optional<LogAppender> info = getLogAppender(peerId);
+    if (info.isPresent()) {
+      return !isCaughtUp(info.get().getFollower());
+    }
+    final ConfigurationStagingState staging = stagingState;
+    return staging != null && staging.contains(peerId);
   }
 
   void submitUpdateCommitEvent() {
