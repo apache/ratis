@@ -24,8 +24,10 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.util.List;
@@ -117,5 +119,14 @@ public final class ServerStringUtils {
       return null;
     }
     return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm();
+  }
+
+  /**
+   * Used to generate the necessary unified name in the submodules under
+   * {@link org.apache.ratis.server.impl.RaftServerImpl}, which consists
+   * of {@link org.apache.ratis.server.impl.ServerState#memberId} and the specific class.
+   */
+  public static String generateUnifiedName(RaftGroupMemberId memberId, Class<?> clazz) {
+    return memberId + "-" + JavaUtils.getClassSimpleName(clazz);
   }
 }
