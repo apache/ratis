@@ -19,8 +19,8 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.leader.LeaderState;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.util.Daemon;
-import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
@@ -68,7 +68,7 @@ class FollowerState extends Daemon {
 
   FollowerState(RaftServerImpl server, Object reason) {
     super(newBuilder()
-        .setName(server.getMemberId() + "-" + JavaUtils.getClassSimpleName(FollowerState.class))
+        .setName(ServerStringUtils.generateUnifiedName(server.getMemberId(), FollowerState.class))
         .setThreadGroup(server.getThreadGroup()));
     this.server = server;
     this.reason = reason;

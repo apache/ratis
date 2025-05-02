@@ -49,6 +49,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
@@ -147,7 +148,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private class EventQueue {
-    private final String name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
+    private final String name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
     private final BlockingQueue<StateUpdateEvent> queue = new ArrayBlockingQueue<>(4096);
 
     void submit(StateUpdateEvent event) {
@@ -361,7 +362,7 @@ class LeaderStateImpl implements LeaderState {
   private final LeaderLease lease;
 
   LeaderStateImpl(RaftServerImpl server) {
-    this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
+    this.name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
     this.server = server;
 
     final RaftProperties properties = server.getRaftServer().getProperties();
@@ -1236,7 +1237,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private class ConfigurationStagingState {
-    private final String name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
+    private final String name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
     private final Map<RaftPeerId, RaftPeer> newPeers;
     private final Map<RaftPeerId, RaftPeer> newListeners;
     private final PeerConfiguration newConf;

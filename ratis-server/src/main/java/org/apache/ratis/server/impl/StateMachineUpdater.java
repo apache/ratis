@@ -29,6 +29,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
@@ -95,7 +96,7 @@ class StateMachineUpdater implements Runnable {
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
       ServerState serverState, long lastAppliedIndex, RaftProperties properties, Consumer<Long> appliedIndexConsumer) {
-    this.name = serverState.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
+    this.name = ServerStringUtils.generateUnifiedName(serverState.getMemberId(), getClass());
     this.appliedIndexConsumer = appliedIndexConsumer;
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
     this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
