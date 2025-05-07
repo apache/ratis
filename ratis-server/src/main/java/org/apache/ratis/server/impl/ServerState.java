@@ -362,8 +362,8 @@ class ServerState {
 
   @Override
   public String toString() {
-    return "serverState(" + getMemberId() + ":t" + currentTerm + ", leader=" + getLeaderId()
-        + ", voted=" + votedFor + ", raftlog=" + log + ", conf=" + getRaftConf() + ")";
+    return getMemberId() + ":t" + currentTerm + ", leader=" + getLeaderId()
+        + ", voted=" + votedFor + ", raftlog=" + log + ", conf=" + getRaftConf();
   }
 
   boolean isConfCommitted() {
