@@ -715,7 +715,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public String toString() {
-    return role + " " + state + " " + lifeCycle.getCurrentState();
+    return role + " (" + lifeCycle.getCurrentState() + "): " + state;
   }
 
   RaftClientReply.Builder newReplyBuilder(RaftClientRequest request) {
