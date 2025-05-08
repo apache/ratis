@@ -1914,6 +1914,7 @@ class RaftServerImpl implements RaftServer.Division,
       break;
     case STATEMACHINELOGENTRY:
       TransactionContext trx = getTransactionContext(next, true);
+      Preconditions.assertNotNull(trx, "trx");
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
       writeIndexCache.add(invocationId.getClientId(), ((TransactionContextImpl) trx).getLogIndexFuture());
       ((TransactionContextImpl) trx).setDelegatedRef(nextRef);
