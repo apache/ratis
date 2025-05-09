@@ -148,7 +148,7 @@ public interface JavaUtils {
    *         otherwise, return system property value.
    */
   static String getSystemProperty(final String key) {
-    Preconditions.assertNotNull(key, "key");
+    Objects.requireNonNull(key, "key == null");
     Preconditions.assertTrue(!key.isEmpty(), "key is empty.");
     return doPrivileged(() -> System.getProperty(key), () -> "get system property " + key);
   }
@@ -166,9 +166,9 @@ public interface JavaUtils {
    * When there is a {@link SecurityException}, this becomes a NOOP.
    */
   static void setSystemProperty(String key, String value) {
-    Preconditions.assertNotNull(key, "key");
+    Objects.requireNonNull(key, "key == null");
     Preconditions.assertTrue(!key.isEmpty(), "key is empty.");
-    Preconditions.assertNotNull(value, "value");
+    Objects.requireNonNull(value, "value == null");
     doPrivileged(() -> System.setProperty(key, value), () -> "set system property " + key + " to " + value);
   }
 

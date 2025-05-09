@@ -159,7 +159,7 @@ public class TestSegmentedRaftLogCache {
       cache.appendEntry(Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry)
       );
       Assertions.fail("the open segment is null");
-    } catch (IllegalStateException ignored) {
+    } catch (IllegalStateException | NullPointerException ignored) {
     }
 
     LogSegment openSegment = prepareLogSegment(100, 100, true);

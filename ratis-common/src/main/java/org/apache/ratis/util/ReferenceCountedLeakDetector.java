@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -202,7 +203,7 @@ public final class ReferenceCountedLeakDetector {
       }
 
       if (released) {
-        Preconditions.assertNotNull(removeMethod, () -> "Not yet retained (removeMethod == null): " + valueClass);
+        Objects.requireNonNull(removeMethod, "Not yet retained (removeMethod == null): " + valueClass);
         removeMethod.run();
       }
       return released;

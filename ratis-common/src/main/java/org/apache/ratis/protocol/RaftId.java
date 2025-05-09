@@ -85,7 +85,7 @@ public abstract class RaftId {
   private final Supplier<String> uuidString;
 
   RaftId(UUID uuid) {
-    this.uuid = Preconditions.assertNotNull(uuid, "uuid");
+    this.uuid = Objects.requireNonNull(uuid, "uuid == null");
     this.uuidBytes = JavaUtils.memoize(() -> toByteString(uuid));
     this.uuidString = JavaUtils.memoize(() -> createUuidString(uuid));
     Preconditions.assertTrue(ZERO_UUID == uuid || !uuid.equals(ZERO_UUID),
