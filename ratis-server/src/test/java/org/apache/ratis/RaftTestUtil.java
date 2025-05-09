@@ -152,7 +152,7 @@ public interface RaftTestUtil {
 
   static void waitFor(Supplier<Boolean> check, int checkEveryMillis,
       int waitForMillis) throws TimeoutException, InterruptedException {
-    Preconditions.assertNotNull(check, "check");
+    Objects.requireNonNull(check, "check == null");
     Preconditions.assertTrue(waitForMillis >= checkEveryMillis,
         () -> "waitFor: " + waitForMillis + " < checkEvery: " + checkEveryMillis);
 
