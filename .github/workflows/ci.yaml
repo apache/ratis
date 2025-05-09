@@ -106,7 +106,7 @@ jobs:
       - unit
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    if: (github.repository == 'apache/ratis' || github.repository == 'apache/incubator-ratis') && github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request'
     steps:
         - name: Checkout project
           uses: actions/checkout@v4
@@ -137,6 +137,7 @@ jobs:
         - name: Calculate combined coverage
           run: ./dev-support/checks/coverage.sh
         - name: Upload coverage to Sonar
+          if: github.repository == 'apache/ratis'
           run: ./dev-support/checks/sonar.sh
           env:
             SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
