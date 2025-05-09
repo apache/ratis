@@ -79,7 +79,7 @@ on:
 env:
   MAVEN_ARGS: --batch-mode --show-version
   MAVEN_OPTS: -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.class=standard -Dmaven.wagon.http.retryHandler.count=3
-  WITH_COVERAGE: true
+  WITH_COVERAGE: ${{ github.event_name == 'push' }}
 
 jobs:
   check:
@@ -157,7 +157,6 @@ jobs:
           dev-support/checks/${{ inputs.script }}.sh ${{ inputs.script-args }}
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
-          WITH_COVERAGE: ${{ inputs.with-coverage }}
 
       - name: Summary of failures
         if: ${{ failure() }}
