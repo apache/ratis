@@ -26,8 +26,10 @@ import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
+import org.apache.ratis.test.tag.Flaky;
 import org.junit.jupiter.api.Assertions;
 
+@Flaky("RATIS-2261")
 public class TestRaftSnapshotWithGrpc extends RaftSnapshotBaseTest {
   @Override
   public MiniRaftCluster.Factory<?> getFactory() {

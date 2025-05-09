@@ -19,7 +19,13 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.util.Preconditions;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
 
 /**
  * Description of a raft group, which has a unique {@link RaftGroupId} and a collection of {@link RaftPeer}.

@@ -202,7 +202,7 @@ public class DataStreamManagement {
       }
 
       if (isPrimary()) {
-        // Default start topology
+        // Default star topology
         // get the other peers from the current configuration
         return conf.getCurrentPeers().stream()
             .filter(p -> !p.getId().equals(division.getId()))

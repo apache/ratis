@@ -49,6 +49,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
@@ -147,7 +148,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private class EventQueue {
-    private final String name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
+    private final String name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
     private final BlockingQueue<StateUpdateEvent> queue = new ArrayBlockingQueue<>(4096);
 
     void submit(StateUpdateEvent event) {
@@ -361,7 +362,7 @@ class LeaderStateImpl implements LeaderState {
   private final LeaderLease lease;
 
   LeaderStateImpl(RaftServerImpl server) {
-    this.name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
+    this.name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
     this.server = server;
 
     final RaftProperties properties = server.getRaftServer().getProperties();
@@ -799,6 +800,7 @@ class LeaderStateImpl implements LeaderState {
           follower.getLastRpcResponseTime().elapsedTimeMs());
       return BootStrapProgress.NOPROGRESS;
     } else if (follower.getMatchIndex() + stagingCatchupGap > committed
+        && follower.getMatchIndex() >= server.getRaftConf().getLogEntryIndex()
         && follower.getLastRpcResponseTime().compareTo(progressTime) > 0
         && follower.hasAttemptedToInstallSnapshot()) {
       return BootStrapProgress.CAUGHTUP;
@@ -819,7 +821,9 @@ class LeaderStateImpl implements LeaderState {
 
   @Override
   public boolean isFollowerBootstrapping(FollowerInfo follower) {
-    return isBootStrappingPeer(follower.getId());
+    // It is better to check caught up than staging state
+    // since a follower may have already caught up but still in the staging state.
+    return !isCaughtUp(follower);
   }
 
   private void checkStaging() {
@@ -851,7 +855,12 @@ class LeaderStateImpl implements LeaderState {
   }
 
   boolean isBootStrappingPeer(RaftPeerId peerId) {
-    return Optional.ofNullable(stagingState).map(s -> s.contains(peerId)).orElse(false);
+    final Optional<LogAppender> info = getLogAppender(peerId);
+    if (info.isPresent()) {
+      return !isCaughtUp(info.get().getFollower());
+    }
+    final ConfigurationStagingState staging = stagingState;
+    return staging != null && staging.contains(peerId);
   }
 
   void submitUpdateCommitEvent() {
@@ -1228,7 +1237,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private class ConfigurationStagingState {
-    private final String name = server.getMemberId() + "-" + JavaUtils.getClassSimpleName(getClass());
+    private final String name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
     private final Map<RaftPeerId, RaftPeer> newPeers;
     private final Map<RaftPeerId, RaftPeer> newListeners;
     private final PeerConfiguration newConf;

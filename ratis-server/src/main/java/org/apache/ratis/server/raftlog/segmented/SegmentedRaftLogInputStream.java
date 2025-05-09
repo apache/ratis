@@ -21,6 +21,7 @@ import java.io.Closeable;
 import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
+import java.nio.channels.ClosedByInterruptException;
 import java.util.Optional;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -104,7 +105,11 @@ public class SegmentedRaftLogInputStream implements Closeable {
         try {
           init();
         } catch (Exception e) {
-          LOG.error("caught exception initializing " + this, e);
+          if (e.getCause() instanceof ClosedByInterruptException) {
+            LOG.warn("Initialization is interrupted: {}", this, e);
+          } else {
+            LOG.error("Failed to initialize {}", this, e);
+          }
           throw IOUtils.asIOException(e);
         }
     }

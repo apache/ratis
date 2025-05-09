@@ -177,6 +177,7 @@
     <maven-surefire-plugin.version>3.0.0-M9</maven-surefire-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
     <hadoop-maven-plugins.version>3.4.0</hadoop-maven-plugins.version>
+    <sonar-maven-plugin.version>5.0.0.4389</sonar-maven-plugin.version>
 
 
     <!-- org.codehaus.mojo -->
@@ -207,11 +208,11 @@
     <maven.min.version>3.3.9</maven.min.version>
 
     <!-- Contains all shaded thirdparty dependencies -->
-    <ratis.thirdparty.version>1.0.8</ratis.thirdparty.version>
+    <ratis.thirdparty.version>1.0.9</ratis.thirdparty.version>
 
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
     <shaded.protobuf.version>3.25.5</shaded.protobuf.version>
-    <shaded.grpc.version>1.69.0</shaded.grpc.version>
+    <shaded.grpc.version>1.71.0</shaded.grpc.version>
 
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
@@ -731,6 +732,11 @@
           <groupId>org.cyclonedx</groupId>
           <artifactId>cyclonedx-maven-plugin</artifactId>
           <version>${cyclonedx.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.sonarsource.scanner.maven</groupId>
+          <artifactId>sonar-maven-plugin</artifactId>
+          <version>${sonar-maven-plugin.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>

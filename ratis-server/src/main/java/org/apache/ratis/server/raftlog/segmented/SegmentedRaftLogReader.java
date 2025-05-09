@@ -42,6 +42,7 @@ import java.io.File;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.ClosedByInterruptException;
 import java.util.Optional;
 import java.util.zip.Checksum;
 
@@ -169,7 +170,14 @@ class SegmentedRaftLogReader implements Closeable {
    */
   boolean verifyHeader() throws IOException {
     final int headerLength = SegmentedRaftLogFormat.getHeaderLength();
-    final int readLength = in.read(temp, 0, headerLength);
+    final int readLength;
+    try{
+      readLength = in.read(temp, 0, headerLength);
+    } catch (ClosedByInterruptException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException("Interrupted while reading the header of " + file, e);
+    }
+
     Preconditions.assertTrue(readLength <= headerLength);
     final int matchLength = SegmentedRaftLogFormat.matchHeader(temp, 0, readLength);
     Preconditions.assertTrue(matchLength <= readLength);
