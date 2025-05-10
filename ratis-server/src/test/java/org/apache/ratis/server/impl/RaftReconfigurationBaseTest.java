@@ -46,8 +46,9 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -64,7 +65,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -94,7 +95,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       for (int j = 0; j < peersWithPriority.size(); j ++) {
         int priorityInConf = conf.getPeer(peersWithPriority.get(j).getId()).getPriority();
-        Assert.assertEquals(priorityInConf, peersWithPriority.get(j).getPriority());
+        Assertions.assertEquals(priorityInConf, peersWithPriority.get(j).getPriority());
       }
     }
   }
@@ -169,15 +170,15 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           .setConf(new PeerConfiguration(Arrays.asList(curPeer, newPeer)))
           .setLogEntryIndex(Long.MAX_VALUE / 2)
           .build();
-      Assert.assertTrue(oldNewConf.isSingleMode(curPeer.getId()));
+      Assertions.assertTrue(oldNewConf.isSingleMode(curPeer.getId()));
       RaftServerTestUtil.setRaftConf(leaderServer, groupId, oldNewConf);
       try(RaftClient client = cluster.createClient()) {
         client.admin().transferLeadership(null, leaderServer.getId(), 1000);
       }
 
       final RaftServer.Division newLeader = RaftTestUtil.waitForLeader(cluster);
-      Assert.assertEquals(leaderServer.getId(), newLeader.getId());
-      Assert.assertEquals(oldNewConf, newLeader.getRaftConf());
+      Assertions.assertEquals(leaderServer.getId(), newLeader.getId());
+      Assertions.assertEquals(oldNewConf, newLeader.getRaftConf());
     });
   }
 
@@ -195,8 +196,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
             .setServersInNewConf(c1.allPeersInNewConf)
             .setMode(SetConfigurationRequest.Mode.COMPARE_AND_SET)
             .build();
-        assertThrows("Expect change majority error.", SetConfigurationException.class,
-            () -> client.admin().setConfiguration(arguments));
+        assertThrows(SetConfigurationException.class, () -> client.admin().setConfiguration(arguments),
+            "Expect change majority error.");
       }
     });
   }
@@ -262,13 +263,13 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     try (final RaftClient client = cluster.createClient(leader.getId())) {
       for (int i = 0; i < 10; i++) {
         RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
       RaftClientReply reply = client.admin().setConfiguration(
           SetConfigurationRequest.Arguments.newBuilder()
           .setServersInNewConf(peers)
           .setMode(SetConfigurationRequest.Mode.ADD).build());
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
       waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
     }
     cluster.close();
@@ -289,7 +290,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     try (final RaftClient client = cluster.createClient(leader.getId())) {
       for (int i = 0; i < 10; i++) {
         RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
 
       testFailureCase("Can't set configuration in CAS mode ",
@@ -306,7 +307,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
               .setServersInCurrentConf(oldPeers)
               .setMode(SetConfigurationRequest.Mode.COMPARE_AND_SET)
               .build());
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
       waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
     }
     cluster.close();
@@ -314,7 +315,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
 
 
-  @Test(timeout = 30000)
+  @Test
+  @Timeout(value = 30)
   public void testReconfTwice() throws Exception {
     runWithNewCluster(3, this::runTestReconfTwice);
   }
@@ -326,7 +328,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         // submit some msgs before reconf
         for (int i = 0; i < STAGING_CATCHUP_GAP * 2; i++) {
           RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
 
         final AtomicBoolean reconf1 = new AtomicBoolean(false);
@@ -360,8 +362,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         clientThread.start();
 
         latch.await();
-        Assert.assertTrue(reconf1.get());
-        Assert.assertTrue(reconf2.get());
+        Assertions.assertTrue(reconf1.get());
+        Assertions.assertTrue(reconf2.get());
         waitAndCheckNewConf(cluster, finalPeers.get(), 2, null);
         final RaftPeerId leader2 = RaftTestUtil.waitForLeader(cluster).getId();
 
@@ -373,7 +375,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           // each leader change generates one configuration.
           // expectedConf = 1 (init) + 2*2 (two conf changes) + #leader
           final int expectedConf = leader2.equals(leaderId) ? 6 : 7;
-          Assert.assertEquals(server.getId() + ": " + confManager, expectedConf, confManager.numOfConf());
+          Assertions.assertEquals(expectedConf, confManager.numOfConf(), server.getId() + ": " + confManager);
         });
       }
   }
@@ -392,17 +394,17 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       LOG.info("Start changing the configuration: {}",
           asList(c1.allPeersInNewConf));
-      Assert.assertFalse(((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).isTransitional());
+      Assertions.assertFalse(((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).isTransitional());
 
       final RaftClientRpc sender = client.getClientRpc();
       final SetConfigurationRequest request = cluster.newSetConfigurationRequest(
           client.getId(), leaderId, c1.allPeersInNewConf);
       try {
         RaftClientReply reply = sender.sendRequest(request);
-        Assert.fail("did not get expected exception " + reply.toString());
+        Assertions.fail("did not get expected exception " + reply.toString());
       } catch (IOException e) {
-        Assert.assertTrue("Got exception " + e,
-            e instanceof ReconfigurationTimeoutException);
+        Assertions.assertTrue(
+           e instanceof ReconfigurationTimeoutException, "Got exception " + e);
       }
 
       // the two new peers have not started yet, the bootstrapping must timeout
@@ -412,10 +414,10 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       // state so that we still get timeout instead of in-progress exception
       try {
         sender.sendRequest(request);
-        Assert.fail("did not get expected exception");
+        Assertions.fail("did not get expected exception");
       } catch (IOException e) {
-        Assert.assertTrue("Got exception " + e,
-            e instanceof ReconfigurationTimeoutException);
+        Assertions.assertTrue(
+           e instanceof ReconfigurationTimeoutException, "Got exception " + e);
       }
 
       // start the two new peers
@@ -423,7 +425,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       for (RaftPeer np : c1.newPeers) {
         cluster.restartServer(np.getId(), false);
       }
-      Assert.assertTrue(client.admin().setConfiguration(c1.allPeersInNewConf).isSuccess());
+      Assertions.assertTrue(client.admin().setConfiguration(c1.allPeersInNewConf).isSuccess());
     }
   }
 
@@ -443,8 +445,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       try (final RaftClient client = cluster.createClient(leaderId)) {
         final PeerChanges c1 = cluster.addNewPeers(2, true);
 
-        assertThrows("Expect change majority error.", SetConfigurationException.class,
-            () -> client.admin().setConfiguration(c1.allPeersInNewConf));
+        assertThrows(SetConfigurationException.class, () -> client.admin().setConfiguration(c1.allPeersInNewConf),
+            "Expect change majority error.");
       }
     });
   }
@@ -465,7 +467,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         // submit some msgs before reconf
         for (int i = 0; i < STAGING_CATCHUP_GAP * 2; i++) {
           RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
 
         final PeerChanges c1 = cluster.addNewPeers(numNewPeer, startNewPeer);
@@ -501,7 +503,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           final RaftServer.Division d = cluster.getDivision(newPeer.getId());
           RaftTestUtil.waitFor(() -> leaderLog.getEntries(0, Long.MAX_VALUE).length
                   == d.getRaftLog().getEntries(0, Long.MAX_VALUE).length, 300, 15000);
-          Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
+          Assertions.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
               d.getRaftLog().getEntries(0, Long.MAX_VALUE));
         }
       }
@@ -549,7 +551,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       // the leader cannot generate the (old, new) conf, and it will keep
       // bootstrapping the 1 new peer since it has not started yet.
-      Assert.assertFalse(((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).isTransitional());
+      Assertions.assertFalse(((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).isTransitional());
 
       // (0) the first conf entry, (1) the 1st setConf entry, (2) a metadata entry
       // (3) new current conf entry  (4) a metadata entry
@@ -559,11 +561,11 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           LOG.info("{}", LogProtoUtils.toLogEntryString(e));
         }
         final long commitIndex = leaderLog.getLastCommittedIndex();
-        Assert.assertTrue("commitIndex = " + commitIndex + " > 2", commitIndex <= 2);
+        Assertions.assertTrue(commitIndex <= 2, "commitIndex = " + commitIndex + " > 2");
       }
 
       final RaftPeerId killed = RaftTestUtil.waitAndKillLeader(cluster);
-      Assert.assertEquals(leaderId, killed);
+      Assertions.assertEquals(leaderId, killed);
       final RaftPeerId newLeaderId = RaftTestUtil.waitForLeader(cluster).getId();
       LOG.info("newLeaderId: {}", newLeaderId);
       TimeDuration.valueOf(1500, TimeUnit.MILLISECONDS).sleep();
@@ -615,13 +617,13 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       // no real configuration change in the request
       final RaftClientReply reply = client.admin().setConfiguration(cluster.getPeers().toArray(RaftPeer.emptyArray()));
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
       final long newCommittedIndex = leaderLog.getLastCommittedIndex();
       for(long i = committedIndex + 1; i <= newCommittedIndex; i++) {
         final LogEntryProto e = leaderLog.get(i);
-        Assert.assertTrue(e.hasMetadataEntry());
+        Assertions.assertTrue(e.hasMetadataEntry());
       }
-      Assert.assertSame(confBefore, cluster.getLeader().getRaftConf());
+      Assertions.assertSame(confBefore, cluster.getLeader().getRaftConf());
     }
   }
 
@@ -691,8 +693,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       for (int i = 0; i < 10 && !confChanged.get(); i++) {
         Thread.sleep(1000);
       }
-      Assert.assertTrue(confChanged.get());
-      Assert.assertTrue(caughtException.get());
+      Assertions.assertTrue(confChanged.get());
+      Assertions.assertTrue(caughtException.get());
     } finally {
       LOG_SYNC_DELAY.clear();
     }
@@ -758,11 +760,11 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       // wait till the old leader persist the new conf
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(log.getFlushIndex() >= confIndex);
+        Assertions.assertTrue(log.getFlushIndex() >= confIndex);
         return null;
       }, 10, sleepTime, "FLUSH", LOG);
       final long committed = log.getLastCommittedIndex();
-      Assert.assertTrue(committed < confIndex);
+      Assertions.assertTrue(committed < confIndex);
 
       // unblock the old leader
       BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId.toString());
@@ -770,14 +772,14 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       // the client should get NotLeaderException
       clientThread.join(5000);
-      Assert.assertTrue(gotNotLeader.get());
+      Assertions.assertTrue(gotNotLeader.get());
 
       // the old leader should have truncated the setConf from the log
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(log.getLastCommittedIndex() >= confIndex);
+        Assertions.assertTrue(log.getLastCommittedIndex() >= confIndex);
         return null;
       }, 10, ONE_SECOND, "COMMIT", LOG);
-      Assert.assertTrue(log.get(confIndex).hasConfigurationEntry());
+      Assertions.assertTrue(log.get(confIndex).hasConfigurationEntry());
       log2 = null;
     } finally {
       RaftStorageTestUtils.printLog(log2, s -> LOG.info(s));
@@ -833,8 +835,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       for (int i = 0; !success.get() && i < 5; i++) {
         Thread.sleep(1000);
       }
-      Assert.assertTrue(success.get());
-      Assert.assertTrue(caughtNotReady.get());
+      Assertions.assertTrue(success.get());
+      Assertions.assertTrue(caughtNotReady.get());
     } finally {
       LEADER_PLACE_HOLDER_DELAY.clear();
       cluster.shutdown();
