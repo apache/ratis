@@ -252,7 +252,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       // Check the installed snapshot index on each Follower matches with the
       // leader snapshot.
       for (RaftServer.Division follower : cluster.getFollowers()) {
-        final long expected = shouldInstallSnapshot ? leaderSnapshotInfo.getIndex() : RaftLog.INVALID_LOG_INDEX;
+        final long expected = leaderSnapshotInfo.getIndex();
         Assertions.assertEquals(expected, RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
         RaftSnapshotBaseTest.assertLogContent(follower, false);
       }
