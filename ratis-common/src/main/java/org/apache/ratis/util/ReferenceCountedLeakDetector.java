@@ -203,7 +203,7 @@ public final class ReferenceCountedLeakDetector {
       }
 
       if (released) {
-        Objects.requireNonNull(removeMethod, "Not yet retained (removeMethod == null): " + valueClass);
+        Objects.requireNonNull(removeMethod, () -> "Not yet retained (removeMethod == null): " + valueClass);
         removeMethod.run();
       }
       return released;

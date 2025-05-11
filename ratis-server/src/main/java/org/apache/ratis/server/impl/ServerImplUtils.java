@@ -171,8 +171,8 @@ public final class ServerImplUtils {
       ThreadGroup threadGroup, RaftProperties properties, Parameters parameters) throws IOException {
     RaftServer.LOG.debug("newRaftServer: {}, {}", id, group);
     if (group != null && !group.getPeers().isEmpty()) {
-      Objects.requireNonNull(id, "RaftPeerId " + id + " is not in RaftGroup " + group);
-      Objects.requireNonNull(group.getPeer(id), "RaftPeerId " + id + " is not in RaftGroup " + group);
+      Objects.requireNonNull(id, () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
+      Objects.requireNonNull(group.getPeer(id), () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
     }
     final RaftServerProxy proxy = newRaftServer(id, stateMachineRegistry, threadGroup, properties, parameters);
     proxy.initGroups(group, option);
