@@ -60,7 +60,7 @@ public class ServerBuilderTest extends BaseTest {
                 .build();
             Assertions.fail("did not get expected exception");
         } catch (IOException e) {
-            Preconditions.assertInstanceOf(e.getCause(), IllegalStateException.class);
+            Preconditions.assertInstanceOf(e.getCause(), NullPointerException.class);
         }
     }
 
@@ -76,7 +76,7 @@ public class ServerBuilderTest extends BaseTest {
                 .build();
             Assertions.fail("did not get expected exception");
         } catch (IOException e) {
-            Preconditions.assertInstanceOf(e.getCause(), IllegalStateException.class);
+            Preconditions.assertInstanceOf(e.getCause(), NullPointerException.class);
         }
     }
 

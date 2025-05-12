@@ -220,7 +220,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     // delete the log segments from the leader
     LOG.info("Delete logs {}", logs);
     for (LogSegmentPath path : logs) {
-      FileUtils.deleteFully(path.getPath()); // the log may be already puged
+      FileUtils.deleteFully(path.getPath()); // the log may be already purged
     }
 
     // restart the peer
