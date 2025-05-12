@@ -157,7 +157,7 @@ public class TestSegmentedRaftLogCache {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, 0);
       cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
       Assertions.fail("the open segment is null");
-    } catch (IllegalStateException ignored) {
+    } catch (IllegalStateException | NullPointerException ignored) {
     }
 
     LogSegment openSegment = prepareLogSegment(100, 100, true);
