@@ -18,8 +18,6 @@
 package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.StateMachineEntryProto;
-import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageMetadata;
@@ -180,10 +178,12 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
    * Log entry with state machine data.
    *
    * When both {@link LogEntryProto#hasStateMachineLogEntry()} and
-   * {@link StateMachineLogEntryProto#hasStateMachineEntry()} are true,
-   * the {@link StateMachineEntryProto} is removed from the original {@link LogEntryProto}
+   * {@link org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto#hasStateMachineEntry()}
+   * are true, the {@link org.apache.ratis.proto.RaftProtos.StateMachineEntryProto}
+   * is removed from the original {@link LogEntryProto}
    * before appending to this log.
-   * The {@link StateMachineEntryProto} is stored by the state machine but not in this log.
+   * The {@link org.apache.ratis.proto.RaftProtos.StateMachineEntryProto}
+   * is stored by the state machine but not in this log.
    * When reading the log entry, this class rebuilds the original {@link LogEntryProto}
    * containing both the log entry and the state machine data.
    */

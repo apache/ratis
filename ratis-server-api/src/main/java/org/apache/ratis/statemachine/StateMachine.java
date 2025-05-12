@@ -18,7 +18,6 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.MetadataProto;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
@@ -225,7 +224,7 @@ public interface StateMachine extends Closeable {
 
     /**
      * Notify the {@link StateMachine} a term-index update event.
-     * This method will be invoked when a {@link MetadataProto}
+     * This method will be invoked when a {@link org.apache.ratis.proto.RaftProtos.MetadataProto}
      * or {@link RaftConfigurationProto} is processed.
      * For {@link StateMachineLogEntryProto}, this method will not be invoked.
      *
