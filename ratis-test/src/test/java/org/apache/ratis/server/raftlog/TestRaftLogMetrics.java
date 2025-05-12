@@ -46,8 +46,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
-import static org.apache.ratis.server.metrics.RaftLogMetricsBase.*;
-import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.*;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.STATE_MACHINE_LOG_ENTRY_COUNT;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_FLUSH_TIME;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_SYNC_TIME;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_CACHE_MISS_COUNT;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_CACHE_HIT_COUNT;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_FLUSH_COUNT;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_APPEND_ENTRY_COUNT;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_APPEND_ENTRY_LATENCY;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_TASK_QUEUE_TIME;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_TASK_ENQUEUE_DELAY;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_TASK_EXECUTION_TIME;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_DATA_QUEUE_SIZE;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_WORKER_QUEUE_SIZE;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_SYNC_BATCH_SIZE;
 
 public class TestRaftLogMetrics extends BaseTest
     implements MiniRaftClusterWithSimulatedRpc.FactoryGet {

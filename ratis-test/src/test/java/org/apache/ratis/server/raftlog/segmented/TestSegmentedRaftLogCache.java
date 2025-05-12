@@ -17,7 +17,9 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
-import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.*;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES;
+import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES;
 import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils.MAX_OP_SIZE;
 
 import java.util.Iterator;

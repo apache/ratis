@@ -19,7 +19,9 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.TransactionContext;

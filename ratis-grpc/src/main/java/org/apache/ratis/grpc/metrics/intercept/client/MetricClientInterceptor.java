@@ -19,7 +19,11 @@
 package org.apache.ratis.grpc.metrics.intercept.client;
 
 import org.apache.ratis.grpc.metrics.MessageMetrics;
-import org.apache.ratis.thirdparty.io.grpc.*;
+import org.apache.ratis.thirdparty.io.grpc.ClientInterceptor;
+import org.apache.ratis.thirdparty.io.grpc.MethodDescriptor;
+import org.apache.ratis.thirdparty.io.grpc.ClientCall;
+import org.apache.ratis.thirdparty.io.grpc.CallOptions;
+import org.apache.ratis.thirdparty.io.grpc.Channel;
 
 import java.io.Closeable;
 

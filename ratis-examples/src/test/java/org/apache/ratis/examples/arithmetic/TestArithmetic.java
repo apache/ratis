@@ -35,7 +35,10 @@ import org.slf4j.event.Level;
 import java.io.IOException;
 import java.util.Collection;
 
-import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.*;
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.ADD;
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.DIV;
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.MULT;
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.SUBTRACT;
 import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op.SQRT;
 import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op.SQUARE;
 

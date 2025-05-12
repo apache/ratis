@@ -23,7 +23,8 @@ import org.apache.ratis.server.protocol.ProtocolTestUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 /** Testing {@link BiWeakValueCache}. */
 public class TestTermIndex extends BaseTest {

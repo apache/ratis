@@ -18,7 +18,11 @@
 
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.*;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_ENTRY_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_MISS_RATE_METRIC;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_MISS_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_HIT_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.RETRY_CACHE_HIT_RATE_METRIC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
