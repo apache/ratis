@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /** Server utilities for internal use. */
@@ -170,8 +171,8 @@ public final class ServerImplUtils {
       ThreadGroup threadGroup, RaftProperties properties, Parameters parameters) throws IOException {
     RaftServer.LOG.debug("newRaftServer: {}, {}", id, group);
     if (group != null && !group.getPeers().isEmpty()) {
-      Preconditions.assertNotNull(id, "RaftPeerId %s is not in RaftGroup %s", id, group);
-      Preconditions.assertNotNull(group.getPeer(id), "RaftPeerId %s is not in RaftGroup %s", id, group);
+      Objects.requireNonNull(id, () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
+      Objects.requireNonNull(group.getPeer(id), () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
     }
     final RaftServerProxy proxy = newRaftServer(id, stateMachineRegistry, threadGroup, properties, parameters);
     proxy.initGroups(group, option);
