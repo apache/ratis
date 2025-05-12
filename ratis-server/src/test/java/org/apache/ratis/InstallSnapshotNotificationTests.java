@@ -221,7 +221,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     // delete the log segments from the leader
     LOG.info("Delete logs {}", logs);
     for (LogSegmentPath path : logs) {
-      FileUtils.deleteFully(path.getPath()); // the log may be already puged
+      FileUtils.deleteFully(path.getPath()); // the log may be already purged
     }
 
     // restart the peer
@@ -251,7 +251,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       // leader snapshot.
       for (RaftServer.Division follower : cluster.getFollowers()) {
         final long expected = leaderSnapshotInfo.getIndex();
-        Assertions.assertEquals(expected, RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
+        Assert.assertEquals(expected, RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
         RaftSnapshotBaseTest.assertLogContent(follower, false);
       }
 

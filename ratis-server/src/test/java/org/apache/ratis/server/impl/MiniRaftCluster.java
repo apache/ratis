@@ -146,7 +146,7 @@ public abstract class MiniRaftCluster implements Closeable {
           testCase.accept(cluster);
         } catch(Throwable t) {
           LOG.info(cluster.printServers());
-          LOG.error("Failed " + caller, t);
+          LOG.error("Failed {}", caller, t);
           failed = t;
           throw t;
         } finally {
