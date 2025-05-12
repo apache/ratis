@@ -1241,7 +1241,7 @@ class RaftServerImpl implements RaftServer.Division,
     LOG.info("{}: takeSnapshotAsync {}", getMemberId(), request);
     assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(getMemberId(), request);
-    Preconditions.assertNotNull(request.getCreate(), "create");
+    Objects.requireNonNull(request.getCreate(), "create == null");
 
     final long creationGap = request.getCreate().getCreationGap();
     long minGapValue = creationGap > 0? creationGap : RaftServerConfigKeys.Snapshot.creationGap(proxy.getProperties());
@@ -1847,6 +1847,7 @@ class RaftServerImpl implements RaftServer.Division,
       break;
     case STATEMACHINELOGENTRY:
       TransactionContext trx = getTransactionContext(next, true);
+      Objects.requireNonNull(trx, "trx == null");
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
       writeIndexCache.add(invocationId.getClientId(), ((TransactionContextImpl) trx).getLogIndexFuture());
 
