@@ -149,7 +149,12 @@ class LeaderStateImpl implements LeaderState {
 
   private class EventQueue {
     private final String name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
-    private final BlockingQueue<StateUpdateEvent> queue = new ArrayBlockingQueue<>(4096);
+    private final BlockingQueue<StateUpdateEvent> queue;
+
+    EventQueue(int capacity) {
+      Preconditions.assertTrue(capacity > 0, () -> "capacity must be greater than 0.");
+      queue = new ArrayBlockingQueue<>(capacity);
+    }
 
     void submit(StateUpdateEvent event) {
       try {
@@ -373,7 +378,8 @@ class LeaderStateImpl implements LeaderState {
     this.raftLog = state.getLog();
     this.currentTerm = state.getCurrentTerm();
 
-    this.eventQueue = new EventQueue();
+    int limit = RaftServerConfigKeys.Read.Event.queueElementLimit(properties);
+    this.eventQueue = new EventQueue(limit);
     processor = new EventProcessor(this.name, server);
     raftServerMetrics = server.getRaftServerMetrics();
     logAppenderMetrics = new LogAppenderMetrics(server.getMemberId());
