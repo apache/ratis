@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -173,6 +174,7 @@ public final class ServerImplUtils {
     RaftServer.LOG.debug("newRaftServer: {}, {}", id, group);
     Objects.requireNonNull(id, "id == null");
     if (group != null && !group.getPeers().isEmpty()) {
+      Objects.requireNonNull(id, () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
       Objects.requireNonNull(group.getPeer(id), () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
     }
     final RaftServerProxy proxy = newRaftServer(id, stateMachineRegistry, threadGroup, properties, parameters);

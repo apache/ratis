@@ -635,7 +635,7 @@ public class SegmentedRaftLogCache {
     // SegmentedRaftLog does the segment creation/rolling work. Here we just
     // simply append the entry into the open segment.
     Objects.requireNonNull(openSegment, "openSegment == null");
-    openSegment.appendToOpenSegment(entry, op, false);
+    openSegment.appendToOpenSegment(op, entry);
   }
 
   /**

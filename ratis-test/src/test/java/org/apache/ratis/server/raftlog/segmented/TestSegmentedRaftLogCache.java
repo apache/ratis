@@ -64,7 +64,7 @@ public class TestSegmentedRaftLogCache {
     for (long i = start; i <= end; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
-      s.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
+      s.appendToOpenSegment(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
     }
     if (!isOpen) {
       s.close();
@@ -155,17 +155,16 @@ public class TestSegmentedRaftLogCache {
     final SimpleOperation m = new SimpleOperation("m");
     try {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, 0);
-      cache.appendEntry(Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry)
-      );
+      cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
       Assertions.fail("the open segment is null");
-    } catch (IllegalStateException ignored) {
+    } catch (IllegalStateException | NullPointerException ignored) {
     }
 
     LogSegment openSegment = prepareLogSegment(100, 100, true);
     cache.addSegment(openSegment);
     for (long index = 101; index < 200; index++) {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, index);
-      cache.appendEntry(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+      cache.appendEntry(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
     }
 
     Assertions.assertNotNull(cache.getOpenSegment());

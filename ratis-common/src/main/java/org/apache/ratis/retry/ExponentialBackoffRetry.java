@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.retry;
 
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 
 import java.util.Objects;
@@ -56,7 +55,9 @@ public final class ExponentialBackoffRetry implements RetryPolicy {
     }
 
     public ExponentialBackoffRetry build() {
-      return new ExponentialBackoffRetry(baseSleepTime, maxSleepTime, maxAttempts);
+      Objects.requireNonNull(baseSleepTime, "baseSleepTime == null");
+      return new ExponentialBackoffRetry(baseSleepTime, maxSleepTime,
+          maxAttempts);
     }
   }
 
