@@ -287,7 +287,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         Assertions.assertEquals(2, followers.size());
         RaftServer.Division newLeader = followers.get(0);
 
-        List<RaftPeer> peers = cluster.getPeers();
+        List<RaftPeer> peers = new ArrayList<>(cluster.group.getPeers());
         List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
         RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
         Assertions.assertTrue(reply.isSuccess());
@@ -682,7 +682,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       Assertions.assertTrue(pauseLeaderReply.isSuccess());
       client.io().send(new RaftTestUtil.SimpleMessage("message"));
       RaftServer.Division newLeader = followers.get(0);
-      List<RaftPeer> peers = cluster.getPeers();
+      List<RaftPeer> peers = new ArrayList<>(cluster.group.getPeers());
       List<RaftPeer> peersWithNewPriority = getPeersWithPriority(peers, newLeader.getPeer());
       RaftClientReply reply = client.admin().setConfiguration(peersWithNewPriority.toArray(new RaftPeer[0]));
       Assertions.assertTrue(reply.isSuccess());
