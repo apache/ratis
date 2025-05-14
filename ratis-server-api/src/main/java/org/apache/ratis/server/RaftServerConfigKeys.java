@@ -265,21 +265,6 @@ public interface RaftServerConfigKeys {
         setTimeDuration(properties::setTimeDuration, WRITE_INDEX_CACHE_EXPIRY_TIME_KEY, expiryTime);
       }
     }
-
-    /** Define event-related configuration for Leader. */
-    interface Event {
-      String QUEUE_ELEMENT_LIMIT_KEY = PREFIX + ".leader.event.queue.element-limit";
-      int QUEUE_ELEMENT_LIMIT_DEFAULT = 4096;
-
-      static int queueElementLimit(RaftProperties properties) {
-        return getInt(properties::getInt, QUEUE_ELEMENT_LIMIT_KEY, QUEUE_ELEMENT_LIMIT_DEFAULT,
-            getDefaultLog(), requireMin(1));
-      }
-
-      static void setQueueElementLimit(RaftProperties properties, int queueSize) {
-        setInt(properties::setInt, QUEUE_ELEMENT_LIMIT_KEY, queueSize, requireMin(1));
-      }
-    }
   }
 
   interface Write {

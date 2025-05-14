@@ -218,14 +218,6 @@ if it fails to receive any RPC responses from this peer within this specified ti
 | **Type**        | TimeDuration                                                                   |
 | **Default**     | 60s                                                                            |
 
-### Event - Define event-related configuration for Leader
-
-
-| **Property**    | `raft.server.read.leader.event.queue.element-limit`                                                     |
-|:----------------|:--------------------------------------------------------------------------------------------------------|
-| **Description** | The length of the event queue processed by the Leader                                                   |
-| **Type**        | int                                                                                                     |
-| **Default**     | 4096                                                                                                    |
 
 
 ### Write - Configurations related to write requests.

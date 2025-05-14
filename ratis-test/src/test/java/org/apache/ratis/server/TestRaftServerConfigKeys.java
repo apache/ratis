@@ -39,7 +39,6 @@ import java.util.stream.IntStream;
 
 import static org.apache.ratis.conf.ConfUtils.requireMin;
 import static org.apache.ratis.conf.ConfUtils.setSizeInBytes;
-import static org.apache.ratis.server.RaftServerConfigKeys.Read.Event.QUEUE_ELEMENT_LIMIT_DEFAULT;
 import static org.apache.ratis.server.RaftServerConfigKeys.Write.BYTE_LIMIT_KEY;
 
 /**
@@ -115,17 +114,5 @@ public class TestRaftServerConfigKeys {
         RaftServerConfigKeys.Write.byteLimit(properties).getSize()
             / SizeInBytes.ONE_MB.getSize());
     Assertions.assertEquals(4096, pendingRequestMegabyteLimit);
-  }
-
-  @Test
-  public void testEventQueueLementLimit() {
-    RaftProperties properties = new RaftProperties();
-    int limit = RaftServerConfigKeys.Read.Event.queueElementLimit(properties);
-    Assertions.assertEquals(QUEUE_ELEMENT_LIMIT_DEFAULT, limit);
-
-    // Set new value
-    RaftServerConfigKeys.Read.Event.setQueueElementLimit(properties, 1024);
-    limit = RaftServerConfigKeys.Read.Event.queueElementLimit(properties);
-    Assertions.assertEquals(1024, limit);
   }
 }

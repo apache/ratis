@@ -112,12 +112,10 @@ class LeaderStateImpl implements LeaderState {
     }
 
     private final Type type;
-    private final long newTerm;
     private final Runnable handler;
 
-    StateUpdateEvent(Type type, long newTerm, Runnable handler) {
+    StateUpdateEvent(Type type, Runnable handler) {
       this.type = type;
-      this.newTerm = newTerm;
       this.handler = handler;
     }
 
@@ -133,30 +131,30 @@ class LeaderStateImpl implements LeaderState {
         return false;
       }
       final StateUpdateEvent that = (StateUpdateEvent)obj;
-      return this.type == that.type && this.newTerm == that.newTerm;
+      return this.type == that.type;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(type, newTerm);
+      return type.hashCode();
     }
 
     @Override
     public String toString() {
-      return type + (newTerm >= 0? ":" + newTerm: "");
+      return type.name();
     }
   }
 
   private class EventQueue {
     private final String name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
-    private final BlockingQueue<StateUpdateEvent> queue;
+    private final BlockingQueue<StateUpdateEvent> queue = new ArrayBlockingQueue<>(
+        StateUpdateEvent.Type.values().length);;
 
-    EventQueue(int capacity) {
-      Preconditions.assertTrue(capacity > 0, () -> "capacity must be greater than 0.");
-      queue = new ArrayBlockingQueue<>(capacity);
-    }
-
-    void submit(StateUpdateEvent event) {
+    // submit can be invoked by different threads -- need to be synchronized
+    synchronized void submit(StateUpdateEvent event) {
+      if (queue.contains(event)) { // avoid duplicated events
+        return;
+      }
       try {
         queue.put(event);
       } catch (InterruptedException e) {
@@ -165,10 +163,10 @@ class LeaderStateImpl implements LeaderState {
       }
     }
 
+    // poll is invoked only by the EventProcessor thread -- synchronized is not needed
     StateUpdateEvent poll() {
-      final StateUpdateEvent e;
       try {
-        e = queue.poll(server.getMaxTimeoutMs(), TimeUnit.MILLISECONDS);
+        return queue.poll(server.getMaxTimeoutMs(), TimeUnit.MILLISECONDS);
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();
         String s = this + ": poll() is interrupted";
@@ -179,14 +177,6 @@ class LeaderStateImpl implements LeaderState {
           throw new IllegalStateException(s + " UNEXPECTEDLY", ie);
         }
       }
-
-      if (e != null) {
-        // remove duplicated events from the head.
-        while(e.equals(queue.peek())) {
-          queue.poll();
-        }
-      }
-      return e;
     }
 
     @Override
@@ -328,9 +318,9 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private final StateUpdateEvent updateCommitEvent =
-      new StateUpdateEvent(StateUpdateEvent.Type.UPDATE_COMMIT, -1, this::updateCommit);
+      new StateUpdateEvent(StateUpdateEvent.Type.UPDATE_COMMIT, this::updateCommit);
   private final StateUpdateEvent checkStagingEvent =
-      new StateUpdateEvent(StateUpdateEvent.Type.CHECK_STAGING, -1, this::checkStaging);
+      new StateUpdateEvent(StateUpdateEvent.Type.CHECK_STAGING, this::checkStaging);
 
   private final String name;
   private final RaftServerImpl server;
@@ -378,8 +368,7 @@ class LeaderStateImpl implements LeaderState {
     this.raftLog = state.getLog();
     this.currentTerm = state.getCurrentTerm();
 
-    int limit = RaftServerConfigKeys.Read.Event.queueElementLimit(properties);
-    this.eventQueue = new EventQueue(limit);
+    this.eventQueue = new EventQueue();
     processor = new EventProcessor(this.name, server);
     raftServerMetrics = server.getRaftServerMetrics();
     logAppenderMetrics = new LogAppenderMetrics(server.getMemberId());
@@ -710,7 +699,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void submitStepDownEvent(long term, StepDownReason reason) {
-    eventQueue.submit(new StateUpdateEvent(StateUpdateEvent.Type.STEP_DOWN, term, () -> stepDown(term, reason)));
+    eventQueue.submit(new StateUpdateEvent(StateUpdateEvent.Type.STEP_DOWN, () -> stepDown(term, reason)));
   }
 
   private void stepDown(long term, StepDownReason reason) {
