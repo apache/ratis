@@ -506,7 +506,7 @@ class LeaderElection implements Runnable {
     Set<RaftPeerId> higherPriorityPeers = getHigherPriorityPeers(conf);
     final boolean singleMode = conf.isSingleMode(server.getId());
 
-    // Does this server have any commits?
+    // true iff this server does not have any commits
     final boolean emptyCommit = server.getLastCommittedIndex() < RaftLog.LEAST_VALID_LOG_INDEX;
 
     while (waitForNum > 0 && shouldRun(electionTerm)) {
@@ -570,7 +570,7 @@ class LeaderElection implements Runnable {
         } else {
           rejectedPeers.add(replierId);
           if (conf.majorityRejectVotes(rejectedPeers)) {
-            LOG.info("rejectedPeers: {}", rejectedPeers);
+            LOG.info("rejectedPeers: {}, emptyCommit? {}", rejectedPeers, emptyCommit);
             return logAndReturn(phase, Result.REJECTED, responses, exceptions);
           }
         }
@@ -590,6 +590,11 @@ class LeaderElection implements Runnable {
     }
   }
 
+  /**
+   * @return true if the given reply indicates that the voter has a non-empty raft log.
+   *         Note that a voter running with an old version may not include the lastEntry in the reply.
+   *         For compatibility, this method returns true for such case.
+   */
   static boolean nonEmptyLog(RequestVoteReplyProto reply) {
     final TermIndexProto lastEntry = reply.getLastEntry();
     // valid term >= 1 and valid index >= 0; therefore, (0, 0) can only be the proto default
