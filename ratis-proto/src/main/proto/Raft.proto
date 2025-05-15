@@ -169,6 +169,7 @@ message RequestVoteReplyProto {
   RaftRpcReplyProto serverReply = 1;
   uint64 term = 2;
   bool shouldShutdown = 3;
+  TermIndexProto lastEntry = 4; // to determine if the voter log is empty.
 }
 
 message CommitInfoProto {

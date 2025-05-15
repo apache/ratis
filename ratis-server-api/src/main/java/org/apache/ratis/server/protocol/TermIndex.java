@@ -21,9 +21,11 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.TermIndexProto;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.BiWeakValueCache;
+import org.apache.ratis.util.MemoizedSupplier;
 
 import java.util.Comparator;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
@@ -37,6 +39,7 @@ public interface TermIndex extends Comparable<TermIndex> {
    * are respectively 1 and 0 (= {@link RaftLog#LEAST_VALID_LOG_INDEX}).
    */
   TermIndex INITIAL_VALUE = valueOf(0, RaftLog.INVALID_LOG_INDEX);
+  TermIndex PROTO_DEFAULT = valueOf(TermIndexProto.getDefaultInstance());
 
   /** An empty {@link TermIndex} array. */
   TermIndex[] EMPTY_ARRAY = {};
@@ -93,6 +96,8 @@ public interface TermIndex extends Comparable<TermIndex> {
 
     private static TermIndex newTermIndex(long term, long index) {
       return new TermIndex() {
+        private final Supplier<TermIndexProto> protoSupplier = MemoizedSupplier.valueOf(TermIndex.super::toProto);
+
         @Override
         public long getTerm() {
           return term;
@@ -121,12 +126,22 @@ public interface TermIndex extends Comparable<TermIndex> {
           return Long.hashCode(term) ^ Long.hashCode(index);
         }
 
+        @Override
+        public TermIndexProto toProto() {
+          return protoSupplier.get();
+        }
+
         private String longToString(long n) {
           return n >= 0L ? String.valueOf(n) : "~";
         }
 
         @Override
         public String toString() {
+          if (this.equals(INITIAL_VALUE)) {
+            return "<INITIAL_VALUE>";
+          } else if (this.equals(PROTO_DEFAULT)) {
+            return "<PROTO_DEFAULT>";
+          }
           return String.format("(t:%s, i:%s)", longToString(term), longToString(index));
         }
       };
