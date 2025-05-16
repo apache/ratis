@@ -118,7 +118,8 @@ public final class ServerStringUtils {
     if (proto == null) {
       return null;
     }
-    return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm();
+    return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm()
+        + "-last:" + TermIndex.valueOf(proto.getLastEntry());
   }
 
   /**
