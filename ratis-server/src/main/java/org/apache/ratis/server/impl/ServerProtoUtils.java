@@ -43,11 +43,13 @@ final class ServerProtoUtils {
   }
 
   static RequestVoteReplyProto toRequestVoteReplyProto(
-      RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success, long term, boolean shouldShutdown) {
+      RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success, long term, boolean shouldShutdown,
+      TermIndex lastEntry) {
     return RequestVoteReplyProto.newBuilder()
         .setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success))
         .setTerm(term)
         .setShouldShutdown(shouldShutdown)
+        .setLastEntry((lastEntry != null? lastEntry : TermIndex.INITIAL_VALUE).toProto())
         .build();
   }
 

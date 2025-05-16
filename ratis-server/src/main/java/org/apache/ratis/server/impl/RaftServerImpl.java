@@ -1504,7 +1504,7 @@ class RaftServerImpl implements RaftServer.Division,
         shouldShutdown = true;
       }
       reply = toRequestVoteReplyProto(candidateId, getMemberId(),
-          voteGranted, state.getCurrentTerm(), shouldShutdown);
+          voteGranted, state.getCurrentTerm(), shouldShutdown, state.getLastEntry());
       if (LOG.isInfoEnabled()) {
         LOG.info("{} replies to {} vote request: {}. Peer's state: {}",
             getMemberId(), phase, toRequestVoteReplyString(reply), state);
