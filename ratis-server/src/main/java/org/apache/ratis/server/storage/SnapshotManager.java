@@ -31,6 +31,7 @@ import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.StringUtils;
+import org.apache.ratis.util.function.CheckedFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +44,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -61,7 +61,7 @@ public class SnapshotManager {
 
   private final Supplier<File> snapshotDir;
   private final Supplier<File> snapshotTmpDir;
-  private final Function<FileChunkProto, String> getRelativePath;
+  private final CheckedFunction<FileChunkProto, String, IOException> getRelativePath;
   private MessageDigest digester;
 
   SnapshotManager(RaftPeerId selfId, Supplier<RaftStorageDirectory> dir, StateMachineStorage smStorage) {
@@ -73,7 +73,7 @@ public class SnapshotManager {
 
     final Supplier<Path> smDir = MemoizedSupplier.valueOf(() -> dir.get().getStateMachineDir().toPath());
     this.getRelativePath = c -> smDir.get().relativize(
-        new File(dir.get().getRoot(), c.getFilename()).toPath()).toString();
+        FileUtils.resolveFullPath(dir.get().getRoot(), c.getFilename()).toPath()).toString();
   }
 
   @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
@@ -121,7 +121,7 @@ public class SnapshotManager {
             + " with endIndex >= lastIncludedIndex " + lastIncludedIndex);
       }
 
-      final File tmpSnapshotFile = new File(tmpDir, getRelativePath.apply(chunk));
+      final File tmpSnapshotFile = FileUtils.resolveFullPath(tmpDir, getRelativePath.apply(chunk));
       FileUtils.createDirectoriesDeleteExistingNonDirectory(tmpSnapshotFile.getParentFile());
 
       try (FileChannel out = open(chunk, tmpSnapshotFile)) {
@@ -180,8 +180,8 @@ public class SnapshotManager {
       try {
         moved = FileUtils.move(stateMachineDir, TMP + StringUtils.currentDateTime());
       } catch(IOException e) {
-        LOG.warn("Failed to rename state machine directory " + stateMachineDir.getAbsolutePath()
-            + " to a " + TMP + " directory.  Try deleting it directly.", e);
+        LOG.warn("Failed to rename state machine directory {} to a {} directory.  Try deleting it directly.",
+            TMP, stateMachineDir.getAbsolutePath(), e);
         FileUtils.deleteFully(stateMachineDir);
       }
       existingDir = moved;
