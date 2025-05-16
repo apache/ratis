@@ -469,7 +469,6 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
       if (async) {
         CompletableFuture<RaftClientReply> replyFuture = client.async().send(new SimpleMessage("abc"));
-        Thread.sleep(2000);
         replyFuture.get();
       } else {
         client.io().send(new SimpleMessage("abc"));
