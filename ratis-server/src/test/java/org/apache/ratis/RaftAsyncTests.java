@@ -47,6 +47,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.PlatformUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
@@ -83,6 +84,10 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   {
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
+    if (!PlatformUtils.LINUX) {
+      getProperties().setBoolean("raft.netty.server.use-epoll", false);
+      getProperties().setBoolean("raft.netty.client.use-epoll", false);
+    }
   }
 
   @Test
@@ -282,8 +287,8 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   void runTestStaleReadAsync(CLUSTER cluster) throws Exception {
     final int numMessages = 10;
-    try (RaftClient client = cluster.createClient()) {
-      RaftTestUtil.waitForLeader(cluster);
+    RaftServer.Division division = waitForLeader(cluster);
+    try (RaftClient client = cluster.createClient(division.getId())) {
 
       // submit some messages
       final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
