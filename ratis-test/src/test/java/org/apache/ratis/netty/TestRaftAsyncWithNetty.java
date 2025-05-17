@@ -18,7 +18,9 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.RaftAsyncTests;
+import org.junit.jupiter.api.Timeout;
 
+@Timeout(100)
 public class TestRaftAsyncWithNetty
     extends RaftAsyncTests<MiniRaftClusterWithNetty>
     implements MiniRaftClusterWithNetty.FactoryGet {

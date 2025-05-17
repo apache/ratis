@@ -97,7 +97,7 @@ jobs:
       script: unit
       script-args: -P${{ matrix.profile }}-tests
       split: ${{ matrix.profile }}
-      timeout-minutes: 120
+      timeout-minutes: 60
     secrets: inherit
 
   coverage:
