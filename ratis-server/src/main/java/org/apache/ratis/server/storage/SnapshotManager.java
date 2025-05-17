@@ -180,8 +180,8 @@ public class SnapshotManager {
       try {
         moved = FileUtils.move(stateMachineDir, TMP + StringUtils.currentDateTime());
       } catch(IOException e) {
-        LOG.warn("Failed to rename state machine directory {} to a {} directory.  Try deleting it directly.",
-            TMP, stateMachineDir.getAbsolutePath(), e);
+        LOG.warn("Failed to rename state machine directory " + stateMachineDir.getAbsolutePath()
+            + " to a " + TMP + " directory.  Try deleting it directly.", e);
         FileUtils.deleteFully(stateMachineDir);
       }
       existingDir = moved;

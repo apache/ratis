@@ -67,7 +67,7 @@ public interface FileUtils {
 
     String dirPath = dir.getCanonicalPath();
     final String subPath = sub.getCanonicalPath();
-    if (Objects.equals(dirPath, subPath)) {
+    if (dirPath.equals(subPath)) {
       return true;
     } else if (!dirPath.endsWith(File.separator)) {
       dirPath += File.separator;
