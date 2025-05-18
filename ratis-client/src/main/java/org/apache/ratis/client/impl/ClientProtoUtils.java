@@ -179,11 +179,11 @@ public interface ClientProtoUtils {
 
     final RaftClientRequest.Builder b = RaftClientRequest.newBuilder();
 
-    final RaftPeerId perrId = RaftPeerId.valueOf(request.getReplyId());
+    final RaftPeerId peerId = RaftPeerId.valueOf(request.getReplyId());
     if (request.getToLeader()) {
-      b.setLeaderId(perrId);
+      b.setLeaderId(peerId);
     } else {
-      b.setServerId(perrId);
+      b.setServerId(peerId);
     }
     if (request.hasSlidingWindowEntry()) {
       b.setSlidingWindowEntry(request.getSlidingWindowEntry());
