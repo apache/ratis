@@ -26,8 +26,8 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -92,7 +92,7 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
   private void checkLog(RaftLog raftLog, long expectedCommittedIndex,
       Supplier<byte[]> s) throws IOException {
     long committedIndex = raftLog.getLastCommittedIndex();
-    Assert.assertTrue(committedIndex >= expectedCommittedIndex);
+    Assertions.assertTrue(committedIndex >= expectedCommittedIndex);
     // check the log content
     final LogEntryHeader[] entries = raftLog.getEntries(0, Long.MAX_VALUE);
     int count = 0;
@@ -106,10 +106,10 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
       final String message = "log " + entry + " " + log.getLogEntryBodyCase()
           + " " + StringUtils.bytes2HexString(logData)
           + ", expected=" + StringUtils.bytes2HexString(expected);
-      Assert.assertArrayEquals(message, expected, logData);
+      Assertions.assertArrayEquals(expected, logData, message);
       count++;
     }
-    Assert.assertEquals(expectedCommittedIndex, count);
+    Assertions.assertEquals(expectedCommittedIndex, count);
   }
 
   @Test
@@ -155,12 +155,12 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
   private RaftLog assertRaftLog(int expectedEntries, RaftServer.Division server) throws Exception {
     final RaftLog raftLog = server.getRaftLog();
     final EnumMap<LogEntryBodyCase, AtomicLong> counts = RaftTestUtil.countEntries(raftLog);
-    Assert.assertEquals(expectedEntries, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());
+    Assertions.assertEquals(expectedEntries, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());
 
     final LogEntryProto last = RaftTestUtil.getLastEntry(LogEntryBodyCase.STATEMACHINELOGENTRY, raftLog);
-    Assert.assertNotNull(last);
-    Assert.assertTrue(raftLog.getLastCommittedIndex() >= last.getIndex());
-    Assert.assertTrue(server.getInfo().getLastAppliedIndex() >= last.getIndex());
+    Assertions.assertNotNull(last);
+    Assertions.assertTrue(raftLog.getLastCommittedIndex() >= last.getIndex());
+    Assertions.assertTrue(server.getInfo().getLastAppliedIndex() >= last.getIndex());
     return raftLog;
   }
 
@@ -249,12 +249,12 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
       final LogEntryProto e = raftLog.get(ti.getIndex());
       if (e.hasStateMachineLogEntry()) {
         final byte[] eValue = e.getStateMachineLogEntry().getLogData().toByteArray();
-        Assert.assertEquals(ByteValue.BUFFERSIZE, eValue.length);
+        Assertions.assertEquals(ByteValue.BUFFERSIZE, eValue.length);
         System.arraycopy(eValue, 0, actual, totalSize, eValue.length);
         totalSize += eValue.length;
       }
     }
-    Assert.assertArrayEquals(expected, actual);
+    Assertions.assertArrayEquals(expected, actual);
   }
 
   /**
@@ -296,18 +296,18 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     Thread.sleep(500);
     RaftTestUtil.waitAndKillLeader(cluster);
     final RaftServer.Division newLeader = waitForLeader(cluster);
-    Assert.assertNotEquals(leader.getId(), newLeader.getId());
+    Assertions.assertNotEquals(leader.getId(), newLeader.getId());
     Thread.sleep(500);
 
     running.set(false);
     latch.await(5, TimeUnit.SECONDS);
     LOG.info("Writer success? " + success.get());
-    Assert.assertTrue(success.get());
+    Assertions.assertTrue(success.get());
     // total number of tx should be >= result + 2, where 2 means two NoOp from
     // leaders. It may be larger than result+2 because the client may resend
     // requests and we do not have retry cache on servers yet.
     LOG.info("last applied index: {}. total number of requests: {}",
         newLeader.getInfo().getLastAppliedIndex(), result.get());
-    Assert.assertTrue(newLeader.getInfo().getLastAppliedIndex() >= result.get() + 1);
+    Assertions.assertTrue(newLeader.getInfo().getLastAppliedIndex() >= result.get() + 1);
   }
 }
