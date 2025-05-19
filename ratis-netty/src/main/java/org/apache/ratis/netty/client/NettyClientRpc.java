@@ -46,15 +46,14 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
 
   public static final Logger LOG = LoggerFactory.getLogger(NettyClientRpc.class);
 
-  private Supplier<String> name;
-  private ClientId cId;
-  private final TimeDuration requestTimeoutDuration;
+  private ClientId clientId;
+  private final TimeDuration requestTimeout;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
   public NettyClientRpc(ClientId clientId, RaftProperties properties) {
     super(new NettyRpcProxy.PeerMap(clientId.toString(), properties));
-    this.cId = clientId;
-    this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
+    this.clientId = clientId;
+    this.requestTimeout = RaftClientConfigKeys.Rpc.requestTimeout(properties);
   }
 
   @Override
@@ -62,7 +61,6 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
     final RaftPeerId serverId = request.getServerId();
     long callId = request.getCallId();
     try {
-      name = JavaUtils.memoize(() -> cId + "->" + serverId);
       final NettyRpcProxy proxy = getProxies().getProxy(serverId);
       final RaftNettyServerRequestProto serverRequestProto = buildRequestProto(request);
       final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
@@ -75,49 +73,38 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
         } else {
           return ClientProtoUtils.toRaftClientReply(replyProto.getRaftClientReply());
         }
-      }).thenCompose(raftReply -> {
-        final NotLeaderException nle = raftReply.getNotLeaderException();
-        if (nle != null) {
-          return failedFuture(nle);
+      }).whenComplete((reply, e) -> {
+        if (e == null) {
+          if (reply == null) {
+            e = new NullPointerException("Both reply==null && e==null");
+          }
+          if (e == null) {
+            e = reply.getNotLeaderException();
+          }
+          if (e == null) {
+            e = reply.getLeaderNotReadyException();
+          }
         }
-        final LeaderNotReadyException lnre = raftReply.getLeaderNotReadyException();
-        if (lnre != null) {
-          return failedFuture(lnre);
-        }
-        return CompletableFuture.completedFuture(raftReply);
-      }).whenComplete((raftReply, ex) -> {
-        if (ex != null) {
-          replyFuture.completeExceptionally(ex);
+
+        if (e != null) {
+          replyFuture.completeExceptionally(e);
         } else {
-          replyFuture.complete(raftReply);
+          replyFuture.complete(reply);
         }
       });
 
-      scheduler.onTimeout(requestTimeoutDuration,
-        () -> {
+      scheduler.onTimeout(requestTimeout, () -> {
           if (!replyFuture.isDone()) {
-            TimeoutIOException timeout = new TimeoutIOException(
-                getName()+ " request #" + callId + " timeout " +
-                requestTimeoutDuration.getDuration());
-            replyFuture.completeExceptionally(timeout);
+            final String s = clientId + "->" + serverId + " request #" +
+                callId + " timeout " + requestTimeout.getDuration();
+            replyFuture.completeExceptionally(new TimeoutIOException(s));
           }
-        }, LOG, () -> "Timeout check for client request #" + callId
-      );
+        }, LOG, () -> "Timeout check for client request #" + callId);
 
       return replyFuture;
     } catch (Throwable e) {
       return JavaUtils.completeExceptionally(e);
     }
-  }
-
-  private String getName() {
-    return name.get();
-  }
-
-  private <T> CompletableFuture<T> failedFuture(Throwable ex) {
-    CompletableFuture<T> future = new CompletableFuture<>();
-    future.completeExceptionally(ex);
-    return future;
   }
 
   @Override
