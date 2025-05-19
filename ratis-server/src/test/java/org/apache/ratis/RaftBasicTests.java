@@ -457,7 +457,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
   static void runTestStateMachineMetrics(boolean async, MiniRaftCluster cluster) throws Exception {
     RaftServer.Division leader = waitForLeader(cluster);
-    try (final RaftClient client = cluster.createClient()) {
+    try (final RaftClient client = cluster.createClient(leader.getId())) {
       Gauge appliedIndexGauge = getStatemachineGaugeWithName(leader,
           STATEMACHINE_APPLIED_INDEX_GAUGE);
       Gauge smAppliedIndexGauge = getStatemachineGaugeWithName(leader,
