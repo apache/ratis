@@ -30,8 +30,8 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.ArrayList;
@@ -62,13 +62,13 @@ public abstract class RaftAsyncExceptionTests<CLUSTER extends MiniRaftCluster>
     // send a message to make sure the cluster is working
     try(RaftClient client = cluster.createClient()) {
       final RaftClientReply reply = client.async().send(new SimpleMessage("first")).get();
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
     }
 
     // create another group
     final RaftGroup clusterGroup = cluster.getGroup();
     final RaftGroup anotherGroup = RaftGroup.valueOf(RaftGroupId.randomId(), clusterGroup.getPeers());
-    Assert.assertNotEquals(clusterGroup.getGroupId(), anotherGroup.getGroupId());
+    Assertions.assertNotEquals(clusterGroup.getGroupId(), anotherGroup.getGroupId());
 
     // create another client using another group
     final SimpleMessage[] messages = SimpleMessage.create(5);
@@ -78,7 +78,7 @@ public abstract class RaftAsyncExceptionTests<CLUSTER extends MiniRaftCluster>
       for(SimpleMessage m : messages) {
         futures.add(client.async().send(m));
       }
-      Assert.assertEquals(messages.length, futures.size());
+      Assertions.assertEquals(messages.length, futures.size());
 
       // check replies
       final Iterator<CompletableFuture<RaftClientReply>> i = futures.iterator();
@@ -102,7 +102,7 @@ public abstract class RaftAsyncExceptionTests<CLUSTER extends MiniRaftCluster>
     // send a message to make sure the cluster is working
     try(RaftClient client = cluster.createClient()) {
       final RaftClientReply reply = client.io().send(new SimpleMessage("m0"));
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
 
       RaftClientConfigKeys.Rpc.setRequestTimeout(PROPERTIES.get(), ONE_SECOND);
       // Block StartTransaction
@@ -118,7 +118,7 @@ public abstract class RaftAsyncExceptionTests<CLUSTER extends MiniRaftCluster>
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockStartTransaction);
       // The request should succeed after start transaction is unblocked
-      Assert.assertTrue(replyFuture.get(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit()).isSuccess());
+      Assertions.assertTrue(replyFuture.get(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit()).isSuccess());
     }
   }
 }

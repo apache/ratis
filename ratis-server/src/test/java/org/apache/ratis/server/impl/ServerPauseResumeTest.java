@@ -29,8 +29,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /** Test server pause and resume. */
 public abstract class ServerPauseResumeTest <CLUSTER extends MiniRaftCluster>
@@ -50,7 +50,7 @@ public abstract class ServerPauseResumeTest <CLUSTER extends MiniRaftCluster>
     final RaftServer.Division leader = waitForLeader(cluster);
     RaftPeerId leaderId = leader.getId();
     final List<RaftServer.Division> followers = cluster.getFollowers();
-    Assert.assertTrue(followers.size() >= 1);
+    Assertions.assertTrue(followers.size() >= 1);
     final RaftServerImpl follower = (RaftServerImpl)followers.get(0);
 
     SimpleMessage[] batch1 = SimpleMessage.create(100, "batch1");
@@ -60,15 +60,15 @@ public abstract class ServerPauseResumeTest <CLUSTER extends MiniRaftCluster>
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
     final RaftLog leaderLog = leader.getRaftLog();
     // leader should contain all logs.
-    Assert.assertTrue(RaftTestUtil.logEntriesContains(leaderLog, batch1));
+    Assertions.assertTrue(RaftTestUtil.logEntriesContains(leaderLog, batch1));
     RaftLog followerLog = follower.getRaftLog();
     // follower should contain all logs.
-    Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, batch1));
+    Assertions.assertTrue(RaftTestUtil.logEntriesContains(followerLog, batch1));
 
     // pause follower.
     boolean isSuccess = follower.pause();
-    Assert.assertTrue(isSuccess);
-    Assert.assertTrue(follower.getInfo().getLifeCycleState().isPausingOrPaused());
+    Assertions.assertTrue(isSuccess);
+    Assertions.assertTrue(follower.getInfo().getLifeCycleState().isPausingOrPaused());
 
     SimpleMessage[] batch2 = SimpleMessage.create(100, "batch2");
     Thread writeThread2 = RaftTestUtil.sendMessageInNewThread(cluster, leaderId, batch2);
@@ -76,15 +76,15 @@ public abstract class ServerPauseResumeTest <CLUSTER extends MiniRaftCluster>
     writeThread2.join();
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
     // paused follower should not have any batch2 message in its raftlog.
-    Assert.assertTrue(RaftTestUtil.logEntriesNotContains(followerLog, batch2));
+    Assertions.assertTrue(RaftTestUtil.logEntriesNotContains(followerLog, batch2));
 
     // resume follower.
     isSuccess = follower.resume();
-    Assert.assertTrue(isSuccess);
-    Assert.assertFalse(follower.getInfo().getLifeCycleState().isPausingOrPaused());
+    Assertions.assertTrue(isSuccess);
+    Assertions.assertFalse(follower.getInfo().getLifeCycleState().isPausingOrPaused());
 
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
     // follower should contain all logs.
-    Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, batch2));
+    Assertions.assertTrue(RaftTestUtil.logEntriesContains(followerLog, batch2));
   }
 }

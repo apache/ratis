@@ -18,7 +18,9 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.RaftAsyncTests;
+import org.junit.jupiter.api.Timeout;
 
+@Timeout(100)
 public class TestRaftAsyncWithGrpc extends RaftAsyncTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
 }
