@@ -42,6 +42,7 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
+import org.apache.ratis.test.tag.Flaky;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
@@ -514,6 +515,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
    * retrying.
    */
   @Test
+  @Flaky("RATIS-2251")
   public void testKillLeaderDuringReconf() throws Exception {
     // originally 3 peers
     runWithNewCluster(3, this::runTestKillLeaderDuringReconf);
