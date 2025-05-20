@@ -30,8 +30,8 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.function.CheckedSupplier;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,7 +69,7 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
 
     final RaftGroup raftGroup = cluster.getGroup();
     final Collection<RaftPeer> peers = raftGroup.getPeers();
-    Assert.assertEquals(NUM_PEERS, peers.size());
+    Assertions.assertEquals(NUM_PEERS, peers.size());
     RaftPeer primary = peers.iterator().next();
 
     final CheckedSupplier<FileStoreClient, IOException> newClient =
@@ -91,7 +91,7 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
 
     final RaftGroup raftGroup = cluster.getGroup();
     final Collection<RaftPeer> peers = raftGroup.getPeers();
-    Assert.assertEquals(NUM_PEERS, peers.size());
+    Assertions.assertEquals(NUM_PEERS, peers.size());
     RaftPeer primary = peers.iterator().next();
 
     final CheckedSupplier<FileStoreClient, IOException> newClient =
@@ -114,7 +114,7 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
         .setFileSize(fileLength)
         .setBufferSize(bufferSize)
         .setFileStoreClientSupplier(newClient)
-        .build().streamWriteAndVerify(routingTable);
+        .build().streamWriteAndVerify(routingTable).close();
   }
 
   private void testMultipleFiles(String pathBase, int numFile, SizeInBytes fileLength,
@@ -136,7 +136,7 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
       writerFutures.add(executor.submit(callable));
     }
     for (Future<FileStoreWriter> future : writerFutures) {
-      future.get();
+      future.get().close();
     }
   }
 }
