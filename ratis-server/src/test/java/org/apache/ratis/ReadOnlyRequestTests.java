@@ -35,6 +35,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.Slf4jUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,10 +58,6 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   static final String INCREMENT_STRING = "INCREMENT";
   static final String WAIT_AND_INCREMENT_STRING = "WAIT_AND_INCREMENT";
   static final String QUERY_STRING = "QUERY";
-
-  public static final Message INCREMENT = new RaftTestUtil.SimpleMessage(INCREMENT_STRING);
-  public static final Message WAIT_AND_INCREMENT = new RaftTestUtil.SimpleMessage(WAIT_AND_INCREMENT_STRING);
-  public static final Message QUERY = new RaftTestUtil.SimpleMessage(QUERY_STRING);
 
   @BeforeEach
   public void setup() {
@@ -86,8 +83,10 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
       try (final RaftClient client = cluster.createClient(leaderId)) {
         for (int i = 1; i <= 10; i++) {
-          assertReplyExact(i, client.io().send(INCREMENT));
-          assertReplyExact(i, client.io().sendReadOnly(QUERY));
+          RaftClientReply reply = client.io().send(incrementMessage);
+          Assertions.assertTrue(reply.isSuccess());
+          reply = client.io().sendReadOnly(queryMessage);
+          Assertions.assertEquals(i, retrieve(reply));
         }
       }
     } finally {
@@ -109,12 +108,18 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
       assertReplyExact(1, client.io().send(INCREMENT));
       client.admin().transferLeadership(null, 200);
 
-      Assertions.assertThrows(exceptionClass, () -> {
-        final RaftClientReply timeoutReply = noRetry.io().sendReadOnly(QUERY);
-        Assertions.assertFalse(timeoutReply.isSuccess());
-        Assertions.assertNotNull(timeoutReply.getException());
-        Assertions.assertInstanceOf(ReadException.class, timeoutReply.getException());
-      });
+        CompletableFuture<RaftClientReply> result = client.async().send(incrementMessage);
+        client.admin().transferLeadership(null, 200);
+
+        Assertions.assertThrows(ReadIndexException.class, () -> {
+          RaftClientReply timeoutReply = noRetry.io().sendReadOnly(queryMessage);
+          Assertions.assertNotNull(timeoutReply.getException());
+          Assertions.assertTrue(timeoutReply.getException() instanceof ReadException);
+        });
+      }
+
+    } finally {
+      cluster.shutdown();
     }
   }
 
@@ -127,15 +132,171 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
       throws Exception {
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
-    try (RaftClient client = cluster.createClient(leaderId, retryPolicy)) {
-      assertReplyExact(1, client.io().send(INCREMENT));
-      assertReplyExact(1, client.io().sendReadOnly(QUERY));
+  private void testFollowerReadOnlyImpl(CLUSTER cluster) throws Exception {
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+
+      List<RaftServer.Division> followers = cluster.getFollowers();
+      Assertions.assertEquals(2, followers.size());
+
+      final RaftPeerId f0 = followers.get(0).getId();
+      final RaftPeerId f1 = followers.get(1).getId();
+      try (RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
+        for (int i = 1; i <= 10; i++) {
+          final RaftClientReply reply = client.io().send(incrementMessage);
+          Assertions.assertTrue(reply.isSuccess());
+          final RaftClientReply read1 = client.io().sendReadOnly(queryMessage, f0);
+          Assertions.assertEquals(i, retrieve(read1));
+          final CompletableFuture<RaftClientReply> read2 = client.async().sendReadOnly(queryMessage, f1);
+          Assertions.assertEquals(i, retrieve(read2.get(1, TimeUnit.SECONDS)));
+        }
+      }
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testFollowerLinearizableReadParallel() throws Exception {
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyParallelImpl);
+  }
+
+  @Test
+  public void testFollowerLeaseReadParallel() throws Exception {
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, true);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyParallelImpl);
+  }
+
+  private void testFollowerReadOnlyParallelImpl(CLUSTER cluster) throws Exception {
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+
+      List<RaftServer.Division> followers = cluster.getFollowers();
+      Assertions.assertEquals(2, followers.size());
+
+      try (RaftClient leaderClient = cluster.createClient(cluster.getLeader().getId());
+           RaftClient followerClient1 = cluster.createClient(followers.get(0).getId())) {
+
+        leaderClient.io().send(incrementMessage);
+        leaderClient.async().send(waitAndIncrementMessage);
+        Thread.sleep(100);
+
+        RaftClientReply clientReply = followerClient1.io().sendReadOnly(queryMessage, followers.get(0).getId());
+        Assertions.assertEquals(2, retrieve(clientReply));
+      }
+
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testFollowerLinearizableReadFailWhenLeaderDown() throws Exception {
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyFailWhenLeaderDownImpl);
+  }
+
+  @Test
+  public void testFollowerLeaseReadWhenLeaderDown() throws Exception {
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, true);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyFailWhenLeaderDownImpl);
+  }
+
+  private void testFollowerReadOnlyFailWhenLeaderDownImpl(CLUSTER cluster) throws Exception {
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+
+      List<RaftServer.Division> followers = cluster.getFollowers();
+      Assertions.assertEquals(2, followers.size());
+
+      try (RaftClient leaderClient = cluster.createClient(cluster.getLeader().getId());
+           RaftClient followerClient1 = cluster.createClient(followers.get(0).getId(), RetryPolicies.noRetry())) {
+         leaderClient.io().send(incrementMessage);
+
+         RaftClientReply clientReply = followerClient1.io().sendReadOnly(queryMessage);
+         Assertions.assertEquals(1, retrieve(clientReply));
+
+         // kill the leader
+         // read timeout quicker than election timeout
+         leaderClient.admin().transferLeadership(null, 200);
+
+         Assertions.assertThrows(ReadIndexException.class, () -> {
+           followerClient1.io().sendReadOnly(queryMessage, followers.get(0).getId());
+         });
+      }
+
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testFollowerReadOnlyRetryWhenLeaderDown() throws Exception {
+    getProperties().setEnum(RaftServerConfigKeys.Read.OPTION_KEY, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyRetryWhenLeaderDown);
+  }
+
+  @Test
+  public void testFollowerLeaseReadRetryWhenLeaderDown() throws Exception {
+    getProperties().setBoolean(RaftServerConfigKeys.Read.LEADER_LEASE_ENABLED_KEY, true);
+    runWithNewCluster(NUM_SERVERS, this::testFollowerReadOnlyRetryWhenLeaderDown);
+  }
+
+  private void testFollowerReadOnlyRetryWhenLeaderDown(CLUSTER cluster) throws Exception {
+    // only retry on readIndexException
+    final RetryPolicy retryPolicy = ExceptionDependentRetry
+        .newBuilder()
+        .setDefaultPolicy(RetryPolicies.noRetry())
+        .setExceptionToPolicy(ReadIndexException.class,
+            RetryPolicies.retryForeverWithSleep(TimeDuration.valueOf(500, TimeUnit.MILLISECONDS)))
+        .build();
+
+    RaftTestUtil.waitForLeader(cluster);
+
+    try (RaftClient client = cluster.createClient(cluster.getLeader().getId(), retryPolicy)) {
+      client.io().send(incrementMessage);
+
+      final RaftClientReply clientReply = client.io().sendReadOnly(queryMessage);
+      Assertions.assertEquals(1, retrieve(clientReply));
 
       // kill the leader
       client.admin().transferLeadership(null, 200);
 
       // readOnly will success after re-election
-      assertReplyExact(1, client.io().sendReadOnly(QUERY));
+      final RaftClientReply replySuccess = client.io().sendReadOnly(queryMessage);
+      Assertions.assertEquals(1, retrieve(clientReply));
+    }
+  }
+
+  @Test
+  public void testReadAfterWrite() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::testReadAfterWriteImpl);
+  }
+
+  private void testReadAfterWriteImpl(CLUSTER cluster) throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+    try (RaftClient client = cluster.createClient()) {
+      // test blocking read-after-write
+      client.io().send(incrementMessage);
+      final RaftClientReply blockReply = client.io().sendReadAfterWrite(queryMessage);
+      Assertions.assertEquals(1, retrieve(blockReply));
+
+      // test asynchronous read-after-write
+      client.async().send(incrementMessage);
+      client.async().sendReadAfterWrite(queryMessage).thenAccept(reply -> {
+        Assertions.assertEquals(2, retrieve(reply));
+      });
+
+      for (int i = 0; i < 20; i++) {
+        client.async().send(incrementMessage);
+      }
+      final CompletableFuture<RaftClientReply> linearizable = client.async().sendReadOnly(queryMessage);
+      final CompletableFuture<RaftClientReply> readAfterWrite = client.async().sendReadAfterWrite(queryMessage);
+
+      CompletableFuture.allOf(linearizable, readAfterWrite).get();
+      // read-after-write is more consistent than linearizable read
+      Assertions.assertTrue(retrieve(readAfterWrite.get()) >= retrieve(linearizable.get()));
     }
   }
 

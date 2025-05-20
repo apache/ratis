@@ -35,7 +35,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Assumptions;
+import org.junit.Assume;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
@@ -85,7 +85,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     final SimpleMessage message = new SimpleMessage(messageId);
     final RaftClientReply reply = rpc.sendRequest(cluster.newRaftClientRequest(ClientId.randomId(), server, message));
     Assertions.assertNotNull(reply);
-    Assumptions.assumeFalse(reply.isSuccess());
+    Assume.assumeFalse(reply.isSuccess());
     final NotLeaderException nle = reply.getNotLeaderException();
     Objects.requireNonNull(nle);
     Assertions.assertEquals(expectedSuggestedLeader, nle.getSuggestedLeader().getId());
@@ -114,7 +114,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       // trigger setConfiguration
       LOG.info("Start changing the configuration: {}", change.getPeersInNewConf());
       try (final RaftClient c2 = cluster.createClient(newLeader)) {
-        RaftClientReply reply = c2.admin().setConfiguration(change.getPeersInNewConf());
+        RaftClientReply reply = c2.admin().setConfiguration(change.allPeersInNewConf);
         Assertions.assertTrue(reply.isSuccess());
       }
       LOG.info(cluster.printServers());

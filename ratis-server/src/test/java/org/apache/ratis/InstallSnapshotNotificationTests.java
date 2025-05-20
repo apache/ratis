@@ -221,7 +221,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     // delete the log segments from the leader
     LOG.info("Delete logs {}", logs);
     for (LogSegmentPath path : logs) {
-      FileUtils.deleteFully(path.getPath()); // the log may be already purged
+      FileUtils.deleteFully(path.getPath()); // the log may be already puged
     }
 
     // restart the peer
@@ -238,7 +238,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assert.assertTrue(set);
+      Assertions.assertTrue(set);
 
       // Add new peer(s)
       final PeerChanges change = cluster.addNewPeers(1, true);
@@ -251,7 +251,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       // leader snapshot.
       for (RaftServer.Division follower : cluster.getFollowers()) {
         final long expected = leaderSnapshotInfo.getIndex();
-        Assert.assertEquals(expected, RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
+        Assertions.assertEquals(expected, RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
         RaftSnapshotBaseTest.assertLogContent(follower, false);
       }
 
@@ -349,9 +349,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       long snapshotIndex = cluster.getLeader().getStateMachine().takeSnapshot();
       Assertions.assertEquals(20, snapshotIndex);
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
-      Assert.assertEquals(20, leaderSnapshotInfo.getIndex());
+      Assertions.assertEquals(20, leaderSnapshotInfo.getIndex());
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assert.assertTrue(set);
+      Assertions.assertTrue(set);
 
       // Wait for the snapshot to be done.
       final RaftServer.Division leader = cluster.getLeader();
@@ -408,7 +408,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       // Make sure each new peer got one snapshot notification.
-      Assertions.assertEquals(numNewPeers, numSnapshotRequests.get());
+      Assertions.assertEquals(2, numSnapshotRequests.get());
 
     } finally {
       cluster.shutdown();
@@ -472,7 +472,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assert.assertTrue(set);
+      Assertions.assertTrue(set);
 
       // add one new peer
       final PeerChanges change = cluster.addNewPeers(1, true);
@@ -547,7 +547,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assert.assertTrue(set);
+      Assertions.assertTrue(set);
 
       // Add new peer(s)
       final int numNewPeers = 1;
@@ -565,7 +565,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       // Make sure each new peer got at least one snapshot notification.
-      Assertions.assertTrue(numNewPeers <= numSnapshotRequests.get());
+      Assertions.assertTrue(2 <= numSnapshotRequests.get());
     } finally {
       cluster.shutdown();
     }

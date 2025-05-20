@@ -269,7 +269,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           .setServersInNewConf(peers)
           .setMode(SetConfigurationRequest.Mode.ADD).build());
       Assertions.assertTrue(reply.isSuccess());
-      waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
+      waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
     }
     cluster.close();
   }
@@ -307,7 +307,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
               .setMode(SetConfigurationRequest.Mode.COMPARE_AND_SET)
               .build());
       Assertions.assertTrue(reply.isSuccess());
-      waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
+      waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
     }
     cluster.close();
   }
@@ -387,7 +387,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     try (final RaftClient client = cluster.createClient(leaderId)) {
       PeerChanges c1 = cluster.addNewPeers(2, false);
 
-      LOG.info("Start changing the configuration: {}", c1.getPeersInNewConf());
+      LOG.info("Start changing the configuration: {}",
+          asList(c1.allPeersInNewConf));
       Assertions.assertFalse(((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).isTransitional());
 
       final RaftClientRpc sender = client.getClientRpc();
@@ -419,7 +420,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       for (RaftPeer np : c1.getAddedPeers()) {
         cluster.restartServer(np.getId(), false);
       }
-      Assertions.assertTrue(client.admin().setConfiguration(c1.getPeersInNewConf()).isSuccess());
+      Assertions.assertTrue(client.admin().setConfiguration(c1.allPeersInNewConf).isSuccess());
     }
   }
 
@@ -439,7 +440,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       try (final RaftClient client = cluster.createClient(leaderId)) {
         final PeerChanges c1 = cluster.addNewPeers(2, true);
 
-        assertThrows(SetConfigurationException.class, () -> client.admin().setConfiguration(c1.getPeersInNewConf()),
+        assertThrows(SetConfigurationException.class, () -> client.admin().setConfiguration(c1.allPeersInNewConf),
             "Expect change majority error.");
       }
     });

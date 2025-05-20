@@ -44,8 +44,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.function.CheckedConsumer;
-import org.junit.jupiter.api.Assumptions;
+import org.junit.AssumptionViolatedException;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -566,7 +565,7 @@ public interface RaftTestUtil {
     final long lastIndex = expected.getNextIndex() - 1;
     Assertions.assertEquals(expected.getLastEntryTermIndex().getIndex(), lastIndex);
     for(long i = 0; i < lastIndex; i++) {
-      Assert.assertEquals("Checking " + TermIndex.valueOf(expected.get(i)), expected.get(i), computed.get(i));
+      Assertions.assertEquals(expected.get(i), computed.get(i), "Checking " + TermIndex.valueOf(expected.get(i)));
     }
   }
 
@@ -599,20 +598,6 @@ public interface RaftTestUtil {
   static void assertSuccessReply(RaftClientReply reply) {
     Assertions.assertNotNull(reply, "reply == null");
     Assertions.assertTrue(reply.isSuccess(), "reply is not success: " + reply);
-  }
-
-  static void gc() throws InterruptedException {
-    // use WeakReference to detect gc
-    Object obj = new Object();
-    final WeakReference<Object> weakRef = new WeakReference<>(obj);
-    obj = null;
-
-    // loop until gc has completed.
-    for (int i = 0; weakRef.get() != null; i++) {
-      LOG.info("gc {}", i);
-      System.gc();
-      Thread.sleep(100);
-    }
   }
 
   static void gc() throws InterruptedException {
