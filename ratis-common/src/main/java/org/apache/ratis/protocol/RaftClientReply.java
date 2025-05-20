@@ -187,11 +187,6 @@ public class RaftClientReply extends RaftClientMessage {
     return commitInfos;
   }
 
-  @Override
-  public final boolean isRequest() {
-    return false;
-  }
-
   public long getLogIndex() {
     return logIndex;
   }
