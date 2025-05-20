@@ -27,7 +27,7 @@ import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 
 import java.util.concurrent.TimeUnit;
 
@@ -59,7 +59,7 @@ public final class RetryCacheTestUtil {
   public static void assertFailure(RetryCache cache, LogEntryProto logEntry, boolean isFailed) {
     if(logEntry.hasStateMachineLogEntry()) {
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());
-      Assert.assertEquals(isFailed, get(cache, invocationId).isFailed());
+      Assertions.assertEquals(isFailed, get(cache, invocationId).isFailed());
     }
   }
 

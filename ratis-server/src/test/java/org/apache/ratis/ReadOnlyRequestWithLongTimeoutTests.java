@@ -32,9 +32,9 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.concurrent.CompletableFuture;
@@ -59,7 +59,7 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
   final Message timeoutMessage = new RaftTestUtil.SimpleMessage(TIMEOUT_INCREMENT);
   final Message queryMessage = new RaftTestUtil.SimpleMessage(QUERY);
 
-  @Before
+  @BeforeEach
   public void setup() {
     final RaftProperties p = getProperties();
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
@@ -86,17 +86,17 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
 
     try (RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
       final RaftClientReply reply = client.io().send(incrementMessage);
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
 
       client.async().send(waitAndIncrementMessage);
       Thread.sleep(100);
 
       RaftClientReply staleValueBefore = client.io().sendStaleRead(queryMessage, 0, leaderId);
 
-      Assert.assertEquals(1, ReadOnlyRequestTests.retrieve(staleValueBefore));
+      Assertions.assertEquals(1, ReadOnlyRequestTests.retrieve(staleValueBefore));
 
       RaftClientReply linearizableReadValue = client.io().sendReadOnly(queryMessage);
-      Assert.assertEquals(2, ReadOnlyRequestTests.retrieve(linearizableReadValue));
+      Assertions.assertEquals(2, ReadOnlyRequestTests.retrieve(linearizableReadValue));
     }
   }
 
@@ -111,14 +111,14 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
 
     try (RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
       final RaftClientReply reply = client.io().send(incrementMessage);
-      Assert.assertTrue(reply.isSuccess());
+      Assertions.assertTrue(reply.isSuccess());
 
       final CompletableFuture<RaftClientReply> asyncTimeoutReply = client.async().send(timeoutMessage);
       Thread.sleep(100);
 
-      Assert.assertThrows(ReadException.class, () -> {
+      Assertions.assertThrows(ReadException.class, () -> {
         final RaftClientReply timeoutReply = client.io().sendReadOnly(queryMessage);
-        Assert.assertTrue(timeoutReply.getException().getCause() instanceof TimeoutIOException);
+        Assertions.assertTrue(timeoutReply.getException().getCause() instanceof TimeoutIOException);
       });
 
       asyncTimeoutReply.join();
