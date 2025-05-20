@@ -33,9 +33,9 @@ import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -83,17 +83,17 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       String messageId, RaftPeerId server, RaftClientRpc rpc, CLUSTER cluster) throws IOException {
     final SimpleMessage message = new SimpleMessage(messageId);
     final RaftClientReply reply = rpc.sendRequest(cluster.newRaftClientRequest(ClientId.randomId(), server, message));
-    Assert.assertNotNull(reply);
+    Assertions.assertNotNull(reply);
     Assume.assumeFalse(reply.isSuccess());
     final NotLeaderException nle = reply.getNotLeaderException();
     Objects.requireNonNull(nle);
-    Assert.assertEquals(expectedSuggestedLeader, nle.getSuggestedLeader().getId());
+    Assertions.assertEquals(expectedSuggestedLeader, nle.getSuggestedLeader().getId());
     return reply;
   }
 
   static void sendMessage(String message, RaftClient client) throws IOException {
     final RaftClientReply reply = client.io().send(new SimpleMessage(message));
-    Assert.assertTrue(reply.isSuccess());
+    Assertions.assertTrue(reply.isSuccess());
   }
 
   @Test
@@ -115,7 +115,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       LOG.info("Start changing the configuration: {}", Arrays.asList(change.allPeersInNewConf));
       try (final RaftClient c2 = cluster.createClient(newLeader)) {
         RaftClientReply reply = c2.admin().setConfiguration(change.allPeersInNewConf);
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
       LOG.info(cluster.printServers());
 
@@ -127,9 +127,9 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
       final Collection<RaftPeer> peers = cluster.getPeers();
       final Collection<RaftPeer> peersFromReply = reply.getNotLeaderException().getPeers();
-      Assert.assertEquals(peers.size(), peersFromReply.size());
+      Assertions.assertEquals(peers.size(), peersFromReply.size());
       for (RaftPeer p : peersFromReply) {
-        Assert.assertTrue(peers.contains(p));
+        Assertions.assertTrue(peers.contains(p));
       }
 
       sendMessage("m2", client);
@@ -143,10 +143,10 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   void runTestGroupMismatchException(CLUSTER cluster) throws Exception {
     final RaftGroup clusterGroup = cluster.getGroup();
-    Assert.assertEquals(NUM_PEERS, clusterGroup.getPeers().size());
+    Assertions.assertEquals(NUM_PEERS, clusterGroup.getPeers().size());
 
     final RaftGroup anotherGroup = RaftGroup.valueOf(RaftGroupId.randomId(), clusterGroup.getPeers());
-    Assert.assertNotEquals(clusterGroup.getGroupId(), anotherGroup.getGroupId());
+    Assertions.assertNotEquals(clusterGroup.getGroupId(), anotherGroup.getGroupId());
 
     // Create client using another group
     try(RaftClient client = cluster.createClient(anotherGroup)) {

@@ -27,9 +27,10 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -59,7 +60,7 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
   private static final String VAL2 = "val2";
   private static final String DEFAULT = "default";
 
-  @Before
+  @BeforeEach
   public void setup () {
     conf1 = new RaftProperties();
     conf2 = new RaftProperties();
@@ -81,8 +82,7 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
     Collection<PropertyChange> changes
         = ReconfigurationBase.getChangedProperties(conf2, conf1);
 
-    Assert.assertTrue("expected 3 changed properties but got " + changes.size(),
-        changes.size() == 3);
+    Assertions.assertEquals(3, changes.size(), "Unexpected changed size");
 
     boolean changeFound = false;
     boolean unsetFound = false;
@@ -100,8 +100,7 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
         setFound = true;
       }
     }
-    Assert.assertTrue("not all changes have been applied",
-        changeFound && unsetFound && setFound);
+    Assertions.assertTrue(changeFound && unsetFound && setFound, "not all changes have been applied");
   }
 
   /**
@@ -157,161 +156,133 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
   public void testReconfigure() {
     ReconfigurableDummy dummy = new ReconfigurableDummy(conf1);
 
-    Assert.assertEquals(PROP1 + " set to wrong value ", VAL1, dummy.getProperties().get(PROP1));
-    Assert.assertEquals(PROP2 + " set to wrong value ", VAL1, dummy.getProperties().get(PROP2));
-    Assert.assertEquals(PROP3 + " set to wrong value ", VAL1, dummy.getProperties().get(PROP3));
-    Assert.assertNull(PROP4 + " set to wrong value ", dummy.getProperties().get(PROP4));
-    Assert.assertNull(PROP5 + " set to wrong value ", dummy.getProperties().get(PROP5));
+    Assertions.assertEquals(VAL1, dummy.getProperties().get(PROP1), PROP1 + " set to wrong value ");
+    Assertions.assertEquals(VAL1, dummy.getProperties().get(PROP2), PROP2 + " set to wrong value ");
+    Assertions.assertEquals(VAL1, dummy.getProperties().get(PROP3), PROP3 + " set to wrong value ");
+    Assertions.assertNull(dummy.getProperties().get(PROP4), PROP4 + " set to wrong value ");
+    Assertions.assertNull(dummy.getProperties().get(PROP5), PROP5 + " set to wrong value ");
 
-    Assert.assertTrue(PROP1 + " should be reconfigurable ",
-        dummy.isPropertyReconfigurable(PROP1));
-    Assert.assertTrue(PROP2 + " should be reconfigurable ",
-        dummy.isPropertyReconfigurable(PROP2));
-    Assert.assertFalse(PROP3 + " should not be reconfigurable ",
-        dummy.isPropertyReconfigurable(PROP3));
-    Assert.assertTrue(PROP4 + " should be reconfigurable ",
-        dummy.isPropertyReconfigurable(PROP4));
-    Assert.assertFalse(PROP5 + " should not be reconfigurable ",
-        dummy.isPropertyReconfigurable(PROP5));
+    Assertions.assertTrue(dummy.isPropertyReconfigurable(PROP1), PROP1 + " should be reconfigurable ");
+    Assertions.assertTrue(dummy.isPropertyReconfigurable(PROP2), PROP2 + " should be reconfigurable ");
+    Assertions.assertFalse(dummy.isPropertyReconfigurable(PROP3), PROP3 + " should not be reconfigurable ");
+    Assertions.assertTrue(dummy.isPropertyReconfigurable(PROP4), PROP4 + " should be reconfigurable ");
+    Assertions.assertFalse(dummy.isPropertyReconfigurable(PROP5), PROP5 + " should not be reconfigurable ");
 
     // change something to the same value as before
     {
-      boolean exceptionCaught = false;
       try {
         dummy.reconfigureProperty(PROP1, VAL1);
         dummy.startReconfiguration();
         RaftTestUtil.waitFor(() -> dummy.getReconfigurationStatus().ended(), 100, 60000);
-        Assert.assertEquals(PROP1 + " set to wrong value ", VAL1, dummy.getProperties().get(PROP1));
+        Assertions.assertEquals(VAL1, dummy.getProperties().get(PROP1), PROP1 + " set to wrong value ");
       } catch (ReconfigurationException | IOException | TimeoutException | InterruptedException e) {
-        exceptionCaught = true;
+        Assertions.fail("Unexpected exception", e);
       }
-      Assert.assertFalse("received unexpected exception",
-          exceptionCaught);
     }
 
     // change something to null
     {
-      boolean exceptionCaught = false;
       try {
         dummy.reconfigureProperty(PROP1, null);
         dummy.startReconfiguration();
         RaftTestUtil.waitFor(() -> dummy.getReconfigurationStatus().ended(), 100, 60000);
-        Assert.assertEquals(PROP1 + "set to wrong value ", DEFAULT,
-            dummy.getProperties().get(PROP1));
+        Assertions.assertEquals(DEFAULT
+,             dummy.getProperties().get(PROP1), PROP1 + "set to wrong value ");
       } catch (ReconfigurationException | IOException | InterruptedException | TimeoutException e) {
-        exceptionCaught = true;
+        Assertions.fail("Unexpected exception", e);
       }
-      Assert.assertFalse("received unexpected exception",
-          exceptionCaught);
     }
 
     // change something to a different value than before
     {
-      boolean exceptionCaught = false;
       try {
         dummy.reconfigureProperty(PROP1, VAL2);
         dummy.startReconfiguration();
         RaftTestUtil.waitFor(() -> dummy.getReconfigurationStatus().ended(), 100, 60000);
-        Assert.assertEquals(PROP1 + "set to wrong value ", VAL2, dummy.getProperties().get(PROP1));
+        Assertions.assertEquals(VAL2, dummy.getProperties().get(PROP1), PROP1 + "set to wrong value ");
       } catch (ReconfigurationException | IOException | InterruptedException | TimeoutException e) {
-        exceptionCaught = true;
+        Assertions.fail("Unexpected exception", e);
       }
-      Assert.assertFalse("received unexpected exception",
-          exceptionCaught);
     }
 
     // set unset property to null
     {
-      boolean exceptionCaught = false;
       try {
         dummy.reconfigureProperty(PROP4, null);
         dummy.startReconfiguration();
         RaftTestUtil.waitFor(() -> dummy.getReconfigurationStatus().ended(), 100, 60000);
-        Assert.assertSame(PROP4 + "set to wrong value ", DEFAULT, dummy.getProperties().get(PROP4));
+        Assertions.assertSame(DEFAULT, dummy.getProperties().get(PROP4), PROP4 + "set to wrong value ");
       } catch (ReconfigurationException | IOException | InterruptedException | TimeoutException e) {
-        exceptionCaught = true;
+        Assertions.fail("Unexpected exception", e);
       }
-      Assert.assertFalse("received unexpected exception",
-          exceptionCaught);
     }
 
     // set unset property
     {
-      boolean exceptionCaught = false;
       try {
         dummy.reconfigureProperty(PROP4, VAL1);
         dummy.startReconfiguration();
         RaftTestUtil.waitFor(() -> dummy.getReconfigurationStatus().ended(), 100, 60000);
-        Assert.assertEquals(PROP4 + "set to wrong value ", VAL1, dummy.getProperties().get(PROP4));
+        Assertions.assertEquals(VAL1, dummy.getProperties().get(PROP4), PROP4 + "set to wrong value ");
       } catch (ReconfigurationException | IOException | InterruptedException | TimeoutException e) {
-        exceptionCaught = true;
+        Assertions.fail("Unexpected exception", e);
       }
-      Assert.assertFalse("received unexpected exception",
-          exceptionCaught);
     }
 
     // try to set unset property to null (not reconfigurable)
     {
-      boolean exceptionCaught = false;
       try {
         dummy.reconfigureProperty(PROP5, null);
         dummy.startReconfiguration();
         RaftTestUtil.waitFor(() -> dummy.getReconfigurationStatus().ended(), 100, 60000);
       } catch (ReconfigurationException | IOException | InterruptedException | TimeoutException e) {
-        exceptionCaught = true;
+        Assertions.fail("Unexpected exception", e);
       }
-      Assert.assertTrue("did not receive expected exception",
-          dummy.getReconfigurationStatus().getChanges()
+      Assertions.assertTrue(dummy.getReconfigurationStatus().getChanges()
               .get(new PropertyChange(PROP5, DEFAULT, null))
-              .getMessage().contains("Property is not reconfigurable.") && !exceptionCaught);
+              .getMessage().contains("Property is not reconfigurable."), "did not receive expected exception");
     }
 
     // try to set unset property to value (not reconfigurable)
     {
-      boolean exceptionCaught = false;
       try {
         dummy.reconfigureProperty(PROP5, VAL1);
         dummy.startReconfiguration();
         RaftTestUtil.waitFor(() -> dummy.getReconfigurationStatus().ended(), 100, 60000);
       } catch (ReconfigurationException | IOException | InterruptedException | TimeoutException e) {
-        exceptionCaught = true;
+        Assertions.fail("Unexpected exception", e);
       }
-      Assert.assertTrue("did not receive expected exception",
-          dummy.getReconfigurationStatus().getChanges()
+      Assertions.assertTrue(dummy.getReconfigurationStatus().getChanges()
               .get(new PropertyChange(PROP5, VAL1, null))
-              .getMessage().contains("Property is not reconfigurable.") && !exceptionCaught);
+              .getMessage().contains("Property is not reconfigurable."), "did not receive expected exception");
     }
 
     // try to change property to value (not reconfigurable)
     {
-      boolean exceptionCaught = false;
       try {
         dummy.reconfigureProperty(PROP3, VAL2);
         dummy.startReconfiguration();
         RaftTestUtil.waitFor(() -> dummy.getReconfigurationStatus().ended(), 100, 60000);
       } catch (ReconfigurationException | IOException | InterruptedException | TimeoutException e) {
-        exceptionCaught = true;
+        Assertions.fail("Unexpected exception", e);
       }
-      Assert.assertTrue("did not receive expected exception",
-          dummy.getReconfigurationStatus().getChanges()
+      Assertions.assertTrue(dummy.getReconfigurationStatus().getChanges()
               .get(new PropertyChange(PROP3, VAL2, VAL1))
-              .getMessage().contains("Property is not reconfigurable.") && !exceptionCaught);
+              .getMessage().contains("Property is not reconfigurable."), "did not receive expected exception");
     }
 
     // try to change property to null (not reconfigurable)
     {
-      boolean exceptionCaught = false;
       try {
         dummy.reconfigureProperty(PROP3, null);
         dummy.startReconfiguration();
         RaftTestUtil.waitFor(() -> dummy.getReconfigurationStatus().ended(), 100, 60000);
       } catch (ReconfigurationException | IOException | InterruptedException | TimeoutException e) {
-        exceptionCaught = true;
+        Assertions.fail("Unexpected exception", e);
       }
-      Assert.assertTrue("did not receive expected exception",
-          dummy.getReconfigurationStatus().getChanges()
+      Assertions.assertTrue(dummy.getReconfigurationStatus().getChanges()
               .get(new PropertyChange(PROP3, DEFAULT, VAL1))
-              .getMessage().contains("Property is not reconfigurable.") && !exceptionCaught);
+              .getMessage().contains("Property is not reconfigurable."), "did not receive expected exception");
     }
   }
 
@@ -321,7 +292,7 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
   @Test
   public void testThread() throws ReconfigurationException, IOException {
     ReconfigurableDummy dummy = new ReconfigurableDummy(conf1);
-    Assert.assertEquals(VAL1, dummy.getProperties().get(PROP1));
+    Assertions.assertEquals(VAL1, dummy.getProperties().get(PROP1));
     Thread dummyThread = new Thread(dummy);
     dummyThread.start();
     try {
@@ -341,25 +312,23 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
       }
     }
 
-    Assert.assertFalse("dummy thread should not be alive",
-        dummyThread.isAlive());
+    Assertions.assertFalse(dummyThread.isAlive(), "dummy thread should not be alive");
     dummy.running = false;
     try {
       dummyThread.join();
     } catch (InterruptedException ignore) {
       // do nothing
     }
-    Assert.assertTrue(PROP1 + " is set to wrong value",
-        dummy.getProperties().get(PROP1).equals(VAL2));
+    Assertions.assertEquals(VAL2, dummy.getProperties().get(PROP1), PROP1 + " is set to wrong value");
 
   }
 
   /**
    * Ensure that {@link ReconfigurationBase#reconfigureProperty} updates the
    * parent's cached configuration on success.
-   * @throws IOException
    */
-  @Test (timeout=300000)
+  @Test
+  @Timeout(value = 300)
   public void testConfIsUpdatedOnSuccess()
       throws ReconfigurationException, IOException, InterruptedException, TimeoutException {
     final String property = "FOO";
@@ -377,15 +346,15 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
     reconfigurable.reconfigureProperty(property, value2);
     reconfigurable.startReconfiguration();
     RaftTestUtil.waitFor(() -> reconfigurable.getReconfigurationStatus().ended(), 100, 60000);
-    Assert.assertEquals(value2, reconfigurable.getProperties().get(property));
+    Assertions.assertEquals(value2, reconfigurable.getProperties().get(property));
   }
 
   /**
    * Ensure that {@link ReconfigurationBase#startReconfiguration} updates
    * its parent's cached configuration on success.
-   * @throws IOException
    */
-  @Test (timeout=300000)
+  @Test
+  @Timeout(value = 300)
   public void testConfIsUpdatedOnSuccessAsync()
       throws InterruptedException, IOException, TimeoutException {
     final String property = "FOO";
@@ -404,7 +373,7 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
     reconfigurable.startReconfiguration();
 
     RaftTestUtil.waitFor(() -> reconfigurable.getReconfigurationStatus().ended(), 100, 60000);
-    Assert.assertEquals(value2, reconfigurable.getProperties().get(property));
+    Assertions.assertEquals(value2, reconfigurable.getProperties().get(property));
   }
 
   /**
@@ -412,7 +381,8 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
    * property in its parent's configuration when the new value is null.
    * @throws IOException
    */
-  @Test (timeout=300000)
+  @Test
+  @Timeout(value = 300)
   public void testConfIsUnset()
       throws InterruptedException, TimeoutException, IOException {
     final String property = "FOO";
@@ -427,15 +397,15 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
 
     reconfigurable.startReconfiguration();
     RaftTestUtil.waitFor(() -> reconfigurable.getReconfigurationStatus().ended(), 100, 60000);
-    Assert.assertNull(reconfigurable.getProperties().get(property));
+    Assertions.assertNull(reconfigurable.getProperties().get(property));
   }
 
   /**
    * Ensure that {@link ReconfigurationBase#startReconfiguration} unsets the
    * property in its parent's configuration when the new value is null.
-   * @throws IOException
    */
-  @Test (timeout=300000)
+  @Test
+  @Timeout(value = 300)
   public void testConfIsUnsetAsync() throws ReconfigurationException,
       IOException, TimeoutException, InterruptedException {
     final String property = "FOO";
@@ -451,7 +421,7 @@ public abstract class TestReConfigProperty<CLUSTER extends MiniRaftCluster> exte
     // Kick off a reconfiguration task and wait until it completes.
     reconfigurable.startReconfiguration();
     RaftTestUtil.waitFor(() -> reconfigurable.getReconfigurationStatus().ended(), 100, 60000);
-    Assert.assertNull(reconfigurable.getProperties().get(property));
+    Assertions.assertNull(reconfigurable.getProperties().get(property));
   }
 
   private ReconfigurationBase makeReconfigurable(

@@ -39,8 +39,8 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -194,7 +194,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       try(final RaftClient client = cluster.createClient(leaderId)) {
         for (; i < numRequests; i++) {
           final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
       }
 
@@ -206,7 +206,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
             nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
         JavaUtils.attemptRepeatedly(() -> {
-          Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+          Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
           return null;
         }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
         logs = LogSegmentPath.getLogSegmentPaths(leader.getRaftStorage());
@@ -220,7 +220,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     // delete the log segments from the leader
     LOG.info("Delete logs {}", logs);
     for (LogSegmentPath path : logs) {
-      FileUtils.deleteFully(path.getPath()); // the log may be already purged
+      FileUtils.deleteFully(path.getPath()); // the log may be already puged
     }
 
     // restart the peer
@@ -231,13 +231,13 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // generate some more traffic
       try(final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
-        Assert.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
+        Assertions.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
       }
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assert.assertTrue(set);
+      Assertions.assertTrue(set);
 
       // add two more peers
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
@@ -253,7 +253,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       // leader snapshot.
       for (RaftServer.Division follower : cluster.getFollowers()) {
         final long expected = leaderSnapshotInfo.getIndex();
-        Assert.assertEquals(expected, RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
+        Assertions.assertEquals(expected, RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
         RaftSnapshotBaseTest.assertLogContent(follower, false);
       }
 
@@ -279,7 +279,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     try (final RaftClient client = cluster.createClient(leaderId)) {
       for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
         final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
     }
 
@@ -290,7 +290,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
           oldLeaderNextIndex - SNAPSHOT_TRIGGER_THRESHOLD, oldLeaderNextIndex);
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
     }
@@ -300,7 +300,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
     // generate some more traffic
     try (final RaftClient client = cluster.createClient(leader.getId())) {
-      Assert.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
+      Assertions.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
     }
 
     FIVE_SECONDS.sleep();
@@ -309,8 +309,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     JavaUtils.attempt(() -> {
       final long newLeaderNextIndex = leader.getRaftLog().getNextIndex();
       LOG.info("{}: newLeaderNextIndex = {}", leaderId, newLeaderNextIndex);
-      Assert.assertTrue(newLeaderNextIndex > oldLeaderNextIndex);
-      Assert.assertEquals(newLeaderNextIndex, follower.getRaftLog().getNextIndex());
+      Assertions.assertTrue(newLeaderNextIndex > oldLeaderNextIndex);
+      Assertions.assertEquals(newLeaderNextIndex, follower.getRaftLog().getNextIndex());
     }, 10, ONE_SECOND, "followerNextIndex", LOG);
   }
 
@@ -331,14 +331,14 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Let a few heartbeats pass.
       ONE_SECOND.sleep();
-      Assert.assertEquals(0, numSnapshotRequests.get());
+      Assertions.assertEquals(0, numSnapshotRequests.get());
 
       // Generate data.
       try(final RaftClient client = cluster.createClient(leaderId)) {
         for (; i < 10; i++) {
           RaftClientReply
               reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
       }
 
@@ -349,42 +349,42 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Take snapshot and check result.
       long snapshotIndex = cluster.getLeader().getStateMachine().takeSnapshot();
-      Assert.assertEquals(20, snapshotIndex);
+      Assertions.assertEquals(20, snapshotIndex);
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
-      Assert.assertEquals(20, leaderSnapshotInfo.getIndex());
+      Assertions.assertEquals(20, leaderSnapshotInfo.getIndex());
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assert.assertTrue(set);
+      Assertions.assertTrue(set);
 
       // Wait for the snapshot to be done.
       final RaftServer.Division leader = cluster.getLeader();
       final long nextIndex = leader.getRaftLog().getNextIndex();
-      Assert.assertEquals(21, nextIndex);
+      Assertions.assertEquals(21, nextIndex);
       // End index is exclusive.
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
           0, nextIndex);
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
 
       // Clear all log files and reset cached log start index.
       long snapshotInstallIndex =
           leader.getRaftLog().onSnapshotInstalled(leader.getRaftLog().getLastCommittedIndex()).get();
-      Assert.assertEquals(20, snapshotInstallIndex);
+      Assertions.assertEquals(20, snapshotInstallIndex);
 
       // Check that logs are gone.
-      Assert.assertEquals(0,
+      Assertions.assertEquals(0,
           LogSegmentPath.getLogSegmentPaths(leader.getRaftStorage()).size());
-      Assert.assertEquals(RaftLog.INVALID_LOG_INDEX, leader.getRaftLog().getStartIndex());
+      Assertions.assertEquals(RaftLog.INVALID_LOG_INDEX, leader.getRaftLog().getStartIndex());
 
       // Allow some heartbeats to go through, then make sure none of them had
       // snapshot requests.
       ONE_SECOND.sleep();
-      Assert.assertEquals(0, numSnapshotRequests.get());
+      Assertions.assertEquals(0, numSnapshotRequests.get());
 
       // Make sure leader and followers are still up to date.
       for (RaftServer.Division follower : cluster.getFollowers()) {
-        Assert.assertEquals(
+        Assertions.assertEquals(
             leader.getRaftLog().getNextIndex(),
             follower.getRaftLog().getNextIndex());
       }
@@ -400,7 +400,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Generate more data.
       try (final RaftClient client = cluster.createClient(leader.getId())) {
-        Assert.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
+        Assertions.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
       }
 
       // Make sure leader and followers are still up to date.
@@ -412,7 +412,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       // Make sure each new peer got one snapshot notification.
-      Assert.assertEquals(2, numSnapshotRequests.get());
+      Assertions.assertEquals(2, numSnapshotRequests.get());
 
     } finally {
       cluster.shutdown();
@@ -437,7 +437,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
           RaftClientReply
               reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
       }
 
@@ -448,7 +448,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
           nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
       logs = LogSegmentPath.getLogSegmentPaths(leader.getRaftStorage());
@@ -470,13 +470,13 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // generate some more traffic
       try(final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
-        Assert.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
+        Assertions.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
       }
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       LOG.info("LeaderSnapshotInfo: {}", leaderSnapshotInfo.getTermIndex());
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assert.assertTrue(set);
+      Assertions.assertTrue(set);
 
       // add one new peer
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
@@ -490,7 +490,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       // Check the installed snapshot index on each Follower matches with the
       // leader snapshot.
       for (RaftServer.Division follower : cluster.getFollowers()) {
-        Assert.assertEquals(leaderSnapshotInfo.getIndex(),
+        Assertions.assertEquals(leaderSnapshotInfo.getIndex(),
             RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
       }
 
@@ -500,9 +500,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
           (SimpleStateMachine4Testing) cluster.getFollowers().get(0).getStateMachine();
       final File followerSnapshotFile = new File(followerStateMachine.getStateMachineDir(),
           leaderSnapshotFile.getName());
-      Assert.assertEquals(numNotifyInstallSnapshotFinished.get(), 2);
-      Assert.assertTrue(leaderSnapshotFile.exists());
-      Assert.assertFalse(followerSnapshotFile.exists());
+      Assertions.assertEquals(numNotifyInstallSnapshotFinished.get(), 2);
+      Assertions.assertTrue(leaderSnapshotFile.exists());
+      Assertions.assertFalse(followerSnapshotFile.exists());
 
       // restart the peer and check if it can correctly handle conf change
       cluster.restartServer(cluster.getLeader().getId(), false);
@@ -535,7 +535,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
           RaftClientReply
               reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
-          Assert.assertTrue(reply.isSuccess());
+          Assertions.assertTrue(reply.isSuccess());
         }
       }
 
@@ -546,7 +546,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
           nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
       JavaUtils.attemptRepeatedly(() -> {
-        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
 
@@ -554,7 +554,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
-      Assert.assertTrue(set);
+      Assertions.assertTrue(set);
 
       // add two more peers
       final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
@@ -568,12 +568,12 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       // Check the installed snapshot index on each Follower matches with the
       // leader snapshot.
       for (RaftServer.Division follower : cluster.getFollowers()) {
-        Assert.assertEquals(leaderSnapshotInfo.getIndex(),
+        Assertions.assertEquals(leaderSnapshotInfo.getIndex(),
             RaftServerTestUtil.getLatestInstalledSnapshotIndex(follower));
       }
 
       // Make sure each new peer got at least one snapshot notification.
-      Assert.assertTrue(2 <= numSnapshotRequests.get());
+      Assertions.assertTrue(2 <= numSnapshotRequests.get());
     } finally {
       cluster.shutdown();
     }

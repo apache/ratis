@@ -51,8 +51,9 @@ import org.apache.ratis.util.PlatformUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -70,6 +71,7 @@ import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
+@Timeout(100)
 public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
@@ -112,9 +114,9 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   }
 
   static void assertRaftRetryFailureException(RaftRetryFailureException rfe, RetryPolicy retryPolicy, String name) {
-    Assert.assertNotNull(name + " does not have RaftRetryFailureException", rfe);
-    Assert.assertTrue(name + ": unexpected error message, rfe=" + rfe + ", retryPolicy=" + retryPolicy,
-        rfe.getMessage().contains(retryPolicy.toString()));
+    Assertions.assertNotNull(rfe, name + " does not have RaftRetryFailureException");
+    Assertions.assertTrue(rfe.getMessage().contains(retryPolicy.toString()),
+        name + ": unexpected error message, rfe=" + rfe + ", retryPolicy=" + retryPolicy);
   }
 
   @Test
@@ -172,7 +174,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
         for (; i < messages.length; i++) {
           replies.add(client.async().send(messages[i]));
         }
-        Assert.assertEquals(messages.length, replies.size());
+        Assertions.assertEquals(messages.length, replies.size());
       }
 
       // sleep again so that the first half calls will fail retries.
@@ -229,7 +231,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
         futures[i] = client.async().send(messages[i]);
         blockedRequestsCount.decrementAndGet();
       }
-      Assert.assertEquals(0, blockedRequestsCount.get());
+      Assertions.assertEquals(0, blockedRequestsCount.get());
 
       futures[numMessages] = CompletableFuture.supplyAsync(() -> {
         blockedRequestsCount.incrementAndGet();
@@ -242,7 +244,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       while (blockedRequestsCount.get() != 1) {
         Thread.sleep(1000);
       }
-      Assert.assertEquals(1, blockedRequestsCount.get());
+      Assertions.assertEquals(1, blockedRequestsCount.get());
       //Since all semaphore permits are acquired the last message sent is in queue
       RaftClientTestUtil.assertAsyncRequestSemaphore(client, 0, 1);
 
@@ -255,7 +257,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       for (int i = 0; i <= numMessages; i++) {
         futures[i].join();
       }
-      Assert.assertEquals(0, blockedRequestsCount.get());
+      Assertions.assertEquals(0, blockedRequestsCount.get());
     }
   }
 
@@ -297,11 +299,11 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
         LOG.info("sendAsync " + s);
         futures.add(client.async().send(new SimpleMessage(s)));
       }
-      Assert.assertEquals(numMessages, futures.size());
+      Assertions.assertEquals(numMessages, futures.size());
       final List<RaftClientReply> replies = new ArrayList<>();
       for (CompletableFuture<RaftClientReply> f : futures) {
         final RaftClientReply r = f.join();
-        Assert.assertTrue(r.isSuccess());
+        Assertions.assertTrue(r.isSuccess());
         replies.add(r);
       }
       futures.clear();
@@ -309,7 +311,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       // Use a follower with the max commit index
       final RaftClientReply lastWriteReply = replies.get(replies.size() - 1);
       final RaftPeerId leader = lastWriteReply.getServerId();
-      Assert.assertEquals(leader, lastWriteReply.getServerId());
+      Assertions.assertEquals(leader, lastWriteReply.getServerId());
       LOG.info("leader = " + leader);
       final Collection<CommitInfoProto> commitInfos = lastWriteReply.getCommitInfos();
       LOG.info("commitInfos = " + commitInfos);
@@ -356,7 +358,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
             throw new CompletionException(e);
           }
 
-          Assert.assertEquals("log entry mismatch for query=" + query, expected, computed);
+          Assertions.assertEquals(expected, computed, "log entry mismatch for query=" + query);
           return null;
         }));
       }
@@ -383,14 +385,14 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
           if (exception != null) {
             LOG.error("Failed to send message " + s, exception);
             // reply should be null in case of exception
-            Assert.assertNull(reply);
+            Assertions.assertNull(reply);
             return;
           }
-          Assert.assertTrue(reply.isSuccess());
-          Assert.assertNull(reply.getException());
+          Assertions.assertTrue(reply.isSuccess());
+          Assertions.assertNull(reply.getException());
           // verify that all servers have caught up to log index when the reply is returned
           reply.getCommitInfos().forEach(commitInfoProto ->
-              Assert.assertTrue(commitInfoProto.getCommitIndex() >= reply.getLogIndex()));
+              Assertions.assertTrue(commitInfoProto.getCommitIndex() >= reply.getLogIndex()));
         });
       }
     }
@@ -436,15 +438,15 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       CompletableFuture<RaftClientReply> replyFuture = client.async().send(new SimpleMessage("abc"));
       Thread.sleep(waitTime);
       // replyFuture should not be completed until append request is unblocked.
-      Assert.assertFalse(replyFuture.isDone());
+      Assertions.assertFalse(replyFuture.isDone());
       // unblock append request.
       cluster.getServerAliveStream()
           .filter(impl -> !impl.getInfo().isLeader() && !impl.getPeer().getId().equals(leader))
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
 
-      Assert.assertTrue(replyFuture.get().isSuccess());
-      Assert.assertTrue(System.currentTimeMillis() - time > waitTime);
+      Assertions.assertTrue(replyFuture.get().isSuccess());
+      Assertions.assertTrue(System.currentTimeMillis() - time > waitTime);
     }
 
     //reset for the other tests
@@ -481,7 +483,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       // previous leader should not there.
       cluster.getServerAliveStream()
           .map(RaftServer.Division::getInfo)
-          .forEach(info -> Assert.assertTrue(!info.isLeader() || info.getCurrentTerm() > termOfPrevLeader));
+          .forEach(info -> Assertions.assertTrue(!info.isLeader() || info.getCurrentTerm() > termOfPrevLeader));
 
     } finally {
       // unblock append entries request
@@ -494,7 +496,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     LOG.info("Current Leader is elected on term {}", termOfCurrLeader);
 
     // leader on termOfPrevLeader should step-down.
-    Assert.assertTrue(termOfPrevLeader < termOfCurrLeader);
+    Assertions.assertTrue(termOfPrevLeader < termOfCurrLeader);
   }
 
   @Test
@@ -507,10 +509,10 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   private void runTestNoRetryWaitOnNotLeaderException(MiniRaftCluster cluster) throws Exception {
     final RaftServer.Division leader = waitForLeader(cluster);
     final List<RaftServer.Division> followers = cluster.getFollowers();
-    Assert.assertNotNull(followers);
-    Assert.assertEquals(2, followers.size());
-    Assert.assertNotSame(leader, followers.get(0));
-    Assert.assertNotSame(leader, followers.get(1));
+    Assertions.assertNotNull(followers);
+    Assertions.assertEquals(2, followers.size());
+    Assertions.assertNotSame(leader, followers.get(0));
+    Assertions.assertNotSame(leader, followers.get(1));
 
     // send a message to make sure that the leader is ready
     try (final RaftClient client = cluster.createClient(leader.getId())) {

@@ -18,7 +18,7 @@
 package org.apache.ratis;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
@@ -40,8 +40,8 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -199,7 +199,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
         if (e != null) {
           throw e;
         }
-        Assert.assertTrue(s.succeed.get());
+        Assertions.assertTrue(s.succeed.get());
       }
     } finally {
       for (int i = 0; i < clients.size(); i ++) {
@@ -215,11 +215,11 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     final RaftLog leaderLog = cluster.getLeader().getRaftLog();
     final EnumMap<LogEntryBodyCase, AtomicLong> counts = RaftTestUtil.countEntries(leaderLog);
     LOG.info("counts = " + counts);
-    Assert.assertEquals(6 * numMsgs * numClients, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());
+    Assertions.assertEquals(6 * numMsgs * numClients, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());
 
     final LogEntryProto last = RaftTestUtil.getLastEntry(LogEntryBodyCase.STATEMACHINELOGENTRY, leaderLog);
     LOG.info("last = {}", LogProtoUtils.toLogEntryString(last));
-    Assert.assertNotNull(last);
-    Assert.assertTrue(last.getIndex() <= leader.getInfo().getLastAppliedIndex());
+    Assertions.assertNotNull(last);
+    Assertions.assertTrue(last.getIndex() <= leader.getInfo().getLastAppliedIndex());
   }
 }

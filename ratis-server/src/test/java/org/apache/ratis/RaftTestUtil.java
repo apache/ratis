@@ -43,7 +43,6 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.Assert;
 import org.junit.AssumptionViolatedException;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
@@ -142,7 +141,7 @@ public interface RaftTestUtil {
 
   static RaftPeerId waitAndKillLeader(MiniRaftCluster cluster) throws InterruptedException {
     final RaftServer.Division leader = waitForLeader(cluster);
-    Assert.assertNotNull(leader);
+    Assertions.assertNotNull(leader);
 
     LOG.info("killing leader = " + leader);
     cluster.killServer(leader.getId());
@@ -229,7 +228,7 @@ public interface RaftTestUtil {
           e = log.get(termIndices[i].getIndex());
           if (Arrays.equals(expectedMessages[j].getContent().toByteArray(),
               e.getStateMachineLogEntry().getLogData().toByteArray())) {
-            Assert.assertTrue(predicate.test(e));
+            Assertions.assertTrue(predicate.test(e));
           }
         } catch (IOException exception) {
           exception.printStackTrace();
@@ -342,16 +341,16 @@ public interface RaftTestUtil {
 
   static void assertLogEntries(List<LogEntryProto> entries, long expectedTerm, SimpleMessage... expectedMessages) {
     long logIndex = 0;
-    Assert.assertEquals(expectedMessages.length, entries.size());
+    Assertions.assertEquals(expectedMessages.length, entries.size());
     for (int i = 0; i < expectedMessages.length; i++) {
       final LogEntryProto e = entries.get(i);
-      Assert.assertTrue(e.getTerm() >= expectedTerm);
+      Assertions.assertTrue(e.getTerm() >= expectedTerm);
       if (e.getTerm() > expectedTerm) {
         expectedTerm = e.getTerm();
       }
-      Assert.assertTrue(e.getIndex() > logIndex);
+      Assertions.assertTrue(e.getIndex() > logIndex);
       logIndex = e.getIndex();
-      Assert.assertEquals(expectedMessages[i].getContent(), e.getStateMachineLogEntry().getLogData());
+      Assertions.assertEquals(expectedMessages[i].getContent(), e.getStateMachineLogEntry().getLogData());
     }
   }
 
@@ -553,11 +552,11 @@ public interface RaftTestUtil {
   }
 
   static void assertSameLog(RaftLog expected, RaftLog computed) throws Exception {
-    Assert.assertEquals(expected.getLastEntryTermIndex(), computed.getLastEntryTermIndex());
+    Assertions.assertEquals(expected.getLastEntryTermIndex(), computed.getLastEntryTermIndex());
     final long lastIndex = expected.getNextIndex() - 1;
-    Assert.assertEquals(expected.getLastEntryTermIndex().getIndex(), lastIndex);
+    Assertions.assertEquals(expected.getLastEntryTermIndex().getIndex(), lastIndex);
     for(long i = 0; i < lastIndex; i++) {
-      Assert.assertEquals(expected.get(i), computed.get(i));
+      Assertions.assertEquals(expected.get(i), computed.get(i));
     }
   }
 
@@ -588,8 +587,8 @@ public interface RaftTestUtil {
   }
 
   static void assertSuccessReply(RaftClientReply reply) {
-    Assert.assertNotNull("reply == null", reply);
-    Assert.assertTrue("reply is not success: " + reply, reply.isSuccess());
+    Assertions.assertNotNull(reply, "reply == null");
+    Assertions.assertTrue(reply.isSuccess(), "reply is not success: " + reply);
   }
 
   static void gc() throws InterruptedException {

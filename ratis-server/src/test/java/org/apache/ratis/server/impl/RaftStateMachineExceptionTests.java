@@ -33,15 +33,15 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest implements MiniRaftCluster.Factory.Get<CLUSTER> {
@@ -92,7 +92,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       fail("Exception expected");
     } catch (StateMachineException e) {
       e.printStackTrace();
-      Assert.assertTrue(e.getCause().getMessage().contains("Fake Exception"));
+      Assertions.assertTrue(e.getCause().getMessage().contains("Fake Exception"));
     }
     cluster.shutdown();
   }
@@ -114,23 +114,23 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       final SimpleMessage message = new SimpleMessage("message");
       final RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId, callId, message);
       RaftClientReply reply = rpc.sendRequest(r);
-      Assert.assertFalse(reply.isSuccess());
-      Assert.assertNotNull(reply.getStateMachineException());
+      Assertions.assertFalse(reply.isSuccess());
+      Assertions.assertNotNull(reply.getStateMachineException());
 
       // retry with the same callId
       for (int i = 0; i < 5; i++) {
         reply = rpc.sendRequest(r);
-        Assert.assertEquals(client.getId(), reply.getClientId());
-        Assert.assertEquals(callId, reply.getCallId());
-        Assert.assertFalse(reply.isSuccess());
-        Assert.assertNotNull(reply.getStateMachineException());
+        Assertions.assertEquals(client.getId(), reply.getClientId());
+        Assertions.assertEquals(callId, reply.getCallId());
+        Assertions.assertFalse(reply.isSuccess());
+        Assertions.assertNotNull(reply.getStateMachineException());
       }
 
       for (RaftServer.Division server : cluster.iterateDivisions()) {
         LOG.info("check server " + server.getId());
 
         JavaUtils.attemptRepeatedly(() -> {
-          Assert.assertNotNull(RetryCacheTestUtil.get(server, client.getId(), callId));
+          Assertions.assertNotNull(RetryCacheTestUtil.get(server, client.getId(), callId));
           return null;
         }, 5, BaseTest.ONE_SECOND, "GetRetryEntry", LOG);
 
@@ -161,8 +161,8 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       Objects.requireNonNull(reply.getStateMachineException());
 
       final RetryCache.Entry oldEntry = RetryCacheTestUtil.get(oldLeader, client.getId(), callId);
-      Assert.assertNotNull(oldEntry);
-      Assert.assertTrue(RetryCacheTestUtil.isFailed(oldEntry));
+      Assertions.assertNotNull(oldEntry);
+      Assertions.assertTrue(RetryCacheTestUtil.isFailed(oldEntry));
 
       Thread.sleep(100);
       // At this point of time the old leader would have stepped down. wait for leader election to complete
@@ -173,9 +173,9 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       Objects.requireNonNull(reply.getStateMachineException());
 
       final RetryCache.Entry currentEntry = RetryCacheTestUtil.get(leader, client.getId(), callId);
-      Assert.assertNotNull(currentEntry);
-      Assert.assertTrue(RetryCacheTestUtil.isFailed(currentEntry));
-      Assert.assertNotEquals(oldEntry, currentEntry);
+      Assertions.assertNotNull(currentEntry);
+      Assertions.assertTrue(RetryCacheTestUtil.isFailed(currentEntry));
+      Assertions.assertNotEquals(oldEntry, currentEntry);
       failPreAppend = false;
     }
   }

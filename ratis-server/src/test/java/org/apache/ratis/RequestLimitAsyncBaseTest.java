@@ -31,8 +31,8 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.ArrayList;
@@ -74,7 +74,7 @@ public abstract class RequestLimitAsyncBaseTest<CLUSTER extends MiniRaftCluster>
         final SimpleMessage message = new SimpleMessage("first");
         final CompletableFuture<RaftClientReply> future = c1.async().send(message);
         final RaftClientReply reply = getWithDefaultTimeout(future);
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
 
       // collecting futures returned from StateMachine.applyTransaction
@@ -118,7 +118,7 @@ public abstract class RequestLimitAsyncBaseTest<CLUSTER extends MiniRaftCluster>
       // check replies
       for(CompletableFuture<RaftClientReply> f : writeFutures) {
         final RaftClientReply reply = getWithDefaultTimeout(f);
-        Assert.assertTrue(reply.isSuccess());
+        Assertions.assertTrue(reply.isSuccess());
       }
     }
   }
