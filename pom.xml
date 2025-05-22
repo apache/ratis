@@ -222,6 +222,8 @@
 
     <slf4j.version>2.0.7</slf4j.version>
     <junit-bom.version>5.11.2</junit-bom.version>
+    <mockito.version>4.3.1</mockito.version>
+    <tomcat.version>6.0.53</tomcat.version>
     <jacoco.version>0.8.12</jacoco.version>
     <flaky-test-groups>flaky | org.apache.ratis.test.tag.FlakyTest</flaky-test-groups>
   </properties>
@@ -417,12 +419,6 @@
         <scope>test</scope>
         <version>${slf4j.version}</version>
       </dependency>
-
-      <dependency>
-        <groupId>junit</groupId>
-        <artifactId>junit</artifactId>
-        <version>4.13.2</version>
-      </dependency>
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
@@ -433,12 +429,12 @@
       <dependency>
         <groupId>org.mockito</groupId>
         <artifactId>mockito-core</artifactId>
-        <version>4.3.1</version>
+        <version>${mockito.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.tomcat</groupId>
         <artifactId>annotations-api</artifactId>
-        <version>6.0.53</version>
+        <version>${tomcat.version}</version>
         <scope>provided</scope>
       </dependency>
     </dependencies>

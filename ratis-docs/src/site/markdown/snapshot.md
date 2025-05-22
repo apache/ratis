@@ -229,7 +229,8 @@ interface FollowerEventApi {
    * In order to catch up, the {@link StateMachine} has to install the latest snapshot asynchronously.
    *
    * @param roleInfoProto information about the current node role and rpc delay information.
-   * @param firstTermIndexInLog The term-index of the first append entry available in the leader's log.
+   * @param firstTermIndexInLog The
+   *                           term-index of the first append entry available in the leader's log.
    * @return return the last term-index in the snapshot after the snapshot installation.
    */
   default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(

@@ -44,7 +44,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.AssumptionViolatedException;
+import org.opentest4j.TestAbortedException;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -479,7 +479,7 @@ public interface RaftTestUtil {
 
   static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
       throws Exception {
-    return changeLeader(cluster, oldLeader, AssumptionViolatedException::new);
+    return changeLeader(cluster, oldLeader, TestAbortedException::new);
   }
 
   static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader, Function<String, Exception> constructor)

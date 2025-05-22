@@ -26,8 +26,6 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -85,8 +83,6 @@ public abstract class BaseTest {
         + "." + (method == null? null : method.getName());
   }
 
-  // @Before annotation is retained to support junit 4 tests.
-  @Before
   @BeforeEach
   public void checkAssumptions() {
     final int leaks = ReferenceCountedLeakDetector.getLeakDetector().getLeakCount();
@@ -99,8 +95,6 @@ public abstract class BaseTest {
     Assumptions.assumeTrue(exited == null, () -> "Already exited with " + exited);
   }
 
-  // @After annotation is retained to support junit 4 tests.
-  @After
   @AfterEach
   public void assertNoFailures() {
     final Throwable e = firstException.get();
