@@ -120,7 +120,7 @@ public final class ReferenceCountedLeakDetector {
       if (count.getAndUpdate(n -> n < 0? n : n + 1) < 0) {
         throw new IllegalStateException("Failed to retain: object has already been completely released.");
       }
-
+      LOG.trace("retain value : {}, count : {}.", value, count);
       retainMethod.run();
       return value;
     }
@@ -136,6 +136,7 @@ public final class ReferenceCountedLeakDetector {
       } else if (previous == 0) {
         throw new IllegalStateException("Failed to release: object has not yet been retained.");
       }
+      LOG.trace("release value : {}, count : {}.", value, count);
       final boolean completedReleased = previous == 1;
       releaseMethod.accept(completedReleased);
       return completedReleased;
