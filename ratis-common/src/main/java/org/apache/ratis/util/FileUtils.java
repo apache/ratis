@@ -60,6 +60,39 @@ public interface FileUtils {
     }
   }
 
+  /** @return true iff the given dir is an ancestor of the given sub path.  */
+  static boolean isAncestor(File dir, File sub) throws IOException {
+    Objects.requireNonNull(dir, "dir == null");
+    Objects.requireNonNull(sub, "sub == null");
+
+    String dirPath = dir.getCanonicalPath();
+    final String subPath = sub.getCanonicalPath();
+    if (dirPath.equals(subPath)) {
+      return true;
+    } else if (!dirPath.endsWith(File.separator)) {
+      dirPath += File.separator;
+    }
+    LOG.debug("dirPath: {}", dirPath);
+    LOG.debug("subPath: {}", subPath);
+    return subPath.startsWith(dirPath);
+  }
+
+  /**
+   * Resolve the full path from the given dir and sub,
+   * where dir is supposed to be an ancestor of the resolved path.
+   *
+   * @return the full path
+   * @throws IOException if the dir is not an ancestor of the resolved path.
+   */
+  static File resolveFullPath(File dir, String sub) throws IOException {
+    final File full = new File(dir, sub);
+    if (!isAncestor(dir, full)) {
+      throw new IOException("The dir is not an ancestor of the full path: dir=" + dir
+          + ", sub=" + sub + ", full=" + full);
+    }
+    return full;
+  }
+
   static void truncateFile(File f, long target) throws IOException {
     final long original = f.length();
     LogUtils.runAndLog(LOG,
