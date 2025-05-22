@@ -33,9 +33,9 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.concurrent.CompletableFuture;
@@ -48,7 +48,7 @@ public class TestReadAfterWrite
     extends BaseTest
     implements MiniRaftClusterWithGrpc.FactoryGet {
 
-  @Before
+  @BeforeEach
   public void setup() {
     Slf4jUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.DEBUG);
     Slf4jUtils.setLogLevel(CodeInjectionForTesting.LOG, Level.DEBUG);
@@ -108,7 +108,7 @@ public class TestReadAfterWrite
     final AsyncApi async = client.async();
     final int initialValue = 10;
     final RaftClientReply assign = async.send(a.assign(new DoubleValue(initialValue))).join();
-    Assert.assertTrue(assign.isSuccess());
+    Assertions.assertTrue(assign.isSuccess());
 
     final Message query = Expression.Utils.toMessage(a);
     assertReply(async.sendReadOnly(query), initialValue);
@@ -131,15 +131,15 @@ public class TestReadAfterWrite
       final RaftClientReply reply = readAfterWrite.get(100, TimeUnit.MILLISECONDS);
       final DoubleValue result = (DoubleValue) Expression.Utils.bytes2Expression(
           reply.getMessage().getContent().toByteArray(), 0);
-      Assert.fail("result=" + result + ", reply=" + reply);
+      Assertions.fail("result=" + result + ", reply=" + reply);
     } catch (TimeoutException e) {
       LOG.info("Good", e);
     }
 
     // plus2 should still be blocked.
-    Assert.assertFalse(plus2.isDone());
+    Assertions.assertFalse(plus2.isDone());
     // readAfterWrite should still be blocked.
-    Assert.assertFalse(readAfterWrite.isDone());
+    Assertions.assertFalse(readAfterWrite.isDone());
 
     // unblock plus2
     blockingCode.complete();
@@ -151,10 +151,10 @@ public class TestReadAfterWrite
   void assertReply(CompletableFuture<RaftClientReply> future, int expected) {
     LOG.info("assertReply, expected {}", expected);
     final RaftClientReply reply = future.join();
-    Assert.assertTrue(reply.isSuccess());
+    Assertions.assertTrue(reply.isSuccess());
     LOG.info("reply {}", reply);
     final DoubleValue result = (DoubleValue) Expression.Utils.bytes2Expression(
         reply.getMessage().getContent().toByteArray(), 0);
-    Assert.assertEquals(expected, (int) (double) result.evaluate(null));
+    Assertions.assertEquals(expected, (int) (double) result.evaluate(null));
   }
 }
