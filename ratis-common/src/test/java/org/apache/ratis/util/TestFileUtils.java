@@ -26,6 +26,32 @@ import java.io.IOException;
 
 /** Test methods of {@link FileUtils}. */
 public class TestFileUtils extends BaseTest {
+  @Test
+  public void testIsAncestor() throws IOException {
+    runTestIsAncestor(true, "/a", "/a/b");
+    runTestIsAncestor(true, "/a", "/a/");
+    runTestIsAncestor(true, "/a", "/a");
+    runTestIsAncestor(true, "a", "a/b");
+    runTestIsAncestor(true, "a", "a/");
+    runTestIsAncestor(true, "a", "a");
+
+    runTestIsAncestor(false, "/a", "/c");
+    runTestIsAncestor(false, "/a", "/abc");
+    runTestIsAncestor(false, "/a", "/a/../c");
+    runTestIsAncestor(false, "a", "a/../c");
+    runTestIsAncestor(false, "a", "/c");
+  }
+
+  static void runTestIsAncestor(boolean expected, String ancestor, String path) throws IOException {
+    final boolean computed = isAncestor(ancestor, path);
+    System.out.printf("isAncestor(%2s, %-9s)? %s, expected? %s%n",
+        ancestor, path, computed, expected);
+    Assertions.assertSame(expected, computed);
+  }
+
+  static boolean isAncestor(String ancestor, String path) throws IOException {
+    return FileUtils.isAncestor(new File(ancestor), new File(path));
+  }
 
   @Test
   public void testRenameToCorrupt() throws IOException {
