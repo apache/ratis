@@ -28,8 +28,8 @@ import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedSupplier;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,22 +96,22 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
         });
         firstList.add(f);
         final CompletableFuture<ReadReplyProto> s = client.watchAsync(pathSecond + i).whenComplete((reply, e) -> {
-          Assert.assertNotNull(reply);
-          Assert.assertNull(e);
-          Assert.assertTrue(isStarted.get());
+          Assertions.assertNotNull(reply);
+          Assertions.assertNull(e);
+          Assertions.assertTrue(isStarted.get());
           completionOrder.add(index);
         });
         watchSecond.add(s);
-        Assert.assertFalse(f.isDone());
-        Assert.assertFalse(s.isDone());
-        Assert.assertFalse(isStarted.get());
+        Assertions.assertFalse(f.isDone());
+        Assertions.assertFalse(s.isDone());
+        Assertions.assertFalse(isStarted.get());
       }
 
       TimeDuration.valueOf(ThreadLocalRandom.current().nextLong(500) + 100, TimeUnit.MILLISECONDS)
           .sleep(s -> LOG.info("{}", s));
-      firstList.stream().map(CompletableFuture::isDone).forEach(Assert::assertFalse);
-      watchSecond.stream().map(CompletableFuture::isDone).forEach(Assert::assertFalse);
-      Assert.assertFalse(isStarted.get());
+      firstList.stream().map(CompletableFuture::isDone).forEach(Assertions::assertFalse);
+      watchSecond.stream().map(CompletableFuture::isDone).forEach(Assertions::assertFalse);
+      Assertions.assertFalse(isStarted.get());
       isStarted.set(true);
 
       for (int i : randomIndices) {
@@ -121,12 +121,12 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
       for (int i = 0; i < n; i++) {
         final ReadReplyProto reply = watchSecond.get(i).get(100, TimeUnit.MILLISECONDS);
         LOG.info("reply {}: {}", i, reply);
-        Assert.assertNotNull(reply);
-        Assert.assertEquals(pathSecond + i, reply.getResolvedPath().toStringUtf8());
+        Assertions.assertNotNull(reply);
+        Assertions.assertEquals(pathSecond + i, reply.getResolvedPath().toStringUtf8());
       }
       LOG.info("completionOrder {}", completionOrder);
-      Assert.assertEquals(randomIndices, completionOrder);
-      firstList.stream().map(CompletableFuture::isDone).forEach(Assert::assertFalse);
+      Assertions.assertEquals(randomIndices, completionOrder);
+      firstList.stream().map(CompletableFuture::isDone).forEach(Assertions::assertFalse);
     }
   }
 

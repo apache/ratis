@@ -152,7 +152,7 @@ public interface DataStreamTestUtils {
     @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
       final SingleDataStream s = new SingleDataStream(request);
-      LOG.info("XXX {} put {}, {}", this, ClientInvocationId.valueOf(request), s);
+      LOG.info("{} put {}, {}", this, ClientInvocationId.valueOf(request), s);
       streams.put(ClientInvocationId.valueOf(request), s);
       return CompletableFuture.completedFuture(s);
     }

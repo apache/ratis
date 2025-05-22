@@ -339,15 +339,14 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         try {
           replyMap.receiveReply(reply);
         } catch (Throwable cause) {
-          LOG.warn(name + ": channelRead error:", cause);
+          LOG.warn("{} : channelRead error:", name, cause);
           replyMap.completeExceptionally(cause);
         }
       }
 
       @Override
       public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOG.warn(name + ": exceptionCaught", cause);
-
+        LOG.warn("{} : exceptionCaught", name, cause);
         ctx.close();
       }
 

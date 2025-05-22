@@ -29,7 +29,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.function.CheckedSupplier;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -129,7 +129,7 @@ final class FileStoreWriter implements Closeable {
       LOG.trace("write {}, offset={}, length={}, close? {}",
           fileName, offset, length, close);
       final long written = client.write(fileName, offset, close, b, sync);
-      Assert.assertEquals(length, written);
+      Assertions.assertEquals(length, written);
       offset += length;
     }
     return this;
@@ -156,15 +156,15 @@ final class FileStoreWriter implements Closeable {
     }
 
     DataStreamReply reply = dataStreamOutput.closeAsync().join();
-    Assert.assertTrue(reply.isSuccess());
+    Assertions.assertTrue(reply.isSuccess());
 
     // TODO: handle when any of the writeAsync has failed.
     // check writeAsync requests
     for (int i = 0; i < futures.size(); i++) {
       reply = futures.get(i).join();
-      Assert.assertTrue(reply.isSuccess());
-      Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), RaftProtos.DataStreamPacketHeaderProto.Type.STREAM_DATA);
+      Assertions.assertTrue(reply.isSuccess());
+      Assertions.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
+      Assertions.assertEquals(reply.getType(), RaftProtos.DataStreamPacketHeaderProto.Type.STREAM_DATA);
     }
 
     return this;
@@ -192,7 +192,7 @@ final class FileStoreWriter implements Closeable {
       LOG.trace("writeAsync {}, offset={}, length={}, close? {}",
           fileName, offset, length, close);
       client.writeAsync(fileName, offset, close, b, sync)
-          .thenAcceptAsync(written -> Assert.assertEquals(length, (long)written), asyncExecutor)
+          .thenAcceptAsync(written -> Assertions.assertEquals(length, (long)written), asyncExecutor)
           .thenRun(() -> {
             final int count = callCount.decrementAndGet();
             LOG.trace("writeAsync {}, offset={}, length={}, close? {}: n={}, callCount={}",
@@ -256,12 +256,12 @@ final class FileStoreWriter implements Closeable {
             return null;
           });
     }
-    Assert.assertEquals(size, n.get());
+    Assertions.assertEquals(size, n.get());
     return returnFuture;
   }
 
   void verify(ByteString read, int offset, int length, ByteBuffer expected) {
-    Assert.assertEquals(length, read.size());
+    Assertions.assertEquals(length, read.size());
     assertBuffers(offset, length, expected, read.asReadOnlyByteBuffer());
   }
 
@@ -282,7 +282,7 @@ final class FileStoreWriter implements Closeable {
 
   static void assertBuffers(int offset, int length, ByteBuffer expected, ByteBuffer computed) {
     try {
-      Assert.assertEquals(expected, computed);
+      Assertions.assertEquals(expected, computed);
     } catch(AssertionError e) {
       LOG.error("Buffer mismatched at offset=" + offset + ", length=" + length
           + "\n  expected = " + StringUtils.bytes2HexString(expected)
