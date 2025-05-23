@@ -32,7 +32,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -44,7 +43,8 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.AssumptionViolatedException;
+import org.apache.ratis.util.function.CheckedConsumer;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -188,11 +188,8 @@ public interface RaftTestUtil {
             log.get(termIndices[idxEntries].getIndex()).getStateMachineLogEntry().getLogData().toByteArray())) {
           ++idxExpected;
         }
-      } catch (Exception e) {
-        throw new IllegalStateException("Failed logEntriesContains: startIndex=" + startIndex
-            + ", endIndex=" + endIndex
-            + ", #expectedMessages=" + expectedMessages.length
-            + ", log=" + log, e);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
       }
       ++idxEntries;
     }
@@ -479,11 +476,6 @@ public interface RaftTestUtil {
 
   static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
       throws Exception {
-    return changeLeader(cluster, oldLeader, AssumptionViolatedException::new);
-  }
-
-  static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
-      throws Exception {
     return changeLeader(cluster, oldLeader, Assumptions::abort);
   }
 
@@ -565,7 +557,7 @@ public interface RaftTestUtil {
     final long lastIndex = expected.getNextIndex() - 1;
     Assertions.assertEquals(expected.getLastEntryTermIndex().getIndex(), lastIndex);
     for(long i = 0; i < lastIndex; i++) {
-      Assertions.assertEquals(expected.get(i), computed.get(i), "Checking " + TermIndex.valueOf(expected.get(i)));
+      Assertions.assertEquals(expected.get(i), computed.get(i));
     }
   }
 
