@@ -34,7 +34,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.jupiter.api.Assertions;
-import org.junit.Assume;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
@@ -84,7 +84,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     final SimpleMessage message = new SimpleMessage(messageId);
     final RaftClientReply reply = rpc.sendRequest(cluster.newRaftClientRequest(ClientId.randomId(), server, message));
     Assertions.assertNotNull(reply);
-    Assume.assumeFalse(reply.isSuccess());
+    Assumptions.assumeFalse(reply.isSuccess());
     final NotLeaderException nle = reply.getNotLeaderException();
     Objects.requireNonNull(nle);
     Assertions.assertEquals(expectedSuggestedLeader, nle.getSuggestedLeader().getId());
