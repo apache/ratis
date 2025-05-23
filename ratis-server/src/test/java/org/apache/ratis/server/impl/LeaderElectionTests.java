@@ -184,7 +184,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   void runTestChangeLeader(MiniRaftCluster cluster) throws Exception {
     RaftPeerId leader = RaftTestUtil.waitForLeader(cluster).getId();
     for(int i = 0; i < 10; i++) {
-      leader = RaftTestUtil.changeLeader(cluster, leader, IllegalStateException::new);
+      leader = RaftTestUtil.changeLeader(cluster, leader, Assertions::fail);
     }
   }
 

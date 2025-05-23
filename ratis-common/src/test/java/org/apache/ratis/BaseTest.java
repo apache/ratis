@@ -26,8 +26,6 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -72,8 +70,6 @@ public abstract class BaseTest {
     }
   }
 
-  // TODO: Junit 4 reference should be removed once all the unit tests are migrated to Junit 5.
-
   private String testCaseName;
 
   @BeforeEach
@@ -85,8 +81,6 @@ public abstract class BaseTest {
         + "." + (method == null? null : method.getName());
   }
 
-  // @Before annotation is retained to support junit 4 tests.
-  @Before
   @BeforeEach
   public void checkAssumptions() {
     final int leaks = ReferenceCountedLeakDetector.getLeakDetector().getLeakCount();
@@ -99,8 +93,6 @@ public abstract class BaseTest {
     Assumptions.assumeTrue(exited == null, () -> "Already exited with " + exited);
   }
 
-  // @After annotation is retained to support junit 4 tests.
-  @After
   @AfterEach
   public void assertNoFailures() {
     final Throwable e = firstException.get();
@@ -133,7 +125,6 @@ public abstract class BaseTest {
   }
 
   public File getTestDir() {
-    // This will work for both junit 4 and 5.
     return new File(getClassTestDir(), testCaseName);
   }
 
