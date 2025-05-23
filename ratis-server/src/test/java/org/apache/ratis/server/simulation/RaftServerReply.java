@@ -94,11 +94,6 @@ public class RaftServerReply implements RaftRpcMessage {
   }
 
   @Override
-  public boolean isRequest() {
-    return false;
-  }
-
-  @Override
   public String getRequestorId() {
     if (isAppendEntries()) {
       return appendEntries.getServerReply().getRequestorId().toStringUtf8();

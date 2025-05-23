@@ -19,7 +19,9 @@ package org.apache.ratis.protocol;
 
 public interface RaftRpcMessage {
 
-  boolean isRequest();
+  default boolean isRequest() {
+    return false;
+  }
 
   String getRequestorId();
 
