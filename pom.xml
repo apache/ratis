@@ -224,7 +224,7 @@
     <junit-bom.version>5.12.2</junit-bom.version>
     <mockito.version>4.11.0</mockito.version>
     <jacoco.version>0.8.12</jacoco.version>
-    <annotation.version>1.3.2</annotation.version>
+    <jakarta.annotation.version>1.3.5</jakarta.annotation.version>
     <flaky-test-groups>flaky | org.apache.ratis.test.tag.FlakyTest</flaky-test-groups>
   </properties>
 
@@ -432,9 +432,9 @@
         <version>${mockito.version}</version>
       </dependency>
       <dependency>
-        <groupId>javax.annotation</groupId>
-        <artifactId>javax.annotation-api</artifactId>
-        <version>${annotation.version}</version>
+        <groupId>jakarta.annotation</groupId>
+        <artifactId>jakarta.annotation-api</artifactId>
+        <version>${jakarta.annotation.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
