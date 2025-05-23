@@ -221,9 +221,8 @@
     <testsThreadCount>4</testsThreadCount>
 
     <slf4j.version>2.0.7</slf4j.version>
-    <junit-bom.version>5.11.2</junit-bom.version>
-    <mockito.version>4.3.1</mockito.version>
-    <tomcat.version>6.0.53</tomcat.version>
+    <junit-bom.version>5.12.2</junit-bom.version>
+    <mockito.version>4.11.0</mockito.version>
     <jacoco.version>0.8.12</jacoco.version>
     <flaky-test-groups>flaky | org.apache.ratis.test.tag.FlakyTest</flaky-test-groups>
   </properties>
@@ -430,12 +429,6 @@
         <groupId>org.mockito</groupId>
         <artifactId>mockito-core</artifactId>
         <version>${mockito.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.tomcat</groupId>
-        <artifactId>annotations-api</artifactId>
-        <version>${tomcat.version}</version>
-        <scope>provided</scope>
       </dependency>
     </dependencies>
   </dependencyManagement>

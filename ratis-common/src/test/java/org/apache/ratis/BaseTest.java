@@ -70,8 +70,6 @@ public abstract class BaseTest {
     }
   }
 
-  // TODO: Junit 4 reference should be removed once all the unit tests are migrated to Junit 5.
-
   private String testCaseName;
 
   @BeforeEach
@@ -127,7 +125,6 @@ public abstract class BaseTest {
   }
 
   public File getTestDir() {
-    // This will work for both junit 4 and 5.
     return new File(getClassTestDir(), testCaseName);
   }
 

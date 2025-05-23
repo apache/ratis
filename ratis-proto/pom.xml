@@ -175,9 +175,5 @@
       <groupId>org.apache.ratis</groupId>
       <artifactId>ratis-thirdparty-misc</artifactId>
     </dependency>
-    <dependency>
-      <groupId>org.apache.tomcat</groupId>
-      <artifactId>annotations-api</artifactId>
-    </dependency>
   </dependencies>
 </project>
