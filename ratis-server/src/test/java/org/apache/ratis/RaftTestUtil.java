@@ -44,7 +44,8 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.opentest4j.TestAbortedException;
+import org.apache.ratis.util.function.CheckedConsumer;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -479,18 +480,18 @@ public interface RaftTestUtil {
 
   static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
       throws Exception {
-    return changeLeader(cluster, oldLeader, TestAbortedException::new);
+    return changeLeader(cluster, oldLeader, Assumptions::abort);
   }
 
-  static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader, Function<String, Exception> constructor)
-      throws Exception {
+  static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader,
+      CheckedConsumer<String, Exception> failToChangeLeaderHandler) throws Exception {
     final String name = JavaUtils.getCallerStackTraceElement().getMethodName() + "-changeLeader";
     cluster.setBlockRequestsFrom(oldLeader.toString(), true);
     try {
       return JavaUtils.attemptRepeatedly(() -> {
         final RaftPeerId newLeader = waitForLeader(cluster).getId();
         if (newLeader.equals(oldLeader)) {
-          throw constructor.apply("Failed to change leader: newLeader == oldLeader == " + oldLeader);
+          failToChangeLeaderHandler.accept("Failed to change leader: newLeader == oldLeader == " + oldLeader);
         }
         LOG.info("Changed leader from " + oldLeader + " to " + newLeader);
         return newLeader;
