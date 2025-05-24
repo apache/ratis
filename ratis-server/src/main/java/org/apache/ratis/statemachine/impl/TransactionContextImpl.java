@@ -123,7 +123,6 @@ public class TransactionContextImpl implements TransactionContext {
   TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
     this(serverRole, null, stateMachine, logEntry.getStateMachineLogEntry());
     setLogEntry(logEntry);
-    this.logIndexFuture.complete(logEntry.getIndex());
   }
 
   @Override
@@ -178,8 +177,6 @@ public class TransactionContextImpl implements TransactionContext {
     Preconditions.assertTrue(serverRole == RaftPeerRole.LEADER);
     Preconditions.assertNull(logEntry, "logEntry");
     Objects.requireNonNull(stateMachineLogEntry, "stateMachineLogEntry == null");
-
-    logIndexFuture.complete(index);
     return setLogEntry(LogProtoUtils.toLogEntryProto(stateMachineLogEntry, term, index));
   }
 
@@ -190,6 +187,7 @@ public class TransactionContextImpl implements TransactionContext {
   private LogEntryProto setLogEntry(LogEntryProto entry) {
     this.logEntry = entry;
     this.logEntryCopy = MemoizedSupplier.valueOf(() -> LogProtoUtils.copy(entry));
+    this.logIndexFuture.complete(entry.getIndex());
     return entry;
   }
 
