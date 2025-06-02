@@ -54,50 +54,29 @@ public interface GrpcConfigKeys {
   interface TLS {
     String PREFIX = GrpcConfigKeys.PREFIX + ".tls";
 
-    String ENABLED_KEY = PREFIX + ".enabled";
-    boolean ENABLED_DEFAULT = false;
-    static boolean enabled(RaftProperties properties) {
-      return getBoolean(properties::getBoolean, ENABLED_KEY, ENABLED_DEFAULT, getDefaultLog());
-    }
+    @Deprecated
     static void setEnabled(RaftProperties properties, boolean enabled) {
-      setBoolean(properties::setBoolean, ENABLED_KEY, enabled);
+      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
     }
 
-    String MUTUAL_AUTHN_ENABLED_KEY = PREFIX + ".mutual_authn.enabled";
-    boolean MUTUAL_AUTHN_ENABLED_DEFAULT = false;
-    static boolean mutualAuthnEnabled(RaftProperties properties) {
-      return getBoolean(properties::getBoolean,
-          MUTUAL_AUTHN_ENABLED_KEY, MUTUAL_AUTHN_ENABLED_DEFAULT, getDefaultLog());
-    }
+    @Deprecated
     static void setMutualAuthnEnabled(RaftProperties properties, boolean mutualAuthnEnabled) {
-      setBoolean(properties::setBoolean, MUTUAL_AUTHN_ENABLED_KEY, mutualAuthnEnabled);
+      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
     }
 
-    String PRIVATE_KEY_FILE_NAME_KEY = PREFIX + ".private.key.file.name";
-    String PRIVATE_KEY_FILE_NAME_DEFAULT = "private.pem";
-    static String privateKeyFileName(RaftProperties properties) {
-      return get(properties::get, PRIVATE_KEY_FILE_NAME_KEY, PRIVATE_KEY_FILE_NAME_DEFAULT, getDefaultLog());
-    }
+    @Deprecated
     static void setPrivateKeyFileName(RaftProperties properties, String privateKeyFileName) {
-      set(properties::set, PRIVATE_KEY_FILE_NAME_KEY, privateKeyFileName);
+      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
     }
 
-    String CERT_CHAIN_FILE_NAME_KEY = PREFIX + ".cert.chain.file.name";
-    String CERT_CHAIN_FILE_NAME_DEFAULT = "certificate.crt";
-    static String certChainFileName(RaftProperties properties) {
-      return get(properties::get, CERT_CHAIN_FILE_NAME_KEY, CERT_CHAIN_FILE_NAME_DEFAULT, getDefaultLog());
-    }
+    @Deprecated
     static void setCertChainFileName(RaftProperties properties, String certChainFileName) {
-      set(properties::set, CERT_CHAIN_FILE_NAME_KEY, certChainFileName);
+      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
     }
 
-    String TRUST_STORE_KEY = PREFIX + ".trust.store";
-    String TRUST_STORE_DEFAULT = "ca.crt";
-    static String trustStore(RaftProperties properties) {
-      return get(properties::get, TRUST_STORE_KEY, TRUST_STORE_DEFAULT, getDefaultLog());
-    }
+    @Deprecated
     static void setTrustStore(RaftProperties properties, String trustStore) {
-      set(properties::set, TRUST_STORE_KEY, trustStore);
+      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
     }
 
     String CONF_PARAMETER = PREFIX + ".conf";
