@@ -75,8 +75,6 @@ public class TestSecureRatisShell extends BaseTest {
     final String[] ids = {"s0"};
     final RaftProperties properties = new RaftProperties();
     RaftClientConfigKeys.Rpc.setRequestTimeout(properties, TimeDuration.ONE_MINUTE);
-    GrpcConfigKeys.TLS.setEnabled(properties, true);
-    GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, true);
 
     try(MiniRaftClusterWithGrpc cluster = new MiniRaftClusterWithGrpc(ids, properties, SERVER_PARAMETERS)) {
       cluster.start();
