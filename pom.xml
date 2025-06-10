@@ -85,7 +85,6 @@
     <module>ratis-test</module>
 
     <module>ratis-examples</module>
-    <module>ratis-replicated-map</module>
     <module>ratis-metrics-api</module>
     <module>ratis-metrics-default</module>
     <module>ratis-metrics-dropwizard3</module>
@@ -349,19 +348,6 @@
         <artifactId>ratis-proto</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>
-      </dependency>
-
-      <dependency>
-        <artifactId>ratis-replicated-map</artifactId>
-        <groupId>org.apache.ratis</groupId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <artifactId>ratis-replicated-map</artifactId>
-        <groupId>org.apache.ratis</groupId>
-        <version>${project.version}</version>
-        <type>test-jar</type>
-        <scope>test</scope>
       </dependency>
 
       <dependency>
