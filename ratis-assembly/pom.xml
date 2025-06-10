@@ -274,16 +274,6 @@
     </dependency>
 
     <dependency>
-      <artifactId>ratis-replicated-map</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-replicated-map</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <type>test-jar</type>
-    </dependency>
-
-    <dependency>
       <groupId>org.apache.ratis</groupId>
       <artifactId>ratis-metrics-api</artifactId>
     </dependency>
