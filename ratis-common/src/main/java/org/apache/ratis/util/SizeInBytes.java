@@ -83,4 +83,14 @@ public final class SizeInBytes {
   public String toString() {
     return description;
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    return obj instanceof SizeInBytes && size == ((SizeInBytes)obj).size;
+  }
+
+  @Override
+  public int hashCode() {
+    return Long.hashCode(size);
+  }
 }
