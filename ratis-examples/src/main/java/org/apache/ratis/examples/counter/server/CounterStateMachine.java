@@ -138,7 +138,7 @@ public class CounterStateMachine extends BaseStateMachine {
    */
   @Override
   public void reinitialize() throws IOException {
-    load(storage.loadLatestSnapshot());
+    load(storage.getLatestSnapshot());
   }
 
   /**

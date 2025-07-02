@@ -33,6 +33,7 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -43,7 +44,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 public interface FileUtils {
   Logger LOG = LoggerFactory.getLogger(FileUtils.class);
@@ -381,5 +385,27 @@ public interface FileUtils {
         return FileVisitResult.CONTINUE;
       }
     });
+  }
+
+  static void listDir(File dir, Consumer<Object> out, BiConsumer<String, Throwable> err) {
+    listDir(dir.toPath(), out, err);
+  }
+
+  static void listDir(Path dir, Consumer<Object> out, BiConsumer<String, Throwable> err) {
+    try {
+      listDir(dir, out);
+    } catch (IOException e) {
+      err.accept("Failed to lsDir: " + dir, e);
+    }
+  }
+
+  static void listDir(Path dir, Consumer<Object> out) throws IOException {
+    if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) {
+      throw new NotDirectoryException( "Failed to lsDir: " + dir + " is not a directory.");
+    }
+
+    try(Stream<Path> s = Files.list(dir)) {
+      s.forEach(out);
+    }
   }
 }

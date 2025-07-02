@@ -351,9 +351,11 @@ public abstract class MiniRaftCluster implements Closeable {
         : JavaUtils.runRepeatedly(() -> LOG.info("TIMED-PRINT: {}.", printServers()), 10, 10, TimeUnit.SECONDS));
   }
 
-  /**
-   * start a stopped server again.
-   */
+  public void removeServer(RaftPeerId serverId) {
+    servers.remove(serverId);
+  }
+
+  /** restart a server. */
   public RaftServer.Division restartServer(RaftPeerId serverId, boolean format) throws IOException {
     return restartServer(serverId, group, format);
   }
@@ -361,7 +363,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public RaftServer.Division restartServer(RaftPeerId serverId, RaftGroup raftGroup, boolean format)
       throws IOException {
     killServer(serverId);
-    servers.remove(serverId);
+    removeServer(serverId);
 
     final RaftServer proxy = putNewServer(serverId, raftGroup, format);
     proxy.start();

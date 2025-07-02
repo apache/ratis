@@ -86,7 +86,8 @@ public abstract class RaftLogBase implements RaftLog {
                     RaftProperties properties) {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     this.memberId = memberId;
-    long index = getSnapshotIndexFromStateMachine.getAsLong();
+    final long index = getSnapshotIndexFromStateMachine.getAsLong();
+    LOG.info("{}: snapshotIndexFromStateMachine = {}", name, index);
     this.commitIndex = new RaftLogIndex("commitIndex", index);
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", index);
     this.purgeIndex = new RaftLogIndex("purgeIndex", LEAST_VALID_LOG_INDEX - 1);

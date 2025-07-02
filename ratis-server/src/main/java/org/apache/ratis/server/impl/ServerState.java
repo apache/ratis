@@ -123,12 +123,7 @@ class ServerState {
     // On start the leader is null, start the clock now
     this.lastNoLeaderTime = new AtomicReference<>(Timestamp.currentTime());
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
-
-    final LongSupplier getSnapshotIndexFromStateMachine = () -> Optional.ofNullable(stateMachine.getLatestSnapshot())
-        .map(SnapshotInfo::getIndex)
-        .filter(i -> i >= 0)
-        .orElse(RaftLog.INVALID_LOG_INDEX);
-    this.log = JavaUtils.memoize(() -> initRaftLog(getSnapshotIndexFromStateMachine, prop));
+    this.log = JavaUtils.memoize(() -> initRaftLog(() -> getSnapshotIndexFromStateMachine(stateMachine), prop));
     this.readRequests = new ReadRequests(prop, stateMachine);
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
         stateMachine, server, this, getLog().getSnapshotIndex(), prop,
@@ -152,6 +147,16 @@ class ServerState {
 
   RaftGroupMemberId getMemberId() {
     return memberId;
+  }
+
+  private long getSnapshotIndexFromStateMachine(StateMachine stateMachine) {
+    final SnapshotInfo latest = stateMachine.getLatestSnapshot();
+    LOG.info("{}: getLatestSnapshot {} from {}", getMemberId(), latest, stateMachine);
+    if (latest == null) {
+      return RaftLog.INVALID_LOG_INDEX;
+    }
+    final long index = latest.getIndex();
+    return index >= 0 ? index : RaftLog.INVALID_LOG_INDEX;
   }
 
   void writeRaftConfiguration(LogEntryProto conf) {

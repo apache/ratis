@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -49,6 +50,9 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     StateMachine.EventApi, StateMachine.LeaderEventApi, StateMachine.FollowerEventApi {
+  static final AtomicInteger ID_GENERATOR = new AtomicInteger();
+
+  private final int id = ID_GENERATOR.incrementAndGet();
   private final CompletableFuture<RaftServer> server = new CompletableFuture<>();
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile RaftGroupId groupId;
@@ -226,7 +230,7 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
 
   @Override
   public String toString() {
-    return JavaUtils.getClassSimpleName(getClass()) + ":"
+    return JavaUtils.getClassSimpleName(getClass()) + "-" + id + ":"
         + (!server.isDone()? "uninitialized": getId() + ":" + groupId);
   }
 }
