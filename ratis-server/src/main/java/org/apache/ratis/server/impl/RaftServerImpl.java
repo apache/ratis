@@ -1639,8 +1639,9 @@ class RaftServerImpl implements RaftServer.Division,
       return appendLogFuture.get();
     }
 
-    return appendLogFuture.updateAndGet(f -> f.thenCompose(
-            ignored -> JavaUtils.allOf(state.getLog().append(entries))))
+
+    return appendLogFuture.updateAndGet(f -> f.thenComposeAsync(
+            ignored -> JavaUtils.allOf(state.getLog().append(entries)), serverExecutor))
         .whenComplete((v, e) -> appendLogTermIndices.removeExisting(entriesTermIndices));
   }
 
