@@ -819,23 +819,25 @@ class RaftServerImpl implements RaftServer.Division,
 
     assertLifeCycleState(LifeCycle.States.RUNNING);
 
+    final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
+    final PendingRequests.Permit permit = leaderState.tryAcquirePendingRequest(request.getMessage());
+    if (permit == null) {
+      cacheEntry.failWithException(new ResourceUnavailableException(
+          getMemberId() + ": Failed to acquire a pending write request for " + request));
+      return cacheEntry.getReplyFuture();
+    }
+
     final PendingRequest pending;
     synchronized (this) {
       final CompletableFuture<RaftClientReply> reply = checkLeaderState(request, cacheEntry);
       if (reply != null) {
+        leaderState.cancelPendingRequest(permit, request.getMessage());
         return reply;
       }
 
       // append the message to its local log
-      final LeaderStateImpl leaderState = role.getLeaderStateNonNull();
       writeIndexCache.add(request.getClientId(), context.getLogIndexFuture());
 
-      final PendingRequests.Permit permit = leaderState.tryAcquirePendingRequest(request.getMessage());
-      if (permit == null) {
-        cacheEntry.failWithException(new ResourceUnavailableException(
-            getMemberId() + ": Failed to acquire a pending write request for " + request));
-        return cacheEntry.getReplyFuture();
-      }
       try {
         state.appendLog(context);
       } catch (StateMachineException e) {
@@ -857,8 +859,8 @@ class RaftServerImpl implements RaftServer.Division,
             getMemberId() + ": Failed to add a pending write request for " + request));
         return cacheEntry.getReplyFuture();
       }
-      leaderState.notifySenders();
     }
+    leaderState.notifySenders();
 
     return pending.getFuture();
   }
