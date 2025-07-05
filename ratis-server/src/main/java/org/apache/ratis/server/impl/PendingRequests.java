@@ -142,6 +142,15 @@ class PendingRequests {
       return putPermit();
     }
 
+    private void release(Message message) {
+      final int messageSize = Message.getSize(message);
+      final long oldSize = requestSize.getAndAdd(-messageSize);
+      final long newSize = oldSize - messageSize;
+      final int diffMb = roundUpMb(oldSize) - roundUpMb(newSize);
+      resource.release(diffMb);
+      LOG.trace("release {} MB", diffMb);
+    }
+
     private synchronized Permit putPermit() {
       if (resource.isClosed()) {
         return null;
@@ -149,6 +158,15 @@ class PendingRequests {
       final Permit permit = new Permit();
       permits.put(permit, permit);
       return permit;
+    }
+
+    synchronized void cancel(Permit permit, Message message) {
+      final Permit removed = permits.remove(permit);
+      // This method should not be used if the pending request
+      // is already added to the PendingRequest map.
+      Preconditions.assertTrue(removed == permit);
+      release(message);
+
     }
 
     synchronized PendingRequest put(Permit permit, PendingRequest p) {
@@ -175,12 +193,7 @@ class PendingRequests {
       if (r == null) {
         return null;
       }
-      final int messageSize = Message.getSize(r.getRequest().getMessage());
-      final long oldSize = requestSize.getAndAdd(-messageSize);
-      final long newSize = oldSize - messageSize;
-      final int diffMb = roundUpMb(oldSize) - roundUpMb(newSize);
-      resource.release(diffMb);
-      LOG.trace("release {} MB", diffMb);
+      release(r.getRequest().getMessage());
       return r;
     }
 
@@ -230,6 +243,10 @@ class PendingRequests {
 
   Permit tryAcquire(Message message) {
     return pendingRequests.tryAcquire(message);
+  }
+
+  void cancel(Permit permit, Message message) {
+    pendingRequests.cancel(permit, message);
   }
 
   PendingRequest add(Permit permit, RaftClientRequest request, TransactionContext entry) {
