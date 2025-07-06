@@ -115,20 +115,22 @@ public class ResourceSemaphore extends Semaphore {
       Preconditions.assertTrue(permits.length == resources.size(),
           () -> "items.length = " + permits.length + " != resources.size() = " + resources.size());
       int i = 0;
-      // try acquiring all resources
-      for(; i < permits.length; i++) {
-        if (!resources.get(i).tryAcquire(permits[i])) {
-          break;
+      synchronized (resources) {
+        // try acquiring all resources
+        for (; i < permits.length; i++) {
+          if (!resources.get(i).tryAcquire(permits[i])) {
+            break;
+          }
         }
-      }
 
-      if (i == permits.length) {
-        return SUCCESS; // successfully acquired all resources
-      }
+        if (i == permits.length) {
+          return SUCCESS; // successfully acquired all resources
+        }
 
-      // failed at i, releasing all previous resources
-      for(int k = i - 1; k >= 0; k--) {
-        resources.get(k).release(permits[k]);
+        // failed at i, releasing all previous resources
+        for (int k = i - 1; k >= 0; k--) {
+          resources.get(k).release(permits[k]);
+        }
       }
 
       return i;
@@ -139,32 +141,40 @@ public class ResourceSemaphore extends Semaphore {
           () -> "items.length = " + permits.length + " != resources.size() = "
               + resources.size());
       int i = 0;
-      try {
-        for (; i < permits.length; i++) {
-          resources.get(i).acquire(permits[i]);
+      synchronized (resources) {
+        try {
+          for (; i < permits.length; i++) {
+            resources.get(i).acquire(permits[i]);
+          }
+        } catch (Exception e) {
+          for (; --i >= 0; ) {
+            resources.get(i).release(permits[i]);
+          }
+          throw e;
         }
-      } catch (Exception e) {
-        for (; --i >= 0;) {
-          resources.get(i).release(permits[i]);
-        }
-        throw e;
       }
     }
 
     protected void release(int... permits) {
-      for(int i = resources.size() - 1; i >= 0; i--) {
-        resources.get(i).release(permits[i]);
+      synchronized (resources) {
+        for (int i = resources.size() - 1; i >= 0; i--) {
+          resources.get(i).release(permits[i]);
+        }
       }
     }
 
     public void close() {
-      for(int i = resources.size() - 1; i >= 0; i--) {
-        resources.get(i).close();
+      synchronized (resources) {
+        for (int i = resources.size() - 1; i >= 0; i--) {
+          resources.get(i).close();
+        }
       }
     }
 
     public boolean isClosed() {
-      return resources.get(resources.size() - 1).isClosed();
+      synchronized (resources) {
+        return resources.get(resources.size() - 1).isClosed();
+      }
     }
 
     @Override
