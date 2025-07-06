@@ -166,7 +166,6 @@ class PendingRequests {
       // is already added to the PendingRequest map.
       Preconditions.assertTrue(removed == permit);
       release(message);
-
     }
 
     synchronized PendingRequest put(Permit permit, PendingRequest p) {
