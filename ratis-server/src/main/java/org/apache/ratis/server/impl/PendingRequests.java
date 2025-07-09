@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -100,8 +101,8 @@ class PendingRequests {
     private final ConcurrentMap<TermIndex, PendingRequest> map = new ConcurrentHashMap<>();
     private final RaftServerMetricsImpl raftServerMetrics;
 
-    /** Permits to put new requests, always synchronized. */
-    private final Map<Permit, Permit> permits = new HashMap<>();
+    /** Permits to put new requests. */
+    private final Set<Permit> permits = ConcurrentHashMap.newKeySet();
     /** Track and limit the number of requests and the total message size. */
     private final RequestLimits resource;
     /** The size (in byte) of all the requests in this map. */
@@ -142,22 +143,20 @@ class PendingRequests {
       return putPermit();
     }
 
-    private synchronized Permit putPermit() {
+    private Permit putPermit() {
       if (resource.isClosed()) {
         return null;
       }
       final Permit permit = new Permit();
-      permits.put(permit, permit);
+      permits.add(permit);
       return permit;
     }
 
-    synchronized PendingRequest put(Permit permit, PendingRequest p) {
+    PendingRequest put(Permit permit, PendingRequest p) {
       LOG.debug("{}: PendingRequests.put {}", name, p);
-      final Permit removed = permits.remove(permit);
-      if (removed == null) {
+      if (!permits.remove(permit)) {
         return null;
       }
-      Preconditions.assertTrue(removed == permit);
       final PendingRequest previous = map.put(p.getTermIndex(), p);
       Preconditions.assertTrue(previous == null);
       return p;
