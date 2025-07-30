@@ -355,7 +355,7 @@ public abstract class MiniRaftCluster implements Closeable {
     servers.remove(serverId);
   }
 
-  /** restart a server. */
+  /** Restart the server with the given id. */
   public RaftServer.Division restartServer(RaftPeerId serverId, boolean format) throws IOException {
     return restartServer(serverId, group, format);
   }

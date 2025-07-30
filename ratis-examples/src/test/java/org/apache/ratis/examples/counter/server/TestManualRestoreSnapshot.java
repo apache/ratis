@@ -15,11 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.statemachine;
+package org.apache.ratis.examples.counter.server;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.examples.counter.CounterCommand;
 import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -28,6 +29,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -35,6 +38,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,7 +51,7 @@ public class TestManualRestoreSnapshot extends BaseTest implements MiniRaftClust
   public static final int NUM_SERVERS = 3;
 
   {
-    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, MonotonicStateMachine.class, StateMachine.class);
+    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, CounterStateMachine.class, StateMachine.class);
   }
 
   @Test
@@ -61,21 +65,22 @@ public class TestManualRestoreSnapshot extends BaseTest implements MiniRaftClust
     // send some messages
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     LOG.info("Leader: {}", leader);
-    sendMessages(cluster, 0, 5);
+    sendMessages(cluster, 5);
 
     // kill a follower
     final RaftServer.Division toBeKilled = cluster.getFollowers().get(0);
     LOG.info("Follower to be killed: {}", toBeKilled.getId());
-    final SimpleStateMachineStorage smStorage = ((MonotonicStateMachine) toBeKilled.getStateMachine()).getStorage();
+    final SimpleStateMachineStorage smStorage = ((CounterStateMachine) toBeKilled.getStateMachine())
+        .getStateMachineStorage();
     final File raftLogCurrentDir = toBeKilled.getRaftStorage().getStorageDir().getCurrentDir();
     cluster.killServer(toBeKilled.getId());
 
     // send more messages
-    sendMessages(cluster, 5, 3);
+    sendMessages(cluster, 3);
 
     // get a snapshot from the leader
-    final MonotonicStateMachine leaderStateMachine = (MonotonicStateMachine) leader.getStateMachine();
-    final MonotonicStateMachine.Snapshot snapshot = leaderStateMachine.getSnapshot();
+    final CounterStateMachine leaderStateMachine = (CounterStateMachine) leader.getStateMachine();
+    final CounterStateMachine.CounterState snapshot = leaderStateMachine.getState();
     LOG.info("{}: Leader {}", leader.getId(), snapshot);
 
     // remove raft log from the killed follower
@@ -94,7 +99,7 @@ public class TestManualRestoreSnapshot extends BaseTest implements MiniRaftClust
     final TermIndex applied = snapshot.getApplied();
     final File snapshotFile = smStorage.getSnapshotFile(applied.getTerm(), applied.getIndex());
     final RaftServer toSaveSnapshot = cluster.putNewServer(followerId, group, false);
-    ((MonotonicStateMachine) toSaveSnapshot.getDivision(group.getGroupId()).getStateMachine())
+    ((CounterStateMachine) toSaveSnapshot.getDivision(group.getGroupId()).getStateMachine())
         .saveSnapshot(snapshot, snapshotFile);
 
     // start follower and verify last applied
@@ -113,11 +118,11 @@ public class TestManualRestoreSnapshot extends BaseTest implements MiniRaftClust
       return followerLastApplied.equals(leaderLastApplied);
     }, 10, TimeDuration.ONE_SECOND, "followerLastApplied", LOG);
 
-    sendMessages(cluster, 8, 7);
+    sendMessages(cluster, 7);
   }
 
-  static void sendMessages(MiniRaftCluster cluster, int base, int numMessages) throws Exception {
-    final List<Message> messages = MonotonicStateMachine.getUpdateRequests(base, numMessages);
+  static void sendMessages(MiniRaftCluster cluster, int numMessages) throws Exception {
+    final List<Message> messages = getUpdateRequests(numMessages);
     try(final RaftClient client = cluster.createClient()) {
       for (Message message : messages) {
         final RaftClientReply reply = client.io().send(message);
@@ -125,4 +130,13 @@ public class TestManualRestoreSnapshot extends BaseTest implements MiniRaftClust
       }
     }
   }
+
+  static List<Message> getUpdateRequests(int numMessages) {
+    final List<Message> messages = new ArrayList<>();
+    for(int i = 0; i < numMessages; i++) {
+      messages.add(CounterCommand.INCREMENT.getMessage());
+    }
+    return messages;
+  }
+
 }

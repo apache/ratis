@@ -151,7 +151,7 @@ class ServerState {
 
   private long getSnapshotIndexFromStateMachine(StateMachine stateMachine) {
     final SnapshotInfo latest = stateMachine.getLatestSnapshot();
-    LOG.info("{}: getLatestSnapshot {} from {}", getMemberId(), latest, stateMachine);
+    LOG.info("{}: getLatestSnapshot({}) returns {}", getMemberId(), stateMachine, latest);
     if (latest == null) {
       return RaftLog.INVALID_LOG_INDEX;
     }
