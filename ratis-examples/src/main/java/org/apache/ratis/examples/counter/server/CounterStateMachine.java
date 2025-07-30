@@ -26,10 +26,8 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
@@ -159,7 +157,7 @@ public class CounterStateMachine extends BaseStateMachine {
    * @return the index of the snapshot
    */
   @Override
-  public long takeSnapshot() {
+  public long takeSnapshot() throws IOException {
     //get the current state
     final CounterState state = getState();
     final long index = state.getApplied().getIndex();
@@ -168,8 +166,8 @@ public class CounterStateMachine extends BaseStateMachine {
     final File snapshotFile = storage.getSnapshotFile(state.getApplied().getTerm(), index);
     try {
       saveSnapshot(state, snapshotFile);
-    } catch (IOException e) {
-      throw new IllegalStateException("Failed to save snapshot (" + state + ") to file " + snapshotFile, e);
+    } catch (Exception e) {
+      throw new IOException("Failed to save snapshot (" + state + ") to file " + snapshotFile, e);
     }
 
     //return the index of the stored snapshot (which is the last applied one)
