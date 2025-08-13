@@ -265,7 +265,7 @@ class ServerState {
         suffix = "";
       } else {
         final Timestamp previous = lastNoLeaderTime.getAndSet(null);
-        suffix = ", leader elected after " + previous.elapsedTimeMs() + "ms";
+        suffix = ", leader elected after " + (previous != null ? previous.elapsedTimeMs() : 0) + "ms";
         server.setFirstElection(op);
         server.getStateMachine().event().notifyLeaderChanged(getMemberId(), newLeaderId);
       }
