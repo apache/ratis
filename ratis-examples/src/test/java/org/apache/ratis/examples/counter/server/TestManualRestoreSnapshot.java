@@ -45,7 +45,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Test StateMachine related functionality
+ * Test manually restoring a snapshot.
+ * Due to hardware failures or software bugs,
+ * the state of a state machine can become corrupted.
+ * In such case, we may manually copy a snapshot from the leader
+ * and then install it to the corrupted state machine.
  */
 public class TestManualRestoreSnapshot extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
   public static final int NUM_SERVERS = 3;

@@ -50,7 +50,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
     StateMachine.EventApi, StateMachine.LeaderEventApi, StateMachine.FollowerEventApi {
-  static final AtomicInteger ID_GENERATOR = new AtomicInteger();
+  private static final AtomicInteger ID_GENERATOR = new AtomicInteger();
 
   private final int id = ID_GENERATOR.incrementAndGet();
   private final CompletableFuture<RaftServer> server = new CompletableFuture<>();

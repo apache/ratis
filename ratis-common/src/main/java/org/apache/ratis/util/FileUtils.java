@@ -395,13 +395,13 @@ public interface FileUtils {
     try {
       listDir(dir, out);
     } catch (IOException e) {
-      err.accept("Failed to lsDir: " + dir, e);
+      err.accept("Failed to listDir: " + dir, e);
     }
   }
 
   static void listDir(Path dir, Consumer<Object> out) throws IOException {
     if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) {
-      throw new NotDirectoryException( "Failed to lsDir: " + dir + " is not a directory.");
+      throw new NotDirectoryException( "Failed to listDir: " + dir + " is not a directory.");
     }
 
     try(Stream<Path> s = Files.list(dir)) {
