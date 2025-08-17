@@ -302,7 +302,6 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
       final long logIndex = watchReplies.logIndex;
       log.info("checkAll {}: logIndex={}", i, logIndex);
-      final RaftClientReply watchAllReply = watchReplies.getAll();
 
       final RaftClientReply watchAllCommittedReply = watchReplies.getAllCommitted();
       { // check commit infos
