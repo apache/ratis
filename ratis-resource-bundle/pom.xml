@@ -36,7 +36,18 @@
     <maven.test.skip>true</maven.test.skip>
   </properties>
   <!-- hack until we break things out into a project pom and parent pom -->
-  <dependencies/>
+  <dependencies>
+      <dependency>
+          <groupId>org.junit.jupiter</groupId>
+          <artifactId>junit-jupiter-engine</artifactId>
+          <scope>test</scope>
+      </dependency>
+      <dependency>
+          <groupId>org.junit.platform</groupId>
+          <artifactId>junit-platform-launcher</artifactId>
+          <scope>test</scope>
+      </dependency>
+  </dependencies>
   <build>
     <plugins>
       <plugin>
