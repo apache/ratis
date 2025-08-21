@@ -46,6 +46,9 @@ public class AddCommand extends AbstractRatisCommand {
 
   public static final String ADDRESS_OPTION_NAME = "address";
   public static final String PEER_ID_OPTION_NAME = "peerId";
+  public static final String CLIENT_ADDRESS_OPTION_NAME = "clientAddress";
+  public static final String ADMIN_ADDRESS_OPTION_NAME = "adminAddress";
+
   /**
    * @param context command context
    */
@@ -62,6 +65,8 @@ public class AddCommand extends AbstractRatisCommand {
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
     final Map<RaftPeerId, InetSocketAddress> peersInfo = new HashMap<>();
+    final Map<RaftPeerId, InetSocketAddress> clientAddressInfo = new HashMap<>();
+    final Map<RaftPeerId, InetSocketAddress> adminAddressInfo = new HashMap<>();
     List<RaftPeerId> ids;
 
     if (cl.hasOption(ADDRESS_OPTION_NAME) && cl.hasOption(PEER_ID_OPTION_NAME)) {
@@ -74,8 +79,32 @@ public class AddCommand extends AbstractRatisCommand {
       for (int i = 0; i < ids.size(); i++) {
         peersInfo.put(ids.get(i), addresses.get(i));
       }
+
+      if (cl.hasOption(CLIENT_ADDRESS_OPTION_NAME)) {
+        final List<InetSocketAddress> clientAddresses = Arrays.stream(cl.getOptionValue(CLIENT_ADDRESS_OPTION_NAME).split(","))
+            .map(CliUtils::parseInetSocketAddress)
+            .collect(Collectors.toList());
+        Preconditions.assertSame(ids.size(), clientAddresses.size(), "clientAddress size");
+        for (int i = 0; i < ids.size(); i++) {
+          clientAddressInfo.put(ids.get(i), clientAddresses.get(i));
+        }
+      }
+
+      if (cl.hasOption(ADMIN_ADDRESS_OPTION_NAME)) {
+        final List<InetSocketAddress> adminAddresses = Arrays.stream(cl.getOptionValue(ADMIN_ADDRESS_OPTION_NAME).split(","))
+            .map(CliUtils::parseInetSocketAddress)
+            .collect(Collectors.toList());
+        Preconditions.assertSame(ids.size(), adminAddresses.size(), "adminAddress size");
+        for (int i = 0; i < ids.size(); i++) {
+          adminAddressInfo.put(ids.get(i), adminAddresses.get(i));
+        }
+      }
     } else if (cl.hasOption(ADDRESS_OPTION_NAME)) {
       ids = getIds(cl.getOptionValue(ADDRESS_OPTION_NAME).split(","), peersInfo::put);
+      if (cl.hasOption(CLIENT_ADDRESS_OPTION_NAME) || cl.hasOption(ADMIN_ADDRESS_OPTION_NAME)) {
+        throw new IllegalArgumentException(
+            "When using auto-generated peer IDs, clientAddress and adminAddress are not supported.");
+      }
     } else {
       throw new IllegalArgumentException(
           "Both " + PEER_ID_OPTION_NAME + " and " + ADDRESS_OPTION_NAME + " options are missing.");
@@ -83,11 +112,22 @@ public class AddCommand extends AbstractRatisCommand {
 
     try (RaftClient client = newRaftClient()) {
       final Stream<RaftPeer> remaining = getPeerStream(RaftPeerRole.FOLLOWER);
-      final Stream<RaftPeer> adding = ids.stream().map(raftPeerId -> RaftPeer.newBuilder()
-          .setId(raftPeerId)
-          .setAddress(peersInfo.get(raftPeerId))
-          .setPriority(0)
-          .build());
+      final Stream<RaftPeer> adding = ids.stream().map(raftPeerId -> {
+        RaftPeer.Builder builder = RaftPeer.newBuilder()
+            .setId(raftPeerId)
+            .setAddress(peersInfo.get(raftPeerId))
+            .setPriority(0);
+
+        if (clientAddressInfo.containsKey(raftPeerId)) {
+          builder.setClientAddress(clientAddressInfo.get(raftPeerId));
+        }
+
+        if (adminAddressInfo.containsKey(raftPeerId)) {
+          builder.setAdminAddress(adminAddressInfo.get(raftPeerId));
+        }
+
+        return builder.build();
+      });
       final List<RaftPeer> peers = Stream.concat(remaining, adding).collect(Collectors.toList());
       final List<RaftPeer> listeners = getPeerStream(RaftPeerRole.LISTENER)
           .collect(Collectors.toList());
@@ -104,9 +144,12 @@ public class AddCommand extends AbstractRatisCommand {
     return String.format("%s"
             + " -%s <PEER0_HOST:PEER0_PORT,PEER1_HOST:PEER1_PORT,PEER2_HOST:PEER2_PORT>"
             + " [-%s <RAFT_GROUP_ID>]"
-            + " <[-%s <PEER0_HOST:PEER0_PORT>]|[-%s <peerId>]>",
+            + " <[-%s <PEER0_HOST:PEER0_PORT>]|[-%s <peerId>]>"
+            + " [-%s <CLIENT_ADDRESS1,CLIENT_ADDRESS2,...>]"
+            + " [-%s <ADMIN_ADDRESS1,ADMIN_ADDRESS2,...>]",
         getCommandName(), PEER_OPTION_NAME, GROUPID_OPTION_NAME,
-        ADDRESS_OPTION_NAME, PEER_ID_OPTION_NAME);
+        ADDRESS_OPTION_NAME, PEER_ID_OPTION_NAME,
+        CLIENT_ADDRESS_OPTION_NAME, ADMIN_ADDRESS_OPTION_NAME);
   }
 
   @Override
@@ -123,8 +166,19 @@ public class AddCommand extends AbstractRatisCommand {
             .desc("The address information of ratis peers")
             .build())
         .addOption(Option.builder()
-            .option(PEER_ID_OPTION_NAME).hasArg()
+            .option(PEER_ID_OPTION_NAME)
+            .hasArg()
             .desc("The peer id of ratis peers")
+            .build())
+        .addOption(Option.builder()
+            .option(CLIENT_ADDRESS_OPTION_NAME)
+            .hasArg()
+            .desc("The client address information of ratis peers")
+            .build())
+        .addOption(Option.builder()
+            .option(ADMIN_ADDRESS_OPTION_NAME)
+            .hasArg()
+            .desc("The admin address information of ratis peers")
             .build());
   }
 
