@@ -81,9 +81,10 @@ public class AddCommand extends AbstractRatisCommand {
       }
 
       if (cl.hasOption(CLIENT_ADDRESS_OPTION_NAME)) {
-        final List<InetSocketAddress> clientAddresses = Arrays.stream(cl.getOptionValue(CLIENT_ADDRESS_OPTION_NAME).split(","))
-            .map(CliUtils::parseInetSocketAddress)
-            .collect(Collectors.toList());
+        final List<InetSocketAddress> clientAddresses =
+            Arrays.stream(cl.getOptionValue(CLIENT_ADDRESS_OPTION_NAME).split(","))
+              .map(CliUtils::parseInetSocketAddress)
+              .collect(Collectors.toList());
         Preconditions.assertSame(ids.size(), clientAddresses.size(), "clientAddress size");
         for (int i = 0; i < ids.size(); i++) {
           clientAddressInfo.put(ids.get(i), clientAddresses.get(i));
@@ -91,9 +92,10 @@ public class AddCommand extends AbstractRatisCommand {
       }
 
       if (cl.hasOption(ADMIN_ADDRESS_OPTION_NAME)) {
-        final List<InetSocketAddress> adminAddresses = Arrays.stream(cl.getOptionValue(ADMIN_ADDRESS_OPTION_NAME).split(","))
-            .map(CliUtils::parseInetSocketAddress)
-            .collect(Collectors.toList());
+        final List<InetSocketAddress> adminAddresses =
+            Arrays.stream(cl.getOptionValue(ADMIN_ADDRESS_OPTION_NAME).split(","))
+              .map(CliUtils::parseInetSocketAddress)
+              .collect(Collectors.toList());
         Preconditions.assertSame(ids.size(), adminAddresses.size(), "adminAddress size");
         for (int i = 0; i < ids.size(); i++) {
           adminAddressInfo.put(ids.get(i), adminAddresses.get(i));
