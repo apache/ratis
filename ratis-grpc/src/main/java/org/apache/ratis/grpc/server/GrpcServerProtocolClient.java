@@ -47,6 +47,7 @@ import java.io.Closeable;
 public class GrpcServerProtocolClient implements Closeable {
   // Common channel
   private final ManagedChannel channel;
+  private final GrpcStubPool<RaftServerProtocolServiceStub> pool;
   // Channel and stub for heartbeat
   private ManagedChannel hbChannel;
   private RaftServerProtocolServiceStub hbAsyncStub;
@@ -59,7 +60,7 @@ public class GrpcServerProtocolClient implements Closeable {
   //visible for using in log / error messages AND to use in instrumented tests
   private final RaftPeerId raftPeerId;
 
-  public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
+  public GrpcServerProtocolClient(RaftPeer target, int connections, int flowControlWindow,
       TimeDuration requestTimeout, GrpcTlsConfig tlsConfig, boolean separateHBChannel) {
     raftPeerId = target.getId();
     LOG.info("Build channel for {}", target);
@@ -72,6 +73,8 @@ public class GrpcServerProtocolClient implements Closeable {
       hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
     }
     requestTimeoutDuration = requestTimeout;
+    this.pool = new GrpcStubPool<RaftServerProtocolServiceStub>(target, connections,
+            ch -> RaftServerProtocolServiceGrpc.newStub(ch));
   }
 
   private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow,
@@ -125,8 +128,19 @@ public class GrpcServerProtocolClient implements Closeable {
   }
 
   void readIndex(ReadIndexRequestProto request, StreamObserver<ReadIndexReplyProto> s) {
-    asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-        .readIndex(request, s);
+    GrpcStubPool.PooledStub<RaftServerProtocolServiceStub> p;
+    try {
+      p = pool.acquire();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      s.onError(e); return;
+    }
+    p.stub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+            .readIndex(request, new StreamObserver<ReadIndexReplyProto>() {
+              @Override public void onNext(ReadIndexReplyProto v) { s.onNext(v); }
+              @Override public void onError(Throwable t) { try { s.onError(t); } finally { pool.release(p); } }
+              @Override public void onCompleted() { try { s.onCompleted(); } finally { pool.release(p); } }
+            });
   }
 
   CallStreamObserver<AppendEntriesRequestProto> appendEntries(

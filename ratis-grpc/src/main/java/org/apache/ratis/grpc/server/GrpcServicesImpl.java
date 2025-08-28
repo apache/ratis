@@ -109,6 +109,7 @@ public final class GrpcServicesImpl
     private GrpcTlsConfig adminTlsConfig;
     private String clientHost;
     private int clientPort;
+    private int clientStubPoolSize;
     private GrpcTlsConfig clientTlsConfig;
     private String serverHost;
     private int serverPort;
@@ -129,6 +130,7 @@ public final class GrpcServicesImpl
       this.adminPort = GrpcConfigKeys.Admin.port(properties);
       this.clientHost = GrpcConfigKeys.Client.host(properties);
       this.clientPort = GrpcConfigKeys.Client.port(properties);
+      this.clientStubPoolSize = GrpcConfigKeys.Client.stubPoolSize(properties);
       this.serverHost = GrpcConfigKeys.Server.host(properties);
       this.serverPort = GrpcConfigKeys.Server.port(properties);
       this.messageSizeMax = GrpcConfigKeys.messageSizeMax(properties, LOG::info);
@@ -155,7 +157,7 @@ public final class GrpcServicesImpl
     }
 
     private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target) {
-      return new GrpcServerProtocolClient(target, flowControlWindow.getSizeInt(),
+      return new GrpcServerProtocolClient(target, clientStubPoolSize, flowControlWindow.getSizeInt(),
           requestTimeoutDuration, serverTlsConfig, separateHeartbeatChannel);
     }
 
