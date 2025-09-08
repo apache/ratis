@@ -78,6 +78,11 @@ public class CounterStateMachine extends BaseStateMachine {
     int getCounter() {
       return counter;
     }
+
+    @Override
+    public String toString() {
+      return counter + "@" + applied;
+    }
   }
 
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
@@ -94,11 +99,11 @@ public class CounterStateMachine extends BaseStateMachine {
   }
 
   /** @return the current state. */
-  private synchronized CounterState getState() {
+  synchronized CounterState getState() {
     return new CounterState(getLastAppliedTermIndex(), counter.get());
   }
 
-  private synchronized void updateState(TermIndex applied, int counterValue) {
+  synchronized void updateState(TermIndex applied, int counterValue) {
     updateLastAppliedTermIndex(applied);
     counter.set(counterValue);
   }
@@ -141,36 +146,45 @@ public class CounterStateMachine extends BaseStateMachine {
     load(storage.loadLatestSnapshot());
   }
 
+  @Override
+  public SimpleStateMachineStorage getStateMachineStorage() {
+    return storage;
+  }
+
   /**
    * Store the current state as a snapshot file in the {@link #storage}.
    *
    * @return the index of the snapshot
    */
   @Override
-  public long takeSnapshot() {
+  public long takeSnapshot() throws IOException {
     //get the current state
     final CounterState state = getState();
     final long index = state.getApplied().getIndex();
 
     //create a file with a proper name to store the snapshot
     final File snapshotFile = storage.getSnapshotFile(state.getApplied().getTerm(), index);
+    try {
+      saveSnapshot(state, snapshotFile);
+    } catch (Exception e) {
+      throw new IOException("Failed to save snapshot (" + state + ") to file " + snapshotFile, e);
+    }
 
+    //return the index of the stored snapshot (which is the last applied one)
+    return index;
+  }
+
+  void saveSnapshot(CounterState state, File snapshotFile) throws IOException {
     //write the counter value into the snapshot file
     try (ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(
         Files.newOutputStream(snapshotFile.toPath())))) {
       out.writeInt(state.getCounter());
-    } catch (IOException ioe) {
-      LOG.warn("Failed to write snapshot file \"" + snapshotFile
-          + "\", last applied index=" + state.getApplied());
     }
 
     // update storage
     final MD5Hash md5 = MD5FileUtil.computeAndSaveMd5ForFile(snapshotFile);
     final FileInfo info = new FileInfo(snapshotFile.toPath(), md5);
     storage.updateLatestSnapshot(new SingleFileSnapshotInfo(info, state.getApplied()));
-
-    //return the index of the stored snapshot (which is the last applied one)
-    return index;
   }
 
   /**
