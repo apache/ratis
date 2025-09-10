@@ -135,11 +135,28 @@ public class GrpcServerProtocolClient implements Closeable {
       Thread.currentThread().interrupt();
       s.onError(e); return;
     }
-    p.stub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+    p.getStub().withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
             .readIndex(request, new StreamObserver<ReadIndexReplyProto>() {
-              @Override public void onNext(ReadIndexReplyProto v) { s.onNext(v); }
-              @Override public void onError(Throwable t) { try { s.onError(t); } finally { pool.release(p); } }
-              @Override public void onCompleted() { try { s.onCompleted(); } finally { pool.release(p); } }
+              @Override
+              public void onNext(ReadIndexReplyProto v) {
+                s.onNext(v);
+              }
+              @Override
+              public void onError(Throwable t) {
+                try {
+                  s.onError(t);
+                } finally {
+                  pool.release(p);
+                }
+              }
+              @Override
+              public void onCompleted() {
+                try {
+                  s.onCompleted();
+                } finally {
+                  pool.release(p);
+                }
+              }
             });
   }
 

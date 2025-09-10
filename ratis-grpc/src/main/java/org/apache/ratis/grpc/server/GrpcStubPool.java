@@ -33,13 +33,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 final class GrpcStubPool<S extends AbstractStub<S>> implements AutoCloseable {
 
     static final class PooledStub<S extends AbstractStub<S>> {
-        final ManagedChannel ch;
-        final S stub;
-        final Semaphore permits;
+        private final ManagedChannel ch;
+        private final S stub;
+        private final Semaphore permits;
         PooledStub(ManagedChannel ch, S stub, int maxInflight) {
             this.ch = ch;
             this.stub = stub;
             this.permits = new Semaphore(maxInflight);
+        }
+
+        S getStub() {
+            return stub;
         }
     }
 
@@ -78,17 +82,23 @@ final class GrpcStubPool<S extends AbstractStub<S>> implements AutoCloseable {
         int start = rr.getAndIncrement();
         for (int k = 0; k < size; k++) {
             PooledStub<S> p = pool.get((start + k) % size);
-            if (p.permits.tryAcquire()) return p;
+            if (p.permits.tryAcquire()) {
+                return p;
+            }
         }
         PooledStub<S> p = pool.get(Math.floorMod(start, size));
         p.permits.acquire();
         return p;
     }
 
-    void release(PooledStub<S> p) { p.permits.release(); }
+    void release(PooledStub<S> p) {
+        p.permits.release();
+    }
 
     @Override public void close() {
-        for (PooledStub p: pool) p.ch.shutdown();
+        for (PooledStub p: pool) {
+            p.ch.shutdown();
+        }
         elg.shutdownGracefully();
     }
 
