@@ -109,11 +109,11 @@ public final class GrpcServicesImpl
     private GrpcTlsConfig adminTlsConfig;
     private String clientHost;
     private int clientPort;
-    private int clientStubPoolSize;
     private GrpcTlsConfig clientTlsConfig;
     private String serverHost;
     private int serverPort;
     private GrpcTlsConfig serverTlsConfig;
+    private int clientStubPoolSize;
 
     private SizeInBytes messageSizeMax;
     private SizeInBytes flowControlWindow;
@@ -130,13 +130,13 @@ public final class GrpcServicesImpl
       this.adminPort = GrpcConfigKeys.Admin.port(properties);
       this.clientHost = GrpcConfigKeys.Client.host(properties);
       this.clientPort = GrpcConfigKeys.Client.port(properties);
-      this.clientStubPoolSize = GrpcConfigKeys.Client.stubPoolSize(properties);
       this.serverHost = GrpcConfigKeys.Server.host(properties);
       this.serverPort = GrpcConfigKeys.Server.port(properties);
       this.messageSizeMax = GrpcConfigKeys.messageSizeMax(properties, LOG::info);
       this.flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::info);
       this.requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(properties);
       this.separateHeartbeatChannel = GrpcConfigKeys.Server.heartbeatChannel(properties);
+      this.clientStubPoolSize = GrpcConfigKeys.Server.stubPoolSize(properties);
 
       final SizeInBytes appenderBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
       final SizeInBytes gap = SizeInBytes.ONE_MB;
