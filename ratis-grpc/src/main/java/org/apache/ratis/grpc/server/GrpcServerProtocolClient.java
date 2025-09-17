@@ -110,6 +110,7 @@ public class GrpcServerProtocolClient implements Closeable {
       GrpcUtil.shutdownManagedChannel(hbChannel);
     }
     GrpcUtil.shutdownManagedChannel(channel);
+    pool.close();
   }
 
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) {
