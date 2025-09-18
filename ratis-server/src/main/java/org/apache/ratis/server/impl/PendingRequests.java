@@ -117,7 +117,7 @@ class PendingRequests {
       raftServerMetrics.addNumPendingRequestsMegaByteSize(resource::getMegaByteSize);
     }
 
-    Permit tryAcquire(Message message) {
+    synchronized Permit tryAcquire(Message message) {
       final int messageSize = Message.getSize(message);
       final int messageSizeMb = roundUpMb(messageSize );
       final Acquired acquired = resource.tryAcquire(messageSizeMb);
@@ -139,13 +139,7 @@ class PendingRequests {
       if (messageSizeMb > diffMb) {
         resource.releaseExtraMb(messageSizeMb - diffMb);
       }
-      return putPermit();
-    }
 
-    private synchronized Permit putPermit() {
-      if (resource.isClosed()) {
-        return null;
-      }
       final Permit permit = new Permit();
       permits.put(permit, permit);
       return permit;
@@ -157,9 +151,9 @@ class PendingRequests {
       if (removed == null) {
         return null;
       }
-      Preconditions.assertTrue(removed == permit);
+      Preconditions.assertSame(permit, removed, "permit");
       final PendingRequest previous = map.put(p.getTermIndex(), p);
-      Preconditions.assertTrue(previous == null);
+      Preconditions.assertNull(previous, "previous");
       return p;
     }
 
