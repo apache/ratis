@@ -74,7 +74,7 @@ public class GrpcServerProtocolClient implements Closeable {
     }
     requestTimeoutDuration = requestTimeout;
     this.pool = new GrpcStubPool<RaftServerProtocolServiceStub>(target, connections,
-            ch -> RaftServerProtocolServiceGrpc.newStub(ch));
+            ch -> RaftServerProtocolServiceGrpc.newStub(ch), tlsConfig);
   }
 
   private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow,
@@ -147,7 +147,7 @@ public class GrpcServerProtocolClient implements Closeable {
                 try {
                   s.onError(t);
                 } finally {
-                  pool.release(p);
+                  p.release();
                 }
               }
               @Override
@@ -155,7 +155,7 @@ public class GrpcServerProtocolClient implements Closeable {
                 try {
                   s.onCompleted();
                 } finally {
-                  pool.release(p);
+                  p.release();
                 }
               }
             });

@@ -17,20 +17,33 @@
  */
 package org.apache.ratis.grpc.server;
 
+import org.apache.ratis.grpc.GrpcTlsConfig;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
+import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
+import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.AbstractStub;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.WriteBufferWaterMark;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
-final class GrpcStubPool<S extends AbstractStub<S>> implements AutoCloseable {
+final class GrpcStubPool<S extends AbstractStub<S>> {
+
+    public static final Logger LOG = LoggerFactory.getLogger(GrpcStubPool.class);
 
     static final class PooledStub<S extends AbstractStub<S>> {
         private final ManagedChannel ch;
@@ -45,6 +58,10 @@ final class GrpcStubPool<S extends AbstractStub<S>> implements AutoCloseable {
         S getStub() {
             return stub;
         }
+
+        void release() {
+            permits.release();
+        }
     }
 
     private final List<PooledStub<S>> pool;
@@ -52,29 +69,45 @@ final class GrpcStubPool<S extends AbstractStub<S>> implements AutoCloseable {
     private final NioEventLoopGroup elg;
     private final int size;
 
-    GrpcStubPool(RaftPeer target, int n, java.util.function.Function<ManagedChannel, S> stubFactory) {
-        this(target, n, stubFactory, Math.max(2, Runtime.getRuntime().availableProcessors()/2), 16);
+    GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, GrpcTlsConfig tlsConfig) {
+        this(target, n, stubFactory, tlsConfig, Math.max(2, Runtime.getRuntime().availableProcessors()/2), 16);
     }
 
     GrpcStubPool(RaftPeer target, int n,
-                 java.util.function.Function<ManagedChannel, S> stubFactory,
+                 Function<ManagedChannel, S> stubFactory, GrpcTlsConfig tlsConf,
                  int elgThreads, int maxInflightPerConn) {
         this.elg = new NioEventLoopGroup(elgThreads);
-        java.util.ArrayList<PooledStub<S>> tmp = new java.util.ArrayList<>(n);
+        ArrayList<PooledStub<S>> tmp = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
-            ManagedChannel ch = NettyChannelBuilder.forTarget(target.getAddress())
+            NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(target.getAddress())
                     .eventLoopGroup(elg)
                     .channelType(NioSocketChannel.class)
-                    .keepAliveTime(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .keepAliveTime(30, TimeUnit.SECONDS)
                     .keepAliveWithoutCalls(true)
-                    .idleTimeout(24, java.util.concurrent.TimeUnit.HOURS)
+                    .idleTimeout(24, TimeUnit.HOURS)
                     .withOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(64<<10, 128<<10))
-                    .usePlaintext()
-                    .build();
+                    .usePlaintext();
+            if (tlsConf != null) {
+                LOG.debug("Setting TLS for {}", target.getAddress());
+                SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
+                GrpcUtil.setTrustManager(sslContextBuilder, tlsConf.getTrustManager());
+                if (tlsConf.getMtlsEnabled()) {
+                    GrpcUtil.setKeyManager(sslContextBuilder, tlsConf.getKeyManager());
+                }
+                try {
+                    channelBuilder.useTransportSecurity().sslContext(
+                            sslContextBuilder.build());
+                } catch (Exception ex) {
+                    throw new RuntimeException(ex);
+                }
+            } else {
+                channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
+            }
+            ManagedChannel ch = channelBuilder.build();
             tmp.add(new PooledStub<>(ch, stubFactory.apply(ch), maxInflightPerConn));
             ch.getState(true);
         }
-        this.pool = java.util.Collections.unmodifiableList(tmp);
+        this.pool = Collections.unmodifiableList(tmp);
         this.size = n;
     }
 
@@ -91,11 +124,7 @@ final class GrpcStubPool<S extends AbstractStub<S>> implements AutoCloseable {
         return p;
     }
 
-    void release(PooledStub<S> p) {
-        p.permits.release();
-    }
-
-    @Override public void close() {
+    public void close() {
         for (PooledStub p: pool) {
             p.ch.shutdown();
         }
