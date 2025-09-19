@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -110,14 +111,14 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
   }
 
   PooledStub<S> acquire() throws InterruptedException {
-    int start = rr.getAndIncrement();
+    final int start = ThreadLocalRandom.current().nextInt(size);
     for (int k = 0; k < size; k++) {
       PooledStub<S> p = pool.get((start + k) % size);
       if (p.permits.tryAcquire()) {
         return p;
       }
     }
-    PooledStub<S> p = pool.get(Math.floorMod(start, size));
+    final PooledStub<S> p = pool.get(start);
     p.permits.acquire();
     return p;
   }
