@@ -42,93 +42,90 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 final class GrpcStubPool<S extends AbstractStub<S>> {
+  public static final Logger LOG = LoggerFactory.getLogger(GrpcStubPool.class);
 
-    public static final Logger LOG = LoggerFactory.getLogger(GrpcStubPool.class);
+  static final class PooledStub<S extends AbstractStub<S>> {
+    private final ManagedChannel ch;
+    private final S stub;
+    private final Semaphore permits;
 
-    static final class PooledStub<S extends AbstractStub<S>> {
-        private final ManagedChannel ch;
-        private final S stub;
-        private final Semaphore permits;
-        PooledStub(ManagedChannel ch, S stub, int maxInflight) {
-            this.ch = ch;
-            this.stub = stub;
-            this.permits = new Semaphore(maxInflight);
-        }
-
-        S getStub() {
-            return stub;
-        }
-
-        void release() {
-            permits.release();
-        }
+    PooledStub(ManagedChannel ch, S stub, int maxInflight) {
+      this.ch = ch;
+      this.stub = stub;
+      this.permits = new Semaphore(maxInflight);
     }
 
-    private final List<PooledStub<S>> pool;
-    private final AtomicInteger rr = new AtomicInteger();
-    private final NioEventLoopGroup elg;
-    private final int size;
-
-    GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, GrpcTlsConfig tlsConfig) {
-        this(target, n, stubFactory, tlsConfig, Math.max(2, Runtime.getRuntime().availableProcessors()/2), 16);
+    S getStub() {
+      return stub;
     }
 
-    GrpcStubPool(RaftPeer target, int n,
-                 Function<ManagedChannel, S> stubFactory, GrpcTlsConfig tlsConf,
-                 int elgThreads, int maxInflightPerConn) {
-        this.elg = new NioEventLoopGroup(elgThreads);
-        ArrayList<PooledStub<S>> tmp = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) {
-            NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(target.getAddress())
-                    .eventLoopGroup(elg)
-                    .channelType(NioSocketChannel.class)
-                    .keepAliveTime(30, TimeUnit.SECONDS)
-                    .keepAliveWithoutCalls(true)
-                    .idleTimeout(24, TimeUnit.HOURS)
-                    .withOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(64<<10, 128<<10))
-                    .usePlaintext();
-            if (tlsConf != null) {
-                LOG.debug("Setting TLS for {}", target.getAddress());
-                SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
-                GrpcUtil.setTrustManager(sslContextBuilder, tlsConf.getTrustManager());
-                if (tlsConf.getMtlsEnabled()) {
-                    GrpcUtil.setKeyManager(sslContextBuilder, tlsConf.getKeyManager());
-                }
-                try {
-                    channelBuilder.useTransportSecurity().sslContext(
-                            sslContextBuilder.build());
-                } catch (Exception ex) {
-                    throw new RuntimeException(ex);
-                }
-            } else {
-                channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
-            }
-            ManagedChannel ch = channelBuilder.build();
-            tmp.add(new PooledStub<>(ch, stubFactory.apply(ch), maxInflightPerConn));
-            ch.getState(true);
-        }
-        this.pool = Collections.unmodifiableList(tmp);
-        this.size = n;
+    void release() {
+      permits.release();
     }
+  }
 
-    PooledStub<S> acquire() throws InterruptedException {
-        int start = rr.getAndIncrement();
-        for (int k = 0; k < size; k++) {
-            PooledStub<S> p = pool.get((start + k) % size);
-            if (p.permits.tryAcquire()) {
-                return p;
-            }
+  private final List<PooledStub<S>> pool;
+  private final AtomicInteger rr = new AtomicInteger();
+  private final NioEventLoopGroup elg;
+  private final int size;
+
+  GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, GrpcTlsConfig tlsConfig) {
+    this(target, n, stubFactory, tlsConfig, Math.max(2, Runtime.getRuntime().availableProcessors() / 2), 16);
+  }
+
+  GrpcStubPool(RaftPeer target, int n,
+               Function<ManagedChannel, S> stubFactory, GrpcTlsConfig tlsConf,
+               int elgThreads, int maxInflightPerConn) {
+    this.elg = new NioEventLoopGroup(elgThreads);
+    ArrayList<PooledStub<S>> tmp = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(target.getAddress())
+          .eventLoopGroup(elg)
+          .channelType(NioSocketChannel.class)
+          .keepAliveTime(30, TimeUnit.SECONDS)
+          .keepAliveWithoutCalls(true)
+          .idleTimeout(24, TimeUnit.HOURS)
+          .withOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(64 << 10, 128 << 10));
+      if (tlsConf != null) {
+        LOG.debug("Setting TLS for {}", target.getAddress());
+        SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
+        GrpcUtil.setTrustManager(sslContextBuilder, tlsConf.getTrustManager());
+        if (tlsConf.getMtlsEnabled()) {
+          GrpcUtil.setKeyManager(sslContextBuilder, tlsConf.getKeyManager());
         }
-        PooledStub<S> p = pool.get(Math.floorMod(start, size));
-        p.permits.acquire();
+        try {
+          channelBuilder.useTransportSecurity().sslContext(sslContextBuilder.build());
+        } catch (Exception ex) {
+          throw new RuntimeException(ex);
+        }
+      } else {
+        channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
+      }
+      ManagedChannel ch = channelBuilder.build();
+      tmp.add(new PooledStub<>(ch, stubFactory.apply(ch), maxInflightPerConn));
+      ch.getState(true);
+    }
+    this.pool = Collections.unmodifiableList(tmp);
+    this.size = n;
+  }
+
+  PooledStub<S> acquire() throws InterruptedException {
+    int start = rr.getAndIncrement();
+    for (int k = 0; k < size; k++) {
+      PooledStub<S> p = pool.get((start + k) % size);
+      if (p.permits.tryAcquire()) {
         return p;
+      }
     }
+    PooledStub<S> p = pool.get(Math.floorMod(start, size));
+    p.permits.acquire();
+    return p;
+  }
 
-    public void close() {
-        for (PooledStub p: pool) {
-            p.ch.shutdown();
-        }
-        elg.shutdownGracefully();
+  public void close() {
+    for (PooledStub p : pool) {
+      p.ch.shutdown();
     }
-
+    elg.shutdownGracefully();
+  }
 }
