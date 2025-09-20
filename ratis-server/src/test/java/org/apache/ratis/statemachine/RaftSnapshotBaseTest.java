@@ -49,15 +49,12 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -67,11 +64,18 @@ import java.util.stream.LongStream;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.slf4j.event.Level;
 
-public abstract class RaftSnapshotBaseTest extends BaseTest {
+public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
+    extends BaseTest
+    implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
     Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
     Slf4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+
+    final RaftProperties p = getProperties();
+    p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SimpleStateMachine4Testing.class, StateMachine.class);
+    RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(p, SNAPSHOT_TRIGGER_THRESHOLD);
+    RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(p, true);
   }
 
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);
@@ -119,29 +123,6 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     }
   }
 
-  private MiniRaftCluster cluster;
-
-  public abstract MiniRaftCluster.Factory<?> getFactory();
-
-  @BeforeEach
-  public void setup() throws IOException {
-    final RaftProperties prop = new RaftProperties();
-    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        SimpleStateMachine4Testing.class, StateMachine.class);
-    RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(
-        prop, SNAPSHOT_TRIGGER_THRESHOLD);
-    RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(prop, true);
-    this.cluster = getFactory().newCluster(1, prop);
-    cluster.start();
-  }
-
-  @AfterEach
-  public void tearDown() {
-    if (cluster != null) {
-      cluster.shutdown();
-    }
-  }
-
   /**
    * Keep generating writing traffic and make sure snapshots are taken.
    * We then restart the whole raft peer and check if it can correctly load
@@ -149,6 +130,11 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
    */
   @Test
   public void testRestartPeer() throws Exception {
+    runWithNewCluster(1, this::runTestRestartPeer);
+
+  }
+
+  void runTestRestartPeer(CLUSTER cluster) throws Exception {
     RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = cluster.getLeader().getId();
     int i = 0;
@@ -180,7 +166,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
   public static boolean exists(File f) {
     if (f.exists()) {
-      LOG.info("File exists: " + f);
+      LOG.info("File exists: {}", f);
       return true;
     }
     return false;
@@ -193,6 +179,10 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
    */
   @Test
   public void testBasicInstallSnapshot() throws Exception {
+    runWithNewCluster(1, this::runTestBasicInstallSnapshot);
+  }
+
+  void runTestBasicInstallSnapshot(CLUSTER cluster) throws Exception {
     final List<LogSegmentPath> logs;
     int i = 0;
     try {
@@ -275,6 +265,10 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
    */
   @Test
   public void testInstallSnapshotDuringBootstrap() throws Exception {
+    runWithNewCluster(3, this::runTestInstallSnapshotDuringBootstrap);
+  }
+
+  void runTestInstallSnapshotDuringBootstrap(CLUSTER cluster) throws Exception {
     int i = 0;
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -300,7 +294,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       assertLeaderContent(cluster);
 
       // add two more peers
-      String[] newPeers = new String[]{"s3", "s4"};
+      final String[] newPeers = {"new0", "new1"};
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
           newPeers, true, false);
       // trigger setConfiguration
