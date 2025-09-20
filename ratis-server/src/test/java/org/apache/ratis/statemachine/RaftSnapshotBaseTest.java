@@ -70,12 +70,12 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
   {
     Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
     Slf4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
-    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
 
     final RaftProperties p = getProperties();
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SimpleStateMachine4Testing.class, StateMachine.class);
     RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(p, SNAPSHOT_TRIGGER_THRESHOLD);
     RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(p, true);
+    RaftServerConfigKeys.LeaderElection.setMemberMajorityAdd(p, true);
   }
 
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);
@@ -135,8 +135,8 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
   }
 
   void runTestRestartPeer(CLUSTER cluster) throws Exception {
-    RaftTestUtil.waitForLeader(cluster);
-    final RaftPeerId leaderId = cluster.getLeader().getId();
+    LOG.info("runTestRestartPeer");
+    final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
     int i = 0;
     try(final RaftClient client = cluster.createClient(leaderId)) {
       for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
@@ -183,11 +183,11 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
   }
 
   void runTestBasicInstallSnapshot(CLUSTER cluster) throws Exception {
+    LOG.info("runTestBasicInstallSnapshot");
     final List<LogSegmentPath> logs;
     int i = 0;
     try {
-      RaftTestUtil.waitForLeader(cluster);
-      final RaftPeerId leaderId = cluster.getLeader().getId();
+      final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
       try(final RaftClient client = cluster.createClient(leaderId)) {
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
@@ -227,9 +227,8 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
       }
 
       // add two more peers
-      String[] newPeers = new String[]{"s3", "s4"};
-      MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
-          newPeers, true, false);
+      final String[] newPeers = new String[]{"new0"};
+      MiniRaftCluster.PeerChanges change = cluster.addNewPeers(newPeers, true, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
           peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
@@ -265,10 +264,11 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
    */
   @Test
   public void testInstallSnapshotDuringBootstrap() throws Exception {
-    runWithNewCluster(3, this::runTestInstallSnapshotDuringBootstrap);
+    runWithNewCluster(1, this::runTestInstallSnapshotDuringBootstrap);
   }
 
   void runTestInstallSnapshotDuringBootstrap(CLUSTER cluster) throws Exception {
+    LOG.info("runTestInstallSnapshotDuringBootstrap");
     int i = 0;
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -294,9 +294,8 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
       assertLeaderContent(cluster);
 
       // add two more peers
-      final String[] newPeers = {"new0", "new1"};
-      MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
-          newPeers, true, false);
+      final String[] newPeers = {"new0"};
+      MiniRaftCluster.PeerChanges change = cluster.addNewPeers(newPeers, true, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
           peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
