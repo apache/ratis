@@ -226,15 +226,14 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
         Assertions.assertTrue(client.io().send(new SimpleMessage("m" + i)).isSuccess());
       }
 
-      // add two more peers
-      final String[] newPeers = new String[]{"new0"};
-      MiniRaftCluster.PeerChanges change = cluster.addNewPeers(newPeers, true, true);
+      // add a new peer
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
           peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
-      for (String newPeer : newPeers) {
-        final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));
+      for (RaftPeer newPeer : change.newPeers) {
+        final RaftServer.Division s = cluster.getDivision(newPeer.getId());
         SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
         Assertions.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
       }
@@ -293,15 +292,14 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
 
       assertLeaderContent(cluster);
 
-      // add two more peers
-      final String[] newPeers = {"new0"};
-      MiniRaftCluster.PeerChanges change = cluster.addNewPeers(newPeers, true, true);
+      // add a new peer
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
           peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
 
-      for (String newPeer : newPeers) {
-        final RaftServer.Division s = cluster.getDivision(RaftPeerId.valueOf(newPeer));
+      for (RaftPeer newPeer : change.newPeers) {
+        final RaftServer.Division s = cluster.getDivision(newPeer.getId());
         SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
         Assertions.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
       }
