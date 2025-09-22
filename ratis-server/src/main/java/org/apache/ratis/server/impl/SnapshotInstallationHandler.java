@@ -36,6 +36,7 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.ratis.util.BatchLogger;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.LifeCycle;
@@ -144,7 +145,7 @@ class SnapshotInstallationHandler {
         final LogEntryProto proto = request.getLastRaftConfigurationLogEntryProto();
         state.truncate(proto.getIndex());
         if (!state.getRaftConf().equals(LogProtoUtils.toRaftConfiguration(proto))) {
-          LOG.info("{}: set new configuration {} from snapshot", getMemberId(), proto);
+          LOG.info("{}: set new configuration {} from snapshot", getMemberId(), TextFormat.shortDebugString(proto));
           state.setRaftConf(proto);
           state.writeRaftConfiguration(proto);
           server.getStateMachine().event().notifyConfigurationChanged(

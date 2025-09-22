@@ -79,6 +79,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
     RaftServerConfigKeys.Log.setPurgeGap(prop, PURGE_GAP);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf(1024)); // 1k segment
+    RaftServerConfigKeys.LeaderElection.setMemberMajorityAdd(prop, true);
   }
 
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 64;
@@ -239,9 +240,8 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
       Assertions.assertTrue(set);
 
-      // add two more peers
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
-          true);
+      // Add new peer(s)
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
           peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
@@ -389,9 +389,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
             follower.getRaftLog().getNextIndex());
       }
 
-      // Add two more peers who will need snapshots from the leader.
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
-          true);
+      // Add new peer(s) who will need snapshots from the leader.
+      final int numNewPeers = 1;
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(numNewPeers, true, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
           peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
@@ -412,7 +412,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       // Make sure each new peer got one snapshot notification.
-      Assertions.assertEquals(2, numSnapshotRequests.get());
+      Assertions.assertEquals(numNewPeers, numSnapshotRequests.get());
 
     } finally {
       cluster.shutdown();
@@ -556,9 +556,9 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       final boolean set = LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo);
       Assertions.assertTrue(set);
 
-      // add two more peers
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
-          true);
+      // Add new peer(s)
+      final int numNewPeers = 1;
+      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(numNewPeers, true, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
           peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
@@ -573,7 +573,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       // Make sure each new peer got at least one snapshot notification.
-      Assertions.assertTrue(2 <= numSnapshotRequests.get());
+      Assertions.assertTrue(numNewPeers <= numSnapshotRequests.get());
     } finally {
       cluster.shutdown();
     }

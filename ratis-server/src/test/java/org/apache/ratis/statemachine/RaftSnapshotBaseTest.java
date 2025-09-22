@@ -96,16 +96,16 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
     assertLogContent(leader, true);
   }
 
-  public static void assertLogContent(RaftServer.Division server, boolean isLeader) throws Exception {
+  public static void checkMetadataEntry(RaftServer.Division server) throws Exception {
     final RaftLog log = server.getRaftLog();
     final long lastIndex = log.getLastEntryTermIndex().getIndex();
     final LogEntryProto e = log.get(lastIndex);
     Assertions.assertTrue(e.hasMetadataEntry());
+    Assertions.assertEquals(log.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
+  }
 
-    JavaUtils.attemptRepeatedly(() -> {
-      Assertions.assertEquals(log.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
-      return null;
-    }, 50, BaseTest.HUNDRED_MILLIS, "CheckMetadataEntry", LOG);
+  public static void assertLogContent(RaftServer.Division server, boolean isLeader) throws Exception {
+    JavaUtils.attempt(() -> checkMetadataEntry(server), 50, HUNDRED_MILLIS, "checkMetadataEntry", LOG);
 
     SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(server);
     if (isLeader) {
