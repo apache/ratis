@@ -73,7 +73,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   static final BiFunction<GrpcTlsConfig, SslContext, SslContext> BUILD_SSL_CONTEXT_FOR_CLIENT
       = (tlsConf, defaultContext) -> tlsConf == null ? defaultContext : GrpcUtil.buildSslContextForClient(tlsConf);
 
-  static class SslContexts {
+  static final class SslContexts {
     private final SslContext adminSslContext;
     private final SslContext clientSslContext;
     private final SslContext serverSslContext;
