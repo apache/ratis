@@ -210,7 +210,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public synchronized void initialize(RaftServer server, RaftGroupId raftGroupId,
       RaftStorage raftStorage) throws IOException {
-    LOG.info("Initializing " + this);
+    LOG.info("Initializing {}", this);
     this.groupId = raftGroupId;
     getLifeCycle().startAndTransition(() -> {
       super.initialize(server, raftGroupId, raftStorage);
@@ -233,7 +233,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public synchronized void reinitialize() throws IOException {
-    LOG.info("Reinitializing " + this);
+    LOG.info("Reinitializing {}", this);
+    indexMap.clear();
+    dataMap.clear();
+
     loadSnapshot(storage.getLatestSnapshot());
     if (getLifeCycleState() == LifeCycle.State.PAUSED) {
       getLifeCycle().transition(LifeCycle.State.STARTING);
@@ -328,14 +331,14 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     final String string = request.getContent().toStringUtf8();
     Exception exception;
     try {
-      LOG.info("query " + string);
+      LOG.info("query {}", string);
       final LogEntryProto entry = dataMap.get(string);
       if (entry != null) {
         return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
       }
       exception = new IndexOutOfBoundsException(getId() + ": LogEntry not found for query " + string);
     } catch (Exception e) {
-      LOG.warn("Failed request " + request, e);
+      LOG.warn("Failed request {}", request, e);
       exception = e;
     }
     return JavaUtils.completeExceptionally(new StateMachineException(
