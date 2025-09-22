@@ -24,6 +24,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.thirdparty.com.google.protobuf.MessageOrBuilder;
+import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -67,7 +69,8 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     }
   }
 
-  abstract class ServerRequestStreamObserver<REQUEST, REPLY> implements StreamObserver<REQUEST> {
+  abstract class ServerRequestStreamObserver<REQUEST, REPLY extends MessageOrBuilder>
+      implements StreamObserver<REQUEST> {
     private final RaftServer.Op op;
     private final Supplier<String> nameSupplier;
     private final StreamObserver<REPLY> responseObserver;
@@ -172,7 +175,8 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
                 getId(), op, getPreviousRequestString(), suffix));
         requestFuture.get().thenAccept(reply -> {
           BatchLogger.print(BatchLogKey.COMPLETED_REPLY, getName(),
-              suffix -> LOG.info("{}: Completed {}, lastReply: {} {}", getId(), op, reply, suffix));
+              suffix -> LOG.info("{}: Completed {}, lastReply: {} {}",
+                  getId(), op, TextFormat.shortDebugString(reply), suffix));
           responseObserver.onCompleted();
         });
       }

@@ -138,8 +138,10 @@ public interface GrpcUtil {
   static long getCallId(Throwable t) {
     if (t instanceof StatusRuntimeException) {
       final Metadata trailers = ((StatusRuntimeException)t).getTrailers();
-      String callId = trailers.get(CALL_ID);
-      return callId != null ? Integer.parseInt(callId) : -1;
+      if (trailers != null) {
+        final String callId = trailers.get(CALL_ID);
+        return callId != null ? Integer.parseInt(callId) : -1;
+      }
     }
     return -1;
   }
@@ -147,8 +149,8 @@ public interface GrpcUtil {
   static boolean isHeartbeat(Throwable t) {
     if (t instanceof StatusRuntimeException) {
       final Metadata trailers = ((StatusRuntimeException)t).getTrailers();
-      String isHeartbeat = trailers != null ? trailers.get(HEARTBEAT) : null;
-      return isHeartbeat != null && Boolean.valueOf(isHeartbeat);
+      final String isHeartbeat = trailers != null ? trailers.get(HEARTBEAT) : null;
+      return Boolean.parseBoolean(isHeartbeat);
     }
     return false;
   }
@@ -156,7 +158,7 @@ public interface GrpcUtil {
   static IOException unwrapIOException(Throwable t) {
     final IOException e;
     if (t instanceof StatusRuntimeException) {
-      e = GrpcUtil.unwrapException((StatusRuntimeException) t);
+      e = unwrapException((StatusRuntimeException) t);
     } else {
       e = IOUtils.asIOException(t);
     }
@@ -172,7 +174,7 @@ public interface GrpcUtil {
       supplier.get().whenComplete((reply, exception) -> {
         if (exception != null) {
           warning.accept(exception);
-          responseObserver.onError(GrpcUtil.wrapException(exception));
+          responseObserver.onError(wrapException(exception));
         } else {
           responseObserver.onNext(toProto.apply(reply));
           responseObserver.onCompleted();
@@ -180,7 +182,7 @@ public interface GrpcUtil {
       });
     } catch (Exception e) {
       warning.accept(e);
-      responseObserver.onError(GrpcUtil.wrapException(e));
+      responseObserver.onError(wrapException(e));
     }
   }
 
@@ -189,7 +191,7 @@ public interface GrpcUtil {
   }
 
   class StatusRuntimeExceptionMetadataBuilder {
-    private Metadata trailers = new Metadata();
+    private final Metadata trailers = new Metadata();
 
     StatusRuntimeExceptionMetadataBuilder(Throwable t) {
       trailers.put(EXCEPTION_TYPE_KEY, t.getClass().getCanonicalName());
