@@ -106,7 +106,8 @@ public final class GrpcServicesImpl
     private SslContext clientSslContext;
     private String serverHost;
     private int serverPort;
-    private SslContext serverSslContext;
+    private SslContext serverSslContextForServer;
+    private SslContext serverSslContextForClient;
     private int serverStubPoolSize;
 
     private SizeInBytes messageSizeMax;
@@ -152,7 +153,7 @@ public final class GrpcServicesImpl
 
     private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target) {
       return new GrpcServerProtocolClient(target, serverStubPoolSize, flowControlWindow.getSizeInt(),
-          requestTimeoutDuration, serverSslContext, separateHeartbeatChannel);
+          requestTimeoutDuration, serverSslContextForClient, separateHeartbeatChannel);
     }
 
     private ExecutorService newExecutor() {
@@ -182,7 +183,7 @@ public final class GrpcServicesImpl
     }
 
     private NettyServerBuilder newNettyServerBuilderForServer() {
-      return newNettyServerBuilder(serverHost, serverPort, serverSslContext);
+      return newNettyServerBuilder(serverHost, serverPort, serverSslContextForServer);
     }
 
     private NettyServerBuilder newNettyServerBuilderForAdmin() {
@@ -247,8 +248,13 @@ public final class GrpcServicesImpl
       return this;
     }
 
-    public Builder setServerSslContext(SslContext serverSslContext) {
-      this.serverSslContext = serverSslContext;
+    public Builder setServerSslContextForServer(SslContext serverSslContextForServer) {
+      this.serverSslContextForServer = serverSslContextForServer;
+      return this;
+    }
+
+    public Builder setServerSslContextForClient(SslContext serverSslContextForClient) {
+      this.serverSslContextForClient = serverSslContextForClient;
       return this;
     }
   }

@@ -117,6 +117,9 @@ public class LifeCycle {
       if (LOG.isTraceEnabled()) {
         LOG.trace("TRACE", new Throwable());
       }
+      if (to == EXCEPTION) {
+        LOG.error("{} has failed ({} -> {})", name, from, to, new Throwable("TRACE"));
+      }
 
       Preconditions.assertTrue(isValid(from, to),
           "ILLEGAL TRANSITION: In %s, %s -> %s", name, from, to);
