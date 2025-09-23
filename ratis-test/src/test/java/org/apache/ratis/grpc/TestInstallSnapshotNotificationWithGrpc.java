@@ -18,9 +18,7 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.InstallSnapshotNotificationTests;
-import org.apache.ratis.test.tag.Flaky;
 
-@Flaky("RATIS-2322")
 public class TestInstallSnapshotNotificationWithGrpc
     extends InstallSnapshotNotificationTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
