@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,12 +17,9 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
 
-public class TestRaftSnapshotWithSimulatedRpc extends RaftSnapshotBaseTest {
-  @Override
-  public MiniRaftCluster.Factory<?> getFactory() {
-    return MiniRaftClusterWithSimulatedRpc.FACTORY;
-  }
+public class TestRaftSnapshotWithSimulatedRpc
+    extends RaftSnapshotBaseTest<MiniRaftClusterWithSimulatedRpc>
+    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
 }
