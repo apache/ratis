@@ -59,7 +59,10 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
     }
 
     PROXY getProxy() throws IOException {
-      if (proxy == null) {
+      final PROXY p = proxy;
+      if (p != null) {
+        return p;
+      } else {
         synchronized (this) {
           if (proxy == null) {
             final LifeCycle.State current = lifeCycle.getCurrentState();
@@ -69,9 +72,9 @@ public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Clos
             lifeCycle.startAndTransition(
                 () -> proxy = createProxyImpl(peer), IOException.class);
           }
+          return Objects.requireNonNull(proxy, "proxy");
         }
       }
-      return proxy;
     }
 
     Optional<PROXY> setNullProxyAndClose() {
