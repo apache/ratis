@@ -28,7 +28,6 @@ import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.thirdparty.com.google.common.collect.ObjectArrays;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -37,6 +36,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public abstract class PeerCommandIntegrationTest <CLUSTER extends MiniRaftCluster>
@@ -65,7 +66,7 @@ public abstract class PeerCommandIntegrationTest <CLUSTER extends MiniRaftCluste
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final String address = getClusterAddress(cluster);
     RaftServer.Division toRemove = cluster.getFollowers().get(0);
-    RaftPeer[] peers = new RaftPeer[]{cluster.getFollowers().get(1).getPeer(), leader.getPeer()};
+    final List<RaftPeer> peers = Arrays.asList(cluster.getFollowers().get(1).getPeer(), leader.getPeer());
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
     Assertions.assertTrue(cluster.getFollowers().contains(toRemove));
@@ -80,8 +81,8 @@ public abstract class PeerCommandIntegrationTest <CLUSTER extends MiniRaftCluste
     LOG.info("Start testMultiGroup" + cluster.printServers());
 
     RaftTestUtil.waitForLeader(cluster);
-    RaftPeer[] peers = cluster.getPeers().toArray(new RaftPeer[0]);
-    RaftPeer[] newPeers = cluster.addNewPeers(1, true, true).newPeers;
+    final List<RaftPeer> peers = cluster.getPeers();
+    final List<RaftPeer> newPeers = cluster.addNewPeers(1, true, true).getAddedPeers();
 
     RaftServerTestUtil.waitAndCheckNewConf(cluster, peers, 0, null);
     StringBuilder sb = new StringBuilder();
@@ -92,11 +93,13 @@ public abstract class PeerCommandIntegrationTest <CLUSTER extends MiniRaftCluste
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
 
+    final RaftPeer newPeer0 = newPeers.get(0);
     int ret = shell.run("peer", "add", "-peers", sb.toString(), "-address",
-        newPeers[0].getAdminAddress(), "-peerId", newPeers[0].getId().toString());
+        newPeer0.getAdminAddress(), "-peerId", newPeer0.getId().toString());
 
     Assertions.assertEquals(0, ret);
-    RaftServerTestUtil.waitAndCheckNewConf(cluster, ObjectArrays.concat(peers, newPeers[0]), 0, null);
+    peers.add(newPeer0);
+    RaftServerTestUtil.waitAndCheckNewConf(cluster, peers, 0, null);
 
   }
 

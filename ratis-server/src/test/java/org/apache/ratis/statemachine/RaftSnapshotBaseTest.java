@@ -38,6 +38,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.impl.PeerChanges;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -55,7 +56,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -227,12 +227,11 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
       }
 
       // add a new peer
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
+      final PeerChanges change = cluster.addNewPeers(1, true, true);
       // trigger setConfiguration
-      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
-          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
+      RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
 
-      for (RaftPeer newPeer : change.newPeers) {
+      for (RaftPeer newPeer : change.getAddedPeers()) {
         final RaftServer.Division s = cluster.getDivision(newPeer.getId());
         SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
         Assertions.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
@@ -240,7 +239,7 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
 
       // Verify installSnapshot counter on leader before restart.
       verifyInstallSnapshotMetric(cluster.getLeader());
-      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
 
       Timer timer = getTakeSnapshotTimer(cluster.getLeader());
       long count = timer.getCount();
@@ -293,12 +292,11 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
       assertLeaderContent(cluster);
 
       // add a new peer
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
+      final PeerChanges change = cluster.addNewPeers(1, true, true);
       // trigger setConfiguration
-      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
-          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
+      RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
 
-      for (RaftPeer newPeer : change.newPeers) {
+      for (RaftPeer newPeer : change.getAddedPeers()) {
         final RaftServer.Division s = cluster.getDivision(newPeer.getId());
         SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
         Assertions.assertSame(LifeCycle.State.RUNNING, simpleStateMachine.getLifeCycleState());
@@ -306,7 +304,7 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
 
       // Verify installSnapshot counter on leader
       verifyInstallSnapshotMetric(cluster.getLeader());
-      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
     } finally {
       cluster.shutdown();
     }
