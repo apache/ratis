@@ -51,7 +51,6 @@ import org.slf4j.event.Level;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -181,7 +180,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
         Logger log) {
       this.logIndex = logIndex;
       this.majority = majority;
-      this.all = Objects.requireNonNull(all, "ALL watch future is null");
+      this.all = all;
       this.majorityCommitted = majorityCommitted;
       this.allCommitted = allCommitted;
       this.log = log;
