@@ -30,6 +30,7 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufVarin
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.ProtoUtils;
@@ -127,31 +128,13 @@ public class NettyRpcProxy implements Closeable {
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-          if (!replies.isEmpty()) {
-            LOG.error(
-              "Still have {} requests outstanding when caught exception from {} connection",
-              replies.size(),
-              peer,
-              cause);
-            failOutstandingRequests(cause);
-          }
+          failOutstandingRequests(new IOException("Caught an exception for the connection to " + peer, cause));
           client.close();
         }
 
         @Override
         public void channelInactive(ChannelHandlerContext ctx) {
-          if (!replies.isEmpty()) {
-            LOG.error(
-              "Still have {} requests outstanding when connection from {} is closed",
-              replies.size(),
-              peer);
-            failOutstandingRequests(new IOException("Connection to " + peer + " is closed."));
-          }
-        }
-
-        private void failOutstandingRequests(Throwable cause) {
-          replies.forEach(f -> f.completeExceptionally(cause));
-          replies.clear();
+          failOutstandingRequests(new AlreadyClosedException("Channel to " + peer + " is inactive."));
         }
       };
       final ChannelInitializer<SocketChannel> initializer
@@ -185,9 +168,14 @@ public class NettyRpcProxy implements Closeable {
     @Override
     public synchronized void close() {
       client.close();
+      failOutstandingRequests(new AlreadyClosedException("Closing connection to " + peer));
+    }
+
+    private void failOutstandingRequests(Throwable cause) {
       if (!replies.isEmpty()) {
-        final IOException e = new IOException("Connection to " + peer + " is closed.");
-        replies.forEach(f -> f.completeExceptionally(e));
+        LOG.warn("Still have {} requests outstanding from {} connection: {}",
+            replies.size(), peer, cause.toString());
+        replies.forEach(f -> f.completeExceptionally(cause));
         replies.clear();
       }
     }
