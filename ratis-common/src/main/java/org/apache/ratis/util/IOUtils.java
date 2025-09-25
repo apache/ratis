@@ -18,6 +18,7 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.protocol.exceptions.NettyRpcException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.slf4j.Logger;
 
@@ -93,7 +94,7 @@ public interface IOUtils {
   static boolean shouldReconnect(Throwable e) {
     return ReflectionUtils.isInstance(e,
         SocketException.class, SocketTimeoutException.class, ClosedChannelException.class, EOFException.class,
-        AlreadyClosedException.class);
+        AlreadyClosedException.class, NettyRpcException.class);
   }
 
   static void readFully(InputStream in, int buffSize) throws IOException {
