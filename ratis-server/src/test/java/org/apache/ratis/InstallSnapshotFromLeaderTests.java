@@ -30,6 +30,7 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.PeerChanges;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -115,13 +116,12 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     Assertions.assertEquals(3, snapshot.getFiles().size());
 
     // add two more peers
-    final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
+    final PeerChanges change = cluster.addNewPeers(2, true,
         true);
     // trigger setConfiguration
-    cluster.setConfiguration(change.allPeersInNewConf);
+    cluster.setConfiguration(change.getPeersInNewConf());
 
-    RaftServerTestUtil
-        .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+    RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
 
     // Check the installed snapshot file number on each Follower matches with the
     // leader snapshot.
@@ -161,17 +161,17 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     }
 
     // add two more peers and install snapshot from leaders
-    final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true,
+    final PeerChanges change = cluster.addNewPeers(2, true,
         true);
     try (final RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
       final RaftException e = Assertions.assertThrows(RaftException.class,
-               () -> client.admin().setConfiguration(change.allPeersInNewConf));
+               () -> client.admin().setConfiguration(change.getPeersInNewConf()));
       Assertions.assertTrue( e instanceof RaftRetryFailureException
               || e instanceof ReconfigurationTimeoutException,
           () -> "Unexpected exception: " + e);
     }
 
-    final SnapshotInfo snapshotInfo = cluster.getDivision(change.newPeers[0].getId())
+    final SnapshotInfo snapshotInfo = cluster.getDivision(change.getAddedPeers().get(0).getId())
          .getStateMachine().getLatestSnapshot();
     Assertions.assertNotNull(snapshotInfo);
 
@@ -184,7 +184,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
 
     try (final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
       // successfully setConfiguration during leader switch
-      final RaftClientReply setConf = client.admin().setConfiguration(change.allPeersInNewConf);
+      final RaftClientReply setConf = client.admin().setConfiguration(change.getPeersInNewConf());
       Assertions.assertTrue(setConf.isSuccess());
 
       RaftTestUtil.deIsolate(cluster, leaderId);
