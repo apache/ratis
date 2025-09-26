@@ -44,16 +44,6 @@ import java.util.function.Supplier;
  * IO related utility methods.
  */
 public interface IOUtils {
-  // Network exceptions for reconnection
-  Class<?>[] NETWORK_EXCEPTIONS = {
-      SocketException.class,
-      SocketTimeoutException.class,
-      ClosedChannelException.class,
-      EOFException.class,
-      AlreadyClosedException.class,
-      TimeoutIOException.class
-  };
-
   static InterruptedIOException toInterruptedIOException(
       String message, InterruptedException e) {
     final InterruptedIOException iioe = new InterruptedIOException(message);
