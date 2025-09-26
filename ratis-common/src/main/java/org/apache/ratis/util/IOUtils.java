@@ -101,12 +101,14 @@ public interface IOUtils {
   }
 
   static boolean shouldReconnect(Throwable e) {
-    if (e == null) return false;
-    if (ReflectionUtils.isInstance(e, NETWORK_EXCEPTIONS)) {
-      return true;
+    for (; e != null; e = e.getCause()) {
+      if (ReflectionUtils.isInstance(e,
+          SocketException.class, SocketTimeoutException.class, ClosedChannelException.class, EOFException.class,
+          AlreadyClosedException.class, TimeoutIOException.class)) {
+        return true;
+      }
     }
-    return e.getCause() != null &&
-        ReflectionUtils.isInstance(e.getCause(), NETWORK_EXCEPTIONS);
+    return false;
   }
 
   static void readFully(InputStream in, int buffSize) throws IOException {
