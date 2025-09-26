@@ -28,6 +28,7 @@ import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.PeerChanges;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.JavaUtils;
@@ -109,12 +110,12 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       final RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, oldLeader);
 
       // add two more peers
-      MiniRaftCluster.PeerChanges change = cluster.addNewPeers(new String[]{
+      PeerChanges change = cluster.addNewPeers(new String[]{
           "ss1", "ss2"}, true, false);
       // trigger setConfiguration
-      LOG.info("Start changing the configuration: {}", Arrays.asList(change.allPeersInNewConf));
+      LOG.info("Start changing the configuration: {}", change.getPeersInNewConf());
       try (final RaftClient c2 = cluster.createClient(newLeader)) {
-        RaftClientReply reply = c2.admin().setConfiguration(change.allPeersInNewConf);
+        RaftClientReply reply = c2.admin().setConfiguration(change.getPeersInNewConf());
         Assertions.assertTrue(reply.isSuccess());
       }
       LOG.info(cluster.printServers());

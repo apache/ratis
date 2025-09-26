@@ -53,7 +53,6 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -65,6 +64,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.ratis.RaftTestUtil.getPeersWithPriority;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
+import static org.apache.ratis.proto.RaftProtos.RaftPeerRole.LISTENER;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_ELECTION_ELAPSED_TIME;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIME_TAKEN;
@@ -156,11 +156,11 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       }
       // add 3 new servers and wait longer time
       CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(2000));
-      MiniRaftCluster.PeerChanges peerChanges = cluster.addNewPeers(2, true, false);
+      final PeerChanges peerChanges = cluster.addNewPeers(2, true, false);
       LOG.info("add new 3 servers");
       LOG.info(cluster.printServers());
       RaftClientReply reply = client.admin().setConfiguration(SetConfigurationRequest.Arguments.newBuilder()
-              .setServersInNewConf(peerChanges.newPeers)
+              .setServersInNewConf(peerChanges.getAddedPeers())
               .setMode(SetConfigurationRequest.Mode.ADD).build());
       assertTrue(reply.isSuccess());
       for (RaftServer server : cluster.getServers()) {
@@ -461,14 +461,14 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         client.io().send(new RaftTestUtil.SimpleMessage("message"));
         List<RaftPeer> servers = cluster.getPeers();
         assertEquals(servers.size(), 3);
-        MiniRaftCluster.PeerChanges changes = cluster.addNewPeers(1,
-            true, false, RaftProtos.RaftPeerRole.LISTENER);
-        RaftClientReply reply = client.admin().setConfiguration(servers, Arrays.asList(changes.newPeers));
+        final PeerChanges changes = cluster.addNewPeers(1, true, false, LISTENER);
+        final List<RaftPeer> added = changes.getAddedPeers();
+        final RaftClientReply reply = client.admin().setConfiguration(servers, added);
         assertTrue(reply.isSuccess());
         Collection<RaftPeer> listener =
             leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
         assertEquals(1, listener.size());
-        assertEquals(changes.newPeers[0].getId(), new ArrayList<>(listener).get(0).getId());
+        assertEquals(added.get(0).getId(), listener.iterator().next().getId());
       }
       cluster.shutdown();
     }
@@ -486,8 +486,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         List<RaftPeer> listener = new ArrayList<>(
             leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER));
         assertEquals(1, listener.size());
-        MiniRaftCluster.PeerChanges changes = cluster.addNewPeers(1, true, false);
-        ArrayList<RaftPeer> newPeers = new ArrayList<>(Arrays.asList(changes.newPeers));
+        final PeerChanges changes = cluster.addNewPeers(1, true, false);
+        final List<RaftPeer> newPeers = new ArrayList<>(changes.getAddedPeers());
         newPeers.addAll(leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.FOLLOWER));
         RaftClientReply reply = client.admin().setConfiguration(newPeers, listener);
         assertTrue(reply.isSuccess());
@@ -761,7 +761,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       RaftServerTestUtil.assertLeaderLease(leader, true);
 
       final List<RaftServer.Division> followers = cluster.getFollowers();
-      final MiniRaftCluster.PeerChanges changes = cluster.addNewPeers(2, true);
+      final PeerChanges changes = cluster.addNewPeers(2, true);
 
       // blocking the original 2 followers
       BlockRequestHandlingInjection.getInstance().blockReplier(followers.get(0).getId().toString());
@@ -770,7 +770,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       // start reconfiguration in another thread, shall fail eventually
       new Thread(() -> {
         try {
-          client.admin().setConfiguration(changes.allPeersInNewConf);
+          client.admin().setConfiguration(changes.getPeersInNewConf());
         } catch (IOException e) {
           System.out.println("as expected: " + e.getMessage());
         }

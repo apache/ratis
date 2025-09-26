@@ -47,7 +47,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -82,18 +82,18 @@ public final class RaftServerTestUtil {
   }
 
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
-      RaftPeer[] peers, int numOfNewPeers, int numOfRemovedPeers, Collection<RaftPeerId> deadPeers)
+      List<RaftPeer> peers, int numOfNewPeers, int numOfRemovedPeers, Collection<RaftPeerId> deadPeers)
       throws Exception {
     final TimeDuration sleepTime = cluster.getTimeoutMax().apply(n -> n * (numOfRemovedPeers + numOfNewPeers + 2));
-    JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, Arrays.asList(peers), deadPeers),
+    JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, peers, deadPeers),
         10, sleepTime, "waitAndCheckNewConf", LOG);
   }
 
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
-      RaftPeer[] peers, int numOfRemovedPeers, Collection<RaftPeerId> deadPeers)
+      List<RaftPeer> peers, int numOfRemovedPeers, Collection<RaftPeerId> deadPeers)
       throws Exception {
     final TimeDuration sleepTime = cluster.getTimeoutMax().apply(n -> n * (numOfRemovedPeers + 2));
-    JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, Arrays.asList(peers), deadPeers),
+    JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, peers, deadPeers),
         10, sleepTime, "waitAndCheckNewConf", LOG);
   }
   private static void waitAndCheckNewConf(MiniRaftCluster cluster,
@@ -224,16 +224,16 @@ public final class RaftServerTestUtil {
     return ((RaftConfigurationImpl)config).isHighestPriority(peerId);
   }
 
-  public static void runWithMinorityPeers(MiniRaftCluster cluster, Collection<RaftPeer> peersInNewConf,
-      CheckedConsumer<Collection<RaftPeer>, IOException> consumer) throws IOException {
-    Collection<RaftPeer> peers = parseMinorityPeers(cluster, peersInNewConf);
+  public static void runWithMinorityPeers(MiniRaftCluster cluster, List<RaftPeer> peersInNewConf,
+      CheckedConsumer<List<RaftPeer>, IOException> consumer) throws IOException {
+    List<RaftPeer> peers = parseMinorityPeers(cluster, peersInNewConf);
     while (peers != null) {
       consumer.accept(peers);
       peers = parseMinorityPeers(cluster, peersInNewConf);
     }
   }
 
-  private static Collection<RaftPeer> parseMinorityPeers(MiniRaftCluster cluster, Collection<RaftPeer> peersInNewConf) {
+  private static List<RaftPeer> parseMinorityPeers(MiniRaftCluster cluster, List<RaftPeer> peersInNewConf) {
     RaftConfigurationImpl conf = (RaftConfigurationImpl) cluster.getLeader().getRaftConf();
     Set<RaftPeer> peers = new HashSet<>(conf.getCurrentPeers());
 
@@ -247,7 +247,7 @@ public final class RaftServerTestUtil {
           break;
         }
       }
-      return peers;
+      return new ArrayList<>(peers);
     }
 
     // All new peers has been added. Handle the removed peers.

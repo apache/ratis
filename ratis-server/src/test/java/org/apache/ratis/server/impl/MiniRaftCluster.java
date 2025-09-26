@@ -238,18 +238,6 @@ public abstract class MiniRaftCluster implements Closeable {
     }
   }
 
-  public static class PeerChanges {
-    public final RaftPeer[] allPeersInNewConf;
-    public final RaftPeer[] newPeers;
-    public final RaftPeer[] removedPeers;
-
-    public PeerChanges(RaftPeer[] all, RaftPeer[] newPeers, RaftPeer[] removed) {
-      this.allPeersInNewConf = all;
-      this.newPeers = newPeers;
-      this.removedPeers = removed;
-    }
-  }
-
   public static RaftGroup initRaftGroup(Collection<String> ids, Collection<String> listenerIds) {
     Stream<RaftPeer> peer = ids.stream()
         .map(id -> RaftPeer.newBuilder().setId(id))
@@ -493,12 +481,12 @@ public abstract class MiniRaftCluster implements Closeable {
       }
     }
 
-    final Collection<RaftPeer> newPeers = toRaftPeers(newServers);
-    final RaftPeer[] np = newPeers.toArray(RaftPeer.emptyArray());
-    newPeers.addAll(group.getPeers());
-    RaftPeer[] p = newPeers.toArray(RaftPeer.emptyArray());
-    group = RaftGroup.valueOf(group.getGroupId(), p);
-    return new PeerChanges(p, np, RaftPeer.emptyArray());
+    final List<RaftPeer> newPeers = toRaftPeers(newServers);
+    final List<RaftPeer> allPeers = new ArrayList<>(newPeers.size() + group.getPeers().size());
+    allPeers.addAll(newPeers);
+    allPeers.addAll(group.getPeers());
+    group = RaftGroup.valueOf(group.getGroupId(), allPeers);
+    return new PeerChanges(allPeers, newPeers, Collections.emptyList());
   }
 
   void startServers(Iterable<? extends RaftServer> raftServers) throws IOException {
@@ -513,7 +501,7 @@ public abstract class MiniRaftCluster implements Closeable {
    */
   public PeerChanges removePeers(int number, boolean removeLeader,
       Collection<RaftPeer> excluded) throws InterruptedException {
-    Collection<RaftPeer> raftPeers = new ArrayList<>(group.getPeers());
+    final List<RaftPeer> raftPeers = new ArrayList<>(group.getPeers());
     List<RaftPeer> removedPeers = new ArrayList<>(number);
     if (removeLeader) {
       final RaftPeer leader = RaftTestUtil.waitForLeader(this).getPeer();
@@ -531,9 +519,8 @@ public abstract class MiniRaftCluster implements Closeable {
         removed++;
       }
     }
-    final RaftPeer[] p = raftPeers.toArray(RaftPeer.emptyArray());
-    group = RaftGroup.valueOf(group.getGroupId(), p);
-    return new PeerChanges(p, RaftPeer.emptyArray(), removedPeers.toArray(RaftPeer.emptyArray()));
+    group = RaftGroup.valueOf(group.getGroupId(), raftPeers);
+    return new PeerChanges(raftPeers, Collections.emptyList(), removedPeers);
   }
 
   public void killServer(RaftPeerId id) {
@@ -815,15 +802,14 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public SetConfigurationRequest newSetConfigurationRequest(
-      ClientId clientId, RaftPeerId leaderId,
-      RaftPeer... raftPeers) {
+      ClientId clientId, RaftPeerId leaderId, List<RaftPeer> raftPeers) {
     return new SetConfigurationRequest(clientId, leaderId, getGroupId(), CallId.getDefault(),
         SetConfigurationRequest.Arguments.newBuilder().setServersInNewConf(raftPeers).build());
   }
 
-  public void setConfiguration(RaftPeer... raftPeers) throws IOException {
+  public void setConfiguration(List<RaftPeer> raftPeers) throws IOException {
     try(RaftClient client = createClient()) {
-      LOG.info("Start changing the configuration: {}", Arrays.asList(raftPeers));
+      LOG.info("Start changing the configuration: {}", raftPeers);
       final RaftClientReply reply = client.admin().setConfiguration(raftPeers);
       Preconditions.assertTrue(reply.isSuccess());
     }

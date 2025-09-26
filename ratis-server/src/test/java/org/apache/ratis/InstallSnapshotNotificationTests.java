@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.PeerChanges;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -49,7 +50,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -241,13 +241,11 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       Assertions.assertTrue(set);
 
       // Add new peer(s)
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
+      final PeerChanges change = cluster.addNewPeers(1, true, true);
       // trigger setConfiguration
-      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
-          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
+      RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
 
-      RaftServerTestUtil
-          .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
 
       // Check the installed snapshot index on each Follower matches with the
       // leader snapshot.
@@ -391,12 +389,10 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Add new peer(s) who will need snapshots from the leader.
       final int numNewPeers = 1;
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(numNewPeers, true, true);
+      final PeerChanges change = cluster.addNewPeers(numNewPeers, true, true);
       // trigger setConfiguration
-      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
-          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
-      RaftServerTestUtil
-          .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
+      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
 
       // Generate more data.
       try (final RaftClient client = cluster.createClient(leader.getId())) {
@@ -479,13 +475,10 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       Assertions.assertTrue(set);
 
       // add one new peer
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(1, true, true);
+      final PeerChanges change = cluster.addNewPeers(1, true, true);
       // trigger setConfiguration
-      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
-          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
-
-      RaftServerTestUtil
-          .waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+      RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
+      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
 
       // Check the installed snapshot index on each Follower matches with the
       // leader snapshot.
@@ -558,12 +551,11 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Add new peer(s)
       final int numNewPeers = 1;
-      final MiniRaftCluster.PeerChanges change = cluster.addNewPeers(numNewPeers, true, true);
+      final PeerChanges change = cluster.addNewPeers(numNewPeers, true, true);
       // trigger setConfiguration
-      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(change.allPeersInNewConf),
-          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
+      RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
 
-      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+      RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
 
       // Check the installed snapshot index on each Follower matches with the
       // leader snapshot.

@@ -18,7 +18,7 @@
 package org.apache.ratis;
 
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.impl.MiniRaftCluster.PeerChanges;
+import org.apache.ratis.server.impl.PeerChanges;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
@@ -39,11 +39,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import static java.util.Arrays.asList;
 
 public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -139,10 +137,9 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
 
       // trigger the reconfiguration, make sure the original leader is kicked out
       final PeerChanges change = cluster.removePeers(2, true, Collections.emptyList());
-      final RaftPeer[] allPeers = change.allPeersInNewConf;
+      final List<RaftPeer> allPeers = change.getPeersInNewConf();
       // trigger setConfiguration
-      RaftServerTestUtil.runWithMinorityPeers(cluster, Arrays.asList(allPeers),
-          peers -> cluster.setConfiguration(peers.toArray(RaftPeer.emptyArray())));
+      RaftServerTestUtil.runWithMinorityPeers(cluster, allPeers, cluster::setConfiguration);
 
       final RaftPeerId newLeaderId = JavaUtils.attemptRepeatedly(() -> {
         final RaftPeerId id = RaftTestUtil.waitForLeader(cluster).getId();
@@ -153,7 +150,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       // same clientId and callId in the request
       r = cluster.newRaftClientRequest(client.getId(), newLeaderId,
               callId, new SimpleMessage("message"));
-      rpc.addRaftPeers(Arrays.asList(change.newPeers));
+      rpc.addRaftPeers(change.getAddedPeers());
       for (int i = 0; i < 10; i++) {
         try {
           assertReply(rpc.sendRequest(r), client, callId);
