@@ -20,7 +20,7 @@ package org.apache.ratis.netty;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.exceptions.NettyRpcException;
+import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufDecoder;
@@ -128,7 +128,7 @@ public class NettyRpcProxy implements Closeable {
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-          failOutstandingRequests(new NettyRpcException("Caught an exception for the connection to " + peer, cause));
+          failOutstandingRequests(cause);
           client.close();
         }
 
@@ -219,7 +219,7 @@ public class NettyRpcProxy implements Closeable {
     } catch (ExecutionException e) {
       throw IOUtils.toIOException(e);
     } catch (TimeoutException e) {
-      throw new NettyRpcException(e.getMessage(), e);
+      throw new TimeoutIOException(e.getMessage(), e);
     }
   }
 }
