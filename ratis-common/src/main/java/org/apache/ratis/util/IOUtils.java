@@ -44,6 +44,16 @@ import java.util.function.Supplier;
  * IO related utility methods.
  */
 public interface IOUtils {
+  // Network exceptions for reconnection
+  Class<?>[] NETWORK_EXCEPTIONS = {
+      SocketException.class,
+      SocketTimeoutException.class,
+      ClosedChannelException.class,
+      EOFException.class,
+      AlreadyClosedException.class,
+      TimeoutIOException.class
+  };
+
   static InterruptedIOException toInterruptedIOException(
       String message, InterruptedException e) {
     final InterruptedIOException iioe = new InterruptedIOException(message);
@@ -91,9 +101,12 @@ public interface IOUtils {
   }
 
   static boolean shouldReconnect(Throwable e) {
-    return ReflectionUtils.isInstance(e,
-        SocketException.class, SocketTimeoutException.class, ClosedChannelException.class, EOFException.class,
-        AlreadyClosedException.class, TimeoutIOException.class);
+    if (e == null) return false;
+    if (ReflectionUtils.isInstance(e, NETWORK_EXCEPTIONS)) {
+      return true;
+    }
+    return e.getCause() != null &&
+        ReflectionUtils.isInstance(e.getCause(), NETWORK_EXCEPTIONS);
   }
 
   static void readFully(InputStream in, int buffSize) throws IOException {

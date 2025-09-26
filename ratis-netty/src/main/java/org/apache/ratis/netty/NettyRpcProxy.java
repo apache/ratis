@@ -128,7 +128,7 @@ public class NettyRpcProxy implements Closeable {
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-          failOutstandingRequests(cause);
+          failOutstandingRequests(new IOException("Caught an exception for the connection to " + peer, cause));
           client.close();
         }
 
