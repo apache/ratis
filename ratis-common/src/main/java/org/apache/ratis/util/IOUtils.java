@@ -18,7 +18,6 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
-import org.apache.ratis.protocol.exceptions.NettyRpcException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.slf4j.Logger;
 
