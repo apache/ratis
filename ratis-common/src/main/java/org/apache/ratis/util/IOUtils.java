@@ -94,7 +94,7 @@ public interface IOUtils {
   static boolean shouldReconnect(Throwable e) {
     return ReflectionUtils.isInstance(e,
         SocketException.class, SocketTimeoutException.class, ClosedChannelException.class, EOFException.class,
-        AlreadyClosedException.class, NettyRpcException.class);
+        AlreadyClosedException.class, TimeoutIOException.class);
   }
 
   static void readFully(InputStream in, int buffSize) throws IOException {
