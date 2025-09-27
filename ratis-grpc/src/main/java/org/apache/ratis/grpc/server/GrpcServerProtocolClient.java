@@ -80,7 +80,7 @@ class GrpcServerProtocolClient implements Closeable {
     // ignore any http proxy for grpc
     channelBuilder.proxyDetector(uri -> null);
 
-    if (sslContext!= null) {
+    if (sslContext != null) {
       channelBuilder.useTransportSecurity().sslContext(sslContext);
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
