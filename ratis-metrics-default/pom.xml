@@ -30,18 +30,8 @@
       <groupId>org.apache.ratis</groupId>
     </dependency>
     <dependency>
-      <artifactId>ratis-proto</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
       <artifactId>ratis-common</artifactId>
       <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-common</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <scope>test</scope>
-      <type>test-jar</type>
     </dependency>
 
     <dependency>
