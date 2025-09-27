@@ -17,11 +17,8 @@
  */
 package org.apache.ratis.grpc.server;
 
-import org.apache.ratis.grpc.GrpcTlsConfig;
-import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
-import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.AbstractStub;
@@ -29,7 +26,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.WriteBufferWaterMark;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +36,6 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 final class GrpcStubPool<S extends AbstractStub<S>> {
@@ -66,16 +62,14 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
   }
 
   private final List<PooledStub<S>> pool;
-  private final AtomicInteger rr = new AtomicInteger();
   private final NioEventLoopGroup elg;
   private final int size;
 
-  GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, GrpcTlsConfig tlsConfig) {
-    this(target, n, stubFactory, tlsConfig, Math.max(2, Runtime.getRuntime().availableProcessors() / 2), 16);
+  GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, SslContext sslContext) {
+    this(target, n, stubFactory, sslContext, Math.max(2, Runtime.getRuntime().availableProcessors() / 2), 16);
   }
 
-  GrpcStubPool(RaftPeer target, int n,
-               Function<ManagedChannel, S> stubFactory, GrpcTlsConfig tlsConf,
+  GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, SslContext sslContext,
                int elgThreads, int maxInflightPerConn) {
     this.elg = new NioEventLoopGroup(elgThreads);
     ArrayList<PooledStub<S>> tmp = new ArrayList<>(n);
@@ -87,18 +81,9 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
           .keepAliveWithoutCalls(true)
           .idleTimeout(24, TimeUnit.HOURS)
           .withOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(64 << 10, 128 << 10));
-      if (tlsConf != null) {
+      if (sslContext != null) {
         LOG.debug("Setting TLS for {}", target.getAddress());
-        SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
-        GrpcUtil.setTrustManager(sslContextBuilder, tlsConf.getTrustManager());
-        if (tlsConf.getMtlsEnabled()) {
-          GrpcUtil.setKeyManager(sslContextBuilder, tlsConf.getKeyManager());
-        }
-        try {
-          channelBuilder.useTransportSecurity().sslContext(sslContextBuilder.build());
-        } catch (Exception ex) {
-          throw new RuntimeException(ex);
-        }
+        channelBuilder.useTransportSecurity().sslContext(sslContext);
       } else {
         channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
       }
@@ -124,7 +109,7 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
   }
 
   public void close() {
-    for (PooledStub p : pool) {
+    for (PooledStub<S> p : pool) {
       p.ch.shutdown();
     }
     elg.shutdownGracefully();

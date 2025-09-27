@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,13 +17,11 @@
  */
 package org.apache.ratis.grpc.server;
 
-import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.util.StreamObserverWithTimeout;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
-import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
@@ -33,7 +31,7 @@ import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceBlockingStub;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceStub;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +42,7 @@ import java.io.Closeable;
  * This is a RaftClient implementation that supports streaming data to the raft
  * ring. The stream implementation utilizes gRPC.
  */
-public class GrpcServerProtocolClient implements Closeable {
+class GrpcServerProtocolClient implements Closeable {
   // Common channel
   private final ManagedChannel channel;
   private final GrpcStubPool<RaftServerProtocolServiceStub> pool;
@@ -60,42 +58,30 @@ public class GrpcServerProtocolClient implements Closeable {
   //visible for using in log / error messages AND to use in instrumented tests
   private final RaftPeerId raftPeerId;
 
-  public GrpcServerProtocolClient(RaftPeer target, int connections, int flowControlWindow,
-      TimeDuration requestTimeout, GrpcTlsConfig tlsConfig, boolean separateHBChannel) {
+  GrpcServerProtocolClient(RaftPeer target, int connections, int flowControlWindow,
+      TimeDuration requestTimeout, SslContext sslContext, boolean separateHBChannel) {
     raftPeerId = target.getId();
     LOG.info("Build channel for {}", target);
     useSeparateHBChannel = separateHBChannel;
-    channel = buildChannel(target, flowControlWindow, tlsConfig);
+    channel = buildChannel(target, flowControlWindow, sslContext);
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
     if (useSeparateHBChannel) {
-      hbChannel = buildChannel(target, flowControlWindow, tlsConfig);
+      hbChannel = buildChannel(target, flowControlWindow, sslContext);
       hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
     }
     requestTimeoutDuration = requestTimeout;
-    this.pool = new GrpcStubPool<RaftServerProtocolServiceStub>(target, connections,
-            ch -> RaftServerProtocolServiceGrpc.newStub(ch), tlsConfig);
+    this.pool = new GrpcStubPool<>(target, connections, RaftServerProtocolServiceGrpc::newStub, sslContext);
   }
 
-  private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow,
-      GrpcTlsConfig tlsConfig) {
+  private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow, SslContext sslContext) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(target.getAddress());
     // ignore any http proxy for grpc
     channelBuilder.proxyDetector(uri -> null);
 
-    if (tlsConfig!= null) {
-      SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
-      GrpcUtil.setTrustManager(sslContextBuilder, tlsConfig.getTrustManager());
-      if (tlsConfig.getMtlsEnabled()) {
-        GrpcUtil.setKeyManager(sslContextBuilder, tlsConfig.getKeyManager());
-      }
-      try {
-        channelBuilder.useTransportSecurity().sslContext(sslContextBuilder.build());
-      } catch (Exception ex) {
-        throw new IllegalArgumentException("Failed to build SslContext, peerId=" + raftPeerId
-            + ", tlsConfig=" + tlsConfig, ex);
-      }
+    if (sslContext != null) {
+      channelBuilder.useTransportSecurity().sslContext(sslContext);
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }

@@ -28,7 +28,10 @@ import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.Metadata;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
+import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -39,12 +42,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.KeyManager;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
 
 public interface GrpcUtil {
   Logger LOG = LoggerFactory.getLogger(GrpcUtil.class);
@@ -297,6 +303,40 @@ public interface GrpcUtil {
       b.keyManager(certificates.getFile(), privateKey.getFile());
     } else {
       b.keyManager(privateKey.get(), certificates.get());
+    }
+  }
+
+  static SslContext buildSslContextForServer(GrpcTlsConfig tlsConf) {
+    if (tlsConf == null) {
+      return null;
+    }
+    SslContextBuilder b = initSslContextBuilderForServer(tlsConf.getKeyManager());
+    if (tlsConf.getMtlsEnabled()) {
+      b.clientAuth(ClientAuth.REQUIRE);
+      setTrustManager(b, tlsConf.getTrustManager());
+    }
+    b = GrpcSslContexts.configure(b, OPENSSL);
+    try {
+      return b.build();
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to buildSslContextForServer from tlsConfig " + tlsConf, e);
+    }
+  }
+
+  static SslContext buildSslContextForClient(GrpcTlsConfig tlsConf) {
+    if (tlsConf == null) {
+      return null;
+    }
+
+    final SslContextBuilder b = GrpcSslContexts.forClient();
+    setTrustManager(b, tlsConf.getTrustManager());
+    if (tlsConf.getMtlsEnabled()) {
+      setKeyManager(b, tlsConf.getKeyManager());
+    }
+    try {
+      return b.build();
+    } catch (SSLException e) {
+      throw new IllegalArgumentException("Failed to buildSslContextForClient from tlsConfig " + tlsConf, e);
     }
   }
 }

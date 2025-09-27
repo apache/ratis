@@ -21,7 +21,6 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.intercept.client.MetricClientInterceptor;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
@@ -49,11 +48,10 @@ import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
-import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -97,7 +95,7 @@ public class GrpcClientProtocolClient implements Closeable {
   private final MetricClientInterceptor metricClientInterceptor;
 
   GrpcClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties,
-      GrpcTlsConfig adminTlsConfig, GrpcTlsConfig clientTlsConfig) {
+      SslContext adminSslContext, SslContext clientSslContext) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
@@ -110,11 +108,9 @@ public class GrpcClientProtocolClient implements Closeable {
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
     final boolean separateAdminChannel = !Objects.equals(clientAddress, adminAddress);
 
-    clientChannel = buildChannel(clientAddress, clientTlsConfig,
-        flowControlWindow, maxMessageSize);
+    clientChannel = buildChannel(clientAddress, clientSslContext, flowControlWindow, maxMessageSize);
     adminChannel = separateAdminChannel
-        ? buildChannel(adminAddress, adminTlsConfig,
-            flowControlWindow, maxMessageSize)
+        ? buildChannel(adminAddress, adminSslContext, flowControlWindow, maxMessageSize)
         : clientChannel;
 
     asyncStub = RaftClientProtocolServiceGrpc.newStub(clientChannel);
@@ -124,26 +120,16 @@ public class GrpcClientProtocolClient implements Closeable {
         RaftClientConfigKeys.Rpc.watchRequestTimeout(properties);
   }
 
-  private ManagedChannel buildChannel(String address, GrpcTlsConfig tlsConf,
+  private ManagedChannel buildChannel(String address, SslContext sslContext,
       SizeInBytes flowControlWindow, SizeInBytes maxMessageSize) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(address);
     // ignore any http proxy for grpc
     channelBuilder.proxyDetector(uri -> null);
 
-    if (tlsConf != null) {
+    if (sslContext != null) {
       LOG.debug("Setting TLS for {}", address);
-      SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
-      GrpcUtil.setTrustManager(sslContextBuilder, tlsConf.getTrustManager());
-      if (tlsConf.getMtlsEnabled()) {
-        GrpcUtil.setKeyManager(sslContextBuilder, tlsConf.getKeyManager());
-      }
-      try {
-        channelBuilder.useTransportSecurity().sslContext(
-            sslContextBuilder.build());
-      } catch (Exception ex) {
-        throw new RuntimeException(ex);
-      }
+      channelBuilder.useTransportSecurity().sslContext(sslContext);
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
