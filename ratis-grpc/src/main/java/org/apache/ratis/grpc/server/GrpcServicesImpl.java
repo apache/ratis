@@ -19,8 +19,6 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.grpc.GrpcTlsConfig;
-import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
@@ -34,13 +32,11 @@ import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptor;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
-import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.*;
@@ -55,8 +51,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
-
-import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
 
 /** A grpc implementation of {@link org.apache.ratis.server.RaftServerRpc}. */
 public final class GrpcServicesImpl
@@ -106,13 +100,14 @@ public final class GrpcServicesImpl
 
     private String adminHost;
     private int adminPort;
-    private GrpcTlsConfig adminTlsConfig;
+    private SslContext adminSslContext;
     private String clientHost;
     private int clientPort;
-    private GrpcTlsConfig clientTlsConfig;
+    private SslContext clientSslContext;
     private String serverHost;
     private int serverPort;
-    private GrpcTlsConfig serverTlsConfig;
+    private SslContext serverSslContextForServer;
+    private SslContext serverSslContextForClient;
     private int serverStubPoolSize;
 
     private SizeInBytes messageSizeMax;
@@ -158,7 +153,7 @@ public final class GrpcServicesImpl
 
     private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target) {
       return new GrpcServerProtocolClient(target, serverStubPoolSize, flowControlWindow.getSizeInt(),
-          requestTimeoutDuration, serverTlsConfig, separateHeartbeatChannel);
+          requestTimeoutDuration, serverSslContextForClient, separateHeartbeatChannel);
     }
 
     private ExecutorService newExecutor() {
@@ -188,18 +183,18 @@ public final class GrpcServicesImpl
     }
 
     private NettyServerBuilder newNettyServerBuilderForServer() {
-      return newNettyServerBuilder(serverHost, serverPort, serverTlsConfig);
+      return newNettyServerBuilder(serverHost, serverPort, serverSslContextForServer);
     }
 
     private NettyServerBuilder newNettyServerBuilderForAdmin() {
-      return newNettyServerBuilder(adminHost, adminPort, adminTlsConfig);
+      return newNettyServerBuilder(adminHost, adminPort, adminSslContext);
     }
 
     private NettyServerBuilder newNettyServerBuilderForClient() {
-      return newNettyServerBuilder(clientHost, clientPort, clientTlsConfig);
+      return newNettyServerBuilder(clientHost, clientPort, clientSslContext);
     }
 
-    private NettyServerBuilder newNettyServerBuilder(String hostname, int port, GrpcTlsConfig tlsConfig) {
+    private NettyServerBuilder newNettyServerBuilder(String hostname, int port, SslContext sslContext) {
       final InetSocketAddress address = hostname == null || hostname.isEmpty() ?
           new InetSocketAddress(port) : new InetSocketAddress(hostname, port);
       final NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forAddress(address)
@@ -207,19 +202,9 @@ public final class GrpcServicesImpl
           .maxInboundMessageSize(messageSizeMax.getSizeInt())
           .flowControlWindow(flowControlWindow.getSizeInt());
 
-      if (tlsConfig != null) {
+      if (sslContext != null) {
         LOG.info("Setting TLS for {}", address);
-        SslContextBuilder sslContextBuilder = GrpcUtil.initSslContextBuilderForServer(tlsConfig.getKeyManager());
-        if (tlsConfig.getMtlsEnabled()) {
-          sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
-          GrpcUtil.setTrustManager(sslContextBuilder, tlsConfig.getTrustManager());
-        }
-        sslContextBuilder = GrpcSslContexts.configure(sslContextBuilder, OPENSSL);
-        try {
-          nettyServerBuilder.sslContext(sslContextBuilder.build());
-        } catch (Exception ex) {
-          throw new IllegalArgumentException("Failed to build SslContext, tlsConfig=" + tlsConfig, ex);
-        }
+        nettyServerBuilder.sslContext(sslContext);
       }
       return nettyServerBuilder;
     }
@@ -253,18 +238,23 @@ public final class GrpcServicesImpl
       return new GrpcServicesImpl(this);
     }
 
-    public Builder setAdminTlsConfig(GrpcTlsConfig config) {
-      this.adminTlsConfig = config;
+    public Builder setAdminSslContext(SslContext adminSslContext) {
+      this.adminSslContext = adminSslContext;
       return this;
     }
 
-    public Builder setClientTlsConfig(GrpcTlsConfig config) {
-      this.clientTlsConfig = config;
+    public Builder setClientSslContext(SslContext clientSslContext) {
+      this.clientSslContext = clientSslContext;
       return this;
     }
 
-    public Builder setServerTlsConfig(GrpcTlsConfig config) {
-      this.serverTlsConfig = config;
+    public Builder setServerSslContextForServer(SslContext serverSslContextForServer) {
+      this.serverSslContextForServer = serverSslContextForServer;
+      return this;
+    }
+
+    public Builder setServerSslContextForClient(SslContext serverSslContextForClient) {
+      this.serverSslContextForClient = serverSslContextForClient;
       return this;
     }
   }
