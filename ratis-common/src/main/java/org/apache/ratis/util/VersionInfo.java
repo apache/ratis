@@ -118,8 +118,9 @@ public final class VersionInfo {
     log.accept(String.format("Starting %s -- %s %s"
         , coreEntries.getOrDefault(Key.NAME), clazz.getSimpleName(), name));
     log.accept(coreEntries.format(Key.VERSION));
-    log.accept(coreEntries.format(Key.REVISION));
     log.accept(coreEntries.format(Key.URL));
+    log.accept(coreEntries.format(Key.REVISION));
+    log.accept(coreEntries.format(Key.JAVA_VERSION));
 
     for (Map.Entry<String, String> e : otherEntries.entrySet()) {
       log.accept(String.format(FORMAT, e.getKey(), e.getValue()));
