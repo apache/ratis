@@ -43,7 +43,7 @@ public final class VersionInfo {
   private static final String FORMAT = "  %20s: %s";
 
   private enum Key {
-    NAME, VERSION, REVISION;
+    NAME, VERSION, REVISION, URL, JAVA_VERSION;
 
     static Key parse(String key) {
       for (Key k : Key.values()) {
@@ -108,6 +108,7 @@ public final class VersionInfo {
       }
     }
 
+    cores.put(Key.JAVA_VERSION, System.getProperty("java.version"));
     this.coreEntries = new KeyMap(cores);
     this.otherEntries = Collections.unmodifiableMap(others);
   }
@@ -118,6 +119,7 @@ public final class VersionInfo {
         , coreEntries.getOrDefault(Key.NAME), clazz.getSimpleName(), name));
     log.accept(coreEntries.format(Key.VERSION));
     log.accept(coreEntries.format(Key.REVISION));
+    log.accept(coreEntries.format(Key.URL));
 
     for (Map.Entry<String, String> e : otherEntries.entrySet()) {
       log.accept(String.format(FORMAT, e.getKey(), e.getValue()));
