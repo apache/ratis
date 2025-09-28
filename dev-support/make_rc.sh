@@ -145,7 +145,7 @@ mvnFun() {
 
 5-publish-git(){
   cd "$projectdir"
-  git push apache "release-${RATISVERSION}"
+  git push apache HEAD:"release-${RATISVERSION}"
   git push apache "ratis-${RATISVERSION}${RC}"
 }
 
