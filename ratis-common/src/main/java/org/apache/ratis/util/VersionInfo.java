@@ -38,91 +38,106 @@ import java.util.function.Consumer;
 public final class VersionInfo {
   static final Logger LOG = LoggerFactory.getLogger(VersionInfo.class);
 
-  private static final String VERSION_PROPERTIES = "ratis-version.properties";
+  private static final String RATIS_VERSION_PROPERTIES = "ratis-version.properties";
   private static final String UNKNOWN = "<unknown>";
   private static final String FORMAT = "  %20s: %s";
 
-  private enum Key {
-    NAME, VERSION, REVISION, URL, JAVA_VERSION;
+  private enum CompilationInfo {
+    // the ordering is important
+    NAME, VERSION, URL, REVISION;
 
-    static Key parse(String key) {
-      for (Key k : Key.values()) {
-        if (k.getLowerCaseName().equals(key)) {
-          return k;
+    static CompilationInfo parse(String key) {
+      for (CompilationInfo info : CompilationInfo.values()) {
+        if (info.name().toLowerCase().equals(key)) {
+          return info;
         }
       }
       return null;
     }
+  }
 
-    private final String lowerCaseName = name().toLowerCase();
+  private enum RuntimeInfo {
+    // the ordering is important
+    JAVA, USER;
 
-    String getLowerCaseName() {
-      return lowerCaseName;
+    static final InfoMap<RuntimeInfo> MAP;
+
+    static {
+      final EnumMap<RuntimeInfo, String> runtimeInfos = new EnumMap<>(RuntimeInfo.class);
+      runtimeInfos.put(JAVA, System.getProperty("java.vm.name") + " " + System.getProperty("java.version"));
+      runtimeInfos.put(USER, System.getProperty("user.name"));
+      MAP = new InfoMap<>(runtimeInfos);
     }
   }
 
-  private static class KeyMap {
-    private final Map<Key, String> map;
+  private static class InfoMap<INFO extends Enum<INFO>> {
+    private final Map<INFO, String> map;
 
-    KeyMap(EnumMap<Key, String> map) {
+    InfoMap(EnumMap<INFO, String> map) {
       this.map = Collections.unmodifiableMap(map);
     }
 
-    String getOrDefault(Key key) {
-      return map.getOrDefault(key, UNKNOWN);
+    String getOrDefault(INFO info) {
+      return map.getOrDefault(info, UNKNOWN);
     }
 
-    String format(Key key) {
-      return String.format(FORMAT, key.getLowerCaseName(), getOrDefault(key));
+    String format(INFO info) {
+      return String.format(FORMAT, info.name().toLowerCase(), getOrDefault(info));
     }
   }
 
   public static VersionInfo load(Class<?> clazz) {
     final Properties properties = new Properties();
 
-    try (InputStream in = clazz.getClassLoader().getResourceAsStream(VERSION_PROPERTIES)) {
-      properties.load(in);
+    try (InputStream in = clazz.getClassLoader().getResourceAsStream(RATIS_VERSION_PROPERTIES)) {
+      if (in != null) {
+        properties.load(in);
+      } else {
+        LOG.warn("Resource '{}' not found for {}", RATIS_VERSION_PROPERTIES, clazz);
+      }
     } catch (IOException e) {
-      LOG.warn("Failed to load resource '{}' for {}", VERSION_PROPERTIES, clazz, e);
+      LOG.warn("Failed to load resource '{}' for {}", RATIS_VERSION_PROPERTIES, clazz, e);
     }
     return new VersionInfo(clazz, properties);
   }
 
   private final Class<?> clazz;
-  private final KeyMap coreEntries;
-  private final Map<String, String> otherEntries;
+  private final InfoMap<RuntimeInfo> runtimeInfos = RuntimeInfo.MAP;
+  private final InfoMap<CompilationInfo> compilationInfos;
+  private final Map<String, String> otherInfos;
 
   private VersionInfo(Class<?> clazz, Properties properties) {
     this.clazz = Objects.requireNonNull(clazz, "clazz == null");
 
-    final EnumMap<Key, String> cores = new EnumMap<>(Key.class);
+    final EnumMap<CompilationInfo, String> compilationInfos = new EnumMap<>(CompilationInfo.class);
     final Map<String, String> others = new LinkedHashMap<>(); // preserve insertion order
     for (Map.Entry<Object, Object> e : properties.entrySet()) {
       final String key = e.getKey().toString();
       final String value = e.getValue().toString();
-      final Key k = Key.parse(key);
+      final CompilationInfo k = CompilationInfo.parse(key);
       if (k != null) {
-        cores.put(k, value);
+        compilationInfos.put(k, value);
       } else {
         others.put(key, value);
       }
     }
 
-    cores.put(Key.JAVA_VERSION, System.getProperty("java.version"));
-    this.coreEntries = new KeyMap(cores);
-    this.otherEntries = Collections.unmodifiableMap(others);
+    this.compilationInfos = new InfoMap<>(compilationInfos);
+    this.otherInfos = Collections.unmodifiableMap(others);
   }
 
   public void printStartupMessages(Object name, Consumer<String> log) {
     Objects.requireNonNull(name, "name == null");
-    log.accept(String.format("Starting %s -- %s %s"
-        , coreEntries.getOrDefault(Key.NAME), clazz.getSimpleName(), name));
-    log.accept(coreEntries.format(Key.VERSION));
-    log.accept(coreEntries.format(Key.URL));
-    log.accept(coreEntries.format(Key.REVISION));
-    log.accept(coreEntries.format(Key.JAVA_VERSION));
-
-    for (Map.Entry<String, String> e : otherEntries.entrySet()) {
+    log.accept(String.format("Starting %s -- %s %s", 
+        compilationInfos.getOrDefault(CompilationInfo.NAME), clazz.getSimpleName(), name));
+    final CompilationInfo[] compilationInfoValues = CompilationInfo.values();
+    for(int i = 1; i < compilationInfoValues.length; i++) {
+      log.accept(compilationInfos.format(compilationInfoValues[i]));
+    }
+    for(RuntimeInfo runtimeInfo : RuntimeInfo.values()) {
+      log.accept(runtimeInfos.format(runtimeInfo));
+    }
+    for (Map.Entry<String, String> e : otherInfos.entrySet()) {
       log.accept(String.format(FORMAT, e.getKey(), e.getValue()));
     }
   }
