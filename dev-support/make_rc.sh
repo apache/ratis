@@ -145,6 +145,7 @@ mvnFun() {
 
 5-publish-git(){
   cd "$projectdir"
+  git push apache "release-${RATISVERSION}"
   git push apache "ratis-${RATISVERSION}${RC}"
 }
 
@@ -169,7 +170,7 @@ Please choose from available phases (eg. make_rc.sh 1-prepare-src):
 
    4-assembly:     This step copies all the required artifacts to the svn directory and ($SVNDISTDIR) creates the signatures/checksum files.
 
-   5-publish-git:  Only do it if everything is fine. It pushes the rc tag to the repository.
+   5-publish-git:  Only do it if everything is fine. It pushes the rc tag and release branch to the repository.
 
    6-publish-svn:  Uploads the artifacts to the apache dev staging area to start the vote.
 
