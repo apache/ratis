@@ -109,26 +109,26 @@ public final class VersionInfo {
   private VersionInfo(Class<?> clazz, Properties properties) {
     this.clazz = Objects.requireNonNull(clazz, "clazz == null");
 
-    final EnumMap<CompilationInfo, String> compilationInfos = new EnumMap<>(CompilationInfo.class);
+    final EnumMap<CompilationInfo, String> compilations = new EnumMap<>(CompilationInfo.class);
     final Map<String, String> others = new LinkedHashMap<>(); // preserve insertion order
     for (Map.Entry<Object, Object> e : properties.entrySet()) {
       final String key = e.getKey().toString();
       final String value = e.getValue().toString();
       final CompilationInfo k = CompilationInfo.parse(key);
       if (k != null) {
-        compilationInfos.put(k, value);
+        compilations.put(k, value);
       } else {
         others.put(key, value);
       }
     }
 
-    this.compilationInfos = new InfoMap<>(compilationInfos);
+    this.compilationInfos = new InfoMap<>(compilations);
     this.otherInfos = Collections.unmodifiableMap(others);
   }
 
   public void printStartupMessages(Object name, Consumer<String> log) {
     Objects.requireNonNull(name, "name == null");
-    log.accept(String.format("Starting %s -- %s %s", 
+    log.accept(String.format("Starting %s -- %s %s",
         compilationInfos.getOrDefault(CompilationInfo.NAME), clazz.getSimpleName(), name));
     final CompilationInfo[] compilationInfoValues = CompilationInfo.values();
     for(int i = 1; i < compilationInfoValues.length; i++) {
