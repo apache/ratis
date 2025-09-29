@@ -53,6 +53,7 @@ import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.VersionInfo;
 
 import java.io.Closeable;
 import java.io.File;
@@ -207,6 +208,8 @@ class RaftServerProxy implements RaftServer {
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters, ThreadGroup threadGroup) {
+    VersionInfo.load(getClass()).printStartupMessages(id, LOG::info);
+
     this.properties = properties;
     this.stateMachineRegistry = stateMachineRegistry;
 
