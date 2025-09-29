@@ -42,12 +42,12 @@ public final class VersionInfo {
   private static final String UNKNOWN = "<unknown>";
   private static final String FORMAT = "  %20s: %s";
 
-  private enum CompilationInfo {
-    // the ordering is important
+  private enum SoftwareInfo {
+    // the ordering is the output ordering
     NAME, VERSION, URL, REVISION;
 
-    static CompilationInfo parse(String key) {
-      for (CompilationInfo info : CompilationInfo.values()) {
+    static SoftwareInfo parse(String key) {
+      for (SoftwareInfo info : SoftwareInfo.values()) {
         if (info.name().toLowerCase().equals(key)) {
           return info;
         }
@@ -57,16 +57,17 @@ public final class VersionInfo {
   }
 
   private enum RuntimeInfo {
-    // the ordering is important
+    // the ordering is the output ordering
     JAVA, USER;
 
     static final InfoMap<RuntimeInfo> MAP;
 
     static {
-      final EnumMap<RuntimeInfo, String> runtimeInfos = new EnumMap<>(RuntimeInfo.class);
-      runtimeInfos.put(JAVA, System.getProperty("java.vm.name") + " " + System.getProperty("java.version"));
-      runtimeInfos.put(USER, System.getProperty("user.name"));
-      MAP = new InfoMap<>(runtimeInfos);
+      final EnumMap<RuntimeInfo, String> map = new EnumMap<>(RuntimeInfo.class);
+      final Properties properties = System.getProperties();
+      map.put(JAVA, properties.getProperty("java.vm.name") + " " + properties.getProperty("java.runtime.version"));
+      map.put(USER, properties.getProperty("user.name"));
+      MAP = new InfoMap<>(map);
     }
   }
 
@@ -103,36 +104,36 @@ public final class VersionInfo {
 
   private final Class<?> clazz;
   private final InfoMap<RuntimeInfo> runtimeInfos = RuntimeInfo.MAP;
-  private final InfoMap<CompilationInfo> compilationInfos;
+  private final InfoMap<SoftwareInfo> softwareInfos;
   private final Map<String, String> otherInfos;
 
   private VersionInfo(Class<?> clazz, Properties properties) {
     this.clazz = Objects.requireNonNull(clazz, "clazz == null");
 
-    final EnumMap<CompilationInfo, String> compilations = new EnumMap<>(CompilationInfo.class);
+    final EnumMap<SoftwareInfo, String> softwareInfoMap = new EnumMap<>(SoftwareInfo.class);
     final Map<String, String> others = new LinkedHashMap<>(); // preserve insertion order
     for (Map.Entry<Object, Object> e : properties.entrySet()) {
       final String key = e.getKey().toString();
       final String value = e.getValue().toString();
-      final CompilationInfo k = CompilationInfo.parse(key);
+      final SoftwareInfo k = SoftwareInfo.parse(key);
       if (k != null) {
-        compilations.put(k, value);
+        softwareInfoMap.put(k, value);
       } else {
         others.put(key, value);
       }
     }
 
-    this.compilationInfos = new InfoMap<>(compilations);
+    this.softwareInfos = new InfoMap<>(softwareInfoMap);
     this.otherInfos = Collections.unmodifiableMap(others);
   }
 
   public void printStartupMessages(Object name, Consumer<String> log) {
     Objects.requireNonNull(name, "name == null");
     log.accept(String.format("Starting %s -- %s %s",
-        compilationInfos.getOrDefault(CompilationInfo.NAME), clazz.getSimpleName(), name));
-    final CompilationInfo[] compilationInfoValues = CompilationInfo.values();
-    for(int i = 1; i < compilationInfoValues.length; i++) {
-      log.accept(compilationInfos.format(compilationInfoValues[i]));
+        softwareInfos.getOrDefault(SoftwareInfo.NAME), clazz.getSimpleName(), name));
+    final SoftwareInfo[] softwareInfoValues = SoftwareInfo.values();
+    for(int i = 1; i < softwareInfoValues.length; i++) {
+      log.accept(softwareInfos.format(softwareInfoValues[i]));
     }
     for(RuntimeInfo runtimeInfo : RuntimeInfo.values()) {
       log.accept(runtimeInfos.format(runtimeInfo));
