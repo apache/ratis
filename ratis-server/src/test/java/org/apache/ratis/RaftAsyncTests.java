@@ -181,7 +181,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       // the second half still have retry time remaining.
       sleepTime.apply(t -> t*2).sleep();
 
-      // T client will try to reconnect, but the server is
+      // The client will try to reconnect, but the server is
       // not started at this time and the retry will fail anyway.
       // all the calls should fail for ordering guarantee
       for(int i = 0; i < replies.size(); i++) {
