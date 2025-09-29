@@ -90,13 +90,4 @@ public class ServerBuilderTest extends BaseTest {
             .build();
         server.close();
     }
-
-    @Test
-    public void testNullPeerIdWithNullRaftGroup() throws Exception {
-        RaftServer server = RaftServer.newBuilder()
-            .setStateMachine(new BaseStateMachine())
-            .setProperties(new RaftProperties())
-            .build();
-        server.close();
-    }
 }

@@ -48,12 +48,6 @@
       <artifactId>ratis-client</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
-    <dependency>
-      <artifactId>ratis-client</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <scope>test</scope>
-      <type>test-jar</type>
-    </dependency>
 
     <dependency>
       <artifactId>ratis-server-api</artifactId>

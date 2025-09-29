@@ -789,6 +789,10 @@
             <configuration>
               <source>
                 <directory>${project.basedir}</directory>
+                <includes>
+                  <include>*/src/main/java/**/*.java</include>
+                  <include>*/src/main/proto/*.proto</include>
+                </includes>
               </source>
             </configuration>
           </execution>
