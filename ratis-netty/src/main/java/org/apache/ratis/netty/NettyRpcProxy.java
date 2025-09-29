@@ -40,9 +40,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -105,7 +105,7 @@ public class NettyRpcProxy implements Closeable {
   class Connection implements Closeable {
     private final NettyClient client = new NettyClient(peer.getAddress());
     private final Queue<CompletableFuture<RaftNettyServerReplyProto>> replies
-        = new ConcurrentLinkedQueue<>();
+        = new LinkedList<>();
 
     Connection(EventLoopGroup group) throws InterruptedException {
       final ChannelInboundHandler inboundHandler
@@ -128,8 +128,8 @@ public class NettyRpcProxy implements Closeable {
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-          failOutstandingRequests(new IOException("Caught an exception for the connection to " + peer, cause));
           client.close();
+          failOutstandingRequests(new IOException("Caught an exception for the connection to " + peer, cause));
         }
 
         @Override
@@ -171,7 +171,7 @@ public class NettyRpcProxy implements Closeable {
       failOutstandingRequests(new AlreadyClosedException("Closing connection to " + peer));
     }
 
-    private void failOutstandingRequests(Throwable cause) {
+    private synchronized void failOutstandingRequests(Throwable cause) {
       if (!replies.isEmpty()) {
         LOG.warn("Still have {} requests outstanding from {} connection: {}",
             replies.size(), peer, cause.toString());
