@@ -156,7 +156,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       }
       // add 3 new servers and wait longer time
       CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(2000));
-      final PeerChanges peerChanges = cluster.addNewPeers(2, true, false);
+      final PeerChanges peerChanges = cluster.addNewPeers(2, true);
       LOG.info("add new 3 servers");
       LOG.info(cluster.printServers());
       RaftClientReply reply = client.admin().setConfiguration(SetConfigurationRequest.Arguments.newBuilder()
@@ -461,7 +461,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         client.io().send(new RaftTestUtil.SimpleMessage("message"));
         List<RaftPeer> servers = cluster.getPeers();
         assertEquals(servers.size(), 3);
-        final PeerChanges changes = cluster.addNewPeers(1, true, false, LISTENER);
+        final PeerChanges changes = cluster.addNewPeers(1, true);
         final List<RaftPeer> added = changes.getAddedPeers();
         final RaftClientReply reply = client.admin().setConfiguration(servers, added);
         assertTrue(reply.isSuccess());
@@ -486,7 +486,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         List<RaftPeer> listener = new ArrayList<>(
             leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER));
         assertEquals(1, listener.size());
-        final PeerChanges changes = cluster.addNewPeers(1, true, false);
+        final PeerChanges changes = cluster.addNewPeers(1, true);
         final List<RaftPeer> newPeers = new ArrayList<>(changes.getAddedPeers());
         newPeers.addAll(leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.FOLLOWER));
         RaftClientReply reply = client.admin().setConfiguration(newPeers, listener);

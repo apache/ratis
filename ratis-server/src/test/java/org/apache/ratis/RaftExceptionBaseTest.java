@@ -110,8 +110,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       final RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, oldLeader);
 
       // add two more peers
-      PeerChanges change = cluster.addNewPeers(new String[]{
-          "ss1", "ss2"}, true, false);
+      PeerChanges change = cluster.addNewPeers(2, true);
       // trigger setConfiguration
       LOG.info("Start changing the configuration: {}", change.getPeersInNewConf());
       try (final RaftClient c2 = cluster.createClient(newLeader)) {
