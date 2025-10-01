@@ -241,7 +241,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       Assertions.assertTrue(set);
 
       // Add new peer(s)
-      final PeerChanges change = cluster.addNewPeers(1, true, true);
+      final PeerChanges change = cluster.addNewPeers(1, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
 
@@ -389,7 +389,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Add new peer(s) who will need snapshots from the leader.
       final int numNewPeers = 1;
-      final PeerChanges change = cluster.addNewPeers(numNewPeers, true, true);
+      final PeerChanges change = cluster.addNewPeers(numNewPeers, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
       RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
@@ -475,7 +475,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       Assertions.assertTrue(set);
 
       // add one new peer
-      final PeerChanges change = cluster.addNewPeers(1, true, true);
+      final PeerChanges change = cluster.addNewPeers(1, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
       RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
@@ -551,7 +551,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // Add new peer(s)
       final int numNewPeers = 1;
-      final PeerChanges change = cluster.addNewPeers(numNewPeers, true, true);
+      final PeerChanges change = cluster.addNewPeers(numNewPeers, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
 

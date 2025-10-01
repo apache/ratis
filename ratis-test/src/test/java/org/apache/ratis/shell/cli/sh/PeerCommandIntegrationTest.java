@@ -82,7 +82,7 @@ public abstract class PeerCommandIntegrationTest <CLUSTER extends MiniRaftCluste
 
     RaftTestUtil.waitForLeader(cluster);
     final List<RaftPeer> peers = cluster.getPeers();
-    final List<RaftPeer> newPeers = cluster.addNewPeers(1, true, true).getAddedPeers();
+    final List<RaftPeer> newPeers = cluster.addNewPeers(1, true).getAddedPeers();
 
     RaftServerTestUtil.waitAndCheckNewConf(cluster, peers, 0, null);
     StringBuilder sb = new StringBuilder();

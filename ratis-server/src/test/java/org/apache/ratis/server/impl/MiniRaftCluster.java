@@ -22,7 +22,6 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -81,6 +80,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import static org.apache.ratis.proto.RaftProtos.RaftPeerRole.LISTENER;
 
 public abstract class MiniRaftCluster implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
@@ -246,7 +247,7 @@ public abstract class MiniRaftCluster implements Closeable {
     Stream<RaftPeer> listener = listenerIds.stream()
         .map(id -> RaftPeer.newBuilder().setId(id))
         .map(MiniRaftCluster::assignAddresses)
-        .map(p -> p.setStartupRole(RaftProtos.RaftPeerRole.LISTENER))
+        .map(p -> p.setStartupRole(LISTENER))
         .map(RaftPeer.Builder::build);
     final RaftPeer[] peers = Stream.concat(peer, listener).toArray(RaftPeer[]::new);
 
@@ -433,43 +434,11 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer)
       throws IOException {
-    return addNewPeers(generateIds(number, servers.size()), startNewPeer, false);
-  }
-
-  public PeerChanges addNewPeers(int number, boolean startNewPeer,
-      boolean emptyPeer) throws IOException {
-    return addNewPeers(generateIds(number, servers.size()), startNewPeer, emptyPeer,
-        RaftProtos.RaftPeerRole.FOLLOWER);
-  }
-
-  public PeerChanges addNewPeers(String[] ids, boolean startNewPeer,
-      boolean emptyPeer) throws IOException {
-    return addNewPeers(ids, startNewPeer, emptyPeer, RaftProtos.RaftPeerRole.FOLLOWER);
-  }
-
-  public PeerChanges addNewPeers(int number, boolean startNewPeer,
-      boolean emptyPeer, RaftProtos.RaftPeerRole startRole) throws IOException {
-    return addNewPeers(generateIds(number, servers.size()), startNewPeer, emptyPeer, startRole);
-  }
-
-  public PeerChanges addNewPeers(String[] ids, boolean startNewPeer,
-      boolean emptyPeer, RaftProtos.RaftPeerRole startRole) throws IOException {
+    final String[] ids = generateIds(number, servers.size());
     LOG.info("Add new peers {}", Arrays.asList(ids));
 
     final Iterable<RaftPeerId> peerIds = CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf);
-    final RaftGroup raftGroup;
-    if (emptyPeer) {
-      raftGroup = RaftGroup.valueOf(group.getGroupId(), Collections.emptyList());
-    } else {
-      final Collection<RaftPeer> newPeers = StreamSupport.stream(peerIds.spliterator(), false)
-          .map(id -> RaftPeer.newBuilder().setId(id)
-              .setStartupRole(startRole))
-          .map(MiniRaftCluster::assignAddresses)
-          .map(RaftPeer.Builder::build)
-          .collect(Collectors.toSet());
-      newPeers.addAll(group.getPeers());
-      raftGroup = RaftGroup.valueOf(group.getGroupId(), newPeers);
-    }
+    final RaftGroup raftGroup = RaftGroup.valueOf(group.getGroupId(), Collections.emptyList());
 
     // create and add new RaftServers
     final Collection<RaftServer> newServers = putNewServers(peerIds, true, raftGroup);
