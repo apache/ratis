@@ -262,6 +262,8 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicReference<CompletableFuture<Void>> appendLogFuture;
   private final NavigableIndices appendLogTermIndices = new NavigableIndices();
 
+  private final LocalLease localLease;
+
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -305,6 +307,8 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientCached(properties),
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
+
+    this.localLease = new LocalLease();
   }
 
   private long getCommitIndex(RaftPeerId id) {
@@ -1501,6 +1505,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
       assertGroup(getMemberId(), leaderId, leaderGroupId);
       assertEntries(r, previous, state);
+      localLease.onAppend(r.getLeaderTerm(), leaderId, r.getLeaderCommit());
 
       return appendEntriesAsync(leaderId, request.getCallId(), previous, r);
     } catch(Exception t) {
@@ -1508,6 +1513,14 @@ class RaftServerImpl implements RaftServer.Division,
           toAppendEntriesRequestString(r, stateMachine::toStateMachineLogEntryString), t);
       throw IOUtils.asIOException(t);
     }
+  }
+
+  @Override
+  public boolean okForLocalReadBounded(int maxLag, long leaseMs) {
+    if (System.nanoTime() - localLease.lastHbNanos > leaseMs * 1_000_000L) return false;
+    long applied = stateMachine.getLastAppliedTermIndex().getIndex();
+    long target  = localLease.leaderCommit.get();
+    return target <= 0 || applied + maxLag >= target;
   }
 
   @Override
