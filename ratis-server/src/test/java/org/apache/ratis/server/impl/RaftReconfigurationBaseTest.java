@@ -159,7 +159,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       RaftGroupId groupId = cluster.getGroup().getGroupId();
       RaftPeer curPeer = cluster.getGroup().getPeers().iterator().next();
-      RaftPeer newPeer = cluster.addNewPeers(1, true, true).getAddedPeers().get(0);
+      RaftPeer newPeer = cluster.addNewPeers(1, true).getAddedPeers().get(0);
 
       RaftServerProxy leaderServer = cluster.getServer(curPeer.getId());
 
@@ -336,7 +336,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         CountDownLatch latch = new CountDownLatch(1);
         Thread clientThread = new Thread(() -> {
           try {
-            PeerChanges c1 = cluster.addNewPeers(2, true, true);
+            PeerChanges c1 = cluster.addNewPeers(2, true);
             LOG.info("Start changing the configuration: {}", c1.getPeersInNewConf());
 
             RaftClientReply reply = client.admin().setConfiguration(c1.getPeersInNewConf());

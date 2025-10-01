@@ -227,7 +227,7 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
       }
 
       // add a new peer
-      final PeerChanges change = cluster.addNewPeers(1, true, true);
+      final PeerChanges change = cluster.addNewPeers(1, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
 
@@ -292,7 +292,7 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
       assertLeaderContent(cluster);
 
       // add a new peer
-      final PeerChanges change = cluster.addNewPeers(1, true, true);
+      final PeerChanges change = cluster.addNewPeers(1, true);
       // trigger setConfiguration
       RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
 

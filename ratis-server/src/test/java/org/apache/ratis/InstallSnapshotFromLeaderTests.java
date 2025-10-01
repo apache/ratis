@@ -116,8 +116,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     Assertions.assertEquals(3, snapshot.getFiles().size());
 
     // add two more peers
-    final PeerChanges change = cluster.addNewPeers(2, true,
-        true);
+    final PeerChanges change = cluster.addNewPeers(2, true);
     // trigger setConfiguration
     cluster.setConfiguration(change.getPeersInNewConf());
 
@@ -161,8 +160,7 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     }
 
     // add two more peers and install snapshot from leaders
-    final PeerChanges change = cluster.addNewPeers(2, true,
-        true);
+    final PeerChanges change = cluster.addNewPeers(2, true);
     try (final RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
       final RaftException e = Assertions.assertThrows(RaftException.class,
                () -> client.admin().setConfiguration(change.getPeersInNewConf()));
