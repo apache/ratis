@@ -24,14 +24,15 @@ import java.util.concurrent.atomic.AtomicLong;
 /** LocalLease can be used for followers to check if it's updated to Leader.
  */
 public class LocalLease {
-  final AtomicLong leaderCommit = new AtomicLong(-1);
-  volatile long lastHbNanos = 0L;
-  volatile long leaseTerm   = -1L;
-  volatile RaftPeerId leaseLeader = null;
+  private final AtomicLong leaderCommit = new AtomicLong(-1);
+  private volatile long lastHbNanos = 0L;
+  private volatile long leaseTerm   = -1L;
+  private volatile RaftPeerId leaseLeader = null;
 
   public LocalLease() {
 
   }
+
   void onAppend(long term, RaftPeerId leader, long commitIdx) {
     if (leaseTerm != term || leaseLeader == null || !leaseLeader.equals(leader)) {
       leaseTerm = term;
@@ -43,5 +44,13 @@ public class LocalLease {
       while (commitIdx > prev && !leaderCommit.compareAndSet(prev, commitIdx));
     }
     lastHbNanos = System.nanoTime();
+  }
+
+  public long getLastHbNanos() {
+    return lastHbNanos;
+  }
+
+  public AtomicLong getLeaderCommit() {
+    return leaderCommit;
   }
 }

@@ -1517,9 +1517,9 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public boolean okForLocalReadBounded(int maxLag, long leaseMs) {
-    if (System.nanoTime() - localLease.lastHbNanos > leaseMs * 1_000_000L) return false;
+    if (System.nanoTime() - localLease.getLastHbNanos() > leaseMs * 1_000_000L) return false;
     long applied = stateMachine.getLastAppliedTermIndex().getIndex();
-    long target  = localLease.leaderCommit.get();
+    long target  = localLease.getLeaderCommit().get();
     return target <= 0 || applied + maxLag >= target;
   }
 
