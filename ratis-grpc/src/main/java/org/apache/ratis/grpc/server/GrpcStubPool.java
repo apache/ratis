@@ -24,8 +24,6 @@ import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.AbstractStub;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.WriteBufferWaterMark;
-import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
-import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,21 +60,17 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
   }
 
   private final List<PooledStub<S>> pool;
-  private final NioEventLoopGroup elg;
   private final int size;
 
   GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, SslContext sslContext) {
-    this(target, n, stubFactory, sslContext, Math.max(2, Runtime.getRuntime().availableProcessors() / 2), 16);
+    this(target, n, stubFactory, sslContext, 16);
   }
 
   GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, SslContext sslContext,
-               int elgThreads, int maxInflightPerConn) {
-    this.elg = new NioEventLoopGroup(elgThreads);
+               int maxInflightPerConn) {
     ArrayList<PooledStub<S>> tmp = new ArrayList<>(n);
     for (int i = 0; i < n; i++) {
       NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(target.getAddress())
-          .eventLoopGroup(elg)
-          .channelType(NioSocketChannel.class)
           .keepAliveTime(30, TimeUnit.SECONDS)
           .keepAliveWithoutCalls(true)
           .idleTimeout(24, TimeUnit.HOURS)
@@ -112,6 +106,5 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     for (PooledStub<S> p : pool) {
       p.ch.shutdown();
     }
-    elg.shutdownGracefully();
   }
 }
