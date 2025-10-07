@@ -40,8 +40,9 @@ public class LocalLease {
       leaderCommit.set(commitIdx);
     } else {
       long prev;
-      do { prev = leaderCommit.get(); }
-      while (commitIdx > prev && !leaderCommit.compareAndSet(prev, commitIdx));
+      do {
+        prev = leaderCommit.get();
+      } while (commitIdx > prev && !leaderCommit.compareAndSet(prev, commitIdx));
     }
     lastHbNanos = System.nanoTime();
   }
