@@ -560,12 +560,12 @@ class RaftServerImpl implements RaftServer.Division,
       try {
         ConcurrentUtils.shutdownAndWait(clientExecutor);
       } catch (Exception e) {
-        LOG.warn(getMemberId() + ": Failed to shutdown clientExecutor", e);
+        LOG.warn("{}: Failed to shutdown clientExecutor", getMemberId(), e);
       }
       try {
         ConcurrentUtils.shutdownAndWait(serverExecutor);
       } catch (Exception e) {
-        LOG.warn(getMemberId() + ": Failed to shutdown serverExecutor", e);
+        LOG.warn("{}: Failed to shutdown serverExecutor", getMemberId(), e);
       }
       closeFinishedLatch.countDown();
     });
@@ -1529,7 +1529,7 @@ class RaftServerImpl implements RaftServer.Division,
   static void logAppendEntries(boolean isHeartbeat, Supplier<String> message) {
     if (isHeartbeat) {
       if (LOG.isTraceEnabled()) {
-        LOG.trace("HEARTBEAT: " + message.get());
+        LOG.trace("HEARTBEAT: {}", message.get());
       }
     } else {
       if (LOG.isDebugEnabled()) {
