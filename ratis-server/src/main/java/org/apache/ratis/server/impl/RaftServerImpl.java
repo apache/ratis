@@ -83,7 +83,7 @@ import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
 import org.apache.ratis.server.impl.ServerImplUtils.ConsecutiveIndices;
 import org.apache.ratis.server.impl.ServerImplUtils.NavigableIndices;
-import org.apache.ratis.server.leader.LeaderState;
+import org.apache.ratis.server.leader.LeaderState.StepDownReason;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -409,7 +409,7 @@ class RaftServerImpl implements RaftServer.Division,
       startAsPeer(RaftPeerRole.LISTENER);
     } else {
       LOG.info("{}: start with initializing state, conf={}", getMemberId(), conf);
-      setRole(RaftPeerRole.FOLLOWER, "start");
+      setRole(RaftPeerRole.FOLLOWER, "NOT_IN_CONF");
     }
 
     jmxAdapter.registerMBean();
@@ -859,7 +859,7 @@ class RaftServerImpl implements RaftServer.Division,
         cacheEntry.failWithReply(exceptionReply);
         // leader will step down here
         if (e.leaderShouldStepDown() && getInfo().isLeader()) {
-          leaderState.submitStepDownEvent(LeaderState.StepDownReason.STATE_MACHINE_EXCEPTION);
+          leaderState.submitStepDownEvent(StepDownReason.STATE_MACHINE_EXCEPTION);
         }
         return CompletableFuture.completedFuture(exceptionReply);
       }
@@ -909,7 +909,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   void stepDownOnJvmPause() {
-    role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(LeaderState.StepDownReason.JVM_PAUSE));
+    role.getLeaderState().ifPresent(leader -> leader.submitStepDownEvent(StepDownReason.JVM_PAUSE));
   }
 
   private RaftClientRequest filterDataStreamRaftClientRequest(RaftClientRequest request)
@@ -1580,11 +1580,11 @@ class RaftServerImpl implements RaftServer.Division,
             AppendResult.NOT_LEADER, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat));
       }
       try {
-        future = changeToFollowerAndPersistMetadata(leaderTerm, true, "appendEntries");
+        future = changeToFollowerAndPersistMetadata(leaderTerm, true, Op.APPEND_ENTRIES);
       } catch (IOException e) {
         return JavaUtils.completeExceptionally(e);
       }
-      state.setLeader(leaderId, "appendEntries");
+      state.setLeader(leaderId, Op.APPEND_ENTRIES);
 
       if (!proto.getInitializing() && lifeCycle.compareAndTransition(State.STARTING, State.RUNNING)) {
         role.startFollowerState(this, Op.APPEND_ENTRIES);
