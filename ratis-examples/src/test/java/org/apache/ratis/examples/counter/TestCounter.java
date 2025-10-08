@@ -18,6 +18,8 @@
 
 package org.apache.ratis.examples.counter;
 
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.ParameterizedBaseTest;
@@ -30,6 +32,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 public class TestCounter extends ParameterizedBaseTest {
 
@@ -58,5 +62,41 @@ public class TestCounter extends ParameterizedBaseTest {
       RaftClientReply reply3 = client.io().sendReadOnly(Message.valueOf("GET"));
       Assertions.assertEquals(30, reply3.getMessage().getContent().asReadOnlyByteBuffer().getInt());
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testSeveralCounterFromFollower(MiniRaftCluster cluster) throws IOException, InterruptedException {
+    setAndStart(cluster);
+
+    List<RaftServer.Division> followers = cluster.getFollowers();
+    Assertions.assertEquals(2, followers.size());
+    final RaftPeerId f0 = followers.get(0).getId();
+    final RaftServer.Division d1 = cluster.getDivision(f0);
+
+    Message queryMessage = Message.valueOf("GET");
+
+    try (final RaftClient client = cluster.createClient()) {
+      for (int i = 0; i < 10; i++) {
+        client.io().send(Message.valueOf("INCREMENT"));
+      }
+      RaftClientReply reply1 = client.io().sendReadOnly(queryMessage);
+      Assertions.assertEquals(10,  getCounterInt(reply1.getMessage()));
+      boolean isFollowerUptoDate = d1.okForLocalReadBounded(1000, 100);
+      // Clients can choose to query from local StateMachine or leader
+      if (isFollowerUptoDate) {
+        d1.getStateMachine().query(queryMessage).get();
+        Assertions.assertTrue(10 >= getCounterInt(d1.getStateMachine().query(queryMessage).get()));
+      } else {
+        reply1 = client.io().sendReadOnly(queryMessage);
+        Assertions.assertEquals(10,  getCounterInt(reply1.getMessage()));
+      }
+    } catch (ExecutionException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private int getCounterInt(Message message) {
+    return message.getContent().asReadOnlyByteBuffer().getInt();
   }
 }
