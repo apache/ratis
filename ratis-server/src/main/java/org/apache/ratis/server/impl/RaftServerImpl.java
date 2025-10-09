@@ -139,6 +139,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.ratis.server.impl.LeaderElection.Result.NOT_IN_CONF;
 import static org.apache.ratis.server.impl.ServerImplUtils.assertEntries;
 import static org.apache.ratis.server.impl.ServerImplUtils.assertGroup;
 import static org.apache.ratis.server.impl.ServerImplUtils.effectiveCommitIndex;
@@ -409,7 +410,7 @@ class RaftServerImpl implements RaftServer.Division,
       startAsPeer(RaftPeerRole.LISTENER);
     } else {
       LOG.info("{}: start with initializing state, conf={}", getMemberId(), conf);
-      setRole(RaftPeerRole.FOLLOWER, "NOT_IN_CONF");
+      setRole(RaftPeerRole.FOLLOWER, NOT_IN_CONF);
     }
 
     jmxAdapter.registerMBean();
