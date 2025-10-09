@@ -28,12 +28,8 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +47,6 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   public static Logger LOG = LoggerFactory.getLogger(StateMachineUpdater.class);
-  private static MockedStatic<CompletableFuture> mocked;
   protected static class StateMachineWithConditionalWait extends
       SimpleStateMachine4Testing {
     boolean unblockAllTxns = false;
@@ -122,19 +117,6 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
         blockTxns.notifyAll();
       }
     }
-  }
-
-  @BeforeEach
-  public void setup() {
-    mocked = Mockito.mockStatic(CompletableFuture.class, Mockito.CALLS_REAL_METHODS);
-  }
-
-  @AfterEach
-  public void tearDownClass() {
-    if (mocked != null) {
-      mocked.close();
-    }
-
   }
 
   @Test
