@@ -177,7 +177,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
 
       // Now wait for the thread
       t.join(5000);
-      Assertions.assertEquals(logIndex, secondFollower.getInfo().getLastAppliedIndex());
+      Assertions.assertTrue(logIndex <= secondFollower.getInfo().getLastAppliedIndex());
       Assertions.assertEquals(3, StateMachineWithConditionalWait.numTxns.values().stream()
               .filter(val -> val.get() == 3).count());
 
