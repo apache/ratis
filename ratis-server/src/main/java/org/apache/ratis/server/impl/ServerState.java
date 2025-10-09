@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
+import org.apache.ratis.server.protocol.RaftServerProtocol.Op;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -257,7 +258,7 @@ class ServerState {
    */
   void grantVote(RaftPeerId candidateId) {
     votedFor = candidateId;
-    setLeader(null, "grantVote");
+    setLeader(null, Op.REQUEST_VOTE);
   }
 
   void setLeader(RaftPeerId newLeaderId, Object op) {
@@ -431,7 +432,7 @@ class ServerState {
       if (e instanceof InterruptedException) {
           Thread.currentThread().interrupt();
       }
-      LOG.warn(getMemberId() + ": Failed to join " + getStateMachineUpdater(), e);
+      LOG.warn("{}: Failed to join {}", getMemberId(), getStateMachineUpdater(), e);
     }
 
     try {
@@ -439,7 +440,7 @@ class ServerState {
         getLog().close();
       }
     } catch (Throwable e) {
-      LOG.warn(getMemberId() + ": Failed to close raft log " + getLog(), e);
+      LOG.warn("{}: Failed to close raft log {}", getMemberId(), getLog(), e);
     }
 
     try {
@@ -447,7 +448,7 @@ class ServerState {
         getStorage().close();
       }
     } catch (Throwable e) {
-      LOG.warn(getMemberId() + ": Failed to close raft storage " + getStorage(), e);
+      LOG.warn("{}: Failed to close raft storage {}", getMemberId(), getStorage(), e);
     }
   }
 
