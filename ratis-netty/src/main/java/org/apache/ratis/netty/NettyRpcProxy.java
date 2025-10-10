@@ -133,8 +133,9 @@ public class NettyRpcProxy implements Closeable {
         }
 
         @Override
-        public void channelInactive(ChannelHandlerContext ctx) {
+        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
           failOutstandingRequests(new AlreadyClosedException("Channel to " + peer + " is inactive."));
+          super.channelInactive(ctx);
         }
       };
       final ChannelInitializer<SocketChannel> initializer
