@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.ForwardRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.MessageStreamRequestTypeProto;
@@ -100,6 +101,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public static Type readRequestType(boolean nonLinearizable) {
     return nonLinearizable? READ_NONLINEARIZABLE_DEFAULT: readRequestType();
+  }
+
+  public static Type readRequestType(RaftProtos.ReadConstraintsProto readConstraints) {
+    return new Type(ReadRequestTypeProto.newBuilder().setReadConstraints(readConstraints).build());
   }
 
   public static Type staleReadRequestType(long minIndex) {

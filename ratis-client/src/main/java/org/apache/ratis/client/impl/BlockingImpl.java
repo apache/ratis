@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 
 import org.apache.ratis.client.api.BlockingApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
+import org.apache.ratis.proto.RaftProtos.ReadConstraintsProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
@@ -62,6 +63,12 @@ class BlockingImpl implements BlockingApi {
   @Override
   public RaftClientReply sendReadOnly(Message message, RaftPeerId server) throws IOException {
     return send(RaftClientRequest.readRequestType(), message, server);
+  }
+
+  @Override
+  public RaftClientReply sendReadOnly(Message message, RaftPeerId server, int limitLag, long limitTimeMs) throws IOException {
+    ReadConstraintsProto readConstraints = ReadConstraintsProto.newBuilder().setLimitLag(limitLag).setLimitTimeMs(limitTimeMs).build();
+    return send(RaftClientRequest.readRequestType(readConstraints), message, server);
   }
 
   @Override

@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
@@ -1059,13 +1060,23 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
-    if (request.getType().getRead().getPreferNonLinearizable()
+    if (request.getType().getRead().hasReadConstraints()) {
+      RaftProtos.ReadConstraintsProto readConstraints = request.getType().getRead().getReadConstraints();
+      int limitLag = readConstraints.getLimitLag();
+      long limitTimeMs = readConstraints.getLimitTimeMs();
+      if (getInfo().isLeader() || okForLocalReadBounded(limitLag, limitTimeMs)) {
+        return queryStateMachine(request);
+      } else {
+        throw new CompletionException(new ReadException(getId() +
+            ": Failed to read with readConstrains: " + readConstraints));
+      }
+    } else if (request.getType().getRead().getPreferNonLinearizable()
         || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
-       if (reply != null) {
-         return reply;
-       }
-       return queryStateMachine(request);
+      if (reply != null) {
+        return reply;
+      }
+      return queryStateMachine(request);
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE){
       /*
         Linearizable read using ReadIndex. See Raft paper section 6.4.
