@@ -29,10 +29,10 @@ import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.proto.RaftProtos.ServerRpcProto;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.server.impl.FollowerState.UpdateType;
+import org.apache.ratis.server.protocol.RaftServerProtocol.Op;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.util.ServerStringUtils;
@@ -173,16 +173,16 @@ class SnapshotInstallationHandler {
     final long lastIncludedIndex = lastIncluded.getIndex();
     final CompletableFuture<Void> future;
     synchronized (server) {
-      final boolean recognized = state.recognizeLeader(RaftServerProtocol.Op.INSTALL_SNAPSHOT, leaderId, leaderTerm);
+      final boolean recognized = state.recognizeLeader(Op.INSTALL_SNAPSHOT, leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         return CompletableFuture.completedFuture(toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.NOT_LEADER));
       }
-      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
-      state.setLeader(leaderId, "installSnapshot");
+      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, Op.INSTALL_SNAPSHOT);
+      state.setLeader(leaderId, Op.INSTALL_SNAPSHOT);
 
-      server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
+      server.updateLastRpcTime(UpdateType.INSTALL_SNAPSHOT_START);
       long callId = chunk0CallId.get();
       // 1. leaderTerm < currentTerm will never come here
       // 2. leaderTerm == currentTerm && callId == request.getCallId()
@@ -229,7 +229,7 @@ class SnapshotInstallationHandler {
           chunk0CallId.set(-1);
         }
       } finally {
-        server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_COMPLETE);
+        server.updateLastRpcTime(UpdateType.INSTALL_SNAPSHOT_COMPLETE);
       }
     }
     if (snapshotChunkRequest.getDone()) {
@@ -249,15 +249,15 @@ class SnapshotInstallationHandler {
     final long firstAvailableLogIndex = firstAvailableLogTermIndex.getIndex();
     final CompletableFuture<Void> future;
     synchronized (server) {
-      final boolean recognized = state.recognizeLeader("notifyInstallSnapshot", leaderId, leaderTerm);
+      final boolean recognized = state.recognizeLeader(UpdateType.INSTALL_SNAPSHOT_NOTIFICATION, leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         return CompletableFuture.completedFuture(toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.NOT_LEADER));
       }
-      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
-      state.setLeader(leaderId, "installSnapshot");
-      server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
+      future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
+      state.setLeader(leaderId, UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
+      server.updateLastRpcTime(UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
 
       if (inProgressInstallSnapshotIndex.compareAndSet(INVALID_LOG_INDEX, firstAvailableLogIndex)) {
         LOG.info("{}: Received notification to install snapshot at index {}", getMemberId(), firstAvailableLogIndex);
@@ -292,7 +292,7 @@ class SnapshotInstallationHandler {
         // For the cases where RaftConf is empty on newly started peer with empty peer list,
         // we retrieve leader info from installSnapShotRequestProto.
         final RoleInfoProto proto = leaderProto == null || server.getRaftConf().getPeer(state.getLeaderId()) != null?
-            server.getRoleInfoProto(): getRoleInfoProto(ProtoUtils.toRaftPeer(leaderProto));
+            server.getRoleInfoProto(): getRoleInfoProto(leaderProto);
         // This is the first installSnapshot notify request for this term and
         // index. Notify the state machine to install the snapshot.
         LOG.info("{}: notifyInstallSnapshot: nextIndex is {} but the leader's first available index is {}.",
@@ -386,7 +386,7 @@ class SnapshotInstallationHandler {
     }
   }
 
-  private RoleInfoProto getRoleInfoProto(RaftPeer leader) {
+  private RoleInfoProto getRoleInfoProto(RaftPeerProto leader) {
     final RoleInfo role = server.getRole();
     final Optional<FollowerState> fs = role.getFollowerState();
     final ServerRpcProto leaderInfo = toServerRpcProto(leader,

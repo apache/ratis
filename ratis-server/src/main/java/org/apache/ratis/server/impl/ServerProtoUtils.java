@@ -178,8 +178,12 @@ final class ServerProtoUtils {
       // if no peer information return empty
       return ServerRpcProto.getDefaultInstance();
     }
+    return  toServerRpcProto(peer.getRaftPeerProto(), delay);
+  }
+
+  static ServerRpcProto toServerRpcProto(RaftPeerProto peer, long delay) {
     return ServerRpcProto.newBuilder()
-        .setId(peer.getRaftPeerProto())
+        .setId(peer)
         .setLastRpcElapsedTimeMs(delay)
         .build();
   }
