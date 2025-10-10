@@ -1054,6 +1054,9 @@ class RaftServerImpl implements RaftServer.Division,
     return writeIndexCache.getWriteIndexFuture(request).thenCompose(leader::getReadIndex);
   }
 
+  private final ExecutorService readAsyncExecutor = ConcurrentUtils.newThreadPoolWithMax(false,
+      Math.max(2, Runtime.getRuntime().availableProcessors()), "ReadAsync");
+
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
     if (request.getType().getRead().getPreferNonLinearizable()
         || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
@@ -1087,7 +1090,8 @@ class RaftServerImpl implements RaftServer.Division,
 
       return replyFuture
           .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
-          .thenCompose(readIndex -> queryStateMachine(request))
+          .thenComposeAsync(ignored -> stateMachine.query(request.getMessage()), readAsyncExecutor)
+          .thenCompose(reply -> processQueryFuture(CompletableFuture.completedFuture(reply), request))
           .exceptionally(e -> readException2Reply(request, e));
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
