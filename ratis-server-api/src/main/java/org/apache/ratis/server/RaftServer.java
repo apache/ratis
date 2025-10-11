@@ -122,6 +122,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     @Override
     void close();
+
+    public boolean okForLocalReadBounded(int maxLag, long leaseMs);
   }
 
   /** @return the server ID. */

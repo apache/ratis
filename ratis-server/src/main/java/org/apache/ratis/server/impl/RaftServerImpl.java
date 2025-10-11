@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
@@ -263,6 +264,8 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicReference<CompletableFuture<Void>> appendLogFuture;
   private final NavigableIndices appendLogTermIndices = new NavigableIndices();
 
+  private final LocalLease localLease;
+
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -306,6 +309,8 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientCached(properties),
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
+
+    this.localLease = new LocalLease();
   }
 
   private long getCommitIndex(RaftPeerId id) {
@@ -1056,13 +1061,23 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
-    if (request.getType().getRead().getPreferNonLinearizable()
+    if (request.getType().getRead().hasReadConstraints()) {
+      RaftProtos.ReadConstraintsProto readConstraints = request.getType().getRead().getReadConstraints();
+      int limitLag = readConstraints.getLimitLag();
+      long limitTimeMs = readConstraints.getLimitTimeMs();
+      if (getInfo().isLeader() || okForLocalReadBounded(limitLag, limitTimeMs)) {
+        return queryStateMachine(request);
+      } else {
+        throw new CompletionException(new ReadException(getId() +
+            ": Failed to read with readConstrains: " + readConstraints));
+      }
+    } else if (request.getType().getRead().getPreferNonLinearizable()
         || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
-       if (reply != null) {
-         return reply;
-       }
-       return queryStateMachine(request);
+      if (reply != null) {
+        return reply;
+      }
+      return queryStateMachine(request);
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE){
       /*
         Linearizable read using ReadIndex. See Raft paper section 6.4.
@@ -1502,6 +1517,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
       assertGroup(getMemberId(), leaderId, leaderGroupId);
       assertEntries(r, previous, state);
+      localLease.onAppend(r.getLeaderTerm(), leaderId, r.getLeaderCommit());
 
       return appendEntriesAsync(leaderId, request.getCallId(), previous, r);
     } catch(Exception t) {
@@ -1509,6 +1525,16 @@ class RaftServerImpl implements RaftServer.Division,
           toAppendEntriesRequestString(r, stateMachine::toStateMachineLogEntryString), t);
       throw IOUtils.asIOException(t);
     }
+  }
+
+  @Override
+  public boolean okForLocalReadBounded(int maxLag, long leaseMs) {
+    if (System.nanoTime() - localLease.getLastHbNanos() > leaseMs * 1_000_000L) {
+      return false;
+    }
+    long applied = stateMachine.getLastAppliedTermIndex().getIndex();
+    long target  = localLease.getLeaderCommit().get();
+    return target <= 0 || applied + maxLag >= target;
   }
 
   @Override
