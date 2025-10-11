@@ -66,8 +66,10 @@ class BlockingImpl implements BlockingApi {
   }
 
   @Override
-  public RaftClientReply sendReadOnly(Message message, RaftPeerId server, int limitLag, long limitTimeMs) throws IOException {
-    ReadConstraintsProto readConstraints = ReadConstraintsProto.newBuilder().setLimitLag(limitLag).setLimitTimeMs(limitTimeMs).build();
+  public RaftClientReply sendReadOnly(Message message, RaftPeerId server, int limitLag, long limitTimeMs)
+      throws IOException {
+    ReadConstraintsProto readConstraints = ReadConstraintsProto.newBuilder()
+        .setLimitLag(limitLag).setLimitTimeMs(limitTimeMs).build();
     return send(RaftClientRequest.readRequestType(readConstraints), message, server);
   }
 
