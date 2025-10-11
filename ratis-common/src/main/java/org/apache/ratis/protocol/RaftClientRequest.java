@@ -107,6 +107,10 @@ public class RaftClientRequest extends RaftClientMessage {
     return new Type(ReadRequestTypeProto.newBuilder().setReadConstraints(readConstraints).build());
   }
 
+  public static Type readRequestType(int limitLag, long limitTimeMs) {
+    return readRequestType(RaftProtos.ReadConstraintsProto.newBuilder().setLimitLag(limitLag).setLimitTimeMs(limitTimeMs).build());
+  }
+
   public static Type staleReadRequestType(long minIndex) {
     return minIndex == 0L? STALE_READ_DEFAULT
         : new Type(StaleReadRequestTypeProto.newBuilder().setMinIndex(minIndex).build());
@@ -134,6 +138,9 @@ public class RaftClientRequest extends RaftClientMessage {
     }
 
     public static Type valueOf(ReadRequestTypeProto read) {
+      if (read.hasReadConstraints()) {
+        return readRequestType(read.getReadConstraints().getLimitLag(), read.getReadConstraints().getLimitTimeMs());
+      }
       return read.getPreferNonLinearizable()? READ_NONLINEARIZABLE_DEFAULT
           : read.getReadAfterWriteConsistent()? READ_AFTER_WRITE_CONSISTENT_DEFAULT
           : READ_DEFAULT;
