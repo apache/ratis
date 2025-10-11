@@ -108,7 +108,8 @@ public class RaftClientRequest extends RaftClientMessage {
   }
 
   public static Type readRequestType(int limitLag, long limitTimeMs) {
-    return readRequestType(RaftProtos.ReadConstraintsProto.newBuilder().setLimitLag(limitLag).setLimitTimeMs(limitTimeMs).build());
+    return readRequestType(RaftProtos.ReadConstraintsProto.newBuilder()
+        .setLimitLag(limitLag).setLimitTimeMs(limitTimeMs).build());
   }
 
   public static Type staleReadRequestType(long minIndex) {
