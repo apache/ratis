@@ -56,8 +56,12 @@ public class PendingStepDown {
       replyFuture.complete(newSuccessReply.apply(request));
     }
 
+    void completeExceptionally(Exception e) {
+      replyFuture.completeExceptionally(e);
+    }
+
     void timeout() {
-      replyFuture.completeExceptionally(new TimeoutIOException(
+      completeExceptionally(new TimeoutIOException(
           ": Failed to step down leader on " +  leader + "request " + request.getTimeoutMs() + "ms"));
     }
 
@@ -103,6 +107,10 @@ public class PendingStepDown {
 
   void complete(Function<TransferLeadershipRequest, RaftClientReply> newSuccessReply) {
     pending.getAndSetNull().ifPresent(p -> p.complete(newSuccessReply));
+  }
+
+  void completeExceptionally(Exception e) {
+    pending.getAndSetNull().ifPresent(p -> p.completeExceptionally(e));
   }
 
   void timeout() {
