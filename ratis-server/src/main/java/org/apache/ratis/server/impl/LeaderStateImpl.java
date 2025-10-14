@@ -703,10 +703,12 @@ class LeaderStateImpl implements LeaderState {
   private void stepDown(long term, StepDownReason reason) {
     try {
       lease.getAndSetEnabled(false);
-      server.changeToFollowerAndPersistMetadata(term, false, reason).join();
+      server.changeToFollowerAndPersistMetadata(term, false, reason)
+          .get(5, TimeUnit.SECONDS);
       pendingStepDown.complete(server::newSuccessReply);
-    } catch(IOException e) {
-      final String s = this + ": Failed to persist metadata for term " + term;
+    } catch(Exception e) {
+      pendingStepDown.completeExceptionally(e);
+      final String s = this + ": Failed to step down for term " + term;
       LOG.warn(s, e);
       // the failure should happen while changing the state to follower
       // thus the in-memory state should have been updated
