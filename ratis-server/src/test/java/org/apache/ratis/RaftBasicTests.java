@@ -360,7 +360,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     final Timer timer = new Timer();
     timer.schedule(new TimerTask() {
-      private int previousLastStep = lastStep.get();
+      private final AtomicInteger previousLastStep = new AtomicInteger(lastStep.get());
 
       @Override
       public void run() {
@@ -371,8 +371,8 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         JavaUtils.dumpAllThreads(s -> log.info(s));
 
         final int last = lastStep.get();
-        if (last != previousLastStep) {
-          previousLastStep = last;
+        if (last != previousLastStep.get()) {
+          previousLastStep.set(last);
         } else {
           final RaftServer.Division leader = cluster.getLeader();
           log.info("NO PROGRESS at " + last + ", try to restart leader=" + leader);
