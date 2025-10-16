@@ -55,17 +55,6 @@ public interface BlockingApi {
   RaftClientReply sendReadOnly(Message message, RaftPeerId server) throws IOException;
 
   /**
-   * Send the given readonly message to the raft service.
-   *
-   * @param message The request message.
-   * @param server The target server.  When server == null, send the message to the leader.
-   * @param limitLog if server is follower, limitLog will be used to decide read from follower or not
-   * @param limitTimeMs if server is follower, limitTimeMs will be used to decide read from follower or not
-   * @return the reply.
-   */
-  RaftClientReply sendReadOnly(Message message, RaftPeerId server, int limitLog, long limitTimeMs) throws IOException;
-
-  /**
    * Send the given readonly message to the raft service using non-linearizable read.
    * This method is useful when linearizable read is enabled
    * but this client prefers not using it for performance reason.

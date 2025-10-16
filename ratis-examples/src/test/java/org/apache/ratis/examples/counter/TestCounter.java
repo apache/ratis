@@ -82,10 +82,17 @@ public class TestCounter extends ParameterizedBaseTest {
       }
       RaftClientReply reply1 = client.io().sendReadOnly(queryMessage);
       Assertions.assertEquals(10,  getCounterInt(reply1.getMessage()));
-
-
-      RaftClientReply reply2 = client.io().sendReadOnly(queryMessage, f0, 1000, 100);
-      Assertions.assertTrue(getCounterInt(reply1.getMessage()) >= getCounterInt(reply2.getMessage()));
+      boolean isFollowerUptoDate = d1.okForLocalReadBounded(1000, 100);
+      // Clients can choose to query from local StateMachine or leader
+      if (isFollowerUptoDate) {
+        d1.getStateMachine().query(queryMessage).get();
+        Assertions.assertTrue(10 >= getCounterInt(d1.getStateMachine().query(queryMessage).get()));
+      } else {
+        reply1 = client.io().sendReadOnly(queryMessage);
+        Assertions.assertEquals(10,  getCounterInt(reply1.getMessage()));
+      }
+    } catch (ExecutionException e) {
+      throw new RuntimeException(e);
     }
   }
 

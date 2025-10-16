@@ -301,12 +301,6 @@ message ForwardRequestTypeProto {
 message ReadRequestTypeProto {
   bool preferNonLinearizable = 1;
   bool readAfterWriteConsistent = 2;
-  ReadConstraintsProto readConstraints = 3;
-}
-
-message ReadConstraintsProto {
-  uint32 limitLag = 1;
-  uint64 limitTimeMs = 2;
 }
 
 message StaleReadRequestTypeProto {
