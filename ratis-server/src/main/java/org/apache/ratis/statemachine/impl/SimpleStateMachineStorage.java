@@ -227,7 +227,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     }
     try {
       final SingleFileSnapshotInfo latest = updateLatestSnapshot(findLatestSnapshot(dir.toPath()));
-      LOG.info("Latest snapshot is {} in {}", latest, dir);
+      LOG.debug("Latest snapshot is {} in {}", latest, dir);
       return latest;
     } catch (IOException e) {
       LOG.warn("Failed to updateLatestSnapshot from {}", dir, e);
