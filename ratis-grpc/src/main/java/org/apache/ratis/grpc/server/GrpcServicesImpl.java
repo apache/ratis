@@ -108,7 +108,6 @@ public final class GrpcServicesImpl
     private int serverPort;
     private SslContext serverSslContextForServer;
     private SslContext serverSslContextForClient;
-    private int serverStubPoolSize;
 
     private SizeInBytes messageSizeMax;
     private SizeInBytes flowControlWindow;
@@ -131,7 +130,6 @@ public final class GrpcServicesImpl
       this.flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::info);
       this.requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(properties);
       this.separateHeartbeatChannel = GrpcConfigKeys.Server.heartbeatChannel(properties);
-      this.serverStubPoolSize = GrpcConfigKeys.Server.stubPoolSize(properties);
 
       final SizeInBytes appenderBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
       final SizeInBytes gap = SizeInBytes.ONE_MB;
@@ -152,7 +150,7 @@ public final class GrpcServicesImpl
     }
 
     private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target) {
-      return new GrpcServerProtocolClient(target, serverStubPoolSize, flowControlWindow.getSizeInt(),
+      return new GrpcServerProtocolClient(target, flowControlWindow.getSizeInt(),
           requestTimeoutDuration, serverSslContextForClient, separateHeartbeatChannel);
     }
 

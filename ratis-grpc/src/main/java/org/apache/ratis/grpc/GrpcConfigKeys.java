@@ -282,15 +282,6 @@ public interface GrpcConfigKeys {
     static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
       parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
     }
-
-    String STUB_POOL_SIZE_KEY = PREFIX + ".stub.pool.size";
-    int STUB_POOL_SIZE_DEFAULT = 10;
-    static int stubPoolSize(RaftProperties properties) {
-      return get(properties::getInt, STUB_POOL_SIZE_KEY, STUB_POOL_SIZE_DEFAULT, getDefaultLog());
-    }
-    static void setStubPoolSize(RaftProperties properties, int size) {
-      setInt(properties::setInt, STUB_POOL_SIZE_KEY, size);
-    }
   }
 
   String MESSAGE_SIZE_MAX_KEY = PREFIX + ".message.size.max";
