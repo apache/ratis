@@ -25,7 +25,6 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.com.google.protobuf.MessageOrBuilder;
-import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -176,7 +175,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         requestFuture.get().thenAccept(reply -> {
           BatchLogger.print(BatchLogKey.COMPLETED_REPLY, getName(),
               suffix -> LOG.info("{}: Completed {}, lastReply: {} {}",
-                  getId(), op, TextFormat.shortDebugString(reply), suffix));
+                  getId(), op, ProtoUtils.shortDebugString(reply), suffix));
           responseObserver.onCompleted();
         });
       }
