@@ -157,7 +157,7 @@ public class NettyRpcProxy implements Closeable {
     }
 
     synchronized ChannelFuture offer(RaftNettyServerRequestProto request,
-        CompletableFuture<RaftNettyServerReplyProto> reply) {
+        CompletableFuture<RaftNettyServerReplyProto> reply) throws AlreadyClosedException {
       replies.offer(reply);
       return client.writeAndFlush(request);
     }
@@ -199,7 +199,11 @@ public class NettyRpcProxy implements Closeable {
 
   public CompletableFuture<RaftNettyServerReplyProto> sendAsync(RaftNettyServerRequestProto proto) {
     final CompletableFuture<RaftNettyServerReplyProto> reply = new CompletableFuture<>();
-    connection.offer(proto, reply);
+    try {
+      connection.offer(proto, reply);
+    } catch (AlreadyClosedException e) {
+      reply.completeExceptionally(e);
+    }
     return reply;
   }
 

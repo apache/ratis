@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.netty;
 
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.Channel;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
@@ -64,9 +65,19 @@ public class NettyClient implements Closeable {
     lifeCycle.checkStateAndClose(() -> NettyUtils.closeChannel(channel, serverAddress));
   }
 
-  public ChannelFuture writeAndFlush(Object msg) {
-    lifeCycle.assertCurrentState(LifeCycle.States.RUNNING);
-    return channel.writeAndFlush(msg);
+  public ChannelFuture writeAndFlush(Object msg) throws AlreadyClosedException {
+    final LifeCycle.State state = lifeCycle.getCurrentState();
+    if (state.isRunning()) {
+      return channel.writeAndFlush(msg);
+    }
+    // For CLOSING, CLOSED, and EXCEPTION states, throw AlreadyClosedException to trigger reconnection
+    if (state.isClosingOrClosed() || state == LifeCycle.State.EXCEPTION) {
+      throw new AlreadyClosedException(
+        "Client is closed or failed: state=" + state + ", channel=" + channel);
+    }
+    // For other states (NEW, STARTING, PAUSING, PAUSED), this is a programming error
+    throw new IllegalStateException("Client is in unexpected state for writeAndFlush: " +
+      "state=" + state + ", channel=" + channel);
   }
 
   @Override
