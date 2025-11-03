@@ -71,9 +71,9 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     ArrayList<PooledStub<S>> tmp = new ArrayList<>(n);
     for (int i = 0; i < n; i++) {
       NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(target.getAddress())
-          .keepAliveTime(30, TimeUnit.SECONDS)
-          .keepAliveWithoutCalls(true)
-          .idleTimeout(24, TimeUnit.HOURS)
+          .keepAliveTime(10, TimeUnit.MINUTES)
+          .keepAliveWithoutCalls(false)
+          .idleTimeout(30, TimeUnit.MINUTES)
           .withOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(64 << 10, 128 << 10));
       if (sslContext != null) {
         LOG.debug("Setting TLS for {}", target.getAddress());
