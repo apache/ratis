@@ -19,7 +19,6 @@ package org.apache.ratis.protocol.exceptions;
 
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
-import org.apache.ratis.util.JavaUtils;
 
 import java.util.Collection;
 
@@ -41,7 +40,7 @@ public class NotReplicatedException extends RaftException {
   public NotReplicatedException(long callId, ReplicationLevel requiredReplication, long logIndex,
                                 Collection<CommitInfoProto> commitInfos) {
     this(callId, requiredReplication, logIndex);
-    this.commitInfos = JavaUtils.defensiveCopyOf(commitInfos);
+    this.commitInfos = commitInfos;
   }
 
   public long getCallId() {
@@ -57,6 +56,6 @@ public class NotReplicatedException extends RaftException {
   }
 
   public Collection<CommitInfoProto> getCommitInfos() {
-    return JavaUtils.defensiveCopyOf(commitInfos);
+    return commitInfos;
   }
 }

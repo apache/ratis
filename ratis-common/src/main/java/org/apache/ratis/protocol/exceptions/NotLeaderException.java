@@ -19,7 +19,6 @@ package org.apache.ratis.protocol.exceptions;
 
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Collection;
@@ -34,7 +33,7 @@ public class NotLeaderException extends RaftException {
     super("Server " + memberId + " is not the leader" +
             (suggestedLeader != null ? ", suggested leader is: " + suggestedLeader : ""));
     this.suggestedLeader = suggestedLeader;
-    this.peers = JavaUtils.defensiveCopyOf(peers);
+    this.peers = peers != null? Collections.unmodifiableCollection(peers): Collections.emptyList();
     Preconditions.assertUnique(this.peers);
   }
 
@@ -43,6 +42,6 @@ public class NotLeaderException extends RaftException {
   }
 
   public Collection<RaftPeer> getPeers() {
-    return Collections.unmodifiableCollection(peers);
+    return peers;
   }
 }

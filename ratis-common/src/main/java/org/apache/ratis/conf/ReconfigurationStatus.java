@@ -18,7 +18,6 @@
 
 package org.apache.ratis.conf;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 
@@ -139,7 +138,7 @@ public class ReconfigurationStatus {
    *         otherwise, return null.
    */
   public Map<PropertyChange, Throwable> getChanges() {
-    return Collections.unmodifiableMap(changes);
+    return changes;
   }
 
   /**

@@ -86,7 +86,7 @@ public final class RaftPeerId {
    * @return id in {@link ByteString}.
    */
   public ByteString toByteString() {
-    return id == null ? null : ByteString.copyFrom(id.toByteArray());
+    return id;
   }
 
   @Override

@@ -122,7 +122,7 @@ public abstract class ReconfigurationBase implements Reconfigurable {
 
   @Override
   public RaftProperties getProperties() {
-    return new RaftProperties(properties);
+    return properties;
   }
 
   /** @return the new {@link RaftProperties} to be reconfigured to. */

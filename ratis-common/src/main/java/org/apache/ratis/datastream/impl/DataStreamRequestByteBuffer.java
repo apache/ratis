@@ -23,7 +23,6 @@ import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.util.Preconditions;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -42,6 +41,6 @@ public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer impl
 
   @Override
   public List<WriteOption> getWriteOptionList() {
-    return Collections.unmodifiableList(options);
+    return options;
   }
 }

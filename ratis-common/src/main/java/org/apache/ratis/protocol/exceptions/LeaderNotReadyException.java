@@ -40,6 +40,6 @@ public class LeaderNotReadyException extends ServerNotReadyException {
   }
 
   public RaftGroupMemberIdProto getRaftGroupMemberIdProto() {
-    return serverId == null ? null : serverId.toBuilder().build();
+    return serverId;
   }
 }

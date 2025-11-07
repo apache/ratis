@@ -56,7 +56,7 @@ public class ClientRetryEvent implements RetryPolicy.Event {
 
   @Override
   public Throwable getCause() {
-    return JavaUtils.snapshot(cause);
+    return cause;
   }
 
   boolean isRequestTimeout(TimeDuration timeout) {
