@@ -122,7 +122,7 @@ public final class TimeDuration implements Comparable<TimeDuration> {
 
     /** @return the entire abbreviation list for this unit. */
     public List<String> getSymbols() {
-      return symbols;
+      return JavaUtils.unmodifiableListView(symbols);
     }
 
     /** @return the corresponding {@link Abbreviation}. */

@@ -22,6 +22,7 @@ import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -51,6 +52,6 @@ public class DataStreamRequestFilePositionCount extends DataStreamPacketImpl imp
 
   @Override
   public List<WriteOption> getWriteOptionList() {
-    return options;
+    return Collections.unmodifiableList(options);
   }
 }

@@ -353,7 +353,7 @@ public class RaftClientRequest extends RaftClientMessage {
     }
 
     public Builder setSlidingWindowEntry(SlidingWindowEntry slidingWindowEntry) {
-      this.slidingWindowEntry = slidingWindowEntry;
+      this.slidingWindowEntry = (slidingWindowEntry == null) ? null : slidingWindowEntry.toBuilder().build();
       return this;
     }
 
@@ -445,7 +445,7 @@ public class RaftClientRequest extends RaftClientMessage {
   }
 
   public SlidingWindowEntry getSlidingWindowEntry() {
-    return slidingWindowEntry;
+    return slidingWindowEntry == null ? null : slidingWindowEntry.toBuilder().build();
   }
 
   public Message getMessage() {

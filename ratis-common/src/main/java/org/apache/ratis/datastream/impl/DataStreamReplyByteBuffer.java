@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.thirdparty.com.google.common.collect.ImmutableList;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -83,7 +84,7 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
     }
 
     public Builder setCommitInfos(Collection<CommitInfoProto> commitInfos) {
-      this.commitInfos = commitInfos;
+      this.commitInfos = ImmutableList.copyOf(commitInfos);
       return this;
     }
 
@@ -137,7 +138,7 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
 
   @Override
   public Collection<CommitInfoProto> getCommitInfos() {
-    return commitInfos;
+    return Collections.unmodifiableCollection(commitInfos);
   }
 
   @Override

@@ -18,6 +18,7 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Arrays;
@@ -64,23 +65,23 @@ public class SetConfigurationRequest extends RaftClientRequest {
 
     public List<RaftPeer> getPeersInNewConf(RaftProtos.RaftPeerRole role) {
       switch (role) {
-        case FOLLOWER: return serversInNewConf;
-        case LISTENER: return listenersInNewConf;
+        case FOLLOWER: return JavaUtils.unmodifiableListView(serversInNewConf);
+        case LISTENER: return JavaUtils.unmodifiableListView(listenersInNewConf);
         default:
           throw new IllegalArgumentException("Unexpected role " + role);
       }
     }
 
     public List<RaftPeer> getListenersInCurrentConf() {
-      return listenersInCurrentConf;
+      return JavaUtils.unmodifiableListView(listenersInCurrentConf);
     }
 
     public List<RaftPeer> getServersInCurrentConf() {
-      return serversInCurrentConf;
+      return JavaUtils.unmodifiableListView(serversInCurrentConf);
     }
 
     public List<RaftPeer> getServersInNewConf() {
-      return serversInNewConf;
+      return JavaUtils.unmodifiableListView(serversInNewConf);
     }
 
     public Mode getMode() {
@@ -106,32 +107,32 @@ public class SetConfigurationRequest extends RaftClientRequest {
       private Mode mode = Mode.SET_UNCONDITIONALLY;
 
       public Builder setServersInNewConf(List<RaftPeer> serversInNewConf) {
-        this.serversInNewConf = serversInNewConf;
+        this.serversInNewConf = JavaUtils.defensiveCopyList(serversInNewConf);
         return this;
       }
 
       public Builder setListenersInNewConf(List<RaftPeer> listenersInNewConf) {
-        this.listenersInNewConf = listenersInNewConf;
+        this.listenersInNewConf = JavaUtils.defensiveCopyList(listenersInNewConf);
         return this;
       }
 
       public Builder setServersInNewConf(RaftPeer[] serversInNewConfArray) {
-        this.serversInNewConf = Arrays.asList(serversInNewConfArray);
+        this.serversInNewConf = JavaUtils.defensiveCopyList(Arrays.asList(serversInNewConfArray));
         return this;
       }
 
       public Builder setListenersInNewConf(RaftPeer[] listenersInNewConfArray) {
-        this.listenersInNewConf = Arrays.asList(listenersInNewConfArray);
+        this.listenersInNewConf = JavaUtils.defensiveCopyList(Arrays.asList(listenersInNewConfArray));
         return this;
       }
 
       public Builder setServersInCurrentConf(List<RaftPeer> serversInCurrentConf) {
-        this.serversInCurrentConf = serversInCurrentConf;
+        this.serversInCurrentConf = JavaUtils.defensiveCopyList(serversInCurrentConf);
         return this;
       }
 
       public Builder setListenersInCurrentConf(List<RaftPeer> listenersInCurrentConf) {
-        this.listenersInCurrentConf = listenersInCurrentConf;
+        this.listenersInCurrentConf = JavaUtils.defensiveCopyList(listenersInCurrentConf);
         return this;
       }
 

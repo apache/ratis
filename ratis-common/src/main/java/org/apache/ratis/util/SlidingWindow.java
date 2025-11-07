@@ -385,7 +385,7 @@ public interface SlidingWindow {
 
     /** Fail all requests starting from the given seqNum. */
     public synchronized void fail(final long startingSeqNum, Throwable e) {
-      exception = e;
+      exception = JavaUtils.snapshot(e);
 
       boolean handled = false;
       for(long i = startingSeqNum; i <= requests.lastSeqNum(); i++) {

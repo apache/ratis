@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.util.function.CheckedFunction;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.apache.ratis.util.function.CheckedSupplier;
@@ -29,8 +30,11 @@ import java.lang.management.ThreadMXBean;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -317,5 +321,52 @@ public interface JavaUtils {
     } catch (Throwable t) {
       throw new CompletionException(t);
     }
+  }
+
+  static <T> Collection<T> defensiveCopyOf(Collection<T> src) {
+    if (src == null || src.isEmpty()) {
+      return Collections.emptyList();
+    }
+    return Collections.unmodifiableList(new ArrayList<>(src));
+  }
+
+  static <T> List<T> defensiveCopyList(List<T> src) {
+    if (src == null || src.isEmpty()) {
+      return Collections.emptyList();
+    }
+    return Collections.unmodifiableList(new ArrayList<>(src));
+  }
+
+  static <T> List<T> unmodifiableListView(List<T> src) {
+    if (src == null || src.isEmpty()) {
+      return Collections.emptyList();
+    }
+    return Collections.unmodifiableList(src);
+  }
+
+  static Throwable snapshot(Throwable e) {
+    if (e == null) {
+      return null;
+    }
+    final Throwable copy = (e instanceof Exception)
+        ? new Exception(e.getMessage(), e.getCause())
+        : new Throwable(e.getMessage(), e.getCause());
+    copy.setStackTrace(e.getStackTrace().clone());
+    for (Throwable s : e.getSuppressed()) {
+      copy.addSuppressed(s);
+    }
+    return copy;
+  }
+
+  static RaftException copyRaftException(RaftException e) {
+    if (e == null) {
+      return null;
+    }
+    RaftException c = new RaftException(e.getMessage(), e.getCause());
+    c.setStackTrace(e.getStackTrace().clone());
+    for (Throwable s : e.getSuppressed()) {
+      c.addSuppressed(s);
+    }
+    return c;
   }
 }

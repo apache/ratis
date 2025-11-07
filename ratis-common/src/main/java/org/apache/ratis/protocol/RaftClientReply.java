@@ -92,7 +92,7 @@ public class RaftClientReply extends RaftClientMessage {
     }
 
     public Builder setException(RaftException exception) {
-      this.exception = exception;
+      this.exception = JavaUtils.copyRaftException(exception);
       return this;
     }
 
@@ -107,7 +107,7 @@ public class RaftClientReply extends RaftClientMessage {
     }
 
     public Builder setCommitInfos(Collection<CommitInfoProto> commitInfos) {
-      this.commitInfos = commitInfos;
+      this.commitInfos = JavaUtils.defensiveCopyOf(commitInfos);
       return this;
     }
 
@@ -184,7 +184,7 @@ public class RaftClientReply extends RaftClientMessage {
    * @return the commit information if it is available; otherwise, return null.
    */
   public Collection<CommitInfoProto> getCommitInfos() {
-    return commitInfos;
+    return Collections.unmodifiableCollection(commitInfos);
   }
 
   @Override
@@ -258,6 +258,6 @@ public class RaftClientReply extends RaftClientMessage {
 
   /** @return the exception, if there is any; otherwise, return null. */
   public RaftException getException() {
-    return exception;
+    return JavaUtils.copyRaftException(exception);
   }
 }

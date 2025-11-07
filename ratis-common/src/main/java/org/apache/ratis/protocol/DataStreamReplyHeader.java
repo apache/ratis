@@ -51,6 +51,6 @@ public class DataStreamReplyHeader extends DataStreamPacketHeader implements Dat
 
   @Override
   public Collection<CommitInfoProto> getCommitInfos() {
-    return commitInfos;
+    return Collections.unmodifiableCollection(commitInfos);
   }
 }

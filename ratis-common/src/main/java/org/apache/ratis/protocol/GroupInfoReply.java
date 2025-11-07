@@ -62,7 +62,7 @@ public class GroupInfoReply extends RaftClientReply {
   }
 
   public RoleInfoProto getRoleInfoProto() {
-    return roleInfoProto;
+    return roleInfoProto == null ? null : roleInfoProto.toBuilder().build();
   }
 
   public boolean isRaftStorageHealthy() {
@@ -74,6 +74,6 @@ public class GroupInfoReply extends RaftClientReply {
   }
 
   public LogInfoProto getLogInfoProto() {
-    return logInfoProto;
+    return logInfoProto == null ? null : logInfoProto.toBuilder().build();
   }
 }
