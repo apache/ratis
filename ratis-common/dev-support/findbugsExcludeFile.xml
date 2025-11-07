@@ -16,35 +16,115 @@
 -->
 <FindBugsFilter>
   <Match>
-    <Class name="org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer$Builder"></Class>
+    <Class name="org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer$Builder" />
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.io.MD5Hash"></Class>
+    <Class name="org.apache.ratis.io.MD5Hash" />
     <Bug pattern="CT_CONSTRUCTOR_THROW" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.protocol.GroupInfoReply"></Class>
+    <Class name="org.apache.ratis.protocol.GroupInfoReply" />
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.retry.MultipleLinearRandomRetry"></Class>
+    <Class name="org.apache.ratis.retry.MultipleLinearRandomRetry" />
     <Bug pattern="CT_CONSTRUCTOR_THROW" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.util.AtomicFileOutputStream"></Class>
+    <Class name="org.apache.ratis.util.AtomicFileOutputStream" />
     <Bug pattern="CT_CONSTRUCTOR_THROW" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.util.Daemon"></Class>
+    <Class name="org.apache.ratis.util.Daemon" />
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.retry.MultipleLinearRandomRetry$Pair"></Class>
+    <Class name="org.apache.ratis.retry.MultipleLinearRandomRetry$Pair" />
     <Bug pattern="CT_CONSTRUCTOR_THROW" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.util.Daemon$Builder"></Class>
+    <Class name="org.apache.ratis.util.Daemon$Builder" />
     <Bug pattern="EI_EXPOSE_REP2" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.conf.ReconfigurationBase" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.conf.ReconfigurationStatus" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.DataStreamReplyHeader" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.GroupInfoReply" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.RaftClientReply" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.RaftClientReply$Builder" />
+    <Bug pattern="EI_EXPOSE_REP2" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.RaftClientRequest" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.RaftClientRequest$Builder" />
+    <Bug pattern="EI_EXPOSE_REP2" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.RaftPeerId" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.SetConfigurationRequest$Arguments" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.SetConfigurationRequest$Arguments$Builder" />
+    <Bug pattern="EI_EXPOSE_REP2" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.exceptions.LeaderNotReadyException" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.exceptions.NotLeaderException" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.exceptions.NotReplicatedException" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.protocol.exceptions.NotReplicatedException" />
+    <Bug pattern="EI_EXPOSE_REP2" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.util.SlidingWindow$Client" />
+    <Bug pattern="EI_EXPOSE_REP2" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.util.TimeDuration$Abbreviation" />
+    <Bug pattern="EI_EXPOSE_REP" />
   </Match>
 </FindBugsFilter>

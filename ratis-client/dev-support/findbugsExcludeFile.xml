@@ -16,23 +16,27 @@
 -->
 <FindBugsFilter>
   <Match>
-    <Class name="org.apache.ratis.client.DataStreamClient$Builder"></Class>
+    <Class name="org.apache.ratis.client.DataStreamClient$Builder" />
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.client.RaftClient$Builder"></Class>
+    <Class name="org.apache.ratis.client.RaftClient$Builder" />
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.client.impl.DataStreamClientImpl$DataStreamOutputImpl"></Class>
+    <Class name="org.apache.ratis.client.impl.DataStreamClientImpl$DataStreamOutputImpl" />
     <Bug pattern="EI_EXPOSE_REP" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.client.impl.RaftClientRpcWithProxy"></Class>
+    <Class name="org.apache.ratis.client.impl.RaftClientRpcWithProxy" />
     <Bug pattern="EI_EXPOSE_REP" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.client.retry.ClientRetryEvent"></Class>
+    <Class name="org.apache.ratis.client.retry.ClientRetryEvent" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.client.retry.ClientRetryEvent" />
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
 </FindBugsFilter>
