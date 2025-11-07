@@ -727,6 +727,9 @@ public abstract class MiniRaftCluster implements Closeable {
   }
 
   public RaftClient createClient(RaftPeerId leaderId, RetryPolicy retryPolicy) {
+    if (retryPolicy == null) {
+      retryPolicy = getDefaultRetryPolicy();
+    }
     return createClient(leaderId, group, retryPolicy);
   }
 
