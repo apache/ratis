@@ -154,7 +154,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     Assertions.assertTrue(reply.isSuccess());
     final int retrieved = retrieve(reply);
     Assertions.assertTrue(retrieved >= minCount,
-        () -> "retrieved = " + retrieved + " >= minCount = " + minCount + ", reply=" + reply);
+        () -> "retrieved = " + retrieved + " < minCount = " + minCount + ", reply=" + reply);
   }
 
   /**
