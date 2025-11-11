@@ -549,21 +549,6 @@
             </compilerArgs>
           </configuration>
         </plugin>
-        <!-- Make a jar and put the sources in the jar.
-        In the parent pom, so submodules will do the right thing. -->
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-source-plugin</artifactId>
-          <executions>
-            <execution>
-              <id>attach-sources</id>
-              <phase>prepare-package</phase>
-              <goals>
-                <goal>jar-no-fork</goal>
-              </goals>
-            </execution>
-          </executions>
-        </plugin>
 
         <!-- General configuration for submodules who want to build a test jar -->
         <plugin>
