@@ -18,7 +18,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>25</version>
+    <version>35</version>
     <relativePath /> <!-- resolve from repository -->
   </parent>
 
@@ -168,16 +168,9 @@
 
     <!-- Maven plugin versions -->
     <maven-bundle-plugin.version>5.1.8</maven-bundle-plugin.version>
-    <maven-checkstyle-plugin.version>3.3.0</maven-checkstyle-plugin.version>
-    <maven-clover2-plugin.version>4.0.6</maven-clover2-plugin.version>
-    <maven-pdf-plugin.version>1.6.1</maven-pdf-plugin.version>
-    <maven-remote-resources-plugin.version>3.3.0</maven-remote-resources-plugin.version>
-    <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
-    <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
     <hadoop-maven-plugins.version>3.4.0</hadoop-maven-plugins.version>
     <sonar-maven-plugin.version>5.0.0.4389</sonar-maven-plugin.version>
-
 
     <!-- org.codehaus.mojo -->
     <build-helper-maven-plugin.version>3.3.0</build-helper-maven-plugin.version>
@@ -459,10 +452,6 @@
 
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-install-plugin</artifactId>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <configuration>
             <source>8</source>
@@ -472,11 +461,6 @@
               <additionalJOption>-Xdoclint:-missing</additionalJOption>
             </additionalJOptions>
           </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-shade-plugin</artifactId>
-          <version>${maven-shade-plugin.version}</version>
         </plugin>
         <plugin>
           <groupId>com.github.spotbugs</groupId>
@@ -499,16 +483,10 @@
           <artifactId>exec-maven-plugin</artifactId>
           <version>${exec-maven-plugin.version}</version>
         </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-pdf-plugin</artifactId>
-          <version>${maven-pdf-plugin.version}</version>
-        </plugin>
 
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-enforcer-plugin</artifactId>
-          <version>3.2.1</version>
           <configuration>
             <rules>
               <requireMavenVersion>
@@ -571,21 +549,6 @@
             </compilerArgs>
           </configuration>
         </plugin>
-        <!-- Make a jar and put the sources in the jar.
-        In the parent pom, so submodules will do the right thing. -->
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-source-plugin</artifactId>
-          <executions>
-            <execution>
-              <id>attach-sources</id>
-              <phase>prepare-package</phase>
-              <goals>
-                <goal>jar-no-fork</goal>
-              </goals>
-            </execution>
-          </executions>
-        </plugin>
 
         <!-- General configuration for submodules who want to build a test jar -->
         <plugin>
@@ -614,7 +577,6 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>${maven-surefire-plugin.version}</version>
           <configuration>
             <failIfNoTests>false</failIfNoTests>
             <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
@@ -658,10 +620,6 @@
         </plugin>
 
         <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-deploy-plugin</artifactId>
-        </plugin>
-        <plugin>
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
           <!-- target/ should get picked up from Apache parent pom.. -->
@@ -675,15 +633,6 @@
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-antrun-plugin</artifactId>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-remote-resources-plugin</artifactId>
-          <version>${maven-remote-resources-plugin.version}</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-site-plugin</artifactId>
           <dependencies>
             <dependency><!-- add support for ssh/scp -->
@@ -692,11 +641,6 @@
               <version>${wagon-ssh.version}</version>
             </dependency>
           </dependencies>
-        </plugin>
-        <plugin>
-          <groupId>com.atlassian.maven.plugins</groupId>
-          <artifactId>maven-clover2-plugin</artifactId>
-          <version>${maven-clover2-plugin.version}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.felix</groupId>
@@ -801,22 +745,12 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>${maven-checkstyle-plugin.version}</version>
         <configuration>
           <!-- We decide not to check style on test directory to focus more on code than format. -->
           <!--includeTestSourceDirectory>true</includeTestSourceDirectory-->
           <configLocation>dev-support/checkstyle.xml</configLocation>
           <failOnViolation>true</failOnViolation>
           <linkXRef>false</linkXRef>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-pdf-plugin</artifactId>
-        <configuration>
-          <outputDirectory>${project.reporting.outputDirectory}
-          </outputDirectory>
-          <includeReports>false</includeReports>
         </configuration>
       </plugin>
       <plugin>
@@ -974,7 +908,7 @@
             <executions>
               <execution>
                 <!-- builds source jars and attaches them to the project for publishing -->
-                <id>ratis-java-sources</id>
+                <id>attach-sources</id> <!-- override execution from maven-apache-parent POM -->
                 <phase>package</phase>
                 <goals>
                   <goal>jar-no-fork</goal>
