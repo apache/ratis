@@ -908,7 +908,7 @@
             <executions>
               <execution>
                 <!-- builds source jars and attaches them to the project for publishing -->
-                <id>ratis-java-sources</id>
+                <id>attach-sources</id> <!-- override execution from maven-apache-parent POM -->
                 <phase>package</phase>
                 <goals>
                   <goal>jar-no-fork</goal>
