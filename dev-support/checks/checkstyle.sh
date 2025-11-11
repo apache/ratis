@@ -26,15 +26,16 @@ REPORT_FILE="$REPORT_DIR/summary.txt"
 MAVEN_OPTIONS='-B -fae -Dcheckstyle.failOnViolation=false'
 
 declare -i rc
-${MVN} ${MAVEN_OPTIONS} checkstyle:check | tee  "${REPORT_DIR}/output.log"
+${MVN} ${MAVEN_OPTIONS} checkstyle:check > "${REPORT_DIR}/output.log"
 rc=$?
 if [[ ${rc} -ne 0 ]]; then
-  ${MVN} ${MAVEN_OPTIONS} clean test-compile checkstyle:check
+  ${MVN} ${MAVEN_OPTIONS} clean test-compile checkstyle:check > output.log
   rc=$?
   mkdir -p "$REPORT_DIR" # removed by mvn clean
-else
-  cat "${REPORT_DIR}/output.log"
+  mv output.log "${REPORT_DIR}"/
 fi
+
+cat "${REPORT_DIR}/output.log"
 
 #Print out the exact violations with parsing XML results with sed
 find "." -name checkstyle-result.xml -print0 \
