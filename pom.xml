@@ -197,6 +197,7 @@
     <!-- define the Java language version used by the compiler -->
     <javac.version>8</javac.version>
     <java.min.version>${javac.version}</java.min.version>
+    <maven.compiler.release>${javac.version}</maven.compiler.release>
     <maven.min.version>3.3.9</maven.min.version>
 
     <!-- Contains all shaded thirdparty dependencies -->
@@ -814,25 +815,6 @@
   </build>
 
   <profiles>
-    <profile>
-      <id>java8</id>
-      <activation>
-        <jdk>[,8]</jdk>
-      </activation>
-      <properties>
-        <maven.compiler.source>${javac.version}</maven.compiler.source>
-        <maven.compiler.target>${javac.version}</maven.compiler.target>
-      </properties>
-    </profile>
-    <profile>
-      <id>java9-or-later</id>
-      <activation>
-        <jdk>[9,]</jdk>
-      </activation>
-      <properties>
-        <maven.compiler.release>${javac.version}</maven.compiler.release> <!-- supported since Java 9 -->
-      </properties>
-    </profile>
     <profile>
       <id>experiments-build</id>
       <activation>
