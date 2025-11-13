@@ -25,12 +25,15 @@ import org.apache.ratis.thirdparty.io.grpc.stub.AbstractStub;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.WriteBufferWaterMark;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Timer;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +62,7 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     }
   }
 
-  private final List<PooledStub<S>> pool;
+  private final List<MemoizedSupplier<PooledStub<S>>> pool;
   private final int size;
 
   GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, SslContext sslContext) {
@@ -68,7 +71,7 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
 
   GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, SslContext sslContext,
                int maxInflightPerConn) {
-    ArrayList<PooledStub<S>> tmp = new ArrayList<>(n);
+    ArrayList<MemoizedSupplier<PooledStub<S>>> tmp = new ArrayList<>(n);
     for (int i = 0; i < n; i++) {
       NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(target.getAddress())
           .keepAliveTime(10, TimeUnit.MINUTES)
@@ -82,7 +85,7 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
         channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
       }
       ManagedChannel ch = channelBuilder.build();
-      tmp.add(new PooledStub<>(ch, stubFactory.apply(ch), maxInflightPerConn));
+      tmp.add(JavaUtils.memoize(() -> new PooledStub<>(ch, stubFactory.apply(ch), maxInflightPerConn)));
       ch.getState(true);
     }
     this.pool = Collections.unmodifiableList(tmp);
@@ -92,19 +95,19 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
   PooledStub<S> acquire() throws InterruptedException {
     final int start = ThreadLocalRandom.current().nextInt(size);
     for (int k = 0; k < size; k++) {
-      PooledStub<S> p = pool.get((start + k) % size);
+      PooledStub<S> p = pool.get((start + k) % size).get();
       if (p.permits.tryAcquire()) {
         return p;
       }
     }
-    final PooledStub<S> p = pool.get(start);
+    final PooledStub<S> p = pool.get(start).get();
     p.permits.acquire();
     return p;
   }
 
   public void close() {
-    for (PooledStub<S> p : pool) {
-      p.ch.shutdown();
+    for (MemoizedSupplier<PooledStub<S>> p : pool) {
+      p.get().ch.shutdown();
     }
   }
 }

@@ -71,7 +71,8 @@ class GrpcServerProtocolClient implements Closeable {
       hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
     }
     requestTimeoutDuration = requestTimeout;
-    this.pool = new GrpcStubPool<>(target, connections, RaftServerProtocolServiceGrpc::newStub, sslContext);
+    this.pool = connections > 1 ?
+        new GrpcStubPool<>(target, connections, RaftServerProtocolServiceGrpc::newStub, sslContext) : null;
   }
 
   private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow, SslContext sslContext) {
@@ -96,7 +97,9 @@ class GrpcServerProtocolClient implements Closeable {
       GrpcUtil.shutdownManagedChannel(hbChannel);
     }
     GrpcUtil.shutdownManagedChannel(channel);
-    pool.close();
+    if (pool != null) {
+      pool.close();
+    }
   }
 
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) {
@@ -115,36 +118,42 @@ class GrpcServerProtocolClient implements Closeable {
   }
 
   void readIndex(ReadIndexRequestProto request, StreamObserver<ReadIndexReplyProto> s) {
+    if (pool == null) {
+      asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+          .readIndex(request, s);
+      return;
+    }
     GrpcStubPool.PooledStub<RaftServerProtocolServiceStub> p;
     try {
       p = pool.acquire();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      s.onError(e); return;
+      s.onError(e);
+      return;
     }
     p.getStub().withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-            .readIndex(request, new StreamObserver<ReadIndexReplyProto>() {
-              @Override
-              public void onNext(ReadIndexReplyProto v) {
-                s.onNext(v);
-              }
-              @Override
-              public void onError(Throwable t) {
-                try {
-                  s.onError(t);
-                } finally {
-                  p.release();
-                }
-              }
-              @Override
-              public void onCompleted() {
-                try {
-                  s.onCompleted();
-                } finally {
-                  p.release();
-                }
-              }
-            });
+        .readIndex(request, new StreamObserver<ReadIndexReplyProto>() {
+          @Override
+          public void onNext(ReadIndexReplyProto v) {
+            s.onNext(v);
+          }
+          @Override
+          public void onError(Throwable t) {
+            try {
+              s.onError(t);
+            } finally {
+              p.release();
+            }
+          }
+          @Override
+          public void onCompleted() {
+            try {
+              s.onCompleted();
+            } finally {
+              p.release();
+            }
+          }
+        });
   }
 
   CallStreamObserver<AppendEntriesRequestProto> appendEntries(

@@ -284,7 +284,7 @@ public interface GrpcConfigKeys {
     }
 
     String STUB_POOL_SIZE_KEY = PREFIX + ".stub.pool.size";
-    int STUB_POOL_SIZE_DEFAULT = 10;
+    int STUB_POOL_SIZE_DEFAULT = 1;
     static int stubPoolSize(RaftProperties properties) {
       return get(properties::getInt, STUB_POOL_SIZE_KEY, STUB_POOL_SIZE_DEFAULT, getDefaultLog());
     }
