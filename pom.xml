@@ -189,8 +189,8 @@
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
     <cyclonedx.version>2.8.0</cyclonedx.version>
 
-    <spotbugs.version>4.9.7</spotbugs.version>
-    <spotbugs-plugin.version>4.9.7.0</spotbugs-plugin.version>
+    <spotbugs.version>4.8.6</spotbugs.version>
+    <spotbugs-plugin.version>4.8.6.2</spotbugs-plugin.version>
 
     <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
     <distMgmtSnapshotsName>Apache Development Snapshot Repository</distMgmtSnapshotsName>
