@@ -98,90 +98,23 @@
 </div>
 
 <div class="container">
-
-<section id="main">
-  <div>
-    <h1 id="title"> Archive</h1>
-        <ul id="list">
-            
-            <h1><a href="/logservice/testing/docker.html">Docker Testing</a></h1>
-            <p><small>0001 Jan 1 </small></p>
-
-            <!---
+<h1>Release 3.2.1 is available</h1>
+<!---
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
-
    http://www.apache.org/licenses/LICENSE-2.0
-
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License. See accompanying LICENSE file.
 -->
-<p>The Docker orchestration is comprised of the following:</p>
-<ol>
-<li>A Docker image which has the necessary software to run the LogService</li>
-<li>A docker-compose.yml file which can launch the necessary containers for a full-fledged LogService &ldquo;cluster&rdquo;</li>
-<li>Scripts to build the Docker image and launch a client environment to interact
-with a running cluster via Compose.</li>
-</ol>
-<h2 id="building-the-docker-image">Building the Docker image</h2>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>$ mvn clean package assembly:single -DskipTests
-</span></span><span style="display:flex;"><span>$ cd ratis-logservice <span style="color:#f92672">&amp;&amp;</span> ./build-docker.sh
-</span></span></code></pre></div><p>The above will create a Docker image tagged as <code>ratis-logservice:latest</code>.</p>
-<h2 id="launching-a-cluster-via-compose">Launching a cluster via Compose</h2>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>$ docker-compose up -d
-</span></span></code></pre></div><p>The Compose orchestration will launch three MetadataServer containers and three
-Worker containers, all on the same Docker network. The <code>-d</code> option detaches the
-container logs from your current shell.</p>
-<h2 id="connecting-a-client">Connecting a client</h2>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>$ ./client-env.sh
-</span></span><span style="display:flex;"><span>$ ./bin/shell &lt;...&gt;
-</span></span><span style="display:flex;"><span>$ ./bin/load-test &lt;...&gt;
-</span></span></code></pre></div><p>The <code>client-env.sh</code> script will launch a Docker container which is on the same
-network as our cluster running in Compose.</p>
-<h2 id="debugging-the-cluster">Debugging the cluster</h2>
-<p>Use <code>docker logs</code> to inspect the output from a specific container. You must pass
-the name of the container (obtained via <code>docker-compose ps</code> or <code>docker ps</code>) to
-<code>docker logs</code>.</p>
-<p>You can also &ldquo;attach&rdquo; to a container via <code>docker exec</code> to inspect the environment
-in which the process is running. Again, using the name of a container obtained as
-described above, use <code>docker exec -it &lt;name&gt; /bin/sh</code> to attach to the container.</p>
+<p><a href="https://ratis.apache.org/downloads.html">Download</a></p>
+<p>This is a maintenance release with multiple improvements and bugfixes.
+See the <a href="https://github.com/apache/ratis/compare/ratis-3.2.0...ratis-3.2.1">changes between 3.2.0 and 3.2.1</a> releases.</p>
+<p>It has been tested with <a href="https://ozone.apache.org">Apache Ozone</a>, <a href="https://iotdb.apache.org">Apache IoTDB</a>.</p>
 
-
-            
-            <h1><a href="/logservice/testing/vagrant.html">Vagrant Testing</a></h1>
-            <p><small>0001 Jan 1 </small></p>
-
-            <!---
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-   http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. See accompanying LICENSE file.
--->
-<p>Please refer to the <a href="https://github.com/apache/ratis/blob/master/dev-support/vagrant/README.md">documentation</a> for instructions to use the Vagrant automation.</p>
-<p>Starting from the directory <code>dev-support/vagrant/</code>:</p>
-<ul>
-<li>To build all Vagrant boxes, invoke <code>./run_all_tests.sh build</code></li>
-<li>To remove any generated data, invoke <code>./run_all_tests.sh clean</code></li>
-<li>To run the tests, invoke <code>vagrant resume ratis-servers &amp;&amp; vagrant ssh ratis-servers</code></li>
-</ul>
-
-
-            
-        </ul>
-  </div>
-
-</section>
 </div>
 
 <footer>

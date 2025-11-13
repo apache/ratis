@@ -101,11 +101,11 @@
 
 <section id="main">
   <div>
-    <h1 id="title"> Archive</h1>
+    <h1 id="title">Posts Archive</h1>
         <ul id="list">
             
-            <h1><a href="/logservice/testing/docker.html">Docker Testing</a></h1>
-            <p><small>0001 Jan 1 </small></p>
+            <h1><a href="/post/0.2.0.html">Release 0.2.0 is available</a></h1>
+            <p><small>2018 Jul 15 </small></p>
 
             <!---
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -120,40 +120,15 @@
   See the License for the specific language governing permissions and
   limitations under the License. See accompanying LICENSE file.
 -->
-<p>The Docker orchestration is comprised of the following:</p>
-<ol>
-<li>A Docker image which has the necessary software to run the LogService</li>
-<li>A docker-compose.yml file which can launch the necessary containers for a full-fledged LogService &ldquo;cluster&rdquo;</li>
-<li>Scripts to build the Docker image and launch a client environment to interact
-with a running cluster via Compose.</li>
-</ol>
-<h2 id="building-the-docker-image">Building the Docker image</h2>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>$ mvn clean package assembly:single -DskipTests
-</span></span><span style="display:flex;"><span>$ cd ratis-logservice <span style="color:#f92672">&amp;&amp;</span> ./build-docker.sh
-</span></span></code></pre></div><p>The above will create a Docker image tagged as <code>ratis-logservice:latest</code>.</p>
-<h2 id="launching-a-cluster-via-compose">Launching a cluster via Compose</h2>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>$ docker-compose up -d
-</span></span></code></pre></div><p>The Compose orchestration will launch three MetadataServer containers and three
-Worker containers, all on the same Docker network. The <code>-d</code> option detaches the
-container logs from your current shell.</p>
-<h2 id="connecting-a-client">Connecting a client</h2>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>$ ./client-env.sh
-</span></span><span style="display:flex;"><span>$ ./bin/shell &lt;...&gt;
-</span></span><span style="display:flex;"><span>$ ./bin/load-test &lt;...&gt;
-</span></span></code></pre></div><p>The <code>client-env.sh</code> script will launch a Docker container which is on the same
-network as our cluster running in Compose.</p>
-<h2 id="debugging-the-cluster">Debugging the cluster</h2>
-<p>Use <code>docker logs</code> to inspect the output from a specific container. You must pass
-the name of the container (obtained via <code>docker-compose ps</code> or <code>docker ps</code>) to
-<code>docker logs</code>.</p>
-<p>You can also &ldquo;attach&rdquo; to a container via <code>docker exec</code> to inspect the environment
-in which the process is running. Again, using the name of a container obtained as
-described above, use <code>docker exec -it &lt;name&gt; /bin/sh</code> to attach to the container.</p>
+<p>0.2.0 is the second Apache release and the first release which provides binary release with example Raft applications.</p>
+<p>It contains more than 130 bug fixes and features since the previous release.</p>
+<p>This version also heavily tested with <a href="https://ozone.apache.org">Apache Ozone</a> where Apache Ratis is used to replicate raw Hadoop data.</p>
+<p>The release is available from the downloaded section or (as Ratis is a java library) from the Apache and Maven central maven repositories.</p>
 
 
             
-            <h1><a href="/logservice/testing/vagrant.html">Vagrant Testing</a></h1>
-            <p><small>0001 Jan 1 </small></p>
+            <h1><a href="/post/0.1.0-alpha.html">Release 0.1.0-alpha is available</a></h1>
+            <p><small>2017 May 2 </small></p>
 
             <!---
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -168,12 +143,12 @@ described above, use <code>docker exec -it &lt;name&gt; /bin/sh</code> to attach
   See the License for the specific language governing permissions and
   limitations under the License. See accompanying LICENSE file.
 -->
-<p>Please refer to the <a href="https://github.com/apache/ratis/blob/master/dev-support/vagrant/README.md">documentation</a> for instructions to use the Vagrant automation.</p>
-<p>Starting from the directory <code>dev-support/vagrant/</code>:</p>
+<p>This is the first incubator release of Apache Ratis.</p>
+<p>Key features:</p>
 <ul>
-<li>To build all Vagrant boxes, invoke <code>./run_all_tests.sh build</code></li>
-<li>To remove any generated data, invoke <code>./run_all_tests.sh clean</code></li>
-<li>To run the tests, invoke <code>vagrant resume ratis-servers &amp;&amp; vagrant ssh ratis-servers</code></li>
+<li>Pluggable transports (Hadoop Rpc, GRpc, Netty)</li>
+<li>Pluggable statemachine</li>
+<li>Pluggable raft log implementation.</li>
 </ul>
 
 
@@ -181,6 +156,29 @@ described above, use <code>docker exec -it &lt;name&gt; /bin/sh</code> to attach
         </ul>
   </div>
 
+    <ul class="pagination pagination-default">
+      <li class="page-item">
+        <a href="/post/index.html" aria-label="First" class="page-link" role="button"><span aria-hidden="true">&laquo;&laquo;</span></a>
+      </li>
+      <li class="page-item">
+        <a href="/post/page/2/index.html" aria-label="Previous" class="page-link" role="button"><span aria-hidden="true">&laquo;</span></a>
+      </li>
+      <li class="page-item">
+        <a href="/post/index.html" aria-label="Page 1" class="page-link" role="button">1</a>
+      </li>
+      <li class="page-item">
+        <a href="/post/page/2/index.html" aria-label="Page 2" class="page-link" role="button">2</a>
+      </li>
+      <li class="page-item active">
+        <a aria-current="page" aria-label="Page 3" class="page-link" role="button">3</a>
+      </li>
+      <li class="page-item disabled">
+        <a aria-disabled="true" aria-label="Next" class="page-link" role="button" tabindex="-1"><span aria-hidden="true">&raquo;</span></a>
+      </li>
+      <li class="page-item disabled">
+        <a aria-disabled="true" aria-label="Last" class="page-link" role="button" tabindex="-1"><span aria-hidden="true">&raquo;&raquo;</span></a>
+      </li>
+    </ul>
 </section>
 </div>
 

@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Apache Ratis</title>
-    <link>https://ratis.apache.org/logservice.html</link>
+    <link>https://ratis.apache.org/logservice/index.html</link>
     <description>Recent content on Apache Ratis</description>
     <generator>Hugo</generator>
     <language>en-us</language>
@@ -12,14 +12,14 @@
       <link>https://ratis.apache.org/logservice/lifecycle.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       <guid>https://ratis.apache.org/logservice/lifecycle.html</guid>
-      <description>&lt;!---&#xD;&#xA;  Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);&#xD;&#xA;  you may not use this file except in compliance with the License.&#xD;&#xA;  You may obtain a copy of the License at&#xD;&#xA;&#xD;&#xA;   http://www.apache.org/licenses/LICENSE-2.0&#xD;&#xA;&#xD;&#xA;  Unless required by applicable law or agreed to in writing, software&#xD;&#xA;  distributed under the License is distributed on an &#34;AS IS&#34; BASIS,&#xD;&#xA;  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.&#xD;&#xA;  See the License for the specific language governing permissions and&#xD;&#xA;  limitations under the License. See accompanying LICENSE file.&#xD;&#xA;--&gt;&#xD;&#xA;&lt;p&gt;The LogService is a system which manages a collection of logs. Each&#xA;of these logs has a defined state which allows certain operations on that&#xA;log or corresponds to actions that the system is taking on that log.&lt;/p&gt;</description>
+      <description>&lt;!---&#xA;  Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);&#xA;  you may not use this file except in compliance with the License.&#xA;  You may obtain a copy of the License at&#xA;&#xA;   http://www.apache.org/licenses/LICENSE-2.0&#xA;&#xA;  Unless required by applicable law or agreed to in writing, software&#xA;  distributed under the License is distributed on an &#34;AS IS&#34; BASIS,&#xA;  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.&#xA;  See the License for the specific language governing permissions and&#xA;  limitations under the License. See accompanying LICENSE file.&#xA;--&gt;&#xA;&lt;p&gt;The LogService is a system which manages a collection of logs. Each&#xA;of these logs has a defined state which allows certain operations on that&#xA;log or corresponds to actions that the system is taking on that log.&lt;/p&gt;</description>
     </item>
     <item>
       <title>LogService Security</title>
       <link>https://ratis.apache.org/logservice/security.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       <guid>https://ratis.apache.org/logservice/security.html</guid>
-      <description>&lt;!---&#xD;&#xA;  Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);&#xD;&#xA;  you may not use this file except in compliance with the License.&#xD;&#xA;  You may obtain a copy of the License at&#xD;&#xA;&#xD;&#xA;   http://www.apache.org/licenses/LICENSE-2.0&#xD;&#xA;&#xD;&#xA;  Unless required by applicable law or agreed to in writing, software&#xD;&#xA;  distributed under the License is distributed on an &#34;AS IS&#34; BASIS,&#xD;&#xA;  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.&#xD;&#xA;  See the License for the specific language governing permissions and&#xD;&#xA;  limitations under the License. See accompanying LICENSE file.&#xD;&#xA;--&gt;&#xD;&#xA;&lt;p&gt;This document aims to describe what the intended security deployment model of the Ratis LogService.&lt;/p&gt;</description>
+      <description>&lt;!---&#xA;  Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);&#xA;  you may not use this file except in compliance with the License.&#xA;  You may obtain a copy of the License at&#xA;&#xA;   http://www.apache.org/licenses/LICENSE-2.0&#xA;&#xA;  Unless required by applicable law or agreed to in writing, software&#xA;  distributed under the License is distributed on an &#34;AS IS&#34; BASIS,&#xA;  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.&#xA;  See the License for the specific language governing permissions and&#xA;  limitations under the License. See accompanying LICENSE file.&#xA;--&gt;&#xA;&lt;p&gt;This document aims to describe what the intended security deployment model of the Ratis LogService.&lt;/p&gt;</description>
     </item>
   </channel>
 </rss>

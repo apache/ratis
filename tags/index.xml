@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Tags on Apache Ratis</title>
-    <link>https://ratis.apache.org/tags.html</link>
+    <link>https://ratis.apache.org/tags/index.html</link>
     <description>Recent content in Tags on Apache Ratis</description>
     <generator>Hugo</generator>
     <language>en-us</language>

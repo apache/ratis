@@ -2,11 +2,14 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://ratis.apache.org/</loc>
-    <lastmod>2025-06-24T00:00:00+00:00</lastmod>
+    <loc>https://ratis.apache.org/index.html</loc>
+    <lastmod>2025-11-12T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://ratis.apache.org/post.html</loc>
-    <lastmod>2025-06-24T00:00:00+00:00</lastmod>
+    <loc>https://ratis.apache.org/post/index.html</loc>
+    <lastmod>2025-11-12T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://ratis.apache.org/post/3.2.1.html</loc>
+    <lastmod>2025-11-12T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://ratis.apache.org/post/3.2.0.html</loc>
     <lastmod>2025-06-24T00:00:00+00:00</lastmod>
@@ -71,13 +74,13 @@
     <loc>https://ratis.apache.org/post/0.1.0-alpha.html</loc>
     <lastmod>2017-05-02T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://ratis.apache.org/logservice.html</loc>
+    <loc>https://ratis.apache.org/logservice/index.html</loc>
   </url><url>
-    <loc>https://ratis.apache.org/logservice/testing.html</loc>
+    <loc>https://ratis.apache.org/logservice/testing/index.html</loc>
   </url><url>
     <loc>https://ratis.apache.org/downloads.html</loc>
   </url><url>
-    <loc>https://ratis.apache.org/categories.html</loc>
+    <loc>https://ratis.apache.org/categories/index.html</loc>
   </url><url>
     <loc>https://ratis.apache.org/community.html</loc>
   </url><url>
@@ -91,7 +94,7 @@
   </url><url>
     <loc>https://ratis.apache.org/source.html</loc>
   </url><url>
-    <loc>https://ratis.apache.org/tags.html</loc>
+    <loc>https://ratis.apache.org/tags/index.html</loc>
   </url><url>
     <loc>https://ratis.apache.org/logservice/testing/vagrant.html</loc>
   </url>

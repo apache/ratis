@@ -18,8 +18,8 @@
 
     <link rel="canonical" href="https://ratis.apache.org/">
 
-    <link rel="stylesheet" href="/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
 
     <script src="https://www.apachecon.com/event-images/snippet.js"></script>
 </head>
@@ -98,29 +98,217 @@
 </div>
 
 <div class="container">
-<h1>LogService</h1>
-<!-- raw HTML omitted -->
-<!-- raw HTML omitted -->
-<p>The Ratis LogService is an distributed, log implementation built on top of Apache
-Ratis. The LogService is a &ldquo;recipe&rdquo; on top of Apache Ratis, providing a higher-level
-API as compared to Ratis itself. The LogService provides the ability to create named,
-durable, append-only data structures with the ability to perform linear reads.</p>
-<p>Like Ratis, the LogService is designed to be embedded into another application as
-a library, as opposed to a standalone daemon. On a confusing note, there are Java
-daemons provided for the LogService, but these are solely to be used for testing.</p>
-<ul>
-<li><a href="https://ratis.apache.org/logservice/testing/">Testing</a></li>
-<li><a href="https://ratis.apache.org/logservice/lifecycle.html">Log Lifecycle</a></li>
-<li><a href="https://ratis.apache.org/logservice/security.html">Security</a></li>
-</ul>
 
+<section id="main">
+  <div>
+    <h1 id="title"> Archive</h1>
+        <ul id="list">
+            
+            <h1><a href="/logservice/testing/index.html"></a></h1>
+            <p><small>0001 Jan 1 </small></p>
+
+            <!---
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+
+
+            
+            <h1><a href="/logservice/lifecycle.html">Lifecycle</a></h1>
+            <p><small>0001 Jan 1 </small></p>
+
+            <!---
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+<p>The LogService is a system which manages a collection of logs. Each
+of these logs has a defined state which allows certain operations on that
+log or corresponds to actions that the system is taking on that log.</p>
+<h3 id="open">OPEN</h3>
+<p>This is the first state for a Log which is created in the LogService. A
+Log which is OPEN can be read from or written to. This Log has a corresponding
+Raft Group (a quorum of servers) who are participating in the hosting of this
+Log.</p>
+<p>The only transition out from this state is to the CLOSED state.</p>
+<h3 id="closed">CLOSED</h3>
+<p>The CLOSED state indicates that a Log is no longer accepting writes. The
+Log is still available to be read from the Raft Group.</p>
+<p>A log can be transitioned from OPEN to CLOSED via the client API, but it
+can also be done automatically by the LogService. When a node which was
+participating in the Raft Group for this Log becomes unreachable, we consider
+this Group to be unhealthy and proactively close it to prevent any additional
+writes which may block due to too few nodes to accept a write.</p>
+<p>The transition from OPEN to CLOSED is one-way: a Log cannot transition back
+to the OPEN state from the CLOSED state. A CLOSED log may be deleted from the
+system.</p>
+<p>From the CLOSED state, a log can be transitioned to the ARCHIVING state or the DELETED
+state.</p>
+<h3 id="deleted">DELETED</h3>
+<p>This is a simple state that is short lived. It tracks the clean up
+of any state from the hosting this Log. There are no transitions out
+of this state.</p>
+<h3 id="archiving">ARCHIVING</h3>
+<p>The ARCHIVING state is reached by the archive API call from
+the LogService client. An archival of a log is equivalent to an export
+of that log from the beginning of the log file to a known location. See
+below for a tangent on exporting versus archiving.</p>
+<p>This state indicates that the LogService is in the process of copying all
+records in the Log from the starting offset of the archival request to the
+specified location (a user-provided location or a preconfigured location).
+We expect the location to be in some remote storage system such as HDFS or S3.</p>
+<p>The only transition out from this state is to ARCHIVED.</p>
+<h3 id="archived">ARCHIVED</h3>
+<p>A Log can only reach the ARCHIVED state from the ARCHIVING state. This state
+is automatically transitioned into when the archival of a log is done in
+its entirety.</p>
+<p>The action of archiving a log is an asynchronous process, managed by the leader
+of the Raft Group, thus watching for this state on a log indicates when the
+asynchronous archival is complete and the log can be safely read from the
+archived location.</p>
+<p>The only transition out from this state is to DELETED.</p>
+<h2 id="archive-and-export">Archive and Export</h2>
+<p>The archive and export API calls are very similar in nature but have
+important distinctions in their implementation. As mentioned above,
+an archival of a log is an export of the entire log to a specific location.</p>
+<p>An archival of a log is specification of export in that:</p>
+<ul>
+<li>An archival of a log requires it to be CLOSED.</li>
+<li>An archived log cannot receive new writes.</li>
+</ul>
+<p>An export of a log is more generic in that:</p>
+<ul>
+<li>A log does not need to be CLOSED to be exported.</li>
+<li>A log can be repeatedly exported (e.g. to multiple locations).</li>
+<li>More data can be appended to a log that was exported (but new data would not be reflected in the exported version of the log).</li>
+</ul>
+<h2 id="visualization">Visualization</h2>
+<p>To get a visual understanding of the log states, please see the image below:</p>
+<p>
+  <img src="lifecycle.svg" alt="Graphviz view of the logstates"/>"
+</p>
+
+
+            
+            <h1><a href="/logservice/security.html">LogService Security</a></h1>
+            <p><small>0001 Jan 1 </small></p>
+
+            <!---
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+<p>This document aims to describe what the intended security deployment model of the Ratis LogService.</p>
+<p>We will use integration into Apache HBase as an exemplar.</p>
+<h2 id="background">Background</h2>
+<p>TLS is technology capable of giving us &ldquo;strong authentication&rdquo; over network communication. One-way TLS can provide
+encrypted communication while two-way or &ldquo;mutual&rdquo; TLS can provide encrypted communication and authentication.</p>
+<p>One feature of Ratis is that it is decoupled from the RPC transport in use. gRPC is the foremost transport, and
+can be configured to use one-way or two-way/mutual TLS. gRPC is the only transport for Ratis which
+supports TLS today.</p>
+<p>However, the majority of components under the &ldquo;Hadoop Umbrella&rdquo; rely on Kerberos to guarantee strong authentication.
+In this respect, use of TLS is jarring. However, gRPC does not support SPNEGO (which allows Kerberos authentication)
+which all but requires the use of two authentication mechanisms when combining Ratis with other projects (like HBase).</p>
+<p>We anticipate the use of the Ratis LogService as an &ldquo;embedded WAL&rdquo; inside of HBase RegionServers and Masters
+will result in HBase services using Kerberos authentication to talk to HDFS as well as TLS for Ratis-internal
+communication (intra-server Ratis communication and client-server Ratis communication).</p>
+<h2 id="mutual-tls">Mutual TLS</h2>
+<p>Mutual TLS relies on a common certificate authority (CA) to issue all certificates which forms a circle
+of trust. Certificates generated by the same CA can be used to set up a mutual TLS connection. A certificate
+generated by one CA cannot be used to set up a mutal TLS connection to a service using a certificate
+generated by a different CA outside of the circle of trust. [1]</p>
+<p>To control the clients and servers with one instance of the LogService, we want to use a single CA to generate
+certificates for clients and servers. We will consider this as an invariant going forward.</p>
+<h2 id="hbase-examplar">HBase Examplar</h2>
+<p>We expect the following material to be provided for every HBase service using Ratis:</p>
+<ul>
+<li>File containing an X.509 certificate in PEM format</li>
+<li>File containing the PKCS private key in PEM format</li>
+<li>File containing the X.509 certificate for the CA</li>
+</ul>
+<p>OpenSSL is capable of creating each of these; however, for this document, we will assume
+that you already have these pre-made. The server certificate and private key are unique to every
+host participating in the HBase cluster. The server certificate and truststore are not sensitive,
+but the private key is sensitive and should be protected like a password.</p>
+<p>Every component in HBase using the Ratis LogService would need to ensure that each LogService StateMachine is
+configured to use the server keystore and truststore. The LogService state machines would need to constructed
+with the appropriate configuration options to specify this TLS material:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>RaftProperties properties <span style="color:#f92672">=</span> ...;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">tlsEnabled</span>(properties);
+</span></span><span style="display:flex;"><span>GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">mutualAuthnEnabled</span>(properties);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">PRIVATE_KEY_FILE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/server-private-key.pem&#34;</span>);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">TRUST_STORE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/ca.crt&#34;</span>);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">CERT_CHAIN_FILE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/server.crt&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RaftServer.<span style="color:#a6e22e">Builder</span> builder <span style="color:#f92672">=</span> RaftServer.<span style="color:#a6e22e">newBuilder</span>();
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>builder.<span style="color:#a6e22e">setProperties</span>(properties);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RaftServer server <span style="color:#f92672">=</span> builder.<span style="color:#a6e22e">build</span>();
+</span></span></code></pre></div><p>Clients to the StateMachine would construct a similar configuration:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>RaftProperties properties <span style="color:#f92672">=</span> ...;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">tlsEnabled</span>(properties);
+</span></span><span style="display:flex;"><span>GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">mutualAuthnEnabled</span>(properties);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">PRIVATE_KEY_FILE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/client-private-key.pem&#34;</span>);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">TRUST_STORE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/ca.crt&#34;</span>);
+</span></span><span style="display:flex;"><span>properties.<span style="color:#a6e22e">set</span>(GrpcConfigKeys.<span style="color:#a6e22e">TLS</span>.<span style="color:#a6e22e">CERT_CHAIN_FILE_KEY</span>, <span style="color:#e6db74">&#34;/path/to/client.crt&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RaftClient.<span style="color:#a6e22e">Builder</span> builder <span style="color:#f92672">=</span> RaftClient.<span style="color:#a6e22e">newBuilder</span>();
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>builder.<span style="color:#a6e22e">setProperties</span>(properties);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RaftClient client <span style="color:#f92672">=</span> builder.<span style="color:#a6e22e">build</span>();
+</span></span></code></pre></div><p>With Mutual TLS, there is no notion of a &ldquo;client&rdquo; or &ldquo;server&rdquo; only certificate. In the above example code,
+as long as the certificate and private key are generated using the same certificate authority, any
+should function.</p>
+<p>For the LogService, this client setup would be hidden behind the facade of the LogService client API.</p>
+<p>The HBase WALProvider implementation that uses the Ratis LogService would be providing the location of
+this TLS material via the HBase configuration (hbase-site.xml), passing it down into the WALProvider
+implementation. As the WALProvider is the broker that doles out readers and writers, and would also, presumably
+manage the creation of the StateMachines, it can set up the proper Ratis configuration from the HBase configuration.</p>
+<p>[1] There are scenarios with shared trust across CA&rsquo;s that enable other scenarios but these are ignored for the purpose
+of this document.</p>
+
+
+            
+        </ul>
+  </div>
+
+</section>
 </div>
 
 <footer>
     <div class="container">
 
         <div class="col-md-12 trademark">
-            <p>&copy; 2024 <a href="http://apache.org">The Apache Software Foundation</a>,
+            <p>&copy; 2025 <a href="http://apache.org">The Apache Software Foundation</a>,
                 Apache, Apache Ratis, the Apache feather logo, and the Apache Ratis logo are trademarks of The Apache Software Foundation.
             <p>
         </div>
@@ -128,9 +316,9 @@ daemons provided for the LogService, but these are solely to be used for testing
 </footer>
 
 
-<script src="/js/jquery.min.js"></script>
-<script src="/js/underscore-min.js"></script>
-<script src="/js/bootstrap.min.js"></script>
+<script src="js/jquery.min.js"></script>
+<script src="js/underscore-min.js"></script>
+<script src="js/bootstrap.min.js"></script>
 
 
 </body>
