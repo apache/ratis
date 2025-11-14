@@ -20,7 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.exceptions.ReadException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 
 /** For supporting linearizable read. */
 class ReadRequests {
@@ -37,10 +37,18 @@ class ReadRequests {
 
   static class ReadIndexQueue {
     private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
+    /** The log index known to be applied. */
+    private long lastAppliedIndex;
+    /**
+     * Map      : readIndex -> appliedIndexFuture (when completes, readIndex <= appliedIndex).
+     * Invariant: all keys > lastAppliedIndex.
+     */
     private final NavigableMap<Long, CompletableFuture<Long>> sorted = new TreeMap<>();
+
     private final TimeDuration readTimeout;
 
-    ReadIndexQueue(TimeDuration readTimeout) {
+    ReadIndexQueue(long lastAppliedIndex, TimeDuration readTimeout) {
+      this.lastAppliedIndex = lastAppliedIndex;
       this.readTimeout = readTimeout;
     }
 
@@ -48,6 +56,9 @@ class ReadRequests {
       final CompletableFuture<Long> returned;
       final boolean create;
       synchronized (this) {
+        if (readIndex <= lastAppliedIndex) {
+          return CompletableFuture.completedFuture(lastAppliedIndex);
+        }
         // The same as computeIfAbsent except that it also tells if a new value is created.
         final CompletableFuture<Long> existing = sorted.get(readIndex);
         create = existing == null;
@@ -79,7 +90,19 @@ class ReadRequests {
 
 
     /** Complete all the entries less than or equal to the given applied index. */
-    synchronized void complete(Long appliedIndex) {
+    synchronized void complete(long appliedIndex) {
+      if (appliedIndex > lastAppliedIndex) {
+        lastAppliedIndex = appliedIndex;
+      } else {
+        // appliedIndex <= lastAppliedIndex: nothing to do
+        if (!sorted.isEmpty()) {
+          // Assert: all keys > lastAppliedIndex.
+          final long first = sorted.firstKey();
+          Preconditions.assertTrue(first > lastAppliedIndex,
+              () -> "first = " + first + " <= lastAppliedIndex = " + lastAppliedIndex);
+        }
+        return;
+      }
       final NavigableMap<Long, CompletableFuture<Long>> headMap = sorted.headMap(appliedIndex, true);
       headMap.values().forEach(f -> f.complete(appliedIndex));
       headMap.clear();
@@ -87,27 +110,16 @@ class ReadRequests {
   }
 
   private final ReadIndexQueue readIndexQueue;
-  private final StateMachine stateMachine;
 
-  ReadRequests(RaftProperties properties, StateMachine stateMachine) {
-    this.readIndexQueue = new ReadIndexQueue(RaftServerConfigKeys.Read.timeout(properties));
-    this.stateMachine = stateMachine;
+  ReadRequests(long appliedIndex, RaftProperties properties) {
+    this.readIndexQueue = new ReadIndexQueue(appliedIndex, RaftServerConfigKeys.Read.timeout(properties));
   }
 
-  Consumer<Long> getAppliedIndexConsumer() {
+  LongConsumer getAppliedIndexConsumer() {
     return readIndexQueue::complete;
   }
 
   CompletableFuture<Long> waitToAdvance(long readIndex) {
-    final long lastApplied = stateMachine.getLastAppliedTermIndex().getIndex();
-    if (lastApplied >= readIndex) {
-      return CompletableFuture.completedFuture(lastApplied);
-    }
-    final CompletableFuture<Long> f = readIndexQueue.add(readIndex);
-    final long current = stateMachine.getLastAppliedTermIndex().getIndex();
-    if (current > lastApplied) {
-      readIndexQueue.complete(current);
-    }
-    return f;
+    return readIndexQueue.add(readIndex);
   }
 }
