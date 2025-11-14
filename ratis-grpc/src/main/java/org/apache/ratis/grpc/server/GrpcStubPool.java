@@ -105,8 +105,21 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
   }
 
   public void close() {
+    if (pool == null) {
+      return;
+    }
     for (MemoizedSupplier<PooledStub<S>> p : pool) {
-      p.get().ch.shutdown();
+      if (!p.isInitialized()) {
+        continue;
+      }
+      try {
+        PooledStub<S> stub = p.get();
+        if (stub != null && stub.ch != null) {
+          stub.ch.shutdown();
+        }
+      } catch (Exception e) {
+        LOG.warn("Failed to shutdown channel", e);
+      }
     }
   }
 }
