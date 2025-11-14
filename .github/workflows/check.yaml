@@ -30,8 +30,8 @@ on:
       # OPTIONAL (ordered alphabetically)
       java-version:
         type: string
-        description: "Java version to set up (default: 8)"
-        default: '8'
+        description: "Java version to set up (default: 17)"
+        default: '17'
         required: false
 
       needs-binary-tarball:
