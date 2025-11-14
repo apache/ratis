@@ -47,7 +47,6 @@ import static org.apache.ratis.ReadOnlyRequestTests.QUERY;
 import static org.apache.ratis.ReadOnlyRequestTests.WAIT_AND_INCREMENT;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyAtLeast;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyExact;
-import static org.apache.ratis.ReadOnlyRequestTests.retrieve;
 import static org.apache.ratis.server.RaftServerConfigKeys.Read.Option.LINEARIZABLE;
 
 /** Test for the {@link RaftServerConfigKeys.Read.Option#LINEARIZABLE} feature. */
@@ -233,20 +232,24 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
       assertReplyExact(1, client.io().sendReadAfterWrite(QUERY));
 
       // test asynchronous read-after-write
-      client.async().send(INCREMENT);
+      final CompletableFuture<RaftClientReply> writeReply = client.async().send(INCREMENT);
       final CompletableFuture<RaftClientReply> asyncReply = client.async().sendReadAfterWrite(QUERY);
 
-      for (int i = 0; i < 20; i++) {
-        client.async().send(INCREMENT);
+      final int n = 100;
+      final List<Reply> writeReplies = new ArrayList<>(n);
+      final List<Reply> readAfterWriteReplies = new ArrayList<>(n);
+      for (int i = 0; i < n; i++) {
+        final int count = i + 3;
+        writeReplies.add(new Reply(count, client.async().send(INCREMENT)));
+        readAfterWriteReplies.add(new Reply(count, client.async().sendReadAfterWrite(QUERY)));
       }
 
-      // read-after-write is more consistent than linearizable read
-      final CompletableFuture<RaftClientReply> linearizable = client.async().sendReadOnly(QUERY);
-      final CompletableFuture<RaftClientReply> readAfterWrite = client.async().sendReadAfterWrite(QUERY);
-      final int r = retrieve(readAfterWrite.get());
-      final int l = retrieve(linearizable.get());
-      Assertions.assertTrue(r >= l, () -> "readAfterWrite = " + r + " < linearizable = " + l);
+      for (int i = 0; i < n; i++) {
+        writeReplies.get(i).assertExact();
+        readAfterWriteReplies.get(i).assertAtLeast();
+      }
 
+      assertReplyAtLeast(2, writeReply.join());
       assertReplyAtLeast(2, asyncReply.join());
     }
   }

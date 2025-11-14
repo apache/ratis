@@ -45,6 +45,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
 
 /**
@@ -90,12 +91,12 @@ class StateMachineUpdater implements Runnable {
 
   private final MemoizedSupplier<StateMachineMetrics> stateMachineMetrics;
 
-  private final Consumer<Long> appliedIndexConsumer;
+  private final LongConsumer appliedIndexConsumer;
 
   private volatile boolean isRemoving;
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
-      ServerState serverState, long lastAppliedIndex, RaftProperties properties, Consumer<Long> appliedIndexConsumer) {
+      ServerState serverState, long lastAppliedIndex, RaftProperties properties, LongConsumer appliedIndexConsumer) {
     this.name = ServerStringUtils.generateUnifiedName(serverState.getMemberId(), getClass());
     this.appliedIndexConsumer = appliedIndexConsumer;
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);

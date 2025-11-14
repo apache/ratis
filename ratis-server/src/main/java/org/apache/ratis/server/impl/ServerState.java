@@ -125,7 +125,7 @@ class ServerState {
     this.lastNoLeaderTime = new AtomicReference<>(Timestamp.currentTime());
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
     this.log = JavaUtils.memoize(() -> initRaftLog(() -> getSnapshotIndexFromStateMachine(stateMachine), prop));
-    this.readRequests = new ReadRequests(prop, stateMachine);
+    this.readRequests = new ReadRequests(stateMachine.getLastAppliedTermIndex().getIndex(), prop);
     this.stateMachineUpdater = JavaUtils.memoize(() -> new StateMachineUpdater(
         stateMachine, server, this, getLog().getSnapshotIndex(), prop,
         this.readRequests.getAppliedIndexConsumer()));
