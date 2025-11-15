@@ -18,8 +18,6 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.io.MD5Hash;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -29,16 +27,21 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public abstract class MD5FileUtil {
-  public static final Logger LOG = LoggerFactory.getLogger(MD5FileUtil.class);
+public final class MD5FileUtil {
+  private MD5FileUtil() {}
 
-  // TODO: we should provide something like Hadoop's checksum fs for the local filesystem
-  // so that individual state machines do not have to deal with checksumming/corruption prevention.
-  // Keep the checksum and data in the same block format instead of individual files.
+  public static MessageDigest newMD5() {
+    try {
+      return MessageDigest.getInstance("MD5");
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("Failed to create MessageDigest for MD5", e);
+    }
+  }
 
   public static final String MD5_SUFFIX = ".md5";
   private static final String LINE_REGEX = "([0-9a-f]{32}) [ *](.+)";
@@ -105,7 +108,7 @@ public abstract class MD5FileUtil {
               referencedFile.getName() + " but we expected it to reference " +
               dataFile);
     }
-    return new MD5Hash(storedHash);
+    return MD5Hash.newInstance(storedHash);
   }
 
   /**
@@ -113,7 +116,7 @@ public abstract class MD5FileUtil {
    */
   public static MD5Hash computeMd5ForFile(File dataFile) throws IOException {
     final int bufferSize = SizeInBytes.ONE_MB.getSizeInt();
-    final MessageDigest digester = MD5Hash.getDigester();
+    final MessageDigest digester = newMD5();
     try (FileChannel in = FileUtils.newFileChannel(dataFile, StandardOpenOption.READ)) {
       final long fileSize = in.size();
       for (int offset = 0; offset < fileSize; ) {
@@ -122,7 +125,7 @@ public abstract class MD5FileUtil {
         offset += readSize;
       }
     }
-    return new MD5Hash(digester.digest());
+    return MD5Hash.newInstance(digester.digest());
   }
 
   public static MD5Hash computeAndSaveMd5ForFile(File dataFile) {
@@ -147,7 +150,7 @@ public abstract class MD5FileUtil {
    */
   public static void saveMD5File(File dataFile, MD5Hash digest)
       throws IOException {
-    final String digestString = StringUtils.bytes2HexString(digest.getDigest());
+    final String digestString = digest.toString();
     saveMD5File(dataFile, digestString);
   }
 
@@ -161,10 +164,6 @@ public abstract class MD5FileUtil {
     final File md5File = getDigestFileForFile(dataFile);
     try (AtomicFileOutputStream afos = new AtomicFileOutputStream(md5File)) {
       afos.write(md5Line.getBytes(StandardCharsets.UTF_8));
-    }
-
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Saved MD5 " + digestString + " to " + md5File);
     }
   }
 
