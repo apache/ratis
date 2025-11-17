@@ -71,8 +71,11 @@ class GrpcServerProtocolClient implements Closeable {
       hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
     }
     requestTimeoutDuration = requestTimeout;
-    this.pool = connections > 1 ?
-        new GrpcStubPool<>(target, connections, RaftServerProtocolServiceGrpc::newStub, sslContext) : null;
+    this.pool = connections == 1? null : newGrpcStubPool(target.getAddress(), sslContext, connections);
+  }
+
+  GrpcStubPool<RaftServerProtocolServiceStub> newGrpcStubPool(String address, SslContext sslContext, int connections) {
+    return new GrpcStubPool<>(connections, address, sslContext, RaftServerProtocolServiceGrpc::newStub, 16);
   }
 
   private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow, SslContext sslContext) {
@@ -121,39 +124,41 @@ class GrpcServerProtocolClient implements Closeable {
     if (pool == null) {
       asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
           .readIndex(request, s);
-      return;
-    }
-    GrpcStubPool.PooledStub<RaftServerProtocolServiceStub> p;
-    try {
-      p = pool.acquire();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      s.onError(e);
-      return;
-    }
-    p.getStub().withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-        .readIndex(request, new StreamObserver<ReadIndexReplyProto>() {
-          @Override
-          public void onNext(ReadIndexReplyProto v) {
-            s.onNext(v);
-          }
-          @Override
-          public void onError(Throwable t) {
-            try {
-              s.onError(t);
-            } finally {
-              p.release();
+    } else {
+      GrpcStubPool.Stub<RaftServerProtocolServiceStub> p;
+      try {
+        p = pool.acquire();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        s.onError(e);
+        return;
+      }
+      p.getStub().withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+          .readIndex(request, new StreamObserver<ReadIndexReplyProto>() {
+            @Override
+            public void onNext(ReadIndexReplyProto v) {
+              s.onNext(v);
             }
-          }
-          @Override
-          public void onCompleted() {
-            try {
-              s.onCompleted();
-            } finally {
-              p.release();
+
+            @Override
+            public void onError(Throwable t) {
+              try {
+                s.onError(t);
+              } finally {
+                p.release();
+              }
             }
-          }
-        });
+
+            @Override
+            public void onCompleted() {
+              try {
+                s.onCompleted();
+              } finally {
+                p.release();
+              }
+            }
+          });
+    }
   }
 
   CallStreamObserver<AppendEntriesRequestProto> appendEntries(

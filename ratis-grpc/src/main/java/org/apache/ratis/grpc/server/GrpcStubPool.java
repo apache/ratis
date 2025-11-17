@@ -27,6 +27,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.WriteBufferWaterMark;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,14 +42,31 @@ import java.util.function.Function;
 final class GrpcStubPool<S extends AbstractStub<S>> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcStubPool.class);
 
-  static final class PooledStub<S extends AbstractStub<S>> {
+  static ManagedChannel buildManagedChannel(String address, SslContext sslContext) {
+    NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(address)
+        .keepAliveTime(10, TimeUnit.MINUTES)
+        .keepAliveWithoutCalls(false)
+        .idleTimeout(30, TimeUnit.MINUTES)
+        .withOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(64 << 10, 128 << 10));
+    if (sslContext != null) {
+      LOG.debug("Setting TLS for {}", address);
+      channelBuilder.useTransportSecurity().sslContext(sslContext);
+    } else {
+      channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
+    }
+    ManagedChannel ch = channelBuilder.build();
+    ch.getState(true);
+    return ch;
+  }
+
+  static final class Stub<S extends AbstractStub<S>> {
     private final ManagedChannel ch;
     private final S stub;
     private final Semaphore permits;
 
-    PooledStub(ManagedChannel ch, S stub, int maxInflight) {
-      this.ch = ch;
-      this.stub = stub;
+    Stub(String address, SslContext sslContext, Function<ManagedChannel, S> stubFactory, int maxInflight) {
+      this.ch = buildManagedChannel(address, sslContext);
+      this.stub = stubFactory.apply(ch);
       this.permits = new Semaphore(maxInflight);
     }
 
@@ -59,66 +77,46 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     void release() {
       permits.release();
     }
-  }
 
-  private final List<MemoizedSupplier<PooledStub<S>>> pool;
-  private final int size;
-
-  GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, SslContext sslContext) {
-    this(target, n, stubFactory, sslContext, 16);
-  }
-
-  GrpcStubPool(RaftPeer target, int n, Function<ManagedChannel, S> stubFactory, SslContext sslContext,
-               int maxInflightPerConn) {
-    ArrayList<MemoizedSupplier<PooledStub<S>>> tmp = new ArrayList<>(n);
-    for (int i = 0; i < n; i++) {
-      NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(target.getAddress())
-          .keepAliveTime(10, TimeUnit.MINUTES)
-          .keepAliveWithoutCalls(false)
-          .idleTimeout(30, TimeUnit.MINUTES)
-          .withOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(64 << 10, 128 << 10));
-      if (sslContext != null) {
-        LOG.debug("Setting TLS for {}", target.getAddress());
-        channelBuilder.useTransportSecurity().sslContext(sslContext);
-      } else {
-        channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
-      }
-      ManagedChannel ch = channelBuilder.build();
-      tmp.add(JavaUtils.memoize(() -> new PooledStub<>(ch, stubFactory.apply(ch), maxInflightPerConn)));
-      ch.getState(true);
+    void shutdown() {
+      ch.shutdown();
     }
-    this.pool = Collections.unmodifiableList(tmp);
-    this.size = n;
   }
 
-  PooledStub<S> acquire() throws InterruptedException {
+  private final List<MemoizedSupplier<Stub<S>>> pool;
+
+  GrpcStubPool(int connections, String address, SslContext sslContext, Function<ManagedChannel, S> stubFactory,
+               int maxInflightPerConn) {
+    Preconditions.assertTrue(connections > 1, "connections must be > 1");
+    final List<MemoizedSupplier<Stub<S>>> tmpPool = new ArrayList<>(connections);
+    for (int i = 0; i < connections; i++) {
+      tmpPool.add(MemoizedSupplier.valueOf(() -> new Stub<>(address, sslContext, stubFactory, maxInflightPerConn)));
+    }
+    this.pool = Collections.unmodifiableList(tmpPool);
+  }
+
+  Stub<S> getStub(int i) {
+    return pool.get(i).get();
+  }
+
+  Stub<S> acquire() throws InterruptedException {
+    final int size = pool.size();
     final int start = ThreadLocalRandom.current().nextInt(size);
     for (int k = 0; k < size; k++) {
-      PooledStub<S> p = pool.get((start + k) % size).get();
+      Stub<S> p = getStub((start + k) % size);
       if (p.permits.tryAcquire()) {
         return p;
       }
     }
-    final PooledStub<S> p = pool.get(start).get();
+    final Stub<S> p = getStub(start);
     p.permits.acquire();
     return p;
   }
 
   public void close() {
-    if (pool == null) {
-      return;
-    }
-    for (MemoizedSupplier<PooledStub<S>> p : pool) {
-      if (!p.isInitialized()) {
-        continue;
-      }
-      try {
-        PooledStub<S> stub = p.get();
-        if (stub != null && stub.ch != null) {
-          stub.ch.shutdown();
-        }
-      } catch (Exception e) {
-        LOG.warn("Failed to shutdown channel", e);
+    for (MemoizedSupplier<Stub<S>> p : pool) {
+      if (p.isInitialized()) {
+        p.get().shutdown();
       }
     }
   }
