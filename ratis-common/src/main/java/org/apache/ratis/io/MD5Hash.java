@@ -18,7 +18,13 @@
 
 package org.apache.ratis.io;
 
+import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.Preconditions;
+
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A MD5 hash value.
@@ -26,44 +32,53 @@ import java.util.Arrays;
  * This is a value-based class.
  */
 public final class MD5Hash {
-  public static final int MD5_LEN = 16;
+  public static final int MD5_LENGTH = 16;
 
-  private final byte[] digest;
+  /** @return an instance with the given digest in a (case-insensitive) hexadecimals. */
+  public static MD5Hash newInstance(String digestHexadecimals) {
+    Objects.requireNonNull(digestHexadecimals, "digestHexadecimals == null");
+    Preconditions.assertSame(2 * MD5_LENGTH, digestHexadecimals.length(), "digestHexadecimals");
 
-  private MD5Hash(byte[] digest) {
-    this.digest = digest;
+    final byte[] digest = new byte[MD5_LENGTH];
+    for (int i = 0; i < MD5_LENGTH; i++) {
+      final int j = i << 1;
+      digest[i] = (byte) (charToNibble(digestHexadecimals, j) << 4 |
+          charToNibble(digestHexadecimals, j + 1));
+    }
+    return new MD5Hash(digest);
   }
 
-  /** Constructs an MD5Hash with a specified value. */
+  /** @return an instance with the given digest. */
   public static MD5Hash newInstance(byte[] digest) {
-    if (digest.length != MD5_LEN) {
-      throw new IllegalArgumentException("Wrong length: " + digest.length);
-    }
+    Objects.requireNonNull(digest, "digest == null");
+    Preconditions.assertSame(MD5_LENGTH, digest.length, "digest");
     return new MD5Hash(digest.clone());
   }
 
-  /** Returns the digest bytes. */
-  public byte[] getDigest() {
-    return digest.clone();
+  private final byte[] digest;
+  private final Supplier<String> digestString;
+
+  private MD5Hash(byte[] digest) {
+    this.digest = digest;
+    this.digestString = MemoizedSupplier.valueOf(() -> digestToString(digest));
   }
 
-  /** Returns true iff <code>o</code> is an MD5Hash whose digest contains the
-   * same values.  */
+  /** @return the digest wrapped by a read-only {@link ByteBuffer}. */
+  public ByteBuffer getDigest() {
+    return ByteBuffer.wrap(digest).asReadOnlyBuffer();
+  }
+
   @Override
-  public boolean equals(Object o) {
-    if (this == o) {
+  public boolean equals(Object object) {
+    if (this == object) {
       return true;
-    }
-    if (!(o instanceof MD5Hash)) {
+    } else if (!(object instanceof MD5Hash)) {
       return false;
     }
-    MD5Hash other = (MD5Hash)o;
-    return Arrays.equals(this.digest, other.digest);
+    final MD5Hash that = (MD5Hash) object;
+    return Arrays.equals(this.digest, that.digest);
   }
 
-  /** Returns a hash code value for this object.
-   * Only uses the first 4 bytes, since md5s are evenly distributed.
-   */
   @Override
   public int hashCode() {
     return ((digest[0] & 0xFF) << 24)
@@ -78,8 +93,12 @@ public final class MD5Hash {
   /** Returns a string representation of this object. */
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(MD5_LEN*2);
-    for (int i = 0; i < MD5_LEN; i++) {
+    return digestString.get();
+  }
+
+  static String digestToString(byte[] digest) {
+    StringBuilder buf = new StringBuilder(MD5_LENGTH *2);
+    for (int i = 0; i < MD5_LENGTH; i++) {
       int b = digest[i];
       buf.append(HEX_DIGITS[(b >> 4) & 0xf]);
       buf.append(HEX_DIGITS[b & 0xf]);
@@ -87,21 +106,8 @@ public final class MD5Hash {
     return buf.toString();
   }
 
-  public static MD5Hash newInstance(String hex) {
-    if (hex.length() != MD5_LEN*2) {
-      throw new IllegalArgumentException("Wrong length: " + hex.length());
-    }
-
-    final byte[] digest = new byte[MD5_LEN];
-    for (int i = 0; i < MD5_LEN; i++) {
-      int j = i << 1;
-      digest[i] = (byte)(charToNibble(hex.charAt(j)) << 4 |
-          charToNibble(hex.charAt(j+1)));
-    }
-    return new MD5Hash(digest);
-  }
-
-  private static int charToNibble(char c) {
+  private static int charToNibble(String hexadecimals, int i) {
+    final char c = hexadecimals.charAt(i);
     if (c >= '0' && c <= '9') {
       return c - '0';
     } else if (c >= 'a' && c <= 'f') {
@@ -109,7 +115,8 @@ public final class MD5Hash {
     } else if (c >= 'A' && c <= 'F') {
       return 0xA + (c - 'A');
     } else {
-      throw new RuntimeException("Not a hex character: " + c);
+      throw new IllegalArgumentException(
+          "Found a non-hexadecimal character '" + c + "' at index " + i + " in \"" + hexadecimals + "\"");
     }
   }
 }

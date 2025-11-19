@@ -15,31 +15,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.util;
+package org.apache.ratis.io;
 
-import org.apache.ratis.io.MD5Hash;
+import org.apache.ratis.util.StringUtils;
 import org.junit.jupiter.api.Test;
 
+import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static org.apache.ratis.io.MD5Hash.MD5_LEN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class TestMD5 {
 
   @Test
   void testMD5Hash() {
-    final byte[] digest = new byte[MD5_LEN];
+    final byte[] digest = new byte[MD5Hash.MD5_LENGTH];
     final ThreadLocalRandom random = ThreadLocalRandom.current();
     
     for(int i = 0; i < 1000; i++) {
       random.nextBytes(digest);
       final MD5Hash md5 = MD5Hash.newInstance(digest);
+
+      // test hashCode
       final int expectedHashCode = oldQuarterDigest(digest);
       assertEquals(expectedHashCode, md5.hashCode());
 
+      // test toString
       final String expectedString = StringUtils.bytes2HexString(digest);
       assertEquals(expectedString, md5.toString());
+      assertEquals(expectedString, MD5Hash.digestToString(digest));
+
+      // test newInstance(String)
+      assertEquals(md5, MD5Hash.newInstance(expectedString.toLowerCase()));
+      assertEquals(md5, MD5Hash.newInstance(expectedString.toUpperCase()));
+
+      // test getDigest
+      final ByteBuffer expectedByteBuffer = ByteBuffer.wrap(digest);
+      assertEquals(expectedByteBuffer, md5.getDigest());
     }
   }
 
