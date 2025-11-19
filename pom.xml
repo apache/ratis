@@ -177,10 +177,9 @@
     <shell-executable>bash</shell-executable>
 
     <!-- define the Java language version used by the compiler -->
-    <javac.version>8</javac.version>
-    <java.min.version>${javac.version}</java.min.version>
-    <maven.compiler.release>${javac.version}</maven.compiler.release>
-    <maven.min.version>3.3.9</maven.min.version>
+    <maven.compiler.release>8</maven.compiler.release>
+    <!-- override maven.compiler.target=8 defined in parent POM 35; can be removed on upgrade to 36+ -->
+    <maven.compiler.target>${maven.compiler.release}</maven.compiler.target>
 
     <!-- Contains all shaded thirdparty dependencies -->
     <ratis.thirdparty.version>1.0.10</ratis.thirdparty.version>
@@ -470,16 +469,6 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-enforcer-plugin</artifactId>
-          <configuration>
-            <rules>
-              <requireMavenVersion>
-                <version>[${maven.min.version},)</version>
-              </requireMavenVersion>
-              <requireJavaVersion>
-                <version>[${java.min.version},)</version>
-              </requireJavaVersion>
-            </rules>
-          </configuration>
           <dependencies>
             <dependency>
               <groupId>de.skuzzle.enforcer</groupId>
@@ -653,49 +642,6 @@
       <plugin>
         <groupId>com.github.spotbugs</groupId>
         <artifactId>spotbugs-maven-plugin</artifactId>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <inherited>false</inherited>
-        <executions>
-          <execution>
-            <id>clean</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <phase>pre-clean</phase>
-          </execution>
-          <execution>
-            <id>default</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <phase>validate</phase>
-            <configuration>
-              <rules>
-                <!-- The earliest maven version we verify builds for via ASF Jenkins -->
-                <requireMavenVersion>
-                  <version>[${maven.min.version},)</version>
-                  <message>Maven is out of date.
-                    Ratis requires at least version ${maven.min.version} of Maven to properly build from source.
-                    You appear to be using an older version. You can use either "mvn -version" or
-                    "mvn enforcer:display-info" to verify what version is active.
-                  </message>
-                </requireMavenVersion>
-                <!-- The earliest JVM version we verify builds for via ASF Jenkins -->
-                <requireJavaVersion>
-                  <version>[${java.min.version},)</version>
-                  <message>Java is out of date.
-                    Ratis requires at least version ${java.min.version} of the JDK to properly build from source.
-                    You appear to be using an older version. You can use either "mvn -version" or
-                    "mvn enforcer:display-info" to verify what version is active.
-                  </message>
-                </requireJavaVersion>
-              </rules>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.felix</groupId>
@@ -919,13 +865,11 @@
                 <configuration>
                   <rules>
                     <enforceBytecodeVersion>
-                      <maxJdkVersion>${java.min.version}</maxJdkVersion>
+                      <maxJdkVersion>${maven.compiler.release}</maxJdkVersion>
                       <message>Ratis has unsupported dependencies.
-                        Ratis requires that all dependencies be compiled with version ${java.min.version} or earlier
+                        Ratis requires that all dependencies be compiled with version ${maven.compiler.release} or earlier
                         of the JDK to properly build from source.  You appear to be using a newer dependency. You can use
                         either "mvn -version" or "mvn enforcer:display-info" to verify what version is active.
-                        Non-release builds can temporarily build with a newer JDK version by setting the
-                        'javac.source' property (eg. mvn -Djavac.source=1.8 clean package).
                       </message>
                     </enforceBytecodeVersion>
                   </rules>
