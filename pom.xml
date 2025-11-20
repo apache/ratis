@@ -158,7 +158,7 @@
     <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>3.6.2</exec-maven-plugin.version>
     <extra-enforcer-rules.version>1.6.1</extra-enforcer-rules.version>
-    <restrict-imports-enforcer-rules.version>3.0.0</restrict-imports-enforcer-rules.version>
+    <restrict-imports-enforcer-rule.version>3.0.0</restrict-imports-enforcer-rule.version>
     <license-maven-plugin.version>2.7.0</license-maven-plugin.version>
 
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
@@ -473,7 +473,7 @@
             <dependency>
               <groupId>de.skuzzle.enforcer</groupId>
               <artifactId>restrict-imports-enforcer-rule</artifactId>
-              <version>${restrict-imports-enforcer-rules.version}</version>
+              <version>${restrict-imports-enforcer-rule.version}</version>
             </dependency>
           </dependencies>
           <executions>
