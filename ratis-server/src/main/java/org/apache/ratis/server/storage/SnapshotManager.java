@@ -87,7 +87,7 @@ public class SnapshotManager {
       }
       // create the temp snapshot file and put padding inside
       out = FileUtils.newFileChannel(tmpSnapshotFile, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
-      digester = MD5Hash.newDigester();
+      digester = MD5FileUtil.newMD5();
     } else {
       if (!exists) {
         throw new FileNotFoundException("Chunk offset is non-zero but file is not found: " + tmpSnapshotFile
@@ -138,11 +138,10 @@ public class SnapshotManager {
       // rename the temp snapshot file if this is the last chunk. also verify
       // the md5 digest and create the md5 meta-file.
       if (chunk.getDone()) {
-        final MD5Hash expectedDigest =
-            new MD5Hash(chunk.getFileDigest().toByteArray());
+        final MD5Hash expectedDigest = MD5Hash.newInstance(chunk.getFileDigest().toByteArray());
         // calculate the checksum of the snapshot file and compare it with the
         // file digest in the request
-        final MD5Hash digest = new MD5Hash(digester.digest());
+        final MD5Hash digest = MD5Hash.newInstance(digester.digest());
         if (!digest.equals(expectedDigest)) {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
@@ -180,8 +179,8 @@ public class SnapshotManager {
       try {
         moved = FileUtils.move(stateMachineDir, TMP + StringUtils.currentDateTime());
       } catch(IOException e) {
-        LOG.warn("Failed to rename state machine directory " + stateMachineDir.getAbsolutePath()
-            + " to a " + TMP + " directory.  Try deleting it directly.", e);
+        LOG.warn("Failed to rename state machine directory {} to a " + TMP + " directory.  Try deleting it directly.",
+            stateMachineDir.getAbsolutePath(), e);
         FileUtils.deleteFully(stateMachineDir);
       }
       existingDir = moved;
@@ -202,7 +201,7 @@ public class SnapshotManager {
       try {
         FileUtils.deleteFully(existingDir);
       } catch (IOException e) {
-        LOG.warn("Failed to delete existing directory " + existingDir.getAbsolutePath(), e);
+        LOG.warn("Failed to delete existing directory {}", existingDir.getAbsolutePath(), e);
       }
     }
   }
