@@ -89,7 +89,8 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
         final Path filename = path.getFileName();
         if (filename != null) {
           final Matcher matcher = SNAPSHOT_REGEX.matcher(filename.toString());
-          if (matcher.matches()) {
+          // If the file doesn't have an MD5 hash it would doesn't need to be matched as it might be corrupted
+          if (MD5FileUtil.getDigestFileForFile(filename.toFile()).exists() && matcher.matches()) {
             final long term = Long.parseLong(matcher.group(1));
             final long index = Long.parseLong(matcher.group(2));
             final FileInfo fileInfo = new FileInfo(path, null); //No FileDigest here.
