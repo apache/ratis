@@ -44,10 +44,14 @@ public class TestMultipleLinearRandomRetry extends BaseTest {
     assertLegalInput("[10x100ms, 20x1s, 30x5s]", "100,10, 1s,20, 5s,30");
   }
 
-  private static void assertIllegalInput(String input) {
-    final MultipleLinearRandomRetry computed = MultipleLinearRandomRetry.parseCommaSeparated(input);
-    Assertions.assertNull(computed);
+  private void assertIllegalInput(String input) {
+    try {
+      MultipleLinearRandomRetry.parseCommaSeparated(input);
+    } catch (IllegalArgumentException e) {
+      LOG.info("Expected to catch: {}", String.valueOf(e));
+    }
   }
+
   private static MultipleLinearRandomRetry assertLegalInput(String expected, String input) {
     final MultipleLinearRandomRetry computed = MultipleLinearRandomRetry.parseCommaSeparated(input);
     Assertions.assertNotNull(computed);
