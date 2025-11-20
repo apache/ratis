@@ -20,10 +20,6 @@
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
   <Match>
-    <Class name="org.apache.ratis.io.MD5Hash" />
-    <Bug pattern="CT_CONSTRUCTOR_THROW" />
-  </Match>
-  <Match>
     <Class name="org.apache.ratis.protocol.GroupInfoReply" />
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>

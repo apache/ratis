@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,157 +18,73 @@
 
 package org.apache.ratis.io;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.Preconditions;
+
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.function.Supplier;
 
-public class MD5Hash {
-  public static final int MD5_LEN = 16;
+/**
+ * A MD5 hash value.
+ * <p>
+ * This is a value-based class.
+ */
+public final class MD5Hash {
+  public static final int MD5_LENGTH = 16;
 
-  private static final ThreadLocal<MessageDigest> DIGESTER_FACTORY =
-      ThreadLocal.withInitial(MD5Hash::newDigester);
+  /** @return an instance with the given digest in a (case-insensitive) hexadecimals. */
+  public static MD5Hash newInstance(String digestHexadecimals) {
+    Objects.requireNonNull(digestHexadecimals, "digestHexadecimals == null");
+    Preconditions.assertSame(2 * MD5_LENGTH, digestHexadecimals.length(), "digestHexadecimals");
 
-  public static MessageDigest newDigester() {
-    try {
-      return MessageDigest.getInstance("MD5");
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("Failed to create MessageDigest for MD5", e);
+    final byte[] digest = new byte[MD5_LENGTH];
+    for (int i = 0; i < MD5_LENGTH; i++) {
+      final int j = i << 1;
+      digest[i] = (byte) (charToNibble(digestHexadecimals, j) << 4 |
+          charToNibble(digestHexadecimals, j + 1));
     }
-  }
-
-  private byte[] digest;
-
-  /** Constructs an MD5Hash. */
-  public MD5Hash() {
-    this.digest = new byte[MD5_LEN];
-  }
-
-  /** Constructs an MD5Hash from a hex string. */
-  public MD5Hash(String hex) {
-    setDigest(hex);
-  }
-
-  /** Constructs an MD5Hash with a specified value. */
-  public MD5Hash(byte[] digest) {
-    if (digest.length != MD5_LEN) {
-      throw new IllegalArgumentException("Wrong length: " + digest.length);
-    }
-    this.digest = digest.clone();
-  }
-
-  public void readFields(DataInput in) throws IOException {
-    in.readFully(digest);
-  }
-
-  /** Constructs, reads and returns an instance. */
-  public static MD5Hash read(DataInput in) throws IOException {
-    MD5Hash result = new MD5Hash();
-    result.readFields(in);
-    return result;
-  }
-
-  public void write(DataOutput out) throws IOException {
-    out.write(digest);
-  }
-
-  /** Copy the contents of another instance into this instance. */
-  public void set(MD5Hash that) {
-    System.arraycopy(that.digest, 0, this.digest, 0, MD5_LEN);
-  }
-
-  /** Returns the digest bytes. */
-  public byte[] getDigest() {
-    return digest.clone();
-  }
-
-  /** Construct a hash value for a byte array. */
-  public static MD5Hash digest(byte[] data) {
-    return digest(data, 0, data.length);
-  }
-
-  /**
-   * Create a thread local MD5 digester
-   */
-  public static MessageDigest getDigester() {
-    MessageDigest digester = DIGESTER_FACTORY.get();
-    digester.reset();
-    return digester;
-  }
-
-  /** Construct a hash value for the content from the InputStream. */
-  public static MD5Hash digest(InputStream in) throws IOException {
-    final byte[] buffer = new byte[4*1024];
-
-    final MessageDigest digester = getDigester();
-    for(int n; (n = in.read(buffer)) != -1; ) {
-      digester.update(buffer, 0, n);
-    }
-
-    return new MD5Hash(digester.digest());
-  }
-
-  /** Construct a hash value for a byte array. */
-  public static MD5Hash digest(byte[] data, int start, int len) {
-    byte[] digest;
-    MessageDigest digester = getDigester();
-    digester.update(data, start, len);
-    digest = digester.digest();
     return new MD5Hash(digest);
   }
 
-  /** Construct a hash value for an array of byte array. */
-  public static MD5Hash digest(byte[][] dataArr, int start, int len) {
-    byte[] digest;
-    MessageDigest digester = getDigester();
-    for (byte[] data : dataArr) {
-      digester.update(data, start, len);
-    }
-    digest = digester.digest();
-    return new MD5Hash(digest);
+  /** @return an instance with the given digest. */
+  public static MD5Hash newInstance(byte[] digest) {
+    Objects.requireNonNull(digest, "digest == null");
+    Preconditions.assertSame(MD5_LENGTH, digest.length, "digest");
+    return new MD5Hash(digest.clone());
   }
 
-  /** Construct a half-sized version of this MD5.  Fits in a long **/
-  public long halfDigest() {
-    long value = 0;
-    for (int i = 0; i < 8; i++) {
-      value |= ((digest[i] & 0xffL) << (8*(7-i)));
-    }
-    return value;
+  private final byte[] digest;
+  private final Supplier<String> digestString;
+
+  private MD5Hash(byte[] digest) {
+    this.digest = digest;
+    this.digestString = MemoizedSupplier.valueOf(() -> digestToString(digest));
   }
 
-  /**
-   * Return a 32-bit digest of the MD5.
-   * @return the first 4 bytes of the md5
-   */
-  public int quarterDigest() {
-    int value = 0;
-    for (int i = 0; i < 4; i++) {
-      value |= ((digest[i] & 0xff) << (8*(3-i)));
-    }
-    return value;
+  /** @return the digest wrapped by a read-only {@link ByteBuffer}. */
+  public ByteBuffer getDigest() {
+    return ByteBuffer.wrap(digest).asReadOnlyBuffer();
   }
 
-  /** Returns true iff <code>o</code> is an MD5Hash whose digest contains the
-   * same values.  */
   @Override
-  public boolean equals(Object o) {
-    if (!(o instanceof MD5Hash)) {
+  public boolean equals(Object object) {
+    if (this == object) {
+      return true;
+    } else if (!(object instanceof MD5Hash)) {
       return false;
     }
-    MD5Hash other = (MD5Hash)o;
-    return Arrays.equals(this.digest, other.digest);
+    final MD5Hash that = (MD5Hash) object;
+    return Arrays.equals(this.digest, that.digest);
   }
 
-  /** Returns a hash code value for this object.
-   * Only uses the first 4 bytes, since md5s are evenly distributed.
-   */
   @Override
   public int hashCode() {
-    return quarterDigest();
+    return ((digest[0] & 0xFF) << 24)
+        |  ((digest[1] & 0xFF) << 16)
+        |  ((digest[2] & 0xFF) << 8)
+        |   (digest[3] & 0xFF);
   }
 
   private static final char[] HEX_DIGITS =
@@ -177,8 +93,12 @@ public class MD5Hash {
   /** Returns a string representation of this object. */
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(MD5_LEN*2);
-    for (int i = 0; i < MD5_LEN; i++) {
+    return digestString.get();
+  }
+
+  static String digestToString(byte[] digest) {
+    StringBuilder buf = new StringBuilder(MD5_LENGTH *2);
+    for (int i = 0; i < MD5_LENGTH; i++) {
       int b = digest[i];
       buf.append(HEX_DIGITS[(b >> 4) & 0xf]);
       buf.append(HEX_DIGITS[b & 0xf]);
@@ -186,20 +106,8 @@ public class MD5Hash {
     return buf.toString();
   }
 
-  /** Sets the digest value from a hex string. */
-  public void setDigest(String hex) {
-    if (hex.length() != MD5_LEN*2) {
-      throw new IllegalArgumentException("Wrong length: " + hex.length());
-    }
-    this.digest = new byte[MD5_LEN];
-    for (int i = 0; i < MD5_LEN; i++) {
-      int j = i << 1;
-      this.digest[i] = (byte)(charToNibble(hex.charAt(j)) << 4 |
-          charToNibble(hex.charAt(j+1)));
-    }
-  }
-
-  private static int charToNibble(char c) {
+  private static int charToNibble(String hexadecimals, int i) {
+    final char c = hexadecimals.charAt(i);
     if (c >= '0' && c <= '9') {
       return c - '0';
     } else if (c >= 'a' && c <= 'f') {
@@ -207,7 +115,8 @@ public class MD5Hash {
     } else if (c >= 'A' && c <= 'F') {
       return 0xA + (c - 'A');
     } else {
-      throw new RuntimeException("Not a hex character: " + c);
+      throw new IllegalArgumentException(
+          "Found a non-hexadecimal character '" + c + "' at index " + i + " in \"" + hexadecimals + "\"");
     }
   }
 }
