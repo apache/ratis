@@ -22,9 +22,12 @@ import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.metrics.Timekeeper;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.statemachine.StateMachine;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 
 /**
@@ -38,6 +41,11 @@ public final class StateMachineMetrics extends RatisMetrics {
   public static final String STATEMACHINE_APPLIED_INDEX_GAUGE = "appliedIndex";
   public static final String STATEMACHINE_APPLY_COMPLETED_GAUGE = "applyCompletedIndex";
   public static final String STATEMACHINE_TAKE_SNAPSHOT_TIMER = "takeSnapshot";
+
+  /** Time taken for the State Machine applyLog operation to complete execution. */
+  public static final String STATEMACHINE_APPLY_LOG_EXECUTION_TIME = "%sApplyLogExecutionTime";
+
+  private final Map<LogEntryBodyCase, Timekeeper> applyLogTimers = new ConcurrentHashMap<>();
 
   public static StateMachineMetrics getStateMachineMetrics(
       RaftServerImpl server, RaftLogIndex appliedIndex,
@@ -72,4 +80,12 @@ public final class StateMachineMetrics extends RatisMetrics {
     return takeSnapshotTimer;
   }
 
+  private Timekeeper newApplyLogExecutionTimer(LogEntryBodyCase logType) {
+    return getRegistry().timer(String.format(STATEMACHINE_APPLY_LOG_EXECUTION_TIME,
+        logType.name().toLowerCase()));
+  }
+
+  public Timekeeper getApplyLogExecutionTimer(LogEntryBodyCase logType) {
+    return applyLogTimers.computeIfAbsent(logType, this::newApplyLogExecutionTimer);
+  }
 }
