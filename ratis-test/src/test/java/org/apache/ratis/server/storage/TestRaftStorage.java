@@ -18,6 +18,7 @@
 package org.apache.ratis.server.storage;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ratis.statemachine.impl.SimpleStateMachineStorage.SNAPSHOT_MD5_REGEX;
 import static org.apache.ratis.statemachine.impl.SimpleStateMachineStorage.SNAPSHOT_REGEX;
 import static org.apache.ratis.util.MD5FileUtil.MD5_SUFFIX;
 
@@ -29,6 +30,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
+import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
@@ -44,6 +46,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
@@ -296,11 +299,186 @@ public class TestRaftStorage extends BaseTest {
     assertFileCount(stateMachineDir, 5);
   }
 
+  @Test
+  public void testSnapshotCleanupWithMissingMd5File() throws IOException {
+
+    SnapshotRetentionPolicy snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
+      @Override
+      public int getNumSnapshotsRetained() {
+        return 2;
+      }
+    };
+
+
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+
+    Set<TermIndex> termIndexSet = new HashSet<>();
+
+    // Create one snapshot file without MD5 file
+    if (termIndexSet.add(TermIndex.valueOf(1, 100))) {
+      createSnapshot(simpleStateMachineStorage, 1, 100, false);
+    }
+
+    //Create 4 snapshot files in storage dir.
+    while (termIndexSet.size() < 5) {
+      final long term = ThreadLocalRandom.current().nextLong(2, 10L);
+      final long index = ThreadLocalRandom.current().nextLong(100, 1000L);
+      if (termIndexSet.add(TermIndex.valueOf(term, index))) {
+        createSnapshot(simpleStateMachineStorage, term, index, true);
+      }
+    }
+
+    File stateMachineDir = storage.getStorageDir().getStateMachineDir();
+    assertFileCount(stateMachineDir, 5);
+
+    simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
+
+    // We should have 3 files remaining, 1 snapshot file without MD5 hash, and 2 snapshots with MD5 hash
+    assertFileCount(stateMachineDir, 3);
+  }
+
+  @Test
+  public void testCleanupOldSnapshotsDeletesOlderSnapshotsWithMd5() throws Exception {
+    SnapshotRetentionPolicy snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
+      @Override
+      public int getNumSnapshotsRetained() {
+        return 2;
+      }
+    };
+
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+    try {
+      createSnapshot(simpleStateMachineStorage, 1, 100, true);
+      createSnapshot(simpleStateMachineStorage, 1, 200, true);
+      createSnapshot(simpleStateMachineStorage, 1, 300, true);
+      createSnapshot(simpleStateMachineStorage, 1, 400, true);
+
+      File stateMachineDir = storage.getStorageDir().getStateMachineDir();
+      simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
+
+      List<String> snapshotNames = listMatchingFileNames(stateMachineDir, SNAPSHOT_REGEX);
+      Assertions.assertEquals(2, snapshotNames.size());
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 400)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 300)));
+      Assertions.assertFalse(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 200)));
+      Assertions.assertFalse(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 100)));
+
+      List<String> md5Names = listMatchingFileNames(stateMachineDir, SNAPSHOT_MD5_REGEX);
+      Assertions.assertEquals(2, md5Names.size());
+      Assertions.assertTrue(md5Names.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 400) + MD5_SUFFIX));
+      Assertions.assertTrue(md5Names.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 300) + MD5_SUFFIX));
+      Assertions.assertFalse(md5Names.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 200) + MD5_SUFFIX));
+      Assertions.assertFalse(md5Names.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 100) + MD5_SUFFIX));
+    } finally {
+      storage.close();
+    }
+  }
+
+  @Test
+  public void testCleanupOldSnapshotsWithoutAnyMd5() throws Exception {
+    SnapshotRetentionPolicy snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
+      @Override
+      public int getNumSnapshotsRetained() {
+        return 2;
+      }
+    };
+
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+    try {
+      createSnapshot(simpleStateMachineStorage, 1, 100, false);
+      createSnapshot(simpleStateMachineStorage, 1, 200, false);
+      createSnapshot(simpleStateMachineStorage, 1, 300, false);
+
+      File stateMachineDir = storage.getStorageDir().getStateMachineDir();
+      simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
+
+      List<String> snapshotNames = listMatchingFileNames(stateMachineDir, SNAPSHOT_REGEX);
+      Assertions.assertEquals(3, snapshotNames.size());
+      Assertions.assertTrue(listMatchingFileNames(stateMachineDir, SNAPSHOT_MD5_REGEX).isEmpty());
+    } finally {
+      storage.close();
+    }
+  }
+
+  @Test
+  public void testGetLatestSnapshotReturnsNewest() throws Exception {
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+    try {
+      Assertions.assertNull(simpleStateMachineStorage.getLatestSnapshot());
+
+      createSnapshot(simpleStateMachineStorage, 1, 100, true);
+      simpleStateMachineStorage.loadLatestSnapshot();
+      SingleFileSnapshotInfo first = simpleStateMachineStorage.getLatestSnapshot();
+      Assertions.assertNotNull(first);
+      Assertions.assertEquals(1, first.getTerm());
+      Assertions.assertEquals(100, first.getIndex());
+      Assertions.assertNotNull(first.getFile().getFileDigest());
+
+      createSnapshot(simpleStateMachineStorage, 1, 200, true);
+      simpleStateMachineStorage.loadLatestSnapshot();
+      SingleFileSnapshotInfo second = simpleStateMachineStorage.getLatestSnapshot();
+      Assertions.assertNotNull(second);
+      Assertions.assertEquals(1, second.getTerm());
+      Assertions.assertEquals(200, second.getIndex());
+      Assertions.assertNotNull(second.getFile().getFileDigest());
+    } finally {
+      storage.close();
+    }
+  }
+
+  @Test
+  public void testGetLatestSnapshotIgnoresSnapshotsWithoutMd5() throws Exception {
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+    try {
+      createSnapshot(simpleStateMachineStorage, 1, 100, true);
+      simpleStateMachineStorage.loadLatestSnapshot();
+
+      createSnapshot(simpleStateMachineStorage, 1, 200, false);
+      simpleStateMachineStorage.loadLatestSnapshot();
+
+      SingleFileSnapshotInfo latest = simpleStateMachineStorage.getLatestSnapshot();
+      Assertions.assertNotNull(latest);
+      Assertions.assertEquals(100, latest.getIndex());
+      Assertions.assertEquals(1, latest.getTerm());
+    } finally {
+      storage.close();
+    }
+  }
+
   private static File[] assertFileCount(File dir, int expected) {
     File[] files = dir.listFiles();
     Assertions.assertNotNull(files);
     Assertions.assertEquals(expected, files.length, Arrays.toString(files));
     return files;
+  }
+
+  private File createSnapshot(SimpleStateMachineStorage storage,
+                              long term, long endIndex,
+                              boolean withMd5) throws IOException {
+    File snapshotFile = storage.getSnapshotFile(term, endIndex);
+    Assertions.assertTrue(snapshotFile.createNewFile());
+
+    if (withMd5) {
+      File md5File = new File(snapshotFile.getParentFile(), snapshotFile.getName() + MD5_SUFFIX);
+      Assertions.assertTrue(md5File.createNewFile());
+    }
+    return snapshotFile;
+  }
+
+  private static List<String> listMatchingFileNames(File dir, java.util.regex.Pattern pattern) {
+    return Arrays.stream(Objects.requireNonNull(dir.list()))
+        .filter(name -> pattern.matcher(name).matches())
+        .collect(toList());
   }
 
   @Test
