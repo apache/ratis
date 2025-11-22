@@ -147,20 +147,21 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
             LOG.info("Deleting old snapshot at {}", snapshotPath.toAbsolutePath());
             FileUtils.deletePathQuietly(snapshotPath);
           });
-      // clean up the md5 files if the corresponding snapshot file does not exist
-      try (DirectoryStream<Path> stream = Files.newDirectoryStream(stateMachineDir.toPath(),
-          SNAPSHOT_MD5_FILTER)) {
-        for (Path md5path : stream) {
-          Path md5FileNamePath = md5path.getFileName();
-          if (md5FileNamePath == null) {
-            continue;
-          }
-          final String md5FileName = md5FileNamePath.toString();
-          final File snapshotFile = new File(stateMachineDir,
-              md5FileName.substring(0, md5FileName.length() - MD5_SUFFIX.length()));
-          if (!snapshotFile.exists()) {
-            FileUtils.deletePathQuietly(md5path);
-          }
+    }
+
+    // clean up the md5 files if the corresponding snapshot file does not exist
+    try (DirectoryStream<Path> stream = Files.newDirectoryStream(stateMachineDir.toPath(),
+      SNAPSHOT_MD5_FILTER)) {
+      for (Path md5path : stream) {
+        Path md5FileNamePath = md5path.getFileName();
+        if (md5FileNamePath == null) {
+          continue;
+        }
+        final String md5FileName = md5FileNamePath.toString();
+        final File snapshotFile = new File(stateMachineDir,
+            md5FileName.substring(0, md5FileName.length() - MD5_SUFFIX.length()));
+        if (!snapshotFile.exists()) {
+          FileUtils.deletePathQuietly(md5path);
         }
       }
     }
