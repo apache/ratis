@@ -244,7 +244,7 @@ public class TestRaftStorage extends BaseTest {
 
     //Create 3 snapshot files in storage dir.
     while (termIndexSet.size() < 3) {
-      final long term = ThreadLocalRandom.current().nextLong(1, 10L);
+      final long term = ThreadLocalRandom.current().nextLong(1, 5L);
       final long index = ThreadLocalRandom.current().nextLong(100, 1000L);
       if (termIndexSet.add(TermIndex.valueOf(term, index))) {
         createSnapshot(simpleStateMachineStorage, term, index, true);
@@ -253,7 +253,7 @@ public class TestRaftStorage extends BaseTest {
 
     // Create 2 more snapshot files in storage dir without MD5 files
     while (termIndexSet.size() < 5) {
-      final long term = ThreadLocalRandom.current().nextLong(1, 10L);
+      final long term = ThreadLocalRandom.current().nextLong(5, 10L);
       final long index = ThreadLocalRandom.current().nextLong(100, 1000L);
       if (termIndexSet.add(TermIndex.valueOf(term, index))) {
         createSnapshot(simpleStateMachineStorage, term, index, true);
@@ -272,13 +272,13 @@ public class TestRaftStorage extends BaseTest {
     }
 
     File stateMachineDir = storage.getStorageDir().getStateMachineDir();
-    assertFileCount(stateMachineDir, 7);
+    assertFileCount(stateMachineDir, 10);
 
     simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
 
     // Since the MD5 files are not matching the snapshot files they are not cleaned up.
-    // So we still have 7 files - 5 snapshots and 2 MD5 files.
-    File[] remainingFiles = assertFileCount(stateMachineDir, 4);
+    // So we still have 6 files - 4 snapshots and 2 MD5 files.
+    File[] remainingFiles = assertFileCount(stateMachineDir, 6);
 
     List<Long> remainingIndices = termIndexSet.stream()
         .map(TermIndex::getIndex)
@@ -295,19 +295,18 @@ public class TestRaftStorage extends BaseTest {
 
     // Attempt to clean up again should not delete any more files.
     simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
-    assertFileCount(stateMachineDir, 4);
+    assertFileCount(stateMachineDir, 6);
 
     //Test with Retention disabled.
     //Create 2 snapshot files in storage dir.
     for (int i = 0; i < 2; i++) {
-      final long term = ThreadLocalRandom.current().nextLong(1, 10L);
+      final long term = ThreadLocalRandom.current().nextLong(11, 20L);
       final long index = ThreadLocalRandom.current().nextLong(1000L);
-      File file = simpleStateMachineStorage.getSnapshotFile(term, index);
-      Assertions.assertTrue(file.createNewFile());
+      createSnapshot(simpleStateMachineStorage, term, index, false);
     }
 
     simpleStateMachineStorage.cleanupOldSnapshots(new SnapshotRetentionPolicy() { });
-    assertFileCount(stateMachineDir, 5);
+    assertFileCount(stateMachineDir, 8);
   }
 
   @Test
@@ -347,7 +346,48 @@ public class TestRaftStorage extends BaseTest {
 
     simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
 
-    // We should have 3 files remaining, 1 snapshot file without MD5 hash, and 2 snapshots with MD5 hash
+    // We should have 4 files remaining, and 2 snapshots with MD5 hash
+    assertFileCount(stateMachineDir, 4);
+  }
+
+  @Test
+  public void testSnapshotCleanupWithLatestSnapshotMissingMd5File() throws IOException {
+
+    SnapshotRetentionPolicy snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
+      @Override
+      public int getNumSnapshotsRetained() {
+        return 2;
+      }
+    };
+
+
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+
+    Set<TermIndex> termIndexSet = new HashSet<>();
+
+    //Create 4 snapshot files in storage dir
+    while (termIndexSet.size() < 4) {
+      final long term = ThreadLocalRandom.current().nextLong(2, 10L);
+      final long index = ThreadLocalRandom.current().nextLong(100, 1000L);
+      if (termIndexSet.add(TermIndex.valueOf(term, index))) {
+        createSnapshot(simpleStateMachineStorage, term, index, true);
+      }
+    }
+
+    // Create a snapshot file with a missing MD5 file and having the highest term index
+    if (termIndexSet.add(TermIndex.valueOf(99, 100))) {
+      createSnapshot(simpleStateMachineStorage, 99, 100, false);
+    }
+
+    // 1 snapshot file without MD5 hash, 4 snapshots + 4 md5 hash files = 9 files
+    File stateMachineDir = storage.getStorageDir().getStateMachineDir();
+    assertFileCount(stateMachineDir, 9);
+
+    simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
+
+    // We should have 5 files remaining, and 2 snapshots with MD5 hash and 1 snapshot file without MD5 hash
     assertFileCount(stateMachineDir, 5);
   }
 
