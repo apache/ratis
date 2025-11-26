@@ -244,8 +244,8 @@ public class TestRaftStorage extends BaseTest {
 
     //Create 3 snapshot files in storage dir.
     while (termIndexSet.size() < 3) {
-      final long term = ThreadLocalRandom.current().nextLong(1, 5L);
-      final long index = ThreadLocalRandom.current().nextLong(100, 1000L);
+      final long term = ThreadLocalRandom.current().nextLong(1, 10L);
+      final long index = ThreadLocalRandom.current().nextLong(100, 500L);
       if (termIndexSet.add(TermIndex.valueOf(term, index))) {
         createSnapshot(simpleStateMachineStorage, term, index, true);
       }
@@ -253,10 +253,10 @@ public class TestRaftStorage extends BaseTest {
 
     // Create 2 more snapshot files in storage dir without MD5 files
     while (termIndexSet.size() < 5) {
-      final long term = ThreadLocalRandom.current().nextLong(5, 10L);
-      final long index = ThreadLocalRandom.current().nextLong(100, 1000L);
+      final long term = ThreadLocalRandom.current().nextLong(11, 20L);
+      final long index = ThreadLocalRandom.current().nextLong(501, 1000L);
       if (termIndexSet.add(TermIndex.valueOf(term, index))) {
-        createSnapshot(simpleStateMachineStorage, term, index, true);
+        createSnapshot(simpleStateMachineStorage, term, index, false);
       }
     }
 
@@ -276,14 +276,14 @@ public class TestRaftStorage extends BaseTest {
 
     simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
 
-    // Since the MD5 files are not matching the snapshot files they are not cleaned up.
+    // Since the MD5 files are not matching the snapshot files they are cleaned up.
     // So we still have 6 files - 4 snapshots and 2 MD5 files.
     File[] remainingFiles = assertFileCount(stateMachineDir, 6);
 
     List<Long> remainingIndices = termIndexSet.stream()
         .map(TermIndex::getIndex)
         .sorted(Collections.reverseOrder())
-        .limit(3)
+        .limit(4)
         .collect(toList());
     for (File file : remainingFiles) {
       System.out.println(file.getName());
@@ -300,7 +300,7 @@ public class TestRaftStorage extends BaseTest {
     //Test with Retention disabled.
     //Create 2 snapshot files in storage dir.
     for (int i = 0; i < 2; i++) {
-      final long term = ThreadLocalRandom.current().nextLong(11, 20L);
+      final long term = ThreadLocalRandom.current().nextLong(21, 30L);
       final long index = ThreadLocalRandom.current().nextLong(1000L);
       createSnapshot(simpleStateMachineStorage, term, index, false);
     }
