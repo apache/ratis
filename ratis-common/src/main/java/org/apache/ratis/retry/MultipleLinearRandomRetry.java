@@ -19,8 +19,6 @@ package org.apache.ratis.retry;
 
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,28 +32,19 @@ import java.util.function.Supplier;
  * Given pairs of number of retries and sleep time (n0, t0), (n1, t1), ...,
  * the first n0 retries sleep t0 milliseconds on average,
  * the following n1 retries sleep t1 milliseconds on average, and so on.
- *
+ * <p>
  * For all the sleep, the actual sleep time is randomly uniform distributed
  * in the close interval [0.5t, 1.5t], where t is the sleep time specified.
- *
+ * <p>
  * The objects of this class are immutable.
  */
 public final class MultipleLinearRandomRetry implements RetryPolicy {
-  static final Logger LOG = LoggerFactory.getLogger(MultipleLinearRandomRetry.class);
-
   /** Pairs of numRetries and sleepSeconds */
-  private static class Pair {
+  private static final class Pair {
     private final int numRetries;
     private final TimeDuration sleepTime;
 
     Pair(int numRetries, TimeDuration sleepTime) {
-      if (numRetries < 0) {
-        throw new IllegalArgumentException("numRetries = " + numRetries+" < 0");
-      }
-      if (sleepTime.isNegative()) {
-        throw new IllegalArgumentException("sleepTime = " + sleepTime + " < 0");
-      }
-
       this.numRetries = numRetries;
       this.sleepTime = sleepTime;
     }
@@ -76,9 +65,6 @@ public final class MultipleLinearRandomRetry implements RetryPolicy {
   private final Supplier<String> myString;
 
   private MultipleLinearRandomRetry(List<Pair> pairs) {
-    if (pairs == null || pairs.isEmpty()) {
-      throw new IllegalArgumentException("pairs must be neither null nor empty.");
-    }
     this.pairs = Collections.unmodifiableList(pairs);
     this.myString = JavaUtils.memoize(() -> JavaUtils.getClassSimpleName(getClass()) + pairs);
   }
@@ -131,30 +117,22 @@ public final class MultipleLinearRandomRetry implements RetryPolicy {
    * @return the parsed object, or null if the parsing fails.
    */
   public static MultipleLinearRandomRetry parseCommaSeparated(String input) {
-    final String[] elements = input.split(",");
-    if (elements.length == 0) {
-      LOG.warn("Illegal value: there is no element in \"{}\".", input);
-      return null;
+    input = input.trim();
+    if (input.isEmpty()) {
+      throw new IllegalArgumentException("Failed to parse \"" + input + "\": no elements found");
     }
+    final String[] elements = input.split(",");
     if (elements.length % 2 != 0) {
-      LOG.warn("Illegal value: the number of elements in \"{}\" is {} but an even number of elements is expected.",
-          input, elements.length);
-      return null;
+      throw new IllegalArgumentException("Failed to parse \"" + input
+          + "\": number of elements (" + elements.length + ") is old");
     }
 
     final List<Pair> pairs = new ArrayList<>();
     for(int i = 0; i < elements.length; ) {
-      //parse the i-th sleep-time
-      final TimeDuration sleep = parseElement(elements, i++, input, MultipleLinearRandomRetry::parsePositiveTime);
-      if (sleep == null) {
-        return null; //parse fails
-      }
-      //parse the i-th number-of-retries
-      final Integer retries = parseElement(elements, i++, input, MultipleLinearRandomRetry::parsePositiveInt);
-      if (retries == null) {
-        return null; //parse fails
-      }
-
+      final TimeDuration sleep = parseElement("sleep-time", elements, i++, input,
+          MultipleLinearRandomRetry::parsePositiveTime);
+      final Integer retries = parseElement("retries", elements, i++, input,
+          MultipleLinearRandomRetry::parsePositiveInt);
       pairs.add(new Pair(retries, sleep));
     }
     return new MultipleLinearRandomRetry(pairs);
@@ -176,13 +154,13 @@ public final class MultipleLinearRandomRetry implements RetryPolicy {
     return n;
   }
 
-  private static <E> E parseElement(String[] elements, int i, String input, Function<String, E> parser) {
+  private static <E> E parseElement(String name, String[] elements, int i, String input, Function<String, E> parser) {
     final String s = elements[i].trim().replace("_", "");
     try {
       return parser.apply(s);
-    } catch(Exception t) {
-      LOG.warn("Failed to parse \"{}\", which is the index {} element in \"{}\"", s, i, input, t);
-      return null;
+    } catch (Exception e) {
+      throw new IllegalArgumentException(
+          "Failed to parse \"" + s + "\" as " + name + " (element " + i + " in \"" + input + "\")", e);
     }
   }
 }
