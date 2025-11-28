@@ -333,7 +333,10 @@ public final class LogSegment {
   }
 
   long getEndIndex() {
-    return endIndex;
+    if (records.getLast() == null) {
+      return getStartIndex() - 1;
+    }
+    return records.getLast().getTermIndex().getIndex();
   }
 
   boolean isOpen() {
@@ -341,7 +344,7 @@ public final class LogSegment {
   }
 
   int numOfEntries() {
-    return Math.toIntExact(endIndex - startIndex + 1);
+    return Math.toIntExact(getEndIndex() - startIndex + 1);
   }
 
   CorruptionPolicy getLogCorruptionPolicy() {
@@ -396,7 +399,7 @@ public final class LogSegment {
   }
 
   LogRecord getLogRecord(long index) {
-    if (index >= startIndex && index <= endIndex) {
+    if (index >= startIndex && index <= getEndIndex()) {
       return records.get(index);
     }
     return null;
@@ -493,7 +496,7 @@ public final class LogSegment {
   }
 
   boolean containsIndex(long index) {
-    return startIndex <= index && endIndex >= index;
+    return startIndex <= index && getEndIndex() >= index;
   }
 
   boolean hasEntries() {
