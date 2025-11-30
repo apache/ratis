@@ -64,8 +64,6 @@ public interface CacheInvalidationPolicy {
         // a segment's cache can be invalidated only if it's close and all its
         // entries have been flushed to the local disk and the local disk
         // segment is also closed.
-        boolean a = segment.isOpen();
-        long t1 = segment.getEndIndex();
         if (!segment.isOpen() && segment.getEndIndex() <= safeEvictIndex) {
           break;
         }
