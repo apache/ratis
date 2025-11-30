@@ -333,9 +333,6 @@ public final class LogSegment {
   }
 
   long getEndIndex() {
-    if (!isOpen) {
-      return endIndex;
-    }
     if (records.getLast() == null) {
       return getStartIndex() - 1;
     }
