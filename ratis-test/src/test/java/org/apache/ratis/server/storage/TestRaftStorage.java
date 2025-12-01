@@ -32,6 +32,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.jupiter.api.AfterEach;
@@ -369,7 +370,7 @@ public class TestRaftStorage extends BaseTest {
 
     //Create 4 snapshot files in storage dir
     while (termIndexSet.size() < 4) {
-      final long term = ThreadLocalRandom.current().nextLong(2, 10L);
+      final long term = ThreadLocalRandom.current().nextLong(1, 10L);
       final long index = ThreadLocalRandom.current().nextLong(100, 1000L);
       if (termIndexSet.add(TermIndex.valueOf(term, index))) {
         createSnapshot(simpleStateMachineStorage, term, index, true);
@@ -377,8 +378,8 @@ public class TestRaftStorage extends BaseTest {
     }
 
     // Create a snapshot file with a missing MD5 file and having the highest term index
-    if (termIndexSet.add(TermIndex.valueOf(99, 100))) {
-      createSnapshot(simpleStateMachineStorage, 99, 100, false);
+    if (termIndexSet.add(TermIndex.valueOf(99, 1001))) {
+      createSnapshot(simpleStateMachineStorage, 99, 1001, false);
     }
 
     // 1 snapshot file without MD5 hash, 4 snapshots + 4 md5 hash files = 9 files
@@ -521,9 +522,9 @@ public class TestRaftStorage extends BaseTest {
     Assertions.assertTrue(snapshotFile.createNewFile());
 
     if (withMd5) {
-      File md5File = new File(snapshotFile.getParentFile(), snapshotFile.getName() + MD5_SUFFIX);
-      Assertions.assertTrue(md5File.createNewFile());
+      MD5FileUtil.computeAndSaveMd5ForFile(snapshotFile);
     }
+
     return snapshotFile;
   }
 
