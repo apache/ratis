@@ -40,8 +40,9 @@ The binaries are also uploaded to the maven central for convenience. (See the ge
     </tr>
   </thead>
 
-    {{range first 5 (where .Site.Pages ".Params.type" "release")}}
-    {{ if .Params.linked }}
+    {{ $releases := where .Site.Pages ".Params.type" "eq" "release" }}
+    {{ $linked := where $releases ".Params.linked" "eq" true }}
+    {{ range first 5 $linked }}
      <tr>
        <td>{{.File.BaseFileName }}</td>
        <td>{{ time.Format "2006 Jan 2" .Params.date }}</td>
@@ -59,7 +60,6 @@ The binaries are also uploaded to the maven central for convenience. (See the ge
            <a href="post/{{.File.BaseFileName }}.html">Announcement</a>
          </td>
      </tr>
-    {{end}}
     {{end}}
   </table>
 </p>
