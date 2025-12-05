@@ -336,10 +336,8 @@ public final class LogSegment {
     if (!isOpen) {
       return endIndex;
     }
-    if (records.getLast() == null) {
-      return getStartIndex() - 1;
-    }
-    return records.getLast().getTermIndex().getIndex();
+    final LogRecord last = records.getLast();
+    return last == null ? getStartIndex() - 1 : last.getTermIndex().getIndex();
   }
 
   boolean isOpen() {
