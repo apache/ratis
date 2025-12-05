@@ -101,7 +101,7 @@ if [ "$?" -ne 0 ]; then
   exit 1
 fi
 
-HUGO_VERSION='hugo v0.142.0'
+HUGO_VERSION='hugo v0.152.2'
 output=$(hugo version)
 if [[ ! $(echo "$output" | grep "${HUGO_VERSION}") ]]; then
   echo "Hugo version mismatched: ${output}"
