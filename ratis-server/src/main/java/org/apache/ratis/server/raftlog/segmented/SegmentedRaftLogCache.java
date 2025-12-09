@@ -614,12 +614,10 @@ public class SegmentedRaftLogCache {
 
   TermIndex getLastTermIndex() {
     try (AutoCloseableLock readLock = closedSegments.readLock()) {
-      TermIndex lastOpenIndex =
-          (openSegment != null) ? openSegment.getLastTermIndex() : null;
-      return lastOpenIndex != null
-          ? lastOpenIndex
-          : (closedSegments.isEmpty() ? null :
-          closedSegments.get(closedSegments.size() - 1).getLastTermIndex());
+      return (openSegment != null && openSegment.getLastTermIndex() != null) ?
+          openSegment.getLastTermIndex() :
+          (closedSegments.isEmpty() ? null :
+              closedSegments.get(closedSegments.size() - 1).getLastTermIndex());
     }
   }
 
