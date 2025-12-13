@@ -16,10 +16,6 @@
 -->
 <FindBugsFilter>
   <Match>
-    <Class name="org.apache.ratis.server.impl.LeaderElection"/>
-    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
-  </Match>
-  <Match>
     <Class name="org.apache.ratis.server.impl.LeaderStateImpl"/>
     <Bug pattern="CT_CONSTRUCTOR_THROW"/>
   </Match>
@@ -49,10 +45,6 @@
   </Match>
   <Match>
     <Class name="org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogOutputStream"/>
-    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
-  </Match>
-  <Match>
-    <Class name="org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogReader"/>
     <Bug pattern="CT_CONSTRUCTOR_THROW"/>
   </Match>
   <Match>
