@@ -311,19 +311,21 @@ final class LeaderElection implements Runnable {
   }
 
   static LeaderElection newInstance(ServerInterface server, boolean force) {
-    try {
-      // increase term of the candidate in advance if it's forced to election
-      final ConfAndTerm round0 = force ? server.initElection(Phase.ELECTION) : null;
-      return new LeaderElection(server, force, round0);
+      String name = "";
+      try {
+        // increase term of the candidate in advance if it's forced to election
+        final ConfAndTerm round0 = force ? server.initElection(Phase.ELECTION) : null;
+        name = ServerStringUtils.generateUnifiedName(server.getMemberId(), LeaderElection.class)
+              + COUNT.incrementAndGet();
+      return new LeaderElection(name, server, force, round0);
     } catch (IOException e) {
-      throw new IllegalStateException(ServerStringUtils.generateUnifiedName(server.getMemberId(),
-              LeaderElection.class) + ": Failed to initialize election", e);
+      throw new IllegalStateException(name + ": Failed to initialize election", e);
     }
   }
 
 
-  private LeaderElection(ServerInterface server, boolean force, ConfAndTerm round0) {
-    this.name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass()) + COUNT.incrementAndGet();
+  private LeaderElection(String name, ServerInterface server, boolean force, ConfAndTerm round0) {
+    this.name = name;
     this.lifeCycle = new LifeCycle(this);
     this.daemon = Daemon.newBuilder().setName(name).setRunnable(this)
         .setThreadGroup(server.getThreadGroup()).build();

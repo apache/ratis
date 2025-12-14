@@ -60,10 +60,6 @@
     <Bug pattern="CT_CONSTRUCTOR_THROW"/>
   </Match>
   <Match>
-    <Class name="org.apache.ratis.server.storage.FileChunkReader"/>
-    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
-  </Match>
-  <Match>
     <Class name="org.apache.ratis.server.storage.RaftStorageImpl"/>
     <Bug pattern="EI_EXPOSE_REP"/>
   </Match>
