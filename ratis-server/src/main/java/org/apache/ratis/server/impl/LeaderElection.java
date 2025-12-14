@@ -311,12 +311,11 @@ final class LeaderElection implements Runnable {
   }
 
   static LeaderElection newInstance(ServerInterface server, boolean force) {
-      String name = "";
+      String name = ServerStringUtils.generateUnifiedName(server.getMemberId(), LeaderElection.class)
+        + COUNT.incrementAndGet();
       try {
         // increase term of the candidate in advance if it's forced to election
         final ConfAndTerm round0 = force ? server.initElection(Phase.ELECTION) : null;
-        name = ServerStringUtils.generateUnifiedName(server.getMemberId(), LeaderElection.class)
-              + COUNT.incrementAndGet();
       return new LeaderElection(name, server, force, round0);
     } catch (IOException e) {
       throw new IllegalStateException(name + ": Failed to initialize election", e);
