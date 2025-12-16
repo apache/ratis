@@ -47,6 +47,7 @@ env:
   TEST_METHOD: ${{ github.event.inputs.test-method }}
   ITERATIONS: ${{ github.event.inputs.iterations }}
   FAIL_FAST: ${{ github.event.inputs.fail-fast }}
+  SPLITS: ${{ github.event.inputs.splits }}
 run-name: ${{ github.event_name == 'workflow_dispatch' && format('{0}#{1}[{2}]-{3}x{4}', inputs.test-class, inputs.test-method, inputs.ref, inputs.splits, inputs.iterations) || '' }}
 jobs:
   prepare:
@@ -59,7 +60,7 @@ jobs:
         name: Generate test matrix
         run: |
           splits=()
-          for ((i = 1; i <= ${{ github.event.inputs.splits }}; i++)); do
+          for ((i = 1; i <= $SPLITS; i++)); do
               splits+=("$i")
           done
           printf -v x "%s," "${splits[@]}"

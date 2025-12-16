@@ -79,6 +79,7 @@ on:
 env:
   MAVEN_ARGS: --batch-mode --show-version
   MAVEN_OPTS: -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.class=standard -Dmaven.wagon.http.retryHandler.count=3
+  SCRIPT: ${{ inputs.script }}
   WITH_COVERAGE: ${{ github.event_name == 'push' }}
 
 jobs:
@@ -154,15 +155,16 @@ jobs:
 
       - name: Execute tests
         run: |
-          dev-support/checks/${{ inputs.script }}.sh ${{ inputs.script-args }}
+          $COMMAND
         env:
+          COMMAND: dev-support/checks/${{ inputs.script }}.sh ${{ inputs.script-args }}
           DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
       - name: Summary of failures
         if: ${{ failure() }}
         run: |
-          if [[ -s "target/${{ inputs.script }}/summary.txt" ]]; then
-            cat target/${{ inputs.script }}/summary.txt
+          if [[ -s "target/$SCRIPT/summary.txt" ]]; then
+            cat target/$SCRIPT/summary.txt
           fi
 
       - name: Archive build results
