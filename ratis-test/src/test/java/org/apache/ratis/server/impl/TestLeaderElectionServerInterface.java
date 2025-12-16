@@ -186,7 +186,7 @@ public class TestLeaderElectionServerInterface extends BaseTest {
     for(int i = 0; i < lastEntries.length; i++) {
       map.put(peers.get(i).getId(), lastEntries[i]);
     }
-    final LeaderElection election = new LeaderElection(newServerInterface(expectToPass, map), false);
+    final LeaderElection election = LeaderElection.newInstance(newServerInterface(expectToPass, map), false);
     election.startInForeground();
   }
 

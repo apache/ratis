@@ -77,7 +77,7 @@ import static org.apache.ratis.util.LifeCycle.State.STARTING;
  * Ongaro, D. Consensus: Bridging Theory and Practice. PhD thesis, Stanford University, 2014.
  * Available at https://github.com/ongardie/dissertation
  */
-class LeaderElection implements Runnable {
+final class LeaderElection implements Runnable {
   public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
 
   interface ServerInterface {
@@ -306,23 +306,31 @@ class LeaderElection implements Runnable {
   private final boolean skipPreVote;
   private final ConfAndTerm round0;
 
-  LeaderElection(RaftServerImpl server, boolean force) {
-    this(ServerInterface.get(server), force);
+  static LeaderElection newInstance(RaftServerImpl server, boolean force) {
+    return newInstance(ServerInterface.get(server), force);
   }
 
-  LeaderElection(ServerInterface server, boolean force) {
-    this.name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass()) + COUNT.incrementAndGet();
+  static LeaderElection newInstance(ServerInterface server, boolean force) {
+    String name = ServerStringUtils.generateUnifiedName(server.getMemberId(), LeaderElection.class)
+            + COUNT.incrementAndGet();
+    try {
+      // increase term of the candidate in advance if it's forced to election
+      final ConfAndTerm round0 = force ? server.initElection(Phase.ELECTION) : null;
+      return new LeaderElection(name, server, force, round0);
+    } catch (IOException e) {
+      throw new IllegalStateException(name + ": Failed to initialize election", e);
+    }
+  }
+
+
+  private LeaderElection(String name, ServerInterface server, boolean force, ConfAndTerm round0) {
+    this.name = name;
     this.lifeCycle = new LifeCycle(this);
     this.daemon = Daemon.newBuilder().setName(name).setRunnable(this)
         .setThreadGroup(server.getThreadGroup()).build();
     this.server = server;
     this.skipPreVote = force || !server.isPreVoteEnabled();
-    try {
-      // increase term of the candidate in advance if it's forced to election
-      this.round0 = force ? server.initElection(Phase.ELECTION) : null;
-    } catch (IOException e) {
-      throw new IllegalStateException(name + ": Failed to initialize election", e);
-    }
+    this.round0 = round0;
   }
 
   void start() {

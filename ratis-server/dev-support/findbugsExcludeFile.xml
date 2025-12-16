@@ -16,10 +16,6 @@
 -->
 <FindBugsFilter>
   <Match>
-    <Class name="org.apache.ratis.server.impl.LeaderElection"/>
-    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
-  </Match>
-  <Match>
     <Class name="org.apache.ratis.server.impl.LeaderStateImpl"/>
     <Bug pattern="CT_CONSTRUCTOR_THROW"/>
   </Match>
@@ -52,10 +48,6 @@
     <Bug pattern="CT_CONSTRUCTOR_THROW"/>
   </Match>
   <Match>
-    <Class name="org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogReader"/>
-    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
-  </Match>
-  <Match>
     <Class name="org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog$Builder"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
@@ -65,10 +57,6 @@
   </Match>
   <Match>
     <Class name="org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogWorker$WriteLog"/>
-    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
-  </Match>
-  <Match>
-    <Class name="org.apache.ratis.server.storage.FileChunkReader"/>
     <Bug pattern="CT_CONSTRUCTOR_THROW"/>
   </Match>
   <Match>

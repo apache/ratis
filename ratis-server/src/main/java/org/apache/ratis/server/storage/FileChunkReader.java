@@ -34,7 +34,7 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 
 /** Read {@link FileChunkProto}s from a file. */
-public class FileChunkReader implements Closeable {
+public final class FileChunkReader implements Closeable {
   private final FileInfo info;
   private final Path relativePath;
   private final InputStream in;
@@ -51,17 +51,27 @@ public class FileChunkReader implements Closeable {
    * @param relativePath the relative path of the file.
    * @throws IOException if it failed to open the file.
    */
-  public FileChunkReader(FileInfo info, Path relativePath) throws IOException {
-    this.info = info;
-    this.relativePath = relativePath;
+  public static FileChunkReader newInstance(FileInfo info, Path relativePath) throws IOException {
     final File f = info.getPath().toFile();
+    final InputStream in;
+    final MessageDigest digester;
+
     if (info.getFileDigest() == null) {
       digester = MD5FileUtil.newMD5();
-      this.in = new DigestInputStream(FileUtils.newInputStream(f), digester);
+      in = new DigestInputStream(FileUtils.newInputStream(f), digester);
     } else {
       digester = null;
-      this.in = FileUtils.newInputStream(f);
+      in = FileUtils.newInputStream(f);
     }
+
+    return new FileChunkReader(info, relativePath, in, digester);
+  }
+
+  private FileChunkReader(FileInfo info, Path relativePath, InputStream in, MessageDigest digester) {
+    this.info = info;
+    this.relativePath = relativePath;
+    this.in = in;
+    this.digester = digester;
   }
 
   static ByteString readFileChunk(int chunkLength, InputStream in) throws IOException {
