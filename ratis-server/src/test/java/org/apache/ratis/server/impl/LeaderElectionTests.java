@@ -592,7 +592,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testImmediatelyRevertedToFollower() {
     RaftServerImpl server = createMockServer(true);
-    LeaderElection subject = new LeaderElection(server, false);
+    LeaderElection subject = LeaderElection.newInstance(server, false);
 
     try {
       subject.startInForeground();
@@ -606,7 +606,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testShutdownBeforeStart() {
     RaftServerImpl server = createMockServer(false);
-    LeaderElection subject = new LeaderElection(server, false);
+    LeaderElection subject = LeaderElection.newInstance(server, false);
 
     try {
       subject.shutdown();

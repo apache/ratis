@@ -46,7 +46,7 @@ import java.nio.channels.ClosedByInterruptException;
 import java.util.Optional;
 import java.util.zip.Checksum;
 
-class SegmentedRaftLogReader implements Closeable {
+final class SegmentedRaftLogReader implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogReader.class);
   /**
    * InputStream wrapper that keeps track of the current stream position.
@@ -150,10 +150,18 @@ class SegmentedRaftLogReader implements Closeable {
   private final SegmentedRaftLogMetrics raftLogMetrics;
   private final SizeInBytes maxOpSize;
 
-  SegmentedRaftLogReader(File file, SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics) throws IOException {
+  static SegmentedRaftLogReader newInstance(File file, SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics)
+          throws IOException {
+    final LimitedInputStream limiter = new LimitedInputStream(new BufferedInputStream(FileUtils.newInputStream(file)));
+    final DataInputStream in = new DataInputStream(limiter);
+    return new SegmentedRaftLogReader(file, maxOpSize, raftLogMetrics, limiter, in);
+  }
+
+  private SegmentedRaftLogReader(File file, SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics,
+      LimitedInputStream limiter, DataInputStream in) {
     this.file = file;
-    this.limiter = new LimitedInputStream(new BufferedInputStream(FileUtils.newInputStream(file)));
-    in = new DataInputStream(limiter);
+    this.limiter = limiter;
+    this.in = in;
     checksum = new PureJavaCrc32C();
     this.maxOpSize = maxOpSize;
     this.raftLogMetrics = raftLogMetrics;

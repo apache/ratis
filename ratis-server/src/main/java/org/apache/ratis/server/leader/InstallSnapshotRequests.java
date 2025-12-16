@@ -119,7 +119,7 @@ class InstallSnapshotRequests implements Iterable<InstallSnapshotRequestProto> {
       final FileInfo info = snapshot.getFiles().get(fileIndex);
       try {
         if (current == null) {
-          current = new FileChunkReader(info, getRelativePath.apply(info));
+          current = FileChunkReader.newInstance(info, getRelativePath.apply(info));
         }
         final FileChunkProto chunk = current.readFileChunk(snapshotChunkMaxSize);
         if (chunk.getDone()) {

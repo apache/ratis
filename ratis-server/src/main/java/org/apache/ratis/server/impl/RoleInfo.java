@@ -126,7 +126,7 @@ class RoleInfo {
     if (pauseLeaderElection.get()) {
       return;
     }
-    updateAndGet(leaderElection, new LeaderElection(server, force)).start();
+    updateAndGet(leaderElection, LeaderElection.newInstance(server, force)).start();
   }
 
   void setLeaderElectionPause(boolean pause) {
