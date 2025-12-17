@@ -726,11 +726,11 @@
           </execution>
         </executions>
       </plugin>
-    <plugin>
+      <plugin>
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-maven</artifactId>
         <version>12.1.9</version>
-    </plugin>
+      </plugin>
     </plugins>
     <resources>
       <resource>
