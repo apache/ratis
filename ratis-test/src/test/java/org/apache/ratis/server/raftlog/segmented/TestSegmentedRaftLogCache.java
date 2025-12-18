@@ -20,7 +20,6 @@ package org.apache.ratis.server.raftlog.segmented;
 import static org.apache.ratis.server.metrics.SegmentedRaftLogMetrics.*;
 import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils.MAX_OP_SIZE;
 
-import java.io.IOException;
 import java.util.Iterator;
 import java.util.stream.IntStream;
 
@@ -282,12 +281,12 @@ public class TestSegmentedRaftLogCache {
     });
   }
 
-  private void testIterator(long startIndex) throws IOException {
+  private void testIterator(long startIndex) {
     Iterator<TermIndex> iterator = cache.iterator(startIndex);
     TermIndex prev = null;
     while (iterator.hasNext()) {
       TermIndex termIndex = iterator.next();
-      Assertions.assertEquals(cache.getLogRecord(termIndex.getIndex()).getTermIndex(), termIndex);
+      Assertions.assertEquals(cache.getTermIndex(termIndex.getIndex()), termIndex);
       if (prev != null) {
         Assertions.assertEquals(prev.getIndex() + 1, termIndex.getIndex());
       }

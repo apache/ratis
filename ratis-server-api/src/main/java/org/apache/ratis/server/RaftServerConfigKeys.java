@@ -415,6 +415,16 @@ public interface RaftServerConfigKeys {
       setSizeInBytes(properties::set, SEGMENT_SIZE_MAX_KEY, segmentSizeMax);
     }
 
+    String READ_LOCK_ENABLED_KEY = PREFIX + ".read.lock.enabled";
+    boolean READ_LOCK_ENABLED_DEFAULT = true;
+    static boolean readLockEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          READ_LOCK_ENABLED_KEY, READ_LOCK_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setReadLockEnabled(RaftProperties properties, boolean readLockEnabled) {
+      setBoolean(properties::setBoolean, READ_LOCK_ENABLED_KEY, readLockEnabled);
+    }
+
     /**
      * Besides the open segment, the max number of segments caching log entries.
      */

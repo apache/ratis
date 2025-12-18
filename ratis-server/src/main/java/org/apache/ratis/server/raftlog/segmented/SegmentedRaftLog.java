@@ -202,6 +202,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
   private final SegmentedRaftLogMetrics metrics;
+  private final boolean readLockEnabled;
 
   @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
   private SegmentedRaftLog(Builder b) {
@@ -217,6 +218,12 @@ public final class SegmentedRaftLog extends RaftLogBase {
     this.fileLogWorker = new SegmentedRaftLogWorker(b.memberId, stateMachine,
         b.submitUpdateCommitEvent, b.server, storage, b.properties, getRaftLogMetrics());
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(b.properties);
+    this.readLockEnabled = RaftServerConfigKeys.Log.readLockEnabled(b.properties);
+  }
+
+  @Override
+  public AutoCloseableLock readLock() {
+    return readLockEnabled ? super.readLock() : null;
   }
 
   @Override
@@ -338,8 +345,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   public TermIndex getTermIndex(long index) {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {
-      LogRecord record = cache.getLogRecord(index);
-      return record != null ? record.getTermIndex() : null;
+      return cache.getTermIndex(index);
     }
   }
 
