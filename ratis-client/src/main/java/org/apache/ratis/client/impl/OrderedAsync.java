@@ -51,7 +51,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
@@ -176,9 +175,9 @@ public final class OrderedAsync {
     ).whenComplete((r, e) -> {
       if (e != null) {
         if (e.getCause() instanceof AlreadyClosedException) {
-          LOG.error("Failed to send request, message=" + message + " due to " + e);
+          LOG.error("Failed to send request, message={} due to {}", message, e.toString());
         } else {
-          LOG.error("Failed to send request, message=" + message, e);
+          LOG.error("Failed to send request, message={}", message, e);
         }
       }
       requestSemaphore.release();
@@ -212,11 +211,29 @@ public final class OrderedAsync {
     }).exceptionally(e -> {
       final Throwable exception = e;
       final String key = client.getId() + "-" + request.getCallId() + "-" + exception;
-      final Consumer<String> op = suffix -> LOG.error("{} {}: Failed* {}", suffix, client.getId(), request, exception);
-      BatchLogger.print(BatchLogKey.SEND_REQUEST_EXCEPTION, key, op);
+      BatchLogger.print(BatchLogKey.SEND_REQUEST_EXCEPTION, key, prefix -> logError(prefix, request, exception));
       handleException(pending, request, e);
       return null;
     });
+  }
+
+  private void logError(String prefix, RaftClientRequest request, Throwable e) {
+    final Class<?>[] knownExceptionClasses = {AlreadyClosedException.class, NotLeaderException.class};
+    for(Class<?> known : knownExceptionClasses) {
+      if (logError(prefix, request, e, known)) {
+        return;
+      }
+    }
+    LOG.error("{} {}: Failed* {}", prefix, client.getId(), request, e);
+  }
+
+  private boolean logError(String prefix, RaftClientRequest request, Throwable e, Class<?> cause) {
+    if (JavaUtils.isCausedBy(e, cause)) {
+      LOG.error("{} {}: Failed* {} due to {} caused by {}",
+          prefix, client.getId(), request, e, cause.getSimpleName());
+      return true;
+    }
+    return false;
   }
 
   private void handleException(PendingOrderedRequest pending, RaftClientRequest request, Throwable e) {

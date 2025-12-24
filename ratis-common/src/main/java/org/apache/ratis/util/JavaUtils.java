@@ -134,7 +134,7 @@ public interface JavaUtils {
 
   static <T> T doPrivileged(Supplier<T> action, Supplier<String> name) {
     return doPrivileged(action, e -> {
-      LOG.warn("Failed to " + name.get(), e);
+      LOG.warn("Failed to {}", name.get(), e);
       return null;
     });
   }
@@ -228,8 +228,8 @@ public interface JavaUtils {
           throw t;
         }
         if (log != null && log.isWarnEnabled()) {
-          log.warn("FAILED \"" + name.get() + "\", attempt #" + i + "/" + numAttempts
-              + ", sleep " + sleepTime + " and then retry: " + t);
+          log.warn("FAILED \"{}\", attempt #{}/{}, sleep {} and then retry: {}",
+              name.get(), i, numAttempts, sleepTime, t.toString());
         }
       }
 
@@ -289,6 +289,15 @@ public interface JavaUtils {
   static Throwable unwrapCompletionException(Throwable t) {
     Objects.requireNonNull(t, "t == null");
     return t instanceof CompletionException && t.getCause() != null? t.getCause(): t;
+  }
+
+  static boolean isCausedBy(Throwable t, Class<?> cause) {
+    for(; t != null; t = t.getCause()) {
+      if (cause.isInstance(t)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static <T> CompletableFuture<Void> allOf(Collection<CompletableFuture<T>> futures) {
