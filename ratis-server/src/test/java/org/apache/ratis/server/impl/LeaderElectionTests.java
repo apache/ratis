@@ -61,6 +61,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.ratis.RaftTestUtil.getPeersWithPriority;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
@@ -556,6 +557,10 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertTrue(reply.isSuccess());
         Collection<RaftPeer> peer = leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
         assertEquals(0, peer.size());
+
+        listeners = cluster.getListeners()
+                  .stream().map(RaftServer.Division::getPeer).collect(Collectors.toList());
+        assertEquals(0, listeners.size());
       }
       cluster.shutdown();
     }
