@@ -591,7 +591,7 @@ class RaftServerImpl implements RaftServer.Division,
       throw new IllegalStateException("Unexpected role " + old);
     }
     CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
-    if ((old != RaftPeerRole.FOLLOWER || force) && old != RaftPeerRole.LISTENER) {
+    if (shouldSetFollower(old, force)) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
         future = role.shutdownLeaderState(false)
@@ -607,7 +607,7 @@ class RaftServerImpl implements RaftServer.Division,
         state.setLeader(null, reason);
       } else if (old == RaftPeerRole.CANDIDATE) {
         future = role.shutdownLeaderElection();
-      } else if (old == RaftPeerRole.FOLLOWER) {
+      } else if (old == RaftPeerRole.FOLLOWER || old == RaftPeerRole.LISTENER) {
         future = role.shutdownFollowerState();
       }
 
@@ -619,6 +619,14 @@ class RaftServerImpl implements RaftServer.Division,
     }
     return future;
   }
+
+    private boolean shouldSetFollower(RaftPeerRole old, boolean force) {
+      if (old == RaftPeerRole.LISTENER) {
+        final RaftConfigurationImpl conf = state.getRaftConf();
+        return conf.isStable() && conf.containsInConf(getId());
+      }
+      return old != RaftPeerRole.FOLLOWER || force;
+    }
 
   synchronized CompletableFuture<Void> changeToFollowerAndPersistMetadata(
       long newTerm,
@@ -1570,7 +1578,6 @@ class RaftServerImpl implements RaftServer.Division,
     final Optional<FollowerState> followerState;
     final Timekeeper.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
     final CompletableFuture<Void> future;
-    final CompletableFuture<Void> checkListenerFuture;
     synchronized (this) {
       // Check life cycle state again to avoid the PAUSING/PAUSED state.
       assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
@@ -1611,9 +1618,8 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       state.updateConfiguration(entries);
-      checkListenerFuture = checkAndUpdateListenerState();
     }
-    CompletableFuture.allOf(future, checkListenerFuture).join();
+    future.join();
     final CompletableFuture<Void> appendLog = entries.isEmpty()? CompletableFuture.completedFuture(null)
         : appendLog(entries);
 
@@ -1647,25 +1653,6 @@ class RaftServerImpl implements RaftServer.Division,
       return reply;
     });
   }
-
-    /**
-     * The listener checks whether it can become a follower.
-     *
-     * @return
-     */
-    private CompletableFuture<Void> checkAndUpdateListenerState() {
-      CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
-      if (role.getCurrentRole() == RaftPeerRole.LISTENER) {
-        if (state.getRaftConf().isStable() && state.getRaftConf().getPeer(getId()) != null) {
-          Object reason = "Listener transitionRole";
-          setRole(RaftPeerRole.FOLLOWER, reason);
-          future = role.shutdownFollowerState();
-          role.startFollowerState(this, reason);
-          setFirstElection(reason);
-        }
-      }
-      return future;
-    }
 
     private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
     final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
