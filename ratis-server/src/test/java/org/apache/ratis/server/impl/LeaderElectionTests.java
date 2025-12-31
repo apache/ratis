@@ -557,6 +557,11 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         Collection<RaftPeer> peer = leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
         assertEquals(0, peer.size());
 
+        // multiple messages to trigger listener change role to follower
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+        client.io().send(new RaftTestUtil.SimpleMessage("message"));
+
         listeners = cluster.getListeners()
                   .stream().map(RaftServer.Division::getPeer).collect(Collectors.toList());
         assertEquals(0, listeners.size());
