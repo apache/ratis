@@ -389,6 +389,7 @@ class ServerState {
     if (!listeners.isEmpty()) {
       server.getServerRpc().addRaftPeers(listeners);
     }
+    server.checkAndUpdateListenerState().join();
     LOG.info("{}: set configuration {}", getMemberId(), conf);
     LOG.trace("{}: {}", getMemberId(), configurationManager);
   }
