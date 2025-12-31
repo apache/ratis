@@ -1653,8 +1653,7 @@ class RaftServerImpl implements RaftServer.Division,
       return reply;
     });
   }
-
-    private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
+  private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
     final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
     if (!appendLogTermIndices.append(entriesTermIndices)) {
       // index already exists, return the last future
