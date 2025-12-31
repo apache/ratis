@@ -1661,12 +1661,9 @@ class RaftServerImpl implements RaftServer.Division,
   CompletableFuture<Void> checkAndUpdateListenerState() {
     CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
     if (role.getCurrentRole() == RaftPeerRole.LISTENER) {
-      RaftConfigurationImpl currentConf = getRaftConf();
-      if (currentConf.isStable() && currentConf.containsInConf(getId())) {
-        Object reason = "Listener transitionRole";
-        final AtomicBoolean termUpdated = new AtomicBoolean();
-        future = changeToFollower(state.getCurrentTerm(), false, true, reason, termUpdated);
-      }
+      Object reason = "Listener transitionRole";
+      final AtomicBoolean termUpdated = new AtomicBoolean();
+      future = changeToFollower(state.getCurrentTerm(), false, true, reason, termUpdated);
     }
     return future;
   }
