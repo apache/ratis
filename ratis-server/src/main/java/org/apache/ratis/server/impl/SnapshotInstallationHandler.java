@@ -46,6 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -145,7 +146,7 @@ class SnapshotInstallationHandler {
         state.truncate(proto.getIndex());
         if (!state.getRaftConf().equals(LogProtoUtils.toRaftConfiguration(proto))) {
           LOG.info("{}: set new configuration {} from snapshot", getMemberId(), ProtoUtils.shortDebugString(proto));
-          state.setRaftConf(proto);
+          state.updateConfiguration(Collections.singletonList(proto));
           state.writeRaftConfiguration(proto);
           server.getStateMachine().event().notifyConfigurationChanged(
               proto.getTerm(), proto.getIndex(), proto.getConfigurationEntry());
