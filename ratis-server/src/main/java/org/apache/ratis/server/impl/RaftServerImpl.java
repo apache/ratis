@@ -1653,21 +1653,6 @@ class RaftServerImpl implements RaftServer.Division,
       return reply;
     });
   }
-
-
-  /**
-   *  check whether listener should change to follower
-   */
-  CompletableFuture<Void> checkAndUpdateListenerState() {
-    CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
-    if (role.getCurrentRole() == RaftPeerRole.LISTENER) {
-      Object reason = "Listener transitionRole";
-      final AtomicBoolean termUpdated = new AtomicBoolean();
-      future = changeToFollower(state.getCurrentTerm(), false, true, reason, termUpdated);
-    }
-    return future;
-  }
-
   private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
     final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
     if (!appendLogTermIndices.append(entriesTermIndices)) {
