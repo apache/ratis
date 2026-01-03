@@ -556,6 +556,10 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertTrue(reply.isSuccess());
         Collection<RaftPeer> peer = leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
         assertEquals(0, peer.size());
+
+        listeners = cluster.getListeners()
+                  .stream().map(RaftServer.Division::getPeer).collect(Collectors.toList());
+        assertEquals(0, listeners.size());
       }
       cluster.shutdown();
     }

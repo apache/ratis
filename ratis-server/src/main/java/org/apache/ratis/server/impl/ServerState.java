@@ -376,10 +376,12 @@ class ServerState {
     return getLog().getLastCommittedIndex() >= getRaftConf().getLogEntryIndex();
   }
 
-  void setRaftConf(LogEntryProto entry) {
+  private boolean setRaftConf(LogEntryProto entry) {
     if (entry.hasConfigurationEntry()) {
       setRaftConf(LogProtoUtils.toRaftConfiguration(entry));
+      return true;
     }
+    return false;
   }
 
   void setRaftConf(RaftConfiguration conf) {
@@ -397,10 +399,19 @@ class ServerState {
     configurationManager.removeConfigurations(logIndex);
   }
 
-  void updateConfiguration(List<LogEntryProto> entries) {
-    if (entries != null && !entries.isEmpty()) {
-      configurationManager.removeConfigurations(entries.get(0).getIndex());
-      entries.forEach(this::setRaftConf);
+  void updateConfiguration(List<LogEntryProto> entries) throws IOException {
+    if (entries == null || entries.isEmpty()) {
+      return;
+    }
+    configurationManager.removeConfigurations(entries.get(0).getIndex());
+
+    boolean changed = false;
+    for(LogEntryProto entry : entries) {
+      changed |= setRaftConf(entry);
+    }
+
+    if (changed && server.getRole().getCurrentRole() == RaftPeerRole.LISTENER) {
+      server.changeToFollowerAndPersistMetadata(getCurrentTerm(), true, "setRaftConf").join();
     }
   }
 

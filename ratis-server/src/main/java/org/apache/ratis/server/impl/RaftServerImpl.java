@@ -591,7 +591,7 @@ class RaftServerImpl implements RaftServer.Division,
       throw new IllegalStateException("Unexpected role " + old);
     }
     CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
-    if ((old != RaftPeerRole.FOLLOWER || force) && old != RaftPeerRole.LISTENER) {
+    if (shouldSetFollower(old, force)) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
         future = role.shutdownLeaderState(false)
@@ -607,7 +607,7 @@ class RaftServerImpl implements RaftServer.Division,
         state.setLeader(null, reason);
       } else if (old == RaftPeerRole.CANDIDATE) {
         future = role.shutdownLeaderElection();
-      } else if (old == RaftPeerRole.FOLLOWER) {
+      } else if (old == RaftPeerRole.FOLLOWER || old == RaftPeerRole.LISTENER) {
         future = role.shutdownFollowerState();
       }
 
@@ -619,6 +619,14 @@ class RaftServerImpl implements RaftServer.Division,
     }
     return future;
   }
+
+    private boolean shouldSetFollower(RaftPeerRole old, boolean force) {
+      if (old == RaftPeerRole.LISTENER) {
+        final RaftConfigurationImpl conf = state.getRaftConf();
+        return conf.isStable() && conf.containsInConf(getId());
+      }
+      return old != RaftPeerRole.FOLLOWER || force;
+    }
 
   synchronized CompletableFuture<Void> changeToFollowerAndPersistMetadata(
       long newTerm,
