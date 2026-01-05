@@ -83,11 +83,11 @@ public final class LogSegmentStartEnd implements Comparable<LogSegmentStartEnd> 
     }
   }
 
-  long getStartIndex() {
+  public long getStartIndex() {
     return startIndex;
   }
 
-  long getEndIndex() {
+  public long getEndIndex() {
     return Objects.requireNonNull(endIndex, "endIndex");
   }
 
