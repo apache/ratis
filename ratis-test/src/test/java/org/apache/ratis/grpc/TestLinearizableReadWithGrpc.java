@@ -35,6 +35,11 @@ public class TestLinearizableReadWithGrpc
   }
 
   @Override
+  public boolean readIndexUseAppliedIndex() {
+    return false;
+  }
+
+  @Override
   public void assertRaftProperties(RaftProperties p) {
     assertOption(LINEARIZABLE, p);
     assertFalse(RaftServerConfigKeys.Read.leaderLeaseEnabled(p));
