@@ -275,6 +275,10 @@ public interface RaftServerConfigKeys {
         return getBoolean(properties::getBoolean, READ_INDEX_USE_APPLIED_INDEX_ENABLED_KEY,
             READ_INDEX_USE_APPLIED_INDEX_ENABLED_DEFAULT, getDefaultLog());
       }
+
+      static void setReadIndexUseAppliedIndexEnabled(RaftProperties properties, boolean enabled) {
+        setBoolean(properties::setBoolean, READ_INDEX_USE_APPLIED_INDEX_ENABLED_KEY, enabled);
+      }
     }
   }
 
