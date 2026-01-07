@@ -209,14 +209,6 @@ if it fails to receive any RPC responses from this peer within this specified ti
 | **Type**        | double, ranging from (0.0,1.0)                |
 | **Default**     | 0.9                                           |
 
---------------------------------------------------------------------------------
-
-| **Property**    | `raft.server.read-index.use.applied-index.enabled`                        |
-|:----------------|:--------------------------------------------------------------------------|
-| **Description** | whether leader return applied index instead of commit index for ReadIndex |
-| **Type**        | boolean                                                                   |
-| **Default**     | false                                                                     |
-
 ### Read After Write - Configurations related to read-after-write-consistency
 
 
@@ -226,6 +218,13 @@ if it fails to receive any RPC responses from this peer within this specified ti
 | **Type**        | TimeDuration                                                                   |
 | **Default**     | 60s                                                                            |
 
+### Read Index - Configurations related to ReadIndex used in linearizable read 
+
+| **Property**    | `raft.server.read.read-index.use.applied-index.enabled`                   |
+|:----------------|:--------------------------------------------------------------------------|
+| **Description** | whether leader return applied index instead of commit index for ReadIndex |
+| **Type**        | boolean                                                                   |
+| **Default**     | false                                                                     |
 
 
 ### Write - Configurations related to write requests.
