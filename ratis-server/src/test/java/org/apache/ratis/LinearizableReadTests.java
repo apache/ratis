@@ -60,7 +60,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   public abstract boolean isLeaderLeaseEnabled();
 
-  public abstract boolean readIndexUseAppliedIndex();
+  public abstract boolean readIndexAppliedIndexEnabled();
 
   public abstract void assertRaftProperties(RaftProperties properties);
 

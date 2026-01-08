@@ -21,7 +21,7 @@ public class TestLinearizableReadAppliedIndexLeaderLeaseReadWithGrpc
     extends TestLinearizableLeaderLeaseReadWithGrpc {
 
   @Override
-  public boolean readIndexUseAppliedIndex() {
+  public boolean readIndexAppliedIndexEnabled() {
     return true;
   }
 }

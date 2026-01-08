@@ -220,11 +220,11 @@ if it fails to receive any RPC responses from this peer within this specified ti
 
 ### Read Index - Configurations related to ReadIndex used in linearizable read 
 
-| **Property**    | `raft.server.read.read-index.use.applied-index.enabled`                   |
-|:----------------|:--------------------------------------------------------------------------|
-| **Description** | whether leader return applied index instead of commit index for ReadIndex |
-| **Type**        | boolean                                                                   |
-| **Default**     | false                                                                     |
+| **Property**    | `raft.server.read.read-index.applied-index.enabled`                   |
+|:----------------|:----------------------------------------------------------------------|
+| **Description** | whether applied index (instead of commit index) is used for ReadIndex |
+| **Type**        | boolean                                                               |
+| **Default**     | false                                                                 |
 
 
 ### Write - Configurations related to write requests.

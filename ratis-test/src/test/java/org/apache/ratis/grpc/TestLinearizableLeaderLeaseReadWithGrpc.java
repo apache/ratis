@@ -35,7 +35,7 @@ public class TestLinearizableLeaderLeaseReadWithGrpc
   }
 
   @Override
-  public boolean readIndexUseAppliedIndex() {
+  public boolean readIndexAppliedIndexEnabled() {
     return false;
   }
 

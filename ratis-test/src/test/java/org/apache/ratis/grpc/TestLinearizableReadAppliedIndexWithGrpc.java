@@ -21,7 +21,7 @@ public class TestLinearizableReadAppliedIndexWithGrpc
   extends TestLinearizableReadWithGrpc {
 
   @Override
-  public boolean readIndexUseAppliedIndex() {
+  public boolean readIndexAppliedIndexEnabled() {
     return true;
   }
 }

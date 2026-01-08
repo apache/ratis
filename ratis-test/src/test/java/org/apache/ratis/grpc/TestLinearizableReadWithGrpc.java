@@ -35,7 +35,7 @@ public class TestLinearizableReadWithGrpc
   }
 
   @Override
-  public boolean readIndexUseAppliedIndex() {
+  public boolean readIndexAppliedIndexEnabled() {
     return false;
   }
 

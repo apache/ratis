@@ -353,7 +353,7 @@ class LeaderStateImpl implements LeaderState {
   private final PendingStepDown pendingStepDown;
 
   private final ReadIndexHeartbeats readIndexHeartbeats;
-  private final boolean readIndexUseAppliedIndexEnabled;
+  private final boolean readIndexAppliedIndexEnabled;
   private final LeaderLease lease;
 
   LeaderStateImpl(RaftServerImpl server) {
@@ -390,8 +390,8 @@ class LeaderStateImpl implements LeaderState {
     } else {
       this.followerMaxGapThreshold = (long) (followerGapRatioMax * maxPendingRequests);
     }
-    this.readIndexUseAppliedIndexEnabled = RaftServerConfigKeys.Read.ReadIndex
-        .readIndexUseAppliedIndexEnabled(properties);
+    this.readIndexAppliedIndexEnabled = RaftServerConfigKeys.Read.ReadIndex
+        .readIndexAppliedIndexEnabled(properties);
 
     final RaftConfigurationImpl conf = state.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
@@ -1143,17 +1143,17 @@ class LeaderStateImpl implements LeaderState {
    * @return current readIndex.
    */
   CompletableFuture<Long> getReadIndex(Long readAfterWriteConsistentIndex) {
-    final long lastAppliedOrCommitIndex = readIndexUseAppliedIndexEnabled ?
+    final long index = readIndexAppliedIndexEnabled ?
         server.getState().getLastAppliedIndex() : server.getRaftLog().getLastCommittedIndex();
     final long readIndex;
-    if (readAfterWriteConsistentIndex != null && readAfterWriteConsistentIndex > lastAppliedOrCommitIndex) {
+    if (readAfterWriteConsistentIndex != null && readAfterWriteConsistentIndex > index) {
       readIndex = readAfterWriteConsistentIndex;
     } else {
-      readIndex = lastAppliedOrCommitIndex;
+      readIndex = index;
     }
     LOG.debug("readIndex={} ({}Index={}, readAfterWriteConsistentIndex={})",
-        readIndex, readIndexUseAppliedIndexEnabled ? "applied" : "commit",
-        lastAppliedOrCommitIndex, readAfterWriteConsistentIndex);
+        readIndex, readIndexAppliedIndexEnabled ? "applied" : "commit",
+        index, readAfterWriteConsistentIndex);
 
     // if group contains only one member, fast path
     if (server.getRaftConf().isSingleton()) {
