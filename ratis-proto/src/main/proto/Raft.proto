@@ -117,11 +117,11 @@ message RaftRpcRequestProto {
   uint64 callId = 4;
   bool toLeader = 5;
 
+  SpanContextProto spanContext = 11;
   repeated uint64 repliedCallIds = 12; // The call ids of the replied requests
   uint64 timeoutMs = 13;
   RoutingTableProto routingTable = 14;
   SlidingWindowEntry slidingWindowEntry = 15;
-  SpanContextProto spanContext = 16;
 }
 
 message SlidingWindowEntry {

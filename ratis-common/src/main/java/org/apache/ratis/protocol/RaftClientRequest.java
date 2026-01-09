@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
+import io.opentelemetry.context.Context;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.ForwardRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.MessageStreamRequestTypeProto;
@@ -24,9 +25,11 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
+import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.proto.RaftProtos.StaleReadRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.WatchRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.WriteRequestTypeProto;
+import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
@@ -305,6 +308,7 @@ public class RaftClientRequest extends RaftClientMessage {
     private SlidingWindowEntry slidingWindowEntry;
     private RoutingTable routingTable;
     private long timeoutMs;
+    private SpanContextProto spanContext;
 
     public RaftClientRequest build() {
       return new RaftClientRequest(this);
@@ -366,6 +370,11 @@ public class RaftClientRequest extends RaftClientMessage {
       this.timeoutMs = timeoutMs;
       return this;
     }
+
+    public Builder setSpanContext(SpanContextProto spanContext) {
+      this.spanContext = spanContext;
+      return this;
+    }
   }
 
   public static Builder newBuilder() {
@@ -396,6 +405,8 @@ public class RaftClientRequest extends RaftClientMessage {
   private final long timeoutMs;
 
   private final boolean toLeader;
+
+  private SpanContextProto spanContext;
 
   /** Construct a request for sending to the given server. */
   protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
@@ -429,6 +440,7 @@ public class RaftClientRequest extends RaftClientMessage {
     this.slidingWindowEntry = b.slidingWindowEntry;
     this.routingTable = b.routingTable;
     this.timeoutMs = b.timeoutMs;
+    this.spanContext = b.spanContext;
   }
 
   @Override
@@ -470,6 +482,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public long getTimeoutMs() {
     return timeoutMs;
+  }
+
+  public SpanContextProto getSpanContext() {
+    return spanContext;
   }
 
   @Override

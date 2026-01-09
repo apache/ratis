@@ -17,6 +17,10 @@
  */
 package org.apache.ratis.server.impl;
 
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
@@ -100,6 +104,8 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.trace.RatisAttributes;
+import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.ConcurrentUtils;
@@ -943,16 +949,44 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    LOG.debug("{}: receive client request({})", getMemberId(), request);
-    final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
-    final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
-    return replyFuture(request).whenComplete((clientReply, exception) -> {
-      timerContext.ifPresent(Timekeeper.Context::stop);
-      if (exception != null || clientReply.getException() != null) {
-        raftServerMetrics.incFailedRequestCount(request.getType());
-      }
-    });
+    final Context remoteContext = TraceUtils.extractContextFromProto(request.getSpanContext());
+    final Span span = TraceUtils.createRemoteSpan("raft.server.submitClientRequestAsync", remoteContext);
+    span.setAttribute(RatisAttributes.ATTR_MEMBER_ID, getMemberId().toString());
+    span.setAttribute(RatisAttributes.ATTR_CALLER_ID, String.valueOf(request.getCallId()));
+    try (Scope ignored = span.makeCurrent()) {
+      assertLifeCycleState(LifeCycle.States.RUNNING);
+      LOG.debug("{}: receive client request({})", getMemberId(), request);
+      final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
+      final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
+      span.addEvent("Processing client request");
+      final CompletableFuture<RaftClientReply> future = replyFuture(request);
+      return future.whenComplete((clientReply, exception) -> {
+        try (Scope completeScope = span.makeCurrent()) {
+          timerContext.ifPresent(Timekeeper.Context::stop);
+          if (exception != null || (clientReply != null && clientReply.getException() != null)) {
+            raftServerMetrics.incFailedRequestCount(request.getType());
+          }
+          if (exception != null) {
+            span.recordException(exception);
+            span.setStatus(StatusCode.ERROR, exception.getMessage());
+          } else if (clientReply != null && clientReply.getException() != null) {
+            span.recordException(clientReply.getException());
+            span.setStatus(StatusCode.ERROR, clientReply.getException().getMessage());
+          }
+        } finally {
+          span.addEvent("Completed client request");
+          span.end();
+        }
+      });
+    } catch (IOException e) {
+      // this catch block is for exceptions thrown before the future is returned.
+      // Any exception thrown after the future is returned should be handled in
+      // the whenComplete callback above.
+      span.recordException(e);
+      span.setStatus(StatusCode.ERROR, e.getMessage());
+      span.end();
+      throw e;
+    }
   }
 
   private CompletableFuture<RaftClientReply> replyFuture(RaftClientRequest request) throws IOException {

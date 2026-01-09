@@ -189,6 +189,9 @@
     <shaded.protobuf.version>3.25.8</shaded.protobuf.version>
     <shaded.grpc.version>1.75.0</shaded.grpc.version>
 
+    <!-- OpenTelemetry versions -->
+    <opentelemetry.version>1.57.0</opentelemetry.version>
+    <opentelemetry-semconv.version>1.37.0</opentelemetry-semconv.version>
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
     <test.exclude.pattern>_</test.exclude.pattern>
@@ -197,6 +200,7 @@
 
     <slf4j.version>2.0.7</slf4j.version>
     <junit-bom.version>5.13.3</junit-bom.version>
+    <assertj-core.version>3.27.6</assertj-core.version>
     <mockito.version>4.11.0</mockito.version>
     <jacoco.version>0.8.12</jacoco.version>
     <jakarta.annotation.version>1.3.5</jakarta.annotation.version>
@@ -389,6 +393,12 @@
         <scope>import</scope>
       </dependency>
       <dependency>
+        <groupId>org.assertj</groupId>
+        <artifactId>assertj-core</artifactId>
+        <version>${assertj-core.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
         <groupId>org.mockito</groupId>
         <artifactId>mockito-core</artifactId>
         <version>${mockito.version}</version>
@@ -398,7 +408,35 @@
         <artifactId>jakarta.annotation-api</artifactId>
         <version>${jakarta.annotation.version}</version>
       </dependency>
+
+      <!-- OpenTelemetry dependencies -->
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-api</artifactId>
+        <version>${opentelemetry.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-sdk</artifactId>
+        <version>${opentelemetry.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-sdk-testing</artifactId>
+        <version>${opentelemetry.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry.semconv</groupId>
+        <artifactId>opentelemetry-semconv</artifactId>
+        <version>${opentelemetry-semconv.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-context</artifactId>
+        <version>${opentelemetry.version}</version>
+      </dependency>
     </dependencies>
+
   </dependencyManagement>
 
   <build>
