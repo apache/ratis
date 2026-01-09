@@ -391,7 +391,7 @@ class LeaderStateImpl implements LeaderState {
       this.followerMaxGapThreshold = (long) (followerGapRatioMax * maxPendingRequests);
     }
     this.readIndexAppliedIndexEnabled = RaftServerConfigKeys.Read.ReadIndex
-        .readIndexAppliedIndexEnabled(properties);
+        .appliedIndexEnabled(properties);
 
     final RaftConfigurationImpl conf = state.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());

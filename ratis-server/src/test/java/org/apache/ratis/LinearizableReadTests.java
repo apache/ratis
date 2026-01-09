@@ -77,7 +77,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     CounterStateMachine.setProperties(p);
     RaftServerConfigKeys.Read.setOption(p, LINEARIZABLE);
     RaftServerConfigKeys.Read.setLeaderLeaseEnabled(p, isLeaderLeaseEnabled());
-    RaftServerConfigKeys.Read.ReadIndex.setReadIndexAppliedIndexEnabled(p, readIndexAppliedIndexEnabled());
+    RaftServerConfigKeys.Read.ReadIndex.setAppliedIndexEnabled(p, readIndexAppliedIndexEnabled());
   }
 
   @Test
