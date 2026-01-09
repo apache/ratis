@@ -265,6 +265,21 @@ public interface RaftServerConfigKeys {
         setTimeDuration(properties::setTimeDuration, WRITE_INDEX_CACHE_EXPIRY_TIME_KEY, expiryTime);
       }
     }
+
+    interface ReadIndex {
+      String PREFIX = Read.PREFIX + ".read-index";
+
+      String APPLIED_INDEX_ENABLED_KEY = PREFIX + ".applied-index.enabled";
+      boolean APPLIED_INDEX_ENABLED_DEFAULT = false;
+      static boolean appliedIndexEnabled(RaftProperties properties) {
+        return getBoolean(properties::getBoolean, APPLIED_INDEX_ENABLED_KEY,
+            APPLIED_INDEX_ENABLED_DEFAULT, getDefaultLog());
+      }
+
+      static void setAppliedIndexEnabled(RaftProperties properties, boolean enabled) {
+        setBoolean(properties::setBoolean, APPLIED_INDEX_ENABLED_KEY, enabled);
+      }
+    }
   }
 
   interface Write {

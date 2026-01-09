@@ -60,6 +60,8 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   public abstract boolean isLeaderLeaseEnabled();
 
+  public abstract boolean readIndexAppliedIndexEnabled();
+
   public abstract void assertRaftProperties(RaftProperties properties);
 
   void runWithNewCluster(CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
@@ -75,6 +77,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     CounterStateMachine.setProperties(p);
     RaftServerConfigKeys.Read.setOption(p, LINEARIZABLE);
     RaftServerConfigKeys.Read.setLeaderLeaseEnabled(p, isLeaderLeaseEnabled());
+    RaftServerConfigKeys.Read.ReadIndex.setAppliedIndexEnabled(p, readIndexAppliedIndexEnabled());
   }
 
   @Test
