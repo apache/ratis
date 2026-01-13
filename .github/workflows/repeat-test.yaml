@@ -55,6 +55,7 @@ jobs:
     outputs:
       matrix: ${{ steps.generate.outputs.matrix }}
       test-spec: ${{ steps.test-spec.outputs.test-spec }}
+      ref: ${{ steps.ref.outputs.ref }}
     steps:
       - id: generate
         name: Generate test matrix
@@ -76,6 +77,12 @@ jobs:
           fi
           echo "Test to be run: $test_spec"
           echo "test-spec=$test_spec" >> $GITHUB_OUTPUT
+      - name: Define checkout ref
+        id: ref
+        run: |
+          echo "ref=$REF" >> $GITHUB_OUTPUT
+        env:
+          REF: ${{ github.event.inputs.ref }}
   test:
     if: ${{ always() }}
     needs:
@@ -90,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ needs.prepare.outputs.ref }}
       - name: Cache for maven dependencies
         uses: actions/cache@v4
         with:
