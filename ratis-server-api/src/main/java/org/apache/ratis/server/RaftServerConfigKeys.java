@@ -279,6 +279,17 @@ public interface RaftServerConfigKeys {
       static void setAppliedIndexEnabled(RaftProperties properties, boolean enabled) {
         setBoolean(properties::setBoolean, APPLIED_INDEX_ENABLED_KEY, enabled);
       }
+
+      String HEARTBEAT_SKIP_ENABLED_KEY = PREFIX + ".heartbeat.skip.enabled";
+      boolean HEARTBEAT_SKIP_ENABLED_DEFAULT = false;
+      static boolean heartbeatSkipEnabled(RaftProperties properties) {
+        return getBoolean(properties::getBoolean, HEARTBEAT_SKIP_ENABLED_KEY,
+            HEARTBEAT_SKIP_ENABLED_DEFAULT, getDefaultLog());
+      }
+
+      static void setHeartbeatSkipEnabled(RaftProperties properties, boolean enabled) {
+        setBoolean(properties::setBoolean, HEARTBEAT_SKIP_ENABLED_KEY, enabled);
+      }
     }
   }
 
