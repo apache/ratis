@@ -27,7 +27,6 @@
   <packaging>pom</packaging>
 
   <properties>
-    <ratis.thirdparty.version>1.0.10</ratis.thirdparty.version>
     <!-- no testable code in this module -->
     <skipTests>true</skipTests>
   </properties>
