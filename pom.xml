@@ -73,6 +73,7 @@
     <module>ratis-tools</module>
     <module>ratis-shell</module>
     <module>ratis-assembly</module>
+    <module>ratis-bom</module>
   </modules>
 
   <scm>
@@ -181,7 +182,7 @@
     <!-- override maven.compiler.target=8 defined in parent POM 35; can be removed on upgrade to 36+ -->
     <maven.compiler.target>${maven.compiler.release}</maven.compiler.target>
 
-    <!-- Contains all shaded thirdparty dependencies -->
+    <!-- Contains all shaded thirdparty dependencies; make sure to also update in ratis-bom/pom.xml -->
     <ratis.thirdparty.version>1.0.10</ratis.thirdparty.version>
 
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
