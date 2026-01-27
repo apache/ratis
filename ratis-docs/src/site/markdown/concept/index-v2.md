@@ -63,26 +63,27 @@ performance of your system.
 
 ### Servers, Clusters, and Groups
 
-A Raft server (also known as a "peer") is a single running instance of your application with
-Ratis embedded. Each server runs your state machine and participates in the consensus protocol.
+A Raft server (also known as a "peer" or "member") is a single running instance of your application
+with Ratis embedded. Each server runs your state machine and participates in the consensus
+protocol.
 
 A Raft cluster is a physical collection of servers that can participate in consensus. A Raft
 group is a logical consensus domain that runs across a specific subset of peers in the cluster.
-At any given time, one peer in a group acts as the "leader" while the others are "followers" or
-"listeners". The leader handles all write requests and replicates operations to other peers in
-the group. Both leaders and followers can service read requests, with different consistency
-guarantees.
-
-A single cluster can host multiple independent Raft groups, each with its own leader election,
-consistency and state replication. Groups typically consist of an odd number of peers (3, 5, or
-7 are common) to ensure clear majority decisions.
+One of the peers in a group acts as the "leader" while the others are "followers" or "listeners".
+The leader handles all write requests and replicates operations to other peers in the group. Both
+leaders and followers can service read requests, with different consistency guarantees. A single
+cluster can host multiple independent Raft groups, each with its own leader election, consistency
+and state replication.
 
 ### Majority-Based Decision-Making
 
 Raft's safety guarantees depend on majority agreement within each group. The leader replicates
 each operation to the followers in its group, and operations are committed when at least
-(N/2 + 1) peers in that group acknowledge them. This means a group of 3 peers can tolerate 1
-failure, a group of five peers can tolerate 2 failures, and so on.
+$\lfloor N/2 + 1 \rfloor$ peers in that group acknowledge them. This means a group of 3 peers can
+tolerate 1 failure, a group of five peers can tolerate 2 failures, and so on. Since a group of
+$N$ peers for an even $N$ can tolerate the same number of failures as a group of $(N-1)$ peers,
+groups typically consist of an odd number of peers (3, 5, or 7 are common) to ensure clear
+majority decisions.
 
 This majority requirement affects both availability and performance. A group remains available as
 long as a majority of its peers are reachable and functioning. However, every transaction must
@@ -124,11 +125,10 @@ storing that log entry, making it safe to apply to the state machine.
 In Ratis, the state machine is your application's primary integration point. Your business logic
 or data storage operations are implemented by the state machine.
 
-The state machine is not a finite state machine with states and transitions. Instead, it's a
-deterministic computation engine that processes a sequence of operations and maintains some
-internal state. The state machine must be deterministic: given the same sequence of operations,
-it must always produce the same results and end up in the same final state. Operations are
-processed sequentially, one at a time, in the order they appear in the Raft log.
+The state machine is a deterministic computation engine that processes a sequence of operations
+and maintains some internal state. The state machine must be deterministic: given the same
+sequence of operations, it must always produce the same results and end up in the same final state.
+Operations are processed sequentially, one at a time, in the order they appear in the Raft log.
 
 ### State Machine Responsibilities
 
@@ -151,9 +151,10 @@ prepares its internal data structures. The Raft layer then replays any log entri
 after the snapshot, bringing the peer up to the current state of the group.
 
 During normal operation, the state machine continuously processes transactions as they're
-committed by the Raft group, responds to leadership changes, and handles read-only queries. For
-read-only operations, the state machine can answer queries directly without going through the
-Raft log, providing better performance for reads but with consistency trade-offs.
+committed by the Raft group, handles read-only queries, and may respond to changes in the node's
+status as a leader or follower. For read-only operations, the state machine can answer queries
+directly without going through the Raft log, providing better performance for reads but with
+[consistency trade-offs](#consistency-models-and-read-patterns).
 
 Periodically, the state machine creates snapshots of its current state. This happens either
 automatically based on configuration (like log size thresholds) or manually through
@@ -177,9 +178,10 @@ operation's effects become visible to future queries.
 
 ### Designing Your State Machine
 
-When designing your state machine, ensure your operations are deterministic and can be
-efficiently serialized for replication. Operations must be idempotent, as Raft may occasionally
-replay operations during recovery scenarios.
+When designing your state machine, ensure your operations are deterministic and can be efficiently
+serialized for replication. Operations are not required to be idempotent because the Raft protocol
+ensures that each operation is applied exactly once on each peer, however idempotent operations may
+make it easier to reason about your application.
 
 Plan how you'll represent your application's state for both runtime efficiency and snapshot
 serialization. If your state machine maintains state in external systems (databases, files),
@@ -210,23 +212,38 @@ same order.
 
 ### Read Consistency Options
 
-**Linearizable reads** provide the strongest consistency by going through the Raft protocol to
-ensure you're reading the most up-to-date committed data. Use the client's `sendReadOnly` method,
-which forces the leader to confirm it's still the leader before serving the read.
+Ratis provides several read patterns with different consistency and performance characteristics.
 
-**Leader reads** offer strong consistency but with caveats: these are reads served directly by
-the leader without going through the Raft protocol. Use `sendReadOnlyNonLinearizable` to query
-the leader's state machine directly. This is faster than linearizable reads but may return stale
+**Leader reads** query the current leader's state machine directly without going through the Raft
+consensus protocol. Use `sendReadOnly()` for the strongest consistency supported by the server (see
+[Server Read Consistency Configuration](#server-read-consistency-configuration), below). Use
+`sendReadOnlyNonLinearizable()` to explicitly request leader reads regardless of server
+configuration. These APIs provide strong consistency under normal conditions but may return stale
 data if the leader has been partitioned from the majority.
 
-**Follower reads** provide eventual consistency by serving reads directly from followers using
-their local state machine. Call `sendReadOnly(message, serverId)` with a specific follower's
-server ID. These are the fastest reads but may return stale data if the follower is behind in
-applying log entries.
+**Follower reads** query a specific follower's state machine directly. Call
+`sendReadOnly(message, serverId)` with a specific follower's server ID. These are typically the
+fastest reads but may return stale data if the follower is behind in applying log entries.
 
-**Stale reads with minimum index** offer a hybrid approach where you specify a minimum log index
-that the peer must have applied before serving the read. Call `sendStaleRead`: if the peer
-hasn't caught up to your minimum index, it throws a `StaleReadException`.
+**Stale reads with minimum index** let you specify a minimum log index that the peer must have
+applied before serving the read. Call `sendStaleRead()`: if the peer hasn't caught up to your
+minimum index, it will throw a `StaleReadException`.
+
+**Read-after-write consistency** ensures reads reflect the latest successful write by the same
+client. Use `sendReadAfterWrite()` when you need to read your own writes immediately.
+
+### Server Read Consistency Configuration
+
+The server's `raft.server.read.option` configuration affects read behavior:
+
+* **DEFAULT (default setting)**: `sendReadOnly()` performs leader reads for efficiency.
+* **LINEARIZABLE**: `sendReadOnly()` and follower reads via `sendReadOnly(message, serverId)` both
+use the ReadIndex protocol to provide linearizable consistency, ensuring you always read the most
+up-to-date committed data. Clients can use `sendReadOnlyNonLinearizable()` to perform a leader read
+without a linearizable guarantee.
+
+Server-side configuration allows operators to choose between performance (leader reads) and strong
+consistency guarantees (linearizable reads) for their entire cluster.
 
 ### The Query Method and Read-Only Operations
 
@@ -288,7 +305,7 @@ loads it from local storage. The state machine is paused to prevent conflicts du
 the snapshot data is loaded replacing any existing state, and the state machine resumes normal
 operation by replaying any log entries that occurred after the snapshot.
 
-Your state machine's `initialize` method is responsible for loading snapshots during startup by
+Your state machine's `reinitialize` method is responsible for loading snapshots during startup by
 loading the latest snapshot if available, with the Raft layer replaying any log entries after
 the snapshot.
 
