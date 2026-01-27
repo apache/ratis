@@ -94,7 +94,7 @@ public abstract class Client extends SubCommandBase {
   @Override
   public void run() throws Exception {
     int raftSegmentPreallocatedSize = 1024 * 1024 * 1024;
-    RaftProperties raftProperties = new RaftProperties();
+    RaftProperties raftProperties = newRaftProperties();
     RaftConfigKeys.Rpc.setType(raftProperties, SupportedRpcType.GRPC);
     GrpcConfigKeys.setMessageSizeMax(raftProperties,
         SizeInBytes.valueOf(raftSegmentPreallocatedSize));

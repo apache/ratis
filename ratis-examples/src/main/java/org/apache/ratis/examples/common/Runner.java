@@ -40,6 +40,7 @@ public final class Runner {
       System.err.println("No command type specified: ");
       return;
     }
+    ExampleLauncher.init();
     List<SubCommandBase> commands = initializeCommands(args[0]);
     Runner runner = new Runner();
 

@@ -23,7 +23,8 @@ if [ "$#" -lt 2 ]; then
   exit 1
 fi
 
-source $DIR/common.sh
+OTEL_SERVICE_NAME=ratis.client
+source "${DIR}/common.sh"
 
 # One of the examples, e.g. "filestore" or "arithmetic"
 example="$1"
@@ -32,4 +33,4 @@ shift
 subcommand="$1"
 shift
 
-java ${LOGGER_OPTS} -jar $ARTIFACT "$example" "$subcommand" "$@"
+java ${OTEL_OPTS} ${LOGGER_OPTS} -jar $ARTIFACT "$example" "$subcommand" "$@"

@@ -44,6 +44,7 @@ import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.trace.TraceUtils;
+import org.apache.ratis.trace.otel.OTelTraceUtils;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -291,6 +292,9 @@ public final class RaftClientImpl implements RaftClient {
     } else {
       b.setLeaderId(getLeaderId())
        .setRepliedCallIds(repliedCallIds.get(callId));
+    }
+    if (TraceUtils.isEnabled()) {
+      b.setSpanContext(OTelTraceUtils.injectContextToProto());
     }
     return b.setClientId(clientId)
         .setGroupId(groupId)

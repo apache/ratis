@@ -18,6 +18,7 @@
 package org.apache.ratis.examples.common;
 
 import com.beust.jcommander.Parameter;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RoutingTable;
@@ -72,6 +73,10 @@ public abstract class SubCommandBase {
   }
 
   public abstract void run() throws Exception;
+
+  protected RaftProperties newRaftProperties() {
+    return ExampleLauncher.newRaftProperties();
+  }
 
   public String getRaftGroupId() {
     return raftGroupId;
