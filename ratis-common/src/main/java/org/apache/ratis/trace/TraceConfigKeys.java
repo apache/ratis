@@ -18,6 +18,7 @@
 package org.apache.ratis.trace;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.StringUtils;
 
 import java.util.function.Consumer;
 
@@ -30,8 +31,20 @@ public interface TraceConfigKeys {
   String ENABLED_KEY = PREFIX + ".enabled";
   boolean ENABLED_DEFAULT = false;
 
+  /**
+   * Whether Ratis should emit OpenTelemetry spans. When the key is absent from
+   * {@link RaftProperties}, the JVM system property {@value #ENABLED_KEY} is consulted so
+   * {@code -Draft.otel.tracing.enabled=true} works with empty example configs.
+   */
   static boolean enabled(RaftProperties properties, Consumer<String> logger) {
-    return getBoolean(properties::getBoolean, ENABLED_KEY, ENABLED_DEFAULT, logger);
+    if (properties.getRaw(ENABLED_KEY) != null) {
+      return getBoolean(properties::getBoolean, ENABLED_KEY, ENABLED_DEFAULT, logger);
+    }
+    final String fromSystem = System.getProperty(ENABLED_KEY);
+    if (fromSystem != null) {
+      return StringUtils.string2boolean(fromSystem.trim(), ENABLED_DEFAULT);
+    }
+    return ENABLED_DEFAULT;
   }
 
   static boolean enabled(RaftProperties properties) {
