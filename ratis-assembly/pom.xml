@@ -289,6 +289,11 @@
       <groupId>org.apache.ratis</groupId>
       <artifactId>ratis-shell</artifactId>
     </dependency>
+    <!-- Include OpenTelemetry agent -->
+    <dependency>
+      <groupId>io.opentelemetry.javaagent</groupId>
+      <artifactId>opentelemetry-javaagent</artifactId>
+    </dependency>
   </dependencies>
 
   <profiles>
