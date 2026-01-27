@@ -791,24 +791,20 @@ class RaftServerImpl implements RaftServer.Division,
    */
   private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry) {
     if (!getInfo().isLeader()) {
-      NotLeaderException exception = generateNotLeaderException();
-      final RaftClientReply reply = newExceptionReply(request, exception);
-      return RetryCacheImpl.failWithReply(reply, entry);
+      return retryCache.failWithReplyAndInvalidate(
+          newExceptionReply(request, generateNotLeaderException()), entry);
     }
     if (!getInfo().isLeaderReady()) {
-      final CacheEntry cacheEntry = retryCache.getIfPresent(ClientInvocationId.valueOf(request));
-      if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
-        return cacheEntry.getReplyFuture();
-      }
-      final LeaderNotReadyException lnre = new LeaderNotReadyException(getMemberId());
-      final RaftClientReply reply = newExceptionReply(request, lnre);
-      return RetryCacheImpl.failWithReply(reply, entry);
+      return Optional.ofNullable(retryCache.getIfPresent(ClientInvocationId.valueOf(request)))
+          .filter(CacheEntry::isCompletedNormally)
+          .map(CacheEntry::getReplyFuture)
+          .orElseGet(() -> RetryCacheImpl.failWithReply(
+              newExceptionReply(request, new LeaderNotReadyException(getMemberId())), entry));
     }
 
     if (!request.isReadOnly() && isSteppingDown()) {
-      final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId() + " is stepping down");
-      final RaftClientReply reply = newExceptionReply(request, lsde);
-      return RetryCacheImpl.failWithReply(reply, entry);
+      return RetryCacheImpl.failWithReply(
+          newExceptionReply(request, new LeaderSteppingDownException(getMemberId() + " is stepping down")), entry);
     }
 
     return null;
@@ -849,11 +845,13 @@ class RaftServerImpl implements RaftServer.Division,
 
     assertLifeCycleState(LifeCycle.States.RUNNING);
 
-    final LeaderStateImpl unsyncedLeaderState = role.getLeaderState().orElse(null);
-    if (unsyncedLeaderState == null) {
-      final RaftClientReply reply = newExceptionReply(request, generateNotLeaderException());
-      return RetryCacheImpl.failWithReply(reply, cacheEntry);
+    final Optional<LeaderStateImpl> maybeLeaderState = role.getLeaderState();
+    if (!maybeLeaderState.isPresent()) {
+      return retryCache.failWithReplyAndInvalidate(
+          newExceptionReply(request, generateNotLeaderException()), cacheEntry);
     }
+    
+    final LeaderStateImpl unsyncedLeaderState = maybeLeaderState.get();
     final PendingRequests.Permit unsyncedPermit = unsyncedLeaderState.tryAcquirePendingRequest(request.getMessage());
     if (unsyncedPermit == null) {
       return getResourceUnavailableReply(request, cacheEntry);
