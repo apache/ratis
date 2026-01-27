@@ -61,6 +61,11 @@ public final class OTelTraceProvider implements TraceProvider {
       "tracer == null");
 
   @Override
+  public SpanContextProto injectContextToProto() {
+    return OTelTraceUtils.injectContextToProto();
+  }
+
+  @Override
   public <T, THROWABLE extends Throwable> CompletableFuture<T> traceClientSend(
       CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
       RaftClientRequest.Type type, RaftPeerId server) throws THROWABLE {

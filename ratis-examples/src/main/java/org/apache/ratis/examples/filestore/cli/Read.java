@@ -24,6 +24,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
+import org.apache.ratis.examples.common.ExampleLauncher;
 import org.apache.ratis.examples.common.SubCommandBase;
 import org.apache.ratis.examples.filestore.FileStoreClient;
 import org.apache.ratis.grpc.GrpcConfigKeys;
@@ -124,9 +125,10 @@ public class Read extends SubCommandBase {
     }
   }
 
-  private static RaftProperties newRaftProperties() {
+  @Override
+  protected RaftProperties newRaftProperties() {
     final int raftSegmentPreallocatedSize = 1024 * 1024 * 1024;
-    final RaftProperties raftProperties = new RaftProperties();
+    final RaftProperties raftProperties = ExampleLauncher.newRaftProperties();
     RaftConfigKeys.Rpc.setType(raftProperties, SupportedRpcType.GRPC);
     GrpcConfigKeys.setMessageSizeMax(raftProperties, SizeInBytes.valueOf(raftSegmentPreallocatedSize));
     RaftServerConfigKeys.Log.Appender.setBufferByteLimit(raftProperties,

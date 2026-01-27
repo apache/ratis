@@ -18,6 +18,7 @@
 package org.apache.ratis.trace;
 
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.function.CheckedSupplier;
@@ -27,6 +28,11 @@ import java.util.concurrent.CompletableFuture;
 
 enum NoOpTraceProvider implements TraceProvider {
   INSTANCE;
+
+  @Override
+  public SpanContextProto injectContextToProto() {
+    return null;
+  }
 
   @Override
   public <T, THROWABLE extends Throwable> CompletableFuture<T> traceClientSend(

@@ -46,3 +46,43 @@ if [[ -d "${CONF_DIR}" ]]; then
 else
   LOGGER_OPTS="-Dlog4j.configuration=file:${DIR}/../resources/log4j.properties"
 fi
+
+
+# for opentelemetry: release tarball uses lib/trace next to examples/;
+# dev tree uses ratis-assembly/target/apache-ratis-*-bin/lib/trace after package.
+if [[ -n "${OTEL_JAR:-}" && -f "${OTEL_JAR}" ]]; then
+  : # use OTEL_JAR from environment
+else
+  otel_jar_candidates=()
+  for _jar in "${SCRIPT_DIR}"/../../lib/trace/opentelemetry-javaagent*.jar; do
+    [[ -f "${_jar}" ]] && otel_jar_candidates+=("${_jar}")
+  done
+  for _otel_trace_dir in "${SCRIPT_DIR}"/../../../../ratis-assembly/target/apache-ratis-*-bin/lib/trace; do
+    [[ -d "${_otel_trace_dir}" ]] || continue
+    for _jar in "${_otel_trace_dir}"/opentelemetry-javaagent*.jar; do
+      [[ -f "${_jar}" ]] && otel_jar_candidates+=("${_jar}")
+    done
+  done
+  if ((${#otel_jar_candidates[@]} > 0)); then
+    OTEL_JAR="$(printf '%s\n' "${otel_jar_candidates[@]}" | sort -V | tail -n 1)"
+  else
+    echo "Warning: OpenTelemetry agent jar not found; OTEL disabled"
+    OTEL_JAR=""
+  fi
+fi
+
+OTEL_SERVICE_NAME="${OTEL_SERVICE_NAME:-ratis.server}"
+OTEL_DEFAULT_EXPORTER_OPTS="-Dotel.traces.exporter=logging \
+-Dotel.metrics.exporter=none \
+-Dotel.logs.exporter=logging"
+# Unset or empty → default exporter flags (empty is not a supported override).
+OTEL_EXPORTER_OPTS="${OTEL_EXPORTER_OPTS:-${OTEL_DEFAULT_EXPORTER_OPTS}}"
+
+# Enable javaagent when OTEL_JAR resolves to a file (env or discovery above).
+if [[ -n "${OTEL_JAR}" && -f "${OTEL_JAR}" ]]; then
+  OTEL_OPTS="-javaagent:${OTEL_JAR} -Dotel.resource.attributes=service.name=${OTEL_SERVICE_NAME} ${OTEL_EXPORTER_OPTS} -Draft.otel.tracing.enabled=true"
+else
+  OTEL_OPTS=""
+fi
+
+echo "Using OTEL_OPTS: ${OTEL_OPTS}"
