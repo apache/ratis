@@ -47,7 +47,10 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 /** Server utilities for internal use. */
 public final class ServerImplUtils {
@@ -119,6 +122,8 @@ public final class ServerImplUtils {
   /** A data structure to support the {@link #contains(TermIndex)} method. */
   static class NavigableIndices {
     private final NavigableMap<Long, ConsecutiveIndices> map = new TreeMap<>();
+    private final AtomicReference<CompletableFuture<Void>> future
+        = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     boolean contains(TermIndex ti) {
       final Long term = getTerm(ti.getIndex());
@@ -137,7 +142,15 @@ public final class ServerImplUtils {
       return floorEntry.getValue().getTerm(index);
     }
 
-    synchronized boolean append(List<ConsecutiveIndices> entriesTermIndices) {
+    CompletableFuture<Void> append(List<LogEntryProto> entries,
+        Function<List<LogEntryProto>, CompletableFuture<Void>> appendLog) {
+      final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
+      return alreadyExists(entriesTermIndices) ? future.get()
+          : future.updateAndGet(f -> f.thenComposeAsync(ignored -> appendLog.apply(entries)))
+              .whenComplete((v, e) -> removeExisting(entriesTermIndices));
+    }
+
+    private synchronized boolean alreadyExists(List<ConsecutiveIndices> entriesTermIndices) {
       for(int i = 0; i < entriesTermIndices.size(); i++) {
         final ConsecutiveIndices indices = entriesTermIndices.get(i);
         final ConsecutiveIndices previous = map.put(indices.startIndex, indices);
@@ -147,10 +160,10 @@ public final class ServerImplUtils {
           for(int j = 0; j < i; j++) {
             map.remove(entriesTermIndices.get(j).startIndex);
           }
-          return false;
+          return true;
         }
       }
-      return true;
+      return false;
     }
 
     synchronized void removeExisting(List<ConsecutiveIndices> entriesTermIndices) {
