@@ -81,7 +81,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
-import org.apache.ratis.server.impl.ServerImplUtils.ConsecutiveIndices;
 import org.apache.ratis.server.impl.ServerImplUtils.NavigableIndices;
 import org.apache.ratis.server.leader.LeaderState.StepDownReason;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
@@ -119,7 +118,6 @@ import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -134,7 +132,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -261,10 +258,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
   private final ThreadGroup threadGroup;
 
-  // Conditional fields for appendLog synchronization (RATIS-2235)
-  private final AtomicReference<CompletableFuture<Void>> appendLogFuture;
   private final NavigableIndices appendLogTermIndices;
-  private final boolean appendEntriesSynchronized;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
@@ -299,21 +293,8 @@ class RaftServerImpl implements RaftServer.Division,
     this.transferLeadership = new TransferLeadership(this, properties);
     this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
     this.snapshotInstallationHandler = new SnapshotInstallationHandler(this, properties);
-
-    // Initialize appendLog synchronization components conditionally (RATIS-2235)
-    // Use system property for single-file configuration (avoids updating ratis-server-api jar)
-    this.appendEntriesSynchronized = Boolean.parseBoolean(
-        System.getProperty("raft.server.log.append.entries.synchronized", "true"));
-    LOG.info("{}: appendLog synchronization mode: {}", getMemberId(),
-        appendEntriesSynchronized ? "synchronized" : "parallel");
-
-    if (appendEntriesSynchronized) {
-      this.appendLogFuture = new AtomicReference<>(CompletableFuture.completedFuture(null));
-      this.appendLogTermIndices = new NavigableIndices();
-    } else {
-      this.appendLogFuture = null;
-      this.appendLogTermIndices = null;
-    }
+    this.appendLogTermIndices = RaftServerConfigKeys.Log.appendEntriesComposeEnabled(properties) ?
+        new NavigableIndices() : null;
 
     this.serverExecutor = ConcurrentUtils.newThreadPoolWithMax(
         RaftServerConfigKeys.ThreadPool.serverCached(properties),
@@ -791,20 +772,24 @@ class RaftServerImpl implements RaftServer.Division,
    */
   private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry) {
     if (!getInfo().isLeader()) {
-      return retryCache.failWithReplyAndInvalidate(
-          newExceptionReply(request, generateNotLeaderException()), entry);
+      NotLeaderException exception = generateNotLeaderException();
+      final RaftClientReply reply = newExceptionReply(request, exception);
+      return RetryCacheImpl.failWithReply(reply, entry);
     }
     if (!getInfo().isLeaderReady()) {
-      return Optional.ofNullable(retryCache.getIfPresent(ClientInvocationId.valueOf(request)))
-          .filter(CacheEntry::isCompletedNormally)
-          .map(CacheEntry::getReplyFuture)
-          .orElseGet(() -> RetryCacheImpl.failWithReply(
-              newExceptionReply(request, new LeaderNotReadyException(getMemberId())), entry));
+      final CacheEntry cacheEntry = retryCache.getIfPresent(ClientInvocationId.valueOf(request));
+      if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
+        return cacheEntry.getReplyFuture();
+      }
+      final LeaderNotReadyException lnre = new LeaderNotReadyException(getMemberId());
+      final RaftClientReply reply = newExceptionReply(request, lnre);
+      return RetryCacheImpl.failWithReply(reply, entry);
     }
 
     if (!request.isReadOnly() && isSteppingDown()) {
-      return RetryCacheImpl.failWithReply(
-          newExceptionReply(request, new LeaderSteppingDownException(getMemberId() + " is stepping down")), entry);
+      final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId() + " is stepping down");
+      final RaftClientReply reply = newExceptionReply(request, lsde);
+      return RetryCacheImpl.failWithReply(reply, entry);
     }
 
     return null;
@@ -845,13 +830,11 @@ class RaftServerImpl implements RaftServer.Division,
 
     assertLifeCycleState(LifeCycle.States.RUNNING);
 
-    final Optional<LeaderStateImpl> maybeLeaderState = role.getLeaderState();
-    if (!maybeLeaderState.isPresent()) {
-      return retryCache.failWithReplyAndInvalidate(
-          newExceptionReply(request, generateNotLeaderException()), cacheEntry);
+    final LeaderStateImpl unsyncedLeaderState = role.getLeaderState().orElse(null);
+    if (unsyncedLeaderState == null) {
+      final RaftClientReply reply = newExceptionReply(request, generateNotLeaderException());
+      return RetryCacheImpl.failWithReply(reply, cacheEntry);
     }
-    
-    final LeaderStateImpl unsyncedLeaderState = maybeLeaderState.get();
     final PendingRequests.Permit unsyncedPermit = unsyncedLeaderState.tryAcquirePendingRequest(request.getMessage());
     if (unsyncedPermit == null) {
       return getResourceUnavailableReply(request, cacheEntry);
@@ -1635,16 +1618,9 @@ class RaftServerImpl implements RaftServer.Division,
       state.updateConfiguration(entries);
     }
     future.join();
-
-    // Conditional appendLog based on configuration (RATIS-2235)
-    final CompletableFuture<Void> appendOperation;
-    if (appendEntriesSynchronized && !entries.isEmpty()) {
-      appendOperation = appendLogSynchronized(entries);
-    } else {
-      final List<CompletableFuture<Long>> futures = entries.isEmpty() ? Collections.emptyList()
-          : state.getLog().append(entries);
-      appendOperation = JavaUtils.allOf(futures);
-    }
+    final CompletableFuture<Void> appendFuture = entries.isEmpty()? CompletableFuture.completedFuture(null)
+        : appendLogTermIndices != null ? appendLogTermIndices.append(entries, this::appendLog)
+        : appendLog(entries);
 
     proto.getCommitInfosList().forEach(commitInfoCache::update);
 
@@ -1659,7 +1635,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final long commitIndex = effectiveCommitIndex(proto.getLeaderCommit(), previous, entries.size());
     final long matchIndex = isHeartbeat? RaftLog.INVALID_LOG_INDEX: entries.get(entries.size() - 1).getIndex();
-    return appendOperation.whenCompleteAsync((r, t) -> {
+    return appendFuture.whenCompleteAsync((r, t) -> {
       followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
       timer.stop();
     }, getServerExecutor()).thenApply(v -> {
@@ -1676,22 +1652,9 @@ class RaftServerImpl implements RaftServer.Division,
       return reply;
     });
   }
-
-  /**
-   * Synchronized appendLog operation to ensure only one thread performs appendLog at a time.
-   * This is the RATIS-2235 implementation that can be enabled via configuration.
-   */
-  private CompletableFuture<Void> appendLogSynchronized(List<LogEntryProto> entries) {
-    final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
-    if (!appendLogTermIndices.append(entriesTermIndices)) {
-      // index already exists, return the last future
-      return appendLogFuture.get();
-    }
-
-
-    return appendLogFuture.updateAndGet(f -> f.thenComposeAsync(
-            ignored -> JavaUtils.allOf(state.getLog().append(entries)), serverExecutor))
-        .whenComplete((v, e) -> appendLogTermIndices.removeExisting(entriesTermIndices));
+  private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
+    return CompletableFuture.completedFuture(null)
+        .thenComposeAsync(dummy -> JavaUtils.allOf(state.getLog().append(entries)), serverExecutor);
   }
 
   private long checkInconsistentAppendEntries(TermIndex previous, List<LogEntryProto> entries) {
@@ -1718,7 +1681,8 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     // Check if "previous" is contained in current state.
-    if (previous != null && !(appendEntriesSynchronized && appendLogTermIndices.contains(previous))
+    if (previous != null
+        && !(appendLogTermIndices != null && appendLogTermIndices.contains(previous))
         && !state.containsTermIndex(previous)) {
       final long replyNextIndex = Math.min(state.getNextIndex(), previous.getIndex());
       LOG.info("{}: Failed appendEntries as previous log entry ({}) is not found", getMemberId(), previous);
