@@ -440,6 +440,16 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, READ_LOCK_ENABLED_KEY, readLockEnabled);
     }
 
+    String APPEND_ENTRIES_COMPOSE_ENABLED_KEY = PREFIX + ".append-entries.compose.enabled";
+    boolean APPEND_ENTRIES_COMPOSE_ENABLED_DEFAULT = true;
+    static boolean appendEntriesComposeEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          APPEND_ENTRIES_COMPOSE_ENABLED_KEY, APPEND_ENTRIES_COMPOSE_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setAppendEntriesComposeEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, APPEND_ENTRIES_COMPOSE_ENABLED_KEY, enabled);
+    }
+
     /**
      * Besides the open segment, the max number of segments caching log entries.
      */
