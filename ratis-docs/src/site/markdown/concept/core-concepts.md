@@ -136,36 +136,44 @@ same order.
 
 Ratis provides several read patterns with different consistency and performance characteristics.
 
-**Leader reads** query the current leader's state machine directly without going through the Raft
-consensus protocol. Use `sendReadOnly()` for the strongest consistency supported by the server (see
-[Server Read Consistency Configuration](#server-read-consistency-configuration), below). Use
-`sendReadOnlyNonLinearizable()` to explicitly request leader reads regardless of server
-configuration. These APIs provide strong consistency under normal conditions but may return stale
-data if the leader has been partitioned from the majority.
+Read requests query the state machine of a server directly without going through the Raft consensus
+protocol. The `sendReadOnly()` API sends a read request to the leader. If a non-leader server
+receives such request, it throws a `NotLeaderException` and then the client will retry other
+servers. In contrast, the `sendReadOnly(message, serverId)` API sends the request to a particular
+server, which may be a leader or a follower.
 
-**Follower reads** query a specific follower's state machine directly. Call
-`sendReadOnly(message, serverId)` with a specific follower's server ID. These are typically the
-fastest reads but may return stale data if the follower is behind in applying log entries.
+The server's `raft.server.read.option` configuration affects read consistency behavior:
 
-**Stale reads with minimum index** let you specify a minimum log index that the peer must have
-applied before serving the read. Call `sendStaleRead()`: if the peer hasn't caught up to your
-minimum index, it will throw a `StaleReadException`.
-
-**Read-after-write consistency** ensures reads reflect the latest successful write by the same
-client. Use `sendReadAfterWrite()` when you need to read your own writes immediately.
-
-#### Server Read Consistency Configuration
-
-The server's `raft.server.read.option` configuration affects read behavior:
-
-* **DEFAULT (default setting)**: `sendReadOnly()` performs leader reads for efficiency.
-* **LINEARIZABLE**: `sendReadOnly()` and follower reads via `sendReadOnly(message, serverId)` both
-  use the ReadIndex protocol to provide linearizable consistency, ensuring you always read the most
-  up-to-date committed data. Clients can use `sendReadOnlyNonLinearizable()` to perform a leader read
-  without a linearizable guarantee.
+* **DEFAULT (default setting)**: `sendReadOnly()` performs leader reads for efficiency. It provides
+strong consistency under normal conditions. However, In case that an old leader has been
+partitioned from the majority and a new leader has been elected, reading from the old leader can
+return stale data since the old leader does not have the new transactions committed by the new
+leader (referred to as the "split-brain problem").
+* **LINEARIZABLE**: both `sendReadOnly()` and `sendReadOnly(message, serverId)` use the ReadIndex
+protocol to provide linearizable consistency, ensuring you always read the most up-to-date committed
+data and won't read stale data as described in the "Split-brain Problem" above.
+    * Non-linearizable API: Clients may use `sendReadOnlyNonLinearizable()` to read from leader's
+      state machine directly without a linearizable guarantee.
 
 Server-side configuration allows operators to choose between performance (leader reads) and strong
 consistency guarantees (linearizable reads) for their entire cluster.
+
+Stale reads with minimum index let you specify a minimum log index that the peer must have
+applied before serving the read. Call `sendStaleRead()`: if the peer hasn't caught up to your
+minimum index, it will throw a `StaleReadException`.
+
+In summary:
+* **Leader reads** query the current leader's state machine directly without going through the Raft
+consensus protocol. Call `sendReadOnly()` for the strongest consistency supported by the server.
+* Use`sendReadOnlyNonLinearizable()` for leader reads without a linearizable guarantee.
+* Use `sendReadOnly(message, serverId)` with a specific follower's server ID for **follower reads**,
+which offer better performance but may return stale data.
+* Use `sendStaleRead()` to specify the minimum log index that the server must have applied.
+* Use `sendReadAfterWrite()` to ensure the read reflects the latest successful write by the
+same client, for **read-after-write consistency**.
+
+Note that all of these operations may be performing as blocking or async operations. See
+[Client API Patterns](integration.md#client-api-patterns) for more information.
 
 #### The Query Method and Read-Only Operations
 
