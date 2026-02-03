@@ -14,77 +14,95 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-# Concepts
+# Introduction to Apache Ratis
 
-## RaftServer
+## Sections
+1. [Overview](index.md#section-1)
+2. [Core Concepts](core-concepts.md)
+3. [Integration Guide](integration.md)
+4. [Operations and Management](operations.md)
+5. [Advanced Topics](advanced.md)
 
-The `RaftServer` is a core component of Apache Ratis,
-responsible for handling all operations related to the RAFT protocol.
-A `RaftServer` manages all the `RaftGroup`(s) within the current process.
-For each group, a corresponding `RaftServer.Division` handles the core functions
-such as replication of log entries, voting, and leader election within that group.
-Each division can independently act as a Leader, Candidate, Follower or Listener,
-with the specific role depending on the outcome of elections and the state of the protocol.
+<a id="section-1" />
 
-## RaftPeer and RaftPeerId
+## Section 1: Overview of Raft and Apache Ratis
 
-`RaftPeer` represents a participant node in the cluster,
-including the node's unique identifier, IP address, and port number.
-The unique identifier is represented by the `RaftPeerId` class,
-which is crucial for distinguishing different nodes within a cluster.
+* [Introduction to Raft and Apache Ratis](#raft-and-apache-ratis)
+* [Raft Cluster Topology](#raft-cluster-topology)
 
-## RaftGroup
+### Raft and Apache Ratis
 
-A `RaftGroup` represents a collection of `RaftPeer`(s) in a Raft protocol cluster.
-Each group has a unique identifier represented by the `RaftGroupId` class.
-Multiple groups can operate independently within a physical network,
-while each group managing its own consistency and state replication.
+The Raft consensus algorithm solves a fundamental problem in distributed systems: how do you get
+multiple computers to agree on a sequence of operations, even when some might fail or become
+unreachable? This problem, known as distributed consensus, is at the heart of building reliable
+distributed systems.
 
-## Transport (gRPC, Netty, etc.)
+Raft ensures that a cluster of servers maintains an identical, ordered log of operations. Each
+server applies these operations to its local state machine in the same order, guaranteeing that
+all servers end up with identical state. This approach, called state machine replication,
+provides both consistency and fault tolerance.
 
-Ratis supports various network transport protocols for node communication,
-including gRPC (default) and Netty.
-These transport layers in Ratis are used for data serialization and deserialization,
-as well as ensuring safe and efficient data transmission between different nodes.
+You should consider using Raft when your system needs strong consistency guarantees across
+multiple servers. This typically applies to systems where correctness is more important than
+absolute performance, such as distributed databases, configuration management systems, or any
+application where split-brain scenarios would be unacceptable.
 
-## RaftLog
+Apache Ratis is a Java library that implements the Raft consensus protocol. The key word here
+is "library" - Ratis is not a standalone service that you communicate with over the network.
+Instead, you embed Ratis directly into your Java application, and it becomes part of your
+application's runtime.
 
-The `RaftLog` is a core component of the Raft algorithm,
-used to record all state change transactions.
-Once a log entry has been acknowledged by a majority of peers,
-the entry becomes committed.
-The Raft log is key to achieving distributed data consistency.
+This embedded approach creates tight integration between your application and the consensus
+mechanism. Your application and Ratis run in the same JVM, sharing memory and computational
+resources. Your application provides the business logic (the "state machine" in Raft terminology),
+while Ratis handles the distributed consensus mechanics needed to keep multiple instances of your
+application synchronized.
 
-## Snapshot
+### Raft Cluster Topology
 
-A `Snapshot` is a point-in-time copy of the current state of the `StateMachine`.
-It can be used for quick recovery of the state after system restarts,
-and for transferring the state to newly joined nodes.
-When a snapshot has been taken,
-the log entries earlier than the snapshot can be purged
-in order to free up the storage space.
+Understanding the basic building blocks of a Raft deployment affects both the correctness and
+performance of your system.
 
-## TermIndex
+#### Servers, Clusters, and Groups
 
-`TermIndex` is an order pair of `long` integers (term, index) as defined in the Raft protocol.
-Term is the logical clock in Raft.
-A newly elected leader starts a new term and remains the leader for the rest of the term.
-Index is the position of log entries in the Raft log.
+A Raft server (also known as a "peer" or "member") is a single running instance of your application
+with Ratis embedded. Each server runs your state machine and participates in the consensus
+protocol.
 
-## StateMachine
+A Raft cluster is a physical collection of servers that can participate in consensus. A Raft
+group is a logical consensus domain that runs across a specific subset of peers in the cluster.
+One of the peers in a group acts as the "leader" while the others are "followers" or "listeners".
+The leader handles all write requests and replicates operations to other peers in the group. Both
+leaders and followers can service read requests, with different consistency guarantees. A single
+cluster can host multiple independent Raft groups, each with its own leader election, consistency
+and state replication.
 
-In Ratis, `StateMachine` is the abstraction point for user-defined code.
-Developers implement specific business logic or data storage operations at this layer.
-The transactions committed through the Raft protocol will be applied to it.
+#### Majority-Based Decision-Making
 
-### The `applyTransaction` method
+Raft's safety guarantees depend on majority agreement within each group. The leader replicates
+each operation to the followers in its group, and operations are committed when at least
+$\lfloor N/2 + 1 \rfloor$ peers in that group acknowledge them. This means a group of 3 peers can
+tolerate 1 failure, a group of five peers can tolerate 2 failures, and so on. Since a group of
+$N$ peers for an even $N$ can tolerate the same number of failures as a group of $(N-1)$ peers,
+groups typically consist of an odd number of peers (3, 5, or 7 are common) to ensure clear
+majority decisions.
 
-In Ratis, transaction processing is implemented by the `StateMachine`
-through the `applyTransaction` method.
-A transaction usually changes the state of the `StateMachine`.
+This majority requirement affects both availability and performance. A group remains available as
+long as a majority of its peers are reachable and functioning. However, every transaction must
+wait for majority acknowledgment, so the slowest server in the majority determines your write
+latency.
 
-### StateMachineStorage
+#### Server Placement and Network Considerations
 
-`StateMachineStorage` is a component for storing data related to the `StateMachine`.
-It is for persisting the Raft log and the snapshots
-such that the state can be fully recovered even after system failures.
+The physical and network placement of your servers impacts both availability and performance.
+Placing all servers in the same rack or data center provides the lowest latency but risks
+creating a single point of failure. Distributing servers across multiple availability zones or
+data centers improves fault tolerance but can increase latency.
+
+A common approach is to place servers across multiple availability zones within a single region
+for a balance of fault tolerance and performance. For applications requiring geographic
+distribution, you might place servers in different regions, accepting higher latency in exchange
+for better disaster recovery capabilities.
+
+---
+Next: [Core Concepts](core-concepts.md)
