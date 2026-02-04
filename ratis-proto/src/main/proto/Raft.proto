@@ -121,6 +121,7 @@ message RaftRpcRequestProto {
   uint64 timeoutMs = 13;
   RoutingTableProto routingTable = 14;
   SlidingWindowEntry slidingWindowEntry = 15;
+  SpanContextProto spanContext = 16;
 }
 
 message SlidingWindowEntry {
@@ -568,4 +569,9 @@ message LogInfoProto {
   TermIndexProto applied = 2;
   TermIndexProto committed = 3;
   TermIndexProto lastEntry = 4;
+}
+
+// The attribute map for opentelemetry trace
+message SpanContextProto {
+  map<string, string> context = 1;
 }
