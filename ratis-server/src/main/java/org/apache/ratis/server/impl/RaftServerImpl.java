@@ -83,6 +83,7 @@ import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
 import org.apache.ratis.server.impl.ServerImplUtils.NavigableIndices;
 import org.apache.ratis.server.leader.LeaderState.StepDownReason;
+import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -1530,6 +1531,20 @@ class RaftServerImpl implements RaftServer.Division,
 
     return getReadIndex(ClientProtoUtils.toRaftClientRequest(request.getClientRequest()), leader)
         .thenApply(index -> toReadIndexReplyProto(peerId, getMemberId(), true, index))
+        .whenComplete((reply, exception) -> {
+          if (exception == null) {
+            // Leader should try to trigger heartbeat immediately after leader replies the ReadIndex to the follower
+            // so that the follower's commitIndex can be updated to the leader's commitIndex and the follower
+            // can start applying the logs up until the leader's commitIndex (instead of waiting for the next
+            // AppendEntries to happen through heartbeat or new transactions (which might increase the latency
+            // considerably)).
+            // Note that if the follower commitIndex is already equal to the leader's commitIndex, no heartbeat
+            // will be triggered, see GrpcLogAppender#isFollowerCommitBehind.
+            RaftPeerId requestorId = RaftPeerId.valueOf(reply.getServerReply().getRequestorId());
+            Optional<LogAppender> requestorLogAppender = leader.getLogAppender(requestorId);
+            requestorLogAppender.ifPresent(LogAppender::triggerHeartbeat);
+          }
+        })
         .exceptionally(throwable -> toReadIndexReplyProto(peerId, getMemberId()));
   }
 
