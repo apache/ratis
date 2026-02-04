@@ -1539,10 +1539,9 @@ class RaftServerImpl implements RaftServer.Division,
             // AppendEntries to happen through heartbeat or new transactions (which might increase the latency
             // considerably)).
             // Note that if the follower commitIndex is already equal to the leader's commitIndex, no heartbeat
-            // will be triggered, see GrpcLogAppender#isFollowerCommitBehind.
+            // will be triggered, see GrpcLogAppender#isFollowerCommitBehindLastCommitIndex.
             RaftPeerId requestorId = RaftPeerId.valueOf(reply.getServerReply().getRequestorId());
-            Optional<LogAppender> requestorLogAppender = leader.getLogAppender(requestorId);
-            requestorLogAppender.ifPresent(LogAppender::triggerHeartbeat);
+            leader.getLogAppender(requestorId).ifPresent(LogAppender::triggerHeartbeat);
           }
         })
         .exceptionally(throwable -> toReadIndexReplyProto(peerId, getMemberId()));
