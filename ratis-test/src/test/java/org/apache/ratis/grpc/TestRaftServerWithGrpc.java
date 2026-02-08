@@ -69,6 +69,7 @@ import org.slf4j.event.Level;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.channels.OverlappingFileLockException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -81,6 +82,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
   {
@@ -236,6 +238,58 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   public void testRaftClientMetrics(Boolean separateHeartbeat) throws Exception {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
     runWithNewCluster(3, this::testRaftClientRequestMetrics);
+  }
+
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testGrpcClientRpcSyncTimeout(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    runWithNewCluster(3, cluster -> {
+      final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+      try (RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
+        final SimpleStateMachine4Testing stateMachine = SimpleStateMachine4Testing.get(cluster.getLeader());
+        stateMachine.blockStartTransaction();
+        try {
+          Assertions.assertThrows(TimeoutIOException.class,
+              () -> client.io().send(new SimpleMessage("sync-timeout")));
+        } finally {
+          stateMachine.unblockStartTransaction();
+        }
+      }
+    });
+  }
+
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testGrpcClientRpcSyncCancelOnInterrupt(Boolean separateHeartbeat) throws Exception {
+    RaftClientConfigKeys.Rpc.setRequestTimeout(getProperties(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    runWithNewCluster(3, cluster -> {
+      final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+      try (RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
+        final SimpleStateMachine4Testing stateMachine = SimpleStateMachine4Testing.get(cluster.getLeader());
+        stateMachine.blockStartTransaction();
+        try {
+          final AtomicReference<Throwable> error = new AtomicReference<>();
+          final Thread t = new Thread(() -> {
+            try {
+              client.io().send(new SimpleMessage("sync-cancel"));
+            } catch (Throwable e) {
+              error.set(e);
+            }
+          });
+          t.start();
+          Thread.sleep(200);
+          t.interrupt();
+          t.join(5000);
+          Assertions.assertFalse(t.isAlive(), "request thread should exit after interrupt");
+          Assertions.assertTrue(error.get() instanceof InterruptedIOException,
+              "expected InterruptedIOException but got " + error.get());
+        } finally {
+          stateMachine.unblockStartTransaction();
+        }
+      }
+    });
   }
 
   @ParameterizedTest
