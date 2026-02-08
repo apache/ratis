@@ -146,7 +146,7 @@ public interface GrpcUtil {
       final Metadata trailers = ((StatusRuntimeException)t).getTrailers();
       if (trailers != null) {
         final String callId = trailers.get(CALL_ID);
-        return callId != null ? Integer.parseInt(callId) : -1;
+        return callId != null ? Long.parseUnsignedLong(callId) : -1;
       }
     }
     return -1;
