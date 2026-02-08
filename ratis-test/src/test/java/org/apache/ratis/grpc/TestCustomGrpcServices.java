@@ -28,6 +28,7 @@ import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.test.proto.GreeterGrpc;
 import org.apache.ratis.test.proto.HelloReply;
 import org.apache.ratis.test.proto.HelloRequest;
+import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
@@ -201,5 +202,24 @@ public class TestCustomGrpcServices extends BaseTest {
     final String computed = client.send(name).join();
     final String expected = greeter.toReply(name);
     Assertions.assertEquals(expected, computed);
+  }
+
+  @Test
+  public void testGetCallIdWithLargeValue() {
+    long largeCallId = (long) Integer.MAX_VALUE + 1L;
+    StatusRuntimeException ex = GrpcUtil.wrapException(new IOException("test"), largeCallId);
+    Assertions.assertEquals(largeCallId, GrpcUtil.getCallId(ex));
+  }
+
+  @Test
+  public void testGetCallIdWithMissingValue() {
+    StatusRuntimeException ex = GrpcUtil.wrapException(new IOException("test"));
+    Assertions.assertEquals(-1L, GrpcUtil.getCallId(ex));
+  }
+
+  @Test
+  public void testGetCallIdWithZeroValue() {
+    StatusRuntimeException ex = GrpcUtil.wrapException(new IOException("test"), 0L);
+    Assertions.assertEquals(-1L, GrpcUtil.getCallId(ex));
   }
 }
