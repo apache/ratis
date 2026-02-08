@@ -28,6 +28,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -58,7 +61,7 @@ public final class VersionInfo {
 
   private enum RuntimeInfo {
     // the ordering is the output ordering
-    JAVA, USER;
+    JAVA, USER, MEMORY;
 
     static final InfoMap<RuntimeInfo> MAP;
 
@@ -66,6 +69,10 @@ public final class VersionInfo {
       final EnumMap<RuntimeInfo, String> map = new EnumMap<>(RuntimeInfo.class);
       final Properties properties = System.getProperties();
       map.put(JAVA, properties.getProperty("java.vm.name") + " " + properties.getProperty("java.runtime.version"));
+      final Runtime r = Runtime.getRuntime();
+      map.put(MEMORY, "max: " + TraditionalBinaryPrefix.long2String(r.maxMemory())
+          + ", total: " + TraditionalBinaryPrefix.long2String(r.totalMemory())
+          + ", free: " + TraditionalBinaryPrefix.long2String(r.freeMemory()));
       map.put(USER, properties.getProperty("user.name"));
       MAP = new InfoMap<>(map);
     }
@@ -143,7 +150,17 @@ public final class VersionInfo {
     }
   }
 
+  static void printSystemProperties(BiConsumer<String, Object> out) {
+    final SortedMap<String, Object> sortedMap = new TreeMap<>();
+    for(Map.Entry<Object, Object> e : System.getProperties().entrySet()) {
+      sortedMap.put(e.getKey().toString(), e.getValue());
+    }
+    sortedMap.forEach(out);
+  }
+
   public static void main(String[] args) {
+    printSystemProperties((key, value) -> System.out.printf("%-40s = %s%n", key, value));
+
     VersionInfo.load(VersionInfo.class).printStartupMessages(":", System.out::println);
   }
 }
