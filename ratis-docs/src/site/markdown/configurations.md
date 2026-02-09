@@ -226,29 +226,27 @@ if it fails to receive any RPC responses from this peer within this specified ti
 | **Type**        | boolean                                                               |
 | **Default**     | false                                                                 |
 
+| **Property**    | `raft.server.read.leader.heartbeat-check.enabled` |
+|:----------------|:--------------------------------------------------|
+| **Description** | whether to check heartbeat for read index.        |
+| **Type**        | boolean                                           |
+| **Default**     | true                                              |
 
-| **Property**    | `raft.server.read.read-index.leadership-heartbeat-check.skip.enabled` |
-|:----------------|:----------------------------------------------------------------------|
-| **Description** | whether to skip the leadership check heartbeat for read index.        |
-| **Type**        | boolean                                                               |
-| **Default**     | false                                                                 |
-
-Note that although enabling `leadership-heartbeat-check.skip.enabled` reduce the RTT due to the leadership check heartbeat, 
-it causes reads to not be linearizable in some cases. 
-This is because without the leadership check heartbeats, the leader might not be the latest leader 
-and might serve stale reads. 
-There might be a small period of time when there is a split brain and two Raft peers that believe that 
-they are leaders (old leader and new leader where old leader's term < new leader's term). 
-The old leader might not have detected that it has lost majority heartbeats and stepped down or the old leader 
-has not received any RPC with higher term which forces the old leader to steps down. 
-Without the leadership check heartbeat which should detect that the old leader is no longer the latest leader and
-force the old leader to step down, the old leader ReadIndex might return an index that is lower than 
-the new leader's applied index. 
-This means that the old leader might return stale data which is not linearizable by definition. 
-However, this situation should happen only abnormal situations when the Raft group encounters a leader election
-due to network partition between the old leader and the other majority quorum (which will elect a new leader).
-Therefore, this might be an acceptable tradeoff for applications that seek to improve the linearizable read 
-performance.
+Note that the original read index algorithm requires heartbeat check
+in order to guarantee linearizable read.
+By setting this property to false,
+it reduces the RTT by eliminating the heartbeat check.
+However, it might cause the reads not to be linearizable in a split-brain case.
+Without the heartbeat check, a leader might not be the latest leader
+and, as a result, it might serve stale reads.
+When there is a split brain, there might be a small period of time
+that the (old) leader has lost majority heartbeats but have not yet detected it.
+As the same time, a new leader is elected by a majority of peers.
+Then, the old leader might serve stale data
+since it does not have the transactions committed by the new leaders.
+Since such split-brain case is supposed to be rare,
+it might be an acceptable tradeoff for applications that 
+seek to improve the linearizable read performance.
 
 ### Write - Configurations related to write requests.
 
