@@ -226,6 +226,27 @@ if it fails to receive any RPC responses from this peer within this specified ti
 | **Type**        | boolean                                                               |
 | **Default**     | false                                                                 |
 
+| **Property**    | `raft.server.read.leader.heartbeat-check.enabled` |
+|:----------------|:--------------------------------------------------|
+| **Description** | whether to check heartbeat for read index.        |
+| **Type**        | boolean                                           |
+| **Default**     | true                                              |
+
+Note that the original read index algorithm requires heartbeat check
+in order to guarantee linearizable read.
+By setting this property to false,
+it reduces the RTT by eliminating the heartbeat check.
+However, it might cause the reads not to be linearizable in a split-brain case.
+Without the heartbeat check, a leader might not be the latest leader
+and, as a result, it might serve stale reads.
+When there is a split brain, there might be a small period of time
+that the (old) leader has lost majority heartbeats but have not yet detected it.
+As the same time, a new leader is elected by a majority of peers.
+Then, the old leader might serve stale data
+since it does not have the transactions committed by the new leaders.
+Since such split-brain case is supposed to be rare,
+it might be an acceptable tradeoff for applications that 
+seek to improve the linearizable read performance.
 
 ### Write - Configurations related to write requests.
 

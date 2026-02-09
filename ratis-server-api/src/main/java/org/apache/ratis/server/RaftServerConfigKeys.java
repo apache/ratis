@@ -249,6 +249,17 @@ public interface RaftServerConfigKeys {
       setDouble(properties::setDouble, LEADER_LEASE_TIMEOUT_RATIO_KEY, ratio);
     }
 
+    String LEADER_HEARTBEAT_CHECK_ENABLED_KEY = PREFIX + ".leader.heartbeat-check.enabled";
+    boolean LEADER_HEARTBEAT_CHECK_ENABLED_DEFAULT = true;
+    static boolean leaderHeartbeatCheckEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, LEADER_HEARTBEAT_CHECK_ENABLED_KEY,
+          LEADER_HEARTBEAT_CHECK_ENABLED_DEFAULT, getDefaultLog());
+    }
+
+    static void setLeaderHeartbeatCheckEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, LEADER_HEARTBEAT_CHECK_ENABLED_KEY, enabled);
+    }
+
     interface ReadAfterWriteConsistent {
       String PREFIX = Read.PREFIX + ".read-after-write-consistent";
 
