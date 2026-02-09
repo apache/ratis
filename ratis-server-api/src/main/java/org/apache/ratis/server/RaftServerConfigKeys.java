@@ -280,15 +280,15 @@ public interface RaftServerConfigKeys {
         setBoolean(properties::setBoolean, APPLIED_INDEX_ENABLED_KEY, enabled);
       }
 
-      String HEARTBEAT_SKIP_ENABLED_KEY = PREFIX + ".heartbeat.skip.enabled";
-      boolean HEARTBEAT_SKIP_ENABLED_DEFAULT = false;
-      static boolean heartbeatSkipEnabled(RaftProperties properties) {
-        return getBoolean(properties::getBoolean, HEARTBEAT_SKIP_ENABLED_KEY,
-            HEARTBEAT_SKIP_ENABLED_DEFAULT, getDefaultLog());
+      String LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_KEY = PREFIX + ".leadership-heartbeat-check.skip.enabled";
+      boolean LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_DEFAULT = false;
+      static boolean leadershipHeartbeatCheckSkipEnabled(RaftProperties properties) {
+        return getBoolean(properties::getBoolean, LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_KEY,
+            LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_DEFAULT, getDefaultLog());
       }
 
-      static void setHeartbeatSkipEnabled(RaftProperties properties, boolean enabled) {
-        setBoolean(properties::setBoolean, HEARTBEAT_SKIP_ENABLED_KEY, enabled);
+      static void setLeadershipHeartbeatCheckSkipEnabled(RaftProperties properties, boolean enabled) {
+        setBoolean(properties::setBoolean, LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_KEY, enabled);
       }
     }
   }

@@ -354,7 +354,7 @@ class LeaderStateImpl implements LeaderState {
 
   private final ReadIndexHeartbeats readIndexHeartbeats;
   private final boolean readIndexAppliedIndexEnabled;
-  private final boolean readIndexHeartbeatSkipEnabled;
+  private final boolean readIndexLeaderHeartbeatCheckSkipEnabled;
   private final LeaderLease lease;
 
   LeaderStateImpl(RaftServerImpl server) {
@@ -393,8 +393,8 @@ class LeaderStateImpl implements LeaderState {
     }
     this.readIndexAppliedIndexEnabled = RaftServerConfigKeys.Read.ReadIndex
         .appliedIndexEnabled(properties);
-    this.readIndexHeartbeatSkipEnabled = RaftServerConfigKeys.Read.ReadIndex
-        .heartbeatSkipEnabled(properties);
+    this.readIndexLeaderHeartbeatCheckSkipEnabled = RaftServerConfigKeys.Read.ReadIndex
+        .leadershipHeartbeatCheckSkipEnabled(properties);
 
     final RaftConfigurationImpl conf = state.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
@@ -1170,7 +1170,7 @@ class LeaderStateImpl implements LeaderState {
 
     // if lease is enabled, check lease first
     // if we allow leader to skip the leadership check heartbeat, we can return immediately
-    if (readIndexHeartbeatSkipEnabled || hasLease()) {
+    if (readIndexLeaderHeartbeatCheckSkipEnabled || hasLease()) {
       return CompletableFuture.completedFuture(readIndex);
     }
 

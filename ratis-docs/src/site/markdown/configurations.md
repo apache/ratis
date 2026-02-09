@@ -227,13 +227,13 @@ if it fails to receive any RPC responses from this peer within this specified ti
 | **Default**     | false                                                                 |
 
 
-| **Property**    | `raft.server.read.read-index.heartbeat.skip.enabled`                |
-|:----------------|:--------------------------------------------------------------------|
-| **Description** | whether to skip the leadership check heartbeat for read index.      |
-| **Type**        | boolean                                                             |
-| **Default**     | false                                                               |
+| **Property**    | `raft.server.read.read-index.leadership-heartbeat-check.skip.enabled` |
+|:----------------|:----------------------------------------------------------------------|
+| **Description** | whether to skip the leadership check heartbeat for read index.        |
+| **Type**        | boolean                                                               |
+| **Default**     | false                                                                 |
 
-Note that although enabling `heartbeat.skip.enabled` reduce the RTT due to the leadership check heartbeat, 
+Note that although enabling `leadership-heartbeat-check.skip.enabled` reduce the RTT due to the leadership check heartbeat, 
 it causes reads to not be linearizable in some cases. 
 This is because without the leadership check heartbeats, the leader might not be the latest leader 
 and might serve stale reads. 
