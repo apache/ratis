@@ -249,6 +249,17 @@ public interface RaftServerConfigKeys {
       setDouble(properties::setDouble, LEADER_LEASE_TIMEOUT_RATIO_KEY, ratio);
     }
 
+    String LEADER_HEARTBEAT_CHECK_ENABLED_KEY = PREFIX + ".leader.heartbeat-check.enabled";
+    boolean LEADER_HEARTBEAT_CHECK_ENABLED_DEFAULT = true;
+    static boolean leaderHeartbeatCheckEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, LEADER_HEARTBEAT_CHECK_ENABLED_KEY,
+          LEADER_HEARTBEAT_CHECK_ENABLED_DEFAULT, getDefaultLog());
+    }
+
+    static void setLeaderHeartbeatCheckEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, LEADER_HEARTBEAT_CHECK_ENABLED_KEY, enabled);
+    }
+
     interface ReadAfterWriteConsistent {
       String PREFIX = Read.PREFIX + ".read-after-write-consistent";
 
@@ -278,17 +289,6 @@ public interface RaftServerConfigKeys {
 
       static void setAppliedIndexEnabled(RaftProperties properties, boolean enabled) {
         setBoolean(properties::setBoolean, APPLIED_INDEX_ENABLED_KEY, enabled);
-      }
-
-      String LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_KEY = PREFIX + ".leadership-heartbeat-check.skip.enabled";
-      boolean LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_DEFAULT = false;
-      static boolean leadershipHeartbeatCheckSkipEnabled(RaftProperties properties) {
-        return getBoolean(properties::getBoolean, LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_KEY,
-            LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_DEFAULT, getDefaultLog());
-      }
-
-      static void setLeadershipHeartbeatCheckSkipEnabled(RaftProperties properties, boolean enabled) {
-        setBoolean(properties::setBoolean, LEADERSHIP_HEARTBEAT_CHECK_SKIP_ENABLED_KEY, enabled);
       }
     }
   }
