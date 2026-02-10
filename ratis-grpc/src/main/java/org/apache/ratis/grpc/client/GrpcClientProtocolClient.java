@@ -82,6 +82,7 @@ public class GrpcClientProtocolClient implements Closeable {
   private final ManagedChannel clientChannel;
   private final ManagedChannel adminChannel;
 
+  private final int maxMessageSize;
   private final TimeDuration requestTimeoutDuration;
   private final TimeDuration watchRequestTimeoutDuration;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
@@ -101,6 +102,7 @@ public class GrpcClientProtocolClient implements Closeable {
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
     final SizeInBytes maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     metricClientInterceptor = new MetricClientInterceptor(getName());
+    this.maxMessageSize = maxMessageSize.getSizeInt();
 
     final String clientAddress = Optional.ofNullable(target.getClientAddress())
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
@@ -236,6 +238,15 @@ public class GrpcClientProtocolClient implements Closeable {
     return target;
   }
 
+  private RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) throws IOException {
+    final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
+    if (proto.getSerializedSize() > maxMessageSize) {
+      throw new IOException(getName() + ": Message size:" + proto.getSerializedSize()
+          + " exceeds maximum:" + maxMessageSize);
+    }
+    return proto;
+  }
+
   class ReplyMap {
     private final AtomicReference<Map<Long, CompletableFuture<RaftClientReply>>> map
         = new AtomicReference<>(new ConcurrentHashMap<>());
@@ -337,8 +348,15 @@ public class GrpcClientProtocolClient implements Closeable {
       if (f == null) {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + " is closed."));
       }
+      final RaftClientRequestProto proto;
       try {
-        if (!requestStreamer.onNext(ClientProtoUtils.toRaftClientRequestProto(request))) {
+        proto = toRaftClientRequestProto(request);
+      } catch (IOException e) {
+        handleReplyFuture(callId, future -> future.completeExceptionally(e));
+        return f;
+      }
+      try {
+        if (!requestStreamer.onNext(proto)) {
           return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + ": the stream is closed."));
         }
       } catch(Exception t) {

@@ -63,6 +63,8 @@ import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.event.Level;
@@ -98,6 +100,39 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     final RaftProperties p = getProperties();
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SimpleStateMachine4Testing.class, StateMachine.class);
     RaftClientConfigKeys.Rpc.setRequestTimeout(p, TimeDuration.valueOf(1, TimeUnit.SECONDS));
+  }
+
+  @Test
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  public void testAsyncRequestExceedsMaxMessageSize() throws Exception {
+    final RaftProperties properties = getProperties();
+    final SizeInBytes originalMessageSize = GrpcConfigKeys.messageSizeMax(properties, s -> {});
+    final SizeInBytes originalBufferLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
+    final boolean originalSendDummyRequest =
+        RaftClientConfigKeys.Async.Experimental.sendDummyRequest(properties);
+
+    RaftServerConfigKeys.Log.Appender.setBufferByteLimit(properties, SizeInBytes.valueOf("16KB"));
+    final SizeInBytes testMessageSizeMax = SizeInBytes.valueOf("1040KB");
+    GrpcConfigKeys.setMessageSizeMax(properties, testMessageSizeMax);
+    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(properties, false);
+
+    try {
+      runWithNewCluster(1, cluster -> {
+        try (RaftClient client = cluster.createClient(RetryPolicies.noRetry())) {
+          final int oversizedKb = 1200;
+          final byte[] bytes = new byte[oversizedKb * 1024]; // > 1040KB
+          final SimpleMessage message = new SimpleMessage("oversized", ByteString.copyFrom(bytes));
+
+          testFailureCaseAsync("async oversized request",
+              () -> client.async().send(message),
+              IOException.class);
+        }
+      });
+    } finally {
+      GrpcConfigKeys.setMessageSizeMax(properties, originalMessageSize);
+      RaftServerConfigKeys.Log.Appender.setBufferByteLimit(properties, originalBufferLimit);
+      RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(properties, originalSendDummyRequest);
+    }
   }
 
   @ParameterizedTest
