@@ -100,9 +100,9 @@ public class GrpcClientProtocolClient implements Closeable {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
-    final SizeInBytes maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
+    final SizeInBytes maxMessageSizeConfig = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     metricClientInterceptor = new MetricClientInterceptor(getName());
-    this.maxMessageSize = maxMessageSize.getSizeInt();
+    this.maxMessageSize = maxMessageSizeConfig.getSizeInt();
 
     final String clientAddress = Optional.ofNullable(target.getClientAddress())
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
@@ -110,9 +110,9 @@ public class GrpcClientProtocolClient implements Closeable {
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
     final boolean separateAdminChannel = !Objects.equals(clientAddress, adminAddress);
 
-    clientChannel = buildChannel(clientAddress, clientSslContext, flowControlWindow, maxMessageSize);
+    clientChannel = buildChannel(clientAddress, clientSslContext, flowControlWindow, maxMessageSizeConfig);
     adminChannel = separateAdminChannel
-        ? buildChannel(adminAddress, adminSslContext, flowControlWindow, maxMessageSize)
+        ? buildChannel(adminAddress, adminSslContext, flowControlWindow, maxMessageSizeConfig)
         : clientChannel;
 
     asyncStub = RaftClientProtocolServiceGrpc.newStub(clientChannel);
@@ -123,7 +123,7 @@ public class GrpcClientProtocolClient implements Closeable {
   }
 
   private ManagedChannel buildChannel(String address, SslContext sslContext,
-      SizeInBytes flowControlWindow, SizeInBytes maxMessageSize) {
+      SizeInBytes flowControlWindow, SizeInBytes maxMessageSizeConfig) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(address);
     // ignore any http proxy for grpc
@@ -137,7 +137,7 @@ public class GrpcClientProtocolClient implements Closeable {
     }
 
     return channelBuilder.flowControlWindow(flowControlWindow.getSizeInt())
-        .maxInboundMessageSize(maxMessageSize.getSizeInt())
+        .maxInboundMessageSize(maxMessageSizeConfig.getSizeInt())
         .intercept(metricClientInterceptor)
         .build();
   }
