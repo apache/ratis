@@ -125,7 +125,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
           testFailureCaseAsync("async oversized request",
               () -> client.async().send(message),
-              IOException.class);
+              IllegalArgumentException.class);
         }
       });
     } finally {

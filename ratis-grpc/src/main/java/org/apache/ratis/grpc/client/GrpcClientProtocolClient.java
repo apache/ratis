@@ -82,7 +82,7 @@ public class GrpcClientProtocolClient implements Closeable {
   private final ManagedChannel clientChannel;
   private final ManagedChannel adminChannel;
 
-  private final int maxMessageSize;
+  private final SizeInBytes maxMessageSize;
   private final TimeDuration requestTimeoutDuration;
   private final TimeDuration watchRequestTimeoutDuration;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
@@ -100,9 +100,8 @@ public class GrpcClientProtocolClient implements Closeable {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
-    final SizeInBytes maxMessageSizeConfig = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
+    this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     metricClientInterceptor = new MetricClientInterceptor(getName());
-    this.maxMessageSize = maxMessageSizeConfig.getSizeInt();
 
     final String clientAddress = Optional.ofNullable(target.getClientAddress())
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
@@ -110,9 +109,9 @@ public class GrpcClientProtocolClient implements Closeable {
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
     final boolean separateAdminChannel = !Objects.equals(clientAddress, adminAddress);
 
-    clientChannel = buildChannel(clientAddress, clientSslContext, flowControlWindow, maxMessageSizeConfig);
+    clientChannel = buildChannel(clientAddress, clientSslContext, flowControlWindow);
     adminChannel = separateAdminChannel
-        ? buildChannel(adminAddress, adminSslContext, flowControlWindow, maxMessageSizeConfig)
+        ? buildChannel(adminAddress, adminSslContext, flowControlWindow)
         : clientChannel;
 
     asyncStub = RaftClientProtocolServiceGrpc.newStub(clientChannel);
@@ -123,7 +122,7 @@ public class GrpcClientProtocolClient implements Closeable {
   }
 
   private ManagedChannel buildChannel(String address, SslContext sslContext,
-      SizeInBytes flowControlWindow, SizeInBytes maxMessageSizeConfig) {
+      SizeInBytes flowControlWindow) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(address);
     // ignore any http proxy for grpc
@@ -137,7 +136,7 @@ public class GrpcClientProtocolClient implements Closeable {
     }
 
     return channelBuilder.flowControlWindow(flowControlWindow.getSizeInt())
-        .maxInboundMessageSize(maxMessageSizeConfig.getSizeInt())
+        .maxInboundMessageSize(maxMessageSize.getSizeInt())
         .intercept(metricClientInterceptor)
         .build();
   }
@@ -239,12 +238,7 @@ public class GrpcClientProtocolClient implements Closeable {
   }
 
   private RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) throws IOException {
-    final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
-    if (proto.getSerializedSize() > maxMessageSize) {
-      throw new IOException(getName() + ": Message size:" + proto.getSerializedSize()
-          + " exceeds maximum:" + maxMessageSize);
-    }
-    return proto;
+    return ClientProtoUtils.toRaftClientRequestProto(request);
   }
 
   class ReplyMap {
@@ -343,17 +337,22 @@ public class GrpcClientProtocolClient implements Closeable {
     }
 
     CompletableFuture<RaftClientReply> onNext(RaftClientRequest request) {
-      final long callId = request.getCallId();
-      final CompletableFuture<RaftClientReply> f = replies.putNew(callId);
-      if (f == null) {
-        return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + " is closed."));
-      }
       final RaftClientRequestProto proto;
       try {
         proto = toRaftClientRequestProto(request);
       } catch (IOException e) {
-        handleReplyFuture(callId, future -> future.completeExceptionally(e));
-        return f;
+        return JavaUtils.completeExceptionally(e);
+      }
+      if (proto.getSerializedSize() > maxMessageSize.getSizeInt()) {
+        return JavaUtils.completeExceptionally(new IllegalArgumentException(getName()
+            + ": request serialized size " + proto.getSerializedSize()
+            + " exceeds maximum " + maxMessageSize + " for " + request));
+      }
+
+      final long callId = request.getCallId();
+      final CompletableFuture<RaftClientReply> f = replies.putNew(callId);
+      if (f == null) {
+        return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + " is closed."));
       }
       try {
         if (!requestStreamer.onNext(proto)) {
