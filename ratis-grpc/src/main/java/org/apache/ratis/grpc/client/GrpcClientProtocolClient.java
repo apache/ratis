@@ -237,10 +237,6 @@ public class GrpcClientProtocolClient implements Closeable {
     return target;
   }
 
-  private RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) throws IOException {
-    return ClientProtoUtils.toRaftClientRequestProto(request);
-  }
-
   class ReplyMap {
     private final AtomicReference<Map<Long, CompletableFuture<RaftClientReply>>> map
         = new AtomicReference<>(new ConcurrentHashMap<>());
@@ -337,12 +333,7 @@ public class GrpcClientProtocolClient implements Closeable {
     }
 
     CompletableFuture<RaftClientReply> onNext(RaftClientRequest request) {
-      final RaftClientRequestProto proto;
-      try {
-        proto = toRaftClientRequestProto(request);
-      } catch (IOException e) {
-        return JavaUtils.completeExceptionally(e);
-      }
+      final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
       if (proto.getSerializedSize() > maxMessageSize.getSizeInt()) {
         return JavaUtils.completeExceptionally(new IllegalArgumentException(getName()
             + ": request serialized size " + proto.getSerializedSize()
