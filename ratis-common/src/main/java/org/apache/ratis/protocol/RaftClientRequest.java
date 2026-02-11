@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.protocol;
 
-import io.opentelemetry.context.Context;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.ForwardRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.MessageStreamRequestTypeProto;
@@ -29,7 +28,6 @@ import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.proto.RaftProtos.StaleReadRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.WatchRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.WriteRequestTypeProto;
-import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 

@@ -88,13 +88,14 @@ public class RaftServerImplTracingTests {
             .setSpanKind(SpanKind.CLIENT)
             .startSpan();
     try {
+      final Context clientContext = Context.current().with(clientSpan);
       return RaftClientRequest.newBuilder()
           .setClientId(ClientId.randomId())
           .setServerId(RaftPeerId.valueOf("s0"))
           .setGroupId(RaftGroupId.randomId())
           .setCallId(1L)
           .setType(type)
-          .setSpanContext(TraceUtils.injectContextToProto(Context.current()))
+          .setSpanContext(TraceUtils.injectContextToProto(clientContext))
           .build();
     } finally {
       clientSpan.end();
