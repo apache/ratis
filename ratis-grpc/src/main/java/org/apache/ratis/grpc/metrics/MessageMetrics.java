@@ -58,9 +58,9 @@ public class MessageMetrics extends RatisMetrics {
   }
 
   private void inc(String metricNamePrefix, Type t) {
-    final LongCounter counter = types.get(t)
-        .computeIfAbsent(metricNamePrefix, prefix -> getRegistry().counter(prefix + t.getSuffix()));
-    counter.inc();
+    types.get(t)
+        .computeIfAbsent(metricNamePrefix, prefix -> getRegistry().counter(prefix + t.getSuffix()))
+        .inc();
   }
 
   /**
