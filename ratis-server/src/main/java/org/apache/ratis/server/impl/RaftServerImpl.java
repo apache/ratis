@@ -978,7 +978,7 @@ class RaftServerImpl implements RaftServer.Division,
           span.end();
         }
       });
-    } catch (IOException e) {
+    } catch (Exception | Error e) {
       // this catch block is for exceptions thrown before the future is returned.
       // Any exception thrown after the future is returned should be handled in
       // the whenComplete callback above.
