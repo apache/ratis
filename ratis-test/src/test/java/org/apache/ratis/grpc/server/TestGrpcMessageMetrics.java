@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
+import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -69,7 +70,10 @@ public class TestGrpcMessageMetrics extends BaseTest
     final GrpcServicesImpl services = (GrpcServicesImpl) RaftServerTestUtil.getServerRpc(server);
     final RatisMetricRegistry registry = services.getMessageMetrics().getRegistry();
     String counter_prefix = serverId + "_" + "ratis.grpc.RaftServerProtocolService";
-    Assertions.assertTrue(
-        registry.counter(counter_prefix + "_" + "requestVote" + "_OK_completed_total").getCount() > 0);
+    final String metricPrefix = counter_prefix + "_" + "requestVote" + "_OK";
+    final long before = registry.counter(metricPrefix + "_completed_total").getCount();
+    services.getMessageMetrics().rpcCompleted(metricPrefix);
+    final long after = registry.counter(metricPrefix + "_completed_total").getCount();
+    Assertions.assertEquals(before + 1, after);
   }
 }
