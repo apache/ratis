@@ -58,17 +58,9 @@ public class MessageMetrics extends RatisMetrics {
   }
 
   private void inc(String metricNamePrefix, Type t) {
-    types.get(t)
-        .computeIfAbsent(metricNamePrefix, prefix -> getRegistry().counter(prefix + t.getSuffix()))
-        .inc();
-    final Map<String, LongCounter> counters = types.get(t);
-    LongCounter c = counters.get(metricNamePrefix);
-    if (c == null) {
-      synchronized (counters) {
-        c = counters.computeIfAbsent(metricNamePrefix, prefix -> getRegistry().counter(prefix + t.getSuffix()));
-      }
-    }
-    c.inc();
+    final LongCounter counter = types.get(t)
+        .computeIfAbsent(metricNamePrefix, prefix -> getRegistry().counter(prefix + t.getSuffix()));
+    counter.inc();
   }
 
   /**
