@@ -158,6 +158,14 @@ public final class VersionInfo {
     sortedMap.forEach(out);
   }
 
+  /**
+   * Get the current ratis version.
+   * @return the current ratis version string.
+   */
+  public static String getSoftwareInfoVersion() {
+    return VersionInfo.load(VersionInfo.class).softwareInfos.getOrDefault(SoftwareInfo.VERSION);
+  }
+
   public static void main(String[] args) {
     printSystemProperties((key, value) -> System.out.printf("%-40s = %s%n", key, value));
 
