@@ -338,6 +338,7 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
       if (isClosed()) {
         final AlreadyClosedException exception = new AlreadyClosedException(getName() + ": the stream is closed");
         responseError(exception, () -> "processClientRequest (stream already closed) for " + r);
+        return;
       }
 
       final RaftGroupId requestGroupId = r.getRaftGroupId();
