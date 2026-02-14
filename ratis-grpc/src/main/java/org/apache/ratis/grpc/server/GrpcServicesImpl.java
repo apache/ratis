@@ -341,23 +341,40 @@ public final class GrpcServicesImpl
   }
 
   @Override
-  public void closeImpl() throws IOException {
+  public void closeImpl() {
+    for (Server server : servers.values()) {
+      server.shutdownNow();
+    }
+    boolean interrupted = false;
     for (Map.Entry<String, Server> server : servers.entrySet()) {
-      final String name = getId() + ": shutdown server " + server.getKey();
-      LOG.info("{} now", name);
-      final Server s = server.getValue().shutdownNow();
-      super.closeImpl();
       try {
-        s.awaitTermination();
+        server.getValue().awaitTermination();
+        LOG.info("{}: Shutdown {} successfully", getId(), server.getKey());
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        throw IOUtils.toInterruptedIOException(name + " failed", e);
+        LOG.warn("{}: Interrupted shutdown {}", getId(), server.getKey());
+        interrupted = true;
+        break;
       }
-      LOG.info("{} successfully", name);
     }
 
-    serverInterceptor.close();
-    ConcurrentUtils.shutdownAndWait(executor);
+    try {
+      serverInterceptor.close();
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to unregister metrics", getId(), e);
+    }
+
+    if (interrupted) {
+      executor.shutdown();  // shutdown but not wait
+    } else {
+      ConcurrentUtils.shutdownAndWait(executor);
+    }
+
+    try {
+      super.closeImpl();
+    } catch (IOException e) {
+      LOG.warn("{}: Failed to close proxies", getId(), e);
+    }
   }
 
   @Override
