@@ -71,6 +71,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -136,20 +139,29 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   }
 
   static class Connection {
-    static final TimeDuration RECONNECT = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
-
     private final InetSocketAddress address;
     private final WorkerGroupGetter workerGroup;
     private final Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier;
+    private final long minReconnectMillis;
+    private final long maxReconnectMillis;
 
     /** The {@link ChannelFuture} is null when this connection is closed. */
     private final AtomicReference<MemoizedSupplier<ChannelFuture>> ref;
+    private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
+    private final AtomicLong reconnectBackoffMillis;
 
     Connection(InetSocketAddress address, WorkerGroupGetter workerGroup,
-        Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier) {
+        Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier,
+        TimeDuration reconnectDelay, TimeDuration reconnectMaxDelay) {
       this.address = address;
       this.workerGroup = workerGroup;
       this.channelInitializerSupplier = channelInitializerSupplier;
+      this.minReconnectMillis = reconnectDelay.getUnit().toMillis(reconnectDelay.getDuration());
+      this.maxReconnectMillis = reconnectMaxDelay.getUnit().toMillis(reconnectMaxDelay.getDuration());
+      Preconditions.assertTrue(minReconnectMillis > 0, () -> "minReconnectMillis = " + minReconnectMillis + " <= 0");
+      Preconditions.assertTrue(maxReconnectMillis >= minReconnectMillis,
+          () -> "maxReconnectMillis = " + maxReconnectMillis + " < minReconnectMillis = " + minReconnectMillis);
+      this.reconnectBackoffMillis = new AtomicLong(minReconnectMillis);
       this.ref = new AtomicReference<>(MemoizedSupplier.valueOf(this::connect));
     }
 
@@ -191,21 +203,46 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
               if (!future.isSuccess()) {
                 scheduleReconnect(Connection.this + " failed", future.cause());
               } else {
+                resetReconnectDelay();
                 LOG.trace("{} succeed.", Connection.this);
               }
             }
           });
     }
 
+    /**
+     * Schedules a reconnection attempt with exponential backoff and jitter.
+     *
+     * @param message description of the failure
+     * @param cause the exception that triggered reconnection (may be null)
+     */
     void scheduleReconnect(String message, Throwable cause) {
       if (isClosed()) {
         return;
       }
-      LOG.warn("{}: {}; schedule reconnecting to {} in {}", this, message, address, RECONNECT);
+      if (!reconnectScheduled.compareAndSet(false, true)) {
+        return;
+      }
+      final long baseMillis = reconnectBackoffMillis.get();
+      final long delayMillis = jitterDelay(baseMillis);
+      if (delayMillis <= 500) {
+        LOG.info("{}: {}; schedule reconnecting to {} in {}ms", this, message, address, delayMillis);
+      } else {
+        LOG.warn("{}: {}; schedule reconnecting to {} in {}ms", this, message, address, delayMillis);
+      }
       if (cause != null) {
         LOG.warn("", cause);
       }
-      getWorkerGroup().schedule(this::reconnect, RECONNECT.getDuration(), RECONNECT.getUnit());
+      reconnectBackoffMillis.updateAndGet(v -> nextBackoffMillis(v, minReconnectMillis, maxReconnectMillis));
+      getWorkerGroup().schedule(() -> {
+        try {
+          reconnect();
+        } finally {
+          // Ensure reconnectScheduled is cleared
+          // even if reconnect short-circuits (e.g. already closed).
+          reconnectScheduled.set(false);
+        }
+      }, delayMillis, TimeUnit.MILLISECONDS);
     }
 
     private synchronized ChannelFuture reconnect() {
@@ -229,6 +266,40 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         previous.get().channel().close();
       }
       return getChannelFuture();
+    }
+
+    /**
+     * Computes the next backoff delay using exponential backoff strategy.
+     * The delay doubles on each failure until reaching maxMillis.
+     *
+     * @param currentMillis current backoff delay
+     * @param minMillis minimum delay (lower bound)
+     * @param maxMillis maximum delay (upper bound)
+     * @return next backoff delay in milliseconds
+     */
+    private static long nextBackoffMillis(long currentMillis, long minMillis, long maxMillis) {
+      // Exponential backoff with an upper bound.
+      final long baseMillis = Math.max(currentMillis, minMillis);
+      if (baseMillis >= maxMillis / 2) {
+        return maxMillis;
+      }
+      return Math.min(maxMillis, baseMillis * 2);
+    }
+
+    /**
+     * Applies jitter (0.5x~1.5x) to spread out reconnect attempts and avoid thundering herds.
+     *
+     * @param baseMillis base delay in milliseconds
+     * @return jittered delay in milliseconds
+     */
+    private static long jitterDelay(long baseMillis) {
+      // Apply jitter (0.5x~1.5x) to avoid synchronized reconnect storms.
+      final double jitter = 0.5 + ThreadLocalRandom.current().nextDouble();
+      return Math.max(1, Math.round(baseMillis * jitter));
+    }
+
+    private void resetReconnectDelay() {
+      reconnectBackoffMillis.set(minReconnectMillis);
     }
 
     void close() {
@@ -314,7 +385,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
     this.connection = new Connection(address, WorkerGroupGetter.newInstance(properties),
-        () -> newChannelInitializer(address, sslContext, getClientHandler()));
+        () -> newChannelInitializer(address, sslContext, getClientHandler()),
+        NettyConfigKeys.DataStream.Client.reconnectDelay(properties),
+        NettyConfigKeys.DataStream.Client.reconnectMaxDelay(properties));
   }
 
   private ChannelInboundHandler getClientHandler(){
@@ -491,5 +564,33 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   @Override
   public String toString() {
     return name;
+  }
+
+  // Visible for tests.
+  long getMinReconnectMillis() {
+    return connection.minReconnectMillis;
+  }
+
+  // Visible for tests.
+  long getMaxReconnectMillis() {
+    return connection.maxReconnectMillis;
+  }
+
+  // Visible for tests.
+  boolean waitForChannelActive(TimeDuration timeout) {
+    final long deadline = System.nanoTime() + timeout.toLong(TimeUnit.NANOSECONDS);
+    while (System.nanoTime() < deadline) {
+      final Channel channel = connection.getChannelUninterruptibly();
+      if (channel != null && channel.isActive()) {
+        return true;
+      }
+      try {
+        Thread.sleep(100L);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return false;
+      }
+    }
+    return false;
   }
 }

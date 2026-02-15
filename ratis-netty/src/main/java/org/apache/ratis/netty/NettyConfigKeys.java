@@ -176,6 +176,34 @@ public interface NettyConfigKeys {
       static void setReplyQueueGracePeriod(RaftProperties properties, TimeDuration timeoutDuration) {
         setTimeDuration(properties::setTimeDuration, REPLY_QUEUE_GRACE_PERIOD_KEY, timeoutDuration);
       }
+
+      /**
+       * Initial delay for reconnect attempts.
+       * The delay doubles on each failure with 0.5x-1.5x jitter.
+       */
+      String RECONNECT_DELAY_KEY = PREFIX + ".reconnect.delay";
+      TimeDuration RECONNECT_DELAY_DEFAULT = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
+      static TimeDuration reconnectDelay(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(RECONNECT_DELAY_DEFAULT.getUnit()),
+            RECONNECT_DELAY_KEY, RECONNECT_DELAY_DEFAULT, getDefaultLog());
+      }
+      static void setReconnectDelay(RaftProperties properties, TimeDuration delay) {
+        setTimeDuration(properties::setTimeDuration, RECONNECT_DELAY_KEY, delay);
+      }
+
+      /**
+       * Maximum delay for reconnect attempts.
+       * The backoff increases until this upper bound.
+       */
+      String RECONNECT_MAX_DELAY_KEY = PREFIX + ".reconnect.max-delay";
+      TimeDuration RECONNECT_MAX_DELAY_DEFAULT = TimeDuration.valueOf(5, TimeUnit.SECONDS);
+      static TimeDuration reconnectMaxDelay(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(RECONNECT_MAX_DELAY_DEFAULT.getUnit()),
+            RECONNECT_MAX_DELAY_KEY, RECONNECT_MAX_DELAY_DEFAULT, getDefaultLog());
+      }
+      static void setReconnectMaxDelay(RaftProperties properties, TimeDuration delay) {
+        setTimeDuration(properties::setTimeDuration, RECONNECT_MAX_DELAY_KEY, delay);
+      }
     }
 
     interface Server {
