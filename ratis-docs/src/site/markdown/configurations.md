@@ -121,7 +121,7 @@ if it fails to receive any RPC responses from this peer within this specified ti
 
 | **Property**    | `raft.server.threadpool.proxy.cached`                   |
 |:----------------|:--------------------------------------------------------|
-| **Description** | use CachedThreadPool, otherwise, uee newFixedThreadPool |
+| **Description** | use CachedThreadPool, otherwise, use newFixedThreadPool |
 | **Type**        | boolean                                                 |
 | **Default**     | true                                                    |
 
@@ -138,7 +138,7 @@ if it fails to receive any RPC responses from this peer within this specified ti
  
 | **Property**    | `raft.server.threadpool.server.cached`                  |
 |:----------------|:--------------------------------------------------------|
-| **Description** | use CachedThreadPool, otherwise, uee newFixedThreadPool |
+| **Description** | use CachedThreadPool, otherwise, use newFixedThreadPool |
 | **Type**        | boolean                                                 |
 | **Default**     | true                                                    |
 
@@ -155,7 +155,7 @@ if it fails to receive any RPC responses from this peer within this specified ti
  
 | **Property**    | `raft.server.threadpool.client.cached`                  |
 |:----------------|:--------------------------------------------------------|
-| **Description** | use CachedThreadPool, otherwise, uee newFixedThreadPool |
+| **Description** | use CachedThreadPool, otherwise, use newFixedThreadPool |
 | **Type**        | boolean                                                 |
 | **Default**     | true                                                    |
 
@@ -562,7 +562,7 @@ further wait for 5sec for max times ((5sec*980)/2 times ~= 40min)
 
 | **Property**    | `raft.server.data-stream.async.request.thread.pool.cached` |
 |:----------------|:-----------------------------------------------------------|
-| **Description** | use CachedThreadPool, otherwise, uee newFixedThreadPool    |
+| **Description** | use CachedThreadPool, otherwise, use newFixedThreadPool    |
 | **Type**        | boolean                                                    |
 | **Default**     | false                                                      |
 
@@ -575,7 +575,7 @@ further wait for 5sec for max times ((5sec*980)/2 times ~= 40min)
 
 | **Property**    | `raft.server.data-stream.async.write.thread.pool.cached` |
 |:----------------|:---------------------------------------------------------|
-| **Description** | use CachedThreadPool, otherwise, uee newFixedThreadPool  |
+| **Description** | use CachedThreadPool, otherwise, use newFixedThreadPool  |
 | **Type**        | boolean                                                  |
 | **Default**     | false                                                    |
 
