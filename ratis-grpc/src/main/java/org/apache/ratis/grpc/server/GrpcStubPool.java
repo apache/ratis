@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.grpc.server;
 
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
@@ -77,7 +78,7 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     }
 
     void shutdown() {
-      ch.shutdown();
+      GrpcUtil.shutdownManagedChannel(ch);
     }
   }
 
