@@ -38,6 +38,7 @@ import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.retry.ExponentialBackoffRetry;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.security.TlsConf;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.Channel;
@@ -550,13 +551,26 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   }
 
   // Visible for tests.
+  @VisibleForTesting
   long getMinReconnectMillis() {
     return connection.minReconnectMillis;
   }
 
   // Visible for tests.
+  @VisibleForTesting
   long getMaxReconnectMillis() {
     return connection.maxReconnectMillis;
+  }
+
+  // Visible for tests.
+  @VisibleForTesting
+  int getMaxReconnectAttempts() {
+    return connection.maxReconnectAttempts;
+  }
+
+  // Visible for tests.
+  RetryPolicy getReconnectPolicy() {
+    return connection.reconnectPolicy;
   }
 
   // Visible for tests.

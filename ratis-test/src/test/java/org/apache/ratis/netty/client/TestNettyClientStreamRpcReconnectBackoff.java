@@ -25,11 +25,11 @@ import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestNettyClientStreamRpcReconnectBackoff {
@@ -51,11 +51,11 @@ public class TestNettyClientStreamRpcReconnectBackoff {
 
     final NettyClientStreamRpc rpc = new NettyClientStreamRpc(peer, null, properties);
     try {
-      final Object connection = getField(rpc, "connection");
       // Verify the reconnect policy is exponential and uses the configured maxAttempts.
-      final RetryPolicy policy = (RetryPolicy) getField(connection, "reconnectPolicy");
+      final RetryPolicy policy = rpc.getReconnectPolicy();
       assertTrue(policy instanceof ExponentialBackoffRetry);
-      assertEquals(maxAttempts, (int) getField(policy, "maxAttempts"));
+      assertEquals(maxAttempts, rpc.getMaxReconnectAttempts());
+      assertFalse(policy.handleAttemptFailure(() -> maxAttempts).shouldRetry());
 
       // attempt=0 -> base delay; attempt=1 -> 2x base; attempt=3 -> capped by max.
       assertSleepInRange(policy, 0, base, max);
@@ -65,12 +65,6 @@ public class TestNettyClientStreamRpcReconnectBackoff {
     } finally {
       rpc.close();
     }
-  }
-
-  private static Object getField(Object object, String name) throws Exception {
-    final Field field = object.getClass().getDeclaredField(name);
-    field.setAccessible(true);
-    return field.get(object);
   }
 
   private static void assertSleepInRange(RetryPolicy policy, int attempt, TimeDuration base, TimeDuration max) {
