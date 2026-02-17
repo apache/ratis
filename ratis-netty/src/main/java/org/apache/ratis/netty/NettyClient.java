@@ -47,13 +47,21 @@ public class NettyClient implements Closeable {
   public void connect(EventLoopGroup group, ChannelInitializer<SocketChannel> initializer)
       throws InterruptedException {
     final InetSocketAddress address = NetUtils.createSocketAddr(serverAddress);
+    // Combine LoggingHandler with the provided initializer; Bootstrap.handler keeps only the last handler.
+    final ChannelInitializer<SocketChannel> combinedInitializer = new ChannelInitializer<SocketChannel>() {
+      @Override
+      protected void initChannel(SocketChannel ch) throws Exception {
+        ch.pipeline().addLast(new LoggingHandler(LogLevel.INFO));
+        // Add the original initializer as a handler to avoid calling its protected initChannel directly.
+        ch.pipeline().addLast(initializer);
+      }
+    };
 
     lifeCycle.startAndTransition(
         () -> channel = new Bootstrap()
             .group(group)
             .channel(NettyUtils.getSocketChannelClass(group))
-            .handler(new LoggingHandler(LogLevel.INFO))
-            .handler(initializer)
+            .handler(combinedInitializer)
             .connect(address)
             .sync()
             .channel(),
