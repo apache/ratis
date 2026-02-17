@@ -204,6 +204,19 @@ public interface NettyConfigKeys {
       static void setReconnectMaxDelay(RaftProperties properties, TimeDuration delay) {
         setTimeDuration(properties::setTimeDuration, RECONNECT_MAX_DELAY_KEY, delay);
       }
+
+      /**
+       * Maximum number of reconnect attempts.
+       * Use {@link Integer#MAX_VALUE} for unlimited attempts.
+       */
+      String RECONNECT_MAX_ATTEMPTS_KEY = PREFIX + ".reconnect.max-attempts";
+      int RECONNECT_MAX_ATTEMPTS_DEFAULT = Integer.MAX_VALUE;
+      static int reconnectMaxAttempts(RaftProperties properties) {
+        return getInt(properties::getInt, RECONNECT_MAX_ATTEMPTS_KEY, RECONNECT_MAX_ATTEMPTS_DEFAULT, getDefaultLog());
+      }
+      static void setReconnectMaxAttempts(RaftProperties properties, int maxAttempts) {
+        setInt(properties::setInt, RECONNECT_MAX_ATTEMPTS_KEY, maxAttempts);
+      }
     }
 
     interface Server {

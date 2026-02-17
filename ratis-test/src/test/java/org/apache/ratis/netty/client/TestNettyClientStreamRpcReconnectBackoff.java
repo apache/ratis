@@ -17,55 +17,72 @@
  */
 package org.apache.ratis.netty.client;
 
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.netty.NettyConfigKeys;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.retry.ExponentialBackoffRetry;
+import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Method;
+import java.lang.reflect.Field;
+import java.net.InetSocketAddress;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestNettyClientStreamRpcReconnectBackoff {
-  private static final Class<?> CONNECTION_CLASS;
-  private static final Method NEXT_BACKOFF;
-  private static final Method JITTER_DELAY;
-  private static final long MIN_RECONNECT_MILLIS;
-  private static final long MAX_RECONNECT_MILLIS;
+  @Test
+  public void testReconnectPolicyBackoffRanges() throws Exception {
+    // Use a small base/max to keep the test fast and deterministic in range checks.
+    final RaftProperties properties = new RaftProperties();
+    final TimeDuration base = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
+    final TimeDuration max = TimeDuration.valueOf(400, TimeUnit.MILLISECONDS);
+    final int maxAttempts = 5;
+    NettyConfigKeys.DataStream.Client.setReconnectDelay(properties, base);
+    NettyConfigKeys.DataStream.Client.setReconnectMaxDelay(properties, max);
+    NettyConfigKeys.DataStream.Client.setReconnectMaxAttempts(properties, maxAttempts);
 
-  static {
+    final RaftPeer peer = RaftPeer.newBuilder()
+        .setId("s1")
+        .setDataStreamAddress(new InetSocketAddress("127.0.0.1", 1))
+        .build();
+
+    final NettyClientStreamRpc rpc = new NettyClientStreamRpc(peer, null, properties);
     try {
-      CONNECTION_CLASS = Class.forName("org.apache.ratis.netty.client.NettyClientStreamRpc$Connection");
-      NEXT_BACKOFF = CONNECTION_CLASS.getDeclaredMethod("nextBackoffMillis", long.class, long.class, long.class);
-      NEXT_BACKOFF.setAccessible(true);
-      JITTER_DELAY = CONNECTION_CLASS.getDeclaredMethod("jitterDelay", long.class);
-      JITTER_DELAY.setAccessible(true);
-      MIN_RECONNECT_MILLIS = org.apache.ratis.netty.NettyConfigKeys.DataStream.Client
-          .RECONNECT_DELAY_DEFAULT.getUnit().toMillis(
-              org.apache.ratis.netty.NettyConfigKeys.DataStream.Client.RECONNECT_DELAY_DEFAULT.getDuration());
-      MAX_RECONNECT_MILLIS = org.apache.ratis.netty.NettyConfigKeys.DataStream.Client
-          .RECONNECT_MAX_DELAY_DEFAULT.getUnit().toMillis(
-              org.apache.ratis.netty.NettyConfigKeys.DataStream.Client.RECONNECT_MAX_DELAY_DEFAULT.getDuration());
-    } catch (Exception e) {
-      throw new ExceptionInInitializerError(e);
+      final Object connection = getField(rpc, "connection");
+      // Verify the reconnect policy is exponential and uses the configured maxAttempts.
+      final RetryPolicy policy = (RetryPolicy) getField(connection, "reconnectPolicy");
+      assertTrue(policy instanceof ExponentialBackoffRetry);
+      assertEquals(maxAttempts, (int) getField(policy, "maxAttempts"));
+
+      // attempt=0 -> base delay; attempt=1 -> 2x base; attempt=3 -> capped by max.
+      assertSleepInRange(policy, 0, base, max);
+      assertSleepInRange(policy, 1, base, max);
+      // Attempt 3 should be capped by max sleep time.
+      assertSleepInRange(policy, 3, base, max);
+    } finally {
+      rpc.close();
     }
   }
 
-  @Test
-  public void testNextBackoffMillisDoublesAndCaps() throws Exception {
-    assertEquals(200L, (long) NEXT_BACKOFF.invoke(null, 100L, MIN_RECONNECT_MILLIS, MAX_RECONNECT_MILLIS));
-    assertEquals(200L, (long) NEXT_BACKOFF.invoke(null, 50L, MIN_RECONNECT_MILLIS, MAX_RECONNECT_MILLIS));
-    assertEquals(MAX_RECONNECT_MILLIS,
-        (long) NEXT_BACKOFF.invoke(null, MAX_RECONNECT_MILLIS, MIN_RECONNECT_MILLIS, MAX_RECONNECT_MILLIS));
-    assertEquals(MAX_RECONNECT_MILLIS,
-        (long) NEXT_BACKOFF.invoke(null, MAX_RECONNECT_MILLIS / 2, MIN_RECONNECT_MILLIS, MAX_RECONNECT_MILLIS));
+  private static Object getField(Object object, String name) throws Exception {
+    final Field field = object.getClass().getDeclaredField(name);
+    field.setAccessible(true);
+    return field.get(object);
   }
 
-  @Test
-  public void testJitterDelayWithinRange() throws Exception {
-    final long base = 1000L;
-    for (int i = 0; i < 50; i++) {
-      final long delay = (long) JITTER_DELAY.invoke(null, base);
-      assertTrue(delay >= base / 2, "delay too small: " + delay);
-      assertTrue(delay <= base + base / 2, "delay too large: " + delay);
-    }
+  private static void assertSleepInRange(RetryPolicy policy, int attempt, TimeDuration base, TimeDuration max) {
+    final RetryPolicy.Action action = policy.handleAttemptFailure(() -> attempt);
+    assertTrue(action.shouldRetry());
+
+    final long baseMillis = base.toLong(TimeUnit.MILLISECONDS);
+    final long maxMillis = max.toLong(TimeUnit.MILLISECONDS);
+    final long expected = Math.min(maxMillis, baseMillis * (1L << attempt));
+    final long actual = action.getSleepTime().toLong(TimeUnit.MILLISECONDS);
+
+    assertTrue(actual >= expected / 2, "delay too small: " + actual);
+    assertTrue(actual <= expected + expected / 2, "delay too large: " + actual);
   }
 }
