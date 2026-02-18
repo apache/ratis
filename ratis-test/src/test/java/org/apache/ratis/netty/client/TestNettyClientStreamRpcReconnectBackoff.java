@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,9 +39,8 @@ public class TestNettyClientStreamRpcReconnectBackoff {
     final TimeDuration base = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     final TimeDuration max = TimeDuration.valueOf(400, TimeUnit.MILLISECONDS);
     final int maxAttempts = 5;
-    NettyConfigKeys.DataStream.Client.setReconnectDelay(properties, base);
-    NettyConfigKeys.DataStream.Client.setReconnectMaxDelay(properties, max);
-    NettyConfigKeys.DataStream.Client.setReconnectMaxAttempts(properties, maxAttempts);
+    NettyConfigKeys.DataStream.Client.setReconnectPolicy(properties,
+        "ExponentialBackoffRetry," + base + "," + max + "," + maxAttempts);
 
     final RaftPeer peer = RaftPeer.newBuilder()
         .setId("s1")
@@ -54,7 +52,6 @@ public class TestNettyClientStreamRpcReconnectBackoff {
       // Verify the reconnect policy is exponential and uses the configured maxAttempts.
       final RetryPolicy policy = rpc.getReconnectPolicy();
       assertTrue(policy instanceof ExponentialBackoffRetry);
-      assertEquals(maxAttempts, rpc.getMaxReconnectAttempts());
       assertFalse(policy.handleAttemptFailure(() -> maxAttempts).shouldRetry());
 
       // attempt=0 -> base delay; attempt=1 -> 2x base; attempt=3 -> capped by max.

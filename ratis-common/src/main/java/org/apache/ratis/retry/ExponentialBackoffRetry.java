@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.retry;
 
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 
 import java.util.Objects;
@@ -31,7 +32,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * in the range [s*0.5, s*1.5).
  */
 public final class ExponentialBackoffRetry implements RetryPolicy {
-
   public static final class Builder {
 
     private Builder() {}
@@ -56,9 +56,7 @@ public final class ExponentialBackoffRetry implements RetryPolicy {
     }
 
     public ExponentialBackoffRetry build() {
-      Objects.requireNonNull(baseSleepTime, "baseSleepTime == null");
-      return new ExponentialBackoffRetry(baseSleepTime, maxSleepTime,
-          maxAttempts);
+      return new ExponentialBackoffRetry(baseSleepTime, maxSleepTime, maxAttempts);
     }
   }
 
@@ -67,6 +65,13 @@ public final class ExponentialBackoffRetry implements RetryPolicy {
   private final int maxAttempts;
 
   private ExponentialBackoffRetry(TimeDuration baseSleepTime, TimeDuration maxSleepTime, int maxAttempts) {
+    Objects.requireNonNull(baseSleepTime, "baseSleepTime == null");
+    Preconditions.assertTrue(baseSleepTime.isPositive(), () -> "baseSleepTime = " + baseSleepTime + " <= 0");
+    Objects.requireNonNull(maxSleepTime, "maxSleepTime == null");
+    Preconditions.assertTrue(maxSleepTime.compareTo(baseSleepTime) >= 0,
+        () -> "maxSleepTime = " + maxSleepTime + " < baseSleepTime = " + baseSleepTime);
+    Preconditions.assertTrue(maxAttempts >= 0, () -> "maxAttempts = " + maxAttempts + " < 0");
+
     this.baseSleepTime = baseSleepTime;
     this.maxSleepTime = maxSleepTime;
     this.maxAttempts = maxAttempts;

@@ -35,7 +35,6 @@ import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
-import org.apache.ratis.retry.ExponentialBackoffRetry;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -141,12 +140,11 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   }
 
   static class Connection {
+    static final TimeDuration FIVE_HUNDRED_MS = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);
+
     private final InetSocketAddress address;
     private final WorkerGroupGetter workerGroup;
     private final Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier;
-    private final long minReconnectMillis;
-    private final long maxReconnectMillis;
-    private final int maxReconnectAttempts;
     private final RetryPolicy reconnectPolicy;
 
     /** The {@link ChannelFuture} is null when this connection is closed. */
@@ -155,24 +153,11 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     private final AtomicInteger reconnectAttempts = new AtomicInteger();
 
     Connection(InetSocketAddress address, WorkerGroupGetter workerGroup,
-        Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier,
-        TimeDuration reconnectDelay, TimeDuration reconnectMaxDelay, int reconnectMaxAttempts) {
+        Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier, RetryPolicy reconnectPolicy) {
       this.address = address;
       this.workerGroup = workerGroup;
       this.channelInitializerSupplier = channelInitializerSupplier;
-      this.minReconnectMillis = reconnectDelay.getUnit().toMillis(reconnectDelay.getDuration());
-      this.maxReconnectMillis = reconnectMaxDelay.getUnit().toMillis(reconnectMaxDelay.getDuration());
-      this.maxReconnectAttempts = reconnectMaxAttempts;
-      Preconditions.assertTrue(minReconnectMillis > 0, () -> "minReconnectMillis = " + minReconnectMillis + " <= 0");
-      Preconditions.assertTrue(maxReconnectMillis >= minReconnectMillis,
-          () -> "maxReconnectMillis = " + maxReconnectMillis + " < minReconnectMillis = " + minReconnectMillis);
-      Preconditions.assertTrue(maxReconnectAttempts >= 0,
-          () -> "maxReconnectAttempts = " + maxReconnectAttempts + " < 0");
-      this.reconnectPolicy = ExponentialBackoffRetry.newBuilder()
-          .setBaseSleepTime(reconnectDelay)
-          .setMaxSleepTime(reconnectMaxDelay)
-          .setMaxAttempts(maxReconnectAttempts)
-          .build();
+      this.reconnectPolicy = reconnectPolicy;
       this.ref = new AtomicReference<>(MemoizedSupplier.valueOf(this::connect));
     }
 
@@ -242,20 +227,19 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         LOG.warn("{}: {}; no more retries to {} after attempt {}", this, message, address, attempt);
         return;
       }
-      final long delayMillis = Math.max(1L, action.getSleepTime().toLong(TimeUnit.MILLISECONDS));
-      final TimeDuration delay = TimeDuration.valueOf(delayMillis, TimeUnit.MILLISECONDS);
-      if (delayMillis <= 500) {
-        LOG.info("{}: {}; schedule reconnecting to {} in {}", this, message, address, delay);
-      } else {
-        LOG.warn("{}: {}; schedule reconnecting to {} in {}", this, message, address, delay);
-      }
+      final TimeDuration delay = action.getSleepTime();
       if (cause != null) {
-        LOG.warn("", cause);
+        LOG.warn("{}: {}; reconnect to {} in {} for attempt {}",
+            this, message, address, delay, attempt, cause);
+      } else if (delay.compareTo(FIVE_HUNDRED_MS) < 0) {
+        LOG.info("{}: {}; reconnect to {} in {} for attempt {}", this, message, address, delay, attempt);
+      } else {
+        LOG.warn("{}: {}; reconnect to {} in {} for attempt {}", this, message, address, delay, attempt);
       }
       getWorkerGroup().schedule(() -> {
         reconnectScheduled.set(false);
         reconnect();
-      }, delayMillis, TimeUnit.MILLISECONDS);
+      }, delay.getDuration(), delay.getUnit());
     }
 
     private synchronized ChannelFuture reconnect() {
@@ -367,11 +351,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
     final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
+    final RetryPolicy reconnectPolicy = RetryPolicy.parse(NettyConfigKeys.DataStream.Client.reconnectPolicy(properties));
     this.connection = new Connection(address, WorkerGroupGetter.newInstance(properties),
-        () -> newChannelInitializer(address, sslContext, getClientHandler()),
-        NettyConfigKeys.DataStream.Client.reconnectDelay(properties),
-        NettyConfigKeys.DataStream.Client.reconnectMaxDelay(properties),
-        NettyConfigKeys.DataStream.Client.reconnectMaxAttempts(properties));
+        () -> newChannelInitializer(address, sslContext, getClientHandler()), reconnectPolicy);
   }
 
   private ChannelInboundHandler getClientHandler(){
@@ -552,23 +534,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   // Visible for tests.
   @VisibleForTesting
-  long getMinReconnectMillis() {
-    return connection.minReconnectMillis;
-  }
-
-  // Visible for tests.
-  @VisibleForTesting
-  long getMaxReconnectMillis() {
-    return connection.maxReconnectMillis;
-  }
-
-  // Visible for tests.
-  @VisibleForTesting
-  int getMaxReconnectAttempts() {
-    return connection.maxReconnectAttempts;
-  }
-
-  // Visible for tests.
   RetryPolicy getReconnectPolicy() {
     return connection.reconnectPolicy;
   }
