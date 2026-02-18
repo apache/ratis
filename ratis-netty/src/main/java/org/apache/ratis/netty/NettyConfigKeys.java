@@ -176,6 +176,18 @@ public interface NettyConfigKeys {
       static void setReplyQueueGracePeriod(RaftProperties properties, TimeDuration timeoutDuration) {
         setTimeDuration(properties::setTimeDuration, REPLY_QUEUE_GRACE_PERIOD_KEY, timeoutDuration);
       }
+
+      /** A retry policy specified in comma separated format. */
+      String RECONNECT_POLICY_KEY = PREFIX + ".reconnect.policy";
+      /** ExponentialBackoffRetry with base sleep 100ms, max sleep 5s and max attempt 100. */
+      String RECONNECT_POLICY_DEFAULT = "ExponentialBackoffRetry,100ms,5s,100";
+      static String reconnectPolicy(RaftProperties properties) {
+        return properties.get(RECONNECT_POLICY_KEY, RECONNECT_POLICY_DEFAULT);
+      }
+      static void setReconnectPolicy(RaftProperties properties, String retryPolicy) {
+        properties.set(RECONNECT_POLICY_KEY, retryPolicy);
+      }
+
     }
 
     interface Server {

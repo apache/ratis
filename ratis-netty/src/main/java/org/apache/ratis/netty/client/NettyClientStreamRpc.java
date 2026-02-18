@@ -35,7 +35,9 @@ import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.security.TlsConf;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.Channel;
@@ -71,6 +73,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -136,20 +140,24 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   }
 
   static class Connection {
-    static final TimeDuration RECONNECT = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
+    static final TimeDuration FIVE_HUNDRED_MS = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);
 
     private final InetSocketAddress address;
     private final WorkerGroupGetter workerGroup;
     private final Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier;
+    private final RetryPolicy reconnectPolicy;
 
     /** The {@link ChannelFuture} is null when this connection is closed. */
     private final AtomicReference<MemoizedSupplier<ChannelFuture>> ref;
+    private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
+    private final AtomicInteger reconnectAttempts = new AtomicInteger();
 
     Connection(InetSocketAddress address, WorkerGroupGetter workerGroup,
-        Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier) {
+        Supplier<ChannelInitializer<SocketChannel>> channelInitializerSupplier, RetryPolicy reconnectPolicy) {
       this.address = address;
       this.workerGroup = workerGroup;
       this.channelInitializerSupplier = channelInitializerSupplier;
+      this.reconnectPolicy = reconnectPolicy;
       this.ref = new AtomicReference<>(MemoizedSupplier.valueOf(this::connect));
     }
 
@@ -191,21 +199,47 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
               if (!future.isSuccess()) {
                 scheduleReconnect(Connection.this + " failed", future.cause());
               } else {
+                reconnectAttempts.set(0);
                 LOG.trace("{} succeed.", Connection.this);
               }
             }
           });
     }
 
+    /**
+     * Schedules a reconnection attempt with exponential backoff and jitter.
+     *
+     * @param message description of the failure
+     * @param cause the exception that triggered reconnection (may be null)
+     */
     void scheduleReconnect(String message, Throwable cause) {
       if (isClosed()) {
         return;
       }
-      LOG.warn("{}: {}; schedule reconnecting to {} in {}", this, message, address, RECONNECT);
-      if (cause != null) {
-        LOG.warn("", cause);
+      if (!reconnectScheduled.compareAndSet(false, true)) {
+        return;
       }
-      getWorkerGroup().schedule(this::reconnect, RECONNECT.getDuration(), RECONNECT.getUnit());
+      // Use retry index starting at 0 so the first delay equals base sleep time.
+      final int attempt = reconnectAttempts.getAndIncrement();
+      final RetryPolicy.Action action = reconnectPolicy.handleAttemptFailure(() -> attempt);
+      if (!action.shouldRetry()) {
+        reconnectScheduled.set(false);
+        LOG.warn("{}: {}; no more retries to {} after attempt {}", this, message, address, attempt);
+        return;
+      }
+      final TimeDuration delay = action.getSleepTime();
+      if (cause != null) {
+        LOG.warn("{}: {}; reconnect to {} in {} for attempt {}",
+            this, message, address, delay, attempt, cause);
+      } else if (delay.compareTo(FIVE_HUNDRED_MS) < 0) {
+        LOG.info("{}: {}; reconnect to {} in {} for attempt {}", this, message, address, delay, attempt);
+      } else {
+        LOG.warn("{}: {}; reconnect to {} in {} for attempt {}", this, message, address, delay, attempt);
+      }
+      getWorkerGroup().schedule(() -> {
+        reconnectScheduled.set(false);
+        reconnect();
+      }, delay.getDuration(), delay.getUnit());
     }
 
     private synchronized ChannelFuture reconnect() {
@@ -313,8 +347,10 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
     final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
+    final RetryPolicy reconnectPolicy =
+        RetryPolicy.parse(NettyConfigKeys.DataStream.Client.reconnectPolicy(properties));
     this.connection = new Connection(address, WorkerGroupGetter.newInstance(properties),
-        () -> newChannelInitializer(address, sslContext, getClientHandler()));
+        () -> newChannelInitializer(address, sslContext, getClientHandler()), reconnectPolicy);
   }
 
   private ChannelInboundHandler getClientHandler(){
@@ -491,5 +527,29 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   @Override
   public String toString() {
     return name;
+  }
+
+  // Visible for tests.
+  @VisibleForTesting
+  RetryPolicy getReconnectPolicy() {
+    return connection.reconnectPolicy;
+  }
+
+  // Visible for tests.
+  boolean waitForChannelActive(TimeDuration timeout) {
+    final long deadline = System.nanoTime() + timeout.toLong(TimeUnit.NANOSECONDS);
+    while (System.nanoTime() < deadline) {
+      final Channel channel = connection.getChannelUninterruptibly();
+      if (channel != null && channel.isActive()) {
+        return true;
+      }
+      try {
+        Thread.sleep(100L);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return false;
+      }
+    }
+    return false;
   }
 }
