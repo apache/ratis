@@ -67,9 +67,10 @@ public final class ExponentialBackoffRetry implements RetryPolicy {
   private ExponentialBackoffRetry(TimeDuration baseSleepTime, TimeDuration maxSleepTime, int maxAttempts) {
     Objects.requireNonNull(baseSleepTime, "baseSleepTime == null");
     Preconditions.assertTrue(baseSleepTime.isPositive(), () -> "baseSleepTime = " + baseSleepTime + " <= 0");
-    Objects.requireNonNull(maxSleepTime, "maxSleepTime == null");
-    Preconditions.assertTrue(maxSleepTime.compareTo(baseSleepTime) >= 0,
-        () -> "maxSleepTime = " + maxSleepTime + " < baseSleepTime = " + baseSleepTime);
+    if (maxSleepTime != null) {
+      Preconditions.assertTrue(maxSleepTime.compareTo(baseSleepTime) >= 0,
+          () -> "maxSleepTime = " + maxSleepTime + " < baseSleepTime = " + baseSleepTime);
+    }
     Preconditions.assertTrue(maxAttempts >= 0, () -> "maxAttempts = " + maxAttempts + " < 0");
 
     this.baseSleepTime = baseSleepTime;
