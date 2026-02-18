@@ -199,7 +199,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
               if (!future.isSuccess()) {
                 scheduleReconnect(Connection.this + " failed", future.cause());
               } else {
-                resetReconnectAttempts();
+                reconnectAttempts.set(0);
                 LOG.trace("{} succeed.", Connection.this);
               }
             }
@@ -263,10 +263,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         previous.get().channel().close();
       }
       return getChannelFuture();
-    }
-
-    private void resetReconnectAttempts() {
-      reconnectAttempts.set(0);
     }
 
     void close() {
@@ -351,7 +347,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
     final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
-    final RetryPolicy reconnectPolicy = RetryPolicy.parse(NettyConfigKeys.DataStream.Client.reconnectPolicy(properties));
+    final RetryPolicy reconnectPolicy =
+        RetryPolicy.parse(NettyConfigKeys.DataStream.Client.reconnectPolicy(properties));
     this.connection = new Connection(address, WorkerGroupGetter.newInstance(properties),
         () -> newChannelInitializer(address, sslContext, getClientHandler()), reconnectPolicy);
   }

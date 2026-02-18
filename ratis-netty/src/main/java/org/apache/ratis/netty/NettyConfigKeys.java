@@ -179,7 +179,7 @@ public interface NettyConfigKeys {
 
       /** A retry policy specified in comma separated format. */
       String RECONNECT_POLICY_KEY = PREFIX + ".reconnect.policy";
-      /** ExponentialBackoffRetry with base sleep 100ms, max sleep 5ms and max attempt 100. */
+      /** ExponentialBackoffRetry with base sleep 100ms, max sleep 5s and max attempt 100. */
       String RECONNECT_POLICY_DEFAULT = "ExponentialBackoffRetry,100ms,5s,100";
       static String reconnectPolicy(RaftProperties properties) {
         return properties.get(RECONNECT_POLICY_KEY, RECONNECT_POLICY_DEFAULT);
@@ -188,46 +188,6 @@ public interface NettyConfigKeys {
         properties.set(RECONNECT_POLICY_KEY, retryPolicy);
       }
 
-      /**
-       * Initial delay for reconnect attempts.
-       * The delay doubles on each failure with 0.5x-1.5x jitter.
-       */
-      String RECONNECT_DELAY_KEY = PREFIX + ".reconnect.delay";
-      TimeDuration RECONNECT_DELAY_DEFAULT = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
-      static TimeDuration reconnectDelay(RaftProperties properties) {
-        return getTimeDuration(properties.getTimeDuration(RECONNECT_DELAY_DEFAULT.getUnit()),
-            RECONNECT_DELAY_KEY, RECONNECT_DELAY_DEFAULT, getDefaultLog());
-      }
-      static void setReconnectDelay(RaftProperties properties, TimeDuration delay) {
-        setTimeDuration(properties::setTimeDuration, RECONNECT_DELAY_KEY, delay);
-      }
-
-      /**
-       * Maximum delay for reconnect attempts.
-       * The backoff increases until this upper bound.
-       */
-      String RECONNECT_MAX_DELAY_KEY = PREFIX + ".reconnect.max-delay";
-      TimeDuration RECONNECT_MAX_DELAY_DEFAULT = TimeDuration.valueOf(5, TimeUnit.SECONDS);
-      static TimeDuration reconnectMaxDelay(RaftProperties properties) {
-        return getTimeDuration(properties.getTimeDuration(RECONNECT_MAX_DELAY_DEFAULT.getUnit()),
-            RECONNECT_MAX_DELAY_KEY, RECONNECT_MAX_DELAY_DEFAULT, getDefaultLog());
-      }
-      static void setReconnectMaxDelay(RaftProperties properties, TimeDuration delay) {
-        setTimeDuration(properties::setTimeDuration, RECONNECT_MAX_DELAY_KEY, delay);
-      }
-
-      /**
-       * Maximum number of reconnect attempts.
-       * Use {@link Integer#MAX_VALUE} for unlimited attempts.
-       */
-      String RECONNECT_MAX_ATTEMPTS_KEY = PREFIX + ".reconnect.max-attempts";
-      int RECONNECT_MAX_ATTEMPTS_DEFAULT = Integer.MAX_VALUE;
-      static int reconnectMaxAttempts(RaftProperties properties) {
-        return getInt(properties::getInt, RECONNECT_MAX_ATTEMPTS_KEY, RECONNECT_MAX_ATTEMPTS_DEFAULT, getDefaultLog());
-      }
-      static void setReconnectMaxAttempts(RaftProperties properties, int maxAttempts) {
-        setInt(properties::setInt, RECONNECT_MAX_ATTEMPTS_KEY, maxAttempts);
-      }
     }
 
     interface Server {
