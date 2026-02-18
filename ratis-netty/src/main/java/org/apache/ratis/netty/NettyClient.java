@@ -24,8 +24,6 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInitializer;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
-import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
-import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
@@ -47,21 +45,11 @@ public class NettyClient implements Closeable {
   public void connect(EventLoopGroup group, ChannelInitializer<SocketChannel> initializer)
       throws InterruptedException {
     final InetSocketAddress address = NetUtils.createSocketAddr(serverAddress);
-    // Combine LoggingHandler with the provided initializer; Bootstrap.handler keeps only the last handler.
-    final ChannelInitializer<SocketChannel> combinedInitializer = new ChannelInitializer<SocketChannel>() {
-      @Override
-      protected void initChannel(SocketChannel ch) throws Exception {
-        ch.pipeline().addLast(new LoggingHandler(LogLevel.INFO));
-        // Add the original initializer as a handler to avoid calling its protected initChannel directly.
-        ch.pipeline().addLast(initializer);
-      }
-    };
-
     lifeCycle.startAndTransition(
         () -> channel = new Bootstrap()
             .group(group)
             .channel(NettyUtils.getSocketChannelClass(group))
-            .handler(combinedInitializer)
+            .handler(initializer)
             .connect(address)
             .sync()
             .channel(),
