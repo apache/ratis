@@ -19,6 +19,7 @@ package org.apache.ratis.retry;
 
 import org.apache.ratis.util.TimeDuration;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -95,7 +96,31 @@ public interface RetryPolicy {
           .setMaxAttempts(Integer.parseInt(args[3].trim()))
           .build();
     }
+    if (classname.equals(MultipleLinearRandomRetry.class.getSimpleName())) {
+      if (args.length == 1) {
+        throw new IllegalArgumentException("Failed to parse MultipleLinearRandomRetry: args.length = "
+            + args.length + " <= 1 for " + commaSeparated);
+      }
+      final String params = String.join(",", Arrays.copyOfRange(args, 1, args.length));
+      return MultipleLinearRandomRetry.parseCommaSeparated(params);
+    }
+    // Backward compatibility: legacy config omits class name and starts with a duration (e.g. "1ms").
+    if (isLegacyMultipleLinearRandomRetryParams(classname)) {
+      return MultipleLinearRandomRetry.parseCommaSeparated(commaSeparated);
+    }
+    // If a class name is present but unknown, fail fast to surface config errors.
     throw new IllegalArgumentException("Failed to parse RetryPolicy: unknown class "
         + args[0] + " for " + commaSeparated);
+  }
+
+  static boolean isLegacyMultipleLinearRandomRetryParams(String firstElement) {
+    // The legacy format starts with a duration token, not a class name.
+    final String trimmed = firstElement.trim().replace("_", "");
+    try {
+      final TimeDuration t = TimeDuration.valueOf(trimmed, TimeUnit.MILLISECONDS);
+      return t.isPositive();
+    } catch (RuntimeException e) {
+      return false;
+    }
   }
 }

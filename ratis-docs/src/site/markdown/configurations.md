@@ -509,6 +509,14 @@ The follower's statemachine is responsible for fetching and installing snapshot 
 | **Type**        | string                                  |
 | **Default**     | 1ms,10, 1s,20, 5s,1000                  |
 
+Format:
+`<classname>,<params...>`
+If `<classname>` is omitted, it defaults to `MultipleLinearRandomRetry` for backward compatibility.
+
+Examples:
+- `MultipleLinearRandomRetry,1ms,10,1s,20,5s,1000`
+- `1ms,10,1s,20,5s,1000` (same as above)
+
 "1ms,10, 1s,20, 5s,1000" means
 The min wait time as 1ms (0 is not allowed) for first 10,
 (5 iteration with 2 times grpc client retry),
