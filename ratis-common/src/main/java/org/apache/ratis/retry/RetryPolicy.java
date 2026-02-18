@@ -19,6 +19,9 @@ package org.apache.ratis.retry;
 
 import org.apache.ratis.util.TimeDuration;
 
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Policy abstract for retrying.
  */
@@ -72,4 +75,27 @@ public interface RetryPolicy {
    * @return the action it should take.
    */
   Action handleAttemptFailure(Event event);
+
+  static RetryPolicy parse(String commaSeparated) {
+    Objects.requireNonNull(commaSeparated, "commaSeparated == null");
+    final String[] args = commaSeparated.split(",");
+    if (args.length < 1) {
+      throw new IllegalArgumentException("Failed to parse RetryPolicy: args.length = "
+          + args.length + " < 1 for " + commaSeparated);
+    }
+    final String classname = args[0].trim();
+    if (classname.equals(ExponentialBackoffRetry.class.getSimpleName())) {
+      if (args.length != 4) {
+        throw new IllegalArgumentException("Failed to parse ExponentialBackoffRetry: args.length = "
+            + args.length + " != 4 for " + commaSeparated);
+      }
+      return ExponentialBackoffRetry.newBuilder()
+          .setBaseSleepTime(TimeDuration.valueOf(args[1], TimeUnit.MILLISECONDS))
+          .setMaxSleepTime(TimeDuration.valueOf(args[2], TimeUnit.MILLISECONDS))
+          .setMaxAttempts(Integer.parseInt(args[3].trim()))
+          .build();
+    }
+    throw new IllegalArgumentException("Failed to parse RetryPolicy: unknown class "
+        + args[0] + " for " + commaSeparated);
+  }
 }
