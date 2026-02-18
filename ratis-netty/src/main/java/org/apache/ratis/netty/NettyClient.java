@@ -24,8 +24,6 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInitializer;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
-import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
-import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
@@ -47,12 +45,10 @@ public class NettyClient implements Closeable {
   public void connect(EventLoopGroup group, ChannelInitializer<SocketChannel> initializer)
       throws InterruptedException {
     final InetSocketAddress address = NetUtils.createSocketAddr(serverAddress);
-
     lifeCycle.startAndTransition(
         () -> channel = new Bootstrap()
             .group(group)
             .channel(NettyUtils.getSocketChannelClass(group))
-            .handler(new LoggingHandler(LogLevel.INFO))
             .handler(initializer)
             .connect(address)
             .sync()

@@ -31,6 +31,8 @@ import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
+import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.ProtoUtils;
@@ -141,9 +143,10 @@ public class NettyRpcProxy implements Closeable {
       final ChannelInitializer<SocketChannel> initializer
           = new ChannelInitializer<SocketChannel>() {
         @Override
-        protected void initChannel(SocketChannel ch) throws Exception {
+        protected void initChannel(SocketChannel ch) {
           final ChannelPipeline p = ch.pipeline();
 
+          p.addLast(new LoggingHandler(LogLevel.WARN));
           p.addLast(new ProtobufVarint32FrameDecoder());
           p.addLast(new ProtobufDecoder(RaftNettyServerReplyProto.getDefaultInstance()));
           p.addLast(new ProtobufVarint32LengthFieldPrepender());
