@@ -526,9 +526,8 @@ and 5s on average for the last 1000 retries.
 For `ExponentialBackoffRetry`, the parameter "100ms,5s,100" means
 that the base wait time is 100ms, the maximum wait time is 5s
 and the number of attempts is 100.
-The wait time is min(2^(n-1) * 100ms, 5s) on average for the n-th retry.
-In other words,
-the wait time is on average 100ms, 200ms, 400ms, 800ms, 1.6s, 3.2s, 5s, 5s and so on.
+The wait time is $\min(2^{n-1} \times 100\text{ms}, 5\text{s})$ on average for the n-th retry.
+In other words, the wait times are on average 100ms, 200ms, 400ms, 800ms, 1.6s, 3.2s, 5s, 5s and so on.
 
 Note that the actual wait time is randomized by a multiplier in the range [0.5, 1.5) for all retry policies.
 

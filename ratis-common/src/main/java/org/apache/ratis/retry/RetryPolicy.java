@@ -122,9 +122,8 @@ public interface RetryPolicy {
 
   static boolean isLegacyMultipleLinearRandomRetryParams(String firstElement) {
     // The legacy format starts with a duration token, not a class name.
-    final String trimmed = firstElement.trim().replace("_", "");
     try {
-      final TimeDuration t = TimeDuration.valueOf(trimmed, TimeUnit.MILLISECONDS);
+      final TimeDuration t = TimeDuration.valueOf(firstElement, TimeUnit.MILLISECONDS);
       return t.isPositive();
     } catch (RuntimeException e) {
       return false;
