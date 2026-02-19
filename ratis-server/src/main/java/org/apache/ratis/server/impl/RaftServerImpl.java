@@ -773,9 +773,8 @@ class RaftServerImpl implements RaftServer.Division,
    */
   private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry) {
     if (!getInfo().isLeader()) {
-      NotLeaderException exception = generateNotLeaderException();
-      final RaftClientReply reply = newExceptionReply(request, exception);
-      return RetryCacheImpl.failWithReply(reply, entry);
+      return retryCache.failWithReplyAndInvalidate(
+          newExceptionReply(request, generateNotLeaderException()), entry);
     }
     if (!getInfo().isLeaderReady()) {
       final CacheEntry cacheEntry = retryCache.getIfPresent(ClientInvocationId.valueOf(request));
@@ -833,8 +832,8 @@ class RaftServerImpl implements RaftServer.Division,
 
     final LeaderStateImpl unsyncedLeaderState = role.getLeaderState().orElse(null);
     if (unsyncedLeaderState == null) {
-      final RaftClientReply reply = newExceptionReply(request, generateNotLeaderException());
-      return RetryCacheImpl.failWithReply(reply, cacheEntry);
+      return retryCache.failWithReplyAndInvalidate(
+          newExceptionReply(request, generateNotLeaderException()), cacheEntry);
     }
     final PendingRequests.Permit unsyncedPermit = unsyncedLeaderState.tryAcquirePendingRequest(request.getMessage());
     if (unsyncedPermit == null) {
