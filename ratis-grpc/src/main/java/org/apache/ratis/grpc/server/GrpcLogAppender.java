@@ -198,8 +198,9 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     lock = new AutoCloseableReadWriteLock(this);
     caller = LOG.isTraceEnabled()? JavaUtils.getCallerStackTraceElement(): null;
-    errorRetryWaitPolicy = MultipleLinearRandomRetry.parseCommaSeparated(
-        RaftServerConfigKeys.Log.Appender.retryPolicy(properties));
+    errorRetryWaitPolicy = RetryPolicy.parse(
+        RaftServerConfigKeys.Log.Appender.retryPolicy(properties),
+        RaftServerConfigKeys.Log.Appender.RETRY_POLICY_KEY);
   }
 
   @Override
