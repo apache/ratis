@@ -251,7 +251,8 @@ class StateMachineUpdater implements Runnable {
         } else {
           LOG.debug("{}: applying nextIndex={}", this, nextIndex);
         }
-
+        final Timekeeper.Context applyLogTimerContext = stateMachineMetrics.get().getApplyLogExecutionTimer(
+            next.getLogEntryBodyCase()).time();
         final CompletableFuture<Message> f = server.applyLogToStateMachine(next);
         final long incremented = appliedIndex.incrementAndGet(debugIndexChange);
         Preconditions.assertTrue(incremented == nextIndex);
@@ -260,10 +261,12 @@ class StateMachineUpdater implements Runnable {
             LOG.error("Exception while {}: applying txn index={}, nextLog={}", this, nextIndex,
                     LogProtoUtils.toLogEntryString(next), ex);
             return null;
-          });
+          })
+              .whenComplete((m, e) -> applyLogTimerContext.stop());
           applyLogFutures = applyLogFutures.thenCombine(exceptionHandledFuture, (v, message) -> null);
           f.thenAccept(m -> notifyAppliedIndex(incremented));
         } else {
+          applyLogTimerContext.stop();
           notifyAppliedIndex(incremented);
         }
       } else {
