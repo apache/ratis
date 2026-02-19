@@ -88,6 +88,10 @@ public final class OrderedAsync {
       isFirst = true;
     }
 
+    public long getCallId() {
+      return callId;
+    }
+
     @Override
     public long getSeqNum() {
       return seqNum;
@@ -138,7 +142,7 @@ public final class OrderedAsync {
   }
 
   private void resetSlidingWindow(RaftClientRequest request) {
-    getSlidingWindow(request).resetFirstSeqNum();
+    getSlidingWindow(request).resetFirstSeqNum(request.getCallId());
   }
 
   private SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> getSlidingWindow(RaftClientRequest request) {
