@@ -19,6 +19,7 @@ package org.apache.ratis.retry;
 
 import org.apache.ratis.util.TimeDuration;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -76,12 +77,19 @@ public interface RetryPolicy {
    */
   Action handleAttemptFailure(Event event);
 
+  static RetryPolicy parse(String commaSeparated, String name) {
+    try {
+      return parse(commaSeparated);
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to parse " + name + ": \"" + commaSeparated + "\"", e);
+    }
+  }
+
   static RetryPolicy parse(String commaSeparated) {
     Objects.requireNonNull(commaSeparated, "commaSeparated == null");
     final String[] args = commaSeparated.split(",");
     if (args.length < 1) {
-      throw new IllegalArgumentException("Failed to parse RetryPolicy: args.length = "
-          + args.length + " < 1 for " + commaSeparated);
+      throw new IllegalArgumentException("Failed to parse RetryPolicy: empty comma separated string");
     }
     final String classname = args[0].trim();
     if (classname.equals(ExponentialBackoffRetry.class.getSimpleName())) {
@@ -95,7 +103,30 @@ public interface RetryPolicy {
           .setMaxAttempts(Integer.parseInt(args[3].trim()))
           .build();
     }
+    if (classname.equals(MultipleLinearRandomRetry.class.getSimpleName())) {
+      if (args.length == 1) {
+        throw new IllegalArgumentException(
+            "Failed to parse MultipleLinearRandomRetry: the parameter list is empty for " + commaSeparated);
+      }
+      final String params = String.join(",", Arrays.copyOfRange(args, 1, args.length));
+      return MultipleLinearRandomRetry.parseCommaSeparated(params);
+    }
+    // Backward compatibility: legacy config omits class name and starts with a duration (e.g. "1ms").
+    if (isLegacyMultipleLinearRandomRetryParams(classname)) {
+      return MultipleLinearRandomRetry.parseCommaSeparated(commaSeparated);
+    }
+    // If a class name is present but unknown, fail fast to surface config errors.
     throw new IllegalArgumentException("Failed to parse RetryPolicy: unknown class "
-        + args[0] + " for " + commaSeparated);
+        + classname + " for " + commaSeparated);
+  }
+
+  static boolean isLegacyMultipleLinearRandomRetryParams(String firstElement) {
+    // The legacy format starts with a duration token, not a class name.
+    try {
+      final TimeDuration t = TimeDuration.valueOf(firstElement, TimeUnit.MILLISECONDS);
+      return t.isPositive();
+    } catch (RuntimeException e) {
+      return false;
+    }
   }
 }

@@ -347,8 +347,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
     final InetSocketAddress address = NetUtils.createSocketAddr(server.getDataStreamAddress());
     final SslContext sslContext = NettyUtils.buildSslContextForClient(tlsConf);
-    final RetryPolicy reconnectPolicy =
-        RetryPolicy.parse(NettyConfigKeys.DataStream.Client.reconnectPolicy(properties));
+    final RetryPolicy reconnectPolicy = RetryPolicy.parse(
+        NettyConfigKeys.DataStream.Client.reconnectPolicy(properties),
+        NettyConfigKeys.DataStream.Client.RECONNECT_POLICY_KEY);
     this.connection = new Connection(address, WorkerGroupGetter.newInstance(properties),
         () -> newChannelInitializer(address, sslContext, getClientHandler()), reconnectPolicy);
   }
