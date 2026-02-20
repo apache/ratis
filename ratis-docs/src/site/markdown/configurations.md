@@ -509,11 +509,27 @@ The follower's statemachine is responsible for fetching and installing snapshot 
 | **Type**        | string                                  |
 | **Default**     | 1ms,10, 1s,20, 5s,1000                  |
 
-"1ms,10, 1s,20, 5s,1000" means
-The min wait time as 1ms (0 is not allowed) for first 10,
-(5 iteration with 2 times grpc client retry),
-next wait 1sec for next 20 retry (10 iteration with 2 times grpc client)
-further wait for 5sec for max times ((5sec*980)/2 times ~= 40min)
+Format:
+`<classname>,<params...>`
+If `<classname>` is omitted, it defaults to `MultipleLinearRandomRetry` for backward compatibility.
+
+Examples:
+- `MultipleLinearRandomRetry,1ms,10,1s,20,5s,1000`
+- `1ms,10,1s,20,5s,1000` (same as above)
+- `ExponentialBackoffRetry,100ms,5s,100`
+
+For `MultipleLinearRandomRetry`, the parameter "1ms,10, 1s,20, 5s,1000" means
+that the wait time is 1ms on average for the first 10 retries.
+Then, it becomes 1s on average for next 20 retries
+and 5s on average for the last 1000 retries.
+
+For `ExponentialBackoffRetry`, the parameter "100ms,5s,100" means
+that the base wait time is 100ms, the maximum wait time is 5s
+and the number of attempts is 100.
+The wait time is $\min(2^{n-1} \times 100\text{ms}, 5\text{s})$ on average for the n-th retry.
+In other words, the wait times are on average 100ms, 200ms, 400ms, 800ms, 1.6s, 3.2s, 5s, 5s and so on.
+
+Note that the actual wait time is randomized by a multiplier in the range [0.5, 1.5) for all retry policies.
 
 --------------------------------------------------------------------------------
 
