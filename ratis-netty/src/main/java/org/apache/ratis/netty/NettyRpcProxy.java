@@ -34,7 +34,9 @@ import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.PeerProxyMap;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -42,9 +44,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -80,6 +83,41 @@ public class NettyRpcProxy implements Closeable {
     }
   }
 
+  static RaftRpcRequestProto getRequest(RaftNettyServerRequestProto proto) {
+    final RaftNettyServerRequestProto.RaftNettyServerRequestCase requestCase = proto.getRaftNettyServerRequestCase();
+    switch (requestCase) {
+      case REQUESTVOTEREQUEST:
+        return proto.getRequestVoteRequest().getServerRequest();
+      case APPENDENTRIESREQUEST:
+        return proto.getAppendEntriesRequest().getServerRequest();
+      case INSTALLSNAPSHOTREQUEST:
+        return proto.getInstallSnapshotRequest().getServerRequest();
+      case RAFTCLIENTREQUEST:
+        return proto.getRaftClientRequest().getRpcRequest();
+      case SETCONFIGURATIONREQUEST:
+        return proto.getSetConfigurationRequest().getRpcRequest();
+      case GROUPMANAGEMENTREQUEST:
+        return proto.getGroupManagementRequest().getRpcRequest();
+      case GROUPLISTREQUEST:
+        return proto.getGroupListRequest().getRpcRequest();
+      case GROUPINFOREQUEST:
+        return proto.getGroupInfoRequest().getRpcRequest();
+      case TRANSFERLEADERSHIPREQUEST:
+        return proto.getTransferLeadershipRequest().getRpcRequest();
+      case STARTLEADERELECTIONREQUEST:
+        return proto.getStartLeaderElectionRequest().getServerRequest();
+      case SNAPSHOTMANAGEMENTREQUEST:
+        return proto.getSnapshotManagementRequest().getRpcRequest();
+      case LEADERELECTIONMANAGEMENTREQUEST:
+        return proto.getLeaderElectionManagementRequest().getRpcRequest();
+
+      case RAFTNETTYSERVERREQUEST_NOT_SET:
+        throw new IllegalArgumentException("Request case not set in proto: " + requestCase);
+      default:
+        throw new UnsupportedOperationException("Request case not supported: " + requestCase);
+    }
+  }
+
   public static long getCallId(RaftNettyServerReplyProto proto) {
     switch (proto.getRaftNettyServerReplyCase()) {
       case REQUESTVOTEREPLY:
@@ -92,6 +130,10 @@ public class NettyRpcProxy implements Closeable {
         return proto.getInstallSnapshotReply().getServerReply().getCallId();
       case RAFTCLIENTREPLY:
         return proto.getRaftClientReply().getRpcReply().getCallId();
+      case GROUPLISTREPLY:
+        return proto.getGroupListReply().getRpcReply().getCallId();
+      case GROUPINFOREPLY:
+        return proto.getGroupInfoReply().getRpcReply().getCallId();
       case EXCEPTIONREPLY:
         return proto.getExceptionReply().getRpcReply().getCallId();
       case RAFTNETTYSERVERREPLY_NOT_SET:
@@ -106,8 +148,7 @@ public class NettyRpcProxy implements Closeable {
 
   class Connection implements Closeable {
     private final NettyClient client = new NettyClient(peer.getAddress());
-    private final Queue<CompletableFuture<RaftNettyServerReplyProto>> replies
-        = new LinkedList<>();
+    private final Map<Long, CompletableFuture<RaftNettyServerReplyProto>> replies = new ConcurrentHashMap<>();
 
     Connection(EventLoopGroup group) throws InterruptedException {
       final ChannelInboundHandler inboundHandler
@@ -115,11 +156,7 @@ public class NettyRpcProxy implements Closeable {
         @Override
         protected void channelRead0(ChannelHandlerContext ctx,
                                     RaftNettyServerReplyProto proto) {
-          final CompletableFuture<RaftNettyServerReplyProto> future = pollReply();
-          if (future == null) {
-            throw new IllegalStateException("Request #" + getCallId(proto)
-                + " not found");
-          }
+          final CompletableFuture<RaftNettyServerReplyProto> future = getReplyFuture(getCallId(proto), null);
           if (proto.getRaftNettyServerReplyCase() == EXCEPTIONREPLY) {
             final Object ioe = ProtoUtils.toObject(proto.getExceptionReply().getException());
             future.completeExceptionally((IOException)ioe);
@@ -159,14 +196,38 @@ public class NettyRpcProxy implements Closeable {
       client.connect(group, initializer);
     }
 
-    synchronized ChannelFuture offer(RaftNettyServerRequestProto request,
-        CompletableFuture<RaftNettyServerReplyProto> reply) throws AlreadyClosedException {
-      replies.offer(reply);
-      return client.writeAndFlush(request);
+    private CompletableFuture<RaftNettyServerReplyProto> getReplyFuture(long callId,
+        CompletableFuture<RaftNettyServerReplyProto> expected) {
+      final CompletableFuture<RaftNettyServerReplyProto> removed = replies.remove(callId);
+      Objects.requireNonNull(removed, () -> "Request #" + callId + " not found");
+      if (expected != null) {
+        Preconditions.assertSame(expected, removed, "removed");
+      }
+      return removed;
     }
 
-    synchronized CompletableFuture<RaftNettyServerReplyProto> pollReply() {
-      return replies.poll();
+    synchronized CompletableFuture<RaftNettyServerReplyProto> offer(RaftNettyServerRequestProto request) {
+      final ChannelFuture future;
+      try {
+        future = client.writeAndFlush(request);
+      } catch (AlreadyClosedException e) {
+        return JavaUtils.completeExceptionally(e);
+      }
+
+      final CompletableFuture<RaftNettyServerReplyProto> reply = new CompletableFuture<>();
+      final long callId = getRequest(request).getCallId();
+      final CompletableFuture<RaftNettyServerReplyProto> previous = replies.put(callId, reply);
+      Preconditions.assertNull(previous, "previous");
+
+      future.addListener(cf -> {
+        if (!cf.isSuccess()) {
+          // Remove from queue on async write failure to prevent reply mismatch.
+          // Only complete exceptionally if removal succeeds (not already polled).
+          getReplyFuture(callId, reply).completeExceptionally(cf.cause());
+          client.close();
+        }
+      });
+      return reply;
     }
 
     @Override
@@ -179,7 +240,7 @@ public class NettyRpcProxy implements Closeable {
       if (!replies.isEmpty()) {
         LOG.warn("Still have {} requests outstanding from {} connection: {}",
             replies.size(), peer, cause.toString());
-        replies.forEach(f -> f.completeExceptionally(cause));
+        replies.values().forEach(f -> f.completeExceptionally(cause));
         replies.clear();
       }
     }
@@ -201,23 +262,14 @@ public class NettyRpcProxy implements Closeable {
   }
 
   public CompletableFuture<RaftNettyServerReplyProto> sendAsync(RaftNettyServerRequestProto proto) {
-    final CompletableFuture<RaftNettyServerReplyProto> reply = new CompletableFuture<>();
-    try {
-      connection.offer(proto, reply);
-    } catch (AlreadyClosedException e) {
-      reply.completeExceptionally(e);
-    }
-    return reply;
+    return connection.offer(proto);
   }
 
   public RaftNettyServerReplyProto send(
       RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
-    final CompletableFuture<RaftNettyServerReplyProto> reply = new CompletableFuture<>();
-    final ChannelFuture channelFuture = connection.offer(proto, reply);
-
+    final CompletableFuture<RaftNettyServerReplyProto> reply = sendAsync(proto);
     try {
-      channelFuture.sync();
       TimeDuration newDuration = requestTimeoutDuration.add(request.getTimeoutMs(), TimeUnit.MILLISECONDS);
       return reply.get(newDuration.getDuration(), newDuration.getUnit());
     } catch (InterruptedException e) {
