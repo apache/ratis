@@ -1430,12 +1430,13 @@ class RaftServerImpl implements RaftServer.Division,
         RaftPeerId.valueOf(request.getRequestorId()),
         ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
         r.getCandidateTerm(),
-        TermIndex.valueOf(r.getCandidateLastEntry()));
+        TermIndex.valueOf(r.getCandidateLastEntry()),
+        request.getCallId());
   }
 
   private RequestVoteReplyProto requestVote(Phase phase,
       RaftPeerId candidateId, RaftGroupId candidateGroupId,
-      long candidateTerm, TermIndex candidateLastEntry) throws IOException {
+      long candidateTerm, TermIndex candidateLastEntry, long callId) throws IOException {
     CodeInjectionForTesting.execute(REQUEST_VOTE, getId(),
         candidateId, candidateTerm, candidateLastEntry);
     LOG.info("{}: receive requestVote({}, {}, {}, {}, {})",
@@ -1470,7 +1471,7 @@ class RaftServerImpl implements RaftServer.Division,
         shouldShutdown = true;
       }
       reply = toRequestVoteReplyProto(candidateId, getMemberId(),
-          voteGranted, state.getCurrentTerm(), shouldShutdown, state.getLastEntry());
+          voteGranted, state.getCurrentTerm(), shouldShutdown, state.getLastEntry(), callId);
       if (LOG.isInfoEnabled()) {
         LOG.info("{} replies to {} vote request: {}. Peer's state: {}",
             getMemberId(), phase, toRequestVoteReplyString(reply), state);

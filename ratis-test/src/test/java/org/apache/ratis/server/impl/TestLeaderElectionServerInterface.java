@@ -107,7 +107,8 @@ public class TestLeaderElectionServerInterface extends BaseTest {
         final long term = (lastEntry != null? lastEntry : TermIndex.INITIAL_VALUE).getTerm();
 
         // voter replies to candidate
-        return ServerProtoUtils.toRequestVoteReplyProto(getId(), voter, true, term, false, lastEntry);
+        return ServerProtoUtils.toRequestVoteReplyProto(
+            getId(), voter, true, term, false, lastEntry, r.getServerRequest().getCallId());
       }
 
       @Override
