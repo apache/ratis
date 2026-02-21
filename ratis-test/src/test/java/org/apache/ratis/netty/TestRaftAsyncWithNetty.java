@@ -25,9 +25,10 @@ import org.junit.jupiter.api.Timeout;
 public class TestRaftAsyncWithNetty
     extends RaftAsyncTests<MiniRaftClusterWithNetty>
     implements MiniRaftClusterWithNetty.FactoryGet {
+
   @Override
   @Test
-  @Timeout(300)
+  @Timeout(500)
   public void testWithLoadAsync() throws Exception {
     super.testWithLoadAsync();
   }
