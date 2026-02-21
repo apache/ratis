@@ -77,12 +77,19 @@ class GrpcZeroCopyTestServer implements Closeable {
   private final Count nonZeroCopyCount = new Count();
 
   private final Server server;
+  // Allow tests to disable release to validate leak detection.
+  private final boolean releaseRequests;
   private final ZeroCopyMessageMarshaller<BinaryRequest> marshaller = new ZeroCopyMessageMarshaller<>(
       BinaryRequest.getDefaultInstance(),
       zeroCopyCount::inc,
       nonZeroCopyCount::inc);
 
   GrpcZeroCopyTestServer(int port) {
+    this(port, true);
+  }
+
+  GrpcZeroCopyTestServer(int port, boolean releaseRequests) {
+    this.releaseRequests = releaseRequests;
     final GreeterImpl greeter = new GreeterImpl();
     final MethodDescriptor<BinaryRequest, BinaryReply> binary = GreeterGrpc.getBinaryMethod();
     final String binaryFullMethodName = binary.getFullMethodName();
@@ -128,11 +135,29 @@ class GrpcZeroCopyTestServer implements Closeable {
 
   @Override
   public void close() throws IOException {
+    // Shutdown server first, then assert no leaked streams and cleanup if needed.
+    IOException ioe = null;
     try {
       server.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      throw IOUtils.toInterruptedIOException("Failed to close", e);
+      ioe = IOUtils.toInterruptedIOException("Failed to close", e);
+    }
+
+    try {
+      marshaller.assertNoUnclosedStreams();
+    } catch (RuntimeException e) {
+      if (ioe != null) {
+        ioe.addSuppressed(e);
+        throw ioe;
+      }
+      throw e;
+    } finally {
+      marshaller.close();
+    }
+
+    if (ioe != null) {
+      throw ioe;
     }
   }
 
@@ -179,7 +204,9 @@ class GrpcZeroCopyTestServer implements Closeable {
             ByteBuffer.wrap(bytes).putInt(data.size());
             responseObserver.onNext(BinaryReply.newBuilder().setData(UnsafeByteOperations.unsafeWrap(bytes)).build());
           } finally {
-            marshaller.release(request);
+            if (releaseRequests) {
+              marshaller.release(request);
+            }
           }
         }
 
