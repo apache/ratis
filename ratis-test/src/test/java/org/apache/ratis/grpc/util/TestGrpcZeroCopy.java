@@ -26,8 +26,12 @@ import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.TraditionalBinaryPrefix;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,8 +64,8 @@ public final class TestGrpcZeroCopy extends BaseTest {
         RANDOM.nextBytes(ARRAY);
         final ByteString expected = UnsafeByteOperations.unsafeWrap(ARRAY, 0, remaining);
         final ByteString computed = b.substring(offset, offset + remaining);
-        Assertions.assertEquals(expected.size(), computed.size());
-        Assertions.assertEquals(expected, computed);
+        assertEquals(expected.size(), computed.size());
+        assertEquals(expected, computed);
         offset += remaining;
       }
     }
@@ -99,13 +103,25 @@ public final class TestGrpcZeroCopy extends BaseTest {
   /** Test a zero-copy marshaller is available from the versions of gRPC and Protobuf. */
   @Test
   public void testReadiness() {
-    Assertions.assertTrue(isReady());
+    assertTrue(isReady());
   }
 
 
   @Test
   public void testZeroCopy() throws Exception {
     runTestZeroCopy();
+  }
+
+  @Test
+  public void testLeakCheck() throws Exception {
+    // Verify leak detection by disabling release on the server side.
+    assumeTrue(isReady());
+    final GrpcZeroCopyTestServer server = new GrpcZeroCopyTestServer(NetUtils.getFreePort(), false);
+    final int port = server.start();
+    try (GrpcZeroCopyTestClient client = new GrpcZeroCopyTestClient(NetUtils.LOCALHOST, port)) {
+      sendBinaries(1, client, server);
+    }
+    assertThrows(IllegalStateException.class, server::close);
   }
 
   void runTestZeroCopy() throws Exception {
@@ -134,7 +150,7 @@ public final class TestGrpcZeroCopy extends BaseTest {
     for (int i = 0; i < futures.size(); i++) {
       final String expected = GrpcZeroCopyTestServer.toReply(i, messages.get(i));
       final String reply = futures.get(i).get();
-      Assertions.assertEquals(expected, reply, "expected = " + expected + " != reply = " + reply);
+      assertEquals(expected, reply, "expected = " + expected + " != reply = " + reply);
       server.assertCounts(numElements, numBytes);
     }
   }
@@ -159,8 +175,8 @@ public final class TestGrpcZeroCopy extends BaseTest {
       }
 
       final ByteString reply = future.get();
-      Assertions.assertEquals(4, reply.size());
-      Assertions.assertEquals(size, reply.asReadOnlyByteBuffer().getInt());
+      assertEquals(4, reply.size());
+      assertEquals(size, reply.asReadOnlyByteBuffer().getInt());
 
       numElements++;
       numBytes += size;
