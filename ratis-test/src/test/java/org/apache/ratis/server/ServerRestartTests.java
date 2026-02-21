@@ -64,8 +64,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-import static org.apache.ratis.server.storage.RaftStorageTestUtils.getLogUnsafe;
-
 /**
  * Test restarting raft peers.
  */
@@ -263,10 +261,10 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
     final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
     LOG.info("{}: leader lastIndex={}", leaderId, lastIndex);
-    final LogEntryProto lastEntry = getLogUnsafe(leaderLog, lastIndex);
+    final LogEntryProto lastEntry = leaderLog.get(lastIndex);
     LOG.info("{}: leader lastEntry entry[{}] = {}", leaderId, lastIndex, LogProtoUtils.toLogEntryString(lastEntry));
     final long loggedCommitIndex = lastEntry.getMetadataEntry().getCommitIndex();
-    final LogEntryProto lastCommittedEntry = getLogUnsafe(leaderLog, loggedCommitIndex);
+    final LogEntryProto lastCommittedEntry = leaderLog.get(loggedCommitIndex);
     LOG.info("{}: leader lastCommittedEntry = entry[{}] = {}",
         leaderId, loggedCommitIndex, LogProtoUtils.toLogEntryString(lastCommittedEntry));
 
@@ -312,11 +310,11 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   static void assertLastLogEntry(RaftServer.Division server) throws RaftLogIOException {
     final RaftLog raftLog = server.getRaftLog();
     final long lastIndex = raftLog.getLastEntryTermIndex().getIndex();
-    final LogEntryProto lastEntry = getLogUnsafe(raftLog, lastIndex);
+    final LogEntryProto lastEntry = raftLog.get(lastIndex);
     Assertions.assertTrue(lastEntry.hasMetadataEntry());
 
     final long loggedCommitIndex = lastEntry.getMetadataEntry().getCommitIndex();
-    final LogEntryProto lastCommittedEntry = getLogUnsafe(raftLog, loggedCommitIndex);
+    final LogEntryProto lastCommittedEntry = raftLog.get(loggedCommitIndex);
     Assertions.assertTrue(lastCommittedEntry.hasStateMachineLogEntry());
 
     final SimpleStateMachine4Testing leaderStateMachine = SimpleStateMachine4Testing.get(server);

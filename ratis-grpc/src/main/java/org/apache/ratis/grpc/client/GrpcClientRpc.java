@@ -17,16 +17,14 @@
  */
 package org.apache.ratis.grpc.client;
 
-import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
-import org.apache.ratis.protocol.exceptions.TimeoutIOException;
-import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
@@ -38,11 +36,9 @@ import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
 import org.apache.ratis.proto.RaftProtos.SnapshotManagementRequestProto;
 import org.apache.ratis.proto.RaftProtos.LeaderElectionManagementRequestProto;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.PeerProxyMap;
-import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,25 +46,19 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClient> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
 
   private final ClientId clientId;
   private final int maxMessageSize;
-  private final TimeDuration requestTimeoutDuration;
-  private final TimeDuration watchRequestTimeoutDuration;
 
   public GrpcClientRpc(ClientId clientId, RaftProperties properties,
-      SslContext adminSslContext, SslContext clientSslContext) {
+      GrpcTlsConfig adminTlsConfig, GrpcTlsConfig clientTlsConfig) {
     super(new PeerProxyMap<>(clientId.toString(),
-        p -> new GrpcClientProtocolClient(clientId, p, properties, adminSslContext, clientSslContext)));
+        p -> new GrpcClientProtocolClient(clientId, p, properties, adminTlsConfig, clientTlsConfig)));
     this.clientId = clientId;
     this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug).getSizeInt();
-    this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
-    this.watchRequestTimeoutDuration = RaftClientConfigKeys.Rpc.watchRequestTimeout(properties);
   }
 
   @Override
@@ -131,11 +121,24 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
           ((LeaderElectionManagementRequest) request);
       return ClientProtoUtils.toRaftClientReply(proxy.leaderElectionManagement(proto));
     } else {
-      return sendRequest(request, proxy);
+      final CompletableFuture<RaftClientReply> f = sendRequest(request, proxy);
+      // TODO: timeout support
+      try {
+        return f.get();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new InterruptedIOException(
+            "Interrupted while waiting for response of request " + request);
+      } catch (ExecutionException e) {
+        if (LOG.isTraceEnabled()) {
+          LOG.trace(clientId + ": failed " + request, e);
+        }
+        throw IOUtils.toIOException(e);
+      }
     }
   }
 
-  private RaftClientReply sendRequest(
+  private CompletableFuture<RaftClientReply> sendRequest(
       RaftClientRequest request, GrpcClientProtocolClient proxy) throws IOException {
     final RaftClientRequestProto requestProto =
         toRaftClientRequestProto(request);
@@ -164,44 +167,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
     requestObserver.onNext(requestProto);
     requestObserver.onCompleted();
 
-    final TimeDuration timeout = getTimeoutDuration(request);
-    try {
-      return replyFuture.thenApply(ClientProtoUtils::toRaftClientReply)
-          .get(timeout.getDuration(), timeout.getUnit());
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      replyFuture.cancel(true);
-      final InterruptedIOException ioe = new InterruptedIOException(clientId + ": Interrupted " + request);
-      sendOnError(requestObserver, Status.CANCELLED, ioe.getMessage());
-      throw ioe;
-    } catch (TimeoutException e) {
-      replyFuture.cancel(true);
-      final TimeoutIOException ioe =
-          new TimeoutIOException(clientId + ": Timed out " + timeout + " for " + request, e);
-      sendOnError(requestObserver, Status.DEADLINE_EXCEEDED, ioe.getMessage());
-      throw ioe;
-    } catch (ExecutionException e) {
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("{} : failed {}", clientId, request, e);
-      }
-      throw IOUtils.toIOException(e);
-    }
-  }
-
-  private void sendOnError(StreamObserver<RaftClientRequestProto> requestObserver, Status status, String message) {
-    try {
-      requestObserver.onError(status.withDescription(message).asException());
-    } catch (Exception ignored) {
-      // the stream already closed.
-    }
-  }
-
-  private TimeDuration getTimeoutDuration(RaftClientRequest request) {
-    final long timeoutMs = request.getTimeoutMs();
-    if (timeoutMs > 0) {
-      return TimeDuration.valueOf(timeoutMs, TimeUnit.MILLISECONDS);
-    }
-    return request.is(RaftClientRequestProto.TypeCase.WATCH) ? watchRequestTimeoutDuration : requestTimeoutDuration;
+    return replyFuture.thenApply(ClientProtoUtils::toRaftClientReply);
   }
 
   private RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) throws IOException {

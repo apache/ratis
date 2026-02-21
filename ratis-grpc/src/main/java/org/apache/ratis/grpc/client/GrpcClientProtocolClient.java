@@ -21,6 +21,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.intercept.client.MetricClientInterceptor;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
@@ -48,10 +49,11 @@ import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
+import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -82,7 +84,6 @@ public class GrpcClientProtocolClient implements Closeable {
   private final ManagedChannel clientChannel;
   private final ManagedChannel adminChannel;
 
-  private final SizeInBytes maxMessageSize;
   private final TimeDuration requestTimeoutDuration;
   private final TimeDuration watchRequestTimeoutDuration;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
@@ -96,11 +97,11 @@ public class GrpcClientProtocolClient implements Closeable {
   private final MetricClientInterceptor metricClientInterceptor;
 
   GrpcClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties,
-      SslContext adminSslContext, SslContext clientSslContext) {
+      GrpcTlsConfig adminTlsConfig, GrpcTlsConfig clientTlsConfig) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
-    this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
+    final SizeInBytes maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     metricClientInterceptor = new MetricClientInterceptor(getName());
 
     final String clientAddress = Optional.ofNullable(target.getClientAddress())
@@ -109,9 +110,11 @@ public class GrpcClientProtocolClient implements Closeable {
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
     final boolean separateAdminChannel = !Objects.equals(clientAddress, adminAddress);
 
-    clientChannel = buildChannel(clientAddress, clientSslContext, flowControlWindow);
+    clientChannel = buildChannel(clientAddress, clientTlsConfig,
+        flowControlWindow, maxMessageSize);
     adminChannel = separateAdminChannel
-        ? buildChannel(adminAddress, adminSslContext, flowControlWindow)
+        ? buildChannel(adminAddress, adminTlsConfig,
+            flowControlWindow, maxMessageSize)
         : clientChannel;
 
     asyncStub = RaftClientProtocolServiceGrpc.newStub(clientChannel);
@@ -121,16 +124,26 @@ public class GrpcClientProtocolClient implements Closeable {
         RaftClientConfigKeys.Rpc.watchRequestTimeout(properties);
   }
 
-  private ManagedChannel buildChannel(String address, SslContext sslContext,
-      SizeInBytes flowControlWindow) {
+  private ManagedChannel buildChannel(String address, GrpcTlsConfig tlsConf,
+      SizeInBytes flowControlWindow, SizeInBytes maxMessageSize) {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(address);
     // ignore any http proxy for grpc
     channelBuilder.proxyDetector(uri -> null);
 
-    if (sslContext != null) {
+    if (tlsConf != null) {
       LOG.debug("Setting TLS for {}", address);
-      channelBuilder.useTransportSecurity().sslContext(sslContext);
+      SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
+      GrpcUtil.setTrustManager(sslContextBuilder, tlsConf.getTrustManager());
+      if (tlsConf.getMtlsEnabled()) {
+        GrpcUtil.setKeyManager(sslContextBuilder, tlsConf.getKeyManager());
+      }
+      try {
+        channelBuilder.useTransportSecurity().sslContext(
+            sslContextBuilder.build());
+      } catch (Exception ex) {
+        throw new RuntimeException(ex);
+      }
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
@@ -333,20 +346,13 @@ public class GrpcClientProtocolClient implements Closeable {
     }
 
     CompletableFuture<RaftClientReply> onNext(RaftClientRequest request) {
-      final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
-      if (proto.getSerializedSize() > maxMessageSize.getSizeInt()) {
-        return JavaUtils.completeExceptionally(new IllegalArgumentException(getName()
-            + ": request serialized size " + proto.getSerializedSize()
-            + " exceeds maximum " + maxMessageSize + " for " + request));
-      }
-
       final long callId = request.getCallId();
       final CompletableFuture<RaftClientReply> f = replies.putNew(callId);
       if (f == null) {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + " is closed."));
       }
       try {
-        if (!requestStreamer.onNext(proto)) {
+        if (!requestStreamer.onNext(ClientProtoUtils.toRaftClientRequestProto(request))) {
           return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + ": the stream is closed."));
         }
       } catch(Exception t) {

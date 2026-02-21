@@ -57,6 +57,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Testing {@link TlsConf} and the security related utility methods in {@link NettyUtils}.
  */
+@SuppressWarnings({"try"})
 public class TestTlsConfWithNetty {
   private static final Logger LOG = LoggerFactory.getLogger(TestTlsConfWithNetty.class);
 

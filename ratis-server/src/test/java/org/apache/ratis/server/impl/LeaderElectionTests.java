@@ -21,8 +21,8 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
+import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -37,6 +37,8 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
+import org.apache.ratis.test.tag.Flaky;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.JavaUtils;
@@ -48,7 +50,6 @@ import org.apache.ratis.util.function.CheckedBiConsumer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
-import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -65,14 +66,16 @@ import static org.apache.ratis.RaftTestUtil.getPeersWithPriority;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_ELECTION_ELAPSED_TIME;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
-import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIME_TAKEN;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import org.slf4j.event.Level;
 
 public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -85,16 +88,15 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testBasicLeaderElection() throws Exception {
     LOG.info("Running testBasicLeaderElection");
-    runWithNewCluster(5, this::runTestBasicLeaderElection);
-  }
-
-  void runTestBasicLeaderElection(MiniRaftCluster cluster) throws Exception {
+    final MiniRaftCluster cluster = newCluster(5);
+    cluster.start();
     RaftTestUtil.waitAndKillLeader(cluster);
     RaftTestUtil.waitAndKillLeader(cluster);
     RaftTestUtil.waitAndKillLeader(cluster);
     testFailureCase("waitForLeader after killed a majority of servers",
         () -> RaftTestUtil.waitForLeader(cluster, null, false),
         IllegalStateException.class);
+    cluster.shutdown();
   }
 
   static class SleepCode implements CodeInjectionForTesting.Code {
@@ -121,11 +123,9 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final int sleepMs = 1000 + ThreadLocalRandom.current().nextInt(1000);
     LOG.info("Running testWaitServerReady, sleep = {}ms", sleepMs);
     CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(sleepMs));
+    final MiniRaftCluster cluster = newCluster(1);
     final Timestamp startTime = Timestamp.currentTime();
-    runWithNewCluster(1, c -> runTestWaitServerReady(c, sleepMs, startTime));
-  }
-
-  void runTestWaitServerReady(MiniRaftCluster cluster, int sleepMs, Timestamp startTime) throws Exception {
+    cluster.start();
     LOG.info("Cluster started at {}ms", startTime.elapsedTimeMs());
     final RaftGroupId groupId = cluster.getGroupId();
     final RaftServerImpl server = (RaftServerImpl) cluster.getServers().iterator().next().getDivision(groupId);
@@ -136,18 +136,17 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     assertNotNull(waitForLeader(cluster), "No leader is elected.");
     final long elapsedMs = startTime.elapsedTimeMs();
     // allow a small difference to tolerate system timer inaccuracy
-    Assertions.assertTrue(elapsedMs > sleepMs - 10, () -> "elapseMs = " + elapsedMs + " but sleepMs = " + sleepMs);
+    assertTrue(elapsedMs > sleepMs - 10, () -> "elapseMs = " + elapsedMs + " but sleepMs = " + sleepMs);
+    cluster.shutdown();
     CodeInjectionForTesting.remove(RaftServerImpl.START_COMPLETE);
   }
 
   @Test
-  public void testAddServerForWaitReady() throws Exception {
+  public void testAddServerForWaitReady() throws IOException, InterruptedException {
     LOG.info("Running testAddServerForWaitReady");
     // normal startup cluster with 3 server
-    runWithNewCluster(3, this::runTestAddServerForWaitReady);
-  }
-
-  void runTestAddServerForWaitReady(MiniRaftCluster cluster) throws Exception {
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
     RaftTestUtil.waitForLeader(cluster);
     try (RaftClient client = cluster.createClient()) {
       for (int i = 0; i < 10; ++i) {
@@ -170,20 +169,23 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         });
       }
     }
+    cluster.shutdown();;
     CodeInjectionForTesting.remove(RaftServerImpl.START_COMPLETE);
   }
 
   @Test
   public void testChangeLeader() throws Exception {
+    SegmentedRaftLogTestUtils.setRaftLogWorkerLogLevel(Level.TRACE);
     LOG.info("Running testChangeLeader");
-    runWithNewCluster(3, this::runTestChangeLeader);
-  }
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
 
-  void runTestChangeLeader(MiniRaftCluster cluster) throws Exception {
     RaftPeerId leader = RaftTestUtil.waitForLeader(cluster).getId();
     for(int i = 0; i < 10; i++) {
-      leader = RaftTestUtil.changeLeader(cluster, leader, IllegalStateException::new);
+      leader = RaftTestUtil.changeLeader(cluster, leader, Assertions::fail);
     }
+    SegmentedRaftLogTestUtils.setRaftLogWorkerLogLevel(Level.INFO);
+    cluster.shutdown();
   }
 
   @Test
@@ -269,6 +271,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertEquals(newLeader.getId().toString(), reply.getReplierId());
         assertTrue(reply.isSuccess());
       }
+
+      cluster.shutdown();
     }
   }
 
@@ -301,6 +305,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertEquals(newLeader.getId().toString(), reply.getReplierId());
         assertTrue(reply.isSuccess());
       }
+
+      cluster.shutdown();
     }
   }
 
@@ -358,6 +364,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
         RaftTestUtil.deIsolate(cluster, newLeader.getId());
       }
+
+      cluster.shutdown();
     }
   }
 
@@ -395,18 +403,14 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testLateServerStart() throws Exception {
+    final int numServer = 3;
     LOG.info("Running testLateServerStart");
-    try (final MiniRaftCluster cluster = newCluster(3)) {
-      runTestLateServerStart(cluster);
-    }
-  }
-
-  void runTestLateServerStart(MiniRaftCluster cluster) throws Exception {
+    final MiniRaftCluster cluster = newCluster(numServer);
     cluster.initServers();
 
     // start all except one servers
     final Iterator<RaftServer> i = cluster.getServers().iterator();
-    for(int j = 1; j < cluster.getNumServers(); j++) {
+    for(int j = 1; j < numServer; j++) {
       i.next().start();
     }
 
@@ -423,7 +427,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
             .orElseThrow(() -> new IllegalStateException("No leader yet")),
         10, ONE_SECOND, "getLeaderId", LOG);
     LOG.info(cluster.printServers());
-    Assertions.assertEquals(leader.getId(), lastServerLeaderId);
+    assertEquals(leader.getId(), lastServerLeaderId);
+    cluster.shutdown();
   }
 
   protected void testDisconnectLeader() throws Exception {
@@ -441,6 +446,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       } finally {
         RaftTestUtil.deIsolate(cluster, leader.getId());
       }
+
+      cluster.shutdown();
     }
   }
 
@@ -462,6 +469,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertEquals(1, listener.size());
         assertEquals(added.get(0).getId(), listener.iterator().next().getId());
       }
+      cluster.shutdown();
     }
   }
 
@@ -487,6 +495,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertEquals(1,
             leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER).size());
       }
+      cluster.shutdown();
     }
   }
 
@@ -505,6 +514,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertTrue(reply.isSuccess());
         assertEquals(0, leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER).size());
       }
+      cluster.shutdown();
     }
   }
 
@@ -527,6 +537,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertEquals(1, peer.size());
         assertEquals(listeners.get(0).getId(), new ArrayList<>(peer).get(0).getId());
       }
+      cluster.shutdown();
     }
   }
 
@@ -551,16 +562,15 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
                   .stream().map(RaftServer.Division::getPeer).collect(Collectors.toList());
         assertEquals(0, listeners.size());
       }
+      cluster.shutdown();
     }
   }
 
   @Test
-  public void testLeaderElectionMetrics() throws Exception {
-    runWithNewCluster(3, this::runTestLeaderElectionMetrics);
-  }
-
-  void runTestLeaderElectionMetrics(MiniRaftCluster cluster) throws Exception {
+  public void testLeaderElectionMetrics() throws IOException, InterruptedException {
     Timestamp timestamp = Timestamp.currentTime();
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
     final RaftServer.Division leaderServer = waitForLeader(cluster);
 
     final RatisMetricRegistryImpl ratisMetricRegistry = (RatisMetricRegistryImpl)
@@ -647,6 +657,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         reply = client.io().send(new RaftTestUtil.SimpleMessage("message"));
         assertTrue(reply.isSuccess());
       }
+
+      cluster.shutdown();
     } catch (Exception e) {
       fail(e.getMessage());
     }

@@ -37,14 +37,12 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
-import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.DataBlockingQueue;
 import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -84,12 +82,12 @@ import org.slf4j.event.Level;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogWorker.RUN_WORKER;
-import static org.apache.ratis.server.storage.RaftStorageTestUtils.getLogUnsafe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+@SuppressWarnings({"deprecation"})
 public class TestSegmentedRaftLog extends BaseTest {
   static {
     Slf4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.INFO);
@@ -217,7 +215,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
   private LogEntryProto getLastEntry(SegmentedRaftLog raftLog)
       throws IOException {
-    return getLogUnsafe(raftLog, raftLog.getLastEntryTermIndex().getIndex());
+    return raftLog.get(raftLog.getLastEntryTermIndex().getIndex());
   }
 
   @ParameterizedTest
@@ -242,7 +240,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
           .map(ti -> {
             try {
-              return getLogUnsafe(raftLog, ti.getIndex());
+              return raftLog.get(ti.getIndex());
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
@@ -541,7 +539,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
           .map(ti -> {
             try {
-              return getLogUnsafe(raftLog, ti.getIndex());
+              return raftLog.get(ti.getIndex());
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
@@ -680,7 +678,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       LOG.info("newEntries[0] = {}", newEntries.get(0));
       final int last = newEntries.size() - 1;
       LOG.info("newEntries[{}] = {}", last, newEntries.get(last));
-      raftLog.append(ReferenceCountedObject.wrap(newEntries)).forEach(CompletableFuture::join);
+      raftLog.append(newEntries).forEach(CompletableFuture::join);
 
       checkFailedEntries(entries, 650, retryCache);
       checkEntries(raftLog, entries, 0, 650);
@@ -813,7 +811,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     final LogEntryProto entry = prepareLogEntry(0, 0, null, true);
     final StateMachine sm = new BaseStateMachine() {
       @Override
-      public CompletableFuture<Void> write(ReferenceCountedObject<LogEntryProto> entry, TransactionContext context) {
+      public CompletableFuture<Void> write(LogEntryProto entry) {
         getLifeCycle().transition(LifeCycle.State.STARTING);
         getLifeCycle().transition(LifeCycle.State.RUNNING);
 
@@ -889,9 +887,8 @@ public class TestSegmentedRaftLog extends BaseTest {
       long start = System.nanoTime();
       for (int i = 0; i < entries.size(); i += 5) {
         // call append API
-        List<LogEntryProto> entries1 = Arrays.asList(
-            entries.get(i), entries.get(i + 1), entries.get(i + 2), entries.get(i + 3), entries.get(i + 4));
-        futures.add(raftLog.append(ReferenceCountedObject.wrap(entries1)));
+        futures.add(raftLog.append(Arrays.asList(
+            entries.get(i), entries.get(i + 1), entries.get(i + 2), entries.get(i + 3), entries.get(i + 4))));
       }
       for (List<CompletableFuture<Long>> futureList: futures) {
         futureList.forEach(CompletableFuture::join);

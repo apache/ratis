@@ -170,7 +170,6 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
         assertTrue(t.getTimer().getMeanRate() > 0.0d);
         assertTrue(t.getTimer().getCount() > 0L);
       }
-      cluster.shutdown();
     }
     cluster.shutdown();
   }

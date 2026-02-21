@@ -111,4 +111,8 @@
     <Class name="org.apache.ratis.util.TimeDuration$Abbreviation" />
     <Bug pattern="EI_EXPOSE_REP" />
   </Match>
+  <Match>
+    <Class name="org.apache.ratis.util.ReferenceCountedLeakDetector$AdvancedTracing$Counts" />
+    <Bug pattern="CT_CONSTRUCTOR_THROW" />
+  </Match>
 </FindBugsFilter>

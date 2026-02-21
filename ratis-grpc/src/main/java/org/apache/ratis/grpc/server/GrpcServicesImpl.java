@@ -19,7 +19,10 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcTlsConfig;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
+import org.apache.ratis.grpc.metrics.ZeroCopyMetrics;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -30,13 +33,17 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptor;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
+import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.*;
@@ -51,6 +58,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
+
+import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
 
 /** A grpc implementation of {@link org.apache.ratis.server.RaftServerRpc}. */
 public final class GrpcServicesImpl
@@ -100,20 +109,19 @@ public final class GrpcServicesImpl
 
     private String adminHost;
     private int adminPort;
-    private SslContext adminSslContext;
+    private GrpcTlsConfig adminTlsConfig;
     private String clientHost;
     private int clientPort;
-    private SslContext clientSslContext;
+    private GrpcTlsConfig clientTlsConfig;
     private String serverHost;
     private int serverPort;
-    private SslContext serverSslContextForServer;
-    private SslContext serverSslContextForClient;
-    private int serverStubPoolSize;
+    private GrpcTlsConfig serverTlsConfig;
 
     private SizeInBytes messageSizeMax;
     private SizeInBytes flowControlWindow;
     private TimeDuration requestTimeoutDuration;
     private boolean separateHeartbeatChannel;
+    private boolean zeroCopyEnabled;
 
     private Builder() {}
 
@@ -131,7 +139,7 @@ public final class GrpcServicesImpl
       this.flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::info);
       this.requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(properties);
       this.separateHeartbeatChannel = GrpcConfigKeys.Server.heartbeatChannel(properties);
-      this.serverStubPoolSize = GrpcConfigKeys.Server.stubPoolSize(properties);
+      this.zeroCopyEnabled = GrpcConfigKeys.Server.zeroCopyEnabled(properties);
 
       final SizeInBytes appenderBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
       final SizeInBytes gap = SizeInBytes.ONE_MB;
@@ -152,8 +160,8 @@ public final class GrpcServicesImpl
     }
 
     private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target) {
-      return new GrpcServerProtocolClient(target, serverStubPoolSize, flowControlWindow.getSizeInt(),
-          requestTimeoutDuration, serverSslContextForClient, separateHeartbeatChannel);
+      return new GrpcServerProtocolClient(target, flowControlWindow.getSizeInt(),
+          requestTimeoutDuration, serverTlsConfig, separateHeartbeatChannel);
     }
 
     private ExecutorService newExecutor() {
@@ -165,12 +173,12 @@ public final class GrpcServicesImpl
     }
 
     private GrpcClientProtocolService newGrpcClientProtocolService(
-        ExecutorService executor) {
-      return new GrpcClientProtocolService(server::getId, server, executor);
+        ExecutorService executor, ZeroCopyMetrics zeroCopyMetrics) {
+      return new GrpcClientProtocolService(server::getId, server, executor, zeroCopyEnabled, zeroCopyMetrics);
     }
 
-    private GrpcServerProtocolService newGrpcServerProtocolService() {
-      return new GrpcServerProtocolService(server::getId, server);
+    private GrpcServerProtocolService newGrpcServerProtocolService(ZeroCopyMetrics zeroCopyMetrics) {
+      return new GrpcServerProtocolService(server::getId, server, zeroCopyEnabled, zeroCopyMetrics);
     }
 
     private MetricServerInterceptor newMetricServerInterceptor() {
@@ -183,18 +191,18 @@ public final class GrpcServicesImpl
     }
 
     private NettyServerBuilder newNettyServerBuilderForServer() {
-      return newNettyServerBuilder(serverHost, serverPort, serverSslContextForServer);
+      return newNettyServerBuilder(serverHost, serverPort, serverTlsConfig);
     }
 
     private NettyServerBuilder newNettyServerBuilderForAdmin() {
-      return newNettyServerBuilder(adminHost, adminPort, adminSslContext);
+      return newNettyServerBuilder(adminHost, adminPort, adminTlsConfig);
     }
 
     private NettyServerBuilder newNettyServerBuilderForClient() {
-      return newNettyServerBuilder(clientHost, clientPort, clientSslContext);
+      return newNettyServerBuilder(clientHost, clientPort, clientTlsConfig);
     }
 
-    private NettyServerBuilder newNettyServerBuilder(String hostname, int port, SslContext sslContext) {
+    private NettyServerBuilder newNettyServerBuilder(String hostname, int port, GrpcTlsConfig tlsConfig) {
       final InetSocketAddress address = hostname == null || hostname.isEmpty() ?
           new InetSocketAddress(port) : new InetSocketAddress(hostname, port);
       final NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forAddress(address)
@@ -202,9 +210,19 @@ public final class GrpcServicesImpl
           .maxInboundMessageSize(messageSizeMax.getSizeInt())
           .flowControlWindow(flowControlWindow.getSizeInt());
 
-      if (sslContext != null) {
+      if (tlsConfig != null) {
         LOG.info("Setting TLS for {}", address);
-        nettyServerBuilder.sslContext(sslContext);
+        SslContextBuilder sslContextBuilder = GrpcUtil.initSslContextBuilderForServer(tlsConfig.getKeyManager());
+        if (tlsConfig.getMtlsEnabled()) {
+          sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
+          GrpcUtil.setTrustManager(sslContextBuilder, tlsConfig.getTrustManager());
+        }
+        sslContextBuilder = GrpcSslContexts.configure(sslContextBuilder, OPENSSL);
+        try {
+          nettyServerBuilder.sslContext(sslContextBuilder.build());
+        } catch (Exception ex) {
+          throw new IllegalArgumentException("Failed to build SslContext, tlsConfig=" + tlsConfig, ex);
+        }
       }
       return nettyServerBuilder;
     }
@@ -217,10 +235,10 @@ public final class GrpcServicesImpl
       return clientPort > 0 && clientPort != serverPort;
     }
 
-    Server newServer(GrpcClientProtocolService client, ServerInterceptor interceptor) {
+    Server newServer(GrpcClientProtocolService client, ZeroCopyMetrics zeroCopyMetrics, ServerInterceptor interceptor) {
       final EnumSet<GrpcServices.Type> types = EnumSet.of(GrpcServices.Type.SERVER);
       final NettyServerBuilder serverBuilder = newNettyServerBuilderForServer();
-      final GrpcServerProtocolService service = newGrpcServerProtocolService();
+      final ServerServiceDefinition service = newGrpcServerProtocolService(zeroCopyMetrics).bindServiceWithZeroCopy();
       serverBuilder.addService(ServerInterceptors.intercept(service, interceptor));
 
       if (!separateAdminServer()) {
@@ -238,23 +256,18 @@ public final class GrpcServicesImpl
       return new GrpcServicesImpl(this);
     }
 
-    public Builder setAdminSslContext(SslContext adminSslContext) {
-      this.adminSslContext = adminSslContext;
+    public Builder setAdminTlsConfig(GrpcTlsConfig config) {
+      this.adminTlsConfig = config;
       return this;
     }
 
-    public Builder setClientSslContext(SslContext clientSslContext) {
-      this.clientSslContext = clientSslContext;
+    public Builder setClientTlsConfig(GrpcTlsConfig config) {
+      this.clientTlsConfig = config;
       return this;
     }
 
-    public Builder setServerSslContextForServer(SslContext serverSslContextForServer) {
-      this.serverSslContextForServer = serverSslContextForServer;
-      return this;
-    }
-
-    public Builder setServerSslContextForClient(SslContext serverSslContextForClient) {
-      this.serverSslContextForClient = serverSslContextForClient;
+    public Builder setServerTlsConfig(GrpcTlsConfig config) {
+      this.serverTlsConfig = config;
       return this;
     }
   }
@@ -274,14 +287,15 @@ public final class GrpcServicesImpl
   private final GrpcClientProtocolService clientProtocolService;
 
   private final MetricServerInterceptor serverInterceptor;
+  private final ZeroCopyMetrics zeroCopyMetrics = new ZeroCopyMetrics();
 
   private GrpcServicesImpl(Builder b) {
     super(b.server::getId, id -> new PeerProxyMap<>(id.toString(), b::newGrpcServerProtocolClient));
 
     this.executor = b.newExecutor();
-    this.clientProtocolService = b.newGrpcClientProtocolService(executor);
+    this.clientProtocolService = b.newGrpcClientProtocolService(executor, zeroCopyMetrics);
     this.serverInterceptor = b.newMetricServerInterceptor();
-    final Server server = b.newServer(clientProtocolService, serverInterceptor);
+    final Server server = b.newServer(clientProtocolService, zeroCopyMetrics, serverInterceptor);
 
     servers.put(GrpcServerProtocolService.class.getSimpleName(), server);
     addressSupplier = newAddressSupplier(b.serverPort, server);
@@ -313,7 +327,8 @@ public final class GrpcServicesImpl
 
   static void addClientService(NettyServerBuilder builder, GrpcClientProtocolService client,
       ServerInterceptor interceptor) {
-    builder.addService(ServerInterceptors.intercept(client, interceptor));
+    final ServerServiceDefinition service = client.bindServiceWithZeroCopy();
+    builder.addService(ServerInterceptors.intercept(service, interceptor));
   }
 
   static void addAdminService(NettyServerBuilder builder, AdminAsynchronousProtocol admin,
@@ -341,40 +356,24 @@ public final class GrpcServicesImpl
   }
 
   @Override
-  public void closeImpl() {
-    for (Server server : servers.values()) {
-      server.shutdownNow();
-    }
-    boolean interrupted = false;
+  public void closeImpl() throws IOException {
     for (Map.Entry<String, Server> server : servers.entrySet()) {
+      final String name = getId() + ": shutdown server " + server.getKey();
+      LOG.info("{} now", name);
+      final Server s = server.getValue().shutdownNow();
+      super.closeImpl();
       try {
-        server.getValue().awaitTermination();
-        LOG.info("{}: Shutdown {} successfully", getId(), server.getKey());
+        s.awaitTermination();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        LOG.warn("{}: Interrupted shutdown {}", getId(), server.getKey());
-        interrupted = true;
-        break;
+        throw IOUtils.toInterruptedIOException(name + " failed", e);
       }
+      LOG.info("{} successfully", name);
     }
 
-    try {
-      serverInterceptor.close();
-    } catch (Exception e) {
-      LOG.warn("{}: Failed to unregister metrics", getId(), e);
-    }
-
-    if (interrupted) {
-      executor.shutdown();  // shutdown but not wait
-    } else {
-      ConcurrentUtils.shutdownAndWait(executor);
-    }
-
-    try {
-      super.closeImpl();
-    } catch (IOException e) {
-      LOG.warn("{}: Failed to close proxies", getId(), e);
-    }
+    serverInterceptor.close();
+    ConcurrentUtils.shutdownAndWait(executor);
+    zeroCopyMetrics.unregister();
   }
 
   @Override
@@ -432,7 +431,13 @@ public final class GrpcServicesImpl
     return getProxies().getProxy(target).startLeaderElection(request);
   }
 
+  @VisibleForTesting
   MessageMetrics getMessageMetrics() {
     return serverInterceptor.getMetrics();
+  }
+
+  @VisibleForTesting
+  public ZeroCopyMetrics getZeroCopyMetrics() {
+    return zeroCopyMetrics;
   }
 }

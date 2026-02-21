@@ -44,6 +44,7 @@ import java.util.function.Function;
 /**
  * Test {@link RatisShell}
  */
+@SuppressWarnings({"rawtypes"})
 public class TestRatisShell extends BaseTest {
   static final PrintStream OUT = System.out;
   static final Class<?>[] ARG_CLASSES = new Class[] {Context.class};

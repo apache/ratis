@@ -81,8 +81,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     }
   }
 
-  abstract class ServerRequestStreamObserver<REQUEST, REPLY extends MessageOrBuilder>
-      implements StreamObserver<REQUEST> {
+  abstract class ServerRequestStreamObserver<REQUEST, REPLY> implements StreamObserver<REQUEST> {
     private final RaftServer.Op op;
     private final Supplier<String> nameSupplier;
     private final StreamObserver<REPLY> responseObserver;
@@ -216,8 +215,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
                 getId(), op, getPreviousRequestString(), suffix));
         requestFuture.get().thenAccept(reply -> {
           BatchLogger.print(BatchLogKey.COMPLETED_REPLY, getName(),
-              suffix -> LOG.info("{}: Completed {}, lastReply: {} {}",
-                  getId(), op, ProtoUtils.shortDebugString(reply), suffix));
+              suffix -> LOG.info("{}: Completed {}, lastReply: {} {}", getId(), op, reply, suffix));
           responseObserver.onCompleted();
         });
         releaseLast();

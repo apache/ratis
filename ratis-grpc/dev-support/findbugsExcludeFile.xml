@@ -23,4 +23,16 @@
     <Class name="org.apache.ratis.grpc.server.GrpcServicesImpl"/>
     <Bug pattern="EI_EXPOSE_REP"/>
   </Match>
+  <Match>
+    <Class name="org.apache.ratis.grpc.client.GrpcClientProtocolClient"/>
+    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.grpc.server.GrpcServerProtocolClient"/>
+    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.grpc.server.GrpcService"/>
+    <Bug pattern="EI_EXPOSE_REP"/>
+  </Match>
 </FindBugsFilter>

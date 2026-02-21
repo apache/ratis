@@ -93,10 +93,12 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
             }
           }
         }
-      }
-      final RaftProtos.LogEntryProto entry = trx.getLogEntryUnsafe();
-      updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
-      return CompletableFuture.completedFuture(new RaftTestUtil.SimpleMessage("done"));
+        numTxns.computeIfAbsent(getId(), (k) -> new AtomicLong()).incrementAndGet();
+        appliedTxns.put(entry.getIndex(), entry.getTerm());
+        updateTxns();
+        future.complete(new RaftTestUtil.SimpleMessage("done"));
+      });
+      return future;
     }
 
     public void unBlockApplyTxn(long txnId) {

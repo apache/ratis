@@ -49,6 +49,7 @@ import org.slf4j.event.Level;
  */
 //TODO: fix StateMachine.notifySlowness(..); see RATIS-370
 @Disabled
+@SuppressWarnings({"deprecation", "rawtypes"})
 public class TestRaftServerSlownessDetection extends BaseTest {
   static {
     Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);

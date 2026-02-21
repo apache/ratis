@@ -42,13 +42,11 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ReferenceCountedObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -249,11 +247,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     blocking.await(Blocking.Type.APPLY_TRANSACTION);
-    ReferenceCountedObject<LogEntryProto> entryRef = Objects.requireNonNull(trx.getLogEntryRef());
-    LogEntryProto entry = entryRef.get();
+    LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
     LOG.info("applyTransaction for log index {}", entry.getIndex());
 
-    put(LogProtoUtils.copy(entry));
+    put(entry);
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
 
     final SimpleMessage m = new SimpleMessage(entry.getIndex() + " OK");
@@ -334,10 +331,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     final String string = request.getContent().toStringUtf8();
     Exception exception;
     try {
-      LOG.info("query {}, all available: {}", string, dataMap.keySet());
+      LOG.info("query {}", string);
       final LogEntryProto entry = dataMap.get(string);
       if (entry != null) {
-        return CompletableFuture.completedFuture(Message.valueOf(entry));
+        return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
       }
       exception = new IndexOutOfBoundsException(getId() + ": LogEntry not found for query " + string);
     } catch (Exception e) {
@@ -361,8 +358,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<Void> write(ReferenceCountedObject<LogEntryProto> entry, TransactionContext context) {
-    Preconditions.assertTrue(entry.get() != null);
+  public CompletableFuture<Void> write(LogEntryProto entry) {
     return blocking.getFuture(Blocking.Type.WRITE_STATE_MACHINE_DATA);
   }
 
@@ -383,8 +379,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       running = false;
       checkpointer.interrupt();
     });
-    indexMap.clear();
-    dataMap.clear();
   }
 
   public LogEntryProto[] getContent() {

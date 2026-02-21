@@ -32,7 +32,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
-import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -189,11 +188,8 @@ public interface RaftTestUtil {
             log.get(termIndices[idxEntries].getIndex()).getStateMachineLogEntry().getLogData().toByteArray())) {
           ++idxExpected;
         }
-      } catch (Exception e) {
-        throw new IllegalStateException("Failed logEntriesContains: startIndex=" + startIndex
-            + ", endIndex=" + endIndex
-            + ", #expectedMessages=" + expectedMessages.length
-            + ", log=" + log, e);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
       }
       ++idxEntries;
     }
@@ -561,7 +557,7 @@ public interface RaftTestUtil {
     final long lastIndex = expected.getNextIndex() - 1;
     Assertions.assertEquals(expected.getLastEntryTermIndex().getIndex(), lastIndex);
     for(long i = 0; i < lastIndex; i++) {
-      Assert.assertEquals("Checking " + TermIndex.valueOf(expected.get(i)), expected.get(i), computed.get(i));
+      Assertions.assertEquals(expected.get(i), computed.get(i));
     }
   }
 
@@ -594,20 +590,6 @@ public interface RaftTestUtil {
   static void assertSuccessReply(RaftClientReply reply) {
     Assertions.assertNotNull(reply, "reply == null");
     Assertions.assertTrue(reply.isSuccess(), "reply is not success: " + reply);
-  }
-
-  static void gc() throws InterruptedException {
-    // use WeakReference to detect gc
-    Object obj = new Object();
-    final WeakReference<Object> weakRef = new WeakReference<>(obj);
-    obj = null;
-
-    // loop until gc has completed.
-    for (int i = 0; weakRef.get() != null; i++) {
-      LOG.info("gc {}", i);
-      System.gc();
-      Thread.sleep(100);
-    }
   }
 
   static void gc() throws InterruptedException {
