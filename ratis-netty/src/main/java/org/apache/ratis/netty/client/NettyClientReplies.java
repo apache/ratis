@@ -45,6 +45,10 @@ public class NettyClientReplies {
     return replies.computeIfAbsent(clientInvocationId, key -> q.get());
   }
 
+  ReplyMap getReplyMapIfPresent(ClientInvocationId clientInvocationId) {
+    return replies.get(clientInvocationId);
+  }
+
   class ReplyMap {
     private final ClientInvocationId clientInvocationId;
     private final Map<RequestEntry, ReplyEntry> map = new ConcurrentHashMap<>();

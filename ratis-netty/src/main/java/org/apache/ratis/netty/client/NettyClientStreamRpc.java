@@ -367,7 +367,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         LOG.debug("{}: read {}", name, reply);
         final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(
             reply.getClientId(), reply.getStreamId());
-        final NettyClientReplies.ReplyMap replyMap = replies.getReplyMap(clientInvocationId);
+        final NettyClientReplies.ReplyMap replyMap = replies.getReplyMapIfPresent(clientInvocationId);
         if (replyMap == null) {
           LOG.error("{}: {} replyMap not found for reply: {}", name, clientInvocationId, reply);
           return;
