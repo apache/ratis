@@ -40,9 +40,13 @@ public class NettyClientReplies {
 
   private final ConcurrentMap<ClientInvocationId, ReplyMap> replies = new ConcurrentHashMap<>();
 
-  ReplyMap getReplyMap(ClientInvocationId clientInvocationId) {
+  ReplyMap getOrCreateReplyMap(ClientInvocationId clientInvocationId) {
     final MemoizedSupplier<ReplyMap> q = MemoizedSupplier.valueOf(() -> new ReplyMap(clientInvocationId));
     return replies.computeIfAbsent(clientInvocationId, key -> q.get());
+  }
+
+  ReplyMap getReplyMap(ClientInvocationId clientInvocationId) {
+    return replies.get(clientInvocationId);
   }
 
   class ReplyMap {
