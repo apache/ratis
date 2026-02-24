@@ -40,6 +40,12 @@ class ChannelMap {
         .ifPresent((ids) -> ids.remove(clientInvocationId));
   }
 
+  int size(ChannelId channelId) {
+    return Optional.ofNullable(map.get(channelId))
+        .map(Map::size)
+        .orElse(0);
+  }
+
   Set<ClientInvocationId> remove(ChannelId channelId) {
     return Optional.ofNullable(map.remove(channelId))
         .map(Map::keySet)

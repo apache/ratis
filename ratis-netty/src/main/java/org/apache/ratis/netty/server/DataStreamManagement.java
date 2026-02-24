@@ -51,6 +51,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
@@ -411,14 +412,22 @@ public class DataStreamManagement {
     });
   }
 
+  @VisibleForTesting
+  int getChannelInvocationCount(ChannelId channelId) {
+    return channels.size(channelId);
+  }
+
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
+    final ClientInvocationId key = ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
+    final ChannelId channelId = ctx.channel().id();
     try {
-      readImpl(request, ctx, getStreams);
+      readImpl(request, ctx, getStreams, key, channelId);
     } catch (Throwable t) {
       replyDataStreamException(t, request, ctx);
-      removeDataStream(ClientInvocationId.valueOf(request.getClientId(), request.getStreamId()));
+      removeDataStream(key);
+      channels.remove(channelId, key);
     }
   }
 
@@ -431,12 +440,11 @@ public class DataStreamManagement {
   }
 
   private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
-      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams) {
+      CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams,
+      ClientInvocationId key, ChannelId channelId) {
     final boolean close = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
-    ClientInvocationId key =  ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
 
     // add to ChannelMap
-    final ChannelId channelId = ctx.channel().id();
     channels.add(channelId, key);
 
     final StreamInfo info;
