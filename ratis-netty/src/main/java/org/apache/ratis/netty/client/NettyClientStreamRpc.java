@@ -473,7 +473,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
     final boolean isClose = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
 
-    final NettyClientReplies.ReplyMap replyMap = replies.getReplyMap(clientInvocationId);
+    final NettyClientReplies.ReplyMap replyMap = replies.getOrCreateReplyMap(clientInvocationId);
     final ChannelFuture channelFuture;
     final Channel channel;
     final NettyClientReplies.RequestEntry requestEntry = new NettyClientReplies.RequestEntry(request);
