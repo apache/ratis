@@ -27,19 +27,19 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class TestNettyClientReplies {
   @Test
-  public void testGetReplyMapIfPresentDoesNotCreate() {
+  public void testGetReplyMapDoesNotCreate() {
     final NettyClientReplies replies = new NettyClientReplies();
     final ClientInvocationId clientInvocationId =
         ClientInvocationId.valueOf(ClientId.randomId(), 1L);
 
-    assertNull(replies.getReplyMapIfPresent(clientInvocationId));
+    assertNull(replies.getReplyMap(clientInvocationId));
 
-    final NettyClientReplies.ReplyMap created = replies.getReplyMap(clientInvocationId);
+    final NettyClientReplies.ReplyMap created = replies.getOrCreateReplyMap(clientInvocationId);
     assertNotNull(created);
-    assertSame(created, replies.getReplyMapIfPresent(clientInvocationId));
+    assertSame(created, replies.getReplyMap(clientInvocationId));
 
     final ClientInvocationId other =
         ClientInvocationId.valueOf(ClientId.randomId(), 2L);
-    assertNull(replies.getReplyMapIfPresent(other));
+    assertNull(replies.getReplyMap(other));
   }
 }

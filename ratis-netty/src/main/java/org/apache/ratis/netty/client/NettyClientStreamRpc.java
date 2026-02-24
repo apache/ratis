@@ -367,7 +367,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         LOG.debug("{}: read {}", name, reply);
         final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(
             reply.getClientId(), reply.getStreamId());
-        final NettyClientReplies.ReplyMap replyMap = replies.getReplyMapIfPresent(clientInvocationId);
+        final NettyClientReplies.ReplyMap replyMap = replies.getReplyMap(clientInvocationId);
         if (replyMap == null) {
           LOG.error("{}: {} replyMap not found for reply: {}", name, clientInvocationId, reply);
           return;
@@ -473,7 +473,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
     final boolean isClose = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
 
-    final NettyClientReplies.ReplyMap replyMap = replies.getReplyMap(clientInvocationId);
+    final NettyClientReplies.ReplyMap replyMap = replies.getOrCreateReplyMap(clientInvocationId);
     final ChannelFuture channelFuture;
     final Channel channel;
     final NettyClientReplies.RequestEntry requestEntry = new NettyClientReplies.RequestEntry(request);
