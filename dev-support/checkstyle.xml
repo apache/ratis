@@ -56,7 +56,7 @@
     <property name="fileExtensions" value="java, properties, xml"/>
 
     <module name="BeforeExecutionExclusionFileFilter">
-        <property name="fileNamePattern" value=".*/target/generated.*"/>
+        <property name="fileNamePattern" value=".*/target/.*"/>
     </module>
 
     <module name="SuppressWarningsFilter"/>
