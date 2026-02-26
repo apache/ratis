@@ -45,7 +45,6 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -156,7 +155,15 @@ public class NettyRpcProxy implements Closeable {
         @Override
         protected void channelRead0(ChannelHandlerContext ctx,
                                     RaftNettyServerReplyProto proto) {
-          final CompletableFuture<RaftNettyServerReplyProto> future = getReplyFuture(getCallId(proto), null);
+          final long callId = getCallId(proto);
+          final CompletableFuture<RaftNettyServerReplyProto> future = getReplyFuture(callId, null, "reply");
+          if (future == null) {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Ignoring reply for callId={} from {} (no outstanding request, outstanding={})",
+                  callId, peer, replies.size());
+            }
+            return;
+          }
           if (proto.getRaftNettyServerReplyCase() == EXCEPTIONREPLY) {
             final Object ioe = ProtoUtils.toObject(proto.getExceptionReply().getException());
             future.completeExceptionally((IOException)ioe);
@@ -183,7 +190,8 @@ public class NettyRpcProxy implements Closeable {
         protected void initChannel(SocketChannel ch) {
           final ChannelPipeline p = ch.pipeline();
 
-          p.addLast(new LoggingHandler(LogLevel.WARN));
+          // LoggingHandler emits all events at the chosen level; use DEBUG to reduce noise by default.
+          p.addLast(new LoggingHandler(LogLevel.DEBUG));
           p.addLast(new ProtobufVarint32FrameDecoder());
           p.addLast(new ProtobufDecoder(RaftNettyServerReplyProto.getDefaultInstance()));
           p.addLast(new ProtobufVarint32LengthFieldPrepender());
@@ -197,9 +205,12 @@ public class NettyRpcProxy implements Closeable {
     }
 
     private CompletableFuture<RaftNettyServerReplyProto> getReplyFuture(long callId,
-        CompletableFuture<RaftNettyServerReplyProto> expected) {
+        CompletableFuture<RaftNettyServerReplyProto> expected, String reason) {
       final CompletableFuture<RaftNettyServerReplyProto> removed = replies.remove(callId);
-      Objects.requireNonNull(removed, () -> "Request #" + callId + " not found");
+      if (removed == null && LOG.isDebugEnabled()) {
+        LOG.debug("Request {} not found for callId={} from {} (reason={}, outstanding={})",
+            expected == null ? "future" : "reply", callId, peer, reason, replies.size());
+      }
       if (expected != null) {
         Preconditions.assertSame(expected, removed, "removed");
       }
@@ -207,23 +218,30 @@ public class NettyRpcProxy implements Closeable {
     }
 
     synchronized CompletableFuture<RaftNettyServerReplyProto> offer(RaftNettyServerRequestProto request) {
-      final ChannelFuture future;
-      try {
-        future = client.writeAndFlush(request);
-      } catch (AlreadyClosedException e) {
-        return JavaUtils.completeExceptionally(e);
-      }
-
       final CompletableFuture<RaftNettyServerReplyProto> reply = new CompletableFuture<>();
       final long callId = getRequest(request).getCallId();
       final CompletableFuture<RaftNettyServerReplyProto> previous = replies.put(callId, reply);
       Preconditions.assertNull(previous, "previous");
 
+      final ChannelFuture future;
+      try {
+        future = client.writeAndFlush(request);
+      } catch (AlreadyClosedException e) {
+        replies.remove(callId, reply);
+        return JavaUtils.completeExceptionally(e);
+      }
+
       future.addListener(cf -> {
         if (!cf.isSuccess()) {
           // Remove from queue on async write failure to prevent reply mismatch.
           // Only complete exceptionally if removal succeeds (not already polled).
-          getReplyFuture(callId, reply).completeExceptionally(cf.cause());
+          final CompletableFuture<RaftNettyServerReplyProto> removed =
+              getReplyFuture(callId, reply, "write-failure");
+          if (removed != null) {
+            removed.completeExceptionally(cf.cause());
+          } else if (LOG.isDebugEnabled()) {
+            LOG.debug("Write failed for callId={} to {} after request removed", callId, peer, cf.cause());
+          }
           client.close();
         }
       });
@@ -240,6 +258,9 @@ public class NettyRpcProxy implements Closeable {
       if (!replies.isEmpty()) {
         LOG.warn("Still have {} requests outstanding from {} connection: {}",
             replies.size(), peer, cause.toString());
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Outstanding request ids from {}: {}", peer, replies.keySet());
+        }
         replies.values().forEach(f -> f.completeExceptionally(cause));
         replies.clear();
       }
