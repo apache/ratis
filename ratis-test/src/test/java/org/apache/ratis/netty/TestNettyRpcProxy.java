@@ -21,6 +21,8 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.proto.RaftProtos.GroupListRequestProto;
+import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
@@ -78,8 +80,17 @@ public class TestNettyRpcProxy extends BaseTest {
 
       // Close to force AlreadyClosedException on write and trigger rollback logic.
       proxy.close();
+      final RaftRpcRequestProto rpcRequest = RaftRpcRequestProto.newBuilder()
+          .setCallId(1)
+          .build();
+      final GroupListRequestProto groupListRequest = GroupListRequestProto.newBuilder()
+          .setRpcRequest(rpcRequest)
+          .build();
+      final RaftNettyServerRequestProto request = RaftNettyServerRequestProto.newBuilder()
+          .setGroupListRequest(groupListRequest)
+          .build();
       final CompletableFuture<RaftNettyServerReplyProto> reply =
-          proxy.sendAsync(RaftNettyServerRequestProto.getDefaultInstance());
+          proxy.sendAsync(request);
 
       // Ensure the future completes exceptionally with AlreadyClosedException.
       final Throwable thrown = assertThrows(CompletionException.class, reply::join);

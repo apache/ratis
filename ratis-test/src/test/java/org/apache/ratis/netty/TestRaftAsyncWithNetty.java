@@ -18,13 +18,21 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.RaftAsyncTests;
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.util.Slf4jUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.slf4j.event.Level;
 
 @Timeout(100)
 public class TestRaftAsyncWithNetty
     extends RaftAsyncTests<MiniRaftClusterWithNetty>
     implements MiniRaftClusterWithNetty.FactoryGet {
+  {
+    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.INFO);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.INFO);
+  }
 
   @Override
   @Test
