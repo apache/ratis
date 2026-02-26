@@ -431,12 +431,10 @@ class LeaderStateImpl implements LeaderState {
     case REPLIED_INDEX:
       readIndexSupplier = repliedIndex::get;
       readIndexLogPrefixSupplier = MemoizedSupplier.valueOf(() -> "replied");
-      final Daemon flusher = Daemon.newBuilder()
+      this.replyFlusher = Daemon.newBuilder()
           .setName(name + "-ReplyFlusher")
           .setRunnable(this::runReplyFlusher)
           .build();
-      this.replyFlusher = flusher;
-      flusher.start();
       break;
     case APPLIED_INDEX:
       readIndexSupplier = () -> server.getState().getLastAppliedIndex();
@@ -473,6 +471,10 @@ class LeaderStateImpl implements LeaderState {
     startupLogEntry.get();
     processor.start();
     senders.forEach(LogAppender::start);
+
+    if (replyFlusher != null) {
+      replyFlusher.start();
+    }
   }
 
   boolean isReady() {
