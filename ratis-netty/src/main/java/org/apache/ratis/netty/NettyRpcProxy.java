@@ -156,10 +156,11 @@ public class NettyRpcProxy implements Closeable {
         protected void channelRead0(ChannelHandlerContext ctx,
                                     RaftNettyServerReplyProto proto) {
           final long callId = getCallId(proto);
-          final CompletableFuture<RaftNettyServerReplyProto> future = getReplyFuture(callId, null);
+          final CompletableFuture<RaftNettyServerReplyProto> future = getReplyFuture(callId, null, "reply");
           if (future == null) {
             if (LOG.isDebugEnabled()) {
-              LOG.debug("Ignoring reply for callId={} from {} (no outstanding request)", callId, peer);
+              LOG.debug("Ignoring reply for callId={} from {} (no outstanding request, outstanding={})",
+                  callId, peer, replies.size());
             }
             return;
           }
@@ -204,8 +205,12 @@ public class NettyRpcProxy implements Closeable {
     }
 
     private CompletableFuture<RaftNettyServerReplyProto> getReplyFuture(long callId,
-        CompletableFuture<RaftNettyServerReplyProto> expected) {
+        CompletableFuture<RaftNettyServerReplyProto> expected, String reason) {
       final CompletableFuture<RaftNettyServerReplyProto> removed = replies.remove(callId);
+      if (removed == null && LOG.isDebugEnabled()) {
+        LOG.debug("Request {} not found for callId={} from {} (reason={}, outstanding={})",
+            expected == null ? "future" : "reply", callId, peer, reason, replies.size());
+      }
       if (expected != null) {
         Preconditions.assertSame(expected, removed, "removed");
       }
@@ -213,23 +218,25 @@ public class NettyRpcProxy implements Closeable {
     }
 
     synchronized CompletableFuture<RaftNettyServerReplyProto> offer(RaftNettyServerRequestProto request) {
-      final ChannelFuture future;
-      try {
-        future = client.writeAndFlush(request);
-      } catch (AlreadyClosedException e) {
-        return JavaUtils.completeExceptionally(e);
-      }
-
       final CompletableFuture<RaftNettyServerReplyProto> reply = new CompletableFuture<>();
       final long callId = getRequest(request).getCallId();
       final CompletableFuture<RaftNettyServerReplyProto> previous = replies.put(callId, reply);
       Preconditions.assertNull(previous, "previous");
 
+      final ChannelFuture future;
+      try {
+        future = client.writeAndFlush(request);
+      } catch (AlreadyClosedException e) {
+        replies.remove(callId, reply);
+        return JavaUtils.completeExceptionally(e);
+      }
+
       future.addListener(cf -> {
         if (!cf.isSuccess()) {
           // Remove from queue on async write failure to prevent reply mismatch.
           // Only complete exceptionally if removal succeeds (not already polled).
-          final CompletableFuture<RaftNettyServerReplyProto> removed = getReplyFuture(callId, reply);
+          final CompletableFuture<RaftNettyServerReplyProto> removed =
+              getReplyFuture(callId, reply, "write-failure");
           if (removed != null) {
             removed.completeExceptionally(cf.cause());
           } else if (LOG.isDebugEnabled()) {
@@ -251,6 +258,9 @@ public class NettyRpcProxy implements Closeable {
       if (!replies.isEmpty()) {
         LOG.warn("Still have {} requests outstanding from {} connection: {}",
             replies.size(), peer, cause.toString());
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Outstanding request ids from {}: {}", peer, replies.keySet());
+        }
         replies.values().forEach(f -> f.completeExceptionally(cause));
         replies.clear();
       }
