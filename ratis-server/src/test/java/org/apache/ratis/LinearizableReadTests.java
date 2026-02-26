@@ -27,6 +27,7 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -60,7 +61,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   public abstract boolean isLeaderLeaseEnabled();
 
-  public abstract boolean readIndexAppliedIndexEnabled();
+  public abstract Type readIndexType();
 
   public abstract void assertRaftProperties(RaftProperties properties);
 
@@ -77,7 +78,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     CounterStateMachine.setProperties(p);
     RaftServerConfigKeys.Read.setOption(p, LINEARIZABLE);
     RaftServerConfigKeys.Read.setLeaderLeaseEnabled(p, isLeaderLeaseEnabled());
-    RaftServerConfigKeys.Read.ReadIndex.setAppliedIndexEnabled(p, readIndexAppliedIndexEnabled());
+    RaftServerConfigKeys.Read.ReadIndex.setType(p, readIndexType());
   }
 
   @Test

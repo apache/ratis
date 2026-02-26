@@ -39,6 +39,7 @@ import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.ReadIndexHeartbeats.AppendEntriesListener;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
@@ -68,6 +69,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -80,8 +82,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -224,6 +229,19 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
+  /** A write reply that has been built but not yet sent to the client */
+  private static class HeldReply {
+    private final PendingRequest pending;
+    private final RaftClientReply reply;
+    private final long index;
+
+    HeldReply(PendingRequest pending, RaftClientReply reply, long index) {
+      this.pending = pending;
+      this.reply = reply;
+      this.index = index;
+    }
+  }
+
   /** For caching {@link FollowerInfo}s.  This class is immutable. */
   static class CurrentOldFollowerInfos {
     private final RaftConfigurationImpl conf;
@@ -353,9 +371,20 @@ class LeaderStateImpl implements LeaderState {
   private final PendingStepDown pendingStepDown;
 
   private final ReadIndexHeartbeats readIndexHeartbeats;
-  private final boolean readIndexAppliedIndexEnabled;
+  private final RaftServerConfigKeys.Read.ReadIndex.Type readIndexType;
+  private final Supplier<Long> readIndexSupplier;
+  private final MemoizedSupplier<String> readIndexLogPrefixSupplier;
   private final boolean leaderHeartbeatCheckEnabled;
   private final LeaderLease lease;
+
+  /** The interval at which held write replies are flushed. */
+  private final TimeDuration repliedIndexBatchInterval;
+  /** The highest log index for which a write reply has been flushed (sent to the client). */
+  private final AtomicLong repliedIndex;
+  /** Buffer holding write replies waiting to be flushed. Guarded by itself. */
+  private final AtomicReference<List<HeldReply>> heldReplies;
+  /** Daemon thread that periodically flushes held replies. */
+  private volatile Daemon replyFlusher;
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
@@ -391,8 +420,33 @@ class LeaderStateImpl implements LeaderState {
     } else {
       this.followerMaxGapThreshold = (long) (followerGapRatioMax * maxPendingRequests);
     }
-    this.readIndexAppliedIndexEnabled = RaftServerConfigKeys.Read.ReadIndex
-        .appliedIndexEnabled(properties);
+    this.readIndexType = RaftServerConfigKeys.Read.ReadIndex.type(properties);
+
+    this.repliedIndexBatchInterval =
+        RaftServerConfigKeys.Read.ReadIndex.repliedIndexBatchInterval(properties);
+    this.repliedIndex = new AtomicLong(state.getLastAppliedIndex());
+    this.heldReplies = new AtomicReference<>(new LinkedList<>());
+
+    switch (readIndexType) {
+    case REPLIED_INDEX:
+      readIndexSupplier = repliedIndex::get;
+      readIndexLogPrefixSupplier = MemoizedSupplier.valueOf(() -> "replied");
+      final Daemon flusher = Daemon.newBuilder()
+          .setName(name + "-ReplyFlusher")
+          .setRunnable(this::runReplyFlusher)
+          .build();
+      this.replyFlusher = flusher;
+      flusher.start();
+      break;
+    case APPLIED_INDEX:
+      readIndexSupplier = () -> server.getState().getLastAppliedIndex();
+      readIndexLogPrefixSupplier = MemoizedSupplier.valueOf(() -> "applied");
+      break;
+    case COMMIT_INDEX:
+    default:
+      readIndexSupplier = () -> server.getRaftLog().getLastCommittedIndex();
+      readIndexLogPrefixSupplier = MemoizedSupplier.valueOf(() -> "commit");
+    }
     this.leaderHeartbeatCheckEnabled = RaftServerConfigKeys.Read
         .leaderHeartbeatCheckEnabled(properties);
 
@@ -1140,14 +1194,13 @@ class LeaderStateImpl implements LeaderState {
   /**
    * Obtain the current readIndex for read only requests. See Raft paper section 6.4.
    * 1. Leader makes sure at least one log from current term is committed.
-   * 2. Leader record last committed index or applied index (depending on configuration) as readIndex.
+   * 2. Leader record last committed index or applied index or replied index (depending on configuration) as readIndex.
    * 3. Leader broadcast heartbeats to followers and waits for acknowledgements.
    * 4. If majority respond success, returns readIndex.
    * @return current readIndex.
    */
   CompletableFuture<Long> getReadIndex(Long readAfterWriteConsistentIndex) {
-    final long index = readIndexAppliedIndexEnabled ?
-        server.getState().getLastAppliedIndex() : server.getRaftLog().getLastCommittedIndex();
+    final long index = readIndexSupplier.get();
     final long readIndex;
     if (readAfterWriteConsistentIndex != null && readAfterWriteConsistentIndex > index) {
       readIndex = readAfterWriteConsistentIndex;
@@ -1155,7 +1208,7 @@ class LeaderStateImpl implements LeaderState {
       readIndex = index;
     }
     LOG.debug("readIndex={} ({}Index={}, readAfterWriteConsistentIndex={})",
-        readIndex, readIndexAppliedIndexEnabled ? "applied" : "commit",
+        readIndex, readIndexLogPrefixSupplier.get(),
         index, readAfterWriteConsistentIndex);
 
     // if group contains only one member, fast path
@@ -1218,8 +1271,69 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void replyPendingRequest(TermIndex termIndex, RaftClientReply reply) {
-    pendingRequests.replyPendingRequest(termIndex, reply);
+    if (readIndexType == Type.REPLIED_INDEX) {
+      // Remove from pending map but hold the reply for batch flushing.
+      final PendingRequest pending = pendingRequests.removePendingRequest(termIndex);
+      if (pending != null) {
+        holdReply(pending, reply, termIndex.getIndex());
+      }
+    } else {
+      pendingRequests.replyPendingRequest(termIndex, reply);
+    }
   }
+
+  /** Hold a write reply for later batch flushing. */
+  private void holdReply(PendingRequest pending, RaftClientReply reply, long index) {
+    heldReplies.getAndUpdate(prev -> {
+      prev.add(new HeldReply(pending, reply, index));
+      return prev;
+    });
+  }
+
+  /** Flush all held replies and advance {@link #repliedIndex}. */
+  private void flushReplies() {
+    if (heldReplies.get().isEmpty()) {
+      return;
+    }
+    final List<HeldReply> toFlush = heldReplies.getAndSet(new LinkedList<>());
+
+    long maxIndex = repliedIndex.get();
+    for (HeldReply held : toFlush) {
+      held.pending.setReply(held.reply);
+      maxIndex = Math.max(maxIndex, held.index);
+    }
+    repliedIndex.set(maxIndex);
+    LOG.debug("{}: flushed {} replies, repliedIndex={}", name, toFlush.size(), maxIndex);
+  }
+
+  /** The reply flusher daemon loop. */
+  private void runReplyFlusher() {
+    while (isRunning()) {
+      try {
+        Thread.sleep(repliedIndexBatchInterval.toLong(TimeUnit.MILLISECONDS));
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        break;
+      }
+      flushReplies();
+    }
+    // Flush remaining on exit.
+    flushReplies();
+  }
+
+  /** Stop the reply flusher daemon. */
+  private void stopReplyFlusher() {
+    final Daemon flusher = this.replyFlusher;
+    if (flusher != null) {
+      flusher.interrupt();
+      try {
+        flusher.join(repliedIndexBatchInterval.toLong(TimeUnit.MILLISECONDS) * 2);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
 
   TransactionContext getTransactionContext(TermIndex termIndex) {
     return pendingRequests.getTransactionContext(termIndex);
