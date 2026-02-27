@@ -69,7 +69,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -83,7 +82,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
+
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -381,8 +380,10 @@ class LeaderStateImpl implements LeaderState {
   private final TimeDuration repliedIndexBatchInterval;
   /** The highest log index for which a write reply has been flushed (sent to the client). */
   private final AtomicLong repliedIndex;
-  /** Buffer holding write replies waiting to be flushed. Guarded by itself. */
-  private final AtomicReference<List<HeldReply>> heldReplies;
+  /** Guards {@link #heldReplies}. */
+  private final Object heldRepliesLock = new Object();
+  /** Buffer holding write replies waiting to be flushed. Guarded by {@link #heldRepliesLock}. */
+  private List<HeldReply> heldReplies = new ArrayList<>();
   /** Daemon thread that periodically flushes held replies. */
   private volatile Daemon replyFlusher;
 
@@ -425,7 +426,6 @@ class LeaderStateImpl implements LeaderState {
     this.repliedIndexBatchInterval =
         RaftServerConfigKeys.Read.ReadIndex.repliedIndexBatchInterval(properties);
     this.repliedIndex = new AtomicLong(state.getLastAppliedIndex());
-    this.heldReplies = new AtomicReference<>(new LinkedList<>());
 
     switch (readIndexType) {
     case REPLIED_INDEX:
@@ -509,6 +509,7 @@ class LeaderStateImpl implements LeaderState {
     startupLogEntry.get().getAppliedIndexFuture().completeExceptionally(
         new ReadIndexException("failed to obtain read index since: ", nle));
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
+    stopReplyFlusher();
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
     pendingRequests.close();
@@ -1286,18 +1287,21 @@ class LeaderStateImpl implements LeaderState {
 
   /** Hold a write reply for later batch flushing. */
   private void holdReply(PendingRequest pending, RaftClientReply reply, long index) {
-    heldReplies.getAndUpdate(prev -> {
-      prev.add(new HeldReply(pending, reply, index));
-      return prev;
-    });
+    synchronized (heldRepliesLock) {
+      heldReplies.add(new HeldReply(pending, reply, index));
+    }
   }
 
   /** Flush all held replies and advance {@link #repliedIndex}. */
   private void flushReplies() {
-    if (heldReplies.get().isEmpty()) {
-      return;
+    final List<HeldReply> toFlush;
+    synchronized (heldRepliesLock) {
+      if (heldReplies.isEmpty()) {
+        return;
+      }
+      toFlush = heldReplies;
+      heldReplies = new ArrayList<>();
     }
-    final List<HeldReply> toFlush = heldReplies.getAndSet(new LinkedList<>());
 
     long maxIndex = repliedIndex.get();
     for (HeldReply held : toFlush) {
