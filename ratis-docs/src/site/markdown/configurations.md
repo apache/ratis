@@ -241,7 +241,7 @@ if it fails to receive any RPC responses from this peer within this specified ti
     * This allows the ReadIndex to advance in a coarser, less frequent steps, so followers are more likely to have already applied past the ReadIndex when a read arrives.
     * This is most effective on read-heavy, follower-read workloads which prioritizes overall read throughput without consistency sacrifice.
     * There is a trade-off in increased write latency (up to one `raft.server.read.read-index.replied-index.batch-interval`) per write.
-    * RepliedIndex still guarantees linearizability (no stale read) since by definition each ReadIndex returns the index of the last replied requests.
+    * RepliedIndex still guarantees linearizability (no stale read) since by definition each ReadIndex returns the index of the last replied request.
     * If the RepliedIndex is set to 0, the behavior is identical to `Read.ReadIndex.Type.APPLIED_INDEX`
 
 Note that theoretically all the ReadIndex types still guarantee linearizability, 
