@@ -39,6 +39,7 @@ import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.ReadIndexHeartbeats.AppendEntriesListener;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
@@ -82,6 +83,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -353,9 +355,12 @@ class LeaderStateImpl implements LeaderState {
   private final PendingStepDown pendingStepDown;
 
   private final ReadIndexHeartbeats readIndexHeartbeats;
-  private final boolean readIndexAppliedIndexEnabled;
+  private final RaftServerConfigKeys.Read.ReadIndex.Type readIndexType;
+  private final Supplier<Long> readIndexSupplier;
   private final boolean leaderHeartbeatCheckEnabled;
   private final LeaderLease lease;
+
+  private ReplyFlusher replyFlusher;
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
@@ -391,8 +396,21 @@ class LeaderStateImpl implements LeaderState {
     } else {
       this.followerMaxGapThreshold = (long) (followerGapRatioMax * maxPendingRequests);
     }
-    this.readIndexAppliedIndexEnabled = RaftServerConfigKeys.Read.ReadIndex
-        .appliedIndexEnabled(properties);
+
+    this.readIndexType = RaftServerConfigKeys.Read.ReadIndex.type(properties);
+    switch (readIndexType) {
+    case REPLIED_INDEX:
+      this.replyFlusher = new ReplyFlusher(name, state.getLastAppliedIndex(),
+          RaftServerConfigKeys.Read.ReadIndex.repliedIndexBatchInterval(properties));
+      readIndexSupplier = replyFlusher::getRepliedIndex;
+      break;
+    case APPLIED_INDEX:
+      readIndexSupplier = () -> server.getState().getLastAppliedIndex();
+      break;
+    case COMMIT_INDEX:
+    default:
+      readIndexSupplier = () -> server.getRaftLog().getLastCommittedIndex();
+    }
     this.leaderHeartbeatCheckEnabled = RaftServerConfigKeys.Read
         .leaderHeartbeatCheckEnabled(properties);
 
@@ -419,6 +437,10 @@ class LeaderStateImpl implements LeaderState {
     startupLogEntry.get();
     processor.start();
     senders.forEach(LogAppender::start);
+
+    if (replyFlusher != null) {
+      replyFlusher.start();
+    }
   }
 
   boolean isReady() {
@@ -453,6 +475,9 @@ class LeaderStateImpl implements LeaderState {
     startupLogEntry.get().getAppliedIndexFuture().completeExceptionally(
         new ReadIndexException("failed to obtain read index since: ", nle));
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
+    if (replyFlusher != null) {
+      replyFlusher.stop();
+    }
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
     pendingRequests.close();
@@ -1140,23 +1165,21 @@ class LeaderStateImpl implements LeaderState {
   /**
    * Obtain the current readIndex for read only requests. See Raft paper section 6.4.
    * 1. Leader makes sure at least one log from current term is committed.
-   * 2. Leader record last committed index or applied index (depending on configuration) as readIndex.
+   * 2. Leader record last committed index or applied index or replied index (depending on configuration) as readIndex.
    * 3. Leader broadcast heartbeats to followers and waits for acknowledgements.
    * 4. If majority respond success, returns readIndex.
    * @return current readIndex.
    */
   CompletableFuture<Long> getReadIndex(Long readAfterWriteConsistentIndex) {
-    final long index = readIndexAppliedIndexEnabled ?
-        server.getState().getLastAppliedIndex() : server.getRaftLog().getLastCommittedIndex();
+    final long index = readIndexSupplier.get();
     final long readIndex;
     if (readAfterWriteConsistentIndex != null && readAfterWriteConsistentIndex > index) {
       readIndex = readAfterWriteConsistentIndex;
     } else {
       readIndex = index;
     }
-    LOG.debug("readIndex={} ({}Index={}, readAfterWriteConsistentIndex={})",
-        readIndex, readIndexAppliedIndexEnabled ? "applied" : "commit",
-        index, readAfterWriteConsistentIndex);
+    LOG.debug("readIndex={} ({}={}, readAfterWriteConsistentIndex={})",
+        readIndex, readIndexType, index, readAfterWriteConsistentIndex);
 
     // if group contains only one member, fast path
     if (server.getRaftConf().isSingleton()) {
@@ -1218,7 +1241,15 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void replyPendingRequest(TermIndex termIndex, RaftClientReply reply) {
-    pendingRequests.replyPendingRequest(termIndex, reply);
+    if (readIndexType == Type.REPLIED_INDEX) {
+      // Remove from pending map but hold the reply for batch flushing.
+      final PendingRequest pending = pendingRequests.removePendingRequest(termIndex);
+      if (pending != null) {
+        replyFlusher.hold(pending, reply, termIndex.getIndex());
+      }
+    } else {
+      pendingRequests.replyPendingRequest(termIndex, reply);
+    }
   }
 
   TransactionContext getTransactionContext(TermIndex termIndex) {

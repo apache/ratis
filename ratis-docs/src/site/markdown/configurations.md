@@ -220,11 +220,38 @@ if it fails to receive any RPC responses from this peer within this specified ti
 
 ### Read Index - Configurations related to ReadIndex used in linearizable read 
 
-| **Property**    | `raft.server.read.read-index.applied-index.enabled`                   |
-|:----------------|:----------------------------------------------------------------------|
-| **Description** | whether applied index (instead of commit index) is used for ReadIndex |
-| **Type**        | boolean                                                               |
-| **Default**     | false                                                                 |
+| **Property**    | `raft.server.read.read-index.type`                                           |
+|:----------------|:-----------------------------------------------------------------------------|
+| **Description** | type of read index returned                                                  |
+| **Type**        | enum `Read.ReadIndex.Type` [`COMMIT_INDEX`, `APPLIED_INDEX`, `REPLIED_INDEX` |
+| **Default**     | `Read.ReadIndex.Type.COMMIT_INDEX`                                           |
+
+* `Read.ReadIndex.Type.COMMIT_INDEX` - Use leader's CommitIndex (see Raft Paper section 6.4)
+    * The safest type as it is specified in the Raft dissertation
+    * This ReadIndex type can be chosen if the base linearizable read from followers performance already meets expectations.
+
+* `Read.ReadIndex.Type.APPLIED_INDEX` - Use leader's AppliedIndex
+    * Allow leader to return AppliedIndex (instead of CommitIndex) as the ReadIndex
+    * This reduces the time follower applying logs up to ReadIndex since AppliedIndex ≤ CommitIndex
+    * This ReadIndex type can be chosen `Read.ReadIndex.Type.COMMIT_INDEX` read latency is too high.
+
+* `Read.ReadIndex.Type.REPLIED_INDEX` - Use leader's RepliedIndex
+    * RepliedIndex is defined as the AppliedIndex of the last write request replied by the leader.  
+    * Leader delays replying write requests and only reply them every write batch boundary configurable by `raft.server.read.read-index.replied-index.batch-interval`.
+    * This allows the ReadIndex to advance in a coarser, less frequent steps, so followers are more likely to have already applied past the ReadIndex when a read arrives.
+    * This is most effective on read-heavy, follower-read workloads which prioritizes overall read throughput without consistency sacrifice.
+    * There is a trade-off in increased write latency (up to one `raft.server.read.read-index.replied-index.batch-interval`) per write.
+    * RepliedIndex still guarantees linearizability (no stale read) since by definition each ReadIndex returns the index of the last replied request.
+    * If the RepliedIndex is set to 0, the behavior is identical to `Read.ReadIndex.Type.APPLIED_INDEX`
+
+Note that theoretically all the ReadIndex types still guarantee linearizability, 
+but there are tradeoffs (e.g. Write and Read performance) between different types.
+
+| **Property**    | `raft.server.read.read-index.replied-index.batch-interval`                                                                                   |
+|:----------------|:---------------------------------------------------------------------------------------------------------------------------------------------|
+| **Description** | if `Read.ReadIndex.Type` is `REAPLIED_INDEX`, the interval at which held write replies are flushed to clients and `repliedIndex` is advanced |
+| **Type**        | TimeDuration                                                                                                                                 |
+| **Default**     | 10ms                                                                                                                                         |
 
 | **Property**    | `raft.server.read.leader.heartbeat-check.enabled` |
 |:----------------|:--------------------------------------------------|

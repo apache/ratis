@@ -27,6 +27,7 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -60,7 +61,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   public abstract boolean isLeaderLeaseEnabled();
 
-  public abstract boolean readIndexAppliedIndexEnabled();
+  public abstract Type readIndexType();
 
   public abstract void assertRaftProperties(RaftProperties properties);
 
@@ -77,7 +78,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     CounterStateMachine.setProperties(p);
     RaftServerConfigKeys.Read.setOption(p, LINEARIZABLE);
     RaftServerConfigKeys.Read.setLeaderLeaseEnabled(p, isLeaderLeaseEnabled());
-    RaftServerConfigKeys.Read.ReadIndex.setAppliedIndexEnabled(p, readIndexAppliedIndexEnabled());
+    RaftServerConfigKeys.Read.ReadIndex.setType(p, readIndexType());
   }
 
   @Test
@@ -143,10 +144,12 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testFollowerLinearizableReadParallel() throws Exception {
-    runWithNewCluster(LinearizableReadTests::runTestFollowerReadOnlyParallel);
+    final Type type = readIndexType();
+    runWithNewCluster(cluster -> runTestFollowerReadOnlyParallel(type, cluster));
   }
 
-  static <C extends MiniRaftCluster> void runTestFollowerReadOnlyParallel(C cluster) throws Exception {
+  static <C extends MiniRaftCluster> void runTestFollowerReadOnlyParallel(Type readIndexType, C cluster)
+      throws Exception {
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     final List<RaftServer.Division> followers = cluster.getFollowers();
@@ -169,8 +172,17 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
         writeReplies.add(new Reply(count, leaderClient.async().send(WAIT_AND_INCREMENT)));
         Thread.sleep(100);
 
-        assertReplyExact(count, f0Client.io().sendReadOnly(QUERY, f0));
-        f1Replies.add(new Reply(count, f1Client.async().sendReadOnly(QUERY, f1)));
+        if (readIndexType == Type.REPLIED_INDEX) {
+          // With REPLIED_INDEX the read index only advances after the leader has applied the
+          // transaction and the reply batch is flushed.  WAIT_AND_INCREMENT takes 500 ms in
+          // the state machine but we only waited 100 ms, so its reply has not been generated
+          // yet and the follower read may only see the preceding sync INCREMENT (count - 1).
+          assertReplyAtLeast(count - 1, f0Client.io().sendReadOnly(QUERY, f0));
+          f1Replies.add(new Reply(count - 1, f1Client.async().sendReadOnly(QUERY, f1)));
+        } else {
+          assertReplyExact(count, f0Client.io().sendReadOnly(QUERY, f0));
+          f1Replies.add(new Reply(count, f1Client.async().sendReadOnly(QUERY, f1)));
+        }
       }
 
       for (int i = 0; i < n; i++) {

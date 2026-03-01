@@ -19,11 +19,11 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 
-public class TestLinearizableReadAppliedIndexLeaderLeaseReadWithGrpc
+public class TestLinearizableReadRepliedIndexLeaderLeaseWithGrpc
     extends TestLinearizableLeaderLeaseReadWithGrpc {
 
   @Override
   public Type readIndexType() {
-    return Type.APPLIED_INDEX;
+    return Type.REPLIED_INDEX;
   }
 }
