@@ -75,7 +75,7 @@ public class ReplyFlusher {
   private final TimeDuration batchInterval;
 
   ReplyFlusher(String name, long repliedIndex, TimeDuration batchInterval) {
-    this.name = name = "-ReplyFlusher";
+    this.name = name + "-ReplyFlusher";
     this.lifeCycle = new LifeCycle(this.name);
     this.daemon = Daemon.newBuilder()
         .setName(this.name)
