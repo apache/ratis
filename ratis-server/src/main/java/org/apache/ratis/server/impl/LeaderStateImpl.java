@@ -81,7 +81,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
@@ -228,19 +227,6 @@ class LeaderStateImpl implements LeaderState {
     }
   }
 
-  /** A write reply that has been built but not yet sent to the client */
-  private static class HeldReply {
-    private final PendingRequest pending;
-    private final RaftClientReply reply;
-    private final long index;
-
-    HeldReply(PendingRequest pending, RaftClientReply reply, long index) {
-      this.pending = pending;
-      this.reply = reply;
-      this.index = index;
-    }
-  }
-
   /** For caching {@link FollowerInfo}s.  This class is immutable. */
   static class CurrentOldFollowerInfos {
     private final RaftConfigurationImpl conf;
@@ -372,20 +358,10 @@ class LeaderStateImpl implements LeaderState {
   private final ReadIndexHeartbeats readIndexHeartbeats;
   private final RaftServerConfigKeys.Read.ReadIndex.Type readIndexType;
   private final Supplier<Long> readIndexSupplier;
-  private final MemoizedSupplier<String> readIndexLogPrefixSupplier;
   private final boolean leaderHeartbeatCheckEnabled;
   private final LeaderLease lease;
 
-  /** The interval at which held write replies are flushed. */
-  private final TimeDuration repliedIndexBatchInterval;
-  /** The highest log index for which a write reply has been flushed (sent to the client). */
-  private final AtomicLong repliedIndex;
-  /** Guards {@link #heldReplies}. */
-  private final Object heldRepliesLock = new Object();
-  /** Buffer holding write replies waiting to be flushed. Guarded by {@link #heldRepliesLock}. */
-  private List<HeldReply> heldReplies = new ArrayList<>();
-  /** Daemon thread that periodically flushes held replies. */
-  private volatile Daemon replyFlusher;
+  private ReplyFlusher replyFlusher;
 
   LeaderStateImpl(RaftServerImpl server) {
     this.name = ServerStringUtils.generateUnifiedName(server.getMemberId(), getClass());
@@ -421,29 +397,20 @@ class LeaderStateImpl implements LeaderState {
     } else {
       this.followerMaxGapThreshold = (long) (followerGapRatioMax * maxPendingRequests);
     }
+
     this.readIndexType = RaftServerConfigKeys.Read.ReadIndex.type(properties);
-
-    this.repliedIndexBatchInterval =
-        RaftServerConfigKeys.Read.ReadIndex.repliedIndexBatchInterval(properties);
-    this.repliedIndex = new AtomicLong(state.getLastAppliedIndex());
-
     switch (readIndexType) {
     case REPLIED_INDEX:
-      readIndexSupplier = repliedIndex::get;
-      readIndexLogPrefixSupplier = MemoizedSupplier.valueOf(() -> "replied");
-      this.replyFlusher = Daemon.newBuilder()
-          .setName(name + "-ReplyFlusher")
-          .setRunnable(this::runReplyFlusher)
-          .build();
+      this.replyFlusher = new ReplyFlusher(name, state.getLastAppliedIndex(),
+          RaftServerConfigKeys.Read.ReadIndex.repliedIndexBatchInterval(properties));
+      readIndexSupplier = replyFlusher::getRepliedIndex;
       break;
     case APPLIED_INDEX:
       readIndexSupplier = () -> server.getState().getLastAppliedIndex();
-      readIndexLogPrefixSupplier = MemoizedSupplier.valueOf(() -> "applied");
       break;
     case COMMIT_INDEX:
     default:
       readIndexSupplier = () -> server.getRaftLog().getLastCommittedIndex();
-      readIndexLogPrefixSupplier = MemoizedSupplier.valueOf(() -> "commit");
     }
     this.leaderHeartbeatCheckEnabled = RaftServerConfigKeys.Read
         .leaderHeartbeatCheckEnabled(properties);
@@ -509,7 +476,9 @@ class LeaderStateImpl implements LeaderState {
     startupLogEntry.get().getAppliedIndexFuture().completeExceptionally(
         new ReadIndexException("failed to obtain read index since: ", nle));
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
-    stopReplyFlusher();
+    if (replyFlusher != null) {
+      replyFlusher.stop();
+    }
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
     pendingRequests.close();
@@ -1210,9 +1179,8 @@ class LeaderStateImpl implements LeaderState {
     } else {
       readIndex = index;
     }
-    LOG.debug("readIndex={} ({}Index={}, readAfterWriteConsistentIndex={})",
-        readIndex, readIndexLogPrefixSupplier.get(),
-        index, readAfterWriteConsistentIndex);
+    LOG.debug("readIndex={} ({}={}, readAfterWriteConsistentIndex={})",
+        readIndex, readIndexType, index, readAfterWriteConsistentIndex);
 
     // if group contains only one member, fast path
     if (server.getRaftConf().isSingleton()) {
@@ -1278,68 +1246,12 @@ class LeaderStateImpl implements LeaderState {
       // Remove from pending map but hold the reply for batch flushing.
       final PendingRequest pending = pendingRequests.removePendingRequest(termIndex);
       if (pending != null) {
-        holdReply(pending, reply, termIndex.getIndex());
+        replyFlusher.hold(pending, reply, termIndex.getIndex());
       }
     } else {
       pendingRequests.replyPendingRequest(termIndex, reply);
     }
   }
-
-  /** Hold a write reply for later batch flushing. */
-  private void holdReply(PendingRequest pending, RaftClientReply reply, long index) {
-    synchronized (heldRepliesLock) {
-      heldReplies.add(new HeldReply(pending, reply, index));
-    }
-  }
-
-  /** Flush all held replies and advance {@link #repliedIndex}. */
-  private void flushReplies() {
-    final List<HeldReply> toFlush;
-    synchronized (heldRepliesLock) {
-      if (heldReplies.isEmpty()) {
-        return;
-      }
-      toFlush = heldReplies;
-      heldReplies = new ArrayList<>();
-    }
-
-    long maxIndex = repliedIndex.get();
-    for (HeldReply held : toFlush) {
-      held.pending.setReply(held.reply);
-      maxIndex = Math.max(maxIndex, held.index);
-    }
-    repliedIndex.set(maxIndex);
-    LOG.debug("{}: flushed {} replies, repliedIndex={}", name, toFlush.size(), maxIndex);
-  }
-
-  /** The reply flusher daemon loop. */
-  private void runReplyFlusher() {
-    while (isRunning()) {
-      try {
-        Thread.sleep(repliedIndexBatchInterval.toLong(TimeUnit.MILLISECONDS));
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        break;
-      }
-      flushReplies();
-    }
-    // Flush remaining on exit.
-    flushReplies();
-  }
-
-  /** Stop the reply flusher daemon. */
-  private void stopReplyFlusher() {
-    final Daemon flusher = this.replyFlusher;
-    if (flusher != null) {
-      flusher.interrupt();
-      try {
-        flusher.join(repliedIndexBatchInterval.toLong(TimeUnit.MILLISECONDS) * 2);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
-  }
-
 
   TransactionContext getTransactionContext(TermIndex termIndex) {
     return pendingRequests.getTransactionContext(termIndex);
