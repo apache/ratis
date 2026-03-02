@@ -236,7 +236,7 @@ if it fails to receive any RPC responses from this peer within this specified ti
     * This ReadIndex type can be chosen `Read.ReadIndex.Type.COMMIT_INDEX` read latency is too high.
 
 * `Read.ReadIndex.Type.REPLIED_INDEX` - Use leader's RepliedIndex
-    * RepliedIndex is defined as the AppliedIndex of the last write request replied by the leader.  
+    * RepliedIndex is defined as the last AppliedIndex of the leader when returning the last batch.
     * Leader delays replying write requests and only reply them every write batch boundary configurable by `raft.server.read.read-index.replied-index.batch-interval`.
     * This allows the ReadIndex to advance in a coarser, less frequent steps, so followers are more likely to have already applied past the ReadIndex when a read arrives.
     * This is most effective on read-heavy, follower-read workloads which prioritizes overall read throughput without consistency sacrifice.
@@ -247,11 +247,11 @@ if it fails to receive any RPC responses from this peer within this specified ti
 Note that theoretically all the ReadIndex types still guarantee linearizability, 
 but there are tradeoffs (e.g. Write and Read performance) between different types.
 
-| **Property**    | `raft.server.read.read-index.replied-index.batch-interval`                                                                                   |
-|:----------------|:---------------------------------------------------------------------------------------------------------------------------------------------|
-| **Description** | if `Read.ReadIndex.Type` is `REAPLIED_INDEX`, the interval at which held write replies are flushed to clients and `repliedIndex` is advanced |
-| **Type**        | TimeDuration                                                                                                                                 |
-| **Default**     | 10ms                                                                                                                                         |
+| **Property**    | `raft.server.read.read-index.replied-index.batch-interval`                                                                                  |
+|:----------------|:--------------------------------------------------------------------------------------------------------------------------------------------|
+| **Description** | if `Read.ReadIndex.Type` is `REPLIED_INDEX`, the interval at which held write replies are flushed to clients and `repliedIndex` is advanced |
+| **Type**        | TimeDuration                                                                                                                                |
+| **Default**     | 10ms                                                                                                                                        |
 
 | **Property**    | `raft.server.read.leader.heartbeat-check.enabled` |
 |:----------------|:--------------------------------------------------|
