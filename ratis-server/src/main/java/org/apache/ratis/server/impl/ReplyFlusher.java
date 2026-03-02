@@ -96,7 +96,11 @@ public class ReplyFlusher {
   }
 
   void start() {
-    lifeCycle.startAndTransition(daemon::start);
+    lifeCycle.transition(LifeCycle.State.STARTING);
+    // We need to transition to RUNNING first so that ReplyFlusher#run always
+    // see that the lifecycle state is in RUNNING state.
+    lifeCycle.transition(LifeCycle.State.RUNNING);
+    daemon.start();
   }
 
   /** The reply flusher daemon loop. */
