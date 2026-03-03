@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * NOTE that on Windows platforms, the output file, if it exists, is deleted
  * before the temporary file is moved.
  */
-public class AtomicFileOutputStream extends FilterOutputStream {
+public final class AtomicFileOutputStream extends FilterOutputStream {
   static final Logger LOG = LoggerFactory.getLogger(AtomicFileOutputStream.class);
 
   public static final String TMP_EXTENSION = ".tmp";
