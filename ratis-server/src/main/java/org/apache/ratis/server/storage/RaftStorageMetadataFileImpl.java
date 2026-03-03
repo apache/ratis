@@ -78,7 +78,7 @@ class RaftStorageMetadataFileImpl implements RaftStorageMetadataFile {
     properties.setProperty(VOTED_FOR_KEY, metadata.getVotedFor().toString());
 
     try(BufferedWriter out = new BufferedWriter(
-        new OutputStreamWriter(new AtomicFileOutputStream(file), StandardCharsets.UTF_8))) {
+        new OutputStreamWriter(AtomicFileOutputStream.open(file), StandardCharsets.UTF_8))) {
       properties.store(out, "");
     }
     return metadata;

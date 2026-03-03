@@ -162,7 +162,7 @@ public final class MD5FileUtil {
     }
 
     final File md5File = getDigestFileForFile(dataFile);
-    try (AtomicFileOutputStream afos = new AtomicFileOutputStream(md5File)) {
+    try (AtomicFileOutputStream afos = AtomicFileOutputStream.open(md5File)) {
       afos.write(md5Line.getBytes(StandardCharsets.UTF_8));
     }
   }
