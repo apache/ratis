@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FilterOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -59,17 +58,12 @@ public class AtomicFileOutputStream extends FilterOutputStream {
   private final File tmpFile;
   private final AtomicBoolean isClosed = new AtomicBoolean();
 
-  public static AtomicFileOutputStream open(File outFile) throws IOException {
-    return open(outFile, getTemporaryFile(outFile));
+  public AtomicFileOutputStream(File outFile) throws IOException {
+    this(outFile, getTemporaryFile(outFile));
   }
 
-  public static AtomicFileOutputStream open(File outFile, File tmpFile) throws IOException {
-    return new AtomicFileOutputStream(outFile, tmpFile,
-        FileUtils.newOutputStreamForceAtClose(tmpFile, CREATE, TRUNCATE_EXISTING, WRITE));
-  }
-
-  private AtomicFileOutputStream(File outFile, File tmpFile, OutputStream out) {
-    super(out);
+  public AtomicFileOutputStream(File outFile, File tmpFile) throws IOException {
+    super(FileUtils.newOutputStreamForceAtClose(tmpFile, CREATE, TRUNCATE_EXISTING, WRITE));
     this.outFile = outFile.getAbsoluteFile();
     this.tmpFile = tmpFile.getAbsoluteFile();
   }

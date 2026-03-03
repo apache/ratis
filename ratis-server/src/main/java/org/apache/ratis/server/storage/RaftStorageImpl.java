@@ -143,7 +143,7 @@ public class RaftStorageImpl implements RaftStorage {
 
   public void writeRaftConfiguration(LogEntryProto conf) {
     File confFile = storageDir.getMetaConfFile();
-    try (OutputStream fio = AtomicFileOutputStream.open(confFile)) {
+    try (OutputStream fio = new AtomicFileOutputStream(confFile)) {
       conf.writeTo(fio);
     } catch (Exception e) {
       LOG.error("Failed writing configuration to file:" + confFile, e);
