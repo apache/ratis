@@ -19,67 +19,108 @@ package org.apache.ratis.trace;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.context.propagation.TextMapGetter;
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.SpanContextProto;
+import org.apache.ratis.util.FutureUtils;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.function.CheckedSupplier;
 import org.apache.ratis.util.VersionInfo;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 public final class TraceUtils {
+
+  private static final Tracer TRACER = GlobalOpenTelemetry.getTracer("org.apache.ratis",
+      VersionInfo.getSoftwareInfoVersion());
 
   private TraceUtils() {
   }
 
   public static Tracer getGlobalTracer() {
-    return GlobalOpenTelemetry.getTracer("org.apache.ratis", VersionInfo.getSoftwareInfoVersion());
+    return TRACER;
   }
 
   /**
-   * Create a span which parent is from remote, i.e, passed through rpc.
-   * </p>
-   * We will set the kind of the returned span to {@link SpanKind#SERVER}, as this should be the top
-   * most span at server side.
+   * Trace an asynchronous operation represented by a {@link CompletableFuture}.
+   * The returned future will complete with the same result or error as the original future,
+   * but the provided {@code span} will be ended when the future completes.
    */
-  public static Span createRemoteSpan(String name, Context ctx) {
-    return getGlobalTracer().spanBuilder(name).setParent(ctx).setSpanKind(SpanKind.SERVER)
-        .startSpan();
+  public static <T, THROWABLE extends Throwable> CompletableFuture<T>  traceAsyncMethod(
+      CheckedSupplier<CompletableFuture<T>, THROWABLE> action, Supplier<Span> spanSupplier) throws THROWABLE {
+    final Span span = spanSupplier.get();
+    try (Scope ignored = span.makeCurrent()) {
+      final CompletableFuture<T> future;
+      try {
+        future = action.get();
+      } catch (RuntimeException | Error e) {
+        setError(span, e);
+        span.end();
+        throw e;
+      } catch (Throwable t) {
+        setError(span, t);
+        span.end();
+        throw JavaUtils.<THROWABLE>cast(t);
+      }
+      endSpan(future, span);
+      return future;
+    }
+  }
+
+  private static void endSpan(CompletableFuture<?> future, Span span) {
+    FutureUtils.addListener(future, (resp, error) -> {
+      if (error != null) {
+        setError(span, error);
+      } else {
+        span.setStatus(StatusCode.OK);
+      }
+      span.end();
+    });
+  }
+
+  public static void setError(Span span, Throwable error) {
+    span.recordException(error);
+    span.setStatus(StatusCode.ERROR);
   }
 
   private static final TextMapPropagator PROPAGATOR =
       GlobalOpenTelemetry.getPropagators().getTextMapPropagator();
 
-  public static RaftProtos.SpanContextProto injectContextToProto(Context context) {
-    Map<String, String> carrier = new HashMap<>();
+  public static SpanContextProto injectContextToProto(Context context) {
+    Map<String, String> carrier = new TreeMap<>();
     PROPAGATOR.inject(context, carrier, (map, key, value) -> map.put(key, value));
-    return RaftProtos.SpanContextProto.newBuilder().putAllContext(carrier).build();
+    return SpanContextProto.newBuilder().putAllContext(carrier).build();
   }
 
-  public static Context extractContextFromProto(RaftProtos.SpanContextProto proto) {
+  public static Context extractContextFromProto(SpanContextProto proto) {
     if (proto == null || proto.getContextMap().isEmpty()) {
       return Context.current();
     }
-    final TextMapGetter<RaftProtos.SpanContextProto> getter = SpanContextGetter.INSTANCE;
+    final TextMapGetter<SpanContextProto> getter = SpanContextGetter.INSTANCE;
     return PROPAGATOR.extract(Context.current(), proto, getter);
   }
 }
 
-class SpanContextGetter implements TextMapGetter<RaftProtos.SpanContextProto> {
+class SpanContextGetter implements TextMapGetter<SpanContextProto> {
   static final SpanContextGetter INSTANCE = new SpanContextGetter();
 
   @Override
-  public Iterable<String> keys(RaftProtos.SpanContextProto carrier) {
+  public Iterable<String> keys(SpanContextProto carrier) {
     return carrier.getContextMap().keySet();
   }
 
   @Override
-  public String get(RaftProtos.SpanContextProto carrier, String key) {
-    return Optional.ofNullable(carrier).map(RaftProtos.SpanContextProto::getContextMap)
+  public String get(SpanContextProto carrier, String key) {
+    return Optional.ofNullable(carrier).map(SpanContextProto::getContextMap)
         .map(map -> map.get(key)).orElse(null);
   }
+
 }

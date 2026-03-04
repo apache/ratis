@@ -404,7 +404,7 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private final boolean toLeader;
 
-  private SpanContextProto spanContext;
+  private final SpanContextProto spanContext;
 
   /** Construct a request for sending to the given server. */
   protected RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {

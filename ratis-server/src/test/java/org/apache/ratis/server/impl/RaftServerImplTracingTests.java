@@ -49,8 +49,6 @@ public class RaftServerImplTracingTests {
   private static final OpenTelemetryExtension openTelemetryExtension =
       OpenTelemetryExtension.create();
 
-  private List<SpanData> spans;
-
   @Test
   public void testSubmitClientRequestAsync() throws Exception {
     RaftGroup group = RaftGroup.emptyGroup();
@@ -63,11 +61,12 @@ public class RaftServerImplTracingTests {
     RaftServerImpl server = new RaftServerImpl(group, sm, proxy, RaftStorage.StartupOption.FORMAT);
 
     // build a minimal RaftClientRequest with a client span context;
-    RaftClientRequest r = newRaftClientRequest(RaftClientRequest.writeRequestType());
+    final RaftClientRequest r = newRaftClientRequest(RaftClientRequest.writeRequestType());
+    final String testSpanName = "test-appendEntries_emitsSpan";
 
     // invoke submitClientRequestAsync
     Span span = openTelemetryExtension
-        .getOpenTelemetry().getTracer("test").spanBuilder("test-appendEntries_emitsSpan")
+        .getOpenTelemetry().getTracer("test").spanBuilder(testSpanName)
         .setSpanKind(SpanKind.INTERNAL)
         .startSpan();
           try {
@@ -79,7 +78,7 @@ public class RaftServerImplTracingTests {
             span.end();
           }
 
-    spans = openTelemetryExtension.getSpans();
+    List<SpanData> spans = openTelemetryExtension.getSpans();
     assertEquals(3, spans.size());
     assertTrue(
         spans.stream().anyMatch(s -> s.getKind() == SpanKind.CLIENT && s.getName().equals("client-span")),
@@ -92,7 +91,7 @@ public class RaftServerImplTracingTests {
     );
     assertTrue(
         spans.stream().anyMatch(s -> s.getKind() == SpanKind.INTERNAL
-            && s.getName().equals("test-appendEntries_emitsSpan")),
+            && s.getName().equals(testSpanName)),
         "Expected at least one span with SpanKind.INTERNAL"
     );
 
