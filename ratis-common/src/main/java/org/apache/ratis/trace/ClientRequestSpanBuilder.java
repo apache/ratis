@@ -35,9 +35,6 @@ import java.util.function.Supplier;
 
 /**
  * Construct {@link Span} instances originating from the client request.
- * @see <a href=
- *      "https://github.com/open-telemetry/opentelemetry-specification/blob/3e380e249f60c3a5f68746f5e84d10195ba41a79/specification/trace/semantic_conventions/rpc.md">Semantic
- *      conventions for RPC spans</a>
  */
 public class ClientRequestSpanBuilder implements Supplier<Span> {
 
