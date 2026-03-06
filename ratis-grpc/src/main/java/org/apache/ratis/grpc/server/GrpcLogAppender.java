@@ -353,7 +353,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           return t;
         });
 
-    private final AtomicBoolean closing = new AtomicBoolean(false);
+//    private final AtomicBoolean closing = new AtomicBoolean(false);
     private final AtomicBoolean completed = new AtomicBoolean(false);
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
@@ -368,8 +368,8 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     void onNext(AppendEntriesRequestProto proto)
         throws InterruptedIOException {
-      if (!running || closing.get()) {
-        throw new InterruptedIOException("StreamObservers is stopping/closing");
+      if (!running) {
+        throw new InterruptedIOException("StreamObservers is stopping/closing 1");
       }
       CallStreamObserver<AppendEntriesRequestProto> stream;
       boolean isHeartBeat = heartbeat != null && proto.getEntriesCount() == 0;
@@ -379,10 +379,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         stream = appendLog;
       }
       // stall for stream to be ready.
-      while (!stream.isReady()) {
-        if (!running || closing.get()) {
-          throw new InterruptedIOException("StreamObservers is stopping/closing");
-        }
+      while (!stream.isReady() && running) {
         sleep(waitForReady, isHeartBeat);
       }
       try {
@@ -400,11 +397,6 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
 
     void onCompleted() {
-      if (!closing.compareAndSet(false, true)) {
-        return;
-      }
-      running = false;
-
       if (completed.compareAndSet(false, true)) {
         completeStreamGracefully(appendLog, "appendLog");
         Optional.ofNullable(heartbeat)
@@ -417,7 +409,6 @@ public class GrpcLogAppender extends LogAppenderBase {
     void cancelNow(String reason, Throwable cause) {
       if (cancelled.compareAndSet(false, true)) {
         running = false;
-        closing.set(true);
         cancelStream(appendLog, "appendLog", reason, cause);
         Optional.ofNullable(heartbeat)
             .ifPresent(s -> cancelStream(s, "heartbeat", reason, cause));
