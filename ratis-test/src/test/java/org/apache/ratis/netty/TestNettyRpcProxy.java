@@ -69,7 +69,7 @@ public class TestNettyRpcProxy extends BaseTest {
               });
             }
           })
-          .bind(0)
+          .bind("localhost", 0)
           .sync();
       serverChannel = bindFuture.channel();
 
