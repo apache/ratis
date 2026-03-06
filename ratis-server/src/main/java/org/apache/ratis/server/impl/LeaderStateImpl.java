@@ -353,7 +353,6 @@ class LeaderStateImpl implements LeaderState {
   private final PendingStepDown pendingStepDown;
 
   private final ReadIndexHeartbeats readIndexHeartbeats;
-  private final boolean readIndexAppliedIndexEnabled;
   private final LeaderLease lease;
 
   LeaderStateImpl(RaftServerImpl server) {
@@ -390,8 +389,6 @@ class LeaderStateImpl implements LeaderState {
     } else {
       this.followerMaxGapThreshold = (long) (followerGapRatioMax * maxPendingRequests);
     }
-    this.readIndexAppliedIndexEnabled = RaftServerConfigKeys.Read.ReadIndex
-        .appliedIndexEnabled(properties);
 
     final RaftConfigurationImpl conf = state.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
@@ -1137,23 +1134,21 @@ class LeaderStateImpl implements LeaderState {
   /**
    * Obtain the current readIndex for read only requests. See Raft paper section 6.4.
    * 1. Leader makes sure at least one log from current term is committed.
-   * 2. Leader record last committed index or applied index (depending on configuration) as readIndex.
+   * 2. Leader record last committed index as readIndex.
    * 3. Leader broadcast heartbeats to followers and waits for acknowledgements.
    * 4. If majority respond success, returns readIndex.
    * @return current readIndex.
    */
   CompletableFuture<Long> getReadIndex(Long readAfterWriteConsistentIndex) {
-    final long index = readIndexAppliedIndexEnabled ?
-        server.getState().getLastAppliedIndex() : server.getRaftLog().getLastCommittedIndex();
+    final long commitIndex = server.getRaftLog().getLastCommittedIndex();
     final long readIndex;
-    if (readAfterWriteConsistentIndex != null && readAfterWriteConsistentIndex > index) {
+    if (readAfterWriteConsistentIndex != null && readAfterWriteConsistentIndex > commitIndex) {
       readIndex = readAfterWriteConsistentIndex;
     } else {
-      readIndex = index;
+      readIndex = commitIndex;
     }
-    LOG.debug("readIndex={} ({}Index={}, readAfterWriteConsistentIndex={})",
-        readIndex, readIndexAppliedIndexEnabled ? "applied" : "commit",
-        index, readAfterWriteConsistentIndex);
+    LOG.debug("readIndex={} (commitIndex={}, readAfterWriteConsistentIndex={})",
+        readIndex, commitIndex, readAfterWriteConsistentIndex);
 
     // if group contains only one member, fast path
     if (server.getRaftConf().isSingleton()) {
