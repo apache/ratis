@@ -369,7 +369,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     void onNext(AppendEntriesRequestProto proto)
         throws InterruptedIOException {
       if (!running) {
-        throw new InterruptedIOException("StreamObservers is stopping/closing 1");
+        throw new InterruptedIOException("StreamObservers is stopping/closing");
       }
       CallStreamObserver<AppendEntriesRequestProto> stream;
       boolean isHeartBeat = heartbeat != null && proto.getEntriesCount() == 0;
