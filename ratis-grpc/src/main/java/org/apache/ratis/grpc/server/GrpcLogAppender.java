@@ -360,7 +360,8 @@ public class GrpcLogAppender extends LogAppenderBase {
     StreamObservers(GrpcServerProtocolClient client, AppendLogResponseHandler handler, boolean separateHeartbeat,
         TimeDuration waitTimeMin, TimeDuration completeGracePeriod) {
       this.appendLog = (ClientCallStreamObserver<AppendEntriesRequestProto>) client.appendEntries(handler, false);
-      this.heartbeat = separateHeartbeat? (ClientCallStreamObserver<AppendEntriesRequestProto>) client.appendEntries(handler, true): null;
+      this.heartbeat = separateHeartbeat?
+          (ClientCallStreamObserver<AppendEntriesRequestProto>) client.appendEntries(handler, true): null;
       this.waitForReady = waitTimeMin.isPositive()? waitTimeMin: TimeDuration.ONE_MILLISECOND;
       this.completeGracePeriod = completeGracePeriod.isPositive()? completeGracePeriod : TimeDuration.ONE_SECOND;
     }
@@ -485,7 +486,8 @@ public class GrpcLogAppender extends LogAppenderBase {
       increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
         appendLogRequestObserver = new StreamObservers(
-            getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin(), getCompleteGracePeriod());
+            getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin(),
+            getCompleteGracePeriod());
       }
     }
 
