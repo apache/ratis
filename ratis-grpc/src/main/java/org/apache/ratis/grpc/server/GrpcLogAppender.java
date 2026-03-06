@@ -35,6 +35,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
+import org.apache.ratis.thirdparty.io.grpc.stub.ClientCallStreamObserver;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
@@ -57,10 +58,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -341,20 +340,36 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   static class StreamObservers {
-    private final CallStreamObserver<AppendEntriesRequestProto> appendLog;
-    private final CallStreamObserver<AppendEntriesRequestProto> heartbeat;
+    private final ClientCallStreamObserver<AppendEntriesRequestProto> appendLog;
+    private final ClientCallStreamObserver<AppendEntriesRequestProto> heartbeat;
     private final TimeDuration waitForReady;
+    private final TimeDuration completeGracePeriod;
     private volatile boolean running = true;
 
+    private final ScheduledExecutorService closer =
+        Executors.newSingleThreadScheduledExecutor(r -> {
+          Thread t = new Thread(r, "grpc-log-appender-stream-closer");
+          t.setDaemon(true);
+          return t;
+        });
+
+    private final AtomicBoolean closing = new AtomicBoolean(false);
+    private final AtomicBoolean completed = new AtomicBoolean(false);
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+
     StreamObservers(GrpcServerProtocolClient client, AppendLogResponseHandler handler, boolean separateHeartbeat,
-        TimeDuration waitTimeMin) {
-      this.appendLog = client.appendEntries(handler, false);
-      this.heartbeat = separateHeartbeat? client.appendEntries(handler, true): null;
+        TimeDuration waitTimeMin, TimeDuration completeGracePeriod) {
+      this.appendLog = (ClientCallStreamObserver<AppendEntriesRequestProto>) client.appendEntries(handler, false);
+      this.heartbeat = separateHeartbeat? (ClientCallStreamObserver<AppendEntriesRequestProto>) client.appendEntries(handler, true): null;
       this.waitForReady = waitTimeMin.isPositive()? waitTimeMin: TimeDuration.ONE_MILLISECOND;
+      this.completeGracePeriod = completeGracePeriod.isPositive()? completeGracePeriod : TimeDuration.ONE_SECOND;
     }
 
     void onNext(AppendEntriesRequestProto proto)
         throws InterruptedIOException {
+      if (!running || closing.get()) {
+        throw new InterruptedIOException("StreamObservers is stopping/closing");
+      }
       CallStreamObserver<AppendEntriesRequestProto> stream;
       boolean isHeartBeat = heartbeat != null && proto.getEntriesCount() == 0;
       if (isHeartBeat) {
@@ -363,10 +378,20 @@ public class GrpcLogAppender extends LogAppenderBase {
         stream = appendLog;
       }
       // stall for stream to be ready.
-      while (!stream.isReady() && running) {
+      while (!stream.isReady()) {
+        if (!running || closing.get()) {
+          throw new InterruptedIOException("StreamObservers is stopping/closing");
+        }
         sleep(waitForReady, isHeartBeat);
       }
-      stream.onNext(proto);
+      try {
+        stream.onNext(proto);
+      } catch (Exception e) {
+        InterruptedIOException ioe =
+            new InterruptedIOException("Failed to send request via stream");
+        ioe.initCause(e);
+        throw ioe;
+      }
     }
 
     void stop() {
@@ -374,8 +399,64 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
 
     void onCompleted() {
-      appendLog.onCompleted();
-      Optional.ofNullable(heartbeat).ifPresent(StreamObserver::onCompleted);
+      if (!closing.compareAndSet(false, true)) {
+        return;
+      }
+      running = false;
+
+      if (completed.compareAndSet(false, true)) {
+        completeStreamGracefully(appendLog, "appendLog");
+        Optional.ofNullable(heartbeat)
+            .ifPresent(s -> completeStreamGracefully(s, "heartbeat"));
+      }
+      final long delayMs = Math.max(1L, completeGracePeriod.toLong(TimeUnit.MILLISECONDS));
+      closer.schedule(this::cancelIfStillNeeded, delayMs, TimeUnit.MILLISECONDS);
+    }
+
+    void cancelNow(String reason, Throwable cause) {
+      if (cancelled.compareAndSet(false, true)) {
+        running = false;
+        closing.set(true);
+        cancelStream(appendLog, "appendLog", reason, cause);
+        Optional.ofNullable(heartbeat)
+            .ifPresent(s -> cancelStream(s, "heartbeat", reason, cause));
+        shutdownCloser();
+      }
+    }
+
+    private void cancelIfStillNeeded() {
+      if (cancelled.compareAndSet(false, true)) {
+        cancelStream(appendLog, "appendLog", "Stream completion timeout", null);
+        Optional.ofNullable(heartbeat)
+            .ifPresent(s -> cancelStream(s, "heartbeat", "Stream completion timeout", null));
+      }
+      shutdownCloser();
+    }
+
+    private void completeStreamGracefully(
+        ClientCallStreamObserver<AppendEntriesRequestProto> stream,
+        String name) {
+      try {
+        stream.onCompleted();
+      } catch (Exception e) {
+        LOG.warn("Failed to call onCompleted on {}", name, e);
+      }
+    }
+
+    private void cancelStream(
+        ClientCallStreamObserver<AppendEntriesRequestProto> stream,
+        String name,
+        String reason,
+        Throwable cause) {
+      try {
+        stream.cancel(reason, cause);
+      } catch (Exception e) {
+        LOG.warn("Failed to cancel {}", name, e);
+      }
+    }
+
+    private void shutdownCloser() {
+      closer.shutdown();
     }
   }
 
@@ -404,7 +485,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
         appendLogRequestObserver = new StreamObservers(
-            getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
+            getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin(), getCompleteGracePeriod());
       }
     }
 
