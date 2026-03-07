@@ -43,6 +43,8 @@ import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -503,6 +505,31 @@ public class TestRaftStorage extends BaseTest {
       Assertions.assertNotNull(latest);
       Assertions.assertEquals(100, latest.getIndex());
       Assertions.assertEquals(1, latest.getTerm());
+    } finally {
+      storage.close();
+    }
+  }
+
+  @Test
+  public void testGetLatestSnapshotFallsBackWhenNewestMd5IsInvalid() throws Exception {
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+    try {
+      createSnapshot(simpleStateMachineStorage, 1, 100, true);
+      simpleStateMachineStorage.loadLatestSnapshot();
+
+      File latestSnapshot = createSnapshot(simpleStateMachineStorage, 1, 200, true);
+      final File latestMd5File = MD5FileUtil.getDigestFileForFile(latestSnapshot);
+      Files.write(latestMd5File.toPath(), "null".getBytes(StandardCharsets.UTF_8));
+
+      simpleStateMachineStorage.loadLatestSnapshot();
+
+      SingleFileSnapshotInfo latest = simpleStateMachineStorage.getLatestSnapshot();
+      Assertions.assertNotNull(latest);
+      Assertions.assertEquals(100, latest.getIndex());
+      Assertions.assertEquals(1, latest.getTerm());
+      Assertions.assertNotNull(latest.getFile().getFileDigest());
     } finally {
       storage.close();
     }

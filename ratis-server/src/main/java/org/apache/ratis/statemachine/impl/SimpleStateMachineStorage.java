@@ -39,7 +39,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -204,24 +203,27 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   }
 
   static SingleFileSnapshotInfo findLatestSnapshot(Path dir) throws IOException {
-    final Iterator<SingleFileSnapshotInfo> i = getSingleFileSnapshotInfos(dir, true).iterator();
-    if (!i.hasNext()) {
+    final List<SingleFileSnapshotInfo> infos = getSingleFileSnapshotInfos(dir, true);
+    if (infos.isEmpty()) {
       return null;
     }
+    infos.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
 
-    SingleFileSnapshotInfo latest = i.next();
-    for(; i.hasNext(); ) {
-      final SingleFileSnapshotInfo info = i.next();
-      if (info.getIndex() > latest.getIndex()) {
-        latest = info;
+    for (SingleFileSnapshotInfo latest : infos) {
+      final Path path = latest.getFile().getPath();
+      try {
+        final MD5Hash md5 = MD5FileUtil.readStoredMd5ForFile(path.toFile());
+        if (md5 == null) {
+          LOG.warn("Snapshot file {} has missing MD5 file.", latest);
+          continue;
+        }
+        final FileInfo info = new FileInfo(path, md5);
+        return new SingleFileSnapshotInfo(info, latest.getTerm(), latest.getIndex(), true);
+      } catch (IOException e) {
+        LOG.warn("Failed to read MD5 for snapshot file {}, trying older snapshots.", latest, e);
       }
     }
-
-    // read md5
-    final Path path = latest.getFile().getPath();
-    final MD5Hash md5 = MD5FileUtil.readStoredMd5ForFile(path.toFile());
-    final FileInfo info = new FileInfo(path, md5);
-    return new SingleFileSnapshotInfo(info, latest.getTerm(), latest.getIndex(), true);
+    return null;
   }
 
   public SingleFileSnapshotInfo updateLatestSnapshot(SingleFileSnapshotInfo info) {
