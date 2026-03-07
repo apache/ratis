@@ -511,6 +511,25 @@ public class TestRaftStorage extends BaseTest {
   }
 
   @Test
+  public void testGetLatestSnapshotFallsBackToSnapshotWithoutMd5() throws Exception {
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+    try {
+      createSnapshot(simpleStateMachineStorage, 1, 100, false);
+      simpleStateMachineStorage.loadLatestSnapshot();
+
+      SingleFileSnapshotInfo latest = simpleStateMachineStorage.getLatestSnapshot();
+      Assertions.assertNotNull(latest);
+      Assertions.assertEquals(100, latest.getIndex());
+      Assertions.assertEquals(1, latest.getTerm());
+      Assertions.assertNull(latest.getFile().getFileDigest());
+    } finally {
+      storage.close();
+    }
+  }
+
+  @Test
   public void testGetLatestSnapshotFallsBackWhenNewestMd5IsInvalid() throws Exception {
     SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
     final RaftStorage storage = newRaftStorage(storageDir);

@@ -203,13 +203,22 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   }
 
   static SingleFileSnapshotInfo findLatestSnapshot(Path dir) throws IOException {
-    final List<SingleFileSnapshotInfo> infos = getSingleFileSnapshotInfos(dir, true);
+    final List<SingleFileSnapshotInfo> infos = getSingleFileSnapshotInfos(dir, false);
     if (infos.isEmpty()) {
       return null;
     }
     infos.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
 
+    // Track the latest snapshot without MD5 as fallback.
+    SingleFileSnapshotInfo fallbackWithoutMd5 = null;
     for (SingleFileSnapshotInfo latest : infos) {
+      if (!latest.hasMd5()) {
+        if (fallbackWithoutMd5 == null) {
+          fallbackWithoutMd5 = latest;
+        }
+        continue;
+      }
+
       final Path path = latest.getFile().getPath();
       try {
         final MD5Hash md5 = MD5FileUtil.readStoredMd5ForFile(path.toFile());
@@ -222,6 +231,14 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
       } catch (IOException e) {
         LOG.warn("Failed to read MD5 for snapshot file {}, trying older snapshots.", latest, e);
       }
+    }
+
+    if (fallbackWithoutMd5 != null) {
+      LOG.warn("Using latest snapshot {} without an MD5 file.", fallbackWithoutMd5);
+      final Path path = fallbackWithoutMd5.getFile().getPath();
+      final FileInfo info = new FileInfo(path, null);
+      return new SingleFileSnapshotInfo(info,
+          fallbackWithoutMd5.getTerm(), fallbackWithoutMd5.getIndex(), false);
     }
     return null;
   }
