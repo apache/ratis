@@ -442,6 +442,8 @@
               <additionalJOption>-Xmaxwarns</additionalJOption>
               <additionalJOption>10000</additionalJOption>
               <additionalJOption>-Xdoclint:-missing</additionalJOption>
+              <additionalJOption>-locale</additionalJOption>
+              <additionalJOption>en_US</additionalJOption>
             </additionalJOptions>
           </configuration>
         </plugin>
