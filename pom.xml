@@ -439,11 +439,11 @@
           <configuration>
             <source>8</source>
             <additionalJOptions>
+              <additionalJOption>-J-Duser.language=en</additionalJOption>
+              <additionalJOption>-J-Duser.country=US</additionalJOption>
               <additionalJOption>-Xmaxwarns</additionalJOption>
               <additionalJOption>10000</additionalJOption>
               <additionalJOption>-Xdoclint:-missing</additionalJOption>
-              <additionalJOption>-locale</additionalJOption>
-              <additionalJOption>en_US</additionalJOption>
             </additionalJOptions>
           </configuration>
         </plugin>
