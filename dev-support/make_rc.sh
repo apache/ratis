@@ -95,7 +95,11 @@ mvnFun() {
   cd "$projectdir"
   git reset --hard
   git clean -fdx
-  mvnFun versions:set -DnewVersion="$RATISVERSION"
+  mvnFun versions:set -DnewVersion="$RATISVERSION" -DprocessAllModules
+  if ! git diff --name-only | grep -q ratis-bom/pom.xml; then
+    echo 'ratis-bom not updated by `mvn versions:set`' >&2
+    exit 1
+  fi
   git commit --allow-empty -a -m "Change version for the version $RATISVERSION $RC"
 
   git config user.signingkey "${CODESIGNINGKEY}"
