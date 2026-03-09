@@ -43,11 +43,11 @@ public final class SnapshotSourceSelector {
   /**
    * Select and rank candidate source followers for snapshot download.
    * If this method returns an empty list, callers should fall back to leader-sourced snapshot install.
-   * 
+   *
    * <p>Selection rule:
    * only followers with {@code matchIndex >= firstAvailableLogIndex - 1} are returned.
    * </p>
-   * 
+   *
    * <p>Ranking rule (highest preference first):
    * <ol>
    *   <li>Fully caught up with the leader (as inferred from {@code leaderLastEntry})</li>
