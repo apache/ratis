@@ -378,7 +378,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       if (event == Event.COMPLETE) {
         onCompleted();
       } else {
-        cancelStream("resetClient due to " + event);
+        cancelStream("stop due to " + event);
       }
     }
 
@@ -397,8 +397,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     void cancelStream(String reason) {
       try {
-        appendLog.onError(new StatusRuntimeException(
-            Status.CANCELLED.withDescription(reason)));
+        appendLog.onError(new StatusRuntimeException(Status.CANCELLED.withDescription(reason)));
       } catch (Exception e) {
         LOG.debug("Failed to cancel appendLog stream", e);
       }
