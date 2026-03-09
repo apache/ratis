@@ -99,12 +99,16 @@ public class SnapshotManager {
     return out;
   }
 
-  public void installSnapshot(InstallSnapshotRequestProto request, StateMachine stateMachine) throws IOException {
+  private File getSnapshotTmpDir(String requestId) {
+    return new File(this.snapshotTmpDir.get(), "snapshot-" + requestId);
+  }
+
+  public void appendSnapshot(InstallSnapshotRequestProto request, StateMachine stateMachine) throws IOException {
     final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
     final long lastIncludedIndex = snapshotChunkRequest.getTermIndex().getIndex();
 
     // create a unique temporary directory
-    final File tmpDir =  new File(this.snapshotTmpDir.get(), "snapshot-" + snapshotChunkRequest.getRequestId());
+    final File tmpDir = getSnapshotTmpDir(snapshotChunkRequest.getRequestId());
     FileUtils.createDirectories(tmpDir);
     tmpDir.deleteOnExit();
 
@@ -164,9 +168,16 @@ public class SnapshotManager {
       }
     }
 
-    if (snapshotChunkRequest.getDone()) {
-      rename(tmpDir, snapshotDir.get());
+  }
+
+  public void finalizeSnapshot(InstallSnapshotRequestProto request) throws IOException {
+    final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
+    if (!snapshotChunkRequest.getDone()) {
+      throw new IOException("Cannot finalize incomplete snapshot request: "
+          + ServerStringUtils.toInstallSnapshotRequestString(request));
     }
+    final File tmpDir = getSnapshotTmpDir(snapshotChunkRequest.getRequestId());
+    rename(tmpDir, snapshotDir.get());
   }
 
   private static void rename(File tmpDir, File stateMachineDir) throws IOException {
