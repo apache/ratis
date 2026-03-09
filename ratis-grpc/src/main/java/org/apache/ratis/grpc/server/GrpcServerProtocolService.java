@@ -172,18 +172,22 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         BatchLogger.print(BatchLogKey.COMPLETED_REQUEST, getName(),
             suffix -> LOG.info("{}: Completed {}, lastRequest: {} {}",
                 getId(), op, getPreviousRequestString(), suffix));
+        previousOnNext.set(null);
         requestFuture.get().thenAccept(reply -> {
           BatchLogger.print(BatchLogKey.COMPLETED_REPLY, getName(),
               suffix -> LOG.info("{}: Completed {}, lastReply: {} {}",
                   getId(), op, ProtoUtils.shortDebugString(reply), suffix));
           responseObserver.onCompleted();
         });
+        requestFuture.set(null);
       }
     }
     @Override
     public void onError(Throwable t) {
       GrpcUtil.warn(LOG, () -> getId() + ": "+ op + " onError, lastRequest: " + getPreviousRequestString(), t);
       if (isClosed.compareAndSet(false, true)) {
+        previousOnNext.set(null);
+        requestFuture.set(null);
         Status status = Status.fromThrowable(t);
         if (status != null && status.getCode() != Status.Code.CANCELLED) {
           responseObserver.onCompleted();
